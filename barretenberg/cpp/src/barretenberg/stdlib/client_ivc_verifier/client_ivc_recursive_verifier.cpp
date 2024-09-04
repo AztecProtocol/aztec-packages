@@ -12,7 +12,7 @@ void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
 {
     // Construct stdlib accumulator, vkey and proof
     auto stdlib_verifier_accum =
-        std::make_shared<RecursiveVerifierInstance>(builder.get(), verifier_input.fold_input.accumulator);
+        std::make_shared<RecursiveDeciderVerificationKey>(builder.get(), verifier_input.fold_input.accumulator);
     auto stdlib_instance_vk =
         std::make_shared<RecursiveVerificationKey>(builder.get(), verifier_input.fold_input.instance_vks[0]);
     auto stdlib_proof = bb::convert_proof_to_witness(builder.get(), proof.folding_proof);

@@ -13,7 +13,7 @@ template <typename Flavor> class DeciderVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Transcript = typename Flavor::Transcript;
-    using VerifierInstance = VerifierInstance_<Flavor>;
+    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using DeciderProof = std::vector<FF>;
 
   public:
@@ -24,19 +24,19 @@ template <typename Flavor> class DeciderVerifier_ {
      * when the decider is being used in the context of the larger honk protocol.
      *
      */
-    explicit DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator,
+    explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator,
                               const std::shared_ptr<Transcript>& transcript);
     /**
      * @brief Constructor from prover instance
      *
      */
-    explicit DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator);
+    explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator);
 
     bool verify_proof(const DeciderProof&); // used when a decider proof is known explicitly
     bool verify();                          // used when transcript that has been initialized with a proof
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;
-    std::shared_ptr<VerifierInstance> accumulator;
+    std::shared_ptr<DeciderVerificationKey> accumulator;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     std::shared_ptr<Transcript> transcript;
 };

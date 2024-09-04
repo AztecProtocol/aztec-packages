@@ -146,7 +146,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         false);
 
     // Create a prover (it will compute proving key and witness)
-    auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+    auto instance = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
 
     // Generate eta, beta and gamma
     instance->relation_parameters.eta = FF::random_element();

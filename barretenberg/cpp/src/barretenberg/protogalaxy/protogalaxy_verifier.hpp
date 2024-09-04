@@ -7,13 +7,13 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
-template <class VerifierInstances> class ProtogalaxyVerifier_ {
+template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
   public:
-    using Flavor = typename VerifierInstances::Flavor;
+    using Flavor = typename DeciderVerificationKeys::Flavor;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
-    using Instance = typename VerifierInstances::Instance;
+    using Instance = typename DeciderVerificationKeys::Instance;
     using VerificationKey = typename Flavor::VerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
@@ -21,14 +21,14 @@ template <class VerifierInstances> class ProtogalaxyVerifier_ {
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
-    VerifierInstances instances;
+    DeciderVerificationKeys instances;
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     CommitmentLabels commitment_labels;
 
     ProtogalaxyVerifier_(const std::vector<std::shared_ptr<Instance>>& insts)
-        : instances(VerifierInstances(insts)){};
+        : instances(DeciderVerificationKeys(insts)){};
     ~ProtogalaxyVerifier_() = default;
 
     std::shared_ptr<Instance> get_accumulator() { return instances[0]; }

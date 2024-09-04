@@ -7,7 +7,7 @@
 namespace bb {
 
 template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator,
+DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator,
                                            const std::shared_ptr<Transcript>& transcript)
     : accumulator(accumulator)
     , pcs_verification_key(accumulator->verification_key->pcs_verification_key)
@@ -15,7 +15,7 @@ DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstanc
 {}
 
 template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator)
+DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator)
     : accumulator(accumulator)
     , pcs_verification_key(accumulator->verification_key->pcs_verification_key)
 {}

@@ -123,7 +123,7 @@ template <typename Flavor> class SumcheckProver {
     using ClaimedEvaluations = typename Flavor::AllValues;
 
     using Transcript = typename Flavor::Transcript;
-    using Instance = ProverInstance_<Flavor>;
+    using Instance = DeciderProvingKey_<Flavor>;
     using RelationSeparator = typename Flavor::RelationSeparator;
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials

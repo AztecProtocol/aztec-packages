@@ -4,8 +4,8 @@
 
 namespace bb::stdlib::recursion::honk {
 
-template <class VerifierInstances>
-void ProtogalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_instance(
+template <class DeciderVerificationKeys>
+void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::receive_and_finalise_instance(
     const std::shared_ptr<Instance>& inst, std::string& domain_separator)
 {
     domain_separator = domain_separator + "_";
@@ -15,7 +15,8 @@ void ProtogalaxyRecursiveVerifier_<VerifierInstances>::receive_and_finalise_inst
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/795): The rounds prior to actual verifying are common
 // between decider and folding verifier and could be somehow shared so we do not duplicate code so much.
-template <class VerifierInstances> void ProtogalaxyRecursiveVerifier_<VerifierInstances>::prepare_for_folding()
+template <class DeciderVerificationKeys>
+void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::prepare_for_folding()
 {
     auto index = 0;
     auto inst = instances[0];
@@ -35,9 +36,9 @@ template <class VerifierInstances> void ProtogalaxyRecursiveVerifier_<VerifierIn
     }
 }
 
-template <class VerifierInstances>
-std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyRecursiveVerifier_<
-    VerifierInstances>::verify_folding_proof(const StdlibProof<Builder>& proof)
+template <class DeciderVerificationKeys>
+std::shared_ptr<typename DeciderVerificationKeys::Instance> ProtogalaxyRecursiveVerifier_<
+    DeciderVerificationKeys>::verify_folding_proof(const StdlibProof<Builder>& proof)
 {
     using Transcript = typename Flavor::Transcript;
 
@@ -63,12 +64,13 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyRecursiveVerifi
 
     auto perturbator_at_challenge = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
     // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
-    std::array<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM> combiner_quotient_evals;
-    for (size_t idx = 0; idx < VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM; idx++) {
+    std::array<FF, DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH - DeciderVerificationKeys::NUM>
+        combiner_quotient_evals;
+    for (size_t idx = 0; idx < DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH - DeciderVerificationKeys::NUM; idx++) {
         combiner_quotient_evals[idx] = transcript->template receive_from_prover<FF>(
-            "combiner_quotient_" + std::to_string(idx + VerifierInstances::NUM));
+            "combiner_quotient_" + std::to_string(idx + DeciderVerificationKeys::NUM));
     }
-    Univariate<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH, VerifierInstances::NUM> combiner_quotient(
+    Univariate<FF, DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH, DeciderVerificationKeys::NUM> combiner_quotient(
         combiner_quotient_evals);
     FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge); // fine recursive i think
@@ -116,7 +118,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyRecursiveVerifi
     }
 
     auto& expected_parameters = next_accumulator->relation_parameters;
-    for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
+    for (size_t inst_idx = 0; inst_idx < DeciderVerificationKeys::NUM; inst_idx++) {
         auto instance = instances[inst_idx];
         expected_parameters.eta += instance->relation_parameters.eta * lagranges[inst_idx];
         expected_parameters.eta_two += instance->relation_parameters.eta_two * lagranges[inst_idx];
@@ -132,12 +134,15 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyRecursiveVerifi
 }
 
 template class ProtogalaxyRecursiveVerifier_<
-    RecursiveVerifierInstances_<UltraRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
-template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances_<MegaRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
-template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances_<UltraRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
-template class ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances_<MegaRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
+    RecursiveDeciderVerificationKeys_<UltraRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
 template class ProtogalaxyRecursiveVerifier_<
-    RecursiveVerifierInstances_<UltraRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
+    RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
 template class ProtogalaxyRecursiveVerifier_<
-    RecursiveVerifierInstances_<MegaRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
+    RecursiveDeciderVerificationKeys_<UltraRecursiveFlavor_<MegaCircuitBuilder>, 2>>;
+template class ProtogalaxyRecursiveVerifier_<
+    RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<UltraCircuitBuilder>, 2>>;
+template class ProtogalaxyRecursiveVerifier_<
+    RecursiveDeciderVerificationKeys_<UltraRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
+template class ProtogalaxyRecursiveVerifier_<
+    RecursiveDeciderVerificationKeys_<MegaRecursiveFlavor_<CircuitSimulatorBN254>, 2>>;
 } // namespace bb::stdlib::recursion::honk

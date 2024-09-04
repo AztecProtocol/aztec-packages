@@ -21,8 +21,8 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using PCS = typename Flavor::PCS;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using Instance = ProverInstance;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using Instance = DeciderProvingKey;
     using Transcript = typename Flavor::Transcript;
     using ZeroMorph = ZeroMorphProver_<PCS>;
 

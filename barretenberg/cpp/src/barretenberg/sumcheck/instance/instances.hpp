@@ -4,14 +4,14 @@
 
 namespace bb {
 
-template <typename Flavor_, size_t NUM_ = 2> struct ProverInstances_ {
+template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
   public:
     static_assert(NUM_ > 1, "Must have at least two prover instances");
     using Flavor = Flavor_;
     using FF = typename Flavor::FF;
     static constexpr size_t NUM = NUM_;
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
-    using Instance = ProverInstance_<Flavor>;
+    using Instance = DeciderProvingKey_<Flavor>;
 
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
     // The extended length here is the length of a composition of polynomials.
@@ -25,8 +25,8 @@ template <typename Flavor_, size_t NUM_ = 2> struct ProverInstances_ {
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::const_iterator end() const { return _data.end(); };
     typename ArrayType::iterator end() { return _data.end(); };
-    ProverInstances_() = default;
-    ProverInstances_(std::vector<std::shared_ptr<Instance>> data)
+    DeciderProvingKeys_() = default;
+    DeciderProvingKeys_(std::vector<std::shared_ptr<Instance>> data)
     {
         ASSERT(data.size() == NUM);
         for (size_t idx = 0; idx < data.size(); idx++) {
@@ -83,11 +83,11 @@ template <typename Flavor_, size_t NUM_ = 2> struct ProverInstances_ {
     }
 };
 
-template <typename Flavor_, size_t NUM_ = 2> struct VerifierInstances_ {
+template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     static_assert(NUM_ > 1, "Must have at least two prover instances");
     using Flavor = Flavor_;
     using VerificationKey = typename Flavor::VerificationKey;
-    using Instance = VerifierInstance_<Flavor>;
+    using Instance = DeciderVerificationKey_<Flavor>;
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
 
   public:
@@ -97,9 +97,9 @@ template <typename Flavor_, size_t NUM_ = 2> struct VerifierInstances_ {
     std::shared_ptr<Instance> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
-    VerifierInstances_() = default;
+    DeciderVerificationKeys_() = default;
 
-    VerifierInstances_(const std::vector<std::shared_ptr<Instance>>& data)
+    DeciderVerificationKeys_(const std::vector<std::shared_ptr<Instance>>& data)
     {
         ASSERT(data.size() == NUM);
         for (size_t idx = 0; idx < data.size(); idx++) {

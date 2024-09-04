@@ -18,16 +18,16 @@ class GoblinRecursionTests : public ::testing::Test {
     using Curve = curve::BN254;
     using FF = Curve::ScalarField;
     using KernelInput = GoblinAccumulationOutput;
-    using ProverInstance = ProverInstance_<MegaFlavor>;
-    using VerifierInstance = VerifierInstance_<MegaFlavor>;
+    using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
+    using DeciderVerificationKey = DeciderVerificationKey_<MegaFlavor>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
 
     static GoblinAccumulationOutput construct_accumulator(MegaCircuitBuilder& builder)
     {
-        auto prover_instance = std::make_shared<ProverInstance>(builder);
+        auto prover_instance = std::make_shared<DeciderProvingKey>(builder);
         auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover_instance->proving_key);
-        auto verifier_instance = std::make_shared<VerifierInstance>(verification_key);
+        auto verifier_instance = std::make_shared<DeciderVerificationKey>(verification_key);
         MegaProver prover(prover_instance);
         auto ultra_proof = prover.construct_proof();
         return { ultra_proof, verifier_instance->verification_key };

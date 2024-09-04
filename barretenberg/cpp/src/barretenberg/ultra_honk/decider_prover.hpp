@@ -15,12 +15,11 @@ template <IsUltraFlavor Flavor> class DeciderProver_ {
     using Curve = typename Flavor::Curve;
     using Commitment = typename Flavor::Commitment;
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using PCS = typename Flavor::PCS;
-    using Instance = ProverInstance_<Flavor>;
+    using Instance = DeciderProvingKey_<Flavor>;
     using Transcript = typename Flavor::Transcript;
     using RelationSeparator = typename Flavor::RelationSeparator;
 

@@ -4,34 +4,34 @@
 
 namespace bb {
 
-template <class ProverInstances_> class ProtogalaxyProver_ {
+template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
   public:
-    using ProverInstance = typename ProverInstances_::Instance;
-    using Flavor = typename ProverInstances_::Flavor;
-    using FF = typename ProverInstances_::Flavor::FF;
-    static constexpr size_t NUM_INSTANCES = ProverInstances_::NUM;
-    using CombinerQuotient = Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH, NUM_INSTANCES>;
+    using DeciderProvingKey = typename DeciderProvingKeys_::Instance;
+    using Flavor = typename DeciderProvingKeys_::Flavor;
+    using FF = typename DeciderProvingKeys_::Flavor::FF;
+    static constexpr size_t NUM_INSTANCES = DeciderProvingKeys_::NUM;
+    using CombinerQuotient = Univariate<FF, DeciderProvingKeys_::BATCHED_EXTENDED_LENGTH, NUM_INSTANCES>;
     using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
         typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<NUM_INSTANCES>;
     using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
-    using UnivariateRelationParameters =
-        bb::RelationParameters<Univariate<FF, ProverInstances_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_INSTANCES - 1>>;
+    using UnivariateRelationParameters = bb::RelationParameters<
+        Univariate<FF, DeciderProvingKeys_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_INSTANCES - 1>>;
     using UnivariateRelationSeparator =
-        std::array<Univariate<FF, ProverInstances_::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
+        std::array<Univariate<FF, DeciderProvingKeys_::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
     using Transcript = typename Flavor::Transcript;
-    using Instance = typename ProverInstances_::Instance;
+    using Instance = typename DeciderProvingKeys_::Instance;
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using ProverInstances = ProverInstances_;
+    using DeciderProvingKeys = DeciderProvingKeys_;
 
-    static constexpr size_t NUM_SUBRELATIONS = ProverInstances_::NUM_SUBRELATIONS;
+    static constexpr size_t NUM_SUBRELATIONS = DeciderProvingKeys_::NUM_SUBRELATIONS;
 
-    ProverInstances_ instances;
+    DeciderProvingKeys_ instances;
     std::shared_ptr<CommitmentKey> commitment_key;
 
     // the state updated and carried forward beween rounds
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
-    std::shared_ptr<ProverInstance> accumulator;
+    std::shared_ptr<DeciderProvingKey> accumulator;
     Polynomial<FF> perturbator;
     std::vector<FF> deltas;
     CombinerQuotient combiner_quotient;
@@ -41,11 +41,11 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
 
     ProtogalaxyProver_() = default;
     ProtogalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
-        : instances(ProverInstances_(insts))
+        : instances(DeciderProvingKeys_(insts))
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
         , commitment_key(instances[1]->proving_key.commitment_key){};
 
-    // Returns the accumulator, which is the first element in ProverInstances. The accumulator is assumed to have the
+    // Returns the accumulator, which is the first element in DeciderProvingKeys. The accumulator is assumed to have the
     // FoldingParameters set and be the result of a previous round of folding.
     std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
 
@@ -83,7 +83,7 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
     std::tuple<std::vector<FF>, UnivariateRelationSeparator, UnivariateRelationParameters, FF, CombinerQuotient>
     combiner_quotient_round(const std::vector<FF>& gate_challenges,
                             const std::vector<FF>& deltas,
-                            const ProverInstances_& instances);
+                            const DeciderProvingKeys_& instances);
 
     /**
      * @brief Steps 12 - 13 of the paper plus the prover folding work.
@@ -92,7 +92,7 @@ template <class ProverInstances_> class ProtogalaxyProver_ {
      * of matrices whose columns are polynomials, as well as taking similar linear combinations of the relation
      * parameters.
      */
-    FoldingResult<Flavor> update_target_sum_and_fold(const ProverInstances_& instances,
+    FoldingResult<Flavor> update_target_sum_and_fold(const DeciderProvingKeys_& instances,
                                                      const CombinerQuotient& combiner_quotient,
                                                      const UnivariateRelationSeparator& alphas,
                                                      const UnivariateRelationParameters& univariate_relation_parameters,

@@ -20,7 +20,7 @@ namespace bb {
  * @tparam Flavor
  */
 template <IsUltraFlavor Flavor> class OinkVerifier {
-    using Instance = VerifierInstance_<Flavor>;
+    using Instance = DeciderVerificationKey_<Flavor>;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;

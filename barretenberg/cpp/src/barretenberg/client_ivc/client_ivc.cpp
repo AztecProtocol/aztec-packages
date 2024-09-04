@@ -20,13 +20,13 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         BB_OP_COUNT_TIME_NAME("construct_circuits");
 
         // Construct stdlib accumulator, vkey and proof
-        auto stdlib_verifier_accum = std::make_shared<RecursiveVerifierInstance>(&circuit, verifier_accumulator);
+        auto stdlib_verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
         auto stdlib_instance_vk = std::make_shared<RecursiveVerificationKey>(&circuit, instance_vk);
         auto stdlib_proof = bb::convert_proof_to_witness(&circuit, fold_output.proof);
 
         FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { stdlib_instance_vk } };
         auto verifier_accum = verifier.verify_folding_proof(stdlib_proof);
-        verifier_accumulator = std::make_shared<VerifierInstance>(verifier_accum->get_value());
+        verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
     }
 
     // Construct a merge proof (and add a recursive merge verifier to the circuit if a previous merge proof exists)
@@ -37,11 +37,11 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     circuit.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
 
     // Construct the prover instance for circuit
-    std::shared_ptr<ProverInstance> prover_instance;
+    std::shared_ptr<DeciderProvingKey> prover_instance;
     if (!initialized) {
-        prover_instance = std::make_shared<ProverInstance>(circuit, trace_structure);
+        prover_instance = std::make_shared<DeciderProvingKey>(circuit, trace_structure);
     } else {
-        prover_instance = std::make_shared<ProverInstance>(
+        prover_instance = std::make_shared<DeciderProvingKey>(
             circuit, trace_structure, fold_output.accumulator->proving_key.commitment_key);
     }
 
@@ -58,7 +58,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     // If the IVC is uninitialized, simply initialize the prover and verifier accumulator instances
     if (!initialized) {
         fold_output.accumulator = prover_instance;
-        verifier_accumulator = std::make_shared<VerifierInstance>(instance_vk);
+        verifier_accumulator = std::make_shared<DeciderVerificationKey>(instance_vk);
         initialized = true;
     } else { // Otherwise, fold the new instance into the accumulator
         FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
@@ -79,8 +79,8 @@ ClientIVC::Proof ClientIVC::prove()
 };
 
 bool ClientIVC::verify(const Proof& proof,
-                       const std::shared_ptr<VerifierInstance>& accumulator,
-                       const std::shared_ptr<VerifierInstance>& final_verifier_instance,
+                       const std::shared_ptr<DeciderVerificationKey>& accumulator,
+                       const std::shared_ptr<DeciderVerificationKey>& final_verifier_instance,
                        const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk)
 {
@@ -104,7 +104,8 @@ bool ClientIVC::verify(const Proof& proof,
  * @param proof
  * @return bool
  */
-bool ClientIVC::verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances) const
+bool ClientIVC::verify(Proof& proof,
+                       const std::vector<std::shared_ptr<DeciderVerificationKey>>& verifier_instances) const
 {
     auto eccvm_vk = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
@@ -163,7 +164,7 @@ bool ClientIVC::prove_and_verify()
 {
     auto proof = prove();
 
-    auto verifier_inst = std::make_shared<VerifierInstance>(this->instance_vk);
+    auto verifier_inst = std::make_shared<DeciderVerificationKey>(this->instance_vk);
     return verify(proof, { this->verifier_accumulator, verifier_inst });
 }
 

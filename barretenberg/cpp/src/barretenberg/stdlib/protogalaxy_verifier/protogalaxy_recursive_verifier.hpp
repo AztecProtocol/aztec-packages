@@ -9,15 +9,15 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
 
 namespace bb::stdlib::recursion::honk {
-template <class VerifierInstances> class ProtogalaxyRecursiveVerifier_ {
+template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
   public:
-    using Flavor = typename VerifierInstances::Flavor;
+    using Flavor = typename DeciderVerificationKeys::Flavor;
     using NativeFlavor = typename Flavor::NativeFlavor;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
-    using Instance = typename VerifierInstances::Instance;
-    using NativeInstance = bb::VerifierInstance_<NativeFlavor>;
+    using Instance = typename DeciderVerificationKeys::Instance;
+    using NativeInstance = bb::DeciderVerificationKey_<NativeFlavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
@@ -25,7 +25,7 @@ template <class VerifierInstances> class ProtogalaxyRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
-    static constexpr size_t NUM = VerifierInstances::NUM;
+    static constexpr size_t NUM = DeciderVerificationKeys::NUM;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using OinkVerifier = OinkRecursiveVerifier_<Flavor>;
     struct VerifierInput {
@@ -41,13 +41,13 @@ template <class VerifierInstances> class ProtogalaxyRecursiveVerifier_ {
 
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
-    VerifierInstances instances;
+    DeciderVerificationKeys instances;
 
     ProtogalaxyRecursiveVerifier_(Builder* builder,
                                   const std::shared_ptr<Instance>& accumulator,
                                   const std::vector<std::shared_ptr<VerificationKey>>& instance_vks)
         : builder(builder)
-        , instances(VerifierInstances(builder, accumulator, instance_vks)){};
+        , instances(DeciderVerificationKeys(builder, accumulator, instance_vks)){};
 
     /**
      * @brief Given a new round challenge δ for each iteration of the full Protogalaxy protocol, compute the vector
@@ -136,7 +136,7 @@ template <class VerifierInstances> class ProtogalaxyRecursiveVerifier_ {
      */
 
     void fold_commitments(std::vector<FF> lagranges,
-                          VerifierInstances& instances,
+                          DeciderVerificationKeys& instances,
                           std::shared_ptr<Instance>& accumulator)
     {
         size_t vk_idx = 0;

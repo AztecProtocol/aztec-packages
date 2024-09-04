@@ -30,7 +30,7 @@ class GoblinProver {
     using Builder = MegaCircuitBuilder;
     using Fr = bb::fr;
     using Transcript = NativeTranscript;
-    using MegaProverInstance = ProverInstance_<MegaFlavor>;
+    using MegaDeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
     using OpQueue = bb::ECCOpQueue;
     using ECCVMFlavor = bb::ECCVMFlavor;
     using ECCVMBuilder = bb::ECCVMCircuitBuilder;
@@ -92,7 +92,7 @@ class GoblinProver {
         }
 
         // Construct a Honk proof for the main circuit
-        auto instance = std::make_shared<MegaProverInstance>(circuit_builder);
+        auto instance = std::make_shared<MegaDeciderProvingKey>(circuit_builder);
         MegaProver prover(instance);
         auto ultra_proof = prover.construct_proof();
         auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);

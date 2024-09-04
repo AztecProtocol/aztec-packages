@@ -378,7 +378,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
+    auto last_instance = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.instance_vk);
     vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
 
     vinfo("write proof and vk data to files..");
@@ -416,7 +416,7 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
     init_grumpkin_crs(1 << 15);
 
     const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
-    const auto accumulator = read_to_shared_ptr<ClientIVC::VerifierInstance>(accumulator_path);
+    const auto accumulator = read_to_shared_ptr<ClientIVC::DeciderVerificationKey>(accumulator_path);
     accumulator->verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
     const auto final_vk = read_to_shared_ptr<ClientIVC::VerificationKey>(final_vk_path);
     const auto eccvm_vk = read_to_shared_ptr<ECCVMFlavor::VerificationKey>(eccvm_vk_path);
@@ -426,7 +426,7 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
     translator_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
     const bool verified = ClientIVC::verify(
-        proof, accumulator, std::make_shared<ClientIVC::VerifierInstance>(final_vk), eccvm_vk, translator_vk);
+        proof, accumulator, std::make_shared<ClientIVC::DeciderVerificationKey>(final_vk), eccvm_vk, translator_vk);
     vinfo("verified: ", verified);
     return verified;
 }
@@ -513,7 +513,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
+    auto last_instance = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.instance_vk);
     vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
 
     vinfo("write proof and vk data to files..");
@@ -1142,11 +1142,11 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
 template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePath, const std::string& outputPath)
 {
     using Prover = UltraProver_<Flavor>;
-    using ProverInstance = ProverInstance_<Flavor>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, "");
-    ProverInstance& prover_inst = *prover.instance;
+    DeciderProvingKey& prover_inst = *prover.instance;
     VerificationKey vk(
         prover_inst.proving_key); // uses a partial form of the proving key which only has precomputed entities
 

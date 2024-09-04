@@ -19,7 +19,7 @@ class UltraTranscriptTests : public ::testing::Test {
     using Flavor = UltraFlavor;
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
-    using ProverInstance = ProverInstance_<Flavor>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
 
     /**
      * @brief Construct a manifest for a Ultra Honk proof
@@ -134,7 +134,7 @@ TEST_F(UltraTranscriptTests, ProverManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
+    auto instance = std::make_shared<DeciderProvingKey>(builder);
     UltraProver prover(instance);
     auto proof = prover.construct_proof();
 
@@ -160,7 +160,7 @@ TEST_F(UltraTranscriptTests, VerifierManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
+    auto instance = std::make_shared<DeciderProvingKey>(builder);
     UltraProver prover(instance);
     auto proof = prover.construct_proof();
 
@@ -211,7 +211,7 @@ TEST_F(UltraTranscriptTests, StructureTest)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
+    auto instance = std::make_shared<DeciderProvingKey>(builder);
     UltraProver prover(instance);
     auto proof = prover.construct_proof();
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);

@@ -20,15 +20,15 @@ class AztecIVCTests : public ::testing::Test {
     using FF = typename Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
     using Builder = AztecIVC::ClientCircuit;
-    using ProverInstance = AztecIVC::ProverInstance;
-    using VerifierInstance = AztecIVC::VerifierInstance;
+    using DeciderProvingKey = AztecIVC::DeciderProvingKey;
+    using DeciderVerificationKey = AztecIVC::DeciderVerificationKey;
     using FoldProof = AztecIVC::FoldProof;
     using DeciderProver = AztecIVC::DeciderProver;
     using DeciderVerifier = AztecIVC::DeciderVerifier;
-    using ProverInstances = ProverInstances_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<ProverInstances>;
-    using VerifierInstances = VerifierInstances_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
+    using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
+    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
+    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
 
     /**
      * @brief Construct mock circuit with arithmetic gates and goblin ops

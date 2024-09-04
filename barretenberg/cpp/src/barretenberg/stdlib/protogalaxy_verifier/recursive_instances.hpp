@@ -4,11 +4,11 @@
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
 
 namespace bb::stdlib::recursion::honk {
-template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstances_ {
+template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerificationKeys_ {
     using Flavor = Flavor_;
     using Builder = typename Flavor::CircuitBuilder;
     using VerificationKey = typename Flavor::VerificationKey;
-    using Instance = RecursiveVerifierInstance_<Flavor>;
+    using Instance = RecursiveDeciderVerificationKey_<Flavor>;
     using ArrayType = std::array<std::shared_ptr<Instance>, NUM_>;
 
   public:
@@ -20,9 +20,9 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveVerifierInstan
     typename ArrayType::iterator end() { return _data.end(); };
     Builder* builder;
 
-    RecursiveVerifierInstances_(Builder* builder,
-                                const std::shared_ptr<Instance>& accumulator,
-                                const std::vector<std::shared_ptr<VerificationKey>>& vks)
+    RecursiveDeciderVerificationKeys_(Builder* builder,
+                                      const std::shared_ptr<Instance>& accumulator,
+                                      const std::vector<std::shared_ptr<VerificationKey>>& vks)
         : builder(builder)
     {
         ASSERT(vks.size() == NUM - 1);

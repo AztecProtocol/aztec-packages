@@ -13,7 +13,7 @@ using namespace bb;
  */
 class MegaMockCircuitsPinning : public ::testing::Test {
   protected:
-    using ProverInstance = ProverInstance_<MegaFlavor>;
+    using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
     static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
 };
 
@@ -23,7 +23,7 @@ TEST_F(MegaMockCircuitsPinning, FunctionSizes)
         GoblinProver goblin;
         MegaCircuitBuilder app_circuit{ goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(app_circuit, large);
-        auto instance = std::make_shared<ProverInstance>(app_circuit);
+        auto instance = std::make_shared<DeciderProvingKey>(app_circuit);
         if (large) {
             EXPECT_EQ(instance->proving_key.log_circuit_size, 19);
         } else {
@@ -40,7 +40,7 @@ TEST_F(MegaMockCircuitsPinning, AppCircuitSizes)
         GoblinProver goblin;
         MegaCircuitBuilder app_circuit{ goblin.op_queue };
         GoblinMockCircuits::construct_mock_app_circuit(app_circuit, large);
-        auto instance = std::make_shared<ProverInstance>(app_circuit);
+        auto instance = std::make_shared<DeciderProvingKey>(app_circuit);
         if (large) {
             EXPECT_EQ(instance->proving_key.log_circuit_size, 19);
         } else {

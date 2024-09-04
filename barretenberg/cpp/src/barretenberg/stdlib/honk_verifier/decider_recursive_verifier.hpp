@@ -17,8 +17,8 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
-    using Instance = RecursiveVerifierInstance_<Flavor>;
-    using NativeInstance = bb::VerifierInstance_<NativeFlavor>;
+    using Instance = RecursiveDeciderVerificationKey_<Flavor>;
+    using NativeInstance = bb::DeciderVerificationKey_<NativeFlavor>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
   public:

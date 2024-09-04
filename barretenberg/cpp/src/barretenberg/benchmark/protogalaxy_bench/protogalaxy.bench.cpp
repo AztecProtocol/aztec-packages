@@ -14,9 +14,9 @@ namespace bb {
 // Fold one instance into an accumulator.
 template <typename Flavor, size_t k> void fold_k(State& state) noexcept
 {
-    using ProverInstance = ProverInstance_<Flavor>;
-    using Instance = ProverInstance;
-    using Instances = ProverInstances_<Flavor, k + 1>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using Instance = DeciderProvingKey;
+    using Instances = DeciderProvingKeys_<Flavor, k + 1>;
     using ProtogalaxyProver = ProtogalaxyProver_<Instances>;
     using Builder = typename Flavor::CircuitBuilder;
 
@@ -27,7 +27,7 @@ template <typename Flavor, size_t k> void fold_k(State& state) noexcept
     const auto construct_instance = [&]() {
         Builder builder;
         MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
-        return std::make_shared<ProverInstance>(builder);
+        return std::make_shared<DeciderProvingKey>(builder);
     };
     std::vector<std::shared_ptr<Instance>> instances;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop

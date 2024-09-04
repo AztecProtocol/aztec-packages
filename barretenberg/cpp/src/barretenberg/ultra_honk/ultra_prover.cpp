@@ -27,7 +27,7 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const 
  * */
 template <IsUltraFlavor Flavor>
 UltraProver_<Flavor>::UltraProver_(Builder& circuit)
-    : instance(std::make_shared<ProverInstance>(circuit))
+    : instance(std::make_shared<DeciderProvingKey>(circuit))
     , transcript(std::make_shared<Transcript>())
     , commitment_key(instance->proving_key.commitment_key)
 {}

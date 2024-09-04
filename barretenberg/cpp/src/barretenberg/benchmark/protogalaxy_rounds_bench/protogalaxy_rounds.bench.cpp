@@ -10,11 +10,11 @@ using namespace benchmark;
 namespace bb {
 
 template <typename Flavor>
-void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<ProverInstances_<Flavor, 2>>&))
+void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<DeciderProvingKeys_<Flavor, 2>>&))
 {
     using Builder = typename Flavor::CircuitBuilder;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using Instances = ProverInstances_<Flavor, 2>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using Instances = DeciderProvingKeys_<Flavor, 2>;
     using ProtogalaxyProver = ProtogalaxyProver_<Instances>;
 
     bb::srs::init_crs_factory("../srs_db/ignition");
@@ -23,13 +23,13 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Prover
     const auto construct_instance = [&]() {
         Builder builder;
         MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
-        return std::make_shared<ProverInstance>(builder);
+        return std::make_shared<DeciderProvingKey>(builder);
     };
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop, also extend to more than
     // k=1
-    std::shared_ptr<ProverInstance> prover_instance_1 = construct_instance();
-    std::shared_ptr<ProverInstance> prover_instance_2 = construct_instance();
+    std::shared_ptr<DeciderProvingKey> prover_instance_1 = construct_instance();
+    std::shared_ptr<DeciderProvingKey> prover_instance_2 = construct_instance();
 
     ProtogalaxyProver folding_prover({ prover_instance_1, prover_instance_2 });
 
@@ -46,7 +46,7 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Prover
     }
 }
 
-void bench_round_mega(::benchmark::State& state, void (*F)(ProtogalaxyProver_<ProverInstances_<MegaFlavor, 2>>&))
+void bench_round_mega(::benchmark::State& state, void (*F)(ProtogalaxyProver_<DeciderProvingKeys_<MegaFlavor, 2>>&))
 {
     _bench_round<MegaFlavor>(state, F);
 }

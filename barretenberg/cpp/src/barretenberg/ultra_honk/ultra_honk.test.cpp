@@ -16,7 +16,7 @@
 
 using namespace bb;
 
-using ProverInstance = ProverInstance_<UltraFlavor>;
+using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
 using VerificationKey = UltraFlavor::VerificationKey;
 
 std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> variables)
@@ -30,7 +30,7 @@ std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> v
 
 void prove_and_verify(auto& circuit_builder, bool expected_result)
 {
-    auto instance = std::make_shared<ProverInstance>(circuit_builder);
+    auto instance = std::make_shared<DeciderProvingKey>(circuit_builder);
     UltraProver prover(instance);
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
     UltraVerifier verifier(verification_key);
@@ -66,7 +66,7 @@ TEST_F(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
-    auto instance = std::make_shared<ProverInstance>(circuit_builder);
+    auto instance = std::make_shared<DeciderProvingKey>(circuit_builder);
     UltraProver prover(instance);
     auto proof = prover.construct_proof();
     auto& polynomials = instance->proving_key.polynomials;
@@ -98,7 +98,7 @@ TEST_F(UltraHonkTests, StructuredTrace)
 
     // Construct an instance with a structured execution trace
     TraceStructure trace_structure = TraceStructure::SMALL_TEST;
-    auto instance = std::make_shared<ProverInstance>(builder, trace_structure);
+    auto instance = std::make_shared<DeciderProvingKey>(builder, trace_structure);
     UltraProver prover(instance);
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
     UltraVerifier verifier(verification_key);
@@ -236,7 +236,7 @@ TEST_F(UltraHonkTests, LookupFailure)
     {
         auto builder = construct_circuit_with_lookups();
 
-        auto instance = std::make_shared<ProverInstance>(builder);
+        auto instance = std::make_shared<DeciderProvingKey>(builder);
 
         EXPECT_TRUE(prove_and_verify(instance));
     }
@@ -245,7 +245,7 @@ TEST_F(UltraHonkTests, LookupFailure)
     {
         auto builder = construct_circuit_with_lookups();
 
-        auto instance = std::make_shared<ProverInstance>(builder);
+        auto instance = std::make_shared<DeciderProvingKey>(builder);
         auto& polynomials = instance->proving_key.polynomials;
 
         // Erroneously update the read counts/tags at an arbitrary index
@@ -263,7 +263,7 @@ TEST_F(UltraHonkTests, LookupFailure)
     {
         auto builder = construct_circuit_with_lookups();
 
-        auto instance = std::make_shared<ProverInstance>(builder);
+        auto instance = std::make_shared<DeciderProvingKey>(builder);
         auto& polynomials = instance->proving_key.polynomials;
 
         // Find a lookup gate and alter one of the wire values
@@ -281,7 +281,7 @@ TEST_F(UltraHonkTests, LookupFailure)
     {
         auto builder = construct_circuit_with_lookups();
 
-        auto instance = std::make_shared<ProverInstance>(builder);
+        auto instance = std::make_shared<DeciderProvingKey>(builder);
         auto& polynomials = instance->proving_key.polynomials;
 
         // Turn the lookup selector on for an arbitrary row where it is not already active

@@ -37,7 +37,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
     using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
-    using OuterProverInstance = ProverInstance_<OuterFlavor>;
+    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
     using Transcript = InnerFlavor::Transcript;
 
@@ -110,7 +110,7 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         }
 
         if constexpr (!IsSimulator<OuterBuilder>) {
-            auto instance = std::make_shared<OuterProverInstance>(outer_circuit);
+            auto instance = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             OuterProver prover(instance);
             auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
             OuterVerifier verifier(verification_key);

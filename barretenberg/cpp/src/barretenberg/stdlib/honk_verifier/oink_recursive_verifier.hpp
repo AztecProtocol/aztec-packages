@@ -11,7 +11,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
-    using Instance = RecursiveVerifierInstance_<Flavor>;
+    using Instance = RecursiveDeciderVerificationKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;

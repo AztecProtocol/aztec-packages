@@ -7,16 +7,16 @@
 #include "protogalaxy_prover.hpp"
 
 namespace bb {
-template <class ProverInstances>
-void ProtogalaxyProver_<ProverInstances>::run_oink_prover_on_instance(std::shared_ptr<Instance> instance,
-                                                                      const std::string& domain_separator)
+template <class DeciderProvingKeys>
+void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_instance(std::shared_ptr<Instance> instance,
+                                                                         const std::string& domain_separator)
 {
     ZoneScopedN("ProtogalaxyProver::run_oink_prover_on_instance");
     OinkProver<Flavor> oink_prover(instance, transcript, domain_separator + '_');
     oink_prover.prove();
 }
 
-template <class ProverInstances> void ProtogalaxyProver_<ProverInstances>::run_oink_prover_on_each_instance()
+template <class DeciderProvingKeys> void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_each_instance()
 {
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::run_oink_prover_on_each_instance");
     auto idx = 0;
@@ -40,14 +40,14 @@ template <class ProverInstances> void ProtogalaxyProver_<ProverInstances>::run_o
     accumulator = instances[0];
 };
 
-template <class ProverInstances>
-std::tuple<std::vector<typename ProverInstances::Flavor::FF>, Polynomial<typename ProverInstances::Flavor::FF>>
-ProtogalaxyProver_<ProverInstances>::perturbator_round(
-    const std::shared_ptr<const typename ProverInstances::Instance>& accumulator)
+template <class DeciderProvingKeys>
+std::tuple<std::vector<typename DeciderProvingKeys::Flavor::FF>, Polynomial<typename DeciderProvingKeys::Flavor::FF>>
+ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
+    const std::shared_ptr<const typename DeciderProvingKeys::Instance>& accumulator)
 {
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::perturbator_round");
 
-    using Fun = ProtogalaxyProverInternal<ProverInstances>;
+    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     const FF delta = transcript->template get_challenge<FF>("delta");
     const std::vector<FF> deltas = compute_round_challenge_pows(accumulator->proving_key.log_circuit_size, delta);
@@ -68,19 +68,19 @@ ProtogalaxyProver_<ProverInstances>::perturbator_round(
     return std::make_tuple(deltas, perturbator);
 };
 
-template <class ProverInstances>
-std::tuple<std::vector<typename ProverInstances::Flavor::FF>,
-           typename ProtogalaxyProver_<ProverInstances>::UnivariateRelationSeparator,
-           typename ProtogalaxyProver_<ProverInstances>::UnivariateRelationParameters,
-           typename ProverInstances::Flavor::FF,
-           typename ProtogalaxyProver_<ProverInstances>::CombinerQuotient>
-ProtogalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<FF>& gate_challenges,
-                                                             const std::vector<FF>& deltas,
-                                                             const ProverInstances& instances)
+template <class DeciderProvingKeys>
+std::tuple<std::vector<typename DeciderProvingKeys::Flavor::FF>,
+           typename ProtogalaxyProver_<DeciderProvingKeys>::UnivariateRelationSeparator,
+           typename ProtogalaxyProver_<DeciderProvingKeys>::UnivariateRelationParameters,
+           typename DeciderProvingKeys::Flavor::FF,
+           typename ProtogalaxyProver_<DeciderProvingKeys>::CombinerQuotient>
+ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vector<FF>& gate_challenges,
+                                                                const std::vector<FF>& deltas,
+                                                                const DeciderProvingKeys& instances)
 {
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::combiner_quotient_round");
 
-    using Fun = ProtogalaxyProverInternal<ProverInstances>;
+    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
@@ -98,7 +98,7 @@ ProtogalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<F
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
     const CombinerQuotient combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);
 
-    for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
+    for (size_t idx = DeciderProvingKeys::NUM; idx < DeciderProvingKeys::BATCHED_EXTENDED_LENGTH; idx++) {
         transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
     }
 
@@ -111,16 +111,16 @@ ProtogalaxyProver_<ProverInstances>::combiner_quotient_round(const std::vector<F
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize the vanishing polynomial formula
  * and the computation of Lagrange basis for k instances
  */
-template <class ProverInstances>
-FoldingResult<typename ProverInstances::Flavor> ProtogalaxyProver_<ProverInstances>::update_target_sum_and_fold(
-    const ProverInstances& instances,
+template <class DeciderProvingKeys>
+FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderProvingKeys>::update_target_sum_and_fold(
+    const DeciderProvingKeys& instances,
     const CombinerQuotient& combiner_quotient,
     const UnivariateRelationSeparator& alphas,
     const UnivariateRelationParameters& univariate_relation_parameters,
     const FF& perturbator_evaluation)
 {
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
-    using Fun = ProtogalaxyProverInternal<ProverInstances>;
+    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
 
@@ -139,7 +139,7 @@ FoldingResult<typename ProverInstances::Flavor> ProtogalaxyProver_<ProverInstanc
     for (auto& poly : result.accumulator->proving_key.polynomials.get_unshifted()) {
         poly *= lagranges[0];
     }
-    for (size_t inst_idx = 1; inst_idx < ProverInstances::NUM; inst_idx++) {
+    for (size_t inst_idx = 1; inst_idx < DeciderProvingKeys::NUM; inst_idx++) {
         for (auto [acc_poly, inst_poly] : zip_view(result.accumulator->proving_key.polynomials.get_unshifted(),
                                                    instances[inst_idx]->proving_key.polynomials.get_unshifted())) {
             acc_poly.add_scaled(inst_poly, lagranges[inst_idx]);
@@ -161,13 +161,13 @@ FoldingResult<typename ProverInstances::Flavor> ProtogalaxyProver_<ProverInstanc
     return result;
 }
 
-template <class ProverInstances>
-FoldingResult<typename ProverInstances::Flavor> ProtogalaxyProver_<ProverInstances>::prove()
+template <class DeciderProvingKeys>
+FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderProvingKeys>::prove()
 {
     ZoneScopedN("ProtogalaxyProver::prove");
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver::prove");
     // Ensure instances are all of the same size
-    for (size_t idx = 0; idx < ProverInstances::NUM - 1; ++idx) {
+    for (size_t idx = 0; idx < DeciderProvingKeys::NUM - 1; ++idx) {
         if (instances[idx]->proving_key.circuit_size != instances[idx + 1]->proving_key.circuit_size) {
             info("ProtogalaxyProver: circuit size mismatch!");
             info("Instance ", idx, " size = ", instances[idx]->proving_key.circuit_size);

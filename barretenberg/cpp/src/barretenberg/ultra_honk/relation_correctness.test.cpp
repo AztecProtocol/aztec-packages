@@ -261,7 +261,7 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     create_some_RAM_gates<Flavor>(builder);
 
     // Create a prover (it will compute proving key and witness)
-    auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+    auto instance = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     auto& proving_key = instance->proving_key;
     auto circuit_size = proving_key.circuit_size;
 
@@ -314,7 +314,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     create_some_ecc_op_queue_gates<Flavor>(builder); // Goblin!
 
     // Create a prover (it will compute proving key and witness)
-    auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+    auto instance = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
     auto& proving_key = instance->proving_key;
     auto circuit_size = proving_key.circuit_size;
 

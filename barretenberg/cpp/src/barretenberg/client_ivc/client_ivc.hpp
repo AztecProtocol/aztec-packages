@@ -25,24 +25,25 @@ class ClientIVC {
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
     using FoldProof = std::vector<FF>;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using VerifierInstance = VerifierInstance_<Flavor>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
-    using ProverInstances = ProverInstances_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<ProverInstances>;
-    using VerifierInstances = VerifierInstances_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
+    using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
+    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
+    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
 
     using GURecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
-    using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<GURecursiveFlavor, 2>;
-    using RecursiveVerifierInstance = RecursiveVerifierInstances::Instance;
-    using RecursiveVerificationKey = RecursiveVerifierInstances::VerificationKey;
+    using RecursiveDeciderVerificationKeys =
+        bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<GURecursiveFlavor, 2>;
+    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::Instance;
+    using RecursiveVerificationKey = RecursiveDeciderVerificationKeys::VerificationKey;
     using FoldingRecursiveVerifier =
-        bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstances>;
+        bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
 
     // A full proof for the IVC scheme
     struct Proof {
@@ -66,10 +67,10 @@ class ClientIVC {
   public:
     GoblinProver goblin;
     ProverFoldOutput fold_output;
-    std::shared_ptr<VerifierInstance> verifier_accumulator;
+    std::shared_ptr<DeciderVerificationKey> verifier_accumulator;
     std::shared_ptr<VerificationKey> instance_vk;
 
-    // A flag indicating whether or not to construct a structured trace in the ProverInstance
+    // A flag indicating whether or not to construct a structured trace in the DeciderProvingKey
     TraceStructure trace_structure = TraceStructure::NONE;
 
     // A flag indicating whether the IVC has been initialized with an initial instance
@@ -80,12 +81,12 @@ class ClientIVC {
     Proof prove();
 
     static bool verify(const Proof& proof,
-                       const std::shared_ptr<VerifierInstance>& accumulator,
-                       const std::shared_ptr<VerifierInstance>& final_verifier_instance,
+                       const std::shared_ptr<DeciderVerificationKey>& accumulator,
+                       const std::shared_ptr<DeciderVerificationKey>& final_verifier_instance,
                        const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);
 
-    bool verify(Proof& proof, const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances) const;
+    bool verify(Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& verifier_instances) const;
 
     bool prove_and_verify();
 

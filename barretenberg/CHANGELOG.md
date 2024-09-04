@@ -1210,7 +1210,7 @@
 - Master borked arithmetic tests ([#4606](https://github.com/AztecProtocol/aztec-packages/issues/4606)) ([472c54a](https://github.com/AztecProtocol/aztec-packages/commit/472c54a7e89001f5f752da670cc25ec1a537da87))
 - Msan build ([#4646](https://github.com/AztecProtocol/aztec-packages/issues/4646)) ([886cc75](https://github.com/AztecProtocol/aztec-packages/commit/886cc7585f935f4f12257444af7862b51dc91584))
 - MSAN msgpack noise ([#4677](https://github.com/AztecProtocol/aztec-packages/issues/4677)) ([1abae28](https://github.com/AztecProtocol/aztec-packages/commit/1abae28580354f5ccc620dbd717bf079f39fb445))
-- Remove the `VerificationKey` from `ProverInstance` ([#4908](https://github.com/AztecProtocol/aztec-packages/issues/4908)) ([8619c08](https://github.com/AztecProtocol/aztec-packages/commit/8619c084cdfd061f284058b00a96f16fbbca65bf))
+- Remove the `VerificationKey` from `DeciderProvingKey` ([#4908](https://github.com/AztecProtocol/aztec-packages/issues/4908)) ([8619c08](https://github.com/AztecProtocol/aztec-packages/commit/8619c084cdfd061f284058b00a96f16fbbca65bf))
 - Use size hint for ivc circuits ([#4802](https://github.com/AztecProtocol/aztec-packages/issues/4802)) ([035cff4](https://github.com/AztecProtocol/aztec-packages/commit/035cff451ca2171e08279b9d36b23f38b840efea))
 
 ### Miscellaneous

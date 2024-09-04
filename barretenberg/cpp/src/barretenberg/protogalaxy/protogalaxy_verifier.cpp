@@ -5,16 +5,16 @@
 
 namespace bb {
 
-template <class VerifierInstances>
-void ProtogalaxyVerifier_<VerifierInstances>::receive_and_finalise_instance(const std::shared_ptr<Instance>& inst,
-                                                                            const std::string& domain_separator)
+template <class DeciderVerificationKeys>
+void ProtogalaxyVerifier_<DeciderVerificationKeys>::receive_and_finalise_instance(const std::shared_ptr<Instance>& inst,
+                                                                                  const std::string& domain_separator)
 {
     OinkVerifier<Flavor> oink_verifier{ inst, transcript, domain_separator + '_' };
     oink_verifier.verify();
 }
 
-template <class VerifierInstances>
-void ProtogalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vector<FF>& fold_data)
+template <class DeciderVerificationKeys>
+void ProtogalaxyVerifier_<DeciderVerificationKeys>::prepare_for_folding(const std::vector<FF>& fold_data)
 {
     transcript = std::make_shared<Transcript>(fold_data);
     auto index = 0;
@@ -34,9 +34,9 @@ void ProtogalaxyVerifier_<VerifierInstances>::prepare_for_folding(const std::vec
     }
 }
 
-template <class VerifierInstances>
-std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyVerifier_<VerifierInstances>::verify_folding_proof(
-    const std::vector<FF>& fold_data)
+template <class DeciderVerificationKeys>
+std::shared_ptr<typename DeciderVerificationKeys::Instance> ProtogalaxyVerifier_<
+    DeciderVerificationKeys>::verify_folding_proof(const std::vector<FF>& fold_data)
 {
     prepare_for_folding(fold_data);
 
@@ -59,29 +59,30 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyVerifier_<Verif
     auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
 
     // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
-    std::array<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM> combiner_quotient_evals;
-    for (size_t idx = 0; idx < VerifierInstances::BATCHED_EXTENDED_LENGTH - VerifierInstances::NUM; idx++) {
+    std::array<FF, DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH - DeciderVerificationKeys::NUM>
+        combiner_quotient_evals;
+    for (size_t idx = 0; idx < DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH - DeciderVerificationKeys::NUM; idx++) {
         combiner_quotient_evals[idx] = transcript->template receive_from_prover<FF>(
-            "combiner_quotient_" + std::to_string(idx + VerifierInstances::NUM));
+            "combiner_quotient_" + std::to_string(idx + DeciderVerificationKeys::NUM));
     }
-    Univariate<FF, VerifierInstances::BATCHED_EXTENDED_LENGTH, VerifierInstances::NUM> combiner_quotient(
+    Univariate<FF, DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH, DeciderVerificationKeys::NUM> combiner_quotient(
         combiner_quotient_evals);
     FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
     auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
     constexpr FF inverse_two = FF(2).invert();
     FF vanishing_polynomial_at_challenge;
-    std::array<FF, VerifierInstances::NUM> lagranges;
-    if constexpr (VerifierInstances::NUM == 2) {
+    std::array<FF, DeciderVerificationKeys::NUM> lagranges;
+    if constexpr (DeciderVerificationKeys::NUM == 2) {
         vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
         lagranges = { FF(1) - combiner_challenge, combiner_challenge };
-    } else if constexpr (VerifierInstances::NUM == 3) {
+    } else if constexpr (DeciderVerificationKeys::NUM == 3) {
         vanishing_polynomial_at_challenge =
             combiner_challenge * (combiner_challenge - FF(1)) * (combiner_challenge - FF(2));
         lagranges = { (FF(1) - combiner_challenge) * (FF(2) - combiner_challenge) * inverse_two,
                       combiner_challenge * (FF(2) - combiner_challenge),
                       combiner_challenge * (combiner_challenge - FF(1)) * inverse_two };
-    } else if constexpr (VerifierInstances::NUM == 4) {
+    } else if constexpr (DeciderVerificationKeys::NUM == 4) {
         constexpr FF inverse_six = FF(6).invert();
         vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1)) *
                                             (combiner_challenge - FF(2)) * (combiner_challenge - FF(3));
@@ -91,7 +92,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyVerifier_<Verif
                       combiner_challenge * (combiner_challenge - FF(1)) * (FF(3) - combiner_challenge) * inverse_two,
                       combiner_challenge * (combiner_challenge - FF(1)) * (combiner_challenge - FF(2)) * inverse_six };
     }
-    static_assert(VerifierInstances::NUM < 5);
+    static_assert(DeciderVerificationKeys::NUM < 5);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::make_shared<Instance>(accumulator->verification_key);
@@ -155,7 +156,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyVerifier_<Verif
         alpha_idx++;
     }
     auto& expected_parameters = next_accumulator->relation_parameters;
-    for (size_t inst_idx = 0; inst_idx < VerifierInstances::NUM; inst_idx++) {
+    for (size_t inst_idx = 0; inst_idx < DeciderVerificationKeys::NUM; inst_idx++) {
         auto instance = instances[inst_idx];
         expected_parameters.eta += instance->relation_parameters.eta * lagranges[inst_idx];
         expected_parameters.eta_two += instance->relation_parameters.eta_two * lagranges[inst_idx];
@@ -171,7 +172,7 @@ std::shared_ptr<typename VerifierInstances::Instance> ProtogalaxyVerifier_<Verif
     return next_accumulator;
 }
 
-template class ProtogalaxyVerifier_<VerifierInstances_<UltraFlavor, 2>>;
-template class ProtogalaxyVerifier_<VerifierInstances_<MegaFlavor, 2>>;
+template class ProtogalaxyVerifier_<DeciderVerificationKeys_<UltraFlavor, 2>>;
+template class ProtogalaxyVerifier_<DeciderVerificationKeys_<MegaFlavor, 2>>;
 
 } // namespace bb

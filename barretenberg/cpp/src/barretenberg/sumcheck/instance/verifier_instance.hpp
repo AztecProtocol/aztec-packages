@@ -5,13 +5,13 @@
 
 namespace bb {
 /**
- * @brief The VerifierInstance encapsulates all the necessary information for a Mega Honk Verifier to verify a
+ * @brief The DeciderVerificationKey encapsulates all the necessary information for a Mega Honk Verifier to verify a
  * proof (sumcheck + Zeromorph). In the context of folding, this is returned by the Protogalaxy verifier with non-zero
  * target sum and gate challenges.
  *
  * @details This is ϕ in the paper.
  */
-template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
+template <class Flavor, size_t NUM_ = 2> class DeciderVerificationKey_ {
   public:
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -33,8 +33,8 @@ template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
 
-    VerifierInstance_() = default;
-    VerifierInstance_(std::shared_ptr<VerificationKey> vk)
+    DeciderVerificationKey_() = default;
+    DeciderVerificationKey_(std::shared_ptr<VerificationKey> vk)
         : verification_key(std::move(vk))
     {}
 

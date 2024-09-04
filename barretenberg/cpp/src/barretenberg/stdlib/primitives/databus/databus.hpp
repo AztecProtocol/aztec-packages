@@ -70,7 +70,8 @@ template <class Builder> class DataBusDepot {
     using Fq = typename Curve::BaseField;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<Builder>;
-    using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
+    using RecursiveDeciderVerificationKeys =
+        bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
     using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
 
     static constexpr size_t NUM_FR_LIMBS_PER_FQ = Fq::NUM_LIMBS;

@@ -19,11 +19,11 @@ auto& engine = numeric::get_debug_randomness();
 template <typename Flavor> class ProtogalaxyTests : public testing::Test {
   public:
     using VerificationKey = typename Flavor::VerificationKey;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using ProverInstances = ProverInstances_<Flavor, 2>;
-    using VerifierInstance = VerifierInstance_<Flavor>;
-    using VerifierInstances = VerifierInstances_<Flavor, 2>;
-    using ProtogalaxyProver = ProtogalaxyProver_<ProverInstances>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using DeciderProvingKeys = DeciderProvingKeys_<Flavor, 2>;
+    using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
+    using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor, 2>;
+    using ProtogalaxyProver = ProtogalaxyProver_<DeciderProvingKeys>;
     using FF = typename Flavor::FF;
     using Affine = typename Flavor::Commitment;
     using Projective = typename Flavor::GroupElement;
@@ -36,12 +36,12 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     using GateSeparatorPolynomial = bb::GateSeparatorPolynomial<FF>;
     using DeciderProver = DeciderProver_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<ProverInstances>;
-    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
-    using Fun = ProtogalaxyProverInternal<ProverInstances>;
+    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
+    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
-    using TupleOfInstances =
-        std::tuple<std::vector<std::shared_ptr<ProverInstance>>, std::vector<std::shared_ptr<VerifierInstance>>>;
+    using TupleOfInstances = std::tuple<std::vector<std::shared_ptr<DeciderProvingKey>>,
+                                        std::vector<std::shared_ptr<DeciderVerificationKey>>>;
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
@@ -59,9 +59,9 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
                                                        TraceStructure structure = TraceStructure::NONE)
     {
 
-        auto prover_instance = std::make_shared<ProverInstance>(builder, structure);
+        auto prover_instance = std::make_shared<DeciderProvingKey>(builder, structure);
         auto verification_key = std::make_shared<VerificationKey>(prover_instance->proving_key);
-        auto verifier_instance = std::make_shared<VerifierInstance>(verification_key);
+        auto verifier_instance = std::make_shared<DeciderVerificationKey>(verification_key);
         get<0>(instances).emplace_back(prover_instance);
         get<1>(instances).emplace_back(verifier_instance);
     }
@@ -80,9 +80,9 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         return instances;
     }
 
-    static std::tuple<std::shared_ptr<ProverInstance>, std::shared_ptr<VerifierInstance>> fold_and_verify(
-        const std::vector<std::shared_ptr<ProverInstance>>& prover_instances,
-        const std::vector<std::shared_ptr<VerifierInstance>>& verifier_instances)
+    static std::tuple<std::shared_ptr<DeciderProvingKey>, std::shared_ptr<DeciderVerificationKey>> fold_and_verify(
+        const std::vector<std::shared_ptr<DeciderProvingKey>>& prover_instances,
+        const std::vector<std::shared_ptr<DeciderVerificationKey>>& verifier_instances)
     {
         FoldingProver folding_prover(prover_instances);
         FoldingVerifier folding_verifier(verifier_instances);
@@ -92,7 +92,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         return { prover_accumulator, verifier_accumulator };
     }
 
-    static void check_accumulator_target_sum_manual(std::shared_ptr<ProverInstance>& accumulator, bool expected_result)
+    static void check_accumulator_target_sum_manual(std::shared_ptr<DeciderProvingKey>& accumulator,
+                                                    bool expected_result)
     {
         auto instance_size = accumulator->proving_key.circuit_size;
         auto expected_honk_evals = Fun::compute_row_evaluations(
@@ -109,8 +110,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
     }
 
-    static void decide_and_verify(std::shared_ptr<ProverInstance>& prover_accumulator,
-                                  std::shared_ptr<VerifierInstance>& verifier_accumulator,
+    static void decide_and_verify(std::shared_ptr<DeciderProvingKey>& prover_accumulator,
+                                  std::shared_ptr<DeciderVerificationKey>& verifier_accumulator,
                                   bool expected_result)
     {
         DeciderProver decider_prover(prover_accumulator);
@@ -131,7 +132,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         auto builder = typename Flavor::CircuitBuilder();
         construct_circuit(builder);
 
-        auto instance = std::make_shared<ProverInstance>(builder);
+        auto instance = std::make_shared<DeciderProvingKey>(builder);
 
         instance->relation_parameters.eta = FF::random_element();
         instance->relation_parameters.eta_two = FF::random_element();
@@ -212,7 +213,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
             target_sum += full_honk_evals[i] * gate_separators[i];
         }
 
-        auto accumulator = std::make_shared<ProverInstance>();
+        auto accumulator = std::make_shared<DeciderProvingKey>();
         accumulator->proving_key.polynomials = std::move(full_polynomials);
         accumulator->gate_challenges = betas;
         accumulator->target_sum = target_sum;
@@ -237,7 +238,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         auto combiner = bb::Univariate<FF, 12>(std::array<FF, 12>{ 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31 });
         auto combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);
 
-        // K(i) = (G(i) - ( L_0(i) * F(\alpha)) / Z(i), i = {2,.., 13} for ProverInstances::NUM = 2
+        // K(i) = (G(i) - ( L_0(i) * F(\alpha)) / Z(i), i = {2,.., 13} for DeciderProvingKeys::NUM = 2
         // K(i) = (G(i) - (1 - i) * F(\alpha)) / i * (i - 1)
         auto expected_evals = bb::Univariate<FF, 12, 2>(std::array<FF, 10>{
             (FF(22) - (FF(1) - FF(2)) * perturbator_evaluation) / (FF(2) * FF(2 - 1)),
@@ -265,15 +266,15 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void test_compute_extended_relation_parameters()
     {
         Builder builder1;
-        auto instance1 = std::make_shared<ProverInstance>(builder1);
+        auto instance1 = std::make_shared<DeciderProvingKey>(builder1);
         instance1->relation_parameters.eta = 1;
 
         Builder builder2;
         builder2.add_variable(3);
-        auto instance2 = std::make_shared<ProverInstance>(builder2);
+        auto instance2 = std::make_shared<DeciderProvingKey>(builder2);
         instance2->relation_parameters.eta = 3;
 
-        ProverInstances instances{ { instance1, instance2 } };
+        DeciderProvingKeys instances{ { instance1, instance2 } };
         auto relation_parameters_no_optimistic_skipping = Fun::template compute_extended_relation_parameters<
             typename Fun::UnivariateRelationParametersNoOptimisticSkipping>(instances);
         auto relation_parameters =
@@ -296,15 +297,15 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
     static void test_compute_and_extend_alphas()
     {
         Builder builder1;
-        auto instance1 = std::make_shared<ProverInstance>(builder1);
+        auto instance1 = std::make_shared<DeciderProvingKey>(builder1);
         instance1->alphas.fill(2);
 
         Builder builder2;
         builder2.add_variable(3);
-        auto instance2 = std::make_shared<ProverInstance>(builder2);
+        auto instance2 = std::make_shared<DeciderProvingKey>(builder2);
         instance2->alphas.fill(4);
 
-        ProverInstances instances{ { instance1, instance2 } };
+        DeciderProvingKeys instances{ { instance1, instance2 } };
         auto alphas = Fun::compute_and_extend_alphas(instances);
 
         bb::Univariate<FF, 12> expected_alphas{ { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24 } };
@@ -551,8 +552,8 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         constexpr size_t total_insts = k + 1;
         TupleOfInstances insts = construct_instances(total_insts);
 
-        ProtogalaxyProver_<ProverInstances_<Flavor, total_insts>> folding_prover(get<0>(insts));
-        ProtogalaxyVerifier_<VerifierInstances_<Flavor, total_insts>> folding_verifier(get<1>(insts));
+        ProtogalaxyProver_<DeciderProvingKeys_<Flavor, total_insts>> folding_prover(get<0>(insts));
+        ProtogalaxyVerifier_<DeciderVerificationKeys_<Flavor, total_insts>> folding_verifier(get<1>(insts));
 
         auto [prover_accumulator, folding_proof] = folding_prover.prove();
         auto verifier_accumulator = folding_verifier.verify_folding_proof(folding_proof);

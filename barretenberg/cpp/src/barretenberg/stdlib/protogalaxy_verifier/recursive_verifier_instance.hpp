@@ -7,9 +7,9 @@
 namespace bb::stdlib::recursion::honk {
 
 /**
- * @brief The stdlib counterpart of VerifierInstance, used in recursive folding verification.
+ * @brief The stdlib counterpart of DeciderVerificationKey, used in recursive folding verification.
  */
-template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
+template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
   public:
     using FF = typename Flavor::FF;
     using NativeFF = typename Flavor::Curve::ScalarFieldNative;
@@ -21,7 +21,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     using RelationSeparator = typename Flavor::RelationSeparator;
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
-    using VerifierInstance = bb::VerifierInstance_<NativeFlavor>;
+    using DeciderVerificationKey = bb::DeciderVerificationKey_<NativeFlavor>;
 
     Builder* builder;
 
@@ -38,21 +38,21 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
 
-    RecursiveVerifierInstance_(Builder* builder)
+    RecursiveDeciderVerificationKey_(Builder* builder)
         : builder(builder){};
 
-    RecursiveVerifierInstance_(Builder* builder, std::shared_ptr<NativeVerificationKey> vk)
+    RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<NativeVerificationKey> vk)
         : builder(builder)
         , verification_key(std::make_shared<VerificationKey>(builder, vk)){};
 
     // Constructor from stdlib vkey
-    RecursiveVerifierInstance_(Builder* builder, std::shared_ptr<VerificationKey> vk)
+    RecursiveDeciderVerificationKey_(Builder* builder, std::shared_ptr<VerificationKey> vk)
         : builder(builder)
         , verification_key(vk)
     {}
 
-    RecursiveVerifierInstance_(Builder* builder, const std::shared_ptr<VerifierInstance>& instance)
-        : RecursiveVerifierInstance_(builder, instance->verification_key)
+    RecursiveDeciderVerificationKey_(Builder* builder, const std::shared_ptr<DeciderVerificationKey>& instance)
+        : RecursiveDeciderVerificationKey_(builder, instance->verification_key)
     {
         is_accumulator = instance->is_accumulator;
         if (is_accumulator) {
@@ -91,13 +91,13 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
     }
 
     /**
-     * @brief Return the underlying native VerifierInstance.
+     * @brief Return the underlying native DeciderVerificationKey.
      *
      * @details In the context of client IVC, we will have several iterations of recursive folding verification. The
-     * RecursiveVerifierInstance is tied to the builder in whose context it was created so in order to preserve the
-     * accumulator values between several iterations we need to retrieve the native VerifierInstance values.
+     * RecursiveDeciderVerificationKey is tied to the builder in whose context it was created so in order to preserve
+     * the accumulator values between several iterations we need to retrieve the native DeciderVerificationKey values.
      */
-    VerifierInstance get_value()
+    DeciderVerificationKey get_value()
     {
         auto inst_verification_key = std::make_shared<NativeVerificationKey>(verification_key->circuit_size,
                                                                              verification_key->num_public_inputs);
@@ -114,7 +114,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveVerifierInstance_ {
             inst_vk = vk.get_value();
         }
 
-        VerifierInstance inst(inst_verification_key);
+        DeciderVerificationKey inst(inst_verification_key);
         inst.is_accumulator = is_accumulator;
 
         inst.public_inputs = std::vector<NativeFF>(static_cast<size_t>(verification_key->num_public_inputs));

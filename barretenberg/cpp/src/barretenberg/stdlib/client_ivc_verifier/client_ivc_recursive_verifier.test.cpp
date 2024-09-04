@@ -11,7 +11,7 @@ class ClientIVCRecursionTests : public testing::Test {
     using VerifierInput = ClientIVCVerifier::VerifierInput;
     using FoldVerifierInput = ClientIVCVerifier::FoldVerifierInput;
     using GoblinVerifierInput = ClientIVCVerifier::GoblinVerifierInput;
-    using VerifierInstance = FoldVerifierInput::Instance;
+    using DeciderVerificationKey = FoldVerifierInput::Instance;
     using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
     using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
     using Proof = ClientIVC::Proof;
@@ -66,9 +66,9 @@ TEST_F(ClientIVCRecursionTests, NativeVerification)
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the set of native verifier instances to be processed by the folding verifier
-    std::vector<std::shared_ptr<VerifierInstance>> instances{ verifier_input.fold_input.accumulator };
+    std::vector<std::shared_ptr<DeciderVerificationKey>> instances{ verifier_input.fold_input.accumulator };
     for (auto vk : verifier_input.fold_input.instance_vks) {
-        instances.emplace_back(std::make_shared<VerifierInstance>(vk));
+        instances.emplace_back(std::make_shared<DeciderVerificationKey>(vk));
     }
 
     // Confirm that the IVC proof can be natively verified
@@ -122,7 +122,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     // EXPECT_TRUE(CircuitChecker::check(*tube_builder));
 
     // Construct and verify a proof for the ClientIVC Recursive Verifier circuit
-    auto inner_instance = std::make_shared<ProverInstance_<UltraFlavor>>(*tube_builder);
+    auto inner_instance = std::make_shared<DeciderProvingKey_<UltraFlavor>>(*tube_builder);
     UltraProver tube_prover{ inner_instance };
     auto native_tube_proof = tube_prover.construct_proof();
 
