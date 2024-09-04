@@ -24,4 +24,4 @@ unconstrained fn test_check_block_number() {
     env.assert_private_call_fails(call_2);
 }
 
-// TODO: Add test for check_timestamp --> setting timestamp currently not supported by TXE
+// TODO(#8372): Add test for check_timestamp --> setting timestamp currently not supported by TXE
