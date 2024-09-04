@@ -57,8 +57,7 @@ contract Crowdfunding {
     #[aztec(private)]
     fn donate(amount: u64) {
         // 1) Check that the deadline has not passed --> we do that via the router contract to conceal which contract
-        // is performing the check. Note that the privacy here is dependent upon what deadline value is chosen by
-        // the deployer. If it's unique to this contract, then we are leaking a privacy.
+        // is performing the check.
         // docs:start:call-check-deadline
         let deadline = storage.deadline.read_private();
         Router::at(ROUTER_ADDRESS).check_timestamp(deadline, Comparator.GT).call(&mut context);

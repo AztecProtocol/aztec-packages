@@ -38,7 +38,12 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, deployCanonicalRouter, getPrivateKeyFromIndex } from './utils.js';
+import {
+  deployCanonicalAuthRegistry,
+  deployCanonicalKeyRegistry,
+  deployCanonicalRouter,
+  getPrivateKeyFromIndex,
+} from './utils.js';
 import { Watcher } from './watcher.js';
 
 export type SubsystemsContext = {

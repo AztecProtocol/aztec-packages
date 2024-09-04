@@ -62,9 +62,9 @@ import { AuthRegistryContract, KeyRegistryContract, RouterContract } from '@azte
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
-import { getCanonicalRouter } from '@aztec/protocol-contracts/router';
 import { FeeJuiceAddress, getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
+import { getCanonicalRouter } from '@aztec/protocol-contracts/router';
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
@@ -800,7 +800,7 @@ export async function deployCanonicalRouter(deployer: Wallet) {
   const canonicalRouter = getCanonicalRouter();
 
   // We check to see if there exists a contract at the Router address with the same contract class id as we expect. This means that
-  // the auth registry has already been deployed to the correct address.
+  // the router has already been deployed to the correct address.
   if (
     (await deployer.getContractInstance(canonicalRouter.address))?.contractClassId.equals(
       canonicalRouter.contractClass.id,

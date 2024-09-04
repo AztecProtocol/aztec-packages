@@ -86,8 +86,8 @@ contract AppSubscription {
             nonce
         ).call(&mut context);
 
-        // Assert that the given expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS < current_block_number.
-        // We do that via the router contract to conceal which contract is performing the check.
+        // Assert that the `expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS < current_block_number`.
+        // --> We do that via the router contract to conceal which contract is performing the check.
         Router::at(ROUTER_ADDRESS).check_block_number(
             expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,
             Comparator.LT
