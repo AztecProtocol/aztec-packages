@@ -3,6 +3,18 @@
 
 namespace bb {
 
+void AztecIVC::instantiate_stdlib_verification_queue(ClientCircuit& circuit)
+{
+    for (auto& [proof, vkey, type] : verification_queue) {
+        // Construct stdlib verification key and proof
+        auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
+        auto stdlib_vkey = std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
+
+        stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vkey, type);
+    }
+    verification_queue.clear();
+}
+
 /**
  * @brief Populate the provided circuit with constraints for (1) recursive verification of the provided accumulation
  * proof and (2) the associated databus commitment consistency checks.
@@ -86,16 +98,18 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
     circuit.databus_propagation_data.is_kernel = true;
 
-    // Peform recursive verification and databus consistency checks for each entry in the verification queue
-    for (auto& [proof, vkey, type] : verification_queue) {
-        // Construct stdlib verification key and proof
-        auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
-        auto stdlib_vkey = std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
-
-        perform_recursive_verification_and_databus_consistency_checks(circuit, stdlib_proof, stdlib_vkey, type);
+    // Instantiate stdlib verifier inputs from their native counterparts
+    if (stdlib_verification_queue.empty()) {
+        instantiate_stdlib_verification_queue(circuit);
     }
-    verification_queue.clear();
 
+    // Peform recursive verification and databus consistency checks for each entry in the verification queue
+    for (auto& [proof, vkey, type] : stdlib_verification_queue) {
+        perform_recursive_verification_and_databus_consistency_checks(circuit, proof, vkey, type);
+    }
+    stdlib_verification_queue.clear();
+
+    // Perform recursive merge verification for every merge proof in the queue
     process_recursive_merge_verification_queue(circuit);
 }
 

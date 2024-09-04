@@ -71,6 +71,12 @@ class AztecIVC {
         QUEUE_TYPE type;
     };
 
+    struct StdlibVerifierInputs {
+        StdProof proof; // oink or PG
+        std::shared_ptr<RecursiveVerificationKey> instance_vk;
+        QUEUE_TYPE type;
+    };
+
     // Utility for tracking the max size of each block across the full IVC
     MaxBlockSizeTracker max_block_size_tracker;
 
@@ -87,6 +93,7 @@ class AztecIVC {
 
     // Set of pairs of {fold_proof, verification_key} to be recursively verified
     std::vector<RecursiveVerifierInputs> verification_queue;
+    std::vector<StdlibVerifierInputs> stdlib_verification_queue;
     // Set of merge proofs to be recursively verified
     std::vector<MergeProof> merge_verification_queue;
 
@@ -97,6 +104,8 @@ class AztecIVC {
     TraceStructure trace_structure = TraceStructure::NONE;
 
     bool initialized = false; // Is the IVC accumulator initialized
+
+    void instantiate_stdlib_verification_queue(ClientCircuit& circuit);
 
     void perform_recursive_verification_and_databus_consistency_checks(ClientCircuit& circuit,
                                                                        StdProof& proof,
