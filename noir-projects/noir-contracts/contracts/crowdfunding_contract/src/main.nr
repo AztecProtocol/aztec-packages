@@ -37,6 +37,7 @@ contract Crowdfunding {
     }
     // docs:end:storage
 
+    // TODO(#8367): Ensure deadline is quantized to improve privacy set.
     // docs:start:init
     // docs:start:init-header
     // docs:start:init-header-error
