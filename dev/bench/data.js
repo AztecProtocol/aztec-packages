@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725447390885,
+  "lastUpdate": 1725459119899,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ec03e403cc8bfa1f40fb05fe93eadf9ed63b9b2f",
-          "message": "chore: Split up stdlib/recursion (#8054)\n\nA single target contained many stdlib verifiers. I split that up to make\r\nworking on these faster. I also move the Goblin VM verifiers into\r\nstdlib/ for consistency. I also removed some template instatiations of\r\nthe Protogalaxy that are not needed.",
-          "timestamp": "2024-08-20T10:00:47Z",
-          "tree_id": "c583bbdd467d997a69503b2b11d5790d202453ee",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ec03e403cc8bfa1f40fb05fe93eadf9ed63b9b2f"
-        },
-        "date": 1724148685488,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13347.796576000008,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9898.169382 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5053.374314999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4561.518164 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39951.034381,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39951035000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14560.236238,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14560236000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3811037490,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3811037490 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 211058017,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 211058017 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3114330616,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3114330616 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173658037,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173658037 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 121085924,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 121085924 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4dbad01c866b28f7d440d7b4e17631ed6a0469f3",
+          "message": "chore(bb): reinstate \"chore: uncomment asserts in oink rec verifier\"\" (#8356)\n\nFixes the base rollup test by making the input proof have the same\r\ncircuit size, number of public inputs, and pub inputs offset.\r\n\r\n---------\r\n\r\nCo-authored-by: lucasxia01 <lucasxia01@gmail.com>",
+          "timestamp": "2024-09-04T14:51:08+01:00",
+          "tree_id": "0a28816720f7bed3f350cc6b3d3686d474f6bb05",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4dbad01c866b28f7d440d7b4e17631ed6a0469f3"
+        },
+        "date": 1725459112350,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13605.059952999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10431.765838999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5246.008173999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4840.6236930000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39743.700535,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39743700000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14796.451688000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14796451000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3760925560,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3760925560 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 150709575,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 150709575 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3072689548,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3072689548 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 121576911,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 121576911 ns\nthreads: 1"
           }
         ]
       }
