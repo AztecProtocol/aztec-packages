@@ -27,30 +27,54 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     using RecursiveVerifierInputs = AztecIVC::RecursiveVerifierInputs;
     using QUEUE_TYPE = AztecIVC::QUEUE_TYPE;
 
+    /**
+     * @brief Create an ACIR RecursionConstraint given the corresponding verifier inputs
+     * @brief In practice such constraints are created via a call to verify_proof(...) in noir
+     *
+     * @param input bberg style proof and verification key
+     * @param witness Array of witnesses into which the above data is placed
+     * @param num_public_inputs Number of public inputs to be extracted from the proof
+     * @return RecursionConstraint
+     */
     static RecursionConstraint create_recursion_constraint(RecursiveVerifierInputs& input,
                                                            SlabVector<FF>& witness,
                                                            size_t num_public_inputs)
     {
+        // Assemble simple vectors of witnesses for vkey and proof
         std::vector<FF> key_witnesses = input.instance_vk->to_field_elements();
         std::vector<FF> proof_witnesses = input.proof;
 
-        auto [key_indices, proof_indices, inner_public_inputs] =
+        // Construct witness indices for each component in the constraint; populate the witness array
+        auto [key_indices, proof_indices, public_inputs_indices] =
             ProofSurgeon::populate_recursion_witness_data(witness, proof_witnesses, key_witnesses, num_public_inputs);
 
+        // The proof type can be either Oink or PG
         PROOF_TYPE proof_type = input.type == QUEUE_TYPE::OINK ? OINK : PG;
 
-        RecursionConstraint ivc_recursion_constraint{
+        return RecursionConstraint{
             .key = key_indices,
             .proof = proof_indices,
-            .public_inputs = inner_public_inputs,
+            .public_inputs = public_inputs_indices,
             .key_hash = 0, // not used
             .proof_type = proof_type,
         };
-
-        return ivc_recursion_constraint;
     }
 
-    static Builder create_kernel(AztecIVC& ivc, const std::vector<size_t>& inner_circuit_num_pub_inputs)
+    /**
+     * @brief Generate constraint system based on the verification queue and construct the corresponding kernel circuit
+     * @details The IVC contains and internal verification queue that contains proofs to be recursively verified.
+     * Construct an AcirFormat constraint system with a RecursionConstraint for each entry in the queue then construct a
+     * bberg style "kernel" circuit from that. (In practice these constraints would come directly from calls to
+     * verify_proof in noir).
+     * @note This method needs the number of public inputs in each proof-to-be-verified since the acir constraint
+     * requires that the public inputs be provided separately from the 'main' proof.
+     *
+     * @param ivc
+     * @param inner_circuit_num_pub_inputs
+     * @return Builder
+     */
+    static Builder construct_kernel_from_constraint_system(AztecIVC& ivc,
+                                                           const std::vector<size_t>& inner_circuit_num_pub_inputs)
     {
         const size_t num_recursive_verifications = ivc.verification_queue.size();
         ASSERT(num_recursive_verifications == inner_circuit_num_pub_inputs.size());
@@ -59,11 +83,13 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         std::vector<RecursionConstraint> ivc_recursion_constraints;
         ivc_recursion_constraints.reserve(num_recursive_verifications);
 
+        // Construct recursion constraints based on the ivc verification queue; populate the witness along the way
         for (size_t idx = 0; idx < num_recursive_verifications; ++idx) {
             ivc_recursion_constraints.push_back(
                 create_recursion_constraint(ivc.verification_queue[idx], witness, inner_circuit_num_pub_inputs[idx]));
         }
 
+        // Construct a constraint system containing only ivc recursion constraints
         AcirFormat constraint_system{};
         constraint_system.varnum = static_cast<uint32_t>(witness.size());
         constraint_system.recursive = false;
@@ -71,16 +97,20 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         constraint_system.ivc_recursion_constraints = ivc_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
 
-        mock_opcode_indices(constraint_system); // WORKTODO: tf is this ish
+        mock_opcode_indices(constraint_system); // WORKTODO: wtf is this
 
-        return create_kernel_circuit(constraint_system, ivc, /*size_hint=*/0, witness);
+        return acir_format::create_kernel_circuit(constraint_system, ivc, /*size_hint=*/0, witness);
     }
 
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite()
+    {
+        bb::srs::init_crs_factory("../srs_db/ignition");
+        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+    }
 };
 
-TEST_F(IvcRecursionConstraintTest, Basic)
+TEST_F(IvcRecursionConstraintTest, Single)
 {
     AztecIVC ivc;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
@@ -93,38 +123,37 @@ TEST_F(IvcRecursionConstraintTest, Basic)
     ivc.accumulate(app_circuit);
 
     // Construct kernel_0 consisting only of the kernel completion logic
-    Builder kernel_0 = create_kernel(ivc, { app_circuit.public_inputs.size() });
+    Builder kernel_0 = construct_kernel_from_constraint_system(ivc, { app_circuit.public_inputs.size() });
 
     EXPECT_TRUE(CircuitChecker::check(kernel_0));
     ivc.accumulate(kernel_0);
 
-    // Construct kernel_1 consisting only of the kernel completion logic
-    Builder kernel_1 = create_kernel(ivc, { kernel_0.public_inputs.size() });
+    EXPECT_TRUE(ivc.prove_and_verify());
+}
+
+TEST_F(IvcRecursionConstraintTest, Two)
+{
+    AztecIVC ivc;
+    ivc.trace_structure = TraceStructure::SMALL_TEST;
+
+    // construct a mock app_circuit
+    Builder app_circuit{ ivc.goblin.op_queue };
+    GoblinMockCircuits::construct_simple_circuit(app_circuit);
+
+    // Complete instance and generate an oink proof
+    ivc.accumulate(app_circuit);
+
+    // Construct kernel_0; consists of a single oink recursive verification for app (plus databus/merge logic)
+    Builder kernel_0 = construct_kernel_from_constraint_system(ivc, { app_circuit.public_inputs.size() });
+
+    EXPECT_TRUE(CircuitChecker::check(kernel_0));
+    ivc.accumulate(kernel_0);
+
+    // Construct kernel_1; consists of a single PG recursive verification for kernel_0 (plus databus/merge logic)
+    Builder kernel_1 = construct_kernel_from_constraint_system(ivc, { kernel_0.public_inputs.size() });
 
     EXPECT_TRUE(CircuitChecker::check(kernel_1));
     ivc.accumulate(kernel_1);
 
-    // ivc.prove_and_verify()
-
-    /************************************************************** */
-
-    // What is needed?
-    //  - use MockCircuits to generate simple app (arithmetic only is fine)
-
-    //  - Logic for creating stdlib inputs to perform_recursive_verification_and_databus_consistency_checks
-    //      - combine constraint.proof_idxs/public_inputs_idxs (already in ProofSurgeon?) into
-    //      constraint_proof_idxs
-    //      - generate stdlib proof from ivc-owned proof
-    //      - perform assert_equal between stdlib_proof witness indices and constraint_proof_idxs
-    //      - Do something similar for vkey
-    //          - slightly diff since constraint vkey witnesses are correct in practice, unlike for proof
-    //          - Need to (a) constuct std_vkey as normal + method for asserting_equal indices from
-    //          constraint.vkey
-    //          - Or (b) construct a stdlib_vkey directly from the witness indices in constraint.vkey
-
-    //  - Implement create_kernel_circuit
-    //      - (probably contains the above stdlib object construction logic)
-    //      - maybe calls out to the normal create_circuit for everything but ivc constraints
-    //      - calls perform_recursive_verification_and_databus_consistency_checks(circuit, proof, vkey, type =
-    //      OINK)
+    EXPECT_TRUE(ivc.prove_and_verify());
 }

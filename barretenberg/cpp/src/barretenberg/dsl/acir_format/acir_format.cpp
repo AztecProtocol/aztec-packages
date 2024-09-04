@@ -421,8 +421,6 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
                                          [[maybe_unused]] size_t size_hint,
                                          WitnessVector const& witness)
 {
-    using RecursiveVerificationKey = AztecIVC::RecursiveVerificationKey;
-
     // Construct the main kernel circuit logic excluding recursive verifiers
     auto circuit = create_circuit<MegaCircuitBuilder>(constraint_system,
                                                       size_hint,
@@ -431,31 +429,18 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
                                                       ivc.goblin.op_queue,
                                                       /*collect_gates_per_opcode=*/false);
 
-    circuit.databus_propagation_data.is_kernel = true;
-
-    const size_t num_ivc_constraints = constraint_system.ivc_recursion_constraints.size();
-
-    if (num_ivc_constraints != ivc.verification_queue.size()) {
+    if (constraint_system.ivc_recursion_constraints.size() != ivc.verification_queue.size()) {
         info("WARNING: Mismatch in number of recursive verifications during kernel creation!");
-        info("num_ivc_constraints = ", num_ivc_constraints);
+        info("num_ivc_constraints = ", constraint_system.ivc_recursion_constraints.size());
         info("ivc.verification_queue.size() = ", ivc.verification_queue.size());
         ASSERT(false);
     }
 
     ivc.instantiate_stdlib_verification_queue(circuit);
 
-    for (size_t i = 0; i < num_ivc_constraints; ++i) {
-        const auto& [proof, vkey, type] = ivc.verification_queue[i];
-        auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
-        auto stdlib_vkey = std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
+    // WORKTODO: assert_equal on proofs/vkeys here
 
-        // WORKTODO: assert_equal on proof and vkey here
-
-        // ivc.perform_recursive_verification_and_databus_consistency_checks(circuit, stdlib_proof, stdlib_vkey, type);
-    }
-    ivc.verification_queue.clear();
-
-    // ivc.process_recursive_merge_verification_queue(circuit);
+    ivc.complete_kernel_circuit_logic(circuit);
 
     return circuit;
 };
