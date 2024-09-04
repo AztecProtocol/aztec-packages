@@ -39,4 +39,12 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
                                                    bool has_valid_witness_assignments,
                                                    Builder& builder);
 
+template <typename Builder, typename FF> FF get_value(const WitnessOrConstant<FF>& input, Builder& builder)
+{
+    if (input.is_constant) {
+        return input.value;
+    }
+    return builder.variables[input.index];
+}
+
 } // namespace acir_format

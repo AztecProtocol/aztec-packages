@@ -12,10 +12,17 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
                                                    bool has_valid_witness_assignments,
                                                    Builder& builder)
 {
-    using bool_ct = bb::stdlib::bool_t<Builder>;
     auto point_x = to_field_ct(input_x, builder);
     auto point_y = to_field_ct(input_y, builder);
-    auto infinite = bool_ct(to_field_ct(input_infinite, builder));
+    // We assume input_infinite is boolean, so we do not add a boolean gate
+    bool_t infinite(&builder);
+    if (!input_infinite.is_constant) {
+        infinite.witness_index = input_infinite.index;
+        infinite.witness_bool = get_value(input_infinite, builder) == FF::one();
+    } else {
+        infinite.witness_index = IS_CONSTANT;
+        infinite.witness_bool = input_infinite.value == FF::one();
+    }
 
     // When we do not have the witness assignments, we set is_infinite value to true if it is not constant
     // else default values would give a point which is not on the curve and this will fail verification
