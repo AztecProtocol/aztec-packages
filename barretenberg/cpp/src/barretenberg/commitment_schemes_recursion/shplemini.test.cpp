@@ -16,7 +16,7 @@ using namespace bb;
 
 template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typename PCS::Curve::NativeCurve> {};
 
-static numeric::RNG& engine = numeric::get_debug_randomness();
+numeric::RNG& shplemini_engine = numeric::get_debug_randomness();
 
 /**
  * @brief Test Recursive Verification for 2 multilinear polynomials and a shift of one of them
@@ -50,7 +50,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 
     std::vector<NativeFr> u_challenge(log_circuit_size);
     for (NativeFr& element : u_challenge) {
-        element = NativeFr::random_element();
+        element = NativeFr::random_element(&shplemini_engine);
     }
 
     // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)

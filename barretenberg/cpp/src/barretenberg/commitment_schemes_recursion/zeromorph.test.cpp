@@ -16,7 +16,7 @@ using namespace bb;
 
 template <class PCS> class ZeroMorphRecursionTest : public CommitmentTest<typename PCS::Curve::NativeCurve> {};
 
-static numeric::RNG& engine = numeric::get_debug_randomness();
+numeric::RNG& zm_engine = numeric::get_debug_randomness();
 
 /**
  * @brief Test full Prover/Verifier protocol for proving single multilinear evaluation
@@ -46,7 +46,7 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
 
     srs::init_crs_factory("../srs_db/ignition");
 
-    std::vector<NativeFr> u_challenge = { NativeFr::random_element(&engine) };
+    std::vector<NativeFr> u_challenge = { NativeFr::random_element(&zm_engine) };
 
     // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)
     std::vector<Polynomial> f_polynomials; // unshifted polynomials
