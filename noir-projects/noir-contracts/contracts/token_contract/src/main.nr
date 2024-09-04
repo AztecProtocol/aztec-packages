@@ -19,11 +19,11 @@ contract Token {
         context::{PrivateContext, PrivateCallInterface}, hash::compute_secret_hash,
         prelude::{
         NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress,
-        FunctionSelector, NoteHeader, Point
+        FunctionSelector, NoteHeader
     },
         encrypted_logs::{
         encrypted_note_emission::{encode_and_encrypt_note_with_keys, encode_and_encrypt_note_with_keys_unconstrained},
-        encrypted_event_emission::{encode_and_encrypt_event, encode_and_encrypt_event_with_keys_unconstrained}
+        encrypted_event_emission::encode_and_encrypt_event_with_keys_unconstrained
     },
         keys::getters::get_current_public_keys
     };
@@ -33,8 +33,8 @@ contract Token {
     // docs:end:import_authwit
 
     use crate::types::{
-        transparent_note::TransparentNote,
-        token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteHidingPoint}, balance_set::BalanceSet
+        transparent_note::TransparentNote, token_note::{TokenNote, TokenNoteHidingPoint},
+        balance_set::BalanceSet
     };
     // docs:end::imports
 
@@ -491,18 +491,23 @@ contract Token {
     /// We need to use different randomness for the user and for the fee payer notes because if the randomness values
     /// were the same we could fingerprint the user by doing the following:
     ///      1) randomness_influence = fee_payer_point - G_npk * fee_payer_npk =
-    ///                              = (G_npk * fee_payer_npk + G_rnd * randomness) - G_npk * fee_payer_npk =
+    ///                              = (G_npk * fee_payer_npk + G_rnd * randomness + G_slot * fee_payer_slot)
+    ///                                - G_npk * fee_payer_npk - G_slot * fee_payer_slot =
     ///                              = G_rnd * randomness
     ///      2) user_fingerprint = user_point - randomness_influence =
-    ///                          = (G_npk * user_npk + G_rnd * randomness) - G_rnd * randomness =
-    ///                          = G_npk * user_npk
+    ///                          = (G_npk * user_npk + G_rnd * randomness + G_slot * user_slot) - G_rnd * randomness =
+    ///                          = G_npk * user_npk + G_slot * user_slot
     ///      3) Then the second time the user would use this fee paying contract we would recover the same fingerprint
     ///         and link that the 2 transactions were made by the same user. Given that it's expected that only
     ///         a limited set of fee paying contracts will be used and they will be known, searching for fingerprints
-    ///         by trying different fee payer npk values of these known contracts is a feasible attack.
+    ///         by trying different fee payers is a feasible attack.
     ///
-    /// `fee_payer_point` and `user_point` above are public information because they are passed as args to the public
-    /// `complete_refund(...)` function.
+    /// Note 1: fee_payer_npk is publicly available in a key registry contract under a fee_payer address. So if we have
+    ///         a known set of fee payer contract addresses getting fee_payer_npk and fee_payer_slot is trivial (slot
+    ///         is derived in a `Map<...>` as a hash of balances map slot and a fee payer address).
+    /// Note 2: fee_payer_point and user_point above are public information because they are passed as args to
+    ///         the public `complete_refund(...)` function.
+    // docs:start:setup_refund
     #[aztec(private)]
     fn setup_refund(
         fee_payer: AztecAddress, // Address of the entity which will receive the fee note.
@@ -567,15 +572,19 @@ contract Token {
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
-            FunctionSelector::from_signature("complete_refund(((Field,Field,bool)),((Field,Field,bool)),Field)"),
+            comptime {
+            FunctionSelector::from_signature("complete_refund(((Field,Field,bool)),((Field,Field,bool)),Field)")
+        },
             [
             fee_payer_point.inner.x, fee_payer_point.inner.y, fee_payer_point.inner.is_infinite as Field, user_point.inner.x, user_point.inner.y, user_point.inner.is_infinite as Field, funded_amount
         ]
         );
     }
+    // docs:end:setup_refund
 
     // TODO(#7728): even though the funded_amount should be a U128, we can't have that type in a contract interface due
     // to serialization issues.
+    // docs:start:complete_refund
     #[aztec(public)]
     #[aztec(internal)]
     fn complete_refund(
@@ -614,6 +623,7 @@ contract Token {
         context.push_note_hash(user_note_hash);
         // --> Once the tx is settled user and fee recipient can add the notes to their pixies.
     }
+    // docs:end:complete_refund
 
     /// Internal ///
 

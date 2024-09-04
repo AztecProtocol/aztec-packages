@@ -24,7 +24,7 @@ spec:
           command:
             - "/bin/sh"
             - "-c"
-            - "cp /scripts/configure-validator-env.sh /tmp/configure-validator-env.sh && chmod +x /tmp/configure-validator-env.sh && /tmp/configure-validator-env.sh"
+            - "cp /scripts/configure-validator-env.sh /tmp/configure-validator-env.sh && chmod +x /tmp/configure-validator-env.sh && /tmp/configure-validator-env.sh {{ include "aztec-network.bootNodeUrl" . }}"
           volumeMounts:
             - name: shared-volume
               mountPath: /shared
@@ -65,6 +65,12 @@ spec:
               value: {{ include "aztec-network.ethereumHost" . | quote }}
             - name: P2P_ENABLED
               value: "{{ .Values.validator.p2p.enabled }}"
+            - name: VALIDATOR_DISABLED
+              value: "{{ .Values.validator.validator.disabled }}"
+            - name: SEQ_MAX_SECONDS_BETWEEN_BLOCKS
+              value: "{{ .Values.bootNode.sequencer.maxSecondsBetweenBlocks }}"
+            - name: SEQ_MIN_TX_PER_BLOCK
+              value: "{{ .Values.bootNode.sequencer.minTxsPerBlock }}"
             - name: P2P_TCP_ANNOUNCE_ADDR
               value: "$(POD_DNS_NAME):{{ .Values.validator.service.p2pPort }}"
             - name: P2P_UDP_ANNOUNCE_ADDR
@@ -73,6 +79,10 @@ spec:
               value: "0.0.0.0:{{ .Values.validator.service.p2pPort }}"
             - name: P2P_UDP_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.validator.service.p2pPort }}"
+            - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+              value: {{ include "aztec-network.otelCollectorMetricsEndpoint" . | quote }}
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: {{ include "aztec-network.otelCollectorTracesEndpoint" . | quote }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
             - containerPort: {{ .Values.validator.service.p2pPort }}
@@ -84,3 +94,14 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-configure-validator-env
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-configure-validator-env
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+data:
+  configure-validator-env.sh: |
+    {{ .Files.Get "files/config/config-validator-env.sh" | nindent 4 }}
