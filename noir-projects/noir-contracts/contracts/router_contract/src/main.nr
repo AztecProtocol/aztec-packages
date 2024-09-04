@@ -4,6 +4,7 @@
 contract Router {
     use aztec::utils::comparison::assert_comparison;
 
+    // docs:start:check_timestamp
     /// Enqueues a public call that asserts that `lhs` (left side of the comparison) timestamp satisfies
     /// the `operation` with respect to the current timestamp.
     #[aztec(private)]
@@ -19,12 +20,15 @@ contract Router {
         let rhs = context.timestamp() as Field;
         assert_comparison(lhs_field, operation, rhs, "Timestamp mismatch.");
     }
+    // docs:end:check_timestamp
 
     /// Enqueues a public call that asserts that `lhs` (left side of the comparison) block number satisfies
     /// the `operation` with respect to the current block number.
     #[aztec(private)]
     fn check_block_number(lhs: Field, operation: u8) {
+        // docs:start:enqueueing
         Router::at(context.this_address())._check_block_number(lhs, operation).enqueue_view(&mut context);
+        // docs:end:enqueueing
     }
 
     #[aztec(public)]
