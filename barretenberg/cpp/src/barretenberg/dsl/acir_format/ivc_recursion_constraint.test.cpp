@@ -103,7 +103,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     }
 
   protected:
-    static void SetUpTestSuite()
+    void SetUp() override
     {
         bb::srs::init_crs_factory("../srs_db/ignition");
         srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
@@ -137,7 +137,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 
 /**
  * @brief Test IVC accumulation of two apps and two kernels; The first kernel contains a recursive oink verification and
- * the second contains two recursive PG verifications, all specified via a ACIR RecursionConstraints.
+ * the second contains two recursive PG verifications, all specified via ACIR RecursionConstraints.
  */
 TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 {

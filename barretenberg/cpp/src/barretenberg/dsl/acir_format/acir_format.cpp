@@ -416,9 +416,18 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
     return builder;
 };
 
+/**
+ * @brief Create a kernel circuit from a constraint system and an IVC instance
+ *
+ * @param constraint_system AcirFormat constraint system possibly containing IVC recursion constraints
+ * @param ivc An IVC instance containing internal data about proofs to be verified
+ * @param size_hint
+ * @param witness
+ * @return MegaCircuitBuilder
+ */
 MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
                                          AztecIVC& ivc,
-                                         [[maybe_unused]] size_t size_hint,
+                                         size_t size_hint,
                                          WitnessVector const& witness)
 {
     // Construct the main kernel circuit logic excluding recursive verifiers
@@ -436,10 +445,21 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
         ASSERT(false);
     }
 
+    // Create stdlib representations of each {proof, vkey} pair in the queue based on their native counterparts
     ivc.instantiate_stdlib_verification_queue(circuit);
 
-    // WORKTODO: assert_equal on proofs/vkeys here
+    // Connect each {proof, vkey} pair from the constraint to the corresponding entry in the internal verification queue
+    for (auto [constraint, queue_entry] :
+         zip_view(constraint_system.ivc_recursion_constraints, ivc.stdlib_verification_queue)) {
+        // Update the constraint proof values with the correct internal values via assert_equal
+        for (auto [proof_idx, proof_value] : zip_view(constraint.proof, queue_entry.proof)) {
+            circuit.assert_equal(proof_value.get_witness_index(), proof_idx);
+        }
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1090): assert equality between the internal vkey
+        // and the constaint vkey, or simply use the constraint vkey directly to construct the stdlib vkey used in IVC.
+    }
 
+    // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
     ivc.complete_kernel_circuit_logic(circuit);
 
     return circuit;
