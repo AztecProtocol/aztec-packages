@@ -53,7 +53,7 @@ describe('proof_verification', () => {
     if (!rpcUrl) {
       ({ anvil, rpcUrl } = await startAnvil());
     }
-    logger.info('anvil done');
+    logger.info('Anvil started');
 
     ({ l1ContractAddresses, publicClient, walletClient } = await setupL1Contracts(
       rpcUrl,
