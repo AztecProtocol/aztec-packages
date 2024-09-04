@@ -30,7 +30,7 @@ export class AvmContext {
    * - Derive a machine state from the current state
    *   - E.g., gas metering is preserved but pc is reset
    * - Derive an execution environment from the caller/parent
-   *   - Alter both address and storageAddress
+   *   - Alter both sender and address
    *
    * @param address - The contract instance to initialize a context for
    * @param calldata - Data/arguments for nested call

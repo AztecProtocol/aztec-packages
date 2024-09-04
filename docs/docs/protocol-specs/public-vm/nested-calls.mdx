@@ -43,7 +43,6 @@ context.worldStateAccessTrace.contractCalls.append(
     TracedContractCall {
         callPointer: context.worldStateAccessTrace.contractCalls.length + 1,
         address: M[addrOffset],
-        storageAddress: M[addrOffset],
         counter: ++context.worldStateAccessTrace.accessCounter,
         endLifetime: 0, // The call's end-lifetime will be updated later if it or its caller reverts
     }

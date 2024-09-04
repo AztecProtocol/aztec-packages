@@ -221,7 +221,6 @@ library Constants {
   uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
   uint256 internal constant SENDER_SELECTOR = 0;
   uint256 internal constant ADDRESS_SELECTOR = 1;
-  uint256 internal constant STORAGE_ADDRESS_SELECTOR = 1;
   uint256 internal constant FUNCTION_SELECTOR_SELECTOR = 2;
   uint256 internal constant START_GLOBAL_VARIABLES = 29;
   uint256 internal constant CHAIN_ID_SELECTOR = 29;

@@ -43,7 +43,6 @@ enum class OpCode : uint8_t {
 
     // Execution Environment
     ADDRESS,
-    STORAGEADDRESS,
     SENDER,
     FUNCTIONSELECTOR,
     TRANSACTIONFEE,

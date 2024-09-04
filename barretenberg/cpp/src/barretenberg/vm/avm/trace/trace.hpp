@@ -84,7 +84,6 @@ class AvmTraceBuilder {
 
     // Execution Environment
     void op_address(uint8_t indirect, uint32_t dst_offset);
-    void op_storage_address(uint8_t indirect, uint32_t dst_offset);
     void op_sender(uint8_t indirect, uint32_t dst_offset);
     void op_function_selector(uint8_t indirect, uint32_t dst_offset);
     void op_transaction_fee(uint8_t indirect, uint32_t dst_offset);

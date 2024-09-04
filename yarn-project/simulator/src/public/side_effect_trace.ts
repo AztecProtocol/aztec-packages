@@ -80,12 +80,12 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.sideEffectCounter++;
   }
 
-  public tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
+  public tracePublicStorageRead(address: Fr, slot: Fr, value: Fr, _exists: boolean, _cached: boolean) {
     // TODO(4805): check if some threshold is reached for max storage reads
     // (need access to parent length, or trace needs to be initialized with parent's contents)
     // NOTE: exists and cached are unused for now but may be used for optimizations or kernel hints later
     this.contractStorageReads.push(
-      new ContractStorageRead(slot, value, this.sideEffectCounter, AztecAddress.fromField(storageAddress)),
+      new ContractStorageRead(slot, value, this.sideEffectCounter, AztecAddress.fromField(address)),
     );
     this.avmCircuitHints.storageValues.items.push(
       new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ value),
@@ -94,19 +94,19 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public tracePublicStorageWrite(storageAddress: Fr, slot: Fr, value: Fr) {
+  public tracePublicStorageWrite(address: Fr, slot: Fr, value: Fr) {
     // TODO(4805): check if some threshold is reached for max storage writes
     // (need access to parent length, or trace needs to be initialized with parent's contents)
     this.contractStorageUpdateRequests.push(
-      new ContractStorageUpdateRequest(slot, value, this.sideEffectCounter, storageAddress),
+      new ContractStorageUpdateRequest(slot, value, this.sideEffectCounter, address),
     );
     this.logger.debug(`SSTORE cnt: ${this.sideEffectCounter} val: ${value} slot: ${slot}`);
     this.incrementSideEffectCounter();
   }
 
-  public traceNoteHashCheck(_storageAddress: Fr, noteHash: Fr, _leafIndex: Fr, exists: boolean) {
+  public traceNoteHashCheck(_address: Fr, noteHash: Fr, _leafIndex: Fr, exists: boolean) {
     // TODO(4805): check if some threshold is reached for max note hash checks
-    // NOTE: storageAddress is unused but will be important when an AVM circuit processes an entire enqueued call
+    // NOTE: address is unused but will be important when an AVM circuit processes an entire enqueued call
     // TODO(dbanks12): leafIndex is unused for now but later must be used by kernel to constrain that the kernel
     // is in fact checking the leaf indicated by the user
     this.noteHashReadRequests.push(new ReadRequest(noteHash, this.sideEffectCounter));
@@ -117,9 +117,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceNewNoteHash(_storageAddress: Fr, noteHash: Fr) {
+  public traceNewNoteHash(_address: Fr, noteHash: Fr) {
     // TODO(4805): check if some threshold is reached for max new note hash
-    // NOTE: storageAddress is unused but will be important when an AVM circuit processes an entire enqueued call
+    // NOTE: address is unused but will be important when an AVM circuit processes an entire enqueued call
     // TODO(dbanks12): non-existent note hashes should emit a read request of the note hash that actually
     // IS there, and the AVM circuit should accept THAT noteHash as a hint. The circuit will then compare
     // the noteHash against the one provided by the user code to determine what to return to the user (exists or not),
@@ -129,9 +129,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceNullifierCheck(_storageAddress: Fr, nullifier: Fr, _leafIndex: Fr, exists: boolean, _isPending: boolean) {
+  public traceNullifierCheck(_address: Fr, nullifier: Fr, _leafIndex: Fr, exists: boolean, _isPending: boolean) {
     // TODO(4805): check if some threshold is reached for max new nullifier
-    // NOTE: storageAddress is unused but will be important when an AVM circuit processes an entire enqueued call
+    // NOTE: address is unused but will be important when an AVM circuit processes an entire enqueued call
     // NOTE: isPending and leafIndex are unused for now but may be used for optimizations or kernel hints later
     const readRequest = new ReadRequest(nullifier, this.sideEffectCounter);
     if (exists) {
@@ -146,9 +146,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceNewNullifier(_storageAddress: Fr, nullifier: Fr) {
+  public traceNewNullifier(_address: Fr, nullifier: Fr) {
     // TODO(4805): check if some threshold is reached for max new nullifier
-    // NOTE: storageAddress is unused but will be important when an AVM circuit processes an entire enqueued call
+    // NOTE: address is unused but will be important when an AVM circuit processes an entire enqueued call
     this.nullifiers.push(new Nullifier(nullifier, this.sideEffectCounter, /*noteHash=*/ Fr.ZERO));
     this.logger.debug(`NEW_NULLIFIER cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
@@ -327,7 +327,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
 function createPublicExecutionRequest(avmEnvironment: AvmExecutionEnvironment): PublicExecutionRequest {
   const callContext = CallContext.from({
     msgSender: avmEnvironment.sender,
-    storageContractAddress: avmEnvironment.storageAddress,
+    storageContractAddress: avmEnvironment.address,
     functionSelector: avmEnvironment.functionSelector,
     isDelegateCall: false,
     isStaticCall: avmEnvironment.isStaticCall,

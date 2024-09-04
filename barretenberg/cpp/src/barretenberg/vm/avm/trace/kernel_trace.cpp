@@ -54,16 +54,6 @@ FF AvmKernelTraceBuilder::op_address(uint32_t clk)
     return perform_kernel_input_lookup(ADDRESS_SELECTOR);
 }
 
-FF AvmKernelTraceBuilder::op_storage_address(uint32_t clk)
-{
-    KernelTraceEntry entry = {
-        .clk = clk,
-        .operation = KernelTraceOpType::STORAGE_ADDRESS,
-    };
-    kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(STORAGE_ADDRESS_SELECTOR);
-}
-
 FF AvmKernelTraceBuilder::op_sender(uint32_t clk)
 {
     KernelTraceEntry entry = {
@@ -345,10 +335,6 @@ void AvmKernelTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
             // IN
             case KernelTraceOpType::ADDRESS:
                 dest.main_kernel_in_offset = ADDRESS_SELECTOR;
-                dest.main_sel_q_kernel_lookup = 1;
-                break;
-            case KernelTraceOpType::STORAGE_ADDRESS:
-                dest.main_kernel_in_offset = STORAGE_ADDRESS_SELECTOR;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             case KernelTraceOpType::SENDER:

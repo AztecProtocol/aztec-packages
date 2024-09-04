@@ -21,15 +21,6 @@ export class Address extends EnvironmentGetterInstruction {
   }
 }
 
-export class StorageAddress extends EnvironmentGetterInstruction {
-  static type: string = 'STORAGEADDRESS';
-  static readonly opcode: Opcode = Opcode.STORAGEADDRESS;
-
-  protected getEnvironmentValue(env: AvmExecutionEnvironment) {
-    return new Field(env.storageAddress.toField());
-  }
-}
-
 export class Sender extends EnvironmentGetterInstruction {
   static type: string = 'SENDER';
   static readonly opcode: Opcode = Opcode.SENDER;

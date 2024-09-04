@@ -8,12 +8,12 @@ import { type TracedContractInstance } from './side_effect_trace.js';
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
   getCounter(): number;
-  tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
-  tracePublicStorageWrite(storageAddress: Fr, slot: Fr, value: Fr): void;
-  traceNoteHashCheck(storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean): void;
-  traceNewNoteHash(storageAddress: Fr, noteHash: Fr): void;
-  traceNullifierCheck(storageAddress: Fr, nullifier: Fr, leafIndex: Fr, exists: boolean, isPending: boolean): void;
-  traceNewNullifier(storageAddress: Fr, nullifier: Fr): void;
+  tracePublicStorageRead(address: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
+  tracePublicStorageWrite(address: Fr, slot: Fr, value: Fr): void;
+  traceNoteHashCheck(address: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean): void;
+  traceNewNoteHash(address: Fr, noteHash: Fr): void;
+  traceNullifierCheck(address: Fr, nullifier: Fr, leafIndex: Fr, exists: boolean, isPending: boolean): void;
+  traceNewNullifier(address: Fr, nullifier: Fr): void;
   traceL1ToL2MessageCheck(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean): void;
   // TODO(dbanks12): should new message accept contract address as arg?
   traceNewL2ToL1Message(recipient: Fr, content: Fr): void;

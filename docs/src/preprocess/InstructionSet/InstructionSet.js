@@ -514,24 +514,6 @@ const INSTRUCTION_SET_RAW = [
     "Tag updates": "`T[dstOffset] = field`",
   },
   {
-    id: "storageaddress",
-    Name: "`STORAGEADDRESS`",
-    Category: "Execution Environment",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.storageAddress`",
-    Summary: "Get the _storage_ address of the currently executing context",
-    Details: "The storage address is used for public storage accesses.",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
     id: "sender",
     Name: "`SENDER`",
     Category: "Execution Environment",
@@ -1000,7 +982,7 @@ M[dstOffset] = S[M[slotOffset]]
       "Load a word from this contract's persistent public storage. Zero is loaded for unwritten slots.",
     Details: `
 // Expression is shorthand for
-leafIndex = hash(context.environment.storageAddress, M[slotOffset])
+leafIndex = hash(context.environment.address, M[slotOffset])
 exists = context.worldState.publicStorage.has(leafIndex) // exists == previously-written
 if exists:
     value = context.worldState.publicStorage.get(leafIndex: leafIndex)
@@ -1043,7 +1025,7 @@ S[M[slotOffset]] = M[srcOffset]
     Details: `
 // Expression is shorthand for
 context.worldState.publicStorage.set({
-    leafIndex: hash(context.environment.storageAddress, M[slotOffset]),
+    leafIndex: hash(context.environment.address, M[slotOffset]),
     leaf: M[srcOffset],
 })
 `,
@@ -1082,7 +1064,7 @@ context.worldStateAccessTrace.publicStorageWrites.append(
     Expression: `
 exists = context.worldState.noteHashes.has({
     leafIndex: M[leafIndexOffset]
-    leaf: hash(context.environment.storageAddress, M[noteHashOffset]),
+    leaf: hash(context.environment.address, M[noteHashOffset]),
 })
 M[existsOffset] = exists
 `,
@@ -1114,7 +1096,7 @@ context.worldStateAccessTrace.noteHashChecks.append(
     ],
     Expression: `
 context.worldState.noteHashes.append(
-    hash(context.environment.storageAddress, M[noteHashOffset])
+    hash(context.environment.address, M[noteHashOffset])
 )
 `,
     Summary: "Emit a new note hash to be inserted into the note hash tree",
@@ -1144,7 +1126,7 @@ context.worldStateAccessTrace.noteHashes.append(
       },
       {
         name: "addressOffset",
-        description: "memory offset of the storage address",
+        description: "memory offset of the address",
       },
       {
         name: "existsOffset",
@@ -1165,7 +1147,7 @@ context.worldStateAccessTrace.nullifierChecks.append(
     TracedNullifierCheck {
         callPointer: context.environment.callPointer,
         nullifier: M[nullifierOffset],
-        storageAddress: M[addressOffset],
+        address: M[addressOffset],
         exists: exists, // defined above
         counter: ++context.worldStateAccessTrace.accessCounter,
     }
@@ -1186,7 +1168,7 @@ context.worldStateAccessTrace.nullifierChecks.append(
     ],
     Expression: `
 context.worldState.nullifiers.append(
-    hash(context.environment.storageAddress, M[nullifierOffset])
+    hash(context.environment.address, M[nullifierOffset])
 )
 `,
     Summary: "Emit a new nullifier to be inserted into the nullifier tree",

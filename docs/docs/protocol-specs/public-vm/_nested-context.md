@@ -14,7 +14,6 @@ Nested context derivation is defined as follows:
 ```jsx
 nestedExecutionEnvironment = ExecutionEnvironment {
     address: M[addrOffset],
-    storageAddress: M[addrOffset],
     sender: context.address,
     functionSelector: context.environment.functionSelector,
     transactionFee: context.environment.transactionFee,

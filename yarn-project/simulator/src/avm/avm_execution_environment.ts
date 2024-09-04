@@ -20,7 +20,6 @@ export class AvmContextInputs {
 export class AvmExecutionEnvironment {
   constructor(
     public readonly address: AztecAddress,
-    public readonly storageAddress: AztecAddress,
     public readonly sender: AztecAddress,
     public readonly functionSelector: FunctionSelector, // may be temporary (#7224)
     public readonly contractCallDepth: Fr,
@@ -44,7 +43,6 @@ export class AvmExecutionEnvironment {
   ) {
     return new AvmExecutionEnvironment(
       /*address=*/ targetAddress,
-      /*storageAddress=*/ targetAddress,
       /*sender=*/ this.address,
       functionSelector,
       this.contractCallDepth.add(Fr.ONE),
