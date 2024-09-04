@@ -16,8 +16,6 @@
 
 using namespace bb;
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1075): Make the tests run on UltraKeccakFlavor as well so
-// we have a means of checking issues without having to run the Solidity verifier contract.
 template <typename Flavor> class UltraHonkTests : public ::testing::Test {
   public:
     using ProverInstance = ProverInstance_<Flavor>;
@@ -28,8 +26,8 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
     std::vector<uint32_t> add_variables(auto& circuit_builder, std::vector<bb::fr> variables)
     {
         std::vector<uint32_t> res;
-        for (size_t i = 0; i < variables.size(); i++) {
-            res.emplace_back(circuit_builder.add_variable(variables[i]));
+        for (auto& variable : variables) {
+            res.emplace_back(circuit_builder.add_variable(variable));
         }
         return res;
     }
@@ -61,7 +59,6 @@ TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
  */
 TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
 {
-
     auto circuit_builder = UltraCircuitBuilder();
 
     auto instance = std::make_shared<typename TestFixture::ProverInstance>(circuit_builder);

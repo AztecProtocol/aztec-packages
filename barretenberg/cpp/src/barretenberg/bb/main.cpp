@@ -1173,7 +1173,6 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
 void proof_as_fields_honk(const std::string& proof_path, const std::string& output_path)
 {
     auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
-    info("proof in proof_as_fields", proof.size());
     auto json = to_json(proof);
 
     if (output_path == "-") {

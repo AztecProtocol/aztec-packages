@@ -292,45 +292,6 @@ struct Transcript {
     Fr lookupGrandProductDelta;
 }
 
-// EC Point utilities
-function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory) {
-    return Honk.G1Point({x: input.x_0 | (input.x_1 << 136), y: input.y_0 | (input.y_1 << 136)});
-}
-
-function ecMul(Honk.G1Point memory point, Fr scalar) view returns (Honk.G1Point memory) {
-    bytes memory input = abi.encodePacked(point.x, point.y, Fr.unwrap(scalar));
-    (bool success, bytes memory result) = address(0x07).staticcall(input);
-    require(success, "ecMul failed");
-
-    (uint256 x, uint256 y) = abi.decode(result, (uint256, uint256));
-    return Honk.G1Point({x: x, y: y});
-}
-
-function ecAdd(Honk.G1Point memory point0, Honk.G1Point memory point1) view returns (Honk.G1Point memory) {
-    bytes memory input = abi.encodePacked(point0.x, point0.y, point1.x, point1.y);
-    (bool success, bytes memory result) = address(0x06).staticcall(input);
-    require(success, "ecAdd failed");
-
-    (uint256 x, uint256 y) = abi.decode(result, (uint256, uint256));
-    return Honk.G1Point({x: x, y: y});
-}
-
-function ecSub(Honk.G1Point memory point0, Honk.G1Point memory point1) view returns (Honk.G1Point memory) {
-    // We negate the second point
-    uint256 negativePoint1Y = (Q - point1.y) % Q;
-    bytes memory input = abi.encodePacked(point0.x, point0.y, point1.x, negativePoint1Y);
-    (bool success, bytes memory result) = address(0x06).staticcall(input);
-    require(success, "ecAdd failed");
-
-    (uint256 x, uint256 y) = abi.decode(result, (uint256, uint256));
-    return Honk.G1Point({x: x, y: y});
-}
-
-function negateInplace(Honk.G1Point memory point) pure returns (Honk.G1Point memory) {
-    point.y = (Q - point.y) % Q;
-    return point;
-}
-
 library TranscriptLib
 {
     function generateTranscript(Honk.Proof memory proof,
@@ -498,6 +459,45 @@ library TranscriptLib
         zeromorphX = FrLib.fromBytes32(keccak256(abi.encodePacked(buf)));
         zeromorphZ = FrLib.fromBytes32(keccak256(abi.encodePacked(zeromorphX)));
     }
+}
+
+// EC Point utilities
+function convertProofPoint(Honk.G1ProofPoint memory input) pure returns (Honk.G1Point memory) {
+    return Honk.G1Point({x: input.x_0 | (input.x_1 << 136), y: input.y_0 | (input.y_1 << 136)});
+}
+
+function ecMul(Honk.G1Point memory point, Fr scalar) view returns (Honk.G1Point memory) {
+    bytes memory input = abi.encodePacked(point.x, point.y, Fr.unwrap(scalar));
+    (bool success, bytes memory result) = address(0x07).staticcall(input);
+    require(success, "ecMul failed");
+
+    (uint256 x, uint256 y) = abi.decode(result, (uint256, uint256));
+    return Honk.G1Point({x: x, y: y});
+}
+
+function ecAdd(Honk.G1Point memory point0, Honk.G1Point memory point1) view returns (Honk.G1Point memory) {
+    bytes memory input = abi.encodePacked(point0.x, point0.y, point1.x, point1.y);
+    (bool success, bytes memory result) = address(0x06).staticcall(input);
+    require(success, "ecAdd failed");
+
+    (uint256 x, uint256 y) = abi.decode(result, (uint256, uint256));
+    return Honk.G1Point({x: x, y: y});
+}
+
+function ecSub(Honk.G1Point memory point0, Honk.G1Point memory point1) view returns (Honk.G1Point memory) {
+    // We negate the second point
+    uint256 negativePoint1Y = (Q - point1.y) % Q;
+    bytes memory input = abi.encodePacked(point0.x, point0.y, point1.x, negativePoint1Y);
+    (bool success, bytes memory result) = address(0x06).staticcall(input);
+    require(success, "ecAdd failed");
+
+    (uint256 x, uint256 y) = abi.decode(result, (uint256, uint256));
+    return Honk.G1Point({x: x, y: y});
+}
+
+function negateInplace(Honk.G1Point memory point) pure returns (Honk.G1Point memory) {
+    point.y = (Q - point.y) % Q;
+    return point;
 }
 
 uint256 constant T = 4;
@@ -969,7 +969,8 @@ library RelationsLib {
      * the relation checking code being cluttered with uint256 type casting, which is often a different colour in code
      * editors, and thus is noisy.
      */
-    function wire(Fr[NUMBER_OF_ENTITIES] memory p, WIRE _wire) internal pure returns (Fr) {
+    function wire(Fr[NUMBER_OF_ENTITIES] memory p, WIRE _wire) internal pure returns(Fr)
+    {
         return p[uint256(_wire)];
     }
 
@@ -988,8 +989,9 @@ library RelationsLib {
             Fr neg_half = Fr.wrap(0) - (FrLib.invert(Fr.wrap(2)));
 
             Fr accum = (q_arith - Fr.wrap(3)) * (wire(p, WIRE.Q_M) * wire(p, WIRE.W_R) * wire(p, WIRE.W_L)) * neg_half;
-            accum = accum + (wire(p, WIRE.Q_L) * wire(p, WIRE.W_L)) + (wire(p, WIRE.Q_R) * wire(p, WIRE.W_R))
-                + (wire(p, WIRE.Q_O) * wire(p, WIRE.W_O)) + (wire(p, WIRE.Q_4) * wire(p, WIRE.W_4)) + wire(p, WIRE.Q_C);
+            accum = accum + (wire(p, WIRE.Q_L) * wire(p, WIRE.W_L)) + (wire(p, WIRE.Q_R) * wire(p, WIRE.W_R)) +
+                    (wire(p, WIRE.Q_O) * wire(p, WIRE.W_O)) + (wire(p, WIRE.Q_4) * wire(p, WIRE.W_4)) +
+                    wire(p, WIRE.Q_C);
             accum = accum + (q_arith - Fr.wrap(1)) * wire(p, WIRE.W_4_SHIFT);
             accum = accum * q_arith;
             accum = accum * domainSep;
@@ -1054,11 +1056,9 @@ library RelationsLib {
     }
 
     function accumulateLogDerivativeLookupRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p,
-        Transcript memory tp,
-        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep
-    ) internal pure {
+        Fr[NUMBER_OF_ENTITIES] memory p, Transcript memory tp, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr domainSep)
+        internal view
+    {
         Fr write_term;
         Fr read_term;
 
@@ -1167,11 +1167,10 @@ library RelationsLib {
         Fr x_double_identity;
     }
 
-    function accumulateEllipticRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p,
-        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep
-    ) internal pure {
+    function
+    accumulateEllipticRelation(Fr[NUMBER_OF_ENTITIES] memory p, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr domainSep)
+        internal view
+    {
         EllipticParams memory ep;
         ep.x_1 = wire(p, WIRE.W_R);
         ep.y_1 = wire(p, WIRE.W_O);
@@ -1266,12 +1265,11 @@ library RelationsLib {
         Fr auxiliary_identity;
     }
 
-    function accumulateAuxillaryRelation(
-        Fr[NUMBER_OF_ENTITIES] memory p,
-        Transcript memory tp, // sooo we take the relation parameters, if needed, from tramscript
-        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep // i guess this is the scaling factor?
-    ) internal pure {
+    function
+    accumulateAuxillaryRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p, Transcript memory tp, Fr[NUMBER_OF_SUBRELATIONS] memory evals, Fr domainSep)
+        internal pure
+    {
         AuxParams memory ap;
 
         /**
@@ -1407,14 +1405,16 @@ library RelationsLib {
 
         ap.index_is_monotonically_increasing = ap.index_delta * ap.index_delta - ap.index_delta; // deg 2
 
-        ap.adjacent_values_match_if_adjacent_indices_match = (ap.index_delta * MINUS_ONE + Fr.wrap(1)) * ap.record_delta; // deg 2
+        ap.adjacent_values_match_if_adjacent_indices_match =
+            (ap.index_delta * MINUS_ONE + Fr.wrap(1)) * ap.record_delta; // deg 2
 
-        evals[13] = ap.adjacent_values_match_if_adjacent_indices_match * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R))
-            * (wire(p, WIRE.Q_AUX) * domainSep); // deg 5
-        evals[14] = ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R))
-            * (wire(p, WIRE.Q_AUX) * domainSep); // deg 5
+        evals[13] = ap.adjacent_values_match_if_adjacent_indices_match * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R)) *
+                    (wire(p, WIRE.Q_AUX) * domainSep); // deg 5
+        evals[14] = ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R)) *
+                    (wire(p, WIRE.Q_AUX) * domainSep); // deg 5
 
-        ap.ROM_consistency_check_identity = ap.memory_record_check * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R)); // deg 3 or 7
+        ap.ROM_consistency_check_identity =
+            ap.memory_record_check * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R)); // deg 3 or 7
 
         /**
          * Contributions 15,16,17
@@ -1436,10 +1436,8 @@ library RelationsLib {
          * with a WRITE operation.
          */
         Fr access_type = (wire(p, WIRE.W_4) - ap.partial_record_check); // will be 0 or 1 for honest Prover; deg 1 or 4
-        ap.access_check = access_type * access_type - access_type; // check value is 0 or 1; deg 2 or 8
+        ap.access_check = access_type * access_type - access_type;      // check value is 0 or 1; deg 2 or 8
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/757): If we sorted in
-        // reverse order we could re-use `ap.partial_record_check`  1 -  ((w3' * eta + w2') * eta + w1') * eta
         // deg 1 or 4
         ap.next_gate_access_type = wire(p, WIRE.W_O_SHIFT) * tp.etaThree;
         ap.next_gate_access_type = ap.next_gate_access_type + (wire(p, WIRE.W_R_SHIFT) * tp.etaTwo);
@@ -1447,9 +1445,9 @@ library RelationsLib {
         ap.next_gate_access_type = wire(p, WIRE.W_4_SHIFT) - ap.next_gate_access_type;
 
         Fr value_delta = wire(p, WIRE.W_O_SHIFT) - wire(p, WIRE.W_O);
-        ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation = (
-            ap.index_delta * MINUS_ONE + Fr.wrap(1)
-        ) * value_delta * (ap.next_gate_access_type * MINUS_ONE + Fr.wrap(1)); // deg 3 or 6
+        ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation =
+            (ap.index_delta * MINUS_ONE + Fr.wrap(1)) * value_delta *
+            (ap.next_gate_access_type * MINUS_ONE + Fr.wrap(1)); // deg 3 or 6
 
         // We can't apply the RAM consistency check identity on the final entry in the sorted list (the wires in the
         // next gate would make the identity fail).  We need to validate that its 'access type' bool is correct. Can't
@@ -1460,10 +1458,12 @@ library RelationsLib {
             ap.next_gate_access_type * ap.next_gate_access_type - ap.next_gate_access_type;
 
         // Putting it all together...
-        evals[15] = ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation
-            * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_AUX) * domainSep); // deg 5 or 8
-        evals[16] = ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_AUX) * domainSep); // deg 4
-        evals[17] = ap.next_gate_access_type_is_boolean * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_AUX) * domainSep); // deg 4 or 6
+        evals[15] = ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation *
+                    (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_AUX) * domainSep); // deg 5 or 8
+        evals[16] =
+            ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_ARITH)) * (wire(p, WIRE.Q_AUX) * domainSep); // deg 4
+        evals[17] = ap.next_gate_access_type_is_boolean * (wire(p, WIRE.Q_ARITH)) *
+                    (wire(p, WIRE.Q_AUX) * domainSep); // deg 4 or 6
 
         ap.RAM_consistency_check_identity = ap.access_check * (wire(p, WIRE.Q_ARITH)); // deg 3 or 9
 
@@ -1490,8 +1490,9 @@ library RelationsLib {
         ap.memory_identity = ap.ROM_consistency_check_identity; // deg 3 or 6
         ap.memory_identity =
             ap.memory_identity + ap.RAM_timestamp_check_identity * (wire(p, WIRE.Q_4) * wire(p, WIRE.Q_L)); // deg 4
-        ap.memory_identity = ap.memory_identity + ap.memory_record_check * (wire(p, WIRE.Q_M) * wire(p, WIRE.Q_L)); // deg 3 or 6
-        ap.memory_identity = ap.memory_identity + ap.RAM_consistency_check_identity; // deg 3 or 9
+        ap.memory_identity =
+            ap.memory_identity + ap.memory_record_check * (wire(p, WIRE.Q_M) * wire(p, WIRE.Q_L)); // deg 3 or 6
+        ap.memory_identity = ap.memory_identity + ap.RAM_consistency_check_identity;               // deg 3 or 9
 
         // (deg 3 or 9) + (deg 4) + (deg 3)
         ap.auxiliary_identity = ap.memory_identity + non_native_field_identity + limb_accumulator_identity;
@@ -1499,7 +1500,6 @@ library RelationsLib {
         evals[12] = ap.auxiliary_identity;
     }
 
-    // Big todo for poseidon params, reduce them
     struct PoseidonExternalParams {
         Fr s1;
         Fr s2;

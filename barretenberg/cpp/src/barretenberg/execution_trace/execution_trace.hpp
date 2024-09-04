@@ -47,7 +47,7 @@ template <class Flavor> class ExecutionTrace_ {
                 }
                 {
                     ZoneScopedN("selector initialization");
-                    for (size_t idx = 0; idx < NUM_SELECTORS; ++idx) {
+                    for (size_t idx = 0; idx < Builder::Arithmetization::NUM_SELECTORS; ++idx) {
                         selectors[idx] = Polynomial(proving_key.circuit_size);
                         std::string selector_tag = builder.selector_names[idx] + "_lagrange";
                         proving_key.polynomial_store.put(selector_tag, selectors[idx].share());
