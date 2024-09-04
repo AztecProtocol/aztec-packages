@@ -60,11 +60,6 @@ export class Proof {
   }
 
   public withoutPublicInputs(): Buffer {
-    console.log(
-      'indices',
-      this.publicInputsOffset - 4,
-      this.publicInputsOffset - 4 + Fr.SIZE_IN_BYTES * this.numPublicInputs,
-    );
     return Buffer.concat([
       this.buffer.subarray(4, this.publicInputsOffset),
       this.buffer.subarray(this.publicInputsOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs),

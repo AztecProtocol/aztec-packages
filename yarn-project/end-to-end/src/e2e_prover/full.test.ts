@@ -1,4 +1,3 @@
-import { type Fr } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
 
 import { FullProverTest } from './e2e_prover_test.js';

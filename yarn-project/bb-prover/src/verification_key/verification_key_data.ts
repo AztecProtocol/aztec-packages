@@ -3,11 +3,9 @@ import {
   AvmVerificationKeyAsFields,
   AvmVerificationKeyData,
   Fr,
-  VERIFICATION_KEY_LENGTH_IN_FIELDS,
   VerificationKeyAsFields,
   VerificationKeyData,
 } from '@aztec/circuits.js';
-import { type Tuple } from '@aztec/foundation/serialize';
 
 import { strict as assert } from 'assert';
 import * as fs from 'fs/promises';

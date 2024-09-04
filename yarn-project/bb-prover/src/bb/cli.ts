@@ -1,9 +1,5 @@
 import { type LogFn } from '@aztec/foundation/log';
-import {
-  type ProtocolArtifact,
-  ProtocolCircuitArtifacts,
-  type ServerProtocolArtifact,
-} from '@aztec/noir-protocol-circuits-types';
+import { type ProtocolArtifact, ProtocolCircuitArtifacts } from '@aztec/noir-protocol-circuits-types';
 
 import { Command } from 'commander';
 import * as fs from 'fs/promises';
