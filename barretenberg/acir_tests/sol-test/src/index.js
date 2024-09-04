@@ -102,15 +102,6 @@ const contract = output.contracts["Test.sol"]["Test"];
 const bytecode = contract.evm.bytecode.object;
 const abi = contract.abi;
 
-// Get the bytecode and abi of the two libraries with external calls that need to be deployed separately
-const transcriptLib = output.contracts["Verifier.sol"]["TranscriptLib"];
-const transcriptLibBytecode = transcriptLib.evm.bytecode.object;
-const transcriptLibAbi = transcriptLib.abi;
-
-const relationsLib = output.contracts["Verifier.sol"]["RelationsLib"];
-const relationsLibBytecode = relationsLib.evm.bytecode.object;
-const relationsLibAbi = relationsLib.abi;
-
 /**
  * Launch anvil on the given port,
  * Resolves when ready, rejects when port is already allocated
@@ -240,41 +231,63 @@ try {
   const provider = await getProvider(randomPort);
   const signer = new ethers.Wallet(key, provider);
 
-  // Deploy the two libraries, awaiting to ensure the nonce is modified correctly to prevent race conditions.
-  await signer.getNonce();
-  const transcriptLibAddress = await deploy(
-    signer,
-    transcriptLibAbi,
-    transcriptLibBytecode
-  );
+  // if testing honk we need to link the external libraries to the contract's bytecode before deploying it, otherise we can just deploy the contract directly
+  // note ABI stays unchanged
+  const getDeployedContractAdress = async () => {
+    if (testingHonk) {
+      // Get the bytecode and abi of the two libraries with external calls that need to be deployed separately
+      const transcriptLib = output.contracts["Verifier.sol"]["TranscriptLib"];
+      const transcriptLibBytecode = transcriptLib.evm.bytecode.object;
+      const transcriptLibAbi = transcriptLib.abi;
 
-  // TODO: maybe this can be done in a better way
-  await signer.getNonce();
+      const relationsLib = output.contracts["Verifier.sol"]["RelationsLib"];
+      const relationsLibBytecode = relationsLib.evm.bytecode.object;
+      const relationsLibAbi = relationsLib.abi;
 
-  const relationsLibAddress = await deploy(
-    signer,
-    relationsLibAbi,
-    relationsLibBytecode
-  );
+      // Deploy the two libraries, awaiting to ensure the nonce is modified correctly to prevent race conditions.
+      await signer.getNonce();
+      const transcriptLibAddress = await deploy(
+        signer,
+        transcriptLibAbi,
+        transcriptLibBytecode
+      );
 
-  const libraries = {
-    TranscriptLib: transcriptLibAddress,
-    RelationsLib: relationsLibAddress,
+      // TODO: maybe this can be done in a better way
+      await signer.getNonce();
+
+      const relationsLibAddress = await deploy(
+        signer,
+        relationsLibAbi,
+        relationsLibBytecode
+      );
+
+      const libraries = {
+        TranscriptLib: transcriptLibAddress,
+        RelationsLib: relationsLibAddress,
+      };
+      const linkerInput = {
+        "Verifier.sol": {
+          TranscriptLib: libraries["TranscriptLib"],
+          RelationsLib: libraries["RelationsLib"],
+        },
+      };
+
+      // Link the libraries in the contract bytecode
+      const linkedBytecode = linker.linkBytecode(bytecode, linkerInput);
+
+      await signer.getNonce();
+
+      // Deploy the verifier contract
+      const address = await deploy(signer, abi, linkedBytecode);
+      return address;
+    } else {
+      const address = await deploy(signer, abi, bytecode);
+      return address;
+    }
   };
-  const linkerInput = {
-    "Verifier.sol": {
-      TranscriptLib: libraries["TranscriptLib"],
-      RelationsLib: libraries["RelationsLib"],
-    },
-  };
 
-  // Link the libraries in the contract bytecode
-  const linkedBytecode = linker.linkBytecode(bytecode, linkerInput);
+  const address = await getDeployedContractAdress();
 
-  await signer.getNonce();
-
-  // Deploy the verifier contract
-  const address = await deploy(signer, abi, linkedBytecode);
   const contract = new ethers.Contract(address, abi, signer);
 
   const result = await contract.test(proofStr, publicInputs);
