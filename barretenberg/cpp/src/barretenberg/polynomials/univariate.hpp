@@ -28,6 +28,7 @@ template <class Fr, size_t view_domain_end, size_t view_domain_start, size_t ski
 template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0> class Univariate {
   public:
     static constexpr size_t LENGTH = domain_end - domain_start;
+    static constexpr size_t SKIP_COUNT = skip_count;
     using View = UnivariateView<Fr, domain_end, domain_start, skip_count>;
 
     using value_type = Fr; // used to get the type of the elements consistently with std::array
@@ -472,7 +473,7 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
      * @param f
      * @return Fr
      */
-    Fr evaluate(const Fr& u)
+    Fr evaluate(const Fr& u) const
     {
         using Data = BarycentricData<Fr, domain_end, LENGTH, domain_start>;
         Fr full_numerator_value = 1;

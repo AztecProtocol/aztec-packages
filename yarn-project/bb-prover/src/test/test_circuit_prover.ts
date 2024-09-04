@@ -1,5 +1,5 @@
 import {
-  type ProofAndVerificationKey,
+  type AvmProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
@@ -8,9 +8,13 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AvmCircuitInputs,
+  AvmVerificationKeyData,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
   EmptyNestedData,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
@@ -42,6 +46,10 @@ import {
   SimulatedServerCircuitArtifacts,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
+  convertBlockMergeRollupInputsToWitnessMap,
+  convertBlockMergeRollupOutputsFromWitnessMap,
+  convertBlockRootRollupInputsToWitnessMap,
+  convertBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
   convertPrivateKernelEmptyInputsToWitnessMap,
@@ -300,6 +308,76 @@ export class TestCircuitProver implements ServerCircuitProver {
   }
 
   /**
+   * Simulates the block root rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  @trackSpan('TestCircuitProver.getBlockRootRollupProof')
+  public async getBlockRootRollupProof(
+    input: BlockRootRollupInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    const timer = new Timer();
+    const witnessMap = convertBlockRootRollupInputsToWitnessMap(input);
+
+    // use WASM here as it is faster for small circuits
+    const witness = await this.wasmSimulator.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.BlockRootRollupArtifact,
+    );
+
+    const result = convertBlockRootRollupOutputsFromWitnessMap(witness);
+
+    this.instrumentation.recordDuration('simulationDuration', 'block-root-rollup', timer);
+    emitCircuitSimulationStats(
+      'block-root-rollup',
+      timer.ms(),
+      input.toBuffer().length,
+      result.toBuffer().length,
+      this.logger,
+    );
+    return makePublicInputsAndRecursiveProof(
+      result,
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      ProtocolCircuitVks['BlockRootRollupArtifact'],
+    );
+  }
+
+  /**
+   * Simulates the block merge rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  @trackSpan('TestCircuitProver.getBlockMergeRollupProof')
+  public async getBlockMergeRollupProof(
+    input: BlockMergeRollupInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    const timer = new Timer();
+    const witnessMap = convertBlockMergeRollupInputsToWitnessMap(input);
+
+    // use WASM here as it is faster for small circuits
+    const witness = await this.wasmSimulator.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.BlockMergeRollupArtifact,
+    );
+
+    const result = convertBlockMergeRollupOutputsFromWitnessMap(witness);
+
+    this.instrumentation.recordDuration('simulationDuration', 'block-merge-rollup', timer);
+    emitCircuitSimulationStats(
+      'block-merge-rollup',
+      timer.ms(),
+      input.toBuffer().length,
+      result.toBuffer().length,
+      this.logger,
+    );
+    return makePublicInputsAndRecursiveProof(
+      result,
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      ProtocolCircuitVks['BlockMergeRollupArtifact'],
+    );
+  }
+
+  /**
    * Simulates the root rollup circuit from its inputs.
    * @param input - Inputs to the circuit.
    * @returns The public inputs as outputs of the simulation.
@@ -398,12 +476,12 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public async getAvmProof(_inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
+  public async getAvmProof(_inputs: AvmCircuitInputs): Promise<AvmProofAndVerificationKey> {
     // We can't simulate the AVM because we don't have enough context to do so (e.g., DBs).
     // We just return an empty proof and VK data.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
     await this.delay();
-    return { proof: makeEmptyProof(), verificationKey: VerificationKeyData.makeFake() };
+    return { proof: makeEmptyProof(), verificationKey: AvmVerificationKeyData.makeFake() };
   }
 
   private async delay(): Promise<void> {

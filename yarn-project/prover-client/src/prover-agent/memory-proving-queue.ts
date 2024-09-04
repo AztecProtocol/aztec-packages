@@ -1,5 +1,5 @@
 import {
-  type ProofAndVerificationKey,
+  type AvmProofAndVerificationKey,
   type ProvingJob,
   type ProvingJobSource,
   type ProvingRequest,
@@ -15,6 +15,9 @@ import type {
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BaseRollupInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
   KernelCircuitPublicInputs,
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -338,6 +341,30 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
+  getBlockRootRollupProof(
+    input: BlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    return this.enqueue({ type: ProvingRequestType.BLOCK_ROOT_ROLLUP, inputs: input }, signal, epochNumber);
+  }
+
+  /**
+   * Creates a proof for the given input.
+   * @param input - Input to the circuit.
+   */
+  getBlockMergeRollupProof(
+    input: BlockMergeRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    return this.enqueue({ type: ProvingRequestType.BLOCK_MERGE_ROLLUP, inputs: input }, signal, epochNumber);
+  }
+
+  /**
+   * Creates a proof for the given input.
+   * @param input - Input to the circuit.
+   */
   getRootRollupProof(
     input: RootRollupInputs,
     signal?: AbortSignal,
@@ -381,7 +408,11 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   /**
    * Creates an AVM proof.
    */
-  getAvmProof(inputs: AvmCircuitInputs, signal?: AbortSignal, epochNumber?: number): Promise<ProofAndVerificationKey> {
+  getAvmProof(
+    inputs: AvmCircuitInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<AvmProofAndVerificationKey> {
     return this.enqueue({ type: ProvingRequestType.PUBLIC_VM, inputs }, signal, epochNumber);
   }
 

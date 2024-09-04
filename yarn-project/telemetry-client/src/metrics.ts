@@ -71,5 +71,3 @@ export const WORLD_STATE_FORK_DURATION = 'aztec.world_state.fork.duration';
 export const WORLD_STATE_SYNC_DURATION = 'aztec.world_state.sync.duration';
 export const WORLD_STATE_MERKLE_TREE_SIZE = 'aztec.world_state.merkle_tree_size';
 export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
-
-export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';

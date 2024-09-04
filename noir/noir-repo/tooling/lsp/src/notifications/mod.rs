@@ -2,6 +2,7 @@ use std::ops::ControlFlow;
 
 use crate::insert_all_files_for_workspace_into_file_manager;
 use async_lsp::{ErrorCode, LanguageClient, ResponseError};
+use lsp_types::DiagnosticTag;
 use noirc_driver::{check_crate, file_manager_with_stdlib};
 use noirc_errors::{DiagnosticKind, FileDiagnostic};
 
@@ -185,10 +186,20 @@ pub(crate) fn process_workspace_for_noir_document(
                             DiagnosticKind::Info => DiagnosticSeverity::INFORMATION,
                             DiagnosticKind::Bug => DiagnosticSeverity::WARNING,
                         };
+
+                        let mut tags = Vec::new();
+                        if diagnostic.unnecessary {
+                            tags.push(DiagnosticTag::UNNECESSARY);
+                        }
+                        if diagnostic.deprecated {
+                            tags.push(DiagnosticTag::DEPRECATED);
+                        }
+
                         Some(Diagnostic {
                             range,
                             severity: Some(severity),
                             message: diagnostic.message,
+                            tags: if tags.is_empty() { None } else { Some(tags) },
                             ..Default::default()
                         })
                     })
@@ -223,7 +234,7 @@ mod notification_tests {
 
     use super::*;
     use lsp_types::{
-        InlayHintLabel, InlayHintParams, Position, TextDocumentContentChangeEvent,
+        InlayHintLabel, InlayHintParams, Position, Range, TextDocumentContentChangeEvent,
         TextDocumentIdentifier, TextDocumentItem, VersionedTextDocumentIdentifier,
         WorkDoneProgressParams,
     };
@@ -270,9 +281,9 @@ mod notification_tests {
             InlayHintParams {
                 work_done_progress_params: WorkDoneProgressParams { work_done_token: None },
                 text_document: TextDocumentIdentifier { uri: noir_text_document },
-                range: lsp_types::Range {
-                    start: lsp_types::Position { line: 0, character: 0 },
-                    end: lsp_types::Position { line: 1, character: 0 },
+                range: Range {
+                    start: Position { line: 0, character: 0 },
+                    end: Position { line: 1, character: 0 },
                 },
             },
         )

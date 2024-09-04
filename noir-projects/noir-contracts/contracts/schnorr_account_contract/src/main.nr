@@ -5,8 +5,8 @@ mod public_key_note;
 contract SchnorrAccount {
     use dep::std;
 
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+    use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateImmutable};
+    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
     use dep::authwit::{
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness, auth::{compute_authwit_nullifier, compute_authwit_message_hash}
@@ -14,7 +14,7 @@ contract SchnorrAccount {
     use dep::aztec::{hash::compute_siloed_nullifier, keys::getters::get_current_public_keys};
     use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
 
-    use crate::public_key_note::{PublicKeyNote, PUBLIC_KEY_NOTE_LEN};
+    use crate::public_key_note::PublicKeyNote;
 
     #[aztec(storage)]
     struct Storage {
@@ -28,23 +28,23 @@ contract SchnorrAccount {
     #[aztec(initializer)]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
-        let this_npk_m_hash = get_current_public_keys(&mut context, this).npk_m.hash();
+        let this_keys = get_current_public_keys(&mut context, this);
         // Not emitting outgoing for msg_sender here to not have to register keys for the contract through which we
         // deploy this (typically MultiCallEntrypoint). I think it's ok here as I feel the outgoing here is not that
         // important.
 
         // docs:start:initialize
-        let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_npk_m_hash);
-        storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(&mut context, this, this));
+        let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this_keys.npk_m.hash());
+        storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note_with_keys(&mut context, this_keys.ovpk_m, this_keys.ivpk_m, this));
         // docs:end:initialize
     }
 
-    // Note: If you globally change the entrypoint signature don't forget to update default_entrypoint.ts file
+    // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
     #[aztec(private)]
     #[aztec(noinitcheck)]
-    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload) {
+    fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
         let actions = AccountActions::init(&mut context, is_valid_impl);
-        actions.entrypoint(app_payload, fee_payload);
+        actions.entrypoint(app_payload, fee_payload, cancellable);
     }
 
     #[aztec(private)]
@@ -71,11 +71,11 @@ contract SchnorrAccount {
         }
 
         // Verify signature of the payload bytes
-        let verification = std::schnorr::verify_signature_slice(
+        let verification = std::schnorr::verify_signature(
             public_key.x,
             public_key.y,
             signature,
-            outer_hash.to_be_bytes(32)
+            outer_hash.to_be_bytes::<32>()
         );
         assert(verification == true);
         // docs:end:entrypoint
@@ -98,11 +98,11 @@ contract SchnorrAccount {
         for i in 0..64 {
             signature[i] = witness[i] as u8;
         }
-        let valid_in_private = std::schnorr::verify_signature_slice(
+        let valid_in_private = std::schnorr::verify_signature(
             public_key.x,
             public_key.y,
             signature,
-            message_hash.to_be_bytes(32)
+            message_hash.to_be_bytes::<32>()
         );
 
         // Compute the nullifier and check if it is spent

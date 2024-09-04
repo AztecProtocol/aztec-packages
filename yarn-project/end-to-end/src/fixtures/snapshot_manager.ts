@@ -8,10 +8,10 @@ import {
   type CompleteAddress,
   type DebugLogger,
   type DeployL1Contracts,
-  type EthAddress,
   EthCheatCodes,
   Fr,
   GrumpkinScalar,
+  type PXE,
   SignerlessWallet,
   type Wallet,
 } from '@aztec/aztec.js';
@@ -22,7 +22,6 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { resolver, reviver } from '@aztec/foundation/serialize';
-import { createStore } from '@aztec/kv-store/utils';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -40,6 +39,7 @@ import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
 import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, getPrivateKeyFromIndex } from './utils.js';
+import { Watcher } from './watcher.js';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -50,6 +50,7 @@ export type SubsystemsContext = {
   pxe: PXEService;
   deployL1ContractsValues: DeployL1Contracts;
   proverNode: ProverNode;
+  watcher: Watcher;
 };
 
 type SnapshotEntry = {
@@ -228,24 +229,17 @@ async function teardown(context: SubsystemsContext | undefined) {
   await context.pxe.stop();
   await context.acvmConfig?.cleanup();
   await context.anvil.stop();
+  await context.watcher.stop();
 }
 
 export async function createAndSyncProverNode(
-  rollupAddress: EthAddress,
-  proverNodePrivateKey: Buffer,
+  proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
   aztecNode: AztecNode,
 ) {
   // Creating temp store and archiver for simulated prover node
-
-  const store = await createStore({ dataDirectory: undefined }, rollupAddress);
-
-  const archiver = await createArchiver(
-    { ...aztecNodeConfig, dataDirectory: undefined },
-    store,
-    new NoopTelemetryClient(),
-    { blockUntilSync: true },
-  );
+  const archiverConfig = { ...aztecNodeConfig, dataDirectory: undefined };
+  const archiver = await createArchiver(archiverConfig, new NoopTelemetryClient(), { blockUntilSync: true });
 
   // Prover node config is for simulated proofs
   const proverConfig: ProverNodeConfig = {
@@ -255,7 +249,7 @@ export async function createAndSyncProverNode(
     proverId: new Fr(42),
     realProofs: false,
     proverAgentConcurrency: 2,
-    publisherPrivateKey: `0x${proverNodePrivateKey.toString('hex')}`,
+    publisherPrivateKey: proverNodePrivateKey,
     proverNodeMaxPendingJobs: 100,
   };
   const proverNode = await createProverNode(proverConfig, {
@@ -331,11 +325,17 @@ async function setupFromFresh(
 
   logger.verbose('Creating and syncing a simulated prover node...');
   const proverNode = await createAndSyncProverNode(
-    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    proverNodePrivateKey!,
+    `0x${proverNodePrivateKey!.toString('hex')}`,
     aztecNodeConfig,
     aztecNode,
   );
+
+  const watcher = new Watcher(
+    new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
+    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    deployL1ContractsValues.publicClient,
+  );
+  watcher.start();
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -364,6 +364,7 @@ async function setupFromFresh(
     bbConfig,
     deployL1ContractsValues,
     proverNode,
+    watcher,
   };
 }
 
@@ -407,6 +408,13 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   logger.verbose('Creating ETH clients...');
   const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, mnemonicToAccount(MNEMONIC));
 
+  const watcher = new Watcher(
+    new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
+    aztecNodeConfig.l1Contracts.rollupAddress,
+    publicClient,
+  );
+  watcher.start();
+
   logger.verbose('Creating aztec node...');
   const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
@@ -414,12 +422,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const proverNodePrivateKey = getPrivateKeyFromIndex(2);
 
   logger.verbose('Creating and syncing a simulated prover node...');
-  const proverNode = await createAndSyncProverNode(
-    aztecNodeConfig.l1Contracts.rollupAddress,
-    proverNodePrivateKey!,
-    aztecNodeConfig,
-    aztecNode,
-  );
+  const proverNode = await createAndSyncProverNode(`0x${proverNodePrivateKey!}`, aztecNodeConfig, aztecNode);
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -439,6 +442,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
       publicClient,
       l1ContractAddresses: aztecNodeConfig.l1Contracts,
     },
+    watcher,
   };
 }
 
@@ -448,7 +452,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
  */
 export const addAccounts =
   (numberOfAccounts: number, logger: DebugLogger) =>
-  async ({ pxe }: SubsystemsContext) => {
+  async ({ pxe }: { pxe: PXE }) => {
     // Generate account keys.
     const accountKeys: [Fr, GrumpkinScalar][] = Array.from({ length: numberOfAccounts }).map(_ => [
       Fr.random(),

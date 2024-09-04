@@ -73,14 +73,14 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   ],
   API: [
     {
-      flag: '--port',
+      flag: '--port <value>',
       description: 'Port to run the Aztec Services on on',
       defaultValue: 8080,
       envVar: 'AZTEC_PORT',
       parseVal: val => parseInt(val, 10),
     },
     {
-      flag: '--api-prefix',
+      flag: '--api-prefix <value>',
       description: 'Prefix for API routes on any service that is started',
       defaultValue: '',
       envVar: 'API_PREFIX',
@@ -173,9 +173,17 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     {
       flag: '--node.deployAztecContracts',
-      description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set',
+      description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set.',
       envVar: 'DEPLOY_AZTEC_CONTRACTS',
       ...booleanConfigHelper(),
+    },
+    {
+      flag: '--node.deployAztecContractsSalt',
+      description:
+        'Numeric salt for deploying L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set. Implies --node.deployAztecContracts.',
+      envVar: 'DEPLOY_AZTEC_CONTRACTS_SALT',
+      defaultValue: undefined,
+      parseVal: (val: string) => (val ? parseInt(val) : undefined),
     },
     {
       flag: '--node.assumeProvenUntilBlockNumber',
@@ -311,13 +319,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Starts Aztec TXE with options',
       defaultValue: undefined,
       envVar: undefined,
-    },
-    {
-      flag: '--txe.port <value>',
-      description: 'Port to run TXE on',
-      defaultValue: 8081,
-      envVar: 'TXE_PORT',
-      parseVal: val => parseInt(val, 10),
     },
   ],
 };

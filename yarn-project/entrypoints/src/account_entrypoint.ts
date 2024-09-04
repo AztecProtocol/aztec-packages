@@ -1,5 +1,10 @@
 import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { type EntrypointInterface, EntrypointPayload, type ExecutionRequestInit } from '@aztec/aztec.js/entrypoint';
+import {
+  type EntrypointInterface,
+  EntrypointPayload,
+  type ExecutionRequestInit,
+  computeCombinedPayloadHash,
+} from '@aztec/aztec.js/entrypoint';
 import { PackedValues, TxExecutionRequest } from '@aztec/circuit-types';
 import { type AztecAddress, GasSettings, TxContext } from '@aztec/circuits.js';
 import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
@@ -19,16 +24,17 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
   ) {}
 
   async createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    const { calls, fee } = exec;
-    const appPayload = EntrypointPayload.fromAppExecution(calls);
+    const { calls, fee, nonce, cancellable } = exec;
+    const appPayload = EntrypointPayload.fromAppExecution(calls, nonce);
     const feePayload = await EntrypointPayload.fromFeeOptions(this.address, fee);
 
     const abi = this.getEntrypointAbi();
-    const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [appPayload, feePayload]));
+    const entrypointPackedArgs = PackedValues.fromValues(encodeArguments(abi, [appPayload, feePayload, !!cancellable]));
     const gasSettings = exec.fee?.gasSettings ?? GasSettings.default();
 
-    const appAuthWitness = await this.auth.createAuthWit(appPayload.hash());
-    const feeAuthWitness = await this.auth.createAuthWit(feePayload.hash());
+    const combinedPayloadAuthWitness = await this.auth.createAuthWit(
+      computeCombinedPayloadHash(appPayload, feePayload),
+    );
 
     const txRequest = TxExecutionRequest.from({
       firstCallArgsHash: entrypointPackedArgs.hash,
@@ -36,7 +42,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
       functionSelector: FunctionSelector.fromNameAndParameters(abi.name, abi.parameters),
       txContext: new TxContext(this.chainId, this.version, gasSettings),
       argsOfCalls: [...appPayload.packedArguments, ...feePayload.packedArguments, entrypointPackedArgs],
-      authWitnesses: [appAuthWitness, feeAuthWitness],
+      authWitnesses: [combinedPayloadAuthWitness],
     });
 
     return txRequest;
@@ -137,6 +143,7 @@ export class DefaultAccountEntrypoint implements EntrypointInterface {
           },
           visibility: 'public',
         },
+        { name: 'cancellable', type: { kind: 'boolean' } },
       ],
       returnTypes: [],
     } as FunctionAbi;

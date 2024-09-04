@@ -1,4 +1,4 @@
-import { getL2BlockProcessedLogs, retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
+import { getL2BlockProposedLogs, retrieveL2ProofVerifiedEvents } from '@aztec/archiver';
 import { createAztecNodeClient } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
@@ -156,7 +156,7 @@ async function getL2BlockEvents(
   const events = [];
   while (blockNum <= lastBlockNum) {
     const end = blockNum + batchSize > lastBlockNum + 1n ? lastBlockNum + 1n : blockNum + batchSize;
-    const newEvents = await getL2BlockProcessedLogs(publicClient, rollup, blockNum, end);
+    const newEvents = await getL2BlockProposedLogs(publicClient, rollup, blockNum, end);
     events.push(...newEvents);
     debugLog.verbose(`Got ${newEvents.length} events querying l2 block submitted from block ${blockNum} to ${end}`);
     blockNum += batchSize;

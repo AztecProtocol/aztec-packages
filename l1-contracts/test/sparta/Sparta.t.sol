@@ -24,8 +24,6 @@ import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
 /**
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
- *
- * We will skip these test if we are running with IS_DEV_NET = true
  */
 
 contract SpartaTest is DecoderBase {
@@ -59,11 +57,24 @@ contract SpartaTest is DecoderBase {
       vm.warp(initialTime);
     }
 
+    address[] memory initialValidators = new address[](_validatorCount);
+    for (uint256 i = 1; i < _validatorCount + 1; i++) {
+      uint256 privateKey = uint256(keccak256(abi.encode("validator", i)));
+      address validator = vm.addr(privateKey);
+      privateKeys[validator] = privateKey;
+      initialValidators[i - 1] = validator;
+    }
+
     registry = new Registry(address(this));
     availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
     rollup = new Rollup(
-      registry, availabilityOracle, IFeeJuicePortal(address(0)), bytes32(0), address(this)
+      registry,
+      availabilityOracle,
+      IFeeJuicePortal(address(0)),
+      bytes32(0),
+      address(this),
+      initialValidators
     );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
@@ -73,20 +84,31 @@ contract SpartaTest is DecoderBase {
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
 
-    for (uint256 i = 1; i < _validatorCount + 1; i++) {
-      uint256 privateKey = uint256(keccak256(abi.encode("validator", i)));
-      address validator = vm.addr(privateKey);
-      privateKeys[validator] = privateKey;
-      rollup.addValidator(validator);
-    }
     _;
   }
 
-  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
+  mapping(address => bool) internal _seenValidators;
+  mapping(address => bool) internal _seenCommittee;
+
+  function testInitialCommitteMatch() public setup(4) {
+    address[] memory validators = rollup.getValidators();
+    address[] memory committee = rollup.getCurrentEpochCommittee();
+    assertEq(rollup.getCurrentEpoch(), 0);
+    assertEq(validators.length, 4, "Invalid validator set size");
+    assertEq(committee.length, 4, "invalid committee set size");
+
+    for (uint256 i = 0; i < validators.length; i++) {
+      _seenValidators[validators[i]] = true;
     }
 
+    for (uint256 i = 0; i < committee.length; i++) {
+      assertTrue(_seenValidators[committee[i]]);
+      assertFalse(_seenCommittee[committee[i]]);
+      _seenCommittee[committee[i]] = true;
+    }
+  }
+
+  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
     uint256 pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_DURATION() * rollup.SLOT_DURATION()
@@ -104,17 +126,10 @@ contract SpartaTest is DecoderBase {
   }
 
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
     assertGt(rollup.getValidators().length, rollup.TARGET_COMMITTEE_SIZE(), "Not enough validators");
-    _testBlock("mixed_block_1", false, 0, false); // We run a block before the epoch with validators
-
-    uint256 ts = block.timestamp + rollup.EPOCH_DURATION() * rollup.SLOT_DURATION();
-
     uint256 committeSize = rollup.TARGET_COMMITTEE_SIZE() * 2 / 3 + (_insufficientSigs ? 0 : 1);
-    _testBlock("mixed_block_2", _insufficientSigs, committeSize, false, ts); // We need signatures!
+
+    _testBlock("mixed_block_1", _insufficientSigs, committeSize, false);
 
     assertEq(
       rollup.getEpochCommittee(rollup.getCurrentEpoch()).length,
@@ -124,30 +139,16 @@ contract SpartaTest is DecoderBase {
   }
 
   function testHappyPath() public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
-    _testBlock("mixed_block_1", false, 0, false); // We run a block before the epoch with validators
-    _testBlock("mixed_block_2", false, 3, false); // We need signatures!
+    _testBlock("mixed_block_1", false, 3, false);
+    _testBlock("mixed_block_2", false, 3, false);
   }
 
   function testInvalidProposer() public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
-    _testBlock("mixed_block_1", false, 0, false); // We run a block before the epoch with validators
-    _testBlock("mixed_block_2", true, 3, true); // We need signatures!
+    _testBlock("mixed_block_1", true, 3, true);
   }
 
   function testInsufficientSigs() public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
-    _testBlock("mixed_block_1", false, 0, false); // We run a block before the epoch with validators
-    _testBlock("mixed_block_2", true, 2, false); // We need signatures!
+    _testBlock("mixed_block_1", true, 2, false);
   }
 
   struct StructToAvoidDeepStacks {
@@ -162,16 +163,6 @@ contract SpartaTest is DecoderBase {
     uint256 _signatureCount,
     bool _invalidaProposer
   ) internal {
-    _testBlock(_name, _expectRevert, _signatureCount, _invalidaProposer, 0);
-  }
-
-  function _testBlock(
-    string memory _name,
-    bool _expectRevert,
-    uint256 _signatureCount,
-    bool _invalidaProposer,
-    uint256 _ts
-  ) internal {
     DecoderBase.Full memory full = load(_name);
     bytes memory header = full.block.header;
     bytes32 archive = full.block.archive;
@@ -180,18 +171,7 @@ contract SpartaTest is DecoderBase {
     StructToAvoidDeepStacks memory ree;
 
     // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, max(full.block.decodedHeader.globalVariables.timestamp, _ts)));
-
-    if (_ts > 0) {
-      // Update the timestamp and slot in the header
-      uint256 slotValue = rollup.getCurrentSlot();
-      uint256 timestampMemoryPosition = 0x01b4;
-      uint256 slotMemoryPosition = 0x0194;
-      assembly {
-        mstore(add(header, add(0x20, timestampMemoryPosition)), _ts)
-        mstore(add(header, add(0x20, slotMemoryPosition)), slotValue)
-      }
-    }
+    vm.warp(max(block.timestamp, full.block.decodedHeader.globalVariables.timestamp));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
@@ -239,16 +219,16 @@ contract SpartaTest is DecoderBase {
       }
 
       vm.prank(ree.proposer);
-      rollup.process(header, archive, signatures);
+      rollup.propose(header, archive, bytes32(0), signatures);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
-      rollup.process(header, archive);
+      rollup.propose(header, archive, bytes32(0));
     }
 
-    assertEq(_expectRevert, ree.shouldRevert, "Invalid revert expectation");
+    assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
 
     bytes32 l2ToL1MessageTreeRoot;
     {

@@ -8,7 +8,7 @@
 #include "barretenberg/goblin/types.hpp"
 #include "barretenberg/plonk_honk_shared/instance_inspector.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/stdlib/honk_recursion/verifier/merge_recursive_verifier.hpp"
+#include "barretenberg/stdlib/goblin_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
@@ -198,9 +198,16 @@ class GoblinProver {
      */
     GoblinProof prove(MergeProof merge_proof_in = {})
     {
+        ZoneScopedN("Goblin::prove");
         goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
-        prove_eccvm();
-        prove_translator();
+        {
+            ZoneScopedN("prove_eccvm");
+            prove_eccvm();
+        }
+        {
+            ZoneScopedN("prove_translator");
+            prove_translator();
+        }
         return goblin_proof;
     };
 };

@@ -27,6 +27,7 @@ use self::path::as_trait_path;
 use self::primitives::{keyword, macro_quote_marker, mutable_reference, variable};
 use self::types::{generic_type_args, maybe_comp_time};
 pub use types::parse_type;
+use visibility::visibility_modifier;
 
 use super::{
     foldl_with_span, labels::ParsingRuleLabel, parameter_name_recovery, parameter_recovery,
@@ -36,9 +37,9 @@ use super::{
 };
 use super::{spanned, Item, ItemKind};
 use crate::ast::{
-    BinaryOp, BinaryOpKind, BlockExpression, ForLoopStatement, ForRange, Ident, IfExpression,
-    InfixExpression, LValue, Literal, ModuleDeclaration, NoirTypeAlias, Param, Path, Pattern,
-    Recoverable, Statement, TypeImpl, UnaryRhsMemberAccess, UnaryRhsMethodCall, UseTree,
+    BinaryOp, BinaryOpKind, BlockExpression, ForLoopStatement, ForRange, GenericTypeArgs, Ident,
+    IfExpression, InfixExpression, LValue, Literal, ModuleDeclaration, NoirTypeAlias, Param, Path,
+    Pattern, Recoverable, Statement, TypeImpl, UnaryRhsMemberAccess, UnaryRhsMethodCall, UseTree,
     UseTreeKind, Visibility,
 };
 use crate::ast::{
@@ -64,6 +65,7 @@ mod primitives;
 mod structs;
 pub(super) mod traits;
 mod types;
+mod visibility;
 
 // synthesized by LALRPOP
 lalrpop_mod!(pub noir_parser);
@@ -73,7 +75,9 @@ mod test_helpers;
 
 use literals::literal;
 use path::{maybe_empty_path, path};
-use primitives::{dereference, ident, negation, not, nothing, right_shift_operator, token_kind};
+use primitives::{
+    dereference, ident, interned_expr, negation, not, nothing, right_shift_operator, token_kind,
+};
 use traits::where_clause;
 
 /// Entry function for the parser - also handles lexing internally.
@@ -93,7 +97,7 @@ pub fn parse_program(source_program: &str) -> (ParsedModule, Vec<ParserError>) {
         for parsed_item in &parsed_module.items {
             if lalrpop_parser_supports_kind(&parsed_item.kind) {
                 match &parsed_item.kind {
-                    ItemKind::Import(parsed_use_tree) => {
+                    ItemKind::Import(parsed_use_tree, _visibility) => {
                         prototype_parse_use_tree(Some(parsed_use_tree), source_program);
                     }
                     // other kinds prevented by lalrpop_parser_supports_kind
@@ -137,7 +141,7 @@ fn prototype_parse_use_tree(expected_use_tree_opt: Option<&UseTree>, input: &str
         );
 
         match calculated.unwrap() {
-            TopLevelStatement::Import(parsed_use_tree) => {
+            TopLevelStatement::Import(parsed_use_tree, _visibility) => {
                 assert_eq!(expected_use_tree, &parsed_use_tree);
             }
             unexpected_calculated => {
@@ -159,7 +163,7 @@ fn prototype_parse_use_tree(expected_use_tree_opt: Option<&UseTree>, input: &str
 }
 
 fn lalrpop_parser_supports_kind(kind: &ItemKind) -> bool {
-    matches!(kind, ItemKind::Import(_))
+    matches!(kind, ItemKind::Import(..))
 }
 
 /// program: module EOF
@@ -219,13 +223,27 @@ fn top_level_statement<'a>(
 ///
 /// implementation: 'impl' generics type '{' function_definition ... '}'
 fn implementation() -> impl NoirParser<TopLevelStatement> {
+    let methods_or_error = just(Token::LeftBrace)
+        .ignore_then(spanned(function::function_definition(true)).repeated())
+        .then_ignore(just(Token::RightBrace))
+        .or_not()
+        .validate(|methods, span, emit| {
+            if let Some(methods) = methods {
+                methods
+            } else {
+                emit(ParserError::with_reason(
+                    ParserErrorReason::ExpectedLeftBracketOrWhereOrLeftBraceOrArrowAfterImplType,
+                    span,
+                ));
+                vec![]
+            }
+        });
+
     keyword(Keyword::Impl)
         .ignore_then(function::generics())
         .then(parse_type().map_with_span(|typ, span| (typ, span)))
         .then(where_clause())
-        .then_ignore(just(Token::LeftBrace))
-        .then(spanned(function::function_definition(true)).repeated())
-        .then_ignore(just(Token::RightBrace))
+        .then(methods_or_error)
         .map(|args| {
             let ((other_args, where_clause), methods) = args;
             let (generics, (object_type, type_span)) = other_args;
@@ -319,7 +337,9 @@ fn self_parameter() -> impl NoirParser<Param> {
         .map(|(pattern_keyword, ident_span)| {
             let ident = Ident::new("self".to_string(), ident_span);
             let path = Path::from_single("Self".to_owned(), ident_span);
-            let mut self_type = UnresolvedTypeData::Named(path, vec![], true).with_span(ident_span);
+            let no_args = GenericTypeArgs::default();
+            let mut self_type =
+                UnresolvedTypeData::Named(path, no_args, true).with_span(ident_span);
             let mut pattern = Pattern::Identifier(ident);
 
             match pattern_keyword {
@@ -377,6 +397,7 @@ pub fn block<'a>(
     statement: impl NoirParser<StatementKind> + 'a,
 ) -> impl NoirParser<BlockExpression> + 'a {
     use Token::*;
+
     statement
         .recover_via(statement_recovery())
         .then(just(Semicolon).or_not().map_with_span(|s, span| (s, span)))
@@ -407,9 +428,9 @@ fn check_statements_require_semicolon(
 
 /// Parse an optional ': type'
 fn optional_type_annotation<'a>() -> impl NoirParser<UnresolvedType> + 'a {
-    ignore_then_commit(just(Token::Colon), parse_type())
-        .or_not()
-        .map(|r#type| r#type.unwrap_or_else(UnresolvedType::unspecified))
+    ignore_then_commit(just(Token::Colon), parse_type()).or_not().map_with_span(|r#type, span| {
+        r#type.unwrap_or(UnresolvedTypeData::Unspecified.with_span(span))
+    })
 }
 
 fn module_declaration() -> impl NoirParser<TopLevelStatement> {
@@ -419,7 +440,10 @@ fn module_declaration() -> impl NoirParser<TopLevelStatement> {
 }
 
 fn use_statement() -> impl NoirParser<TopLevelStatement> {
-    keyword(Keyword::Use).ignore_then(use_tree()).map(TopLevelStatement::Import)
+    visibility_modifier()
+        .then_ignore(keyword(Keyword::Use))
+        .then(use_tree())
+        .map(|(visibility, use_tree)| TopLevelStatement::Import(use_tree, visibility))
 }
 
 fn rename() -> impl NoirParser<Option<Ident>> {
@@ -470,6 +494,7 @@ where
             continue_statement(),
             return_statement(expr_parser.clone()),
             comptime_statement(expr_parser.clone(), expr_no_constructors, statement),
+            interned_statement(),
             expr_parser.map(StatementKind::Expression),
         ))
     })
@@ -509,6 +534,15 @@ where
     keyword(Keyword::Comptime).ignore_then(comptime_statement).map(StatementKind::Comptime)
 }
 
+pub(super) fn interned_statement() -> impl NoirParser<StatementKind> {
+    token_kind(TokenKind::InternedStatement).map(|token| match token {
+        Token::InternedStatement(id) => StatementKind::Interned(id),
+        _ => {
+            unreachable!("token_kind(InternedStatement) guarantees we parse an interned statement")
+        }
+    })
+}
+
 /// Comptime in an expression position only accepts entire blocks
 fn comptime_expr<'a, S>(statement: S) -> impl NoirParser<ExpressionKind> + 'a
 where
@@ -517,6 +551,15 @@ where
     keyword(Keyword::Comptime)
         .ignore_then(spanned(block(statement)))
         .map(|(block, span)| ExpressionKind::Comptime(block, span))
+}
+
+fn unsafe_expr<'a, S>(statement: S) -> impl NoirParser<ExpressionKind> + 'a
+where
+    S: NoirParser<StatementKind> + 'a,
+{
+    keyword(Keyword::Unsafe)
+        .ignore_then(spanned(block(statement)))
+        .map(|(block, span)| ExpressionKind::Unsafe(block, span))
 }
 
 fn let_statement<'a, P>(
@@ -536,7 +579,8 @@ fn declaration<'a, P>(expr_parser: P) -> impl NoirParser<StatementKind> + 'a
 where
     P: ExprParser + 'a,
 {
-    let_statement(expr_parser).map(StatementKind::new_let)
+    let_statement(expr_parser)
+        .map(|((pattern, typ), expr)| StatementKind::new_let(pattern, typ, expr))
 }
 
 pub fn pattern() -> impl NoirParser<Pattern> {
@@ -616,7 +660,7 @@ enum LValueRhs {
     Index(Expression, Span),
 }
 
-fn lvalue<'a, P>(expr_parser: P) -> impl NoirParser<LValue> + 'a
+pub fn lvalue<'a, P>(expr_parser: P) -> impl NoirParser<LValue> + 'a
 where
     P: ExprParser + 'a,
 {
@@ -629,7 +673,15 @@ where
 
         let parenthesized = lvalue.delimited_by(just(Token::LeftParen), just(Token::RightParen));
 
-        let term = choice((parenthesized, dereferences, l_ident));
+        let interned =
+            token_kind(TokenKind::InternedLValue).map_with_span(|token, span| match token {
+                Token::InternedLValue(id) => LValue::Interned(id, span),
+                _ => unreachable!(
+                    "token_kind(InternedLValue) guarantees we parse an interned lvalue"
+                ),
+            });
+
+        let term = choice((parenthesized, dereferences, l_ident, interned));
 
         let l_member_rhs =
             just(Token::Dot).ignore_then(field_name()).map_with_span(LValueRhs::MemberAccess);
@@ -878,10 +930,15 @@ where
     let method_call_rhs = turbofish
         .then(just(Token::Bang).or_not())
         .then(parenthesized(expression_list(expr_parser.clone())))
-        .map(|((turbofish, macro_call), args)| UnaryRhsMethodCall {
-            turbofish,
-            macro_call: macro_call.is_some(),
-            args,
+        .validate(|((turbofish, macro_call), args), span, emit| {
+            if turbofish.as_ref().map_or(false, |generics| !generics.named_args.is_empty()) {
+                let reason = ParserErrorReason::AssociatedTypesNotAllowedInMethodCalls;
+                emit(ParserError::with_reason(reason, span));
+            }
+
+            let macro_call = macro_call.is_some();
+            let turbofish = turbofish.map(|generics| generics.ordered_args);
+            UnaryRhsMethodCall { turbofish, macro_call, args }
         });
 
     // `.foo` or `.foo(args)` in `atom.foo` or `atom.foo(args)`
@@ -944,10 +1001,32 @@ where
 
         keyword(Keyword::If)
             .ignore_then(expr_no_constructors)
-            .then(if_block)
-            .then(keyword(Keyword::Else).ignore_then(else_block).or_not())
-            .map(|((condition, consequence), alternative)| {
-                ExpressionKind::If(Box::new(IfExpression { condition, consequence, alternative }))
+            .then(if_block.then(keyword(Keyword::Else).ignore_then(else_block).or_not()).or_not())
+            .validate(|(condition, consequence_and_alternative), span, emit_error| {
+                if let Some((consequence, alternative)) = consequence_and_alternative {
+                    ExpressionKind::If(Box::new(IfExpression {
+                        condition,
+                        consequence,
+                        alternative,
+                    }))
+                } else {
+                    // We allow `if cond` without a block mainly for LSP, so that it parses right
+                    // and autocompletion works there.
+                    emit_error(ParserError::with_reason(
+                        ParserErrorReason::ExpectedLeftBraceAfterIfCondition,
+                        span,
+                    ));
+
+                    let span_end = condition.span.end();
+                    ExpressionKind::If(Box::new(IfExpression {
+                        condition,
+                        consequence: Expression::new(
+                            ExpressionKind::Error,
+                            Span::from(span_end..span_end),
+                        ),
+                        alternative: None,
+                    }))
+                }
             })
     })
 }
@@ -1093,13 +1172,15 @@ where
         },
         lambdas::lambda(expr_parser.clone()),
         block(statement.clone()).map(ExpressionKind::Block),
-        comptime_expr(statement),
+        comptime_expr(statement.clone()),
+        unsafe_expr(statement),
         quote(),
         unquote(expr_parser.clone()),
         variable(),
         literal(),
         as_trait_path(parse_type()).map(ExpressionKind::AsTraitPath),
         macro_quote_marker(),
+        interned_expr(),
     ))
     .map_with_span(Expression::new)
     .or(parenthesized(expr_parser.clone()).map_with_span(|sub_expr, span| {
@@ -1421,6 +1502,24 @@ mod test {
     }
 
     #[test]
+    fn parse_if_without_block() {
+        let src = "if foo";
+        let parser = if_expr(expression_no_constructors(expression()), fresh_statement());
+        let (expression_kind, errors) = parse_recover(parser, src);
+
+        let expression_kind = expression_kind.unwrap();
+        let ExpressionKind::If(if_expression) = expression_kind else {
+            panic!("Expected an if expression, got {:?}", expression_kind);
+        };
+
+        assert_eq!(if_expression.consequence.kind, ExpressionKind::Error);
+        assert_eq!(if_expression.alternative, None);
+
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].message, "expected { after if condition");
+    }
+
+    #[test]
     fn parse_module_declaration() {
         parse_with(module_declaration(), "mod foo").unwrap();
         parse_with(module_declaration(), "mod 1").unwrap_err();
@@ -1462,7 +1561,7 @@ mod test {
                     parse_recover(&use_statement(), &use_statement_str);
                 use_statement_str.push(';');
                 match result_opt.unwrap() {
-                    TopLevelStatement::Import(expected_use_statement) => {
+                    TopLevelStatement::Import(expected_use_statement, _visibility) => {
                         Some(expected_use_statement)
                     }
                     _ => unreachable!(),
@@ -1708,5 +1807,22 @@ mod test {
         };
 
         assert_eq!(var.to_string(), "foo");
+    }
+
+    #[test]
+    fn parse_recover_impl_without_body() {
+        let src = "impl Foo";
+
+        let (top_level_statement, errors) = parse_recover(implementation(), src);
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].message, "expected <, where or { after impl type");
+
+        let top_level_statement = top_level_statement.unwrap();
+        let TopLevelStatement::Impl(impl_) = top_level_statement else {
+            panic!("Expected to parse an impl");
+        };
+
+        assert_eq!(impl_.object_type.to_string(), "Foo");
+        assert!(impl_.methods.is_empty());
     }
 }

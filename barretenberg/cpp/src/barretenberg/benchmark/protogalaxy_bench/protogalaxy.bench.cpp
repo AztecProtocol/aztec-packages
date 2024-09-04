@@ -17,7 +17,7 @@ template <typename Flavor, size_t k> void fold_k(State& state) noexcept
     using ProverInstance = ProverInstance_<Flavor>;
     using Instance = ProverInstance;
     using Instances = ProverInstances_<Flavor, k + 1>;
-    using ProtoGalaxyProver = ProtoGalaxyProver_<Instances>;
+    using ProtogalaxyProver = ProtogalaxyProver_<Instances>;
     using Builder = typename Flavor::CircuitBuilder;
 
     bb::srs::init_crs_factory("../srs_db/ignition");
@@ -35,16 +35,15 @@ template <typename Flavor, size_t k> void fold_k(State& state) noexcept
         instances.emplace_back(construct_instance());
     }
 
-    ProtoGalaxyProver folding_prover(instances);
+    ProtogalaxyProver folding_prover(instances);
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
-        auto proof = folding_prover.fold_instances();
+        auto proof = folding_prover.prove();
     }
 }
 
 // We stick to just k=1 for compile-time reasons.
-BENCHMARK(fold_k<UltraFlavor, 1>)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 BENCHMARK(fold_k<MegaFlavor, 1>)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 
 } // namespace bb

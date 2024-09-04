@@ -1,17 +1,18 @@
 use acvm::acir::{
-    brillig::{BlackBoxOp, HeapArray, IntegerBitSize},
+    brillig::{BlackBoxOp, IntegerBitSize},
     AcirField,
 };
 
 use crate::brillig::brillig_ir::BrilligBinaryOp;
 
 use super::{
-    brillig_variable::{BrilligVector, SingleAddrVariable},
+    brillig_variable::{BrilligArray, SingleAddrVariable},
     debug_show::DebugToString,
+    registers::RegisterAllocator,
     BrilligContext,
 };
 
-impl<F: AcirField + DebugToString> BrilligContext<F> {
+impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<F, Registers> {
     /// Codegens a truncation of a value to the given bit size
     pub(crate) fn codegen_truncate(
         &mut self,
@@ -66,57 +67,27 @@ impl<F: AcirField + DebugToString> BrilligContext<F> {
     pub(crate) fn codegen_to_radix(
         &mut self,
         source_field: SingleAddrVariable,
-        target_vector: BrilligVector,
+        target_array: BrilligArray,
         radix: u32,
-        limb_count: usize,
         big_endian: bool,
-        limb_bit_size: u32,
+        output_bits: bool, // If true will generate bit limbs, if false will generate byte limbs
     ) {
         assert!(source_field.bit_size == F::max_num_bits());
 
-        self.usize_const_instruction(target_vector.size, limb_count.into());
-        self.usize_const_instruction(target_vector.rc, 1_usize.into());
-        self.codegen_allocate_array(target_vector.pointer, target_vector.size);
+        let size = SingleAddrVariable::new_usize(self.allocate_register());
+        self.usize_const_instruction(size.address, target_array.size.into());
+        self.usize_const_instruction(target_array.rc, 1_usize.into());
+        self.codegen_allocate_array(target_array.pointer, size.address);
 
         self.black_box_op_instruction(BlackBoxOp::ToRadix {
             input: source_field.address,
             radix,
-            output: HeapArray { pointer: target_vector.pointer, size: limb_count },
+            output: target_array.to_heap_array(),
+            output_bits,
         });
 
-        if limb_bit_size != F::max_num_bits() {
-            let end_pointer = self.allocate_register();
-            let temporary_register = self.allocate_register();
-
-            self.memory_op_instruction(
-                target_vector.pointer,
-                target_vector.size,
-                end_pointer,
-                BrilligBinaryOp::Add,
-            );
-
-            self.codegen_for_loop(
-                Some(target_vector.pointer),
-                end_pointer,
-                None,
-                |ctx, item_pointer| {
-                    ctx.load_instruction(temporary_register, item_pointer.address);
-
-                    ctx.cast(
-                        SingleAddrVariable::new(temporary_register, limb_bit_size),
-                        SingleAddrVariable::new(temporary_register, F::max_num_bits()),
-                    );
-
-                    ctx.store_instruction(item_pointer.address, temporary_register);
-                },
-            );
-
-            self.deallocate_register(end_pointer);
-            self.deallocate_register(temporary_register);
-        }
-
         if big_endian {
-            self.codegen_reverse_vector_in_place(target_vector);
+            self.codegen_array_reverse(target_array.pointer, size.address);
         }
     }
 }

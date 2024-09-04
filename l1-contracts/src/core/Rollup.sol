@@ -17,6 +17,8 @@ import {Errors} from "./libraries/Errors.sol";
 import {Constants} from "./libraries/ConstantsGen.sol";
 import {MerkleLib} from "./libraries/MerkleLib.sol";
 import {SignatureLib} from "./sequencer_selection/SignatureLib.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+import {DataStructures} from "./libraries/DataStructures.sol";
 
 // Contracts
 import {MockVerifier} from "../mock/MockVerifier.sol";
@@ -31,10 +33,12 @@ import {Leonidas} from "./sequencer_selection/Leonidas.sol";
  * not giving a damn about gas costs.
  */
 contract Rollup is Leonidas, IRollup, ITestRollup {
+  using SafeCast for uint256;
+
   struct BlockLog {
     bytes32 archive;
+    bytes32 blockHash;
     uint128 slotNumber;
-    bool isProven;
   }
 
   // @note  The number of slots within which a block must be proven
@@ -63,10 +67,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   bytes32 public vkTreeRoot;
 
-  // @note  This should not exists, but we have it now to ensure we will not be killing the devnet with our
-  //        timeliness requirements.
-  bool public isDevNet = Constants.IS_DEV_NET == 1;
-
   // @note  Assume that all blocks up to this value are automatically proven. Speeds up bootstrapping.
   //        Testing only. This should be removed eventually.
   uint256 private assumeProvenUntilBlockNumber;
@@ -76,7 +76,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     IAvailabilityOracle _availabilityOracle,
     IFeeJuicePortal _fpcJuicePortal,
     bytes32 _vkTreeRoot,
-    address _ares
+    address _ares,
+    address[] memory _validators
   ) Leonidas(_ares) {
     verifier = new MockVerifier();
     REGISTRY = _registry;
@@ -88,17 +89,28 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     VERSION = 1;
 
     // Genesis block
-    blocks[0] = BlockLog({archive: bytes32(0), slotNumber: 0, isProven: true});
+    blocks[0] = BlockLog({
+      archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
+      blockHash: bytes32(0),
+      slotNumber: 0
+    });
     pendingBlockCount = 1;
     provenBlockCount = 1;
+
+    for (uint256 i = 0; i < _validators.length; i++) {
+      _addValidator(_validators[i]);
+    }
+    setupEpoch();
   }
 
   /**
    * @notice  Prune the pending chain up to the last proven block
    *
    * @dev     Will revert if there is nothing to prune or if the chain is not ready to be pruned
+   *
+   * @dev     While in devnet, this will be guarded behind an `onlyOwner`
    */
-  function prune() external override(IRollup) {
+  function prune() external override(IRollup) onlyOwner {
     if (pendingBlockCount == provenBlockCount) {
       revert Errors.Rollup__NothingToPrune();
     }
@@ -132,24 +144,9 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     onlyOwner
   {
     if (blockNumber > provenBlockCount && blockNumber <= pendingBlockCount) {
-      for (uint256 i = provenBlockCount; i < blockNumber; i++) {
-        blocks[i].isProven = true;
-        emit L2ProofVerified(i, "CHEAT");
-      }
-      _progressState();
+      provenBlockCount = blockNumber;
     }
     assumeProvenUntilBlockNumber = blockNumber;
-  }
-
-  /**
-   * @notice  Set the devnet mode
-   *
-   * @dev     This is only needed for testing, and should be removed
-   *
-   * @param _devNet - Whether or not the contract is in devnet mode
-   */
-  function setDevNet(bool _devNet) external override(ITestRollup) {
-    isDevNet = _devNet;
   }
 
   /**
@@ -159,7 +156,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *
    * @param _verifier - The new verifier contract
    */
-  function setVerifier(address _verifier) external override(ITestRollup) {
+  function setVerifier(address _verifier) external override(ITestRollup) onlyOwner {
     verifier = IVerifier(_verifier);
   }
 
@@ -170,51 +167,55 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *
    * @param _vkTreeRoot - The new vkTreeRoot to be used by proofs
    */
-  function setVkTreeRoot(bytes32 _vkTreeRoot) external override(ITestRollup) {
+  function setVkTreeRoot(bytes32 _vkTreeRoot) external override(ITestRollup) onlyOwner {
     vkTreeRoot = _vkTreeRoot;
   }
 
   /**
-   * @notice  Published the body and processes the block
+   * @notice  Published the body and propose the block
    * @dev     This should likely be purged in the future as it is a convenience method
    * @dev     `eth_log_handlers` rely on this function
    *
    * @param _header - The L2 block header
    * @param _archive - A root of the archive tree after the L2 block is applied
+   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    * @param _signatures - Signatures from the validators
    * @param _body - The body of the L2 block
    */
-  function publishAndProcess(
+  function propose(
     bytes calldata _header,
     bytes32 _archive,
+    bytes32 _blockHash,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body
   ) external override(IRollup) {
     AVAILABILITY_ORACLE.publish(_body);
-    process(_header, _archive, _signatures);
+    propose(_header, _archive, _blockHash, _signatures);
   }
 
   /**
-   * @notice  Published the body and processes the block
+   * @notice  Published the body and propose the block
    * @dev     This should likely be purged in the future as it is a convenience method
    * @dev     `eth_log_handlers` rely on this function
    * @param _header - The L2 block header
    * @param _archive - A root of the archive tree after the L2 block is applied
+   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    * @param _body - The body of the L2 block
    */
-  function publishAndProcess(bytes calldata _header, bytes32 _archive, bytes calldata _body)
-    external
-    override(IRollup)
-  {
+  function propose(
+    bytes calldata _header,
+    bytes32 _archive,
+    bytes32 _blockHash,
+    bytes calldata _body
+  ) external override(IRollup) {
     AVAILABILITY_ORACLE.publish(_body);
-    process(_header, _archive);
+    propose(_header, _archive, _blockHash);
   }
 
   /**
    * @notice  Submit a proof for a block in the pending chain
    *
-   * @dev     Will call `_progressState` to update the proven chain. Notice this have potentially
-   *          unbounded gas consumption.
+   * @dev     TODO(#7346): Verify root proofs rather than block root when batch rollups are integrated.
    *
    * @dev     Will emit `L2ProofVerified` if the proof is valid
    *
@@ -231,10 +232,11 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *
    * @param  _header - The header of the block (should match the block in the pending chain)
    * @param  _archive - The archive root of the block (should match the block in the pending chain)
+   * @param  _proverId - The id of this block's prover
    * @param  _aggregationObject - The aggregation object for the proof
    * @param  _proof - The proof to verify
    */
-  function submitProof(
+  function submitBlockRootProof(
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _proverId,
@@ -245,6 +247,12 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
     if (header.globalVariables.blockNumber >= pendingBlockCount) {
       revert Errors.Rollup__TryingToProveNonExistingBlock();
+    }
+
+    // @note  This implicitly also ensures that we have not already proven, since
+    //        the value `provenBlockCount` is incremented at the end of this function
+    if (header.globalVariables.blockNumber != provenBlockCount) {
+      revert Errors.Rollup__NonSequentialProving();
     }
 
     bytes32 expectedLastArchive = blocks[header.globalVariables.blockNumber - 1].archive;
@@ -259,22 +267,90 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidProposedArchive(expectedArchive, _archive);
     }
 
-    blocks[header.globalVariables.blockNumber].isProven = true;
+    // TODO(#7346): Currently verifying block root proofs until batch rollups fully integrated.
+    // Hence the below pub inputs are BlockRootOrBlockMergePublicInputs, which are larger than
+    // the planned set (RootRollupPublicInputs), for the interim.
+    // Public inputs are not fully verified (TODO(#7373))
 
-    _progressState();
+    bytes32[] memory publicInputs = new bytes32[](
+      Constants.BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH
+    );
 
+    // From block_root_or_block_merge_public_inputs.nr: BlockRootOrBlockMergePublicInputs.
+    // previous_archive.root: the previous archive tree root
+    publicInputs[0] = expectedLastArchive;
+    // previous_archive.next_available_leaf_index: the previous archive next available index
+    publicInputs[1] = bytes32(header.globalVariables.blockNumber);
+
+    // new_archive.root: the new archive tree root
+    publicInputs[2] = expectedArchive;
+    // this is the _next_ available leaf in the archive tree
+    // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
+    // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
+    // new_archive.next_available_leaf_index: the new archive next available index
+    publicInputs[3] = bytes32(header.globalVariables.blockNumber + 1);
+
+    // TODO(#7346): Currently previous block hash is unchecked, but will be checked in batch rollup (block merge -> root).
+    // block-building-helpers.ts is injecting as 0 for now, replicating here.
+    // previous_block_hash: the block hash just preceding this block (will eventually become the end_block_hash of the prev batch)
+    publicInputs[4] = bytes32(0);
+
+    // end_block_hash: the current block hash (will eventually become the hash of the final block proven in a batch)
+    publicInputs[5] = blocks[header.globalVariables.blockNumber].blockHash;
+
+    // For block root proof outputs, we have a block 'range' of just 1 block => start and end globals are the same
+    bytes32[] memory globalVariablesFields = HeaderLib.toFields(header.globalVariables);
+    for (uint256 i = 0; i < globalVariablesFields.length; i++) {
+      // start_global_variables
+      publicInputs[i + 6] = globalVariablesFields[i];
+      // end_global_variables
+      publicInputs[globalVariablesFields.length + i + 6] = globalVariablesFields[i];
+    }
+    // out_hash: root of this block's l2 to l1 message tree (will eventually be root of roots)
+    publicInputs[24] = header.contentCommitment.outHash;
+
+    // For block root proof outputs, we have a single recipient-value fee payment pair,
+    // but the struct contains space for the max (32) => we keep 31*2=62 fields blank to represent it.
+    // fees: array of recipient-value pairs, for a single block just one entry (will eventually be filled and paid out here)
+    publicInputs[25] = bytes32(uint256(uint160(header.globalVariables.coinbase)));
+    publicInputs[26] = bytes32(header.totalFees);
+    // publicInputs[27] -> publicInputs[88] left blank for empty fee array entries
+
+    // vk_tree_root
+    publicInputs[89] = vkTreeRoot;
+    // prover_id: id of current block range's prover
+    publicInputs[90] = _proverId;
+
+    // the block proof is recursive, which means it comes with an aggregation object
+    // this snippet copies it into the public inputs needed for verification
+    // it also guards against empty _aggregationObject used with mocked proofs
+    uint256 aggregationLength = _aggregationObject.length / 32;
+    for (uint256 i = 0; i < Constants.AGGREGATION_OBJECT_LENGTH && i < aggregationLength; i++) {
+      bytes32 part;
+      assembly {
+        part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
+      }
+      publicInputs[i + 91] = part;
+    }
+
+    if (!verifier.verify(_proof, publicInputs)) {
+      revert Errors.Rollup__InvalidProof();
+    }
+
+    provenBlockCount += 1;
+
+    for (uint256 i = 0; i < 32; i++) {
+      address coinbase = address(uint160(uint256(publicInputs[25 + i * 2])));
+      uint256 fees = uint256(publicInputs[26 + i * 2]);
+
+      if (coinbase != address(0) && fees > 0) {
+        // @note  This will currently fail if there are insufficient funds in the bridge
+        //        which WILL happen for the old version after an upgrade where the bridge follow.
+        //        Consider allowing a failure. See #7938.
+        FEE_JUICE_PORTAL.distributeFees(coinbase, fees);
+      }
+    }
     emit L2ProofVerified(header.globalVariables.blockNumber, _proverId);
-  }
-
-  /**
-   * @notice  Get the `isProven` flag for the block number
-   *
-   * @param _blockNumber - The block number to check
-   *
-   * @return bool - True if proven, false otherwise
-   */
-  function isBlockProven(uint256 _blockNumber) external view override(IRollup) returns (bool) {
-    return blocks[_blockNumber].isProven;
   }
 
   /**
@@ -289,28 +365,92 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
-   * @notice Processes an incoming L2 block with signatures
+   * @notice  Check if msg.sender can propose at a given time
+   *
+   * @param _ts - The timestamp to check
+   * @param _archive - The archive to check (should be the latest archive)
+   *
+   * @return uint256 - The slot at the given timestamp
+   * @return uint256 - The block number at the given timestamp
+   */
+  function canProposeAtTime(uint256 _ts, bytes32 _archive)
+    external
+    view
+    override(IRollup)
+    returns (uint256, uint256)
+  {
+    uint256 slot = getSlotAt(_ts);
+
+    uint256 lastSlot = uint256(blocks[pendingBlockCount - 1].slotNumber);
+    if (slot <= lastSlot) {
+      revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
+    }
+
+    bytes32 tipArchive = archive();
+    if (tipArchive != _archive) {
+      revert Errors.Rollup__InvalidArchive(tipArchive, _archive);
+    }
+
+    SignatureLib.Signature[] memory sigs = new SignatureLib.Signature[](0);
+    DataStructures.ExecutionFlags memory flags =
+      DataStructures.ExecutionFlags({ignoreDA: true, ignoreSignatures: true});
+    _validateLeonidas(slot, sigs, _archive, flags);
+
+    return (slot, pendingBlockCount);
+  }
+
+  /**
+   * @notice  Validate a header for submission
+   *
+   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header
+   *          without having to deal with viem or anvil for simulating timestamps in the future.
+   *
+   * @param _header - The header to validate
+   * @param _signatures - The signatures to validate
+   * @param _digest - The digest to validate
+   * @param _currentTime - The current time
+   * @param _flags - The flags to validate
+   */
+  function validateHeader(
+    bytes calldata _header,
+    SignatureLib.Signature[] memory _signatures,
+    bytes32 _digest,
+    uint256 _currentTime,
+    DataStructures.ExecutionFlags memory _flags
+  ) external view override(IRollup) {
+    HeaderLib.Header memory header = HeaderLib.decode(_header);
+    _validateHeader(header, _signatures, _digest, _currentTime, _flags);
+  }
+
+  /**
+   * @notice propose an incoming L2 block with signatures
    *
    * @param _header - The L2 block header
    * @param _archive - A root of the archive tree after the L2 block is applied
+   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    * @param _signatures - Signatures from the validators
    */
-  function process(
+  function propose(
     bytes calldata _header,
     bytes32 _archive,
+    bytes32 _blockHash,
     SignatureLib.Signature[] memory _signatures
   ) public override(IRollup) {
     // Decode and validate header
     HeaderLib.Header memory header = HeaderLib.decode(_header);
-    _validateHeaderForSubmissionBase(header);
-    _validateHeaderForSubmissionSequencerSelection(header, _signatures, _archive);
+    setupEpoch();
+    _validateHeader({
+      _header: header,
+      _signatures: _signatures,
+      _digest: _archive,
+      _currentTime: block.timestamp,
+      _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
+    });
 
-    // As long as the header is passing validity check in `_validateHeaderForSubmissionBase` we can safely cast
-    // the slot number to uint128
     blocks[pendingBlockCount++] = BlockLog({
       archive: _archive,
-      slotNumber: uint128(header.globalVariables.slotNumber),
-      isProven: false
+      blockHash: _blockHash,
+      slotNumber: header.globalVariables.slotNumber.toUint128()
     });
 
     // @note  The block number here will always be >=1 as the genesis block is at 0
@@ -327,34 +467,36 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight
     );
 
-    // @note  This should be addressed at the time of proving if sequential proving or at the time of
-    //        inclusion into the proven chain otherwise. See #7622.
-    if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
-      // @note  This will currently fail if there are insufficient funds in the bridge
-      //        which WILL happen for the old version after an upgrade where the bridge follow.
-      //        Consider allowing a failure. See #7938.
-      FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
-    }
-
-    emit L2BlockProcessed(header.globalVariables.blockNumber);
+    emit L2BlockProposed(header.globalVariables.blockNumber);
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenUntilBlockNumber.
     if (header.globalVariables.blockNumber < assumeProvenUntilBlockNumber) {
-      blocks[header.globalVariables.blockNumber].isProven = true;
+      provenBlockCount += 1;
+
+      if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
+        // @note  This will currently fail if there are insufficient funds in the bridge
+        //        which WILL happen for the old version after an upgrade where the bridge follow.
+        //        Consider allowing a failure. See #7938.
+        FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
+      }
+
       emit L2ProofVerified(header.globalVariables.blockNumber, "CHEAT");
-      _progressState();
     }
   }
 
   /**
-   * @notice Processes an incoming L2 block without signatures
+   * @notice Propose a L2 block without signatures
    *
    * @param _header - The L2 block header
    * @param _archive - A root of the archive tree after the L2 block is applied
+   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
    */
-  function process(bytes calldata _header, bytes32 _archive) public override(IRollup) {
+  function propose(bytes calldata _header, bytes32 _archive, bytes32 _blockHash)
+    public
+    override(IRollup)
+  {
     SignatureLib.Signature[] memory emptySignatures = new SignatureLib.Signature[](0);
-    process(_header, _archive, emptySignatures);
+    propose(_header, _archive, _blockHash, emptySignatures);
   }
 
   /**
@@ -367,34 +509,26 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
-   * @notice  Progresses the state of the proven chain as far as possible
+   * @notice  Validates the header for submission
    *
-   * @dev     Emits `ProgressedState` if the state is progressed
-   *
-   * @dev     Will continue along the pending chain as long as the blocks are proven
-   *          stops at the first unproven block.
-   *
-   * @dev     Have a potentially unbounded gas usage. @todo Will need a bounded version, such that it cannot be
-   *          used as a DOS vector.
+   * @param _header - The proposed block header
+   * @param _signatures - The signatures for the attestations
+   * @param _digest - The digest that signatures signed
+   * @param _currentTime - The time of execution
+   * @dev                - This value is provided to allow for simple simulation of future
+   * @param _flags - Flags specific to the execution, whether certain checks should be skipped
    */
-  function _progressState() internal {
-    if (pendingBlockCount == provenBlockCount) {
-      // We are already up to date
-      return;
-    }
-
-    uint256 cachedProvenBlockCount = provenBlockCount;
-
-    for (; cachedProvenBlockCount < pendingBlockCount; cachedProvenBlockCount++) {
-      if (!blocks[cachedProvenBlockCount].isProven) {
-        break;
-      }
-    }
-
-    if (cachedProvenBlockCount > provenBlockCount) {
-      provenBlockCount = cachedProvenBlockCount;
-      emit ProgressedState(provenBlockCount, pendingBlockCount);
-    }
+  function _validateHeader(
+    HeaderLib.Header memory _header,
+    SignatureLib.Signature[] memory _signatures,
+    bytes32 _digest,
+    uint256 _currentTime,
+    DataStructures.ExecutionFlags memory _flags
+  ) internal view {
+    _validateHeaderForSubmissionBase(_header, _currentTime, _flags);
+    _validateHeaderForSubmissionSequencerSelection(
+      _header.globalVariables.slotNumber, _signatures, _digest, _currentTime, _flags
+    );
   }
 
   /**
@@ -409,41 +543,21 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *            This might be relaxed for allow consensus set to better handle short-term bursts of L1 congestion
    *          - The slot MUST be in the current epoch
    *
-   * @dev     While in isDevNet, we allow skipping all of the checks as we simply assume only TRUSTED sequencers
-   *
-   * @param _header - The header to validate
+   * @param _slot - The slot of the header to validate
    * @param _signatures - The signatures to validate
-   * @param _archive - The archive root of the block
+   * @param _digest - The digest that signatures sign over
    */
   function _validateHeaderForSubmissionSequencerSelection(
-    HeaderLib.Header memory _header,
+    uint256 _slot,
     SignatureLib.Signature[] memory _signatures,
-    bytes32 _archive
-  ) internal {
-    if (isDevNet) {
-      // @note  If we are running in a devnet, we don't want to perform all the consensus
-      //        checks, we instead simply require that either there are NO validators or
-      //        that the proposer is a validator.
-      //
-      //        This means that we relaxes the condition that the block must land in the
-      //        correct slot and epoch to make it more fluid for the devnet launch
-      //        or for testing.
-      if (getValidatorCount() == 0) {
-        return;
-      }
-
-      if (!isValidator(msg.sender)) {
-        revert Errors.Leonidas__InvalidProposer(address(0), msg.sender);
-      }
-      return;
-    }
-
-    uint256 slot = _header.globalVariables.slotNumber;
-
+    bytes32 _digest,
+    uint256 _currentTime,
+    DataStructures.ExecutionFlags memory _flags
+  ) internal view {
     // Ensure that the slot proposed is NOT in the future
-    uint256 currentSlot = getCurrentSlot();
-    if (slot != currentSlot) {
-      revert Errors.HeaderLib__InvalidSlotNumber(currentSlot, slot);
+    uint256 currentSlot = getSlotAt(_currentTime);
+    if (_slot != currentSlot) {
+      revert Errors.HeaderLib__InvalidSlotNumber(currentSlot, _slot);
     }
 
     // @note  We are currently enforcing that the slot is in the current epoch
@@ -451,13 +565,13 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     //        of an entire epoch if no-one from the new epoch committee have seen
     //        those blocks or behaves as if they did not.
 
-    uint256 epochNumber = getEpochAt(getTimestampForSlot(slot));
-    uint256 currentEpoch = getCurrentEpoch();
+    uint256 epochNumber = getEpochAt(getTimestampForSlot(_slot));
+    uint256 currentEpoch = getEpochAt(_currentTime);
     if (epochNumber != currentEpoch) {
       revert Errors.Rollup__InvalidEpoch(currentEpoch, epochNumber);
     }
 
-    _processPendingBlock(epochNumber, slot, _signatures, _archive);
+    _validateLeonidas(_slot, _signatures, _digest, _flags);
   }
 
   /**
@@ -477,7 +591,11 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *
    * @param _header - The header to validate
    */
-  function _validateHeaderForSubmissionBase(HeaderLib.Header memory _header) internal view {
+  function _validateHeaderForSubmissionBase(
+    HeaderLib.Header memory _header,
+    uint256 _currentTime,
+    DataStructures.ExecutionFlags memory _flags
+  ) internal view {
     if (block.chainid != _header.globalVariables.chainId) {
       revert Errors.Rollup__InvalidChainId(block.chainid, _header.globalVariables.chainId);
     }
@@ -492,9 +610,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       );
     }
 
-    // TODO(#4148) Proper genesis state. If the state is empty, we allow anything for now.
     bytes32 tipArchive = archive();
-    if (tipArchive != bytes32(0) && tipArchive != _header.lastArchive.root) {
+    if (tipArchive != _header.lastArchive.root) {
       revert Errors.Rollup__InvalidArchive(tipArchive, _header.lastArchive.root);
     }
 
@@ -513,8 +630,20 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidTimestamp(timestamp, _header.globalVariables.timestamp);
     }
 
+    if (timestamp > _currentTime) {
+      // @note  If you are hitting this error, it is likely because the chain you use have a blocktime that differs
+      //        from the value that we have in the constants.
+      //        When you are encountering this, it will likely be as the sequencer expects to be able to include
+      //        an Aztec block in the "next" ethereum block based on a timestamp that is 12 seconds in the future
+      //        from the last block. However, if the actual will only be 1 second in the future, you will end up
+      //        expecting this value to be in the future.
+      revert Errors.Rollup__TimestampInFuture(_currentTime, timestamp);
+    }
+
     // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
-    if (!AVAILABILITY_ORACLE.isAvailable(_header.contentCommitment.txsEffectsHash)) {
+    if (
+      !_flags.ignoreDA && !AVAILABILITY_ORACLE.isAvailable(_header.contentCommitment.txsEffectsHash)
+    ) {
       revert Errors.Rollup__UnavailableTxs(_header.contentCommitment.txsEffectsHash);
     }
   }
