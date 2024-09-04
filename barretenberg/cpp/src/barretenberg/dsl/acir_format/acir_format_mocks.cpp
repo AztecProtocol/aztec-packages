@@ -22,6 +22,7 @@ acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indice
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .avm_recursion_constraints = {},
         .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},

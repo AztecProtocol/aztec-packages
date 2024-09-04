@@ -318,7 +318,7 @@ class AvmFlavor {
         VerificationKey() = default;
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-            : VerificationKey_(proving_key->circuit_size, proving_key->num_public_inputs)
+            : VerificationKey_(proving_key->circuit_size, static_cast<size_t>(proving_key->num_public_inputs))
         {
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
@@ -336,6 +336,24 @@ class AvmFlavor {
                 vk_cmt = cmt;
             }
             pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+        }
+
+        // Override FF alias in VerificationKey_
+        using FF = AvmFlavor::FF;
+        /**
+         * @brief Serialize verification key to field elements
+         *
+         * @return std::vector<FF>
+         */
+        std::vector<FF> to_field_elements() const
+        {
+            std::vector<FF> elements = { FF(circuit_size), FF(num_public_inputs) };
+
+            for (auto const& comm : get_all()) {
+                std::vector<FF> comm_as_fields = field_conversion::convert_to_bn254_frs(comm);
+                elements.insert(elements.end(), comm_as_fields.begin(), comm_as_fields.end());
+            }
+            return elements;
         }
     };
 

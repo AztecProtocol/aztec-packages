@@ -2207,6 +2207,10 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::incl_mem_tag_err_counts = "INCL_MEM_TAG_ERR_COUNTS";
 };
 
+// Note: current de-/serialization routines are not including the padded zero univariates which are added as part of
+// current sumcheck implementation. Namely, this algorithm is padding to reach CONST_PROOF_SIZE_LOG_N sumcheck rounds.
+// Similarly, zeromorph implementation performs same padding over some commitments (zm_cq_comms).
+// In code below, the loops are of size log(circuit_size) instead of CONST_PROOF_SIZE_LOG_N.
 void AvmFlavor::Transcript::deserialize_full_transcript()
 {
     size_t num_frs_read = 0;
@@ -2229,6 +2233,7 @@ void AvmFlavor::Transcript::deserialize_full_transcript()
     zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 }
 
+// See note above AvmFlavor::Transcript::deserialize_full_transcript()
 void AvmFlavor::Transcript::serialize_full_transcript()
 {
     size_t old_proof_length = proof_data.size();

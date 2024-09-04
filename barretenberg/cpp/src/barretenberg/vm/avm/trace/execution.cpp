@@ -153,7 +153,6 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     proof.insert(proof.end(), returndata.begin(), returndata.end());
     auto raw_proof = prover.construct_proof();
     proof.insert(proof.end(), raw_proof.begin(), raw_proof.end());
-    // TODO(#4887): Might need to return PCS vk when full verify is supported
     return std::make_tuple(*verifier.key, proof);
 }
 

@@ -32,7 +32,6 @@ class AvmRecursiveTests : public ::testing::Test {
 
     using Transcript = InnerFlavor::Transcript;
 
-    // Note: removed templating from eccvm one
     using RecursiveVerifier = AvmRecursiveVerifier_<RecursiveFlavor>;
 
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
