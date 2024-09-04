@@ -49,34 +49,39 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     srs::init_crs_factory("../srs_db/ignition");
 
     std::vector<NativeFr> u_challenge(log_circuit_size);
-    for (NativeFr& element : u_challenge) {
-        element = NativeFr::random_element(&shplemini_engine);
-    }
-
+    for (size_t idx = 0; idx < log_circuit_size; ++idx) {
+        u_challenge[idx] = NativeFr::random_element(&shplemini_engine);
+    };
     // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)
     std::vector<Polynomial> f_polynomials; // unshifted polynomials
     std::vector<NativeFr> v_evaluations;
     for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
         f_polynomials.emplace_back(Polynomial::random(N));
+        info(f_polynomials[i][0]);
         f_polynomials[i][0] = NativeFr(0); // ensure f is "shiftable"
         v_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge));
     }
+    info(f_polynomials[0][0]);
 
     // Construct some "shifted" multilinear polynomials h_i as the left-shift-by-1 of f_i
     std::vector<Polynomial> g_polynomials; // to-be-shifted polynomials
     std::vector<Polynomial> h_polynomials; // shifts of the to-be-shifted polynomials
     std::vector<NativeFr> w_evaluations;
-    for (size_t i = 0; i < NUM_SHIFTED; ++i) {
-        g_polynomials.emplace_back(f_polynomials[i]);
-        h_polynomials.emplace_back(g_polynomials[i].shifted());
-        w_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
+    if constexpr (NUM_SHIFTED > 0) {
+        for (size_t i = 0; i < NUM_SHIFTED; ++i) {
+            g_polynomials.emplace_back(f_polynomials[i]);
+            info(i);
+            h_polynomials.emplace_back(g_polynomials[i].shifted());
+            info("here?");
+            w_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
+        }
     }
 
     std::vector<NativeFr> claimed_evaluations;
     claimed_evaluations.reserve(v_evaluations.size() + w_evaluations.size());
     claimed_evaluations.insert(claimed_evaluations.end(), v_evaluations.begin(), v_evaluations.end());
     claimed_evaluations.insert(claimed_evaluations.end(), w_evaluations.begin(), w_evaluations.end());
-
+    info(claimed_evaluations.size());
     // Compute commitments [f_i]
     std::vector<NativeCommitment> f_commitments;
     auto commitment_key = std::make_shared<CommitmentKey>(4096);
@@ -97,16 +102,17 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     // Batch the unshifted polynomials and the to-be-shifted polynomials using ρ
     Polynomial batched_poly_unshifted(N);
     size_t poly_idx = 0;
-    for (auto& unshifted_poly : g_polynomials) {
+    for (auto& unshifted_poly : f_polynomials) {
         batched_poly_unshifted.add_scaled(unshifted_poly, rhos[poly_idx]);
         ++poly_idx;
     }
 
     Polynomial batched_poly_to_be_shifted(N); // batched to-be-shifted polynomials
-    for (auto& to_be_shifted_poly : h_polynomials) {
+    for (auto& to_be_shifted_poly : g_polynomials) {
         batched_poly_to_be_shifted.add_scaled(to_be_shifted_poly, rhos[poly_idx]);
         ++poly_idx;
     };
+
     // Compute d-1 polynomials Fold^(i), i = 1, ..., d-1.
     auto fold_polynomials = GeminiProver::compute_gemini_polynomials(
         u_challenge, std::move(batched_poly_unshifted), std::move(batched_poly_to_be_shifted));
