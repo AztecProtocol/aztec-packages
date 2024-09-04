@@ -240,7 +240,6 @@ export const deployL1Contracts = async (
   // @note  This is used to ensure we fully wait for the transaction when running against a real chain
   //        otherwise we execute subsequent transactions too soon
   await publicClient.waitForTransactionReceipt({ hash: mintTxHash });
-  txHashes.push(mintTxHash);
   logger.info(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
 
   if ((await feeJuicePortal.read.registry([])) === zeroAddress) {
