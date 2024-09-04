@@ -100,8 +100,6 @@ import { extractAvmVkData, extractVkData } from '../verification_key/verificatio
 
 const logger = createDebugLogger('aztec:bb-prover');
 
-const CIRCUITS_WITHOUT_AGGREGATION: Set<ServerProtocolArtifact> = new Set(['EmptyNestedArtifact']);
-
 export interface BBProverConfig extends BBConfig, ACVMConfig {
   // list of circuits supported by this prover. defaults to all circuits if empty
   circuitFilter?: ServerProtocolArtifact[];
@@ -939,21 +937,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     ]);
     const json = JSON.parse(proofString);
     const vkData = await this.getVerificationKeyDataForCircuit(circuitType);
-    const hasAggregationObject = !CIRCUITS_WITHOUT_AGGREGATION.has(circuitType);
     // TODO (alexg) is this needed anymore? Shouldn't I just use the vkData.numPublicInputs?
-    const numPublicInputs = hasAggregationObject
-      ? vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH
-      : vkData.numPublicInputs;
-
+    const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const fieldsWithoutPublicInputs = json
       .slice(0, 3)
       .map(Fr.fromString)
       .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
-    logger.debug(
-      `num pub inputs ${vkData.numPublicInputs} and without aggregation ${CIRCUITS_WITHOUT_AGGREGATION.has(
-        circuitType,
-      )}`,
-    );
+    logger.debug(`num pub inputs ${vkData.numPublicInputs} circuit=${circuitType}`);
 
     const proof = new RecursiveProof<PROOF_LENGTH>(
       fieldsWithoutPublicInputs,
