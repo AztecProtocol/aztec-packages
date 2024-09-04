@@ -23,7 +23,6 @@
 
 namespace bb {
 
-// TODO: make this inherit things from ultra
 class UltraKeccakFlavor {
   public:
     using CircuitBuilder = UltraCircuitBuilder;
