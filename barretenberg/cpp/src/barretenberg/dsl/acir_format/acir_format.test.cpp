@@ -61,6 +61,7 @@ TEST_F(AcirFormatTests, TestASingleConstraintNoPubInputs)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
@@ -182,6 +183,7 @@ TEST_F(AcirFormatTests, TestLogicGateFromNoirCircuit)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
@@ -261,6 +263,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifyPass)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
@@ -367,6 +370,7 @@ TEST_F(AcirFormatTests, TestSchnorrVerifySmallRange)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
@@ -486,6 +490,7 @@ TEST_F(AcirFormatTests, TestVarKeccak)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
@@ -510,7 +515,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
 {
     Keccakf1600
         keccak_permutation{
-             .state = { 
+             .state = {
                 WitnessOrConstant<bb::fr>::from_index(1),
                 WitnessOrConstant<bb::fr>::from_index(2),
                 WitnessOrConstant<bb::fr>::from_index(3),
@@ -565,6 +570,7 @@ TEST_F(AcirFormatTests, TestKeccakPermutation)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
@@ -641,6 +647,7 @@ TEST_F(AcirFormatTests, TestCollectsGateCounts)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},

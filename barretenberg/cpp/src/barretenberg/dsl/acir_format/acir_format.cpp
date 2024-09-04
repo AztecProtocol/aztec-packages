@@ -442,6 +442,8 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
         ASSERT(false);
     }
 
+    ivc.instantiate_stdlib_verification_queue(circuit);
+
     for (size_t i = 0; i < num_ivc_constraints; ++i) {
         const auto& [proof, vkey, type] = ivc.verification_queue[i];
         auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
@@ -449,11 +451,11 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
 
         // WORKTODO: assert_equal on proof and vkey here
 
-        ivc.perform_recursive_verification_and_databus_consistency_checks(circuit, stdlib_proof, stdlib_vkey, type);
+        // ivc.perform_recursive_verification_and_databus_consistency_checks(circuit, stdlib_proof, stdlib_vkey, type);
     }
     ivc.verification_queue.clear();
 
-    ivc.process_recursive_merge_verification_queue(circuit);
+    // ivc.process_recursive_merge_verification_queue(circuit);
 
     return circuit;
 };
