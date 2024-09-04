@@ -15,5 +15,6 @@ mod encrypted_logs;
 mod unencrypted_logs;
 use dep::protocol_types;
 mod utils;
+mod macros;
 
 mod test;

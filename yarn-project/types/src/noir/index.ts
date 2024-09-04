@@ -8,6 +8,7 @@ import {
 } from '@aztec/foundation/abi';
 
 export const AZTEC_PRIVATE_ATTRIBUTE = 'aztec(private)';
+export const AZTEC_META_PRIVATE_ATTRIBUTE = 'aztec_private';
 export const AZTEC_PUBLIC_ATTRIBUTE = 'aztec(public)';
 export const AZTEC_PUBLIC_VM_ATTRIBUTE = 'aztec(public-vm)';
 export const AZTEC_INTERNAL_ATTRIBUTE = 'aztec(internal)';

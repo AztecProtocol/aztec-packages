@@ -1,4 +1,5 @@
 use crate::utils::field::field_from_bytes;
+use std::meta::quoted;
 
 // Trait: is_empty
 //
@@ -6,8 +7,8 @@ use crate::utils::field::field_from_bytes;
 // and it defines empty for the basic data types as 0.
 //
 // If a Field is equal to zero, then it is regarded as zero.
-// We will go with this definition for now, however it can be problematic 
-// if a value can actually be zero. In a future refactor, we can 
+// We will go with this definition for now, however it can be problematic
+// if a value can actually be zero. In a future refactor, we can
 // use the optional type for safety. Doing it now would lead to a worse devex
 // and would make it harder to sync up with the cpp code.
 // Preferred over Default trait to convey intent, as default doesn't necessarily mean empty.

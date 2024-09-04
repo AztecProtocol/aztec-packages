@@ -14,7 +14,7 @@ fn extract_property_value_from_selector<let N: u32>(
     serialized_note: [Field; N],
     selector: PropertySelector
 ) -> Field {
-    // Selectors use PropertySelectors in order to locate note properties inside the serialized note. 
+    // Selectors use PropertySelectors in order to locate note properties inside the serialized note.
     // This allows easier packing and custom (de)serialization schemas. A note property is located
     // inside the serialized note using the index inside the array, a byte offset and a length.
     let value = serialized_note[selector.index].to_be_bytes(32);
@@ -264,7 +264,7 @@ unconstrained pub fn view_notes<Note, let N: u32, let M: u32>(
     notes
 }
 
-unconstrained fn flatten_options<Note, let N: u32>(
+unconstrained fn flatten_options<let N: u32>(
     selects: BoundedVec<Option<Select>, N>,
     sorts: BoundedVec<Option<Sort>, N>
 ) -> (u8, [u8; N], [u8; N], [u8; N], [Field; N], [u8; N], [u8; N], [u8; N], [u8; N], [u8; N]) {
