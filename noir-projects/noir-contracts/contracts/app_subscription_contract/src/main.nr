@@ -8,12 +8,11 @@ contract AppSubscription {
         prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
         encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys},
         keys::getters::get_current_public_keys,
-        protocol_types::constants::{MAX_FIELD_VALUE, ROUTER_ADDRESS}
+        protocol_types::constants::{MAX_FIELD_VALUE, ROUTER_ADDRESS}, utils::comparison::Comparator
     };
     use authwit::auth::assert_current_call_valid_authwit;
     use token::Token;
     use router::Router;
-    use aztec::note::note_getter_options::Comparator;
 
     #[aztec(storage)]
     struct Storage {
@@ -55,7 +54,7 @@ contract AppSubscription {
 
         // We check that the note is not expired. We do that via the router contract to conceal which contract
         // is performing the check.
-        Router::at(ROUTER_ADDRESS).check_block_number(Comparator.GT, note.expiry_block_number).call(&mut context);
+        Router::at(ROUTER_ADDRESS).check_block_number(note.expiry_block_number, Comparator.GT).call(&mut context);
 
         payload.execute_calls(&mut context, storage.target_address.read_private());
     }
@@ -90,8 +89,8 @@ contract AppSubscription {
         // Assert that the given expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS < current_block_number.
         // We do that via the router contract to conceal which contract is performing the check.
         Router::at(ROUTER_ADDRESS).check_block_number(
-            Comparator.LT,
-            expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS
+            expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,
+            Comparator.LT
         ).call(&mut context);
 
         let subscriber_keys = get_current_public_keys(&mut context, subscriber);
