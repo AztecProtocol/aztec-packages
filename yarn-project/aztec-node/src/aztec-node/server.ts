@@ -776,7 +776,7 @@ export class AztecNodeService implements AztecNode {
     // those tx validators are customizable by the sequencer.
     const txValidators: TxValidator<Tx | ProcessedTx>[] = [
       new DataTxValidator(),
-      new MetadataTxValidator(new Fr(this.config.l1ChainId), new Fr(blockNumber)),
+      new MetadataTxValidator(new Fr(this.l1ChainId), new Fr(blockNumber)),
       new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest())),
     ];
 
