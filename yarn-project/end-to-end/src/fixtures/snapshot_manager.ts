@@ -8,7 +8,6 @@ import {
   type CompleteAddress,
   type DebugLogger,
   type DeployL1Contracts,
-  type EthAddress,
   EthCheatCodes,
   Fr,
   GrumpkinScalar,
@@ -23,7 +22,6 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { resolver, reviver } from '@aztec/foundation/serialize';
-import { createStore } from '@aztec/kv-store/utils';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -235,21 +233,13 @@ async function teardown(context: SubsystemsContext | undefined) {
 }
 
 export async function createAndSyncProverNode(
-  rollupAddress: EthAddress,
   proverNodePrivateKey: `0x${string}`,
   aztecNodeConfig: AztecNodeConfig,
   aztecNode: AztecNode,
 ) {
   // Creating temp store and archiver for simulated prover node
-
-  const store = await createStore({ dataDirectory: undefined }, rollupAddress);
-
-  const archiver = await createArchiver(
-    { ...aztecNodeConfig, dataDirectory: undefined },
-    store,
-    new NoopTelemetryClient(),
-    { blockUntilSync: true },
-  );
+  const archiverConfig = { ...aztecNodeConfig, dataDirectory: undefined };
+  const archiver = await createArchiver(archiverConfig, new NoopTelemetryClient(), { blockUntilSync: true });
 
   // Prover node config is for simulated proofs
   const proverConfig: ProverNodeConfig = {
@@ -335,7 +325,6 @@ async function setupFromFresh(
 
   logger.verbose('Creating and syncing a simulated prover node...');
   const proverNode = await createAndSyncProverNode(
-    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     `0x${proverNodePrivateKey!.toString('hex')}`,
     aztecNodeConfig,
     aztecNode,
@@ -433,12 +422,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const proverNodePrivateKey = getPrivateKeyFromIndex(2);
 
   logger.verbose('Creating and syncing a simulated prover node...');
-  const proverNode = await createAndSyncProverNode(
-    aztecNodeConfig.l1Contracts.rollupAddress,
-    `0x${proverNodePrivateKey!}`,
-    aztecNodeConfig,
-    aztecNode,
-  );
+  const proverNode = await createAndSyncProverNode(`0x${proverNodePrivateKey!}`, aztecNodeConfig, aztecNode);
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
