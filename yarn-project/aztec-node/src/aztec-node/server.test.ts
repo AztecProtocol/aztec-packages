@@ -15,7 +15,7 @@ import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
 
-import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService } from './server.js';
@@ -44,7 +44,7 @@ describe('aztec node', () => {
     });
 
     const l2BlockSource = mock<L2BlockSource>({
-      getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
+      getBlockNumber: () => Promise.resolve(lastBlockNumber),
     });
 
     const l2LogsSource = mock<L2LogsSource>();
@@ -149,7 +149,7 @@ describe('aztec node', () => {
         toBuffer: () => Fr.ZERO.toBuffer(),
       };
 
-      lastBlockNumber += 3;
+      lastBlockNumber = 3;
 
       // Default tx with no max block number should be valid
       expect(await node.isValidTx(noMaxBlockNumberMetadata)).toBe(true);
