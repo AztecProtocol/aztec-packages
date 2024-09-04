@@ -64,13 +64,16 @@ class AztecIVC {
         MSGPACK_FIELDS(folding_proof, decider_proof, goblin_proof);
     };
 
-    enum class QUEUE_TYPE { OINK, PG };
+    enum class QUEUE_TYPE { OINK, PG }; // for specifying type of proof in the verification queue
+
+    // An entry in the native verification queue
     struct RecursiveVerifierInputs {
         std::vector<FF> proof; // oink or PG
         std::shared_ptr<VerificationKey> instance_vk;
         QUEUE_TYPE type;
     };
 
+    // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
         StdProof proof; // oink or PG
         std::shared_ptr<RecursiveVerificationKey> instance_vk;
@@ -91,8 +94,9 @@ class AztecIVC {
     std::shared_ptr<VerifierInstance> verifier_accumulator; // verifier accumulator instance
     std::shared_ptr<VerificationKey> instance_vk;           // verification key for instance to be folded
 
-    // Set of pairs of {fold_proof, verification_key} to be recursively verified
+    // Set of tuples {proof, verification_key, type} to be recursively verified
     std::vector<RecursiveVerifierInputs> verification_queue;
+    // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
     std::vector<StdlibVerifierInputs> stdlib_verification_queue;
     // Set of merge proofs to be recursively verified
     std::vector<MergeProof> merge_verification_queue;

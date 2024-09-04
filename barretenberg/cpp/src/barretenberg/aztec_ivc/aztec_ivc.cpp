@@ -3,6 +3,11 @@
 
 namespace bb {
 
+/**
+ * @brief Instantiate a stdlib verification queue corresponding to the native counterpart
+ *
+ * @param circuit
+ */
 void AztecIVC::instantiate_stdlib_verification_queue(ClientCircuit& circuit)
 {
     for (auto& [proof, vkey, type] : verification_queue) {
@@ -12,7 +17,7 @@ void AztecIVC::instantiate_stdlib_verification_queue(ClientCircuit& circuit)
 
         stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vkey, type);
     }
-    verification_queue.clear();
+    verification_queue.clear(); // the native data is not needed beyond this point
 }
 
 /**

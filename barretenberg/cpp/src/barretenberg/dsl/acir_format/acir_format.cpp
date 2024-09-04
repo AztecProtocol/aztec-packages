@@ -438,17 +438,18 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
                                                       ivc.goblin.op_queue,
                                                       /*collect_gates_per_opcode=*/false);
 
+    // We expect the length of the internal verification queue to matche the number of ivc recursion constraints
     if (constraint_system.ivc_recursion_constraints.size() != ivc.verification_queue.size()) {
         info("WARNING: Mismatch in number of recursive verifications during kernel creation!");
-        info("num_ivc_constraints = ", constraint_system.ivc_recursion_constraints.size());
-        info("ivc.verification_queue.size() = ", ivc.verification_queue.size());
         ASSERT(false);
     }
 
     // Create stdlib representations of each {proof, vkey} pair in the queue based on their native counterparts
     ivc.instantiate_stdlib_verification_queue(circuit);
 
-    // Connect each {proof, vkey} pair from the constraint to the corresponding entry in the internal verification queue
+    // Connect each {proof, vkey} pair from the constraint to the corresponding entry in the internal verification
+    // queue. This ensures that the witnesses utlized in constraints generated based on acir are properly connected to
+    // the constraints generated herein via the ivc scheme (e.g. recursive verifications).
     for (auto [constraint, queue_entry] :
          zip_view(constraint_system.ivc_recursion_constraints, ivc.stdlib_verification_queue)) {
         // Update the constraint proof values with the correct internal values via assert_equal

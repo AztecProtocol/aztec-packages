@@ -73,8 +73,8 @@ class IvcRecursionConstraintTest : public ::testing::Test {
      * @param inner_circuit_num_pub_inputs
      * @return Builder
      */
-    static Builder construct_kernel_from_constraint_system(AztecIVC& ivc,
-                                                           const std::vector<size_t>& inner_circuit_num_pub_inputs)
+    static Builder construct_mock_kernel_from_constraint_system(AztecIVC& ivc,
+                                                                const std::vector<size_t>& inner_circuit_num_pub_inputs)
     {
         const size_t num_recursive_verifications = ivc.verification_queue.size();
         ASSERT(num_recursive_verifications == inner_circuit_num_pub_inputs.size());
@@ -127,7 +127,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
     ivc.accumulate(app_circuit);
 
     // Construct kernel_0 consisting only of the kernel completion logic
-    Builder kernel_0 = construct_kernel_from_constraint_system(ivc, { app_circuit.public_inputs.size() });
+    Builder kernel_0 = construct_mock_kernel_from_constraint_system(ivc, { app_circuit.public_inputs.size() });
 
     EXPECT_TRUE(CircuitChecker::check(kernel_0));
     ivc.accumulate(kernel_0);
@@ -150,7 +150,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
     ivc.accumulate(app_circuit_0);
 
     // Construct kernel_0; consists of a single oink recursive verification for app (plus databus/merge logic)
-    Builder kernel_0 = construct_kernel_from_constraint_system(ivc, { app_circuit_0.public_inputs.size() });
+    Builder kernel_0 = construct_mock_kernel_from_constraint_system(ivc, { app_circuit_0.public_inputs.size() });
     ivc.accumulate(kernel_0);
 
     // construct a mock app_circuit
@@ -159,7 +159,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
     ivc.accumulate(app_circuit_1);
 
     // Construct kernel_1; consists of two PG recursive verifications for kernel_0 and app_1 (plus databus/merge logic)
-    Builder kernel_1 = construct_kernel_from_constraint_system(
+    Builder kernel_1 = construct_mock_kernel_from_constraint_system(
         ivc, { kernel_0.public_inputs.size(), app_circuit_1.public_inputs.size() });
 
     EXPECT_TRUE(CircuitChecker::check(kernel_1));
