@@ -86,7 +86,7 @@ template <> class FileVerifierCrs<curve::Grumpkin> : public VerifierCrs<curve::G
   public:
     FileVerifierCrs(std::string const& path, const size_t num_points);
     virtual ~FileVerifierCrs() = default;
-    std::span<Curve::AffineElement> get_monomial_points() const override;
+    std::span<const Curve::AffineElement> get_monomial_points() const override;
     size_t get_monomial_size() const override;
     Curve::AffineElement get_g1_identity() const override { return g1_identity; };
 

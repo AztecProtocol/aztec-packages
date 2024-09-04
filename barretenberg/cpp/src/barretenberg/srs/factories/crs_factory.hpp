@@ -56,7 +56,7 @@ template <> class VerifierCrs<curve::Grumpkin> {
      * @brief Returns the G_1 elements in the CRS after the pippenger point table has been applied on them
      *
      */
-    virtual std::span<Curve::AffineElement> get_monomial_points() const = 0;
+    virtual std::span<const Curve::AffineElement> get_monomial_points() const = 0;
     virtual size_t get_monomial_size() const = 0;
     /**
      * @brief Returns the first G_1 element from the CRS, used by the Shplonk verifier to compute the final

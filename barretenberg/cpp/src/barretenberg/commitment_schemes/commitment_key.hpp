@@ -159,7 +159,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call the version of pippenger which assumes all points are distinct
-        return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points.data(), pippenger_runtime_state);
+        return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
     }
 };
 

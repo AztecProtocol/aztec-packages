@@ -29,8 +29,8 @@ TEST(reference_string, mem_bn254_file_consistency)
 
     EXPECT_EQ(mem_prover_crs->get_monomial_size(), file_prover_crs->get_monomial_size());
 
-    EXPECT_EQ(memcmp(&mem_prover_crs->get_monomial_points()[0],
-                     &file_prover_crs->get_monomial_points()[0],
+    EXPECT_EQ(memcmp(mem_prover_crs->get_monomial_points().data(),
+                     file_prover_crs->get_monomial_points().data(),
                      sizeof(g1::affine_element) * 1024 * 2),
               0);
 
@@ -60,8 +60,8 @@ TEST(reference_string, DISABLED_mem_grumpkin_file_consistency)
 
     EXPECT_EQ(mem_prover_crs->get_monomial_size(), file_prover_crs->get_monomial_size());
 
-    EXPECT_EQ(memcmp(&mem_prover_crs->get_monomial_points()[0],
-                     &file_prover_crs->get_monomial_points()[0],
+    EXPECT_EQ(memcmp(mem_prover_crs->get_monomial_points().data(),
+                     file_prover_crs->get_monomial_points().data(),
                      sizeof(Grumpkin::AffineElement) * 1024 * 2),
               0);
 
