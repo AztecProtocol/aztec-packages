@@ -35,3 +35,118 @@ pub fn assert_comparison<let N: u32>(lhs: Field, operation: u8, rhs: Field, erro
         assert(!is_lt, error_msg);
     }
 }
+
+mod test {
+    use super::assert_comparison;
+    use super::Comparator;
+
+    #[test]
+    fn test_assert_comparison_happy_path() {
+        let lhs = 10;
+        let rhs = 10;
+        assert_comparison(lhs, Comparator.EQ, rhs, "Expected lhs to be equal to rhs");
+
+        let lhs = 10;
+        let rhs = 11;
+        assert_comparison(lhs, Comparator.NEQ, rhs, "Expected lhs to be not equal to rhs");
+
+        let lhs = 10;
+        let rhs = 11;
+        assert_comparison(lhs, Comparator.LT, rhs, "Expected lhs to be less than rhs");
+
+        let lhs = 10;
+        let rhs = 10;
+        assert_comparison(
+            lhs,
+            Comparator.LTE,
+            rhs,
+            "Expected lhs to be less than or equal to rhs"
+        );
+
+        let lhs = 11;
+        let rhs = 10;
+        assert_comparison(lhs, Comparator.GT, rhs, "Expected lhs to be greater than rhs");
+
+        let lhs = 10;
+        let rhs = 10;
+        assert_comparison(
+            lhs,
+            Comparator.GTE,
+            rhs,
+            "Expected lhs to be greater than or equal to rhs"
+        );
+
+        let lhs = 11;
+        let rhs = 10;
+        assert_comparison(
+            lhs,
+            Comparator.GTE,
+            rhs,
+            "Expected lhs to be greater than or equal to rhs"
+        );
+    }
+
+    #[test(should_fail_with="Expected lhs to be equal to rhs")]
+    fn test_assert_comparison_fail_eq() {
+        let lhs = 10;
+        let rhs = 11;
+        assert_comparison(lhs, Comparator.EQ, rhs, "Expected lhs to be equal to rhs");
+    }
+
+    #[test(should_fail_with="Expected lhs to be not equal to rhs")]
+    fn test_assert_comparison_fail_neq() {
+        let lhs = 10;
+        let rhs = 10;
+        assert_comparison(lhs, Comparator.NEQ, rhs, "Expected lhs to be not equal to rhs");
+    }
+
+    #[test(should_fail_with="Expected lhs to be less than rhs")]
+    fn test_assert_comparison_fail_lt() {
+        let lhs = 11;
+        let rhs = 10;
+        assert_comparison(lhs, Comparator.LT, rhs, "Expected lhs to be less than rhs");
+    }
+
+    #[test(should_fail_with="Expected lhs to be less than or equal to rhs")]
+    fn test_assert_comparison_fail_lte() {
+        let lhs = 11;
+        let rhs = 10;
+        assert_comparison(
+            lhs,
+            Comparator.LTE,
+            rhs,
+            "Expected lhs to be less than or equal to rhs"
+        );
+    }
+
+    #[test(should_fail_with="Expected lhs to be greater than rhs")]
+    fn test_assert_comparison_fail_gt() {
+        let lhs = 10;
+        let rhs = 10;
+        assert_comparison(lhs, Comparator.GT, rhs, "Expected lhs to be greater than rhs");
+    }
+
+    #[test(should_fail_with="Expected lhs to be greater than or equal to rhs")]
+    fn test_assert_comparison_fail_gte() {
+        let lhs = 10;
+        let rhs = 11;
+        assert_comparison(
+            lhs,
+            Comparator.GTE,
+            rhs,
+            "Expected lhs to be greater than or equal to rhs"
+        );
+    }
+
+    #[test(should_fail_with="Expected lhs to be greater than or equal to rhs")]
+    fn test_assert_comparison_fail_gte_2() {
+        let lhs = 10;
+        let rhs = 11;
+        assert_comparison(
+            lhs,
+            Comparator.GTE,
+            rhs,
+            "Expected lhs to be greater than or equal to rhs"
+        );
+    }
+}
