@@ -94,7 +94,7 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
 
     Commitment get_g1_identity() { return srs->get_g1_identity(); }
 
-    Commitment* get_monomial_points() { return srs->get_monomial_points(); }
+    std::span<Commitment> get_monomial_points() { return srs->get_monomial_points(); }
 
     bb::scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
 

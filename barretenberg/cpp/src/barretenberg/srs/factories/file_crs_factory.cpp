@@ -36,9 +36,9 @@ FileVerifierCrs<curve::Grumpkin>::FileVerifierCrs(std::string const& path, const
     g1_identity = monomials_[0];
 };
 
-curve::Grumpkin::AffineElement* FileVerifierCrs<curve::Grumpkin>::get_monomial_points() const
+std::span<curve::Grumpkin::AffineElement> FileVerifierCrs<curve::Grumpkin>::get_monomial_points() const
 {
-    return monomials_.get();
+    return {monomials_.get(), num_points * 2};
 }
 
 size_t FileVerifierCrs<curve::Grumpkin>::get_monomial_size() const

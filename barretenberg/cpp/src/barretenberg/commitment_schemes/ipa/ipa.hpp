@@ -4,6 +4,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
@@ -162,8 +163,12 @@ template <typename Curve_> class IPA {
         // Step 4.
         // Set initial vector a to the polynomial monomial coefficients and load vector G
         auto a_vec = polynomial;
-        auto* srs_elements = ck->srs->get_monomial_points();
+        std::span<Commitment> srs_elements = ck->srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
+
+        if (poly_length * 2 >= srs_elements.size()) {
+            throw_or_abort("potential bug: Not enough SRS points for IPA!");
+        }
 
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
@@ -377,8 +382,10 @@ template <typename Curve_> class IPA {
                 }
             }, thread_heuristics::FF_MULTIPLICATION_COST * log_poly_degree);
 
-        auto* srs_elements = vk->get_monomial_points();
-
+        std::span<Commitment> srs_elements = vk->get_monomial_points();
+        if (poly_length * 2 >= srs_elements.size()) {
+            throw_or_abort("potential bug: Not enough SRS points for IPA!");
+        }
         // Copy the G_vector to local memory.
         std::vector<Commitment> G_vec_local(poly_length);
 
