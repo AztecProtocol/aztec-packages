@@ -39,7 +39,7 @@ use crate::{
     QuotedType, Shared, Type,
 };
 
-use self::builtin_helpers::{get_array, get_u8};
+use self::builtin_helpers::{get_array, get_str, get_u8};
 use super::Interpreter;
 
 pub(crate) mod builtin_helpers;
@@ -108,6 +108,7 @@ impl<'local, 'context> Interpreter<'local, 'context> {
                 function_def_set_return_type(self, arguments, location)
             }
             "module_functions" => module_functions(self, arguments, location),
+            "module_has_named_attribute" => module_has_named_attribute(self, arguments, location),
             "module_is_contract" => module_is_contract(self, arguments, location),
             "module_name" => module_name(interner, arguments, location),
             "modulus_be_bits" => modulus_be_bits(interner, arguments, location),
@@ -248,25 +249,15 @@ fn str_as_bytes(
     arguments: Vec<(Value, Location)>,
     location: Location,
 ) -> IResult<Value> {
-    let (string, string_location) = check_one_argument(arguments, location)?;
+    let string = check_one_argument(arguments, location)?;
+    let string = get_str(interner, string)?;
 
-    match string {
-        Value::String(string) => {
-            let string_as_bytes = string.as_bytes();
-            let bytes_vector: Vec<Value> = string_as_bytes.iter().cloned().map(Value::U8).collect();
-            let byte_array_type = Type::Array(
-                Box::new(Type::Constant(string_as_bytes.len() as u32)),
-                Box::new(Type::Integer(Signedness::Unsigned, IntegerBitSize::Eight)),
-            );
-            Ok(Value::Array(bytes_vector.into(), byte_array_type))
-        }
-        value => {
-            let type_var = Box::new(interner.next_type_variable());
-            let expected = Type::Array(type_var.clone(), type_var);
-            let actual = value.get_type().into_owned();
-            Err(InterpreterError::TypeMismatch { expected, actual, location: string_location })
-        }
-    }
+    let bytes: im::Vector<Value> = string.bytes().map(Value::U8).collect();
+    let byte_array_type = Type::Array(
+        Box::new(Type::Constant(bytes.len() as u32)),
+        Box::new(Type::Integer(Signedness::Unsigned, IntegerBitSize::Eight)),
+    );
+    Ok(Value::Array(bytes, byte_array_type))
 }
 
 /// fn as_type(self) -> Type
@@ -1619,7 +1610,7 @@ fn function_def_has_named_attribute(
     let name = name.iter().map(|token| token.to_string()).collect::<Vec<_>>().join("");
 
     for attribute in attributes {
-        let parse_result = Elaborator::parse_attribute(attribute, location.file);
+        let parse_result = Elaborator::parse_attribute(&attribute.contents, location);
         let Ok(Some((function, _arguments))) = parse_result else {
             continue;
         };
@@ -1824,6 +1815,38 @@ fn module_functions(
 
     let slice_type = Type::Slice(Box::new(Type::Quoted(QuotedType::FunctionDefinition)));
     Ok(Value::Slice(func_ids, slice_type))
+}
+
+// fn has_named_attribute(self, name: Quoted) -> bool
+fn module_has_named_attribute(
+    interpreter: &Interpreter,
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+) -> IResult<Value> {
+    let (self_argument, name) = check_two_arguments(arguments, location)?;
+    let module_id = get_module(self_argument)?;
+    let module_data = interpreter.elaborator.get_module(module_id);
+    let name = get_quoted(name)?;
+
+    let name = name.iter().map(|token| token.to_string()).collect::<Vec<_>>().join("");
+
+    let attributes = module_data.outer_attributes.iter().chain(&module_data.inner_attributes);
+    for attribute in attributes {
+        let parse_result = Elaborator::parse_attribute(attribute, location);
+        let Ok(Some((function, _arguments))) = parse_result else {
+            continue;
+        };
+
+        let ExpressionKind::Variable(path) = function.kind else {
+            continue;
+        };
+
+        if path.last_name() == name {
+            return Ok(Value::Bool(true));
+        }
+    }
+
+    Ok(Value::Bool(false))
 }
 
 // fn is_contract(self) -> bool
