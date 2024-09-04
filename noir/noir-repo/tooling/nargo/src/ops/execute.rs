@@ -117,10 +117,18 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>, E: ForeignCallExecutor<F>>
                         _ => None,
                     };
 
+                    let brillig_function_id = match &error {
+                        OpcodeResolutionError::BrilligFunctionFailed { function_id, .. } => {
+                            Some(*function_id)
+                        }
+                        _ => None,
+                    };
+
                     return Err(NargoError::ExecutionError(match assertion_payload {
                         Some(payload) => ExecutionError::AssertionFailed(
                             payload,
                             call_stack.expect("Should have call stack for an assertion failure"),
+                            brillig_function_id,
                         ),
                         None => ExecutionError::SolvingError(error, call_stack),
                     }));
@@ -167,6 +175,10 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>, E: ForeignCallExecutor<F>>
                 }
             }
         }
+        // Clear the call stack if we have succeeded in executing the circuit.
+        // This needs to be done or else all successful ACIR call stacks will also be
+        // included in a failure case.
+        self.call_stack.clear();
 
         Ok(acvm.finalize())
     }

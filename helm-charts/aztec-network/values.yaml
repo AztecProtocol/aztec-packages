@@ -9,7 +9,19 @@ images:
     image: curlimages/curl:7.81.0
     pullPolicy: IfNotPresent
   foundry:
-    image: ghcr.io/foundry-rs/foundry@sha256:29ba6e34379e79c342ec02d437beb7929c9e254261e8032b17e187be71a2609f
+    image: ghcr.io/foundry-rs/foundry@sha256:ce4b236f6760fdeb08e82267c9fa17647d29a374760bfe7ee01998fb8c0aaad7
+    pullPolicy: IfNotPresent
+  otelCollector:
+    image: otel/opentelemetry-collector-contrib
+    pullPolicy: IfNotPresent
+  prometheus:
+    image: prom/prometheus
+    pullPolicy: IfNotPresent
+  grafana:
+    image: grafana/grafana
+    pullPolicy: IfNotPresent
+  jaeger:
+    image: jaegertracing/all-in-one
     pullPolicy: IfNotPresent
 
 bootNode:
@@ -18,20 +30,40 @@ bootNode:
     p2pPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "discv5:*,aztec:*"
+  debug: "aztec:*,-aztec:avm_simulator:*"
+  sequencer:
+    maxSecondsBetweenBlocks: 0
+    minTxsPerBlock: 1
+  validator:
+    disabled: true
   p2p:
     enabled: "true"
   resources: {}
 
 validator:
-  replicas: 1
+  replicas: 0
   service:
     p2pPort: 40400
     nodePort: 8080
   logLevel: "debug"
-  debug: "discv5:*,aztec:*"
+  debug: "aztec:*,-aztec:avm_simulator:*"
+  sequencer:
+    maxSecondsBetweenBlocks: 0
+    minTxsPerBlock: 1
+  validator:
+    disabled: false
   p2p:
     enabled: "true"
+  resources: {}
+
+proverNode:
+  replicas: 1
+  service:
+    nodePort: 8080
+  logLevel: "debug"
+  debug: "aztec:*"
+  realProofs: false
+  proverAgentEnabled: true
   resources: {}
 
 pxe:
@@ -51,6 +83,10 @@ pxe:
 ethereum:
   replicas: 1
   chainId: 31337
+  blockTime: 12
+  # 1 billion gas limit
+  # helps ensure we can deploy public contracts
+  gasLimit: "1000000000"
   forkUrl: ""
   forkBlockNumber: ""
   args: ""
@@ -65,6 +101,22 @@ ethereum:
     successThreshold: 1
     failureThreshold: 3
   resources: {}
+
+metrics:
+  service:
+    type: ClusterIP
+  ports:
+    otlp: 4316
+    metrics: 4315
+    prometheus: 9090
+    grafana: 3000
+    jaeger: 16686
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
 
 test: "sample"
 scenario: "default"
