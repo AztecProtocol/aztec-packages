@@ -339,7 +339,7 @@ describe('e2e_block_building', () => {
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/8306
-    it.skip('can simulate public txs while building a block', async () => {
+    it('can simulate public txs while building a block', async () => {
       ({
         teardown,
         pxe,
@@ -368,7 +368,7 @@ describe('e2e_block_building', () => {
       }
 
       logger.info('Waiting for txs to be mined');
-      await Promise.all(txs.map(tx => tx.wait()));
+      await Promise.all(txs.map(tx => tx.wait({ proven: false, timeout: 600 })));
     });
   });
 });
