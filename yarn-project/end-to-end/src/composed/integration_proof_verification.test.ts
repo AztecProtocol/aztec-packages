@@ -135,7 +135,7 @@ describe('proof_verification', () => {
     aggregationObject = blockResult.aggregationObject.map((x: string) => Fr.fromString(x));
   });
 
-  describe.skip('bb', () => {
+  describe('bb', () => {
     it('verifies proof', async () => {
       await expect(circuitVerifier.verifyProofForCircuit('BlockRootRollupArtifact', proof)).resolves.toBeUndefined();
     });
