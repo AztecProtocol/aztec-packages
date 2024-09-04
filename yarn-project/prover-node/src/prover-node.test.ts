@@ -1,7 +1,7 @@
 import {
   type L1ToL2MessageSource,
   type L2BlockSource,
-  type MerkleTreeOperations,
+  type MerkleTreeAdminOperations,
   type ProverClient,
   type TxProvider,
   WorldStateRunningState,
@@ -33,7 +33,7 @@ describe('prover-node', () => {
   let jobs: {
     job: MockProxy<BlockProvingJob>;
     cleanUp: (job: BlockProvingJob) => Promise<void>;
-    db: MerkleTreeOperations;
+    db: MerkleTreeAdminOperations;
   }[];
 
   beforeEach(() => {
@@ -48,7 +48,7 @@ describe('prover-node', () => {
     const telemetryClient = new NoopTelemetryClient();
 
     // World state returns a new mock db every time it is asked to fork
-    worldState.syncImmediateAndFork.mockImplementation(() => Promise.resolve(mock<MerkleTreeOperations>()));
+    worldState.syncImmediateAndFork.mockImplementation(() => Promise.resolve(mock<MerkleTreeAdminOperations>()));
 
     jobs = [];
     proverNode = new TestProverNode(
@@ -162,7 +162,7 @@ describe('prover-node', () => {
 
   class TestProverNode extends ProverNode {
     protected override doCreateBlockProvingJob(
-      db: MerkleTreeOperations,
+      db: MerkleTreeAdminOperations,
       _publicProcessorFactory: PublicProcessorFactory,
       cleanUp: (job: BlockProvingJob) => Promise<void>,
     ): BlockProvingJob {

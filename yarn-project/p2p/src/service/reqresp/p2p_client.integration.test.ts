@@ -1,9 +1,10 @@
 // An integration test for the p2p client to test req resp protocols
 import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
+import { EthAddress } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
+import { type DataStoreConfig, openTmpStore } from '@aztec/kv-store/utils';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { generatePrivateKey } from 'viem/accounts';
@@ -75,7 +76,7 @@ describe('Req Resp p2p client integration', () => {
       // Note these bindings are important
       const addr = `127.0.0.1:${i + 1 + BOOT_NODE_UDP_PORT}`;
       const listenAddr = `0.0.0.0:${i + 1 + BOOT_NODE_UDP_PORT}`;
-      const config: P2PConfig = {
+      const config: P2PConfig & DataStoreConfig = {
         p2pEnabled: true,
         peerIdPrivateKey: peerIdPrivateKeys[i],
         tcpListenAddress: listenAddr, // run on port 0
@@ -92,6 +93,8 @@ describe('Req Resp p2p client integration', () => {
         keepProvenTxsInPoolFor: 0,
         queryForIp: false,
         l1ChainId: 31337,
+        dataDirectory: undefined,
+        l1Contracts: { rollupAddress: EthAddress.ZERO },
       };
 
       txPool = {
@@ -115,14 +118,18 @@ describe('Req Resp p2p client integration', () => {
 
       blockSource = new MockBlockSource();
       kvStore = openTmpStore();
+      const deps = {
+        txPool: txPool as unknown as TxPool,
+        store: kvStore,
+      };
       const client = await createP2PClient(
         config,
-        kvStore,
-        txPool as unknown as TxPool,
         attestationPool as unknown as AttestationPool,
         blockSource,
         proofVerifier,
         worldStateSynchronizer,
+        undefined,
+        deps,
       );
 
       await client.start();

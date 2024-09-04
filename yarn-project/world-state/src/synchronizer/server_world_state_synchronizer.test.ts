@@ -18,7 +18,7 @@ import { INITIAL_LEAF, Pedersen, SHA256Trunc, StandardTree } from '@aztec/merkle
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import { type MerkleTreeDb, type MerkleTrees, type WorldStateConfig } from '../index.js';
+import { type MerkleTreeAdminDb, type MerkleTrees, type WorldStateConfig } from '../index.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 
 const LATEST_BLOCK_NUMBER = 5;
@@ -45,7 +45,7 @@ describe('server_world_state_synchronizer', () => {
     getL1ToL2Messages: jest.fn(() => Promise.resolve(l1ToL2Messages)),
   });
 
-  const merkleTreeDb = mock<MerkleTreeDb>({
+  const merkleTreeDb = mock<MerkleTreeAdminDb>({
     getTreeInfo: jest.fn(() =>
       Promise.resolve({ depth: 8, treeId: MerkleTreeId.NOTE_HASH_TREE, root: Buffer.alloc(32, 0), size: 0n }),
     ),

@@ -11,8 +11,6 @@ import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointContract } from '@aztec/protocol-contracts/multi-call-entrypoint';
 
-import { join } from 'path';
-
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
 import { TestPrivateKernelProver } from '../kernel_prover/test/test_circuit_prover.js';
@@ -38,12 +36,12 @@ export async function createPXEService(
   const logSuffix =
     typeof useLogSuffix === 'boolean' ? (useLogSuffix ? randomBytes(3).toString('hex') : undefined) : useLogSuffix;
 
-  const pxeDbPath = config.dataDirectory ? join(config.dataDirectory, 'pxe_data') : undefined;
-  const keyStorePath = config.dataDirectory ? join(config.dataDirectory, 'pxe_key_store') : undefined;
   const l1Contracts = await aztecNode.getL1ContractAddresses();
-
-  const keyStore = new KeyStore(await createStore(keyStorePath, l1Contracts.rollupAddress));
-  const db = new KVPxeDatabase(await createStore(pxeDbPath, l1Contracts.rollupAddress));
+  const storeConfig = { dataDirectory: config.dataDirectory, l1Contracts };
+  const keyStore = new KeyStore(
+    await createStore('pxe_key_store', storeConfig, createDebugLogger('aztec:pxe:keystore:lmdb')),
+  );
+  const db = new KVPxeDatabase(await createStore('pxe_data', storeConfig, createDebugLogger('aztec:pxe:data:lmdb')));
 
   const prover = proofCreator ?? (await createProver(config, logSuffix));
   const server = new PXEService(keyStore, aztecNode, db, prover, config, logSuffix);

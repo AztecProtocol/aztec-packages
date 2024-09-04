@@ -1,5 +1,9 @@
 import type { ClientProtocolCircuitVerifier, L2BlockSource, WorldStateSynchronizer } from '@aztec/circuit-types';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
+import { type DataStoreConfig, createStore } from '@aztec/kv-store/utils';
+import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { P2PClient } from '../client/p2p_client.js';
@@ -7,22 +11,25 @@ import { type P2PConfig } from '../config.js';
 import { DiscV5Service } from '../service/discV5_service.js';
 import { DummyP2PService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
-import { type TxPool } from '../tx_pool/index.js';
+import { AztecKVTxPool, type TxPool } from '../tx_pool/index.js';
 import { getPublicIp, resolveAddressIfNecessary, splitAddressPort } from '../util.js';
 
 export * from './p2p_client.js';
 
 export const createP2PClient = async (
-  _config: P2PConfig,
-  store: AztecKVStore,
-  txPool: TxPool,
+  _config: P2PConfig & DataStoreConfig,
   attestationsPool: AttestationPool,
   l2BlockSource: L2BlockSource,
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
+  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  deps: { txPool?: TxPool; store?: AztecKVStore } = {},
 ) => {
-  let p2pService;
   let config = { ..._config };
+  const store = deps.store ?? (await createStore('p2p', config, createDebugLogger('aztec:p2p:lmdb')));
+  const txPool = deps.txPool ?? new AztecKVTxPool(store, telemetry);
+
+  let p2pService;
 
   if (_config.p2pEnabled) {
     config = await configureP2PClientAddresses(_config);
@@ -48,7 +55,7 @@ export const createP2PClient = async (
   return new P2PClient(store, l2BlockSource, txPool, attestationsPool, p2pService, config.keepProvenTxsInPoolFor);
 };
 
-async function configureP2PClientAddresses(_config: P2PConfig) {
+async function configureP2PClientAddresses(_config: P2PConfig & DataStoreConfig): Promise<P2PConfig & DataStoreConfig> {
   const config = { ..._config };
   const {
     tcpAnnounceAddress: configTcpAnnounceAddress,
