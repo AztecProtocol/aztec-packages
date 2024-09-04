@@ -219,4 +219,17 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
     return this.pxe.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
   }
+  public async registerPlugin(
+    contractAddress: AztecAddress,
+    topic: Fr,
+    input: {
+      /**
+       * as
+       * @returns buf
+       */
+      toBuffer: () => Buffer;
+    },
+  ): Promise<void> {
+    await this.pxe.registerPlugin(contractAddress, topic, input);
+  }
 }

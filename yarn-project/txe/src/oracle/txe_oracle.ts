@@ -867,4 +867,8 @@ export class TXE implements TypedOracle {
 
     return taggedEvent.encrypt(ephSk, recipient, ivpkM, ovKeys);
   }
+
+  requestCapsule(_topic: Fr, input: Fr[]): Promise<Fr[]> {
+    return Promise.resolve(input);
+  }
 }

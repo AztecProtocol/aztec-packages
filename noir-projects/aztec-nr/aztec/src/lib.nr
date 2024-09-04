@@ -1,3 +1,4 @@
+mod capsules;
 mod context;
 mod deploy;
 mod generators;

@@ -61,6 +61,8 @@ export class KVPxeDatabase implements PxeDatabase {
   #notesByTxHashAndScope: Map<string, AztecMultiMap<string, string>>;
   #notesByIvpkMAndScope: Map<string, AztecMultiMap<string, string>>;
 
+  #plugins: AztecMap<string, Buffer>;
+
   constructor(private db: AztecKVStore) {
     this.#db = db;
 
@@ -106,6 +108,8 @@ export class KVPxeDatabase implements PxeDatabase {
       this.#notesByTxHashAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_tx_hash`));
       this.#notesByIvpkMAndScope.set(scope, db.openMultiMap(`${scope}:notes_by_ivpk_m`));
     }
+
+    this.#plugins = db.openMap('plugins');
   }
 
   public async getContract(
@@ -544,6 +548,14 @@ export class KVPxeDatabase implements PxeDatabase {
 
   setSynchedBlockNumberForPublicKey(publicKey: Point, blockNumber: number): Promise<void> {
     return this.#syncedBlockPerPublicKey.set(publicKey.toString(), blockNumber);
+  }
+
+  getPlugin(contractAddress: AztecAddress, topic: Fr) {
+    return this.#plugins.get(`${contractAddress.toString()}:${topic.toString()}`);
+  }
+
+  async setPlugin(contractAddress: AztecAddress, topic: Fr, input: any): Promise<void> {
+    await this.#plugins.set(`${contractAddress.toString()}:${topic.toString()}`, input.toBuffer());
   }
 
   async estimateSize(): Promise<number> {

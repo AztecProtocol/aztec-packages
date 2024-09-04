@@ -542,6 +542,7 @@ __metadata:
     "@swc/jest": ^0.2.36
     "@types/fs-extra": ^11.0.2
     "@types/jest": ^29.5.0
+    "@types/jest-when": ^3.5.5
     "@types/koa": ^2.13.9
     "@types/koa-static": ^4.0.2
     "@types/levelup": ^5.1.2
@@ -559,6 +560,7 @@ __metadata:
     jest: ^29.5.0
     jest-extended: ^4.0.2
     jest-mock-extended: ^3.0.5
+    jest-when: ^3.6.0
     koa: ^2.14.2
     koa-static: ^5.0.0
     levelup: ^5.1.1
@@ -4302,7 +4304,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/jest@npm:^29.5.0":
+"@types/jest-when@npm:^3.5.5":
+  version: 3.5.5
+  resolution: "@types/jest-when@npm:3.5.5"
+  dependencies:
+    "@types/jest": "*"
+  checksum: 816c1ed5554182c43261d23c2902506c316bc0368f2ea1e632a0a93d05d8f6f2918afa6a406c2f5fdd4d277e042b8d2ba797993dc3c2fd2d5f53cda946696772
+  languageName: node
+  linkType: hard
+
+"@types/jest@npm:*, @types/jest@npm:^29.5.0":
   version: 29.5.12
   resolution: "@types/jest@npm:29.5.12"
   dependencies:
@@ -11030,6 +11041,15 @@ __metadata:
     jest-util: ^29.7.0
     string-length: ^4.0.1
   checksum: 67e6e7fe695416deff96b93a14a561a6db69389a0667e9489f24485bb85e5b54e12f3b2ba511ec0b777eca1e727235b073e3ebcdd473d68888650489f88df92f
+  languageName: node
+  linkType: hard
+
+"jest-when@npm:^3.6.0":
+  version: 3.6.0
+  resolution: "jest-when@npm:3.6.0"
+  peerDependencies:
+    jest: ">= 25"
+  checksum: ed32ed84e5802bb6fec98966cdf862ce59677551be33d3795e6ac7a6207acf467ed559573d671c8d94c59f7fc0780cf358d2d165d81cdc7d9611250d975ee024
   languageName: node
   linkType: hard
 

@@ -1027,4 +1027,8 @@ export class PXEService implements PXE {
 
     return decodedEvents;
   }
+
+  public async registerPlugin(contractAddress: AztecAddress, topic: Fr, plugin: { toBuffer: () => Buffer }) {
+    await this.db.setPlugin(contractAddress, topic, plugin);
+  }
 }
