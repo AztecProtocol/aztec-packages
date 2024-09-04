@@ -460,7 +460,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
  * The 'restore' function is not provided, as it must be a closure within the test context to capture the results.
  */
 export const addAccounts =
-  (numberOfAccounts: number, logger: DebugLogger) =>
+  (numberOfAccounts: number, logger: DebugLogger, waitUntilProven = true) =>
   async ({ pxe }: { pxe: PXE }) => {
     // Generate account keys.
     const accountKeys: [Fr, GrumpkinScalar][] = Array.from({ length: numberOfAccounts }).map(_ => [
@@ -487,7 +487,7 @@ export const addAccounts =
 
     logger.verbose('Deploying accounts...');
     const txs = await Promise.all(accountManagers.map(account => account.deploy()));
-    await Promise.all(txs.map(tx => tx.wait({ interval: 0.1, proven: true })));
+    await Promise.all(txs.map(tx => tx.wait({ interval: 0.1, proven: waitUntilProven })));
 
     return { accountKeys };
   };
@@ -498,12 +498,16 @@ export const addAccounts =
  * @param sender - Wallet to send the deployment tx.
  * @param accountsToDeploy - Which accounts to publicly deploy.
  */
-export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: (CompleteAddress | AztecAddress)[]) {
+export async function publicDeployAccounts(
+  sender: Wallet,
+  accountsToDeploy: (CompleteAddress | AztecAddress)[],
+  waitUntilProven = true,
+) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
   const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
   const batch = new BatchCall(sender, [
     (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
     ...instances.map(instance => deployInstance(sender, instance!).request()),
   ]);
-  await batch.send().wait({ proven: true });
+  await batch.send().wait({ proven: waitUntilProven });
 }
