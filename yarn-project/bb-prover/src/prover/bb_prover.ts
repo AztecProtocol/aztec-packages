@@ -161,7 +161,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       verificationKey.keyAsFields,
       getVKSiblingPath(ProtocolCircuitVkIndexes.BaseParityArtifact),
       circuitOutput,
-    ) as any;
+    );
   }
 
   /**
