@@ -271,7 +271,7 @@ try {
   // Link the libraries in the contract bytecode
   const linkedBytecode = linker.linkBytecode(bytecode, linkerInput);
 
-  console.log(await signer.getNonce());
+  await signer.getNonce();
 
   // Deploy the verifier contract
   const address = await deploy(signer, abi, linkedBytecode);
