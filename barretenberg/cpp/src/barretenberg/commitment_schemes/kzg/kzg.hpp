@@ -109,7 +109,7 @@ template <typename Curve_> class KZG {
     static VerifierAccumulator reduce_verify_shplemini_accumulator(ShpleminiAccumulator<Curve> shplemini_accumulator,
                                                                    const std::shared_ptr<Transcript>& transcript)
     {
-        using CommitmentSchemesUtils = CommitmentSchemesUtils<Curve>;
+        using Utils = CommitmentSchemesUtils<Curve>;
         auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");
 
         /// Note: In this case, the pairing check can be expressed as
@@ -127,8 +127,7 @@ template <typename Curve_> class KZG {
                                           /*max_num_bits=*/0,
                                           /*with_edgecases=*/true);
         } else {
-            P_0 = CommitmentSchemesUtils::batch_mul_native(shplemini_accumulator.commitments,
-                                                           shplemini_accumulator.scalars);
+            P_0 = Utils::batch_mul_native(shplemini_accumulator.commitments, shplemini_accumulator.scalars);
         }
         auto P_1 = -quotient_commitment;
 

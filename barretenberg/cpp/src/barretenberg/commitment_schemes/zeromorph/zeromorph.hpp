@@ -450,7 +450,7 @@ template <typename Curve> class ZeroMorphProver_ {
 template <typename Curve> class ZeroMorphVerifier_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using CommitmentSchemesUtils = CommitmentSchemesUtils<Curve>;
+    using Utils = CommitmentSchemesUtils<Curve>;
 
   public:
     /**
@@ -530,7 +530,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 return Commitment::batch_mul(commitments, scalars);
             }
         } else {
-            return CommitmentSchemesUtils::batch_mul_native(commitments, scalars);
+            return Utils::batch_mul_native(commitments, scalars);
         }
     }
 
@@ -686,7 +686,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
                 return Commitment::batch_mul(commitments, scalars);
             }
         } else {
-            return CommitmentSchemesUtils::batch_mul_native(commitments, scalars);
+            return Utils::batch_mul_native(commitments, scalars);
         }
     }
 

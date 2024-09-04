@@ -586,7 +586,7 @@ template <typename Curve_> class IPA {
     static OpeningClaim<Curve> compute_opening_claim_from_shplemini_accumulators(
         ShpleminiAccumulator<Curve>& shplemini_accumulator)
     {
-        using CommitmentSchemesUtils = CommitmentSchemesUtils<Curve>;
+        using Utils = CommitmentSchemesUtils<Curve>;
         /// Extract batch_mul arguments from the accumulator
         auto& commitments = shplemini_accumulator.commitments;
         auto& scalars = shplemini_accumulator.scalars;
@@ -597,7 +597,7 @@ template <typename Curve_> class IPA {
             shplonk_output_commitment =
                 GroupElement::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
         } else {
-            shplonk_output_commitment = CommitmentSchemesUtils::batch_mul_native(commitments, scalars);
+            shplonk_output_commitment = Utils::batch_mul_native(commitments, scalars);
         }
         /// Output an opening claim to be verified by the IPA opening protocol
         return { { shplonk_eval_challenge, Fr(0) }, shplonk_output_commitment };
