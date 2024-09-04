@@ -452,8 +452,14 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
     // the constraints generated herein via the ivc scheme (e.g. recursive verifications).
     for (auto [constraint, queue_entry] :
          zip_view(constraint_system.ivc_recursion_constraints, ivc.stdlib_verification_queue)) {
-        // Update the constraint proof values with the correct internal values via assert_equal
-        for (auto [proof_idx, proof_value] : zip_view(constraint.proof, queue_entry.proof)) {
+
+        // Reconstruct complete proof indices from constraint data (in which the proof is stripped of public inputs)
+        std::vector<uint32_t> complete_proof_indices =
+            ProofSurgeon::create_indices_for_reconstructed_proof(constraint.proof, constraint.public_inputs);
+        ASSERT(complete_proof_indices.size() == queue_entry.proof.size());
+
+        // Assert equality between the proof indices from the constraint data and those of the internal proof
+        for (auto [proof_idx, proof_value] : zip_view(complete_proof_indices, queue_entry.proof)) {
             circuit.assert_equal(proof_value.get_witness_index(), proof_idx);
         }
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1090): assert equality between the internal vkey

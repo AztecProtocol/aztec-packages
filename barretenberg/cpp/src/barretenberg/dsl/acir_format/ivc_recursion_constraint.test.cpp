@@ -70,7 +70,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
      * requires that the public inputs be provided separately from the 'main' proof.
      *
      * @param ivc
-     * @param inner_circuit_num_pub_inputs
+     * @param inner_circuit_num_pub_inputs Num pub inputs for each circuit whose accumulation is recursively verified
      * @return Builder
      */
     static Builder construct_mock_kernel_from_constraint_system(AztecIVC& ivc,
@@ -80,10 +80,10 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         ASSERT(num_recursive_verifications == inner_circuit_num_pub_inputs.size());
 
         SlabVector<FF> witness;
-        std::vector<RecursionConstraint> ivc_recursion_constraints;
-        ivc_recursion_constraints.reserve(num_recursive_verifications);
 
         // Construct recursion constraints based on the ivc verification queue; populate the witness along the way
+        std::vector<RecursionConstraint> ivc_recursion_constraints;
+        ivc_recursion_constraints.reserve(num_recursive_verifications);
         for (size_t idx = 0; idx < num_recursive_verifications; ++idx) {
             ivc_recursion_constraints.push_back(
                 create_recursion_constraint(ivc.verification_queue[idx], witness, inner_circuit_num_pub_inputs[idx]));
