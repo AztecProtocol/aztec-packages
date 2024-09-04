@@ -131,29 +131,13 @@ You can compile the code so far with `aztec-nargo compile`.
 
 To check that the donation occurs before the campaign deadline, we must access the public `timestamp`. It is one of several public global variables.
 
-Declare an Aztec function that is public and internal
+We read the deadline from public storage in private and use the router contract to assert that the current `timestamp` is before the deadline.
 
-```rust
-#include_code deadline-header /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr raw
-    //...
-}
-```
+#include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
-Read the deadline from storage and assert that the `timestamp` from this context is before the deadline
-
-#include_code deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
-
----
-
-Since donations are to be private, the donate function will have the user's private context which has these private global variables. So from the private context there is a little extra to call the (public internal) `_check_deadline` function.
-
-```rust
-#include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr raw
-  //...
-}
-```
-
-Namely calling `enqueue` and passing the (mutable) context.
+We do the check via the router contract to conceal which contract is performing the check (This is achieved by calling a private function on the router contract which then enqueues a call to a public function on the router contract. This then results in the msg_sender in the public call being the router contract.)
+Note that the privacy here is dependent upon what deadline value is chosen by the Crowdfunding contract deployer.
+If it's unique to this contract, then we are leaking a privacy.
 
 Now conclude adding all dependencies to the `Crowdfunding` contract:
 
@@ -193,7 +177,7 @@ Copy the last function into your Crowdfunding contract:
 
 #include_code operator-withdrawals /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
-You should be able to compile successfully with `aztec-nargo compile`. 
+You should be able to compile successfully with `aztec-nargo compile`.
 
 **Congratulations,** you have just built a multi-contract project on Aztec!
 
@@ -206,7 +190,7 @@ See [claim_contract (GitHub link)](https://github.com/AztecProtocol/aztec-packag
 
 ## Next steps
 
-### Build an accounts contract 
+### Build an accounts contract
 
 Follow the account contract tutorial on the [next page](./write_accounts_contract.md) and learn more about account abstraction.
 
