@@ -33,10 +33,7 @@ template <> class VerifierCommitmentKey<curve::BN254> {
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
 
-    VerifierCommitmentKey()
-    {
-        srs = srs::get_crs_factory<Curve>()->get_verifier_crs();
-    };
+    VerifierCommitmentKey() { srs = srs::get_crs_factory<Curve>()->get_verifier_crs(); };
 
     Commitment get_g1_identity() { return srs->get_g1_identity(); }
 
