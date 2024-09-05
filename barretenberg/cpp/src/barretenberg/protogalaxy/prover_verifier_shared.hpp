@@ -12,9 +12,9 @@ std::vector<fr> update_gate_challenges(const fr& perturbator_challenge,
                                        const std::vector<fr>& init_challenges);
 
 /**
- * @brief For a new round challenge δ at each iteration of the Protogalaxy protocol, compute the vector
- * [δ, δ^2,..., δ^t] where t = logn and n is the size of the instance.
+ * @brief Given δ, compute the vector [δ, δ^2,..., δ^num_powers].
+ * @details This is Step 2 of the protocol as written in the paper.
  */
-std::vector<fr> compute_round_challenge_pows(const size_t log_instance_size, const fr& round_challenge);
+std::vector<fr> compute_round_challenge_pows(const size_t num_powers, const fr& round_challenge);
 
 } // namespace bb
