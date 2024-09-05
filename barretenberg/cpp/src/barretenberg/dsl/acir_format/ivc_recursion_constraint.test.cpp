@@ -20,10 +20,6 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     using Builder = MegaCircuitBuilder;
     using Flavor = MegaFlavor;
     using FF = Flavor::FF;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using Prover = bb::UltraProver_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-    using Verifier = bb::UltraVerifier_<Flavor>;
     using RecursiveVerifierInputs = AztecIVC::RecursiveVerifierInputs;
     using QUEUE_TYPE = AztecIVC::QUEUE_TYPE;
     using ArithmeticConstraint = AcirFormat::PolyTripleConstraint;
@@ -53,7 +49,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
                                                            size_t num_public_inputs)
     {
         // Assemble simple vectors of witnesses for vkey and proof
-        std::vector<FF> key_witnesses = input.instance_vk->to_field_elements();
+        std::vector<FF> key_witnesses = input.honk_verification_key->to_field_elements();
         std::vector<FF> proof_witnesses = input.proof;
 
         // Construct witness indices for each component in the constraint; populate the witness array
