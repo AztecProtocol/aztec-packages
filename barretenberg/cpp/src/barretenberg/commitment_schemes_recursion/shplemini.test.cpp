@@ -57,11 +57,9 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     std::vector<NativeFr> v_evaluations;
     for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
         f_polynomials.emplace_back(Polynomial::random(N));
-        info(f_polynomials[i][0]);
         f_polynomials[i][0] = NativeFr(0); // ensure f is "shiftable"
         v_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge));
     }
-    info(f_polynomials[0][0]);
 
     // Construct some "shifted" multilinear polynomials h_i as the left-shift-by-1 of f_i
     std::vector<Polynomial> g_polynomials; // to-be-shifted polynomials
@@ -70,9 +68,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     if constexpr (NUM_SHIFTED > 0) {
         for (size_t i = 0; i < NUM_SHIFTED; ++i) {
             g_polynomials.emplace_back(f_polynomials[i]);
-            info(i);
             h_polynomials.emplace_back(g_polynomials[i].shifted());
-            info("here?");
             w_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
         }
     }
@@ -81,7 +77,6 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     claimed_evaluations.reserve(v_evaluations.size() + w_evaluations.size());
     claimed_evaluations.insert(claimed_evaluations.end(), v_evaluations.begin(), v_evaluations.end());
     claimed_evaluations.insert(claimed_evaluations.end(), w_evaluations.begin(), w_evaluations.end());
-    info(claimed_evaluations.size());
     // Compute commitments [f_i]
     std::vector<NativeCommitment> f_commitments;
     auto commitment_key = std::make_shared<CommitmentKey>(4096);
@@ -171,13 +166,13 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     std::vector<Fr> u_challenge_in_circuit = elements_to_witness(u_challenge);
 
     [[maybe_unused]] auto opening_claim =
-        ShpleminiVerifier::accumulate_batch_mul_arguments(Fr::from_witness(&builder, log_circuit_size),
-                                                          RefVector(stdlib_f_commitments),
-                                                          RefVector(stdlib_g_commitments),
-                                                          RefVector(stdlib_claimed_evaluations),
-                                                          u_challenge_in_circuit,
-                                                          Commitment::one(&builder),
-                                                          stdlib_verifier_transcript);
+        ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, log_circuit_size),
+                                                       RefVector(stdlib_f_commitments),
+                                                       RefVector(stdlib_g_commitments),
+                                                       RefVector(stdlib_claimed_evaluations),
+                                                       u_challenge_in_circuit,
+                                                       Commitment::one(&builder),
+                                                       stdlib_verifier_transcript);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

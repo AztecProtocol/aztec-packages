@@ -205,7 +205,6 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
         expected_result -= prover_commitments[idx] * current_challenge * expected_inverse_vanishing_evals[idx + 2];
         current_challenge *= shplonk_batching_challenge;
     }
-    Fr expected_constant_term_accumulator{ 0 };
 
     // Run the ShepliminiVerifier batching method
     std::vector<Fr> inverse_vanishing_evals =
@@ -213,7 +212,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
-    Fr constant_term_accumulator{ 0 };
+    Fr expected_constant_term_accumulator{ 0 };
 
     ShpleminiVerifier::batch_gemini_claims_received_from_prover(log_n,
                                                                 prover_commitments,
@@ -222,7 +221,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
                                                                 shplonk_batching_challenge,
                                                                 commitments,
                                                                 scalars,
-                                                                constant_term_accumulator);
+                                                                expected_constant_term_accumulator);
 
     EXPECT_EQ(commitments.size(), prover_commitments.size());
     // Compute the group element using the output of Shplemini method

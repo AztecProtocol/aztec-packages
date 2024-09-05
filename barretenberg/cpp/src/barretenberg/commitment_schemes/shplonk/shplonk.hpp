@@ -276,7 +276,7 @@ template <typename Curve> class ShplonkVerifier_ {
      * @param gemini_eval_challenge_powers \f$ (r , r^2, \ldots, r^{2^{d-1}}) \f$
      * @return \f[ \left( \frac{1}{z - r}, \frac{1}{z+r}, \ldots, \frac{1}{z+r^{2^{d-1}}} \right) \f]
      */
-    static std::vector<Fr> compute_inverted_gemini_denominators(const size_t& num_gemini_claims,
+    static std::vector<Fr> compute_inverted_gemini_denominators(const size_t num_gemini_claims,
                                                                 const Fr& shplonk_eval_challenge,
                                                                 const std::vector<Fr>& gemini_eval_challenge_powers)
     {

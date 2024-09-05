@@ -394,15 +394,15 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    auto shplemini_accumulator = ShpleminiVerifier::accumulate_batch_mul_arguments(log_n,
-                                                                                   RefVector(unshifted_commitments),
-                                                                                   RefVector(shifted_commitments),
-                                                                                   RefVector(multilinear_evaluations),
-                                                                                   mle_opening_point,
-                                                                                   this->vk()->get_g1_identity(),
-                                                                                   verifier_transcript);
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(log_n,
+                                                                                    RefVector(unshifted_commitments),
+                                                                                    RefVector(shifted_commitments),
+                                                                                    RefVector(multilinear_evaluations),
+                                                                                    mle_opening_point,
+                                                                                    this->vk()->get_g1_identity(),
+                                                                                    verifier_transcript);
 
-    auto result = IPA::reduce_verify_shplemini_accumulator(shplemini_accumulator, this->vk(), verifier_transcript);
+    auto result = IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
     // auto result = IPA::reduce_verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
 
     EXPECT_EQ(result, true);

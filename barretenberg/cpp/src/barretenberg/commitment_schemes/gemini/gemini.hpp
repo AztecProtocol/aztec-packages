@@ -140,14 +140,14 @@ template <typename Curve> class GeminiVerifier_ {
         const size_t num_variables = mle_opening_point.size();
 
         // Get polynomials Fold_i, i = 1,...,m-1 from transcript
-        std::vector<Commitment> commitments = get_gemini_commitments(num_variables, transcript);
+        const std::vector<Commitment> commitments = get_gemini_commitments(num_variables, transcript);
 
         // compute vector of powers of random evaluation point r
         const Fr r = transcript->template get_challenge<Fr>("Gemini:r");
-        std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r, num_variables);
+        const std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r, num_variables);
 
         // Get evaluations a_i, i = 0,...,m-1 from transcript
-        std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
+        const std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
         // Compute evaluation A₀(r)
         auto a_0_pos =
             compute_gemini_batched_univariate_evaluation(batched_evaluation, mle_opening_point, r_squares, evaluations);
@@ -172,23 +172,23 @@ template <typename Curve> class GeminiVerifier_ {
         return fold_polynomial_opening_claims;
     }
 
-    static std::vector<Commitment> get_gemini_commitments(size_t log_circuit_size, auto& transcript)
+    static std::vector<Commitment> get_gemini_commitments(const size_t log_circuit_size, auto& transcript)
     {
         std::vector<Commitment> gemini_commitments;
         gemini_commitments.reserve(log_circuit_size - 1);
         for (size_t i = 0; i < log_circuit_size - 1; ++i) {
-            auto commitment =
+            const Commitment commitment =
                 transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
             gemini_commitments.emplace_back(commitment);
         }
         return gemini_commitments;
     }
-    static std::vector<Fr> get_gemini_evaluations(size_t log_circuit_size, auto& transcript)
+    static std::vector<Fr> get_gemini_evaluations(const size_t log_circuit_size, auto& transcript)
     {
         std::vector<Fr> gemini_evaluations;
         gemini_evaluations.reserve(log_circuit_size);
         for (size_t i = 0; i < log_circuit_size; ++i) {
-            auto evaluation = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
+            const Fr evaluation = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
             gemini_evaluations.emplace_back(evaluation);
         }
         return gemini_evaluations;
@@ -216,7 +216,7 @@ template <typename Curve> class GeminiVerifier_ {
      * @param fold_polynomial_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return Evaluation \f$ A_0(r) \f$.
      */
-    static Fr compute_gemini_batched_univariate_evaluation(Fr& batched_mle_eval,
+    static Fr compute_gemini_batched_univariate_evaluation(Fr& batched_eval_accumulator,
                                                            std::span<const Fr> evaluation_point,
                                                            std::span<const Fr> challenge_powers,
                                                            std::span<const Fr> fold_polynomial_evals)
@@ -224,25 +224,23 @@ template <typename Curve> class GeminiVerifier_ {
         const size_t num_variables = evaluation_point.size();
 
         const auto& evals = fold_polynomial_evals;
-        /// Initialize the evaluation of the univariatization of the batched multilinear polynomial with
-        /// the evaluation of \f$ \sum \rho^i f_i + \sum \rho^{i+k} f_{i,\text{shift}} \f$ at \f$ (u_0,\ldots, u_{d-1})
-        /// \f$
-        Fr& batched_eval = batched_mle_eval;
-        /// Solve the sequence of linear equations
+
+        // Solve the sequence of linear equations
         for (size_t l = num_variables; l != 0; --l) {
-            /// Get \f$ r^{2^{\ell - 1}} \f$
+            // Get r²⁽ˡ⁻¹⁾
             const Fr& challenge_power = challenge_powers[l - 1];
-            /// Get \f$ A_{\ell-1}(−r^{2^{\ell -1 }})\f$
+            // Get A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾)
             const Fr& eval_neg = evals[l - 1];
-            /// Get \f$ u_{\ell-1}\f$
+            // Get uₗ₋₁
             const Fr& u = evaluation_point[l - 1];
-            /// Compute the numerator
-            batched_eval = ((challenge_power * batched_eval * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
-            /// Divide by the denominator
-            batched_eval *= (challenge_power * (Fr(1) - u) + u).invert();
+            // Compute the numerator
+            batched_eval_accumulator =
+                ((challenge_power * batched_eval_accumulator * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
+            // Divide by the denominator
+            batched_eval_accumulator *= (challenge_power * (Fr(1) - u) + u).invert();
         }
 
-        return batched_eval;
+        return batched_eval_accumulator;
     }
 
     /**

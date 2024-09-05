@@ -1,7 +1,6 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
-#include "barretenberg/commitment_schemes/utils/shplemini_accumulator.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
@@ -583,14 +582,14 @@ template <typename Curve_> class IPA {
      * polynomial corresponding to \f$ C \f$ evaluates to \f$ 0 \f$ at the Shplonk challenge point \f$ z \f$.
      *
      */
-    static OpeningClaim<Curve> compute_opening_claim_from_shplemini_accumulators(
-        ShpleminiAccumulator<Curve>& shplemini_accumulator)
+    static OpeningClaim<Curve> reduce_batch_opening_claim(
+        const BatchOpeningClaim<Curve>&  batch_opening_claim)
     {
         using Utils = CommitmentSchemesUtils<Curve>;
         /// Extract batch_mul arguments from the accumulator
-        auto& commitments = shplemini_accumulator.commitments;
-        auto& scalars = shplemini_accumulator.scalars;
-        Fr& shplonk_eval_challenge = shplemini_accumulator.evaluation_point;
+        const auto& commitments = batch_opening_claim.commitments;
+        const auto& scalars = batch_opening_claim.scalars;
+        const Fr& shplonk_eval_challenge = batch_opening_claim.evaluation_point;
         /// Compute \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$
         GroupElement shplonk_output_commitment;
         if constexpr (Curve::is_stdlib_type) {
@@ -605,16 +604,16 @@ template <typename Curve_> class IPA {
     /**
      * @brief Verify the IPA opening claim obtained from a Shplemini accumulator
      *
-     * @param shplemini_accumulator
+     * @param batch_opening_claim
      * @param vk
      * @param transcript
      * @return VerifierAccumulator
      */
-    static VerifierAccumulator reduce_verify_shplemini_accumulator(ShpleminiAccumulator<Curve>& shplemini_accumulator,
-                                                                   const std::shared_ptr<VK>& vk,
-                                                                   auto& transcript)
+    static VerifierAccumulator reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
+                                                                 const std::shared_ptr<VK>& vk,
+                                                                 auto& transcript)
     {
-        auto opening_claim = compute_opening_claim_from_shplemini_accumulators(shplemini_accumulator);
+        const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
         return reduce_verify_internal(vk, opening_claim, transcript);
     }
 };

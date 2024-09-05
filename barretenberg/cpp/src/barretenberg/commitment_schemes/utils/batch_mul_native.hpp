@@ -14,7 +14,7 @@ template <typename Curve> class CommitmentSchemesUtils {
      * @brief Utility for native batch multiplication of group elements
      * @note This is used only for native verification and is not optimized for efficiency
      */
-    static Commitment batch_mul_native(std::vector<Commitment>& _points, std::vector<FF>& _scalars)
+    static Commitment batch_mul_native(const std::vector<Commitment>& _points, const std::vector<FF>& _scalars)
     {
         std::vector<Commitment> points;
         std::vector<FF> scalars;
