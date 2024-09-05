@@ -27,6 +27,7 @@ import {
   PublicCircuitPublicInputs,
   ReadRequest,
   RevertCode,
+  TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -307,7 +308,7 @@ const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInpu
     returnsHash: computeVarArgsHash(result.returnValues),
     noteHashReadRequests: padArrayEnd(
       result.noteHashReadRequests,
-      ReadRequest.empty(),
+      TreeLeafReadRequest.empty(),
       MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     ),
     nullifierReadRequests: padArrayEnd(
@@ -322,7 +323,7 @@ const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInpu
     ),
     l1ToL2MsgReadRequests: padArrayEnd(
       result.l1ToL2MsgReadRequests,
-      ReadRequest.empty(),
+      TreeLeafReadRequest.empty(),
       MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
     ),
     contractStorageReads: padArrayEnd(

@@ -116,7 +116,7 @@ protocol-verification-keys:
 rollup-verifier-contract:
     FROM +bb-cli
     COPY --dir +protocol-verification-keys/usr/src/bb /usr/src
-    RUN --entrypoint write-contract -c RootRollupArtifact -n UltraHonkVerifier.sol
+    RUN --entrypoint write-contract -c BlockRootRollupArtifact -n UltraHonkVerifier.sol
     SAVE ARTIFACT /usr/src/bb /usr/src/bb
 
 txe:
@@ -150,7 +150,7 @@ aztec-prod:
 
 aztec:
     FROM ubuntu:noble
-    RUN apt update && apt install nodejs curl -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
     COPY +aztec-prod/usr/src /usr/src
     ENV BB_WORKING_DIRECTORY=/usr/src/bb
     ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb

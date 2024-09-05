@@ -210,6 +210,18 @@ You can also use the `assert_public_call_fails` or `assert_private_call_fails` m
 
 #include_code assert_public_fail /noir-projects/noir-contracts/contracts/token_contract/src/test/transfer_public.nr rust
 
+### Logging
+
+You can use `aztec.nr`'s oracles as usual for debug logging, as explained [here](../../../../reference/developer_references/debugging.md)
+
+:::warning
+Remember to set the following environment variables to activate debug logging:
+```bash
+export DEBUG="aztec:*"
+export LOG_LEVEL="debug"
+```
+:::
+
 ### All Cheatcodes
 
 You can find the full list of cheatcodes available in the TXE [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/test/helpers/cheatcodes.nr)

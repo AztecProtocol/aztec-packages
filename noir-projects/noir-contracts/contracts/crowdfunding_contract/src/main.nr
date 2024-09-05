@@ -4,16 +4,17 @@ contract Crowdfunding {
 
     // docs:start:all-deps
     use dep::aztec::{
-        protocol_types::address::AztecAddress,
+        protocol_types::{address::AztecAddress, constants::ROUTER_ADDRESS},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-        keys::getters::get_current_public_keys,
-        state_vars::{PrivateSet, PublicImmutable, SharedImmutable}
+        keys::getters::get_current_public_keys, state_vars::{PrivateSet, SharedImmutable},
+        note::note_getter_options::Comparator
     };
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
     // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
     // docs:end:import_valuenote
     use dep::token::Token;
+    use router::Router;
     // docs:end:all-deps
 
     #[aztec(event)]
@@ -30,12 +31,13 @@ contract Crowdfunding {
         // Crowdfunding campaign operator
         operator: SharedImmutable<AztecAddress>,
         // End of the crowdfunding campaign after which no more donations are accepted
-        deadline: PublicImmutable<u64>,
+        deadline: SharedImmutable<u64>,
         // Notes emitted to donors when they donate (can be used as proof to obtain rewards, eg in Claim contracts)
         donation_receipts: PrivateSet<ValueNote>,
     }
     // docs:end:storage
 
+    // TODO(#8367): Ensure deadline is quantized to improve privacy set.
     // docs:start:init
     // docs:start:init-header
     // docs:start:init-header-error
@@ -51,24 +53,14 @@ contract Crowdfunding {
     }
     // docs:end:init
 
-    // docs:start:deadline
-    // docs:start:deadline-header
-    #[aztec(public)]
-    #[aztec(internal)]
-    #[aztec(view)]
-    fn _check_deadline() {
-        // docs:end:deadline-header
-        let deadline = storage.deadline.read();
-        assert(context.timestamp() < deadline, "Deadline has passed");
-    }
-    // docs:end:deadline
-
     // docs:start:donate
-    // docs:start:call-check-deadline
     #[aztec(private)]
     fn donate(amount: u64) {
-        // 1) Check that the deadline has not passed
-        Crowdfunding::at(context.this_address())._check_deadline().enqueue_view(&mut context);
+        // 1) Check that the deadline has not passed --> we do that via the router contract to conceal which contract
+        // is performing the check.
+        // docs:start:call-check-deadline
+        let deadline = storage.deadline.read_private();
+        Router::at(ROUTER_ADDRESS).check_timestamp(deadline, Comparator.GT).call(&mut context);
         // docs:end:call-check-deadline
 
         // docs:start:do-transfer

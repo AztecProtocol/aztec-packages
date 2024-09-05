@@ -19,7 +19,7 @@ class UltraTranscriptTests : public ::testing::Test {
     using Flavor = UltraFlavor;
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
-    using ProverInstance = ProverInstance_<Flavor>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
 
     /**
      * @brief Construct a manifest for a Ultra Honk proof
@@ -134,8 +134,8 @@ TEST_F(UltraTranscriptTests, ProverManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    UltraProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    UltraProver prover(proving_key);
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
@@ -160,12 +160,12 @@ TEST_F(UltraTranscriptTests, VerifierManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    UltraProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    UltraProver prover(proving_key);
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     UltraVerifier verifier(verification_key);
     verifier.verify_proof(proof);
 
@@ -211,10 +211,10 @@ TEST_F(UltraTranscriptTests, StructureTest)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    UltraProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    UltraProver prover(proving_key);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     UltraVerifier verifier(verification_key);
     EXPECT_TRUE(verifier.verify_proof(proof));
 

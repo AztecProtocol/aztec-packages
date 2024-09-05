@@ -3,8 +3,8 @@ import {
   type BatchInsertionResult,
   type HandleL2BlockAndMessagesResult,
   type IndexedTreeId,
+  type MerkleTreeAdminOperations,
   type MerkleTreeLeafType,
-  type MerkleTreeOperations,
   type TreeInfo,
 } from '@aztec/circuit-types/interfaces';
 import {
@@ -56,7 +56,7 @@ import {
   type TreeSnapshots,
 } from './merkle_tree_db.js';
 import { type MerkleTreeMap } from './merkle_tree_map.js';
-import { MerkleTreeOperationsFacade } from './merkle_tree_operations_facade.js';
+import { MerkleTreeAdminOperationsFacade } from './merkle_tree_operations_facade.js';
 import { WorldStateMetrics } from './metrics.js';
 
 /**
@@ -122,8 +122,8 @@ export class MerkleTrees implements MerkleTreeDb {
   /**
    * Initializes the collection of Merkle Trees.
    */
-  async #init() {
-    const fromDb = this.#isDbPopulated();
+  async #init(loadFromDb?: boolean) {
+    const fromDb = loadFromDb === undefined ? this.#isDbPopulated() : loadFromDb;
     const initializeTree = fromDb ? loadTree : newTree;
 
     const hasher = new Poseidon();
@@ -180,23 +180,34 @@ export class MerkleTrees implements MerkleTreeDb {
       const initialState = await this.getStateReference(true);
       await this.#saveInitialStateReference(initialState);
       await this.#updateArchive(this.getInitialHeader(), true);
-    }
 
-    await this.#commit();
+      // And commit anything we did to initialize this set of trees
+      await this.#commit();
+    }
   }
 
   public async fork(): Promise<MerkleTrees> {
     const [ms, db] = await elapsed(async () => {
-      // TODO(palla/prover-node): If the underlying store is being shared with other components, we're unnecessarily
-      // copying a lot of data unrelated to merkle trees. This may be fine for now, and we may be able to ditch backup-based
-      // forking in favor of a more elegant proposal. But if we see this operation starts taking a lot of time, we may want
-      // to open separate stores for merkle trees and other components.
       const forked = await this.store.fork();
       return MerkleTrees.new(forked, this.telemetryClient, this.log);
     });
 
     this.metrics.recordForkDuration(ms);
     return db;
+  }
+
+  // REFACTOR: We're hiding the `commit` operations in the tree behind a type check only, but
+  // we should make sure it's not accidentally called elsewhere by splitting this class into one
+  // that can work on a read-only store and one that actually writes to the store. This implies
+  // having read-only versions of the kv-stores, all kv-containers, and all trees.
+  public async ephemeralFork(): Promise<MerkleTreeDb> {
+    const forked = new MerkleTrees(
+      this.store,
+      this.telemetryClient,
+      createDebugLogger('aztec:merkle_trees:ephemeral_fork'),
+    );
+    await forked.#init(true);
+    return forked;
   }
 
   public async delete() {
@@ -218,16 +229,16 @@ export class MerkleTrees implements MerkleTreeDb {
    * Gets a view of this db that returns uncommitted data.
    * @returns - A facade for this instance.
    */
-  public asLatest(): MerkleTreeOperations {
-    return new MerkleTreeOperationsFacade(this, true);
+  public asLatest(): MerkleTreeAdminOperations {
+    return new MerkleTreeAdminOperationsFacade(this, true);
   }
 
   /**
    * Gets a view of this db that returns committed data only.
    * @returns - A facade for this instance.
    */
-  public asCommitted(): MerkleTreeOperations {
-    return new MerkleTreeOperationsFacade(this, false);
+  public asCommitted(): MerkleTreeAdminOperations {
+    return new MerkleTreeAdminOperationsFacade(this, false);
   }
 
   /**

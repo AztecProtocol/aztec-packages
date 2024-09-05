@@ -103,9 +103,7 @@ resource "aws_service_discovery_service" "aztec-node" {
 
 # Configure an EFS filesystem.
 resource "aws_efs_file_system" "node_data_store" {
-  creation_token                  = "${var.DEPLOY_TAG}-node-data"
-  throughput_mode                 = "provisioned"
-  provisioned_throughput_in_mibps = 20
+  creation_token = "${var.DEPLOY_TAG}-node-data"
 
   tags = {
     Name = "${var.DEPLOY_TAG}-node-data"
@@ -190,7 +188,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "ETHEREUM_HOST"
-          value = "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${var.API_KEY}"
+          value = "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/admin-${var.FORK_ADMIN_API_KEY}"
         },
         {
           name  = "DATA_DIRECTORY"
