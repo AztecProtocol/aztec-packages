@@ -2,7 +2,7 @@
 
 #include "barretenberg/common/log.hpp"
 
-namespace bb::instance_inspector {
+namespace bb::proving_key_inspector {
 
 // Determine whether a polynomial has at least one non-zero coefficient
 bool is_non_zero(auto& polynomial)
@@ -16,13 +16,13 @@ bool is_non_zero(auto& polynomial)
 }
 
 /**
- * @brief Utility for indicating which polynomials in a prover instance are identically zero
+ * @brief Utility for indicating which polynomials in a decider proving key are identically zero
  *
- * @param prover_instance
+ * @param decider_proving_key
  */
-void inspect_instance(auto& prover_instance)
+void inspect_proving_key(auto& decider_proving_key)
 {
-    auto& prover_polys = prover_instance->prover_polynomials;
+    auto& prover_polys = decider_proving_key->prover_polynomials;
     std::vector<std::string> zero_polys;
     for (auto [label, poly] : zip_view(prover_polys.get_labels(), prover_polys.get_all())) {
         if (!is_non_zero(poly)) {
@@ -30,9 +30,9 @@ void inspect_instance(auto& prover_instance)
         }
     }
     if (zero_polys.empty()) {
-        info("\nInstance Inspector: All prover polynomials are non-zero.");
+        info("\nProving Key Inspector: All prover polynomials are non-zero.");
     } else {
-        info("\nInstance Inspector: The following prover polynomials are identically zero: ");
+        info("\nProving Key Inspector: The following prover polynomials are identically zero: ");
         for (const std::string& label : zero_polys) {
             info("\t", label);
         }
@@ -43,13 +43,13 @@ void inspect_instance(auto& prover_instance)
 /**
  * @brief Print some useful info about polys related to the databus lookup relation
  *
- * @param prover_instance
+ * @param decider_proving_key
  */
-void print_databus_info(auto& prover_instance)
+void print_databus_info(auto& decider_proving_key)
 {
-    info("\nInstance Inspector: Printing databus gate info.");
-    auto& key = prover_instance->proving_key;
-    for (size_t idx = 0; idx < prover_instance->proving_key.circuit_size; ++idx) {
+    info("\nProving Key Inspector: Printing databus gate info.");
+    auto& key = decider_proving_key->proving_key;
+    for (size_t idx = 0; idx < decider_proving_key->proving_key.circuit_size; ++idx) {
         if (key->q_busread[idx] == 1) {
             info("idx = ", idx);
             info("q_busread = ", key->q_busread[idx]);
@@ -66,4 +66,4 @@ void print_databus_info(auto& prover_instance)
     info();
 }
 
-} // namespace bb::instance_inspector
+} // namespace bb::proving_key_inspector

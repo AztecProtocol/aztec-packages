@@ -49,6 +49,7 @@
     "noir-protocol-circuits-types",
     "p2p",
     "p2p-bootstrap",
+    "proof-verifier",
     "protocol-contracts",
     "prover-client",
     "prover-node",
