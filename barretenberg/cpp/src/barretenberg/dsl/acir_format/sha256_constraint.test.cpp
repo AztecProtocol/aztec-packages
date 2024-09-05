@@ -62,6 +62,7 @@ TEST_F(Sha256Tests, TestSha256Compression)
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
+        .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},

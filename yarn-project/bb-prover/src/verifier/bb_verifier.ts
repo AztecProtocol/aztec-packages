@@ -22,7 +22,6 @@ import {
   verifyProof,
 } from '../bb/execute.js';
 import { type BBConfig } from '../config.js';
-import { getUltraHonkFlavorForCircuit } from '../honk.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractVkData } from '../verification_key/verification_key_data.js';
 
@@ -63,7 +62,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       workingDirectory,
       circuit,
       ProtocolCircuitArtifacts[circuit],
-      getUltraHonkFlavorForCircuit(circuit),
+      'vk',
       logFn,
     ).then(result => {
       if (result.status === BB_RESULT.FAILURE) {
@@ -104,13 +103,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         this.logger.debug(`${circuit} BB out - ${message}`);
       };
 
-      const result = await verifyProof(
-        this.config.bbBinaryPath,
-        proofFileName,
-        verificationKeyPath!,
-        getUltraHonkFlavorForCircuit(circuit),
-        logFunction,
-      );
+      const result = await verifyProof(this.config.bbBinaryPath, proofFileName, verificationKeyPath!, logFunction);
 
       if (result.status === BB_RESULT.FAILURE) {
         const errorMessage = `Failed to verify ${circuit} proof!`;

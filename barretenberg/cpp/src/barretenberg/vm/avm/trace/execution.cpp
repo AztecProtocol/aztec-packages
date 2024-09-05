@@ -650,8 +650,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         case OpCode::NOTEHASHEXISTS:
             trace_builder.op_note_hash_exists(std::get<uint8_t>(inst.operands.at(0)),
                                               std::get<uint32_t>(inst.operands.at(1)),
-                                              // TODO: leaf offset exists
-                                              // std::get<uint32_t>(inst.operands.at(2))
+                                              std::get<uint32_t>(inst.operands.at(2)),
                                               std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::EMITNOTEHASH:
@@ -673,8 +672,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         case OpCode::L1TOL2MSGEXISTS:
             trace_builder.op_l1_to_l2_msg_exists(std::get<uint8_t>(inst.operands.at(0)),
                                                  std::get<uint32_t>(inst.operands.at(1)),
-                                                 // TODO: leaf offset exists
-                                                 // std::get<uint32_t>(inst.operands.at(2))
+                                                 std::get<uint32_t>(inst.operands.at(2)),
                                                  std::get<uint32_t>(inst.operands.at(3)));
             break;
         case OpCode::GETCONTRACTINSTANCE:
