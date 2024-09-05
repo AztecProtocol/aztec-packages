@@ -51,15 +51,15 @@ void bench_round_mega(::benchmark::State& state, void (*F)(ProtogalaxyProver_<De
     _bench_round<MegaFlavor>(state, F);
 }
 
-BENCHMARK_CAPTURE(bench_round_mega, oink, [](auto& prover) { prover.run_oink_prover_on_each_instance(); })
+BENCHMARK_CAPTURE(bench_round_mega, oink, [](auto& prover) { prover.run_oink_prover_on_each_incomplete_key(); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
 BENCHMARK_CAPTURE(bench_round_mega, perturbator, [](auto& prover) { prover.perturbator_round(prover.accumulator); })
     -> DenseRange(14, 20) -> Unit(kMillisecond);
 BENCHMARK_CAPTURE(bench_round_mega, combiner_quotient, [](auto& prover) {
-    prover.combiner_quotient_round(prover.accumulator->gate_challenges, prover.deltas, prover.instances);
+    prover.combiner_quotient_round(prover.accumulator->gate_challenges, prover.deltas, prover.keys_to_fold);
 }) -> DenseRange(14, 20) -> Unit(kMillisecond);
 BENCHMARK_CAPTURE(bench_round_mega, fold, [](auto& prover) {
-    prover.update_target_sum_and_fold(prover.instances,
+    prover.update_target_sum_and_fold(prover.keys_to_fold,
                                       prover.combiner_quotient,
                                       prover.alphas,
                                       prover.relation_parameters,
