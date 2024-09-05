@@ -508,6 +508,8 @@ export class ProvingOrchestrator implements BlockProver {
       };
 
       pushTestData('blockResults', {
+        proverId: this.proverId.toString(),
+        vkTreeRoot: getVKTreeRoot().toString(),
         block: l2Block.toString(),
         proof: this.provingState.finalProof.toString(),
         aggregationObject: blockResult.aggregationObject.map(x => x.toString()),
@@ -1157,9 +1159,10 @@ export class ProvingOrchestrator implements BlockProver {
 }
 
 function extractAggregationObject(proof: Proof, numPublicInputs: number): Fr[] {
+  // TODO (alexg) fix this
   const buffer = proof.buffer.subarray(
-    Fr.SIZE_IN_BYTES * (numPublicInputs - AGGREGATION_OBJECT_LENGTH),
-    Fr.SIZE_IN_BYTES * numPublicInputs,
+    4 + Fr.SIZE_IN_BYTES * (3 + numPublicInputs - AGGREGATION_OBJECT_LENGTH),
+    4 + Fr.SIZE_IN_BYTES * (3 + numPublicInputs),
   );
   // TODO(#7159): Remove the following workaround
   if (buffer.length === 0) {
