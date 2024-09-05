@@ -47,72 +47,58 @@ mod test {
     fn test_compare() {
         let lhs = 10;
         let rhs = 10;
-        let result = compare(lhs, Comparator.EQ, rhs);
-        assert(result, "Expected lhs to be equal to rhs");
+        assert(compare(lhs, Comparator.EQ, rhs), "Expected lhs to be equal to rhs");
 
         let lhs = 10;
         let rhs = 11;
-        let result = compare(lhs, Comparator.NEQ, rhs);
-        assert(result, "Expected lhs to be not equal to rhs");
+        assert(compare(lhs, Comparator.NEQ, rhs), "Expected lhs to be not equal to rhs");
 
         let lhs = 10;
         let rhs = 11;
-        let result = compare(lhs, Comparator.LT, rhs);
-        assert(result, "Expected lhs to be less than rhs");
+        assert(compare(lhs, Comparator.LT, rhs), "Expected lhs to be less than rhs");
 
         let lhs = 10;
         let rhs = 10;
-        let result = compare(lhs, Comparator.LTE, rhs);
-        assert(result, "Expected lhs to be less than or equal to rhs");
+        assert(compare(lhs, Comparator.LTE, rhs), "Expected lhs to be less than or equal to rhs");
 
         let lhs = 11;
         let rhs = 10;
-        let result = compare(lhs, Comparator.GT, rhs);
-        assert(result, "Expected lhs to be greater than rhs");
+        assert(compare(lhs, Comparator.GT, rhs), "Expected lhs to be greater than rhs");
 
         let lhs = 10;
         let rhs = 10;
-        let result = compare(lhs, Comparator.GTE, rhs);
-        assert(result, "Expected lhs to be greater than or equal to rhs");
+        assert(compare(lhs, Comparator.GTE, rhs), "Expected lhs to be greater than or equal to rhs");
 
         let lhs = 11;
         let rhs = 10;
-        let result = compare(lhs, Comparator.GTE, rhs);
-        assert(result, "Expected lhs to be greater than or equal to rhs");
+        assert(compare(lhs, Comparator.GTE, rhs), "Expected lhs to be greater than or equal to rhs");
 
         let lhs = 10;
         let rhs = 11;
-        let result = compare(lhs, Comparator.EQ, rhs);
-        assert(!result, "Expected lhs to be not equal to rhs");
+        assert(!compare(lhs, Comparator.EQ, rhs), "Expected lhs to be not equal to rhs");
 
         let lhs = 10;
         let rhs = 10;
-        let result = compare(lhs, Comparator.NEQ, rhs);
-        assert(!result, "Expected lhs to not be not equal to rhs");
+        assert(!compare(lhs, Comparator.NEQ, rhs), "Expected lhs to not be not equal to rhs");
 
         let lhs = 11;
         let rhs = 10;
-        let result = compare(lhs, Comparator.LT, rhs);
-        assert(!result, "Expected lhs to not be less than rhs");
+        assert(!compare(lhs, Comparator.LT, rhs), "Expected lhs to not be less than rhs");
 
         let lhs = 11;
         let rhs = 10;
-        let result = compare(lhs, Comparator.LTE, rhs);
-        assert(!result, "Expected lhs to not be less than or equal to rhs");
+        assert(!compare(lhs, Comparator.LTE, rhs), "Expected lhs to not be less than or equal to rhs");
 
         let lhs = 10;
         let rhs = 10;
-        let result = compare(lhs, Comparator.GT, rhs);
-        assert(!result, "Expected lhs to not be greater than rhs");
+        assert(!compare(lhs, Comparator.GT, rhs), "Expected lhs to not be greater than rhs");
 
         let lhs = 10;
         let rhs = 11;
-        let result = compare(lhs, Comparator.GTE, rhs);
-        assert(!result, "Expected lhs to not be greater than or equal to rhs");
+        assert(!compare(lhs, Comparator.GTE, rhs), "Expected lhs to not be greater than or equal to rhs");
 
         let lhs = 10;
         let rhs = 11;
-        let result = compare(lhs, Comparator.GTE, rhs);
-        assert(!result, "Expected lhs to not be greater than or equal to rhs");
+        assert(!compare(lhs, Comparator.GTE, rhs), "Expected lhs to not be greater than or equal to rhs");
     }
 }
