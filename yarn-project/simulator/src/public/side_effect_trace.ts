@@ -16,6 +16,7 @@ import {
   Nullifier,
   type PublicCallRequest,
   ReadRequest,
+  TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -38,14 +39,14 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   private contractStorageReads: ContractStorageRead[] = [];
   private contractStorageUpdateRequests: ContractStorageUpdateRequest[] = [];
 
-  private noteHashReadRequests: ReadRequest[] = [];
+  private noteHashReadRequests: TreeLeafReadRequest[] = [];
   private noteHashes: NoteHash[] = [];
 
   private nullifierReadRequests: ReadRequest[] = [];
   private nullifierNonExistentReadRequests: ReadRequest[] = [];
   private nullifiers: Nullifier[] = [];
 
-  private l1ToL2MsgReadRequests: ReadRequest[] = [];
+  private l1ToL2MsgReadRequests: TreeLeafReadRequest[] = [];
   private newL2ToL1Messages: L2ToL1Message[] = [];
 
   private unencryptedLogs: UnencryptedL2Log[] = [];
@@ -104,17 +105,16 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceNoteHashCheck(_storageAddress: Fr, noteHash: Fr, _leafIndex: Fr, exists: boolean) {
+  // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
+  public traceNoteHashCheck(_storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
     // TODO(4805): check if some threshold is reached for max note hash checks
     // NOTE: storageAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     // TODO(dbanks12): leafIndex is unused for now but later must be used by kernel to constrain that the kernel
     // is in fact checking the leaf indicated by the user
-    this.noteHashReadRequests.push(new ReadRequest(noteHash, this.sideEffectCounter));
+    this.noteHashReadRequests.push(new TreeLeafReadRequest(noteHash, leafIndex));
     this.avmCircuitHints.noteHashExists.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ new Fr(exists ? 1 : 0)),
+      new AvmKeyValueHint(/*key=*/ new Fr(leafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
-    this.logger.debug(`NOTE_HASH_CHECK cnt: ${this.sideEffectCounter}`);
-    this.incrementSideEffectCounter();
   }
 
   public traceNewNoteHash(_storageAddress: Fr, noteHash: Fr) {
@@ -154,17 +154,16 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceL1ToL2MessageCheck(_contractAddress: Fr, msgHash: Fr, _msgLeafIndex: Fr, exists: boolean) {
+  // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
+  public traceL1ToL2MessageCheck(_contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
     // TODO(4805): check if some threshold is reached for max message reads
     // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     // TODO(dbanks12): leafIndex is unused for now but later must be used by kernel to constrain that the kernel
     // is in fact checking the leaf indicated by the user
-    this.l1ToL2MsgReadRequests.push(new ReadRequest(msgHash, this.sideEffectCounter));
+    this.l1ToL2MsgReadRequests.push(new TreeLeafReadRequest(msgHash, msgLeafIndex));
     this.avmCircuitHints.l1ToL2MessageExists.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ new Fr(exists ? 1 : 0)),
+      new AvmKeyValueHint(/*key=*/ new Fr(msgLeafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
-    this.logger.debug(`L1_TO_L2_MSG_CHECK cnt: ${this.sideEffectCounter}`);
-    this.incrementSideEffectCounter();
   }
 
   public traceNewL2ToL1Message(recipient: Fr, content: Fr) {
