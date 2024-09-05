@@ -19,18 +19,18 @@ PRESET=${PRESET:-tracy}
 
 ssh $BOX "
 	set -eux ;
+	cd ~/aztec-packages/barretenberg/cpp/ ;
+	cmake --preset $PRESET && cmake --build --preset $PRESET --target $BENCHMARK ;
 	! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy ;
 	cd ~/tracy/capture ;
 	sudo apt-get install -y libdbus-1-dev libdbus-glib-1-dev ;
 	mkdir -p build && cd build && cmake .. && make -j ;
 	./tracy-capture -a 127.0.0.1 -f -o trace-$BENCHMARK & ;
 	sleep 0.1 ;
-	cd ~/aztec-packages/barretenberg/cpp/ ;
-	cmake --preset $PRESET && cmake --build --preset $PRESET --target $BENCHMARK ;
-	cd build-$PRESET ;
-	ninja $BENCHMARK ;
+	cd ~/aztec-packages/barretenberg/cpp/build-$PRESET ;
 	$COMMAND ;
-" || true
+" &
+wait # TODO(AD) hack - not sure why needed
 ! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy
 cd ~/tracy
 cmake -B profiler/build -S profiler -DCMAKE_BUILD_TYPE=Release

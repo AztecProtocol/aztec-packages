@@ -50,6 +50,17 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
     // If enabled, we keep slow stack traces to be able to correlate gates with code locations where they were added
     StackTraces stack_traces;
 #endif
+#ifdef TRACY_HACK_GATES_AS_MEMORY
+    std::vector<size_t> allocated_gates;
+#endif
+    void tracy_gate()
+    {
+#ifdef TRACY_HACK_GATES_AS_MEMORY
+        GLOBAL_GATE++;
+        TRACY_GATE_ALLOC(GLOBAL_GATE);
+        allocated_gates.push_back(GLOBAL_GATE);
+#endif
+    }
 
     Wires wires; // vectors of indices into a witness variables array
     Selectors selectors;
@@ -80,9 +91,14 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 #ifdef TRACY_HACK_GATES_AS_MEMORY
     ~ExecutionTraceBlock()
     {
-        for (size_t j = 0; j < this->wires.size(); j++) {
-            TRACY_GATE_FREE(this + j);
+        for ([[maybe_unused]] size_t gate : allocated_gates) {
+            TRACY_GATE_FREE(gate);
         }
+        // std::ptrdiff_t n_untracked_gates =
+        //     static_cast<std::ptrdiff_t>(this->wires.size()) - static_cast<std::ptrdiff_t>(allocated_gates.size());
+        // if (n_untracked_gates > 0) {
+        //     info("UNTRACKED GATES: ", n_untracked_gates);
+        // }
     }
 #endif
 };
