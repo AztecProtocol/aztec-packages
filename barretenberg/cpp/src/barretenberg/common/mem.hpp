@@ -10,7 +10,6 @@
 // so wrap TracyAlloc or TracyAllocS. We disable these if gates are being tracked
 // Gates are hackishly tracked as if they were memory, for the sweet sweet memory
 // stack tree that doesn't seem to be available for other metric types.
-#define TRACY_HACK_GATES_AS_MEMORY
 #ifndef TRACY_HACK_GATES_AS_MEMORY
 #define TRACY_ALLOC(t, size) TracyAllocS(t, size, /*stack depth*/ 10)
 #define TRACY_FREE(t) TracyFreeS(t, /*stack depth*/ 10)
