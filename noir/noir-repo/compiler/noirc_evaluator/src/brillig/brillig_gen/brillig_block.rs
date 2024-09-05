@@ -853,8 +853,7 @@ impl<'block> BrilligBlock<'block> {
     ) {
         let slice_id = arguments[1];
         let element_size = dfg.type_of_value(slice_id).element_size();
-        let source_variable = self.convert_ssa_value(slice_id, dfg);
-        let source_vector = self.convert_array_or_vector_to_vector(source_variable);
+        let source_vector = self.convert_ssa_value(slice_id, dfg).extract_vector();
 
         let results = dfg.instruction_results(instruction_id);
         match intrinsic {
