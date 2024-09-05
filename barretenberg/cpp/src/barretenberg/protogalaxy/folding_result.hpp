@@ -4,10 +4,8 @@
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 namespace bb {
 /**
- * @brief The result of running the Protogalaxy prover containing a new accumulator (relaxed instance) as well as the
- * proof data to instantiate the verifier transcript.
- *
- * @tparam Flavor
+ * @brief The result of running the Protogalaxy prover containing a new accumulator as well as the proof data to
+ * instantiate the verifier transcript.
  */
 template <class Flavor> struct FoldingResult {
   public:
