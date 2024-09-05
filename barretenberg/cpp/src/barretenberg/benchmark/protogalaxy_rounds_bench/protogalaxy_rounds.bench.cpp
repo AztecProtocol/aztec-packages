@@ -39,7 +39,7 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Decide
     std::fill_n(folding_prover.deltas.begin(), log2_num_gates, 0);
     folding_prover.perturbator = Flavor::Polynomial::random(1 << log2_num_gates);
     folding_prover.transcript = Flavor::Transcript::prover_init_empty();
-    folding_prover.run_oink_prover_on_each_instance();
+    folding_prover.run_oink_prover_on_each_incomplete_key();
 
     for (auto _ : state) {
         F(folding_prover);

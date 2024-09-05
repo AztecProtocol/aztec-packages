@@ -6,27 +6,27 @@ namespace bb {
 
 template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
   public:
-    using DeciderProvingKey = typename DeciderProvingKeys_::Instance;
+    using DeciderProvingKey = typename DeciderProvingKeys_::DeciderPK;
     using Flavor = typename DeciderProvingKeys_::Flavor;
     using FF = typename DeciderProvingKeys_::Flavor::FF;
-    static constexpr size_t NUM_INSTANCES = DeciderProvingKeys_::NUM;
-    using CombinerQuotient = Univariate<FF, DeciderProvingKeys_::BATCHED_EXTENDED_LENGTH, NUM_INSTANCES>;
+    static constexpr size_t NUM_KEYS = DeciderProvingKeys_::NUM;
+    using CombinerQuotient = Univariate<FF, DeciderProvingKeys_::BATCHED_EXTENDED_LENGTH, NUM_KEYS>;
     using TupleOfTuplesOfUnivariatesNoOptimisticSkipping =
-        typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<NUM_INSTANCES>;
-    using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_INSTANCES>;
-    using UnivariateRelationParameters = bb::RelationParameters<
-        Univariate<FF, DeciderProvingKeys_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_INSTANCES - 1>>;
+        typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping<NUM_KEYS>;
+    using TupleOfTuplesOfUnivariates = typename Flavor::template ProtogalaxyTupleOfTuplesOfUnivariates<NUM_KEYS>;
+    using UnivariateRelationParameters =
+        bb::RelationParameters<Univariate<FF, DeciderProvingKeys_::EXTENDED_LENGTH, 0, /*skip_count=*/NUM_KEYS - 1>>;
     using UnivariateRelationSeparator =
         std::array<Univariate<FF, DeciderProvingKeys_::BATCHED_EXTENDED_LENGTH>, Flavor::NUM_SUBRELATIONS - 1>;
 
     using Transcript = typename Flavor::Transcript;
-    using Instance = typename DeciderProvingKeys_::Instance;
+    using DeciderPK = typename DeciderProvingKeys_::DeciderPK;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using DeciderProvingKeys = DeciderProvingKeys_;
 
     static constexpr size_t NUM_SUBRELATIONS = DeciderProvingKeys_::NUM_SUBRELATIONS;
 
-    DeciderProvingKeys_ instances;
+    DeciderProvingKeys_ keys_to_fold;
     std::shared_ptr<CommitmentKey> commitment_key;
 
     // the state updated and carried forward beween rounds
@@ -40,31 +40,30 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     UnivariateRelationSeparator alphas;
 
     ProtogalaxyProver_() = default;
-    ProtogalaxyProver_(const std::vector<std::shared_ptr<Instance>>& insts)
-        : instances(DeciderProvingKeys_(insts))
+    ProtogalaxyProver_(const std::vector<std::shared_ptr<DeciderPK>>& keys)
+        : keys_to_fold(DeciderProvingKeys_(keys))
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
-        , commitment_key(instances[1]->proving_key.commitment_key){};
+        , commitment_key(keys_to_fold[1]->proving_key.commitment_key){};
 
     // Returns the accumulator, which is the first element in DeciderProvingKeys. The accumulator is assumed to have the
     // FoldingParameters set and be the result of a previous round of folding.
-    std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
+    std::shared_ptr<DeciderPK> get_accumulator() { return keys_to_fold[0]; }
 
     /**
-     * @brief For each instance produced by a circuit, prior to folding, we need to complete the computation of its
-     * prover polynomials, commit to witnesses and generate the relation parameters as well as send the public data ϕ of
-     * an instance to the verifier.
+     * @brief For each key produced by a circuit, prior to folding, we need to complete the computation of its
+     * prover polynomials; commit to witnesses and generate the relation parameters; and send the public data ϕ of
+     * the key to the verifier.
      *
-     * @param domain_separator  separates the same type of data coming from difference instances by instance
-     * index
+     * @param domain_separator a label used for tracking data in the transcript
      */
-    void run_oink_prover_on_instance(std::shared_ptr<Instance>, const std::string& domain_separator);
+    void run_oink_prover_on_one_incomplete_key(std::shared_ptr<DeciderPK>, const std::string& domain_separator);
 
     /**
      * @brief Create inputs to folding protocol (an Oink interaction).
-     * @details Finalise the prover instances that will be folded: complete computation of all the witness polynomials
+     * @details Complete the decider pks that will be folded: complete computation of all the witness polynomials
      * and compute commitments. Send commitments to the verifier and retrieve challenges.
      */
-    void run_oink_prover_on_each_instance();
+    void run_oink_prover_on_each_incomplete_key();
 
     /**
      * @brief Steps 2 - 5 of the paper.
@@ -73,7 +72,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
      * @param accumulator
      * @return std::tuple<std::vector<FF>, Polynomial<FF>> deltas, perturbator
      */
-    std::tuple<std::vector<FF>, Polynomial<FF>> perturbator_round(const std::shared_ptr<const Instance>& accumulator);
+    std::tuple<std::vector<FF>, Polynomial<FF>> perturbator_round(const std::shared_ptr<const DeciderPK>& accumulator);
 
     /**
      * @brief Steps 6 - 11 of the paper.
@@ -83,16 +82,16 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     std::tuple<std::vector<FF>, UnivariateRelationSeparator, UnivariateRelationParameters, FF, CombinerQuotient>
     combiner_quotient_round(const std::vector<FF>& gate_challenges,
                             const std::vector<FF>& deltas,
-                            const DeciderProvingKeys_& instances);
+                            const DeciderProvingKeys_& keys);
 
     /**
      * @brief Steps 12 - 13 of the paper plus the prover folding work.
      * @details Compute \f$ e^* \f$ plus, then update the prover accumulator by taking a Lagrange-linear combination of
-     * the current accumulator and the instances to be folded. In our mental model, we are doing a scalar multipliation
-     * of matrices whose columns are polynomials, as well as taking similar linear combinations of the relation
-     * parameters.
+     * the current accumulator and the decider keys to be folded. In our mental model, we are doing a scalar
+     * multiplication of matrices whose columns are polynomials, as well as taking similar linear combinations of the
+     * relation parameters.
      */
-    FoldingResult<Flavor> update_target_sum_and_fold(const DeciderProvingKeys_& instances,
+    FoldingResult<Flavor> update_target_sum_and_fold(const DeciderProvingKeys_& keys,
                                                      const CombinerQuotient& combiner_quotient,
                                                      const UnivariateRelationSeparator& alphas,
                                                      const UnivariateRelationParameters& univariate_relation_parameters,
