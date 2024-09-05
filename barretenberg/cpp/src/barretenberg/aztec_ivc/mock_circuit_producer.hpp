@@ -139,7 +139,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         for (size_t idx = 0; idx < num_circuits; ++idx) {
             ClientCircuit circuit = create_next_circuit(ivc); // create the next circuit
             ivc.accumulate(circuit);                          // accumulate the circuit
-            vkeys.emplace_back(ivc.instance_vk);              // save the VK for the circuit
+            vkeys.emplace_back(ivc.honk_vk);                  // save the VK for the circuit
         }
         circuit_counter = 0; // reset the internal circuit counter back to 0
 

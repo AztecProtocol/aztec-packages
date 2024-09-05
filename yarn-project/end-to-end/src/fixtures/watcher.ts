@@ -65,7 +65,7 @@ export class Watcher {
         this.logger.info(`Slot ${currentSlot} was filled, jumped to next slot`);
       }
     } catch (err) {
-      this.logger.error('mineIfSlotFilled failed', err);
+      this.logger.error('mineIfSlotFilled failed');
     }
   }
 }

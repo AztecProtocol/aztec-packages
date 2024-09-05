@@ -1,30 +1,13 @@
 use std::option::Option;
 use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::ToField};
 use crate::note::note_interface::NoteInterface;
+use crate::utils::comparison::Comparator;
 
 struct PropertySelector {
     index: u8,
     offset: u8,
     length: u8,
 }
-
-struct ComparatorEnum {
-    EQ: u8,
-    NEQ: u8,
-    LT: u8,
-    LTE: u8,
-    GT: u8,
-    GTE: u8,
-}
-
-global Comparator = ComparatorEnum {
-    EQ: 1,
-    NEQ: 2,
-    LT: 3,
-    LTE: 4,
-    GT: 5,
-    GTE: 6,
-};
 
 struct Select {
     property_selector: PropertySelector,

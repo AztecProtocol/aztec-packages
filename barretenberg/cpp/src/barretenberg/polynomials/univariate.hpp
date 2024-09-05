@@ -21,9 +21,9 @@ template <class Fr, size_t view_domain_end, size_t view_domain_start, size_t ski
  * domain under the hood.
  *
  * @tparam skip_count Skip computing the values of elements [domain_start+1,..,domain_start+skip_count]. Used for
- * optimising computation in protogalaxy. The value at [domain_start] is the value from the accumulator instance, while
- * the values in [domain_start+1, ... domain_start + skip_count] in the accumulator should be zero if the original
- * instances are correct.
+ * optimising computation in protogalaxy. The value at [domain_start] is the value from the accumulator, while the
+ * values in [domain_start+1, ... domain_start + skip_count] in the accumulator should be zero if the original if the
+ * skip_count-many keys to be folded are all valid
  */
 template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_count = 0> class Univariate {
   public:

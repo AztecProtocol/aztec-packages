@@ -308,13 +308,18 @@ export class Sequencer {
         throw new Error(msg);
       }
 
+      this.log.debug(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
       if (err instanceof BaseError) {
         const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
         if (revertError instanceof ContractFunctionRevertedError) {
           const errorName = revertError.data?.errorName ?? '';
-          this.log.debug(`canProposeAtTime failed with "${errorName}"`);
+          const args =
+            revertError.metaMessages && revertError.metaMessages?.length > 1
+              ? revertError.metaMessages[1].trimStart()
+              : '';
+          this.log.debug(`canProposeAtTime failed with "${errorName}${args}"`);
         }
       }
       throw err;
