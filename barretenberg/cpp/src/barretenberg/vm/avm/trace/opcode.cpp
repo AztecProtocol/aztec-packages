@@ -129,8 +129,6 @@ std::string to_string(OpCode opcode)
         return "EMITNULLIFIER";
     case OpCode::L1TOL2MSGEXISTS:
         return "L1TOL2MSGEXISTS";
-    case OpCode::HEADERMEMBER:
-        return "HEADERMEMBER";
     case OpCode::GETCONTRACTINSTANCE:
         return "GETCONTRACTINSTANCE";
     // Accrued Substate
