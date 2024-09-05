@@ -30,7 +30,7 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
 {
     Poseidon2Constraint
         poseidon2_constraint{
-            .state = { 
+            .state = {
                 WitnessOrConstant<bb::fr>::from_index(1),
                 WitnessOrConstant<bb::fr>::from_index(2),
                 WitnessOrConstant<bb::fr>::from_index(3),
@@ -67,6 +67,7 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
+        .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},
