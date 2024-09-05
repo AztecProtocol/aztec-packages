@@ -87,7 +87,7 @@ test:
       NARGO_FOREIGN_CALL_TIMEOUT=300000 nargo test --silence-warnings --oracle-resolver http://localhost:8080
 
 format:
-  FROM +build
+  FROM +source
 
   WORKDIR /usr/src/noir-projects/noir-protocol-circuits
   RUN nargo fmt --check
@@ -102,11 +102,10 @@ format:
   RUN nargo fmt --check
 
 gates-report:
-  FROM +build-protocol-circuits
+  FROM +source
   WORKDIR /usr/src/noir-projects
 
   COPY ./gates_report.sh ./gates_report.sh
-  COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
 
   ENV BB_BIN /usr/src/barretenberg/cpp/build/bin/bb
   RUN ./gates_report.sh
