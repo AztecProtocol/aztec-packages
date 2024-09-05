@@ -111,7 +111,9 @@ export class Archiver implements ArchiveSource {
     const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: http(chain.rpcUrl),
+      transport: http(chain.rpcUrl, {
+        timeout: 600_000,
+      }),
       pollingInterval: config.viemPollingIntervalMS,
     });
 

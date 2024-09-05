@@ -121,11 +121,15 @@ export function createL1Clients(
   const walletClient = createWalletClient({
     account: hdAccount,
     chain,
-    transport: http(rpcUrl),
+    transport: http(rpcUrl, {
+      timeout: 600_000,
+    }),
   });
   const publicClient = createPublicClient({
     chain,
-    transport: http(rpcUrl),
+    transport: http(rpcUrl, {
+      timeout: 600_000,
+    }),
   });
 
   return { walletClient, publicClient };

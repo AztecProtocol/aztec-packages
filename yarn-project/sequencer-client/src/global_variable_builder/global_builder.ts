@@ -37,7 +37,9 @@ export class GlobalVariableBuilder {
 
     this.publicClient = createPublicClient({
       chain: chain.chainInfo,
-      transport: http(chain.rpcUrl),
+      transport: http(chain.rpcUrl, {
+        timeout: 600_000,
+      }),
     });
 
     this.rollupContract = getContract({
