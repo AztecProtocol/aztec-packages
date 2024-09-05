@@ -273,10 +273,10 @@ template <typename Tuple> constexpr size_t compute_number_of_subrelations()
  * @brief Utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
  * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
  * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
- * tuple is determined by the corresponding subrelation length and the number of instances to be folded.
+ * tuple is determined by the corresponding subrelation length and the number of keys to be folded.
  * @tparam optimised Enable optimised version with skipping some of the computation
  */
-template <typename Tuple, size_t NUM_INSTANCES, bool optimised = false>
+template <typename Tuple, size_t NUM_KEYS, bool optimised = false>
 constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
@@ -284,11 +284,11 @@ constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
         if constexpr (optimised) {
             return std::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
-                    NUM_INSTANCES>{}...);
+                    NUM_KEYS>{}...);
         } else {
             return std::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::
-                    template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<NUM_INSTANCES>{}...);
+                    template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<NUM_KEYS>{}...);
         }
     }(seq);
 }

@@ -36,12 +36,12 @@ namespace bb {
  */
 template <IsUltraFlavor Flavor> class OinkProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using Instance = ProverInstance_<Flavor>;
+    using DeciderPK = DeciderProvingKey_<Flavor>;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
 
   public:
-    std::shared_ptr<Instance> instance;
+    std::shared_ptr<DeciderPK> proving_key;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<CommitmentKey> commitment_key;
     std::string domain_separator;
@@ -49,12 +49,12 @@ template <IsUltraFlavor Flavor> class OinkProver {
     typename Flavor::CommitmentLabels commitment_labels;
     using RelationSeparator = typename Flavor::RelationSeparator;
 
-    OinkProver(std::shared_ptr<Instance> instance,
+    OinkProver(std::shared_ptr<DeciderPK> proving_key,
                const std::shared_ptr<typename Flavor::Transcript>& transcript = std::make_shared<Transcript>(),
                std::string domain_separator = "")
-        : instance(instance)
+        : proving_key(proving_key)
         , transcript(transcript)
-        , commitment_key(this->instance->proving_key.commitment_key)
+        , commitment_key(this->proving_key->proving_key.commitment_key)
         , domain_separator(std::move(domain_separator))
     {}
 

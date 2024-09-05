@@ -17,6 +17,7 @@ import {
   PublicCallStackItemCompressed,
   type ReadRequest,
   RevertCode,
+  type TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 
@@ -62,13 +63,13 @@ export interface PublicExecutionResult {
   /** The new nullifiers to be inserted into the nullifier tree. */
   nullifiers: Nullifier[];
   /** The note hash read requests emitted in this call. */
-  noteHashReadRequests: ReadRequest[];
+  noteHashReadRequests: TreeLeafReadRequest[];
   /** The nullifier read requests emitted in this call. */
   nullifierReadRequests: ReadRequest[];
   /** The nullifier non existent read requests emitted in this call. */
   nullifierNonExistentReadRequests: ReadRequest[];
   /** L1 to L2 message read requests emitted in this call. */
-  l1ToL2MsgReadRequests: ReadRequest[];
+  l1ToL2MsgReadRequests: TreeLeafReadRequest[];
   /**
    * The hashed logs with side effect counter.
    * Note: required as we don't track the counter anywhere else.

@@ -15,7 +15,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
     using OuterFlavor = UltraFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
-    using OuterProverInstance = ProverInstance_<OuterFlavor>;
+    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
     static void SetUpTestSuite()
     {
@@ -92,9 +92,9 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
 
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
-        auto instance = std::make_shared<OuterProverInstance>(builder);
-        OuterProver prover(instance);
-        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
+        auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
+        OuterProver prover(proving_key);
+        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
         OuterVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);

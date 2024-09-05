@@ -1,7 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/bb.js';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { AGGREGATION_OBJECT_LENGTH } from '../constants.gen.js';
 
 const EMPTY_PROOF_SIZE = 42;
 
@@ -14,9 +12,6 @@ const EMPTY_PROOF_SIZE = 42;
 export class Proof {
   // Make sure this type is not confused with other buffer wrappers
   readonly __proofBrand: any;
-
-  readonly publicInputsOffset = 100;
-
   constructor(
     /**
      * Holds the serialized proof data in a binary buffer format.
@@ -60,22 +55,11 @@ export class Proof {
   }
 
   public withoutPublicInputs(): Buffer {
-    return Buffer.concat([
-      this.buffer.subarray(4, this.publicInputsOffset),
-      this.buffer.subarray(this.publicInputsOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs),
-    ]);
-  }
-
-  public extractPublicInputs(): Fr[] {
-    const reader = BufferReader.asReader(
-      this.buffer.subarray(this.publicInputsOffset, this.publicInputsOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs),
-    );
-    return reader.readArray(this.numPublicInputs, Fr);
-  }
-
-  public extractAggregationObject(): Fr[] {
-    const publicInputs = this.extractPublicInputs();
-    return publicInputs.slice(-1 * AGGREGATION_OBJECT_LENGTH);
+    if (this.numPublicInputs > 0) {
+      return this.buffer.subarray(Fr.SIZE_IN_BYTES * this.numPublicInputs);
+    } else {
+      return this.buffer;
+    }
   }
 
   /**

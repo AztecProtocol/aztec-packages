@@ -18,7 +18,7 @@ using namespace bb;
 
 template <typename Flavor> class UltraHonkTests : public ::testing::Test {
   public:
-    using ProverInstance = ProverInstance_<Flavor>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
@@ -34,9 +34,9 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
 
     void prove_and_verify(auto& circuit_builder, bool expected_result)
     {
-        auto instance = std::make_shared<ProverInstance>(circuit_builder);
-        Prover prover(instance);
-        auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+        auto proving_key = std::make_shared<DeciderProvingKey>(circuit_builder);
+        Prover prover(proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
         Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
@@ -61,10 +61,10 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
-    auto instance = std::make_shared<typename TestFixture::ProverInstance>(circuit_builder);
-    typename TestFixture::Prover prover(instance);
+    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(circuit_builder);
+    typename TestFixture::Prover prover(proving_key);
     auto proof = prover.construct_proof();
-    auto& polynomials = instance->proving_key.polynomials;
+    auto& polynomials = proving_key->proving_key.polynomials;
 
     auto ensure_non_zero = [](auto& polynomial) {
         bool has_non_zero_coefficient = false;
@@ -99,11 +99,11 @@ TYPED_TEST(UltraHonkTests, StructuredTrace)
     // Add some arbitrary arithmetic gates that utilize public inputs
     MockCircuits::add_arithmetic_gates_with_public_inputs(builder, num_gates);
 
-    // Construct an instance with a structured execution trace
+    // Construct an proving_key with a structured execution trace
     TraceStructure trace_structure = TraceStructure::SMALL_TEST;
-    auto instance = std::make_shared<typename TestFixture::ProverInstance>(builder, trace_structure);
-    typename TestFixture::Prover prover(instance);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(instance->proving_key);
+    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder, trace_structure);
+    typename TestFixture::Prover prover(proving_key);
+    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
     typename TestFixture::Verifier verifier(verification_key);
     auto proof = prover.construct_proof();
     EXPECT_TRUE(verifier.verify_proof(proof));
@@ -217,7 +217,7 @@ TYPED_TEST(UltraHonkTests, create_gates_from_plookup_accumulators)
  */
 TYPED_TEST(UltraHonkTests, LookupFailure)
 {
-    using ProverInstance = typename TestFixture::ProverInstance;
+    using DeciderProvingKey = typename TestFixture::DeciderProvingKey;
     using VerificationKey = typename TestFixture::VerificationKey;
     // Construct a circuit with lookup and arithmetic gates
     auto construct_circuit_with_lookups = []() {
@@ -229,9 +229,9 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         return builder;
     };
 
-    auto prove_and_verify = [](auto& instance) {
-        typename TestFixture::Prover prover(instance);
-        auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto prove_and_verify = [](auto& proving_key) {
+        typename TestFixture::Prover prover(proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
         typename TestFixture::Verifier verifier(verification_key);
         auto proof = prover.construct_proof();
         return verifier.verify_proof(proof);
@@ -241,35 +241,36 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
     {
         auto builder = construct_circuit_with_lookups();
 
-        auto instance = std::make_shared<ProverInstance>(builder);
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
 
-        EXPECT_TRUE(prove_and_verify(instance));
+        prove_and_verify(proving_key);
     }
 
     // Failure mode 1: bad read counts/tags
     {
         auto builder = construct_circuit_with_lookups();
 
-        auto instance = std::make_shared<ProverInstance>(builder);
-        auto& polynomials = instance->proving_key.polynomials;
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        auto& polynomials = proving_key->proving_key.polynomials;
 
         // Erroneously update the read counts/tags at an arbitrary index
         // Note: updating only one or the other may not cause failure due to the design of the relation algebra. For
-        // example, the inverse is only computed if read tags is non-zero, otherwise the inverse at the row in question
-        // will be zero. So if read counts is incremented at some arbitrary index but read tags is not, the inverse will
-        // be 0 and the erroneous read_counts value will get multiplied by 0 in the relation. This is expected behavior.
+        // example, the inverse is only computed if read tags is non-zero, otherwise the inverse at the row in
+        // question will be zero. So if read counts is incremented at some arbitrary index but read tags is not, the
+        // inverse will be 0 and the erroneous read_counts value will get multiplied by 0 in the relation. This is
+        // expected behavior.
         polynomials.lookup_read_counts[25] = 1;
         polynomials.lookup_read_tags[25] = 1;
 
-        EXPECT_FALSE(prove_and_verify(instance));
+        EXPECT_FALSE(prove_and_verify(proving_key));
     }
 
     // Failure mode 2: bad lookup gate wire value
     {
         auto builder = construct_circuit_with_lookups();
 
-        auto instance = std::make_shared<ProverInstance>(builder);
-        auto& polynomials = instance->proving_key.polynomials;
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        auto& polynomials = proving_key->proving_key.polynomials;
 
         // Find a lookup gate and alter one of the wire values
         for (auto [q_lookup, wire_3] : zip_view(polynomials.q_lookup, polynomials.w_o)) {
@@ -279,21 +280,21 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
             }
         }
 
-        EXPECT_FALSE(prove_and_verify(instance));
+        EXPECT_FALSE(prove_and_verify(proving_key));
     }
 
     // Failure mode 3: erroneous lookup gate
     {
         auto builder = construct_circuit_with_lookups();
 
-        auto instance = std::make_shared<ProverInstance>(builder);
-        auto& polynomials = instance->proving_key.polynomials;
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        auto& polynomials = proving_key->proving_key.polynomials;
 
         // Turn the lookup selector on for an arbitrary row where it is not already active
         EXPECT_TRUE(polynomials.q_lookup[25] != 1);
         polynomials.q_lookup[25] = 1;
 
-        EXPECT_FALSE(prove_and_verify(instance));
+        EXPECT_FALSE(prove_and_verify(proving_key));
     }
 }
 

@@ -67,7 +67,7 @@ template <class Flavor> class ExecutionTrace_ {
      * constructs a trace that is both sorted and "structured" in the sense that each block/gate-type has a fixed amount
      * of space within the wire polynomials, regardless of how many actual constraints of each type exist. This is
      * useful primarily for folding since it guarantees that the set of relations that must be executed at each row is
-     * consistent across all instances.
+     * consistent across all folding steps.
      *
      * @param builder
      * @param is_structured whether or not the trace is to be structured with a fixed block size
