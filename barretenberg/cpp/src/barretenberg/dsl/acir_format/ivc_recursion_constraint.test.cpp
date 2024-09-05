@@ -81,7 +81,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
      * will lead to failure of the kernel circuit to verify if a different proof witness is used in the business logic
      * VS the recursive verification logic.
      *
-     * @param public_inputs
+     * @param public_inputs Witness indices of public inputs of some proof to be constrained
      * @param witness
      * @return ArithmeticConstraint
      */
