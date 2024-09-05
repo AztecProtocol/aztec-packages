@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725526565700,
+  "lastUpdate": 1725542960386,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47281315+guipublic@users.noreply.github.com",
-            "name": "guipublic",
-            "username": "guipublic"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ee79d28affa66ef3c9f73782182b6221e2e9d98",
-          "message": "chore: handle constant output for ec add opcode (#8108)\n\nWhen enabling constant inputs for ec addition we may get contant output\r\nas well.",
-          "timestamp": "2024-08-21T18:26:38+02:00",
-          "tree_id": "5bffe3598c2a9bf59fcd93e7303ad9156b2deb9b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2ee79d28affa66ef3c9f73782182b6221e2e9d98"
-        },
-        "date": 1724258199375,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13665.626783000022,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10404.427329999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5094.544990000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4639.034811 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40069.431718,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40069431000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14777.989955000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14777990000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3748228723,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3748228723 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 210611464,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 210611464 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3071174040,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3071174040 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 172694889,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 172694889 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 119688662,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 119688662 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "leizciw@gmail.com",
+            "name": "Leila Wang",
+            "username": "LeilaWang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2be14157abe3b277c58780ecc03bb1eff8dec20e",
+          "message": "feat: verify public validation requests (#8150)\n\nVerify note hash read requests and l1tol2msg read requests in public\r\nkernel tail.\r\n\r\n---------\r\n\r\nCo-authored-by: Ilyas Ridhuan <ilyas@aztecprotocol.com>",
+          "timestamp": "2024-09-05T14:13:36+01:00",
+          "tree_id": "5c0148e3ea4c2f01a29352f652d0c57e6e8676c7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2be14157abe3b277c58780ecc03bb1eff8dec20e"
+        },
+        "date": 1725542953255,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13333.934631000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10200.208337000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5098.504270000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4627.799031000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40288.236933,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40288237000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14699.454278000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14699453000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3690950535,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3690950535 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 148616842,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 148616842 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3018613349,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3018613349 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 122119688,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 122119688 ns\nthreads: 1"
           }
         ]
       }
