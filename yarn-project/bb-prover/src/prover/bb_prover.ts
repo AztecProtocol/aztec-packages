@@ -77,12 +77,12 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 
 import {
-  type BBFailure,
   type BBSuccess,
   BB_RESULT,
   PROOF_FIELDS_FILENAME,
   PROOF_FILENAME,
   VK_FILENAME,
+  type VerificationFunction,
   generateAvmProof,
   generateKeyForNoirCircuit,
   generateProof,
@@ -92,13 +92,17 @@ import {
   writeProofAsFields,
 } from '../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../config.js';
-import { type UltraHonkFlavor, getExpectedProofLength, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { ProverInstrumentation } from '../instrumentation.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractAvmVkData, extractVkData } from '../verification_key/verification_key_data.js';
 
 const logger = createDebugLogger('aztec:bb-prover');
+
+const CIRCUITS_WITHOUT_AGGREGATION: Set<ServerProtocolArtifact> = new Set([
+  'BaseParityArtifact',
+  'EmptyNestedArtifact',
+]);
 
 export interface BBProverConfig extends BBConfig, ACVMConfig {
   // list of circuits supported by this prover. defaults to all circuits if empty
@@ -109,8 +113,8 @@ export interface BBProverConfig extends BBConfig, ACVMConfig {
  * Prover implementation that uses barretenberg native proving
  */
 export class BBNativeRollupProver implements ServerCircuitProver {
-  private verificationKeys = new Map<
-    `ultra${'_keccak_' | '_'}honk_${ServerProtocolArtifact}`,
+  private verificationKeys: Map<ServerProtocolArtifact, Promise<VerificationKeyData>> = new Map<
+    ServerProtocolArtifact,
     Promise<VerificationKeyData>
   >();
 
@@ -145,7 +149,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       'BaseParityArtifact',
-      getExpectedProofLength('BaseParityArtifact'),
+      RECURSIVE_PROOF_LENGTH,
       convertBaseParityInputsToWitnessMap,
       convertBaseParityOutputsFromWitnessMap,
     );
@@ -231,7 +235,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
 
     await this.verifyWithKey(
-      getUltraHonkFlavorForCircuit(kernelOps.artifact),
       kernelRequest.inputs.previousKernel.vk,
       kernelRequest.inputs.previousKernel.proof.binaryProof,
     );
@@ -536,7 +539,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       circuitType,
       Buffer.from(artifact.bytecode, 'base64'),
       outputWitnessFile,
-      getUltraHonkFlavorForCircuit(circuitType),
       logger.debug,
     );
 
@@ -680,8 +682,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       this.instrumentation.recordSize('circuitSize', 'tubeCircuit', tubeVK.circuitSize);
 
       // Sanity check the tube proof (can be removed later)
-      await this.verifyWithKey('ultra_honk', tubeVK, tubeProof.binaryProof);
+      await this.verifyWithKey(tubeVK, tubeProof.binaryProof);
 
+      // TODO(#7369): properly time tube construction
       logger.info(
         `Generated proof for tubeCircuit in ${Math.ceil(provingResult.durationMs)} ms, size: ${
           tubeProof.proof.length
@@ -759,25 +762,22 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async verifyProof(circuitType: ServerProtocolArtifact, proof: Proof) {
     const verificationKey = await this.getVerificationKeyDataForCircuit(circuitType);
-    return await this.verifyWithKey(getUltraHonkFlavorForCircuit(circuitType), verificationKey, proof);
+    // info(`vkey in: ${verificationKey.keyAsFields.key}`);
+    return await this.verifyWithKey(verificationKey, proof);
   }
 
   public async verifyAvmProof(proof: Proof, verificationKey: AvmVerificationKeyData) {
-    return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyAvmProof(this.config.bbBinaryPath, proofPath, vkPath, logger.debug),
-    );
+    return await this.verifyWithKeyInternal(proof, verificationKey, verifyAvmProof);
   }
 
-  public async verifyWithKey(flavor: UltraHonkFlavor, verificationKey: VerificationKeyData, proof: Proof) {
-    return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyProof(this.config.bbBinaryPath, proofPath, vkPath, flavor, logger.debug),
-    );
+  public async verifyWithKey(verificationKey: VerificationKeyData, proof: Proof) {
+    return await this.verifyWithKeyInternal(proof, verificationKey, verifyProof);
   }
 
   private async verifyWithKeyInternal(
     proof: Proof,
     verificationKey: { keyAsBytes: Buffer },
-    verificationFunction: (proofPath: string, vkPath: string) => Promise<BBFailure | BBSuccess>,
+    verificationFunction: VerificationFunction,
   ) {
     const operation = async (bbWorkingDirectory: string) => {
       const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
@@ -786,7 +786,16 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       await fs.writeFile(proofFileName, proof.buffer);
       await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
-      const result = await verificationFunction(proofFileName, verificationKeyPath!);
+      const logFunction = (message: string) => {
+        logger.verbose(`BB out - ${message}`);
+      };
+
+      const result = await verificationFunction(
+        this.config.bbBinaryPath,
+        proofFileName,
+        verificationKeyPath!,
+        logFunction,
+      );
 
       if (result.status === BB_RESULT.FAILURE) {
         const errorMessage = `Failed to verify proof from key!`;
@@ -877,15 +886,14 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @returns The verification key data
    */
   private async getVerificationKeyDataForCircuit(circuitType: ServerProtocolArtifact): Promise<VerificationKeyData> {
-    const flavor = getUltraHonkFlavorForCircuit(circuitType);
-    let promise = this.verificationKeys.get(`${flavor}_${circuitType}`);
+    let promise = this.verificationKeys.get(circuitType);
     if (!promise) {
       promise = generateKeyForNoirCircuit(
         this.config.bbBinaryPath,
         this.config.bbWorkingDirectory,
         circuitType,
         ServerCircuitArtifacts[circuitType],
-        flavor,
+        'vk',
         logger.debug,
       ).then(result => {
         if (result.status === BB_RESULT.FAILURE) {
@@ -893,7 +901,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         }
         return extractVkData(result.vkPath!);
       });
-      this.verificationKeys.set(`${flavor}_${circuitType}`, promise);
+      this.verificationKeys.set(circuitType, promise);
     }
     const vk = await promise;
     return vk.clone();
@@ -908,11 +916,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     filePath: string,
     circuitType: ServerProtocolArtifact,
   ): Promise<VerificationKeyData> {
-    const flavor = getUltraHonkFlavorForCircuit(circuitType);
-    let promise = this.verificationKeys.get(`${flavor}_${circuitType}`);
+    let promise = this.verificationKeys.get(circuitType);
     if (!promise) {
       promise = extractVkData(filePath);
-      this.verificationKeys.set(`${flavor}_${circuitType}`, promise);
+      this.verificationKeys.set(circuitType, promise);
     }
     return promise;
   }
@@ -936,14 +943,20 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       fs.readFile(proofFieldsFilename, { encoding: 'utf-8' }),
     ]);
     const json = JSON.parse(proofString);
-    const vkData = await this.getVerificationKeyDataForCircuit(circuitType);
-    // TODO (alexg) is this needed anymore? Shouldn't I just use the vkData.numPublicInputs?
+    const vkData = await this.verificationKeys.get(circuitType);
+    if (!vkData) {
+      throw new Error(`Invalid verification key for ${circuitType}`);
+    }
     const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const fieldsWithoutPublicInputs = json
       .slice(0, 3)
       .map(Fr.fromString)
       .concat(json.slice(3 + numPublicInputs).map(Fr.fromString));
-    logger.debug(`num pub inputs ${vkData.numPublicInputs} circuit=${circuitType}`);
+    logger.debug(
+      `num pub inputs ${vkData.numPublicInputs} and without aggregation ${CIRCUITS_WITHOUT_AGGREGATION.has(
+        circuitType,
+      )}`,
+    );
 
     const proof = new RecursiveProof<PROOF_LENGTH>(
       fieldsWithoutPublicInputs,

@@ -16,7 +16,7 @@ class MegaTranscriptTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     using Flavor = MegaFlavor;
-    using ProverInstance = ProverInstance_<Flavor>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using FF = Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
 
@@ -156,8 +156,8 @@ TEST_F(MegaTranscriptTests, ProverManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    MegaProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    MegaProver prover(proving_key);
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
@@ -187,12 +187,12 @@ TEST_F(MegaTranscriptTests, VerifierManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    MegaProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    MegaProver prover(proving_key);
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     MegaVerifier verifier(verification_key);
     verifier.verify_proof(proof);
 
@@ -242,10 +242,10 @@ TEST_F(MegaTranscriptTests, StructureTest)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    MegaProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    MegaProver prover(proving_key);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     MegaVerifier verifier(verification_key);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
