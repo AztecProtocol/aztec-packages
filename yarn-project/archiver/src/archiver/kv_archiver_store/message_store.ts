@@ -33,7 +33,7 @@ export class MessageStore {
    * @returns The last L1 block number processed
    */
   getSynchedL1BlockNumber(): bigint {
-    return this.#lastL1BlockMessages.get() ?? 0n;
+    return this.#lastL1BlockMessages.get() ?? 15918000n - 1n;
   }
 
   /**

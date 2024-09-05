@@ -181,7 +181,7 @@ export class BlockStore {
    * @returns The L1 block that published the latest L2 block
    */
   getSynchedL1BlockNumber(): bigint {
-    return this.#lastSynchedL1Block.get() ?? 0n;
+    return this.#lastSynchedL1Block.get() ?? 15918000n - 1n;
   }
 
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {
