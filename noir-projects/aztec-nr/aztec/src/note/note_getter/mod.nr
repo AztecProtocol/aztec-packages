@@ -125,7 +125,7 @@ fn constrain_get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS,
     let filter_args = options.filter_args;
     let filtered_notes = filter_fn(opt_notes, filter_args);
 
-    let notes = crate::utils::collapse::collapse_array(filtered_notes);
+    let notes = crate::utils::collapse_array(filtered_notes);
     let mut note_hashes: BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = BoundedVec::new();
 
     // We have now collapsed the sparse array of Options into a BoundedVec. This is a more ergonomic type and also
