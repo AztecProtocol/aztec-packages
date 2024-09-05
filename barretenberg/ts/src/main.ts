@@ -56,9 +56,9 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
   const circuitSize = await getGates(bytecodePath, honkRecursion, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
   const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
-  // if (subgroupSize > MAX_CIRCUIT_SIZE) {
-  //   throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
-  // }
+  if (subgroupSize > MAX_CIRCUIT_SIZE) {
+    throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
+  }
 
   debug(`circuit size: ${circuitSize}`);
   debug(`subgroup size: ${subgroupSize}`);
@@ -67,7 +67,7 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
   const crs = await Crs.new(subgroupSize + 1, crsPath);
 
   // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
-  // await api.commonInitSlabAllocator(subgroupSize);
+  await api.commonInitSlabAllocator(subgroupSize);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
