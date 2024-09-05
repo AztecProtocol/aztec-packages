@@ -23,9 +23,6 @@
     },
     {
       "path": "../telemetry-client"
-    },
-    {
-      "path": "../ethereum"
     }
   ],
   "include": ["src"]
