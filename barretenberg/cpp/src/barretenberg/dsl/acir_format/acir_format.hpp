@@ -113,7 +113,7 @@ struct AcirFormat {
     std::vector<size_t> gates_per_opcode = {};
 
     // Set of constrained witnesses
-    std::set<uint32_t> constrained_witness;
+    std::set<uint32_t> constrained_witness = {};
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
