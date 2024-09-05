@@ -2,7 +2,8 @@ use crate::{
     reset::{
     non_existent_read_request::reset_non_existent_read_requests,
     mutable_data_read_request::reset_mutable_data_read_requests,
-    read_request::verify_reset_read_requests
+    read_request::verify_reset_read_requests,
+    tree_leaf_read_request::{TreeLeafReadRequestHint, validate_tree_leaf_read_requests}
 },
     nullifier_read_request_reset::NullifierReadRequestHints,
     nullifier_non_existent_read_request_reset::NullifierNonExistentReadRequestHints,
@@ -14,17 +15,25 @@ use dep::types::{
     public_data_write::OverridablePublicDataWrite, read_request::ScopedReadRequest,
     validation_requests::PublicValidationRequests
 },
-    constants::{MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX},
-    data::OverridablePublicDataTreeLeaf, hash::compute_siloed_nullifier, traits::is_empty,
+    constants::{
+    MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, L1_TO_L2_MSG_TREE_HEIGHT, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+    MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
+    NOTE_HASH_TREE_HEIGHT
+},
+    data::OverridablePublicDataTreeLeaf, hash::compute_siloed_nullifier, partial_state_reference::PartialStateReference, traits::is_empty,
     utils::arrays::{array_merge, array_to_bounded_vec, assert_sorted_array}
 };
 
 struct PublicValidationRequestProcessor<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> {
     validation_requests: PublicValidationRequests,
+    note_hash_read_request_hints: [TreeLeafReadRequestHint<NOTE_HASH_TREE_HEIGHT>; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
+    note_hash_tree_root: Field,
     pending_nullifiers: [Nullifier; MAX_NULLIFIERS_PER_TX],
     nullifier_read_request_hints: NullifierReadRequestHints<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
     nullifier_tree_root: Field,
+    l1_to_l2_msg_read_request_hints: [TreeLeafReadRequestHint<L1_TO_L2_MSG_TREE_HEIGHT>; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX],
+    l1_to_l2_msg_tree_root: Field,
     pending_public_data_writes: [OverridablePublicDataWrite; NUN_PUBLIC_DATA_WRITES],
     public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_PUBLIC_DATA_LEAVES],
     public_data_read_request_hints: PublicDataReadRequestHints<MAX_PUBLIC_DATA_READS_PER_TX>,
@@ -33,9 +42,11 @@ struct PublicValidationRequestProcessor<let NUN_PUBLIC_DATA_WRITES: u32, let NUM
 impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicValidationRequestProcessor<NUN_PUBLIC_DATA_WRITES, NUM_PUBLIC_DATA_LEAVES> {
     pub fn new(
         public_inputs: PublicKernelCircuitPublicInputs,
+        start_state: PartialStateReference,
+        note_hash_read_request_hints: [TreeLeafReadRequestHint<NOTE_HASH_TREE_HEIGHT>; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
         nullifier_read_request_hints: NullifierReadRequestHints<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
         nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
-        nullifier_tree_root: Field,
+        l1_to_l2_msg_read_request_hints: [TreeLeafReadRequestHint<L1_TO_L2_MSG_TREE_HEIGHT>; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX],
         pending_public_data_writes: [OverridablePublicDataWrite; NUN_PUBLIC_DATA_WRITES],
         public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_PUBLIC_DATA_LEAVES],
         public_data_read_request_hints: PublicDataReadRequestHints<MAX_PUBLIC_DATA_READS_PER_TX>
@@ -49,10 +60,14 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
 
         PublicValidationRequestProcessor {
             validation_requests,
+            note_hash_read_request_hints,
+            note_hash_tree_root: start_state.note_hash_tree.root,
             pending_nullifiers,
             nullifier_read_request_hints,
             nullifier_non_existent_read_request_hints,
-            nullifier_tree_root,
+            nullifier_tree_root: start_state.nullifier_tree.root,
+            l1_to_l2_msg_read_request_hints,
+            l1_to_l2_msg_tree_root: public_inputs.constants.historical_header.state.l1_to_l2_message_tree.root,
             pending_public_data_writes,
             public_data_leaves,
             public_data_read_request_hints
@@ -60,9 +75,19 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
     }
 
     pub fn validate(self) {
+        self.validate_note_hash_read_requests();
         self.validate_nullifier_read_requests();
         self.validate_nullifier_non_existent_read_requests();
+        self.validate_l1_to_l2_msg_read_requests();
         self.validate_public_data_read_requests();
+    }
+
+    fn validate_note_hash_read_requests(self) {
+        validate_tree_leaf_read_requests(
+            self.validation_requests.note_hash_read_requests,
+            self.note_hash_read_request_hints,
+            self.note_hash_tree_root
+        );
     }
 
     fn validate_nullifier_read_requests(self) {
@@ -107,6 +132,14 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
             self.nullifier_tree_root,
             sorted_pending_nullifiers,
             hints.next_pending_value_indices
+        );
+    }
+
+    fn validate_l1_to_l2_msg_read_requests(self) {
+        validate_tree_leaf_read_requests(
+            self.validation_requests.l1_to_l2_msg_read_requests,
+            self.l1_to_l2_msg_read_request_hints,
+            self.l1_to_l2_msg_tree_root
         );
     }
 

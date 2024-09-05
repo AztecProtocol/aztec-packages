@@ -18,6 +18,7 @@ use crate::{
     public_call_stack_item_compressed::PublicCallStackItemCompressed,
     public_circuit_public_inputs::PublicCircuitPublicInputs, public_data_read::PublicDataRead,
     public_data_update_request::PublicDataUpdateRequest, read_request::{ReadRequest, ScopedReadRequest},
+    tree_leaf_read_request::TreeLeafReadRequest,
     log_hash::{LogHash, NoteLogHash, ScopedLogHash, EncryptedLogHash, ScopedEncryptedLogHash},
     validation_requests::{
     KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
@@ -112,9 +113,10 @@ struct FixtureBuilder {
     // Validation requests.
     max_block_number: MaxBlockNumber,
     note_hash_read_requests: BoundedVec<ScopedReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+    note_hash_tree_leaf_read_requests: BoundedVec<TreeLeafReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
     nullifier_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_requests: BoundedVec<ScopedReadRequest, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX>,
-    l1_to_l2_msg_read_requests: BoundedVec<ScopedReadRequest, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX>,
+    l1_to_l2_msg_read_requests: BoundedVec<TreeLeafReadRequest, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX>,
     scoped_key_validation_requests_and_generators: BoundedVec<ScopedKeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_TX>,
     public_data_reads: BoundedVec<PublicDataRead, MAX_PUBLIC_DATA_READS_PER_TX>,
     contract_storage_reads: BoundedVec<StorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
@@ -433,12 +435,12 @@ impl FixtureBuilder {
             call_context: self.build_call_context(),
             args_hash: self.args_hash,
             returns_hash: self.returns_hash,
-            note_hash_read_requests: subarray(self.note_hash_read_requests.storage.map(|r: ScopedReadRequest| r.read_request)),
+            note_hash_read_requests: subarray(self.note_hash_tree_leaf_read_requests.storage),
             nullifier_read_requests: subarray(self.nullifier_read_requests.storage.map(|r: ScopedReadRequest| r.read_request)),
             nullifier_non_existent_read_requests: subarray(
                 self.nullifier_non_existent_read_requests.storage.map(|r: ScopedReadRequest| r.read_request)
             ),
-            l1_to_l2_msg_read_requests: subarray(self.l1_to_l2_msg_read_requests.storage.map(|r: ScopedReadRequest| r.read_request)),
+            l1_to_l2_msg_read_requests: subarray(self.l1_to_l2_msg_read_requests.storage),
             contract_storage_update_requests: subarray(self.contract_storage_update_requests.storage),
             contract_storage_reads: self.contract_storage_reads.storage,
             public_call_requests: subarray(self.public_call_requests.storage),
@@ -474,9 +476,11 @@ impl FixtureBuilder {
     pub fn to_public_validation_requests(self) -> PublicValidationRequests {
         PublicValidationRequests {
             for_rollup: self.to_rollup_validation_requests(),
+            note_hash_read_requests: self.note_hash_tree_leaf_read_requests.storage,
             nullifier_read_requests: self.nullifier_read_requests.storage,
             nullifier_non_existent_read_requests: self.nullifier_non_existent_read_requests.storage,
-            public_data_reads: self.public_data_reads.storage
+            public_data_reads: self.public_data_reads.storage,
+            l1_to_l2_msg_read_requests: self.l1_to_l2_msg_read_requests.storage
         }
     }
 
@@ -751,6 +755,21 @@ impl FixtureBuilder {
                 let value = self.mock_note_hash_read_value(index_offset + i);
                 let read_request = ReadRequest { value, counter: self.next_counter() }.scope(self.storage_contract_address);
                 self.note_hash_read_requests.push(read_request);
+            }
+        }
+    }
+
+    pub fn add_note_hash_tree_leaf_read_requests(&mut self, value: Field, leaf_index: Field) {
+        let read_request = TreeLeafReadRequest { value, leaf_index };
+        self.note_hash_tree_leaf_read_requests.push(read_request);
+    }
+
+    pub fn append_note_hash_tree_leaf_read_requests(&mut self, num_reads: u32) {
+        let index_offset = self.note_hash_tree_leaf_read_requests.len();
+        for i in 0..self.note_hash_tree_leaf_read_requests.max_len() {
+            if i < num_reads {
+                let value = self.mock_note_hash_read_value(index_offset + i);
+                self.add_note_hash_tree_leaf_read_requests(value, (index_offset + i) as Field);
             }
         }
     }
@@ -1162,6 +1181,7 @@ impl Empty for FixtureBuilder {
             public_call_requests: BoundedVec::new(),
             max_block_number: MaxBlockNumber::empty(),
             note_hash_read_requests: BoundedVec::new(),
+            note_hash_tree_leaf_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
             l1_to_l2_msg_read_requests: BoundedVec::new(),

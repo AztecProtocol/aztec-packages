@@ -84,6 +84,8 @@ export * from './scoped_key_validation_request_and_generator.js';
 export * from './shared.js';
 export * from './side_effects.js';
 export * from './state_reference.js';
+export * from './tree_leaf_read_request.js';
+export * from './tree_leaf_read_request_hint.js';
 export * from './trees/index.js';
 export * from './tx_context.js';
 export * from './tx_request.js';

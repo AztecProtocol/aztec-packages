@@ -1,5 +1,4 @@
 use crate::test::utils;
-use dep::aztec::test::helpers::cheatcodes;
 use crate::Token;
 
 #[test]

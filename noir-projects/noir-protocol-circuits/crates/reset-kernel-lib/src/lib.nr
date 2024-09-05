@@ -5,7 +5,8 @@ use private_validation_request_processor::PrivateValidationRequestProcessor;
 use public_validation_request_processor::PublicValidationRequestProcessor;
 use reset::{
     key_validation_hint::KeyValidationHint,
-    transient_data::{TransientDataIndexHint, verify_squashed_transient_data}
+    transient_data::{TransientDataIndexHint, verify_squashed_transient_data},
+    tree_leaf_read_request::TreeLeafReadRequestHint
 };
 
 mod note_hash_read_request_reset;

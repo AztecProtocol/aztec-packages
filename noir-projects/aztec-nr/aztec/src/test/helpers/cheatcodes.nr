@@ -1,9 +1,9 @@
 use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::{AztecAddress, PartialAddress},
+    abis::function_selector::FunctionSelector, address::AztecAddress,
     constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance
 };
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
-use crate::test::helpers::utils::{Deployer, TestAccount};
+use crate::test::helpers::utils::TestAccount;
 use crate::keys::public_keys::PublicKeys;
 
 unconstrained pub fn reset() {

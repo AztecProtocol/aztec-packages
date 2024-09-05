@@ -8,13 +8,16 @@ use crate::{
 };
 use dep::reset_kernel_lib::{
     NullifierReadRequestHints, NullifierNonExistentReadRequestHints, PublicValidationRequestProcessor,
-    public_data_read_request_hints::{build_public_data_read_request_hints, PublicDataReadRequestHints}
+    public_data_read_request_hints::{build_public_data_read_request_hints, PublicDataReadRequestHints},
+    TreeLeafReadRequestHint
 };
 use dep::types::{
     abis::{kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_kernel_data::PublicKernelData},
     constants::{
+    L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_HINTS, MAX_PUBLIC_DATA_READS_PER_TX,
-    PUBLIC_KERNEL_SETUP_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX, PUBLIC_KERNEL_TEARDOWN_INDEX
+    NOTE_HASH_TREE_HEIGHT, PUBLIC_KERNEL_SETUP_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX,
+    PUBLIC_KERNEL_TEARDOWN_INDEX
 },
     data::PublicDataLeafHint, partial_state_reference::PartialStateReference
 };
@@ -27,8 +30,10 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
 
 struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
+    note_hash_read_request_hints: [TreeLeafReadRequestHint<NOTE_HASH_TREE_HEIGHT>; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     nullifier_read_request_hints: NullifierReadRequestHints<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
     nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
+    l1_to_l2_msg_read_request_hints: [TreeLeafReadRequestHint<L1_TO_L2_MSG_TREE_HEIGHT>; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX],
     public_data_hints: [PublicDataLeafHint; MAX_PUBLIC_DATA_HINTS],
     start_state: PartialStateReference,
 }
@@ -59,9 +64,11 @@ impl PublicKernelTailCircuitPrivateInputs {
 
         PublicValidationRequestProcessor::new(
             self.previous_kernel.public_inputs,
+            self.start_state,
+            self.note_hash_read_request_hints,
             self.nullifier_read_request_hints,
             self.nullifier_non_existent_read_request_hints,
-            self.start_state.nullifier_tree.root,
+            self.l1_to_l2_msg_read_request_hints,
             output_hints.public_data_writes,
             output_hints.public_data_leaves,
             public_data_read_request_hints
@@ -86,21 +93,23 @@ mod tests {
         nullifier_non_existent_read_request_hints_builder::NullifierNonExistentReadRequestHintsBuilder,
         nullifier_read_request_hints_builder::NullifierReadRequestHintsBuilder
     },
-        reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus}
+        reset::read_request::{PendingReadHint, ReadRequestState, ReadRequestStatus},
+        TreeLeafReadRequestHint
     };
     use dep::types::{
         abis::{
-        kernel_circuit_public_inputs::KernelCircuitPublicInputs, public_kernel_data::PublicKernelData,
-        nullifier::ScopedNullifier, nullifier_leaf_preimage::NullifierLeafPreimage,
+        kernel_circuit_public_inputs::KernelCircuitPublicInputs, nullifier::ScopedNullifier,
+        nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_update_request::PublicDataUpdateRequest
     },
         address::AztecAddress,
         constants::{
-        MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_HINTS,
-        MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT,
-        NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT,
-        PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT, MAX_ENCRYPTED_LOGS_PER_TX,
-        MAX_UNENCRYPTED_LOGS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+        L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+        MAX_PUBLIC_DATA_HINTS, NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
+        NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT,
+        PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT,
         PUBLIC_KERNEL_APP_LOGIC_INDEX, BASE_ROLLUP_INDEX, PUBLIC_KERNEL_SETUP_INDEX,
         PUBLIC_KERNEL_TEARDOWN_INDEX
     },
@@ -111,8 +120,17 @@ mod tests {
         utils::{assert_array_eq, pad_end, swap_items}
     },
         traits::is_empty, partial_state_reference::PartialStateReference,
-        utils::arrays::{array_length, array_merge, find_index_hint}, merkle_tree::MembershipWitness
+        utils::arrays::{array_merge, find_index_hint}, merkle_tree::MembershipWitness
     };
+
+    fn build_note_hash_tree<let N: u32>(leaf_preimages: [Field; N]) -> NonEmptyMerkleTree<MAX_NOTE_HASHES_PER_TX, NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_SUBTREE_HEIGHT> {
+        NonEmptyMerkleTree::new(
+            pad_end(leaf_preimages, 0),
+            [0; NOTE_HASH_TREE_HEIGHT],
+            [0; NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT],
+            [0; NOTE_HASH_SUBTREE_HEIGHT]
+        )
+    }
 
     fn build_nullifier_tree() -> NonEmptyMerkleTree<MAX_NULLIFIERS_PER_TX, NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT> {
         let mut pre_existing_nullifiers = [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX];
@@ -141,8 +159,12 @@ mod tests {
     struct PublicKernelTailCircuitPrivateInputsBuilder {
         previous_kernel: FixtureBuilder,
         previous_revertible: FixtureBuilder,
+        note_hash_read_request_hints: BoundedVec<TreeLeafReadRequestHint<NOTE_HASH_TREE_HEIGHT>, MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
         nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
         nullifier_non_existent_read_request_hints_builder: NullifierNonExistentReadRequestHintsBuilder,
+        l1_to_l2_msg_read_request_hints: BoundedVec<TreeLeafReadRequestHint<L1_TO_L2_MSG_TREE_HEIGHT>, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX>,
+        note_hash_tree: NonEmptyMerkleTree<MAX_NOTE_HASHES_PER_TX, NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_SUBTREE_HEIGHT>,
+        note_hash_leaf_preimages: [Field; 2],
         public_data_tree: NonEmptyMerkleTree<MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT>,
         public_data_leaf_preimages: [PublicDataTreeLeafPreimage; 6],
         start_state: PartialStateReference,
@@ -157,20 +179,30 @@ mod tests {
             PublicKernelTailCircuitPrivateInputsBuilder {
                 previous_kernel,
                 previous_revertible,
+                note_hash_read_request_hints: BoundedVec::new(),
                 nullifier_read_request_hints_builder: NullifierReadRequestHintsBuilder::new(),
                 nullifier_non_existent_read_request_hints_builder,
+                l1_to_l2_msg_read_request_hints: BoundedVec::new(),
+                note_hash_tree: NonEmptyMerkleTree::empty(),
+                note_hash_leaf_preimages: [598589, 714714],
                 public_data_tree: NonEmptyMerkleTree::empty(),
                 public_data_leaf_preimages: pad_end([], PublicDataTreeLeafPreimage::empty()),
                 start_state: PartialStateReference::empty()
             }
         }
 
+        pub fn with_note_hash_tree(&mut self) -> Self {
+            self.note_hash_tree = build_note_hash_tree(self.note_hash_leaf_preimages);
+            self.start_state.note_hash_tree.root = self.note_hash_tree.get_root();
+            self.previous_kernel.historical_header.state.partial.note_hash_tree.root = 11111;
+            *self
+        }
+
         pub fn with_nullifier_tree(&mut self) -> Self {
             let nullifier_tree = build_nullifier_tree();
             self.nullifier_non_existent_read_request_hints_builder.set_nullifier_tree(nullifier_tree);
-            let tree_root = nullifier_tree.get_root();
-            self.start_state.nullifier_tree.root = tree_root;
-            self.previous_kernel.historical_header.state.partial.nullifier_tree.root = tree_root;
+            self.start_state.nullifier_tree.root = nullifier_tree.get_root();
+            self.previous_kernel.historical_header.state.partial.nullifier_tree.root = 22222;
             *self
         }
 
@@ -186,6 +218,15 @@ mod tests {
             self.public_data_tree = public_data_tree;
             self.start_state.public_data_tree.root = public_data_tree.get_root();
             *self
+        }
+
+        pub fn add_note_hash_read_request(&mut self, leaf_index: u32) {
+            self.previous_kernel.add_note_hash_tree_leaf_read_requests(
+                self.note_hash_leaf_preimages[leaf_index],
+                leaf_index as Field
+            );
+            let sibling_path = self.note_hash_tree.get_sibling_path(leaf_index);
+            self.note_hash_read_request_hints.push(TreeLeafReadRequestHint { sibling_path });
         }
 
         pub fn add_nullifier(&mut self, unsiloed_nullifier: Field) {
@@ -300,8 +341,10 @@ mod tests {
 
             let kernel = PublicKernelTailCircuitPrivateInputs {
                 previous_kernel,
+                note_hash_read_request_hints: self.note_hash_read_request_hints.storage,
                 nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
                 nullifier_non_existent_read_request_hints: self.nullifier_non_existent_read_request_hints_builder.to_hints(),
+                l1_to_l2_msg_read_request_hints: self.l1_to_l2_msg_read_request_hints.storage,
                 public_data_hints,
                 start_state: self.start_state
             };
@@ -356,6 +399,14 @@ mod tests {
     }
 
     #[test]
+    unconstrained fn verify_note_hash_read_requests_succeeds() {
+        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new().with_note_hash_tree();
+
+        builder.add_note_hash_read_request(1);
+
+        builder.succeeded();
+    }
+
     unconstrained fn one_pending_nullifier_read_request() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
 
