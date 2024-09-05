@@ -98,10 +98,11 @@ describe('Accrued Substate', () => {
         const gotExists = context.machineState.memory.getAs<Uint8>(existsOffset);
         expect(gotExists).toEqual(new Uint8(expectFound ? 1 : 0));
 
+        const expectedValue = gotExists.toNumber() === 1 ? value0 : Fr.ZERO;
         expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
         expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(
           storageAddress,
-          /*noteHash=*/ value0,
+          /*noteHash=*/ expectedValue,
           leafIndex,
           /*exists=*/ expectFound,
         );
@@ -290,9 +291,14 @@ describe('Accrued Substate', () => {
         expect(gotExists).toEqual(new Uint8(expectFound ? 1 : 0));
 
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledTimes(1);
+        // The expected value to trace depends on a) if we found it and b) if it is undefined
+        let expectedValue = gotExists.toNumber() === 1 ? value0 : value1;
+        if (mockAtLeafIndex === undefined) {
+          expectedValue = Fr.ZERO;
+        }
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledWith(
           address,
-          /*msgHash=*/ value0,
+          /*msgHash=*/ expectedValue,
           leafIndex,
           /*exists=*/ expectFound,
         );
