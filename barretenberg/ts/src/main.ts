@@ -489,7 +489,7 @@ program
   .command('gates')
   .description('Print gate count to standard output.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
-  .option('-hr, --honk-recursion', 'Specify whether to use UltraHonk recursion')
+  .option('-hr, --honk-recursion', 'Specify whether to use UltraHonk recursion', false)
   .action(async ({ bytecodePath: bytecodePath, honkRecursion: honkRecursion }) => {
     handleGlobalOptions();
     await gateCount(bytecodePath, honkRecursion);
