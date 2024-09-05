@@ -116,7 +116,7 @@ It is also possible to create public functions that can _only_ be invoked by pri
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
-#include_code enqueueing /noir-projects/noir-contracts/contracts/router_contract/src/main.nr rust
+#include_code enqueueing /noir-projects/noir-contracts/contracts/router_contract/src/utils.nr rust
 
 Note that this reveals what public function is being called on what contract, and perhaps more importantly which contract enqueued the call during private execution.
 For this reason we've created a canonical router contract which implements some of the checks commonly performed: this conceals the calling contract, as the `context.msg_sender()` in the public function will be the router itself (since it is the router that enqueues the public call).
@@ -124,6 +124,10 @@ For this reason we've created a canonical router contract which implements some 
 An example of how a deadline can be checked using the router contract follows:
 
 #include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+
+`privately_check_timestamp` and `privately_check_block_number` are helper functions around the call to the router contract:
+
+#include_code helper_router_functions /noir-projects/noir-contracts/contracts/router_contract/src/utils.nr rust
 
 This is what the implementation of the check timestamp functionality looks like:
 
@@ -173,11 +177,11 @@ No correctness is guaranteed on the result of `simulate`! Correct execution is e
 
 #### `prove`
 
-This creates and returns a transaction request, which includes proof of correct private execution and side-efects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or to check for execution failure.
+This creates and returns a transaction request, which includes proof of correct private execution and side-effects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or to check for execution failure.
 
 #include_code local-tx-fails /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
-Like most Ethereum libraries, `prove` also simulates public execution to try to detect runtime errors that would only occur once the transaction is picked up by the sequencer. This makes `prove` very useful in testing environments, but users shuld be wary of both false positives and negatives in production environments, particularly if the node's data is stale. Public simulation can be skipped by setting the `skipPublicSimulation` flag.
+Like most Ethereum libraries, `prove` also simulates public execution to try to detect runtime errors that would only occur once the transaction is picked up by the sequencer. This makes `prove` very useful in testing environments, but users should be wary of both false positives and negatives in production environments, particularly if the node's data is stale. Public simulation can be skipped by setting the `skipPublicSimulation` flag.
 
 #### `send`
 

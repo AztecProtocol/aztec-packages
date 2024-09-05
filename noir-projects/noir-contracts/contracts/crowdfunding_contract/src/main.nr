@@ -4,17 +4,16 @@ contract Crowdfunding {
 
     // docs:start:all-deps
     use dep::aztec::{
-        protocol_types::{address::AztecAddress, constants::ROUTER_ADDRESS},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-        keys::getters::get_current_public_keys, state_vars::{PrivateSet, SharedImmutable},
-        note::note_getter_options::Comparator
+        keys::getters::get_current_public_keys, prelude::{AztecAddress, PrivateSet, SharedImmutable},
+        utils::comparison::Comparator
     };
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
     // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
     // docs:end:import_valuenote
     use dep::token::Token;
-    use router::Router;
+    use router::utils::privately_check_timestamp;
     // docs:end:all-deps
 
     #[aztec(event)]
@@ -60,7 +59,7 @@ contract Crowdfunding {
         // is performing the check.
         // docs:start:call-check-deadline
         let deadline = storage.deadline.read_private();
-        Router::at(ROUTER_ADDRESS).check_timestamp(Comparator.LT, deadline).call(&mut context);
+        privately_check_timestamp(Comparator.LT, deadline, &mut context);
         // docs:end:call-check-deadline
 
         // docs:start:do-transfer

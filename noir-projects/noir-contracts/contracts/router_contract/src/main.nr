@@ -1,4 +1,5 @@
 mod test;
+mod utils;
 
 /// The purpose of this contract is to perform a check in public without revealing what contract enqued the public
 /// call. This is achieved by having a private function on this contract that enques the public call and hence
@@ -28,9 +29,7 @@ contract Router {
     /// to the `value.
     #[aztec(private)]
     fn check_block_number(operation: u8, value: Field) {
-        // docs:start:enqueueing
         Router::at(context.this_address())._check_block_number(operation, value).enqueue_view(&mut context);
-        // docs:end:enqueueing
     }
 
     #[aztec(public)]
