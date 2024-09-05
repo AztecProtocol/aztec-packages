@@ -123,7 +123,7 @@ template <typename Flavor> class SumcheckProver {
     using ClaimedEvaluations = typename Flavor::AllValues;
 
     using Transcript = typename Flavor::Transcript;
-    using Instance = ProverInstance_<Flavor>;
+    using DeciderPK = DeciderProvingKey_<Flavor>;
     using RelationSeparator = typename Flavor::RelationSeparator;
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
@@ -182,12 +182,9 @@ template <typename Flavor> class SumcheckProver {
      * @brief Compute round univariate, place it in transcript, compute challenge, partially evaluate. Repeat
      * until final round, then get full evaluations of prover polynomials, and place them in transcript.
      */
-    SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
+    SumcheckOutput<Flavor> prove(std::shared_ptr<DeciderPK> key)
     {
-        return prove(instance->proving_key.polynomials,
-                     instance->relation_parameters,
-                     instance->alphas,
-                     instance->gate_challenges);
+        return prove(key->proving_key.polynomials, key->relation_parameters, key->alphas, key->gate_challenges);
     };
 
     /**
