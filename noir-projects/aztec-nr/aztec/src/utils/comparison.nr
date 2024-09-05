@@ -16,137 +16,89 @@ global Comparator = ComparatorEnum {
     GTE: 6,
 };
 
-pub fn assert_comparison<let N: u32>(lhs: Field, operation: u8, rhs: Field, error_msg: str<N>) {
+pub fn compare(lhs: Field, operation: u8, rhs: Field) -> bool {
     // Values are computed ahead of time because circuits evaluate all branches
     let is_equal = lhs == rhs;
     let is_lt = lhs.lt(rhs);
 
     if (operation == Comparator.EQ) {
-        assert(is_equal, error_msg);
+        is_equal
     } else if (operation == Comparator.NEQ) {
-        assert(!is_equal, error_msg);
+        !is_equal
     } else if (operation == Comparator.LT) {
-        assert(is_lt, error_msg);
+        is_lt
     } else if (operation == Comparator.LTE) {
-        assert(is_lt | is_equal, error_msg);
+        is_lt | is_equal
     } else if (operation == Comparator.GT) {
-        assert(!is_lt & !is_equal, error_msg);
+        !is_lt & !is_equal
     } else if (operation == Comparator.GTE) {
-        assert(!is_lt, error_msg);
+        !is_lt
+    } else {
+        assert(false, "Invalid operation");
+        false // Noir would complain without boolean value here
     }
 }
 
 mod test {
-    use super::assert_comparison;
+    use super::compare;
     use super::Comparator;
 
     #[test]
-    fn test_assert_comparison_happy_path() {
+    fn test_compare() {
         let lhs = 10;
         let rhs = 10;
-        assert_comparison(lhs, Comparator.EQ, rhs, "Expected lhs to be equal to rhs");
+        assert(compare(lhs, Comparator.EQ, rhs), "Expected lhs to be equal to rhs");
 
         let lhs = 10;
         let rhs = 11;
-        assert_comparison(lhs, Comparator.NEQ, rhs, "Expected lhs to be not equal to rhs");
+        assert(compare(lhs, Comparator.NEQ, rhs), "Expected lhs to be not equal to rhs");
 
         let lhs = 10;
         let rhs = 11;
-        assert_comparison(lhs, Comparator.LT, rhs, "Expected lhs to be less than rhs");
+        assert(compare(lhs, Comparator.LT, rhs), "Expected lhs to be less than rhs");
 
         let lhs = 10;
         let rhs = 10;
-        assert_comparison(
-            lhs,
-            Comparator.LTE,
-            rhs,
-            "Expected lhs to be less than or equal to rhs"
-        );
+        assert(compare(lhs, Comparator.LTE, rhs), "Expected lhs to be less than or equal to rhs");
 
         let lhs = 11;
         let rhs = 10;
-        assert_comparison(lhs, Comparator.GT, rhs, "Expected lhs to be greater than rhs");
+        assert(compare(lhs, Comparator.GT, rhs), "Expected lhs to be greater than rhs");
 
         let lhs = 10;
         let rhs = 10;
-        assert_comparison(
-            lhs,
-            Comparator.GTE,
-            rhs,
-            "Expected lhs to be greater than or equal to rhs"
-        );
+        assert(compare(lhs, Comparator.GTE, rhs), "Expected lhs to be greater than or equal to rhs");
 
         let lhs = 11;
         let rhs = 10;
-        assert_comparison(
-            lhs,
-            Comparator.GTE,
-            rhs,
-            "Expected lhs to be greater than or equal to rhs"
-        );
-    }
+        assert(compare(lhs, Comparator.GTE, rhs), "Expected lhs to be greater than or equal to rhs");
 
-    #[test(should_fail_with="Expected lhs to be equal to rhs")]
-    fn test_assert_comparison_fail_eq() {
         let lhs = 10;
         let rhs = 11;
-        assert_comparison(lhs, Comparator.EQ, rhs, "Expected lhs to be equal to rhs");
-    }
+        assert(!compare(lhs, Comparator.EQ, rhs), "Expected lhs to be not equal to rhs");
 
-    #[test(should_fail_with="Expected lhs to be not equal to rhs")]
-    fn test_assert_comparison_fail_neq() {
         let lhs = 10;
         let rhs = 10;
-        assert_comparison(lhs, Comparator.NEQ, rhs, "Expected lhs to be not equal to rhs");
-    }
+        assert(!compare(lhs, Comparator.NEQ, rhs), "Expected lhs to not be not equal to rhs");
 
-    #[test(should_fail_with="Expected lhs to be less than rhs")]
-    fn test_assert_comparison_fail_lt() {
         let lhs = 11;
         let rhs = 10;
-        assert_comparison(lhs, Comparator.LT, rhs, "Expected lhs to be less than rhs");
-    }
+        assert(!compare(lhs, Comparator.LT, rhs), "Expected lhs to not be less than rhs");
 
-    #[test(should_fail_with="Expected lhs to be less than or equal to rhs")]
-    fn test_assert_comparison_fail_lte() {
         let lhs = 11;
         let rhs = 10;
-        assert_comparison(
-            lhs,
-            Comparator.LTE,
-            rhs,
-            "Expected lhs to be less than or equal to rhs"
-        );
-    }
+        assert(!compare(lhs, Comparator.LTE, rhs), "Expected lhs to not be less than or equal to rhs");
 
-    #[test(should_fail_with="Expected lhs to be greater than rhs")]
-    fn test_assert_comparison_fail_gt() {
         let lhs = 10;
         let rhs = 10;
-        assert_comparison(lhs, Comparator.GT, rhs, "Expected lhs to be greater than rhs");
-    }
+        assert(!compare(lhs, Comparator.GT, rhs), "Expected lhs to not be greater than rhs");
 
-    #[test(should_fail_with="Expected lhs to be greater than or equal to rhs")]
-    fn test_assert_comparison_fail_gte() {
         let lhs = 10;
         let rhs = 11;
-        assert_comparison(
-            lhs,
-            Comparator.GTE,
-            rhs,
-            "Expected lhs to be greater than or equal to rhs"
-        );
-    }
+        assert(!compare(lhs, Comparator.GTE, rhs), "Expected lhs to not be greater than or equal to rhs");
 
-    #[test(should_fail_with="Expected lhs to be greater than or equal to rhs")]
-    fn test_assert_comparison_fail_gte_2() {
         let lhs = 10;
         let rhs = 11;
-        assert_comparison(
-            lhs,
-            Comparator.GTE,
-            rhs,
-            "Expected lhs to be greater than or equal to rhs"
-        );
+        assert(!compare(lhs, Comparator.GTE, rhs), "Expected lhs to not be greater than or equal to rhs");
     }
 }
