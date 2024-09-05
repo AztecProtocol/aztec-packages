@@ -26,8 +26,6 @@ import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
  * The tests in this file is testing the sequencer selection
  */
 
-import "forge-std/console.sol";
-
 contract SpartaTest is DecoderBase {
   using MessageHashUtils for bytes32;
 
@@ -186,14 +184,18 @@ contract SpartaTest is DecoderBase {
 
     rollup.setupEpoch();
 
+    // TODO: include these in the base block and include in the load function
+    bytes32[] memory txHashes = new bytes32[](0);
+
     if (_signatureCount > 0 && ree.proposer != address(0)) {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       ree.needed = validators.length * 2 / 3 + 1;
 
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](_signatureCount);
 
+      bytes32 digest = keccak256(abi.encodePacked(archive, txHashes));
       for (uint256 i = 0; i < _signatureCount; i++) {
-        signatures[i] = createSignature(validators[i], archive);
+        signatures[i] = createSignature(validators[i], digest);
       }
 
       if (_expectRevert) {
@@ -221,9 +223,6 @@ contract SpartaTest is DecoderBase {
         );
         ree.shouldRevert = true;
       }
-
-      // TODO(md): this is temp and probably will not pass
-      bytes32[] memory txHashes = new bytes32[](0);
 
       vm.prank(ree.proposer);
       rollup.propose(header, archive, bytes32(0), txHashes, signatures);
@@ -276,34 +275,6 @@ contract SpartaTest is DecoderBase {
     }
 
     assertEq(rollup.archive(), archive, "Invalid archive");
-  }
-
-
-  // We need to make sure that the get committee function is actually
-  // working the way we expect it to
-  // This is blowing up the test that we want to test
-  function testGetCommitteeAtNonSetupEpoch() public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
-    uint256 _epochsToJump = 1;
-    uint256 pre = rollup.getCurrentEpoch();
-    vm.warp(
-      block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_DURATION() * rollup.SLOT_DURATION()
-    );
-    uint256 post = rollup.getCurrentEpoch();
-    assertEq(pre + _epochsToJump, post, "Invalid epoch");
-
-    // Test that the committee returned from getCommitteeAt is the same as the one returned from getCurrentEpochCommittee
-    address[] memory committeeAtNow = rollup.getCommitteeAt(block.timestamp);
-    address[] memory currentCommittee = rollup.getCurrentEpochCommittee();
-    assertEq(currentCommittee.length, 4, "Committee should be empty");
-    assertEq(committeeAtNow.length, currentCommittee.length, "Committee now and get committee should be the same length");
-
-    for (uint256 i = 0; i < currentCommittee.length; i++) {
-      assertEq(currentCommittee[i], committeeAtNow[i], "Committee now and get committee should be the same length");
-    }
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {

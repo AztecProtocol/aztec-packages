@@ -264,7 +264,7 @@ export class L1Publisher {
       blockHash: block.header.hash().toBuffer(),
       body: block.body.toBuffer(),
       attestations,
-      txHashes: txHashes ?? [], // NTS(md): should be 32 bytes?
+      txHashes: txHashes ?? [],
     };
 
     // Publish body and propose block (if not already published)
@@ -503,6 +503,7 @@ export class L1Publisher {
           ] as const;
 
           // We almost always want to skip simulation here if we are not already within the slot, else we will be one slot ahead
+          // See comment attached to static SKIP_SIMULATION definition
           if (!L1Publisher.SKIP_SIMULATION) {
             const simulationResult = await this.rollupContract.simulate.proposeWithBody(args, {
               account: this.account,
@@ -521,19 +522,18 @@ export class L1Publisher {
           ] as const;
 
           // We almost always want to skip simulation here if we are not already within the slot, else we will be one slot ahead
+          // See comment attached to static SKIP_SIMULATION definition
           if (!L1Publisher.SKIP_SIMULATION) {
             await this.rollupContract.simulate.propose(args, {
               account: this.account,
             });
           }
 
-          // TODO(md): first tx is failing in here
           return await this.rollupContract.write.propose(args, {
             account: this.account,
           });
         }
       } catch (err) {
-        // TODO: tidy up this error
         if (err instanceof BaseError) {
           const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
           if (revertError instanceof ContractFunctionRevertedError) {

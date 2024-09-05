@@ -520,12 +520,10 @@ export class Sequencer {
   protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<Signature[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
-    this.log.verbose(`ATTEST | committee length ${committee.length}`);
+    this.log.debug(`Attesting committee length ${committee.length}`);
 
     if (committee.length === 0) {
-      this.log.verbose(`ATTEST | committee length is 0, skipping`);
-      // TODO(md): remove error
-      throw new Error('Committee length is 0, WHAT');
+      this.log.debug(`Attesting committee length is 0, skipping`);
       return undefined;
     }
 
@@ -547,17 +545,9 @@ export class Sequencer {
     this.log.verbose('Broadcasting block proposal to validators');
     this.validatorClient.broadcastBlockProposal(proposal);
 
-    // Note do we know if it is wating for attestations as it thinks it should be
-    // proposing the block?
-
     this.state = SequencerState.WAITING_FOR_ATTESTATIONS;
     const attestations = await this.validatorClient.collectAttestations(proposal, numberOfRequiredAttestations);
     this.log.verbose(`Collected attestations from validators, number of attestations: ${attestations.length}`);
-
-    // NOTE: is the self report now done in the method above
-    // // TODO: clean: SELF REPORT LMAO
-    // const selfSign = await this.validatorClient.attestToProposal(proposal);
-    // attestations.push(selfSign);
 
     // note: the smart contract requires that the signatures are provided in the order of the committee
     return await orderAttestations(attestations, committee);

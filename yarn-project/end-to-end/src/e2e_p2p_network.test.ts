@@ -164,22 +164,27 @@ describe('e2e_p2p_network', () => {
     await stopNodes(bootstrapNode, nodes);
   });
 
+  // NOTE: If this test fails in a PR where the shuffling algorithm is changed, then it is failing as the node with
+  // the mocked p2p layer is being picked as the sequencer, and it does not have any transactions in it's mempool.
+  // If this is the case, then we should update the test to switch off the mempool of a different node.
+  // adjust `nodeToTurnOffTxGossip` in the test below.
   it('should produce an attestation by requesting tx data over the p2p network', async () => {
-    // Birds eye overview of the test
-    // We spin up x nodes
-    // We turn off receiving a tx via gossip from one of the nodes
-    // We send a transaction and gossip it to other nodes
-    // This node will receive an attestation that it does not have the data for
-    // It will request this data over the p2p layer
-    // We receive all of the attestations that we need and we produce the block
+    /**
+     * Birds eye overview of the test
+     * 1. We spin up x nodes
+     * 2. We turn off receiving a tx via gossip from one of the nodes
+     * 3. We send a transaction and gossip it to other nodes
+     * 4. This node will receive an attestation that it does not have the data for
+     * 5. It will request this data over the p2p layer
+     * 6. We receive all of the attestations that we need and we produce the block
+     *
+     * Note: we do not attempt to let this node produce a block, as it will not have received any transactions
+     *       from the other pxes.
+     */
 
     if (!bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
-    // create our network of nodes and submit txs into each of them
-    // the number of txs per node and the number of txs per rollup
-    // should be set so that the only way for rollups to be built
-    // is if the txs are successfully gossiped around the nodes.
     const contexts: NodeContext[] = [];
     const nodes: AztecNodeService[] = await createNodes(
       config,
@@ -193,6 +198,7 @@ describe('e2e_p2p_network', () => {
     await sleep(4000);
 
     // Replace the p2p node implementation of one of the nodes with a spy such that it does not store transactions that are gossiped to it
+    // Original implementation of `processTxFromPeer` will store received transactions in the tx pool.
     const nodeToTurnOffTxGossip = 0;
     jest
       .spyOn((nodes[nodeToTurnOffTxGossip] as any).p2pClient.p2pService, 'processTxFromPeer')
@@ -200,11 +206,9 @@ describe('e2e_p2p_network', () => {
         return Promise.resolve();
       });
 
-    // In this shuffle, the node that we turned off receipt through gossiping with will be the third to create a block
-    // And it will not produce a rollup as nothing exists within it's tx pool.
-    // So we only send transactions to the first two nodes
+    // Only submit transactions to the first two nodes, so that we avoid our sequencer with a mocked p2p layer being picked to produce a block.
+    // If the shuffling algorithm changes, then this will need to be updated.
     for (let i = 0; i < 2; i++) {
-      // The node which we disabled receiving from gossip from will not have any transactions in it's mempool
       const context = await createPXEServiceAndSubmitTransactions(nodes[i], NUM_TXS_PER_NODE);
       contexts.push(context);
     }

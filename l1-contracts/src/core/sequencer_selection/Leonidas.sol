@@ -128,7 +128,7 @@ contract Leonidas is Ownable, ILeonidas {
     return epochs[_epoch].committee;
   }
 
-  function getCommitteeAt(uint256 _ts) public view returns (address[] memory) {
+  function getCommitteeAt(uint256 _ts) internal view returns (address[] memory) {
     uint256 epochNumber = getEpochAt(_ts);
     Epoch storage epoch = epochs[epochNumber];
 
@@ -293,23 +293,23 @@ contract Leonidas is Ownable, ILeonidas {
       return address(0);
     }
 
-    // Epoch storage epoch = epochs[epochNumber];
+    Epoch storage epoch = epochs[epochNumber];
 
-    // // If the epoch is setup, we can just return the proposer. Otherwise we have to emulate sampling
-    // if (epoch.sampleSeed != 0) {
-    //   uint256 committeeSize = epoch.committee.length;
-    //   if (committeeSize == 0) {
-    //     return address(0);
-    //   }
+    // If the epoch is setup, we can just return the proposer. Otherwise we have to emulate sampling
+    if (epoch.sampleSeed != 0) {
+      uint256 committeeSize = epoch.committee.length;
+      if (committeeSize == 0) {
+        return address(0);
+      }
 
-    //   return
-    //     epoch.committee[_computeProposerIndex(epochNumber, slot, epoch.sampleSeed, committeeSize)];
-    // }
+      return
+        epoch.committee[_computeProposerIndex(epochNumber, slot, epoch.sampleSeed, committeeSize)];
+    }
 
-    // // Allow anyone if there is no validator set
-    // if (validatorSet.length() == 0) {
-    //   return address(0);
-    // }
+    // Allow anyone if there is no validator set
+    if (validatorSet.length() == 0) {
+      return address(0);
+    }
 
     // Emulate a sampling of the validators
     uint256 sampleSeed = _getSampleSeed(epochNumber);

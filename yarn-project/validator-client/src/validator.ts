@@ -126,9 +126,7 @@ export class ValidatorClient implements Validator {
     this.p2pClient.broadcastProposal(proposal);
   }
 
-  // Target is temporarily hardcoded, for a test, but will be calculated from smart contract
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962)
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7976): require suitable timeouts
   async collectAttestations(
     proposal: BlockProposal,
     numberOfRequiredAttestations: number,
@@ -139,9 +137,6 @@ export class ValidatorClient implements Validator {
     const startTime = Date.now();
 
     const slot = proposal.header.globalVariables.slotNumber.toBigInt();
-
-    // TODO: tidy
-    numberOfRequiredAttestations -= 1; // We self sign
 
     this.log.info(`Waiting for ${numberOfRequiredAttestations} attestations for slot: ${slot}`);
 

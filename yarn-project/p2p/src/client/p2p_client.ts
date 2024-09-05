@@ -293,8 +293,6 @@ export class P2PClient implements P2P {
 
   // TODO: this will need a timeout + retry mechanism to make sure that we can retreive things on time
   public requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    // TODO: adjust this - what if one peer can service all of the requests? then we do not need to send all of these at once and overload the peer
-    // have a thinky
     const requestPromises = txHashes.map(txHash => this.requestTxByHash(txHash));
     return Promise.all(requestPromises);
   }

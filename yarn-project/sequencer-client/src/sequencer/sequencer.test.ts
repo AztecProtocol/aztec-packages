@@ -75,7 +75,6 @@ describe('sequencer', () => {
   const committee = [EthAddress.random()];
   const getSignatures = () => [mockedSig];
   const getAttestations = () => {
-    // TODO(md): might be errors in here
     const attestation = new BlockAttestation(block.header, archive, [], mockedSig);
     (attestation as any).sender = committee[0];
 
