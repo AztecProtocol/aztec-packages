@@ -6,7 +6,7 @@
  *
  **/
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
-namespace bb::stdlib::element_inner {
+namespace bb::stdlib::element_default {
 
 template <typename C, class Fq, class Fr, class G>
 template <typename, typename>
@@ -25,9 +25,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
      * Covert `u1_lo` and `u1_hi` into an 8-bit sliding window NAF. Our base point is the G1 generator.
      * We have a precomputed size-256 plookup table of the generator point, multiplied by all possible wNAF values
      *
-     * We also split scalar `u2` using the secp256k1 endomorphism. Convert short scalars into 4-bit sliding window NAFs.
-     * We will store the lookup table of all possible base-point wNAF states in a ROM table
-     * (it's variable-base scalar multiplication in a SNARK with a lookup table! ho ho ho)
+     * We also split scalar `u2` using the secp256k1 endomorphism. Convert short scalars into 4-bit sliding window
+     * NAFs. We will store the lookup table of all possible base-point wNAF states in a ROM table (it's
+     * variable-base scalar multiplication in a SNARK with a lookup table! ho ho ho)
      *
      * The wNAFs `u1_lo_wnaf, u1_hi_wnaf, u2_lo_wnaf, u2_hi_wnaf` are each offset by 1 bit relative to each other.
      * i.e. we right-shift `u2_hi` by 1 bit before computing its wNAF
@@ -39,8 +39,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
      * double-and-add scalar multiplication. It is more efficient to use the montgomery ladder algorithm,
      * compared against doubling an accumulator and adding points into it.
      *
-     * The bits removed by the right-shifts are stored in the wnaf's respective `least_significant_wnaf_fragment` member
-     * variable
+     * The bits removed by the right-shifts are stored in the wnaf's respective `least_significant_wnaf_fragment`
+     * member variable
      */
     const auto [u1_lo_wnaf, u1_hi_wnaf] = compute_secp256k1_endo_wnaf<8, 2, 3>(u1);
     const auto [u2_lo_wnaf, u2_hi_wnaf] = compute_secp256k1_endo_wnaf<4, 0, 1>(u2);
@@ -126,7 +126,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
         to_add.y = to_add.y.conditional_negate(negative_skew_bool);
         element result = accumulator + to_add;
 
-        // when computing the wNAF we have already validated that positive_skew and negative_skew cannot both be true
+        // when computing the wNAF we have already validated that positive_skew and negative_skew cannot both be
+        // true
         bool_ct skew_combined = positive_skew_bool ^ negative_skew_bool;
         result.x = accumulator.x.conditional_select(result.x, skew_combined);
         result.y = accumulator.y.conditional_select(result.y, skew_combined);
@@ -140,4 +141,4 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
 
     return accumulator;
 }
-} // namespace bb::stdlib::element_inner
+} // namespace bb::stdlib::element_default

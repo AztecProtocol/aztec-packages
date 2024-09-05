@@ -1,7 +1,7 @@
 #pragma once
 
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
-namespace bb::stdlib {
+namespace bb::stdlib::element_goblin {
 
 /**
  * @brief Goblin style batch multiplication
@@ -88,7 +88,7 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
     auto y_hi = Fr::from_witness_index(builder, op_tuple.y_hi);
     Fq point_x(x_lo, x_hi);
     Fq point_y(y_lo, y_hi);
-    element result = element(point_x, point_y);
+    goblin_element result = goblin_element(point_x, point_y);
 
     // NOTE: we can have an `if` statement here under the strict assumption that `return_is_infinity`
     //       is produced from `eq_and_reset` opcode
@@ -99,4 +99,4 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
     return result;
 }
 
-} // namespace bb::stdlib
+} // namespace bb::stdlib::element_goblin

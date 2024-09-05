@@ -16,12 +16,11 @@
 // functions. template <typename Builder, typename NativeGroup> concept IsNotGoblinInefficiencyTrap =
 // !(IsMegaBuilder<Builder> && std::same_as<NativeGroup, bb::g1>);
 
-namespace bb::stdlib {
+namespace bb::stdlib::element_goblin {
 
 // ( ͡° ͜ʖ ͡°)
 template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_element {
   public:
-    using element = goblin_element;
     using BaseField = Fq;
     using bool_ct = stdlib::bool_t<Builder>;
     using biggroup_tag = goblin_element; // Facilitates a constexpr check IsBigGroup
@@ -38,20 +37,20 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         , _is_infinity(false)
     {}
 
-    goblin_element(const element& other) = default;
-    goblin_element(element&& other) noexcept = default;
-    goblin_element& operator=(const element& other) = default;
-    goblin_element& operator=(element&& other) = default;
-    // static element from_witness_unsafe(Builder* ctx, const typename NativeGroup::affine_element& input)
+    goblin_element(const goblin_element& other) = default;
+    goblin_element(goblin_element&& other) noexcept = default;
+    goblin_element& operator=(const goblin_element& other) = default;
+    goblin_element& operator=(goblin_element&& other) = default;
+    // static goblin_element from_witness_unsafe(Builder* ctx, const typename NativeGroup::affine_element& input)
     // {
     //     // only valid usecase of this method is with a goblin builder
     //     ASSERT(IsMegaBuilder<Builder>);
-    //     element out;
+    //     goblin_element out;
     //     if (in)
     // }
-    static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
+    static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
-        element out;
+        goblin_element out;
         if (input.is_point_at_infinity()) {
             Fq x = Fq::from_witness(ctx, NativeGroup::affine_one.x);
             Fq y = Fq::from_witness(ctx, NativeGroup::affine_one.y);
@@ -72,13 +71,13 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         // happens in goblin eccvm
     }
 
-    static element one(Builder* ctx)
+    static goblin_element one(Builder* ctx)
     {
         uint256_t x = uint256_t(NativeGroup::one.x);
         uint256_t y = uint256_t(NativeGroup::one.y);
         Fq x_fq(ctx, x);
         Fq y_fq(ctx, y);
-        return element(x_fq, y_fq);
+        return goblin_element(x_fq, y_fq);
     }
 
     // byte_array<Builder> to_byte_array() const
@@ -89,72 +88,78 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     //     return result;
     // }
 
-    element checked_unconditional_add(const element& other) const { return element::operator+(*this, other); }
-    element checked_unconditional_subtract(const element& other) const { return element::operator-(*this, other); }
+    goblin_element checked_unconditional_add(const goblin_element& other) const
+    {
+        return goblin_element::operator+(*this, other);
+    }
+    goblin_element checked_unconditional_subtract(const goblin_element& other) const
+    {
+        return goblin_element::operator-(*this, other);
+    }
 
-    element operator+(const element& other) const
+    goblin_element operator+(const goblin_element& other) const
     {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
         // Current gate count: 6398
         return batch_mul({ *this, other }, { Fr(1), Fr(1) });
     }
-    element operator-(const element& other) const
+    goblin_element operator-(const goblin_element& other) const
     {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
-        std::vector<element> points{ *this, other };
+        std::vector<goblin_element> points{ *this, other };
         return batch_mul({ *this, other }, { Fr(1), -Fr(1) });
     }
-    element operator-() const
+    goblin_element operator-() const
     {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
         return batch_mul({ *this }, { -Fr(1) });
     }
-    element operator+=(const element& other)
+    goblin_element operator+=(const goblin_element& other)
     {
         *this = *this + other;
         return *this;
     }
-    element operator-=(const element& other)
+    goblin_element operator-=(const goblin_element& other)
     {
         *this = *this - other;
         return *this;
     }
-    std::array<element, 2> checked_unconditional_add_sub(const element& other) const
+    std::array<goblin_element, 2> checked_unconditional_add_sub(const goblin_element& other) const
     {
-        return std::array<element, 2>{ *this + other, *this - other };
+        return std::array<goblin_element, 2>{ *this + other, *this - other };
     }
 
-    element operator*(const Fr& scalar) const { return batch_mul({ *this }, { scalar }); }
+    goblin_element operator*(const Fr& scalar) const { return batch_mul({ *this }, { scalar }); }
 
-    element conditional_negate(const bool_ct& predicate) const
+    goblin_element conditional_negate(const bool_ct& predicate) const
     {
-        element negated = -(*this);
-        element result(*this);
+        goblin_element negated = -(*this);
+        goblin_element result(*this);
         result.y = Fq::conditional_assign(predicate, negated.y, result.y);
         return result;
     }
 
-    element normalize() const
+    goblin_element normalize() const
     {
         // no need to normalize, all goblin eccvm operations are returned normalized
         return *this;
     }
 
-    element reduce() const
+    goblin_element reduce() const
     {
         // no need to reduce, all goblin eccvm operations are returned normalized
         return *this;
     }
 
-    element dbl() const { return batch_mul({ *this }, { 2 }); }
+    goblin_element dbl() const { return batch_mul({ *this }, { 2 }); }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) max_num_bits is unused; could implement and
     // use this to optimize other operations. interface compatible with biggroup.hpp, the final parameter
     // handle_edge_cases is not needed as this is always done in the eccvm
-    static element batch_mul(const std::vector<element>& points,
-                             const std::vector<Fr>& scalars,
-                             const size_t max_num_bits = 0,
-                             const bool handle_edge_cases = false);
+    static goblin_element batch_mul(const std::vector<goblin_element>& points,
+                                    const std::vector<Fr>& scalars,
+                                    const size_t max_num_bits = 0,
+                                    const bool handle_edge_cases = false);
 
     // we use this data structure to add together a sequence of points.
     // By tracking the previous values of x_1, y_1, \lambda, we can avoid
@@ -181,7 +186,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         return nullptr;
     }
 
-    Builder* get_context(const element& other) const
+    Builder* get_context(const goblin_element& other) const
     {
         if (x.get_context() != nullptr) {
             return x.get_context();
@@ -207,10 +212,10 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
      * coefficients when we get it as output from our optimised algorithms. This function returns a (0,0) point, if
      * it is a point at infinity
      */
-    element get_standard_form() const
+    goblin_element get_standard_form() const
     {
         const bool_ct is_infinity = is_point_at_infinity();
-        element result(*this);
+        goblin_element result(*this);
         const Fq zero = Fq::zero();
         result.x = Fq::conditional_assign(is_infinity, zero, result.x);
         result.y = Fq::conditional_assign(is_infinity, zero, result.y);
@@ -229,6 +234,6 @@ inline std::ostream& operator<<(std::ostream& os, goblin_element<C, Fq, Fr, G> c
 {
     return os << "{ " << v.x << " , " << v.y << " }";
 }
-} // namespace bb::stdlib
+} // namespace bb::stdlib::element_goblin
 
 #include "biggroup_goblin_impl.hpp"

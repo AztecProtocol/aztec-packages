@@ -2,7 +2,7 @@
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 
-namespace bb::stdlib::element_inner {
+namespace bb::stdlib::element_default {
 
 /**
  * Split a secp256k1 Fr element into two 129 bit scalars `klo, khi`, where `scalar = klo + \lambda * khi mod n`
@@ -96,8 +96,8 @@ template <size_t wnaf_size, size_t lo_stagger, size_t hi_stagger>
 typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compute_secp256k1_endo_wnaf(const Fr& scalar)
 {
     /**
-     * The staggered offset describes the number of bits we want to remove from the input scalar before computing our
-     * wnaf slices. This is to enable us to make repeated calls to the montgomery ladder algo when computing a
+     * The staggered offset describes the number of bits we want to remove from the input scalar before computing
+     * our wnaf slices. This is to enable us to make repeated calls to the montgomery ladder algo when computing a
      * multi-scalar multiplication e.g. Consider an example with 2 points (A, B), using a 2-bit WNAF The typical
      * approach would be to perfomr a double-and-add algorithm, adding points into an accumulator ACC:
      *
@@ -139,7 +139,8 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
                                            const bool is_lo = false) {
         // The number of rounds is the minimal required to cover the whole scalar with wnaf_size windows
         constexpr size_t num_rounds = ((num_bits + wnaf_size - 1) / wnaf_size);
-        // Stagger mask is needed to retrieve the lowest bits that will not be used in montgomery ladder directly
+        // Stagger mask is needed to retrieve the lowest bits that will not be used in montgomery ladder
+        // directly
         const uint64_t stagger_mask = (1ULL << stagger) - 1;
         // Stagger scalar represents the lower "staggered" bits that are not used in the ladder
         const uint64_t stagger_scalar = k.data[0] & stagger_mask;
@@ -179,14 +180,15 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
                 if (is_negative) {
                     fragment = -fragment;
                 }
-                // If the value is positive and there is a skew in wnaf, subtract 2ˢᵗᵃᵍᵍᵉʳ. If negative and there is
-                // skew, then add
+                // If the value is positive and there is a skew in wnaf, subtract 2ˢᵗᵃᵍᵍᵉʳ. If negative and
+                // there is skew, then add
                 if (!is_negative && wnaf_skew) {
                     fragment -= (1 << stagger);
                 } else if (is_negative && wnaf_skew) {
                     fragment += (1 << stagger);
                 }
-                // If the lowest bit is zero, then set final skew to 1 and add 1 to the absolute value of the fragment
+                // If the lowest bit is zero, then set final skew to 1 and add 1 to the absolute value of the
+                // fragment
                 bool output_skew = (fragment_u64 % 2) == 0;
                 if (!is_negative && output_skew) {
                     fragment += 1;
@@ -220,8 +222,9 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
                 // Predicate == sign of current wnaf value
                 bool predicate = bool((wnaf_values[i] >> 31U) & 1U);
                 uint64_t offset_entry;
-                // If the signs of current entry and the whole scalar are the same, then add the lowest bits of current
-                // wnaf value to the windows size to form an entry. Otherwise, subract the lowest bits along with 1
+                // If the signs of current entry and the whole scalar are the same, then add the lowest bits of
+                // current wnaf value to the windows size to form an entry. Otherwise, subract the lowest bits
+                // along with 1
                 if ((!predicate && !is_negative) || (predicate && is_negative)) {
                     // TODO: Why is this mask fixed?
                     offset_entry = wnaf_window_size + (wnaf_values[i] & 0xffffff);
@@ -432,14 +435,15 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         // We add the remaining wnaf entries into a 'high' accumulator
         // We can then directly construct a Fr element from the accumulators.
         // However we cannot underflow our accumulators, and our wnafs represent negative and positive values
-        // The raw value of each wnaf value is contained in the range [0, 15], however these values represent integers
+        // The raw value of each wnaf value is contained in the range [0, 15], however these values represent
+        // integers
         // [-15, -13, -11, ..., 13, 15]
         //
         // To map from the raw value to the actual value, we must compute `value * 2 - 15`
         // However, we do not subtract off the -15 term when constructing our low and high accumulators. Instead of
-        // multiplying by two when accumulating we simply add the accumulated value to itself. This way it automatically
-        // updates multiplicative constants without computing new witnesses. This ensures the low accumulator will not
-        // underflow
+        // multiplying by two when accumulating we simply add the accumulated value to itself. This way it
+        // automatically updates multiplicative constants without computing new witnesses. This ensures the low
+        // accumulator will not underflow
         //
         // Once we hvae reconstructed an Fr element out of our accumulators,
         // we ALSO construct an Fr element from the constant offset terms we left out
@@ -583,4 +587,4 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     }
     return naf_entries;
 }
-} // namespace bb::stdlib::element_inner
+} // namespace bb::stdlib::element_default

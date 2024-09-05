@@ -24,7 +24,7 @@ concept IsGoblinBigGroup =
     std::same_as<Fr, bb::stdlib::field_t<Builder>> && std::same_as<NativeGroup, bb::g1>;
 
 } // namespace bb::stdlib
-namespace bb::stdlib::element_inner {
+namespace bb::stdlib::element_default {
 
 // ( ͡° ͜ʖ ͡°)
 template <class Builder, class Fq, class Fr, class NativeGroup> class element {
@@ -233,8 +233,8 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
                              const bool with_edgecases = false);
 
     // we want to conditionally compile this method iff our curve params are the BN254 curve.
-    // This is a bit tricky to do with `std::enable_if`, because `bn254_endo_batch_mul` is a member function of a class
-    // template
+    // This is a bit tricky to do with `std::enable_if`, because `bn254_endo_batch_mul` is a member function of a
+    // class template
     // && the compiler can't perform partial template specialization on member functions of class templates
     // => our template parameter cannot be a value but must instead by a type
     // Our input to `std::enable_if` is a comparison between two types (NativeGroup and bb::g1), which
@@ -947,7 +947,7 @@ inline std::ostream& operator<<(std::ostream& os, element<C, Fq, Fr, G> const& v
 {
     return os << "{ " << v.x << " , " << v.y << " }";
 }
-} // namespace bb::stdlib::element_inner
+} // namespace bb::stdlib::element_default
 
 namespace bb::stdlib {
 template <typename T>
@@ -955,8 +955,8 @@ concept IsBigGroup = std::is_same_v<typename T::biggroup_tag, T>;
 
 template <typename C, typename Fq, typename Fr, typename G>
 using element = std::conditional_t<IsGoblinBigGroup<C, Fq, Fr, G>,
-                                   goblin_element<C, goblin_field<C>, Fr, G>,
-                                   element_inner::element<C, Fq, Fr, G>>;
+                                   element_goblin::goblin_element<C, goblin_field<C>, Fr, G>,
+                                   element_default::element<C, Fq, Fr, G>>;
 } // namespace bb::stdlib
 #include "biggroup_batch_mul.hpp"
 #include "biggroup_bn254.hpp"
