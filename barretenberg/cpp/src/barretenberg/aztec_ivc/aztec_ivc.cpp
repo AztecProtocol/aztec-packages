@@ -162,7 +162,7 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
 
         // Add oink proof and corresponding verification key to the verification queue
         verification_queue.push_back(
-            bb::AztecIVC::RecursiveVerifierInputs{ oink_prover.transcript->proof_data, honk_vk, QUEUE_TYPE::OINK });
+            bb::AztecIVC::VerifierInputs{ oink_prover.transcript->proof_data, honk_vk, QUEUE_TYPE::OINK });
 
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
@@ -170,8 +170,7 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
         fold_output = folding_prover.prove();
 
         // Add fold proof and corresponding verification key to the verification queue
-        verification_queue.push_back(
-            bb::AztecIVC::RecursiveVerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });
+        verification_queue.push_back(bb::AztecIVC::VerifierInputs{ fold_output.proof, honk_vk, QUEUE_TYPE::PG });
     }
 
     // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)

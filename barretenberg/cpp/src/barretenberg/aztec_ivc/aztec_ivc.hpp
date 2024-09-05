@@ -68,11 +68,12 @@ class AztecIVC {
     enum class QUEUE_TYPE { OINK, PG }; // for specifying type of proof in the verification queue
 
     // An entry in the native verification queue
-    struct RecursiveVerifierInputs {
+    struct VerifierInputs {
         std::vector<FF> proof; // oink or PG
         std::shared_ptr<VerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
+    using VerificationQueue = std::vector<VerifierInputs>;
 
     // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
@@ -80,6 +81,7 @@ class AztecIVC {
         std::shared_ptr<RecursiveVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
+    using StdlibVerificationQueue = std::vector<StdlibVerifierInputs>;
 
     // Utility for tracking the max size of each block across the full IVC
     MaxBlockSizeTracker max_block_size_tracker;
@@ -96,9 +98,9 @@ class AztecIVC {
     std::shared_ptr<VerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
 
     // Set of tuples {proof, verification_key, type} to be recursively verified
-    std::vector<RecursiveVerifierInputs> verification_queue;
+    VerificationQueue verification_queue;
     // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
-    std::vector<StdlibVerifierInputs> stdlib_verification_queue;
+    StdlibVerificationQueue stdlib_verification_queue;
     // Set of merge proofs to be recursively verified
     std::vector<MergeProof> merge_verification_queue;
 
