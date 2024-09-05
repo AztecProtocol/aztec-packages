@@ -129,6 +129,7 @@ import {
   type TransientDataIndexHint,
   TxContext,
   type TxRequest,
+  VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -246,6 +247,7 @@ import type {
   TransientDataIndexHint as TransientDataIndexHintNoir,
   TxContext as TxContextNoir,
   TxRequest as TxRequestNoir,
+  VerificationKey as VerificationKeyNoir,
 } from './types/index.js';
 
 /* eslint-disable camelcase */
@@ -1543,9 +1545,12 @@ export function mapKernelDataToNoir(kernelData: KernelData): KernelDataNoir {
   };
 }
 
-export function mapVerificationKeyToNoir(key: VerificationKeyAsFields) {
+export function mapVerificationKeyToNoir(key: VerificationKeyAsFields): VerificationKeyNoir {
+  if (key.key.length !== VERIFICATION_KEY_LENGTH_IN_FIELDS) {
+    throw new Error(`Expected ${VERIFICATION_KEY_LENGTH_IN_FIELDS} fields, got ${key.key.length}`);
+  }
   return {
-    key: mapTuple(key.key, mapFieldToNoir),
+    key: mapTuple(key.key as Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>, mapFieldToNoir),
     hash: mapFieldToNoir(key.hash),
   };
 }
