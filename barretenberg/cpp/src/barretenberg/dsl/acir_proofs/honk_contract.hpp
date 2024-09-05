@@ -296,7 +296,7 @@ library TranscriptLib
 {
     function generateTranscript(Honk.Proof memory proof,
                                 Honk.VerificationKey memory vk,
-                                bytes32[] calldata publicInputs) external view returns(Transcript memory t)
+                                bytes32[] calldata publicInputs) internal view returns(Transcript memory t)
     {
         (t.eta, t.etaTwo, t.etaThree) = generateEtaChallenge(proof, publicInputs);
 
@@ -505,7 +505,7 @@ library RelationsLib {
     Fr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = Fr.wrap(17); // -(-17)
 
     function accumulateRelationEvaluations(Honk.Proof memory proof, Transcript memory tp, Fr powPartialEval)
-        external
+        internal
         view
         returns (Fr accumulator)
     {
