@@ -35,7 +35,6 @@ describe(`deploys and transfers a private only token`, () => {
       { skipProtocolContracts: true, stateLoad: undefined },
       {},
       false,
-      false,
       chain,
     ));
     proverConfig = getProverNodeConfigFromEnv();
@@ -45,12 +44,7 @@ describe(`deploys and transfers a private only token`, () => {
         ? `0x${proverNodePrivateKey?.toString('hex')}`
         : proverConfig.publisherPrivateKey;
 
-    proverNode = await createAndSyncProverNode(
-      config.l1Contracts.rollupAddress,
-      proverConfig.publisherPrivateKey,
-      config,
-      aztecNode,
-    );
+    proverNode = await createAndSyncProverNode(proverConfig.publisherPrivateKey, config, aztecNode);
   }, 600_000);
 
   afterEach(async () => {

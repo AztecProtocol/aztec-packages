@@ -1,7 +1,4 @@
-use std::meta::unquote;
-use std::meta::type_of;
-
-fn get_fn_visibility(func: FunctionDefinition) -> Quoted {
+pub(crate) fn get_fn_visibility(func: FunctionDefinition) -> Quoted {
     if func.has_named_attribute(quote { private }) {
         quote { private }
     } else {
@@ -9,15 +6,15 @@ fn get_fn_visibility(func: FunctionDefinition) -> Quoted {
     }
 }
 
-fn is_fn_private(func: FunctionDefinition) -> bool {
+pub(crate) fn is_fn_private(func: FunctionDefinition) -> bool {
     func.has_named_attribute(quote { private })
 }
 
-fn is_fn_public(func: FunctionDefinition) -> bool {
+pub(crate) fn is_fn_public(func: FunctionDefinition) -> bool {
     func.has_named_attribute(quote { public })
 }
 
-fn fn_body_as_quoted(func: FunctionDefinition) -> Quoted {
+pub(crate) fn fn_body_as_quoted(func: FunctionDefinition) -> Quoted {
     let body = func.body().as_block();
     assert(body.is_some(), "Function body must be a block");
     body.unwrap().fold(
@@ -32,7 +29,7 @@ fn fn_body_as_quoted(func: FunctionDefinition) -> Quoted {
     )
 }
 
-fn modify_fn_body(func: FunctionDefinition, prepend: Quoted, append: Quoted) {
+pub(crate) fn modify_fn_body(func: FunctionDefinition, prepend: Quoted, append: Quoted) {
     let mut body_quote = fn_body_as_quoted(func);
     body_quote = quote {
         {
@@ -46,7 +43,7 @@ fn modify_fn_body(func: FunctionDefinition, prepend: Quoted, append: Quoted) {
     func.set_body(body_expr.unwrap());
 }
 
-fn serialize_to_hasher(hasher_name: Quoted, name: Quoted, typ: Type) -> Quoted {
+pub(crate) fn serialize_to_hasher(hasher_name: Quoted, name: Quoted, typ: Type) -> Quoted {
     if typ.is_field() | typ.as_integer().is_some() {
         quote { $hasher_name.add($name as Field); }
     } else if typ.as_struct().is_some() {

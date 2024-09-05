@@ -1,41 +1,33 @@
-use std::meta::unquote;
 use std::meta::type_of;
 
-use crate::macros::utils::{modify_fn_body, serialize_to_hasher, get_fn_visibility, is_fn_private, fn_body_as_quoted};
+use crate::macros::utils::{modify_fn_body, serialize_to_hasher, is_fn_private};
+use super::utils::get_fn_visibility;
 
 pub comptime fn internal(func: FunctionDefinition) {
-    let internal_check = quote { assert(context.msg_sender() == context.this_address(), r"Function $func.name() can only be called internally"); };
+    let name = func.name();
+    let internal_check = quote { assert(context.msg_sender() == context.this_address(), f"Function {name} can only be called internally"); };
     modify_fn_body(func, internal_check, quote {});
 }
 
 pub comptime fn view(func: FunctionDefinition) {
+    let name = func.name();
     let static_check = if is_fn_private(func) {
-        quote { assert(context.inputs.call_context.is_static_call == true, r"Function $func.name() can only be called statically"); }
+        quote { assert(context.inputs.call_context.is_static_call == true, f"Function {name} can only be called statically"); }
     } else {
-        quote { assert(context.inputs.call_context.is_static_call == true, r"Function $func.name() can only be called statically"); }
+        quote { assert(context.inputs.is_static_call == true, f"Function {name} can only be called statically"); }
     };
     modify_fn_body(func, static_check, quote {});
 }
 
 pub comptime fn initializer(func: FunctionDefinition) {
-    let to_prepend = if is_fn_private(func) {
-        quote {
-            dep::aztec::initializer::assert_initialization_matches_address_preimage_private(context);
-        }
-    } else {
-        quote {
-            dep::aztec::initializer::assert_initialization_matches_address_preimage_public(context);
-        }
-    };
+    let fn_visibility = get_fn_visibility(func);
+    let to_prepend = f"dep::aztec::initializer::assert_initialization_matches_address_preimage_{fn_visibility}(context);".quoted_contents();
     modify_fn_body(func, to_prepend, quote {});
 }
 
 fn create_init_check(func: FunctionDefinition) -> Quoted {
-    if is_fn_private(func) {
-        quote { dep::aztec::initializer::assert_is_initialized_private(&mut context); }
-    } else {
-        quote { dep::aztec::initializer::assert_is_initialized_public(&mut context); }
-    }
+    let fn_visibility = get_fn_visibility(func);
+    f"dep::aztec::initializer::assert_is_initialized_{fn_visibility}(&mut context);".quoted_contents()
 }
 
 fn create_fn_abi_export(func: FunctionDefinition) -> Quoted {
@@ -47,7 +39,7 @@ fn create_fn_abi_export(func: FunctionDefinition) -> Quoted {
     }
     ).join(quote{,});
 
-    let parameters_struct_name = name.join_tokens(quote {_parameters });
+    let parameters_struct_name = f"{name}_parameters".quoted_contents();
     let parameters = quote {
         struct $parameters_struct_name {
             $parameters
@@ -61,7 +53,7 @@ fn create_fn_abi_export(func: FunctionDefinition) -> Quoted {
         quote {}
     };
 
-    let abi_struct_name = name.join_tokens(quote {_abi});
+    let abi_struct_name = f"{name}_abi".quoted_contents();
 
     let result = quote {
 
@@ -76,7 +68,8 @@ fn create_fn_abi_export(func: FunctionDefinition) -> Quoted {
     result
 }
 
-pub comptime fn private(func: FunctionDefinition) {
+pub comptime fn private(func: FunctionDefinition) -> Quoted {
+    let fn_abi = create_fn_abi_export(func);
     let current_params = func.parameters();
     func.set_parameters(
         &[
@@ -145,4 +138,5 @@ pub comptime fn private(func: FunctionDefinition) {
     func.set_return_type(
         quote { dep::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }.as_type()
     );
+    fn_abi
 }

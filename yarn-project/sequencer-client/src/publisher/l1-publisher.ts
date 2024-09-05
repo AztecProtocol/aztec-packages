@@ -1,8 +1,8 @@
 import { type L2Block, type Signature } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
-import { ETHEREUM_SLOT_DURATION, EthAddress, GENESIS_ARCHIVE_ROOT, type Header, type Proof } from '@aztec/circuits.js';
+import { ETHEREUM_SLOT_DURATION, EthAddress, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
@@ -88,13 +88,6 @@ export type L1SubmitProofArgs = {
   aggregationObject: Buffer;
 };
 
-export type MetadataForSlot = {
-  proposer: EthAddress;
-  slot: bigint;
-  pendingBlockNumber: bigint;
-  archive: Buffer;
-};
-
 /**
  * Publishes L2 blocks to L1. This implementation does *not* retry a transaction in
  * the event of network congestion, but should work for local development.
@@ -137,6 +130,7 @@ export class L1Publisher {
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
     const chain = createEthereumChain(rpcUrl, chainId);
     this.account = privateKeyToAccount(publisherPrivateKey);
+    this.log.debug(`Publishing from address ${this.account.address}`);
     const walletClient = createWalletClient({
       account: this.account,
       chain: chain.chainInfo,
@@ -175,35 +169,41 @@ export class L1Publisher {
    */
   public async canProposeAtNextEthBlock(archive: Buffer): Promise<[bigint, bigint]> {
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
-    const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([
-      ts,
-      this.account.address,
-      `0x${archive.toString('hex')}`,
-    ]);
+    const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([ts, `0x${archive.toString('hex')}`]);
     return [slot, blockNumber];
   }
 
+  /**
+   * @notice  Will call `validateHeader` to make sure that it is possible to propose
+   *
+   * @dev     Throws if unable to propose
+   *
+   * @param header - The header to propose
+   * @param digest - The digest that attestations are signing over
+   *
+   */
   public async validateBlockForSubmission(
     header: Header,
-    digest: Buffer = new Fr(GENESIS_ARCHIVE_ROOT).toBuffer(),
-    attestations: Signature[] = [],
-  ): Promise<boolean> {
+    attestationData: { digest: Buffer; signatures: Signature[] } = {
+      digest: Buffer.alloc(32),
+      signatures: [],
+    },
+  ): Promise<void> {
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
 
-    const formattedAttestations = attestations.map(attest => attest.toViemSignature());
-    const flags = { ignoreDA: true, ignoreSignatures: attestations.length == 0 };
+    const formattedSignatures = attestationData.signatures.map(attest => attest.toViemSignature());
+    const flags = { ignoreDA: true, ignoreSignatures: formattedSignatures.length == 0 };
 
     const args = [
       `0x${header.toBuffer().toString('hex')}`,
-      formattedAttestations,
-      `0x${digest.toString('hex')}`,
+      formattedSignatures,
+      `0x${attestationData.digest.toString('hex')}`,
       ts,
       flags,
     ] as const;
 
     try {
       await this.rollupContract.read.validateHeader(args, { account: this.account });
-      return true;
     } catch (error: unknown) {
       // Specify the type of error
       if (error instanceof ContractFunctionRevertedError) {
@@ -212,28 +212,8 @@ export class L1Publisher {
       } else {
         this.log.debug(`Unexpected error during validation: ${error}`);
       }
-      return false;
+      throw error;
     }
-  }
-
-  // @note Assumes that all ethereum slots have blocks
-  // Using next Ethereum block so we do NOT need to wait for it being mined before seeing the effect
-  public async getMetadataForSlotAtNextEthBlock(): Promise<MetadataForSlot> {
-    const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
-
-    const [submitter, slot, pendingBlockCount, archive] = await Promise.all([
-      this.rollupContract.read.getProposerAt([ts]),
-      this.rollupContract.read.getSlotAt([ts]),
-      this.rollupContract.read.pendingBlockCount(),
-      this.rollupContract.read.archive(),
-    ]);
-
-    return {
-      proposer: EthAddress.fromString(submitter),
-      slot,
-      pendingBlockNumber: pendingBlockCount - 1n,
-      archive: Buffer.from(archive.replace('0x', ''), 'hex'),
-    };
   }
 
   public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
@@ -271,14 +251,6 @@ export class L1Publisher {
       blockHash: block.hash().toString(),
     };
 
-    // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
-    //        This means that we can avoid the simulation issues in later checks.
-    //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
-    //        make time consistency checks break.
-    if (!(await this.validateBlockForSubmission(block.header, block.archive.root.toBuffer(), attestations))) {
-      return false;
-    }
-
     const processTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
@@ -292,7 +264,18 @@ export class L1Publisher {
       let txHash;
       const timer = new Timer();
 
-      if (await this.checkIfTxsAreAvailable(block)) {
+      const isAvailable = await this.checkIfTxsAreAvailable(block);
+
+      // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
+      //        This means that we can avoid the simulation issues in later checks.
+      //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
+      //        make time consistency checks break.
+      await this.validateBlockForSubmission(block.header, {
+        digest: block.archive.root.toBuffer(),
+        signatures: attestations ?? [],
+      });
+
+      if (isAvailable) {
         this.log.verbose(`Transaction effects of block ${block.number} already published.`, ctx);
         txHash = await this.sendProposeWithoutBodyTx(processTxArgs);
       } else {
@@ -349,7 +332,7 @@ export class L1Publisher {
       archive: archiveRoot.toBuffer(),
       proverId: proverId.toBuffer(),
       aggregationObject: serializeToBuffer(aggregationObject),
-      proof: proof.withoutPublicInputs(),
+      proof: proof.toBuffer(),
     };
 
     // Process block

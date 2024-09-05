@@ -46,7 +46,7 @@ contract Counter {
     // use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     // use dep::aztec::note::note_viewer_options::NoteViewerOptions;
     // docs:end:test_imports
-    // // docs:start:txe_test_increment
+    // docs:start:txe_test_increment
     // #[test]
     // fn test_increment() {
     //     // Setup env, generate keys
@@ -81,5 +81,5 @@ contract Counter {
     //         expected_current_value == current_value_for_owner, f"Expected {expected_current_value} but got {current_value_for_owner}"
     //     );
     // }
-    // // docs:end:txe_test_increment
+    // docs:end:txe_test_increment
 }
