@@ -3,11 +3,9 @@ import {
   AvmVerificationKeyAsFields,
   AvmVerificationKeyData,
   Fr,
-  VERIFICATION_KEY_LENGTH_IN_FIELDS,
   VerificationKeyAsFields,
   VerificationKeyData,
 } from '@aztec/circuits.js';
-import { type Tuple } from '@aztec/foundation/serialize';
 
 import { strict as assert } from 'assert';
 import * as fs from 'fs/promises';
@@ -29,10 +27,8 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
   const fields = fieldsJson.map(Fr.fromString);
   // The first item is the hash, this is not part of the actual VK
   const vkHash = fields[0];
-  assert(fields.length === VERIFICATION_KEY_LENGTH_IN_FIELDS, 'Invalid verification key length');
-  const vkAsFields = new VerificationKeyAsFields(fields as Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>, vkHash);
-  const vk = new VerificationKeyData(vkAsFields, rawBinary);
-  return vk;
+  const vkAsFields = new VerificationKeyAsFields(fields, vkHash);
+  return new VerificationKeyData(vkAsFields, rawBinary);
 }
 
 // TODO: This was adapted from the above function. A refactor might be needed.
