@@ -173,7 +173,16 @@ void AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk,
 {
 
     uint32_t offset = START_NOTE_HASH_EXISTS_WRITE_OFFSET + note_hash_exists_offset;
-    perform_kernel_output_lookup(offset, side_effect_counter, note_hash, FF(result));
+    // TODO(#8287)Lookups are heavily underconstrained atm
+    if (result == 1) {
+        perform_kernel_output_lookup(offset, side_effect_counter, note_hash, FF(result));
+    } else {
+        // if the note_hash does NOT exist, the public inputs already contains the correct output value (i.e. the
+        // actual value at the index), so we don't try to overwrite the value
+        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs)[offset] = side_effect_counter;
+        std::get<KERNEL_OUTPUTS_METADATA>(public_inputs)[offset] = FF(result);
+        kernel_output_selector_counter[offset]++;
+    }
     note_hash_exists_offset++;
 
     KernelTraceEntry entry = {
@@ -245,7 +254,16 @@ void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk,
                                                    uint32_t result)
 {
     uint32_t offset = START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET + l1_to_l2_msg_exists_offset;
-    perform_kernel_output_lookup(offset, side_effect_counter, message, FF(result));
+    // TODO(#8287)Lookups are heavily underconstrained atm
+    if (result == 1) {
+        perform_kernel_output_lookup(offset, side_effect_counter, message, FF(result));
+    } else {
+        // if the l1_to_l2_msg_exists is false, the public inputs already contains the correct output value (i.e. the
+        // actual value at the index), so we don't try to overwrite the value
+        std::get<KERNEL_OUTPUTS_SIDE_EFFECT_COUNTER>(public_inputs)[offset] = side_effect_counter;
+        std::get<KERNEL_OUTPUTS_METADATA>(public_inputs)[offset] = FF(result);
+        kernel_output_selector_counter[offset]++;
+    }
     l1_to_l2_msg_exists_offset++;
 
     KernelTraceEntry entry = {
