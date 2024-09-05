@@ -36,9 +36,9 @@ FileVerifierCrs<curve::Grumpkin>::FileVerifierCrs(std::string const& path, const
     g1_identity = monomials_[0];
 };
 
-std::span<const curve::Grumpkin::AffineElement> FileVerifierCrs<curve::Grumpkin>::get_monomial_points() const
+curve::Grumpkin::AffineElement* FileVerifierCrs<curve::Grumpkin>::get_monomial_points() const
 {
-    return { monomials_.get(), num_points * 2 };
+    return monomials_.get();
 }
 
 size_t FileVerifierCrs<curve::Grumpkin>::get_monomial_size() const
@@ -49,17 +49,15 @@ size_t FileVerifierCrs<curve::Grumpkin>::get_monomial_size() const
 template <typename Curve>
 FileCrsFactory<Curve>::FileCrsFactory(std::string path, size_t initial_degree)
     : path_(std::move(path))
-    , prover_degree_(initial_degree)
-    , verifier_degree_(initial_degree)
+    , degree_(initial_degree)
 {}
 
 template <typename Curve>
 std::shared_ptr<bb::srs::factories::ProverCrs<Curve>> FileCrsFactory<Curve>::get_prover_crs(size_t degree)
 {
-    if (prover_degree_ < degree || !prover_crs_) {
+    if (degree_ < degree || !prover_crs_) {
         prover_crs_ = std::make_shared<FileProverCrs<Curve>>(degree, path_);
-        prover_degree_ = degree;
-        info("Initializing ", Curve::name, " prover CRS from file of size ", degree);
+        degree_ = degree;
     }
     return prover_crs_;
 }
@@ -67,10 +65,9 @@ std::shared_ptr<bb::srs::factories::ProverCrs<Curve>> FileCrsFactory<Curve>::get
 template <typename Curve>
 std::shared_ptr<bb::srs::factories::VerifierCrs<Curve>> FileCrsFactory<Curve>::get_verifier_crs(size_t degree)
 {
-    if (verifier_degree_ < degree || !verifier_crs_) {
+    if (degree_ < degree || !verifier_crs_) {
         verifier_crs_ = std::make_shared<FileVerifierCrs<Curve>>(path_, degree);
-        verifier_degree_ = degree;
-        info("Initializing ", Curve::name, " verifier CRS from file of size ", degree);
+        degree_ = degree;
     }
     return verifier_crs_;
 }

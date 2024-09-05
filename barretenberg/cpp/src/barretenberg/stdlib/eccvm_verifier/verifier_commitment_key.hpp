@@ -29,8 +29,7 @@ template <typename Curve_> class VerifierCommitmentKey {
         : g1_identity(Commitment(native_pcs_verification_key->get_g1_identity()))
     {
 
-        auto native_points = native_pcs_verification_key->get_monomial_points();
-        ASSERT(num_points * 2 <= native_points.size());
+        auto* native_points = native_pcs_verification_key->get_monomial_points();
         for (size_t i = 0; i < num_points * 2; i += 2) {
             monomial_points.emplace_back(Commitment(native_points[i]));
         }

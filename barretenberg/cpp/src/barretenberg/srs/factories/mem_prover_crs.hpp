@@ -16,10 +16,7 @@ template <typename Curve> class MemProverCrs : public ProverCrs<Curve> {
         scalar_multiplication::generate_pippenger_point_table<Curve>(monomials_.get(), monomials_.get(), num_points);
     }
 
-    std::span<typename Curve::AffineElement> get_monomial_points() override
-    {
-        return { monomials_.get(), num_points * 2 };
-    }
+    typename Curve::AffineElement* get_monomial_points() override { return monomials_.get(); }
 
     size_t get_monomial_size() const override { return num_points; }
 

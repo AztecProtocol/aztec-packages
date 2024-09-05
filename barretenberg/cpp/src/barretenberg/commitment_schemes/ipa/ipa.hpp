@@ -4,7 +4,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
@@ -163,12 +162,8 @@ template <typename Curve_> class IPA {
         // Step 4.
         // Set initial vector a to the polynomial monomial coefficients and load vector G
         auto a_vec = polynomial;
-        std::span<Commitment> srs_elements = ck->srs->get_monomial_points();
+        auto* srs_elements = ck->srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
-
-        if (poly_length * 2 > srs_elements.size()) {
-            throw_or_abort("potential bug: Not enough SRS points for IPA!");
-        }
 
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
@@ -220,13 +215,13 @@ template <typename Curve_> class IPA {
             // Step 6.a (using letters, because doxygen automaticall converts the sublist counters to letters :( )
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
             L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                {&a_vec[0], /*size*/ round_size}, {&G_vec_local[round_size], /*size*/ round_size}, ck->pippenger_runtime_state);
+                {&a_vec[0], /*size*/ round_size}, &G_vec_local[round_size], ck->pippenger_runtime_state);
             L_i += aux_generator * inner_prod_L;
 
             // Step 6.b
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
             R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                {&a_vec[round_size], /*size*/ round_size}, {&G_vec_local[0], /*size*/ round_size}, ck->pippenger_runtime_state);
+                {&a_vec[round_size], /*size*/ round_size}, &G_vec_local[0], ck->pippenger_runtime_state);
             R_i += aux_generator * inner_prod_R;
 
             // Step 6.c
@@ -350,7 +345,7 @@ template <typename Curve_> class IPA {
         // Step 5.
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
         GroupElement LR_sums = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            {&msm_scalars[0], /*size*/ pippenger_size}, {&msm_elements[0], /*size*/ pippenger_size}, vk->pippenger_runtime_state);
+            {&msm_scalars[0], /*size*/ pippenger_size}, &msm_elements[0], vk->pippenger_runtime_state);
         GroupElement C_zero = C_prime + LR_sums;
 
         //  Step 6.
@@ -382,10 +377,8 @@ template <typename Curve_> class IPA {
                 }
             }, thread_heuristics::FF_MULTIPLICATION_COST * log_poly_degree);
 
-        std::span<const Commitment> srs_elements = vk->get_monomial_points();
-        if (poly_length * 2 > srs_elements.size()) {
-            throw_or_abort("potential bug: Not enough SRS points for IPA!");
-        }
+        auto* srs_elements = vk->get_monomial_points();
+
         // Copy the G_vector to local memory.
         std::vector<Commitment> G_vec_local(poly_length);
 
@@ -401,7 +394,7 @@ template <typename Curve_> class IPA {
         // Step 8.
         // Compute G₀
         Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            {&s_vec[0], /*size*/ poly_length}, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state);
+            {&s_vec[0], /*size*/ poly_length}, &G_vec_local[0], vk->pippenger_runtime_state);
 
         // Step 9.
         // Receive a₀ from the prover
