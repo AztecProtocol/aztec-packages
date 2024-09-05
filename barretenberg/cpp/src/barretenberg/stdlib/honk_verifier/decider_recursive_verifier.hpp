@@ -17,20 +17,20 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using PairingPoints = std::array<GroupElement, 2>;
-    using Instance = RecursiveVerifierInstance_<Flavor>;
-    using NativeInstance = bb::VerifierInstance_<NativeFlavor>;
+    using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
+    using NativeDeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
   public:
-    explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<NativeInstance> accumulator)
+    explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<NativeDeciderVK> accumulator)
         : builder(builder)
-        , accumulator(std::make_shared<Instance>(builder, accumulator)){};
+        , accumulator(std::make_shared<RecursiveDeciderVK>(builder, accumulator)){};
 
     PairingPoints verify_proof(const HonkProof& proof);
 
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     Builder* builder;
-    std::shared_ptr<Instance> accumulator;
+    std::shared_ptr<RecursiveDeciderVK> accumulator;
     std::shared_ptr<Transcript> transcript;
 };
 
