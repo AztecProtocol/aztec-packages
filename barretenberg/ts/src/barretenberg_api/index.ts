@@ -332,13 +332,7 @@ export class BarretenbergApi {
     constraintSystemBuf: Uint8Array,
     honkRecursion: boolean,
   ): Promise<[number, number, number]> {
-    console.log('type of honkRecursion: ', typeof honkRecursion);
-    console.log('in index.ts: honkRecursion: ', honkRecursion);
-    const honkRecursionUint32: number = honkRecursion ? 1 : 0;
-    console.log('in index.ts: honkRecursion: ', honkRecursion);
-    console.log('in index.ts: honkRecursionUint32: ', honkRecursionUint32);
-
-    const inArgs = [constraintSystemBuf, honkRecursionUint32].map(serializeBufferable);
+    const inArgs = [constraintSystemBuf, honkRecursion].map(serializeBufferable);
     const outTypes: OutputType[] = [NumberDeserializer(), NumberDeserializer(), NumberDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_get_circuit_sizes',

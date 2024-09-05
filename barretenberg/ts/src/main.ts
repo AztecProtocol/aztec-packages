@@ -326,7 +326,7 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
 }
 
 export async function proveUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
-  const { api } = await init(bytecodePath, crsPath, -1, false);
+  const { api } = await init(bytecodePath, crsPath, -1, /* honkRecursion= */ true);
   try {
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);

@@ -14,7 +14,7 @@
 #include <memory>
 
 WASM_EXPORT void acir_get_circuit_sizes(
-    uint8_t const* acir_vec, uint32_t const* honk_recursion, uint32_t* exact, uint32_t* total, uint32_t* subgroup)
+    uint8_t const* acir_vec, bool const* honk_recursion, uint32_t* exact, uint32_t* total, uint32_t* subgroup)
 {
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), *honk_recursion);
@@ -91,9 +91,10 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
     auto witness_stack = acir_format::witness_buf_to_witness_stack(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     ProgramStack program_stack{ constraint_systems, witness_stack };
+    info("program stack size: ", constraint_systems.size());
 
     ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::SMALL_TEST;
+    ivc.trace_structure = TraceStructure::NONE;
 
     while (!program_stack.empty()) {
         auto stack_item = program_stack.back();
@@ -202,15 +203,16 @@ WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_compose
 WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out)
 {
     auto constraint_system =
-        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
+        acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/false);
     auto witness = acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec));
 
     auto builder =
-        acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, witness, /*honk_recursion=*/true);
+        acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, witness, /*honk_recursion=*/false);
 
     UltraProver prover{ builder };
     auto proof = prover.construct_proof();
     *out = to_heap_buffer(to_buffer</*include_size=*/true>(proof));
+    info("end of acir_prove_ultra_honk");
 }
 
 WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result)
