@@ -84,6 +84,14 @@ describe('e2e_p2p_network', () => {
     await cheatCodes.warp(Number(timestamp));
   });
 
+
+  const stopNodes = async (bootstrap: BootstrapNode, nodes: AztecNodeService[]) => {
+    for (const node of nodes) {
+      await node.stop();
+    }
+    await bootstrap.stop();
+  }
+
   afterEach(() => teardown());
 
   afterAll(() => {
@@ -92,13 +100,7 @@ describe('e2e_p2p_network', () => {
     }
   });
 
-  const jumpIntoNextEpoch = async () => {
-    const currentTimestamp = await cheatCodes.eth.timestamp();
-    const timeJump = currentTimestamp + (AZTEC_EPOCH_DURATION * AZTEC_SLOT_DURATION);
-    await cheatCodes.eth.warp(timeJump + 1);
-  };
-
-  it.only('should rollup txs from all peers', async () => {
+  it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
@@ -116,8 +118,6 @@ describe('e2e_p2p_network', () => {
       BOOT_NODE_UDP_PORT,
     );
 
-    // Warp an entire epoch ahead. So that the committee exists
-    // await jumpIntoNextEpoch();
     // wait a bit for peers to discover each other
     await sleep(4000);
 
@@ -137,12 +137,70 @@ describe('e2e_p2p_network', () => {
     );
 
     // shutdown all nodes.
-    for (const context of contexts) {
-      await context.node.stop();
-      await context.pxeService.stop();
-    }
-    await bootstrapNode.stop();
+    await stopNodes(bootstrapNode, nodes);
   });
+
+  it("should produce an attestation by requesting tx data over the p2p network", async () => {
+
+    // Birds eye overview of the test
+    // We spin up x nodes
+    // We turn off receiving a tx via gossip from one of the nodes
+    // We send a transaction and gossip it to other nodes
+    // This node will receive an attestation that it does not have the data for
+    // It will request this data over the p2p layer
+    // We receive all of the attestations that we need and we produce the block
+
+    if (!bootstrapNodeEnr) {
+      throw new Error('Bootstrap node ENR is not available');
+    }
+    // create our network of nodes and submit txs into each of them
+    // the number of txs per node and the number of txs per rollup
+    // should be set so that the only way for rollups to be built
+    // is if the txs are successfully gossiped around the nodes.
+    const contexts: NodeContext[] = [];
+    const nodes: AztecNodeService[] = await createNodes(
+      config,
+      PEER_ID_PRIVATE_KEYS,
+      bootstrapNodeEnr,
+      NUM_NODES ,
+      BOOT_NODE_UDP_PORT,
+    );
+
+    // wait a bit for peers to discover each other
+    await sleep(4000);
+
+    console.log("\n\n\n\n\nALL NODES ARE CREATED\n\n\n\n\n");
+
+    // Replace the p2p node implementation of one of the nodes with a spy such that it does not store transactions that are gossiped to it
+    const nodeToTurnOff = 0;
+    jest.spyOn((nodes[nodeToTurnOff] as any).p2pClient.p2pService, 'processTxFromPeer')
+      .mockImplementation((args: any): Promise<void> => {
+        console.log("mocked implementation of received transasction from peer", args.getTxHash());
+        return Promise.resolve();
+    });
+
+    // In this shuffle, the node that we turned off receipt through gossiping with will be the third to create a block
+    // And it will not produce a rollup as nothing exists within it's tx pool.
+    // So we only send transactions to the first two nodes
+    for (let i = 0; i < 2; i++) {
+      // The node which we disabled receiving from gossip from will not have any transactions in it's mempool
+      const context = await createPXEServiceAndSubmitTransactions(nodes[i], NUM_TXS_PER_NODE);
+      contexts.push(context);
+    }
+
+    await Promise.all(
+      contexts.flatMap((context, i) =>
+        context.txs.map(async (tx, j) => {
+          logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
+          await tx.wait();
+          logger.info(`Tx ${i}-${j}: ${await tx.getTxHash()} has been mined`);
+          return await tx.getTxHash();
+        }),
+      ),
+    );
+
+    await stopNodes(bootstrapNode, nodes);
+  })
 
   it('should re-discover stored peers without bootstrap node', async () => {
     const contexts: NodeContext[] = [];
@@ -201,11 +259,7 @@ describe('e2e_p2p_network', () => {
     );
 
     // shutdown all nodes.
-    // for (const context of contexts) {
-    for (const context of contexts) {
-      await context.node.stop();
-      await context.pxeService.stop();
-    }
+    await stopNodes(bootstrapNode, newNodes);
   });
 
   // creates an instance of the PXE and submit a given number of transactions to it.

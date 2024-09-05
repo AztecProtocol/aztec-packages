@@ -538,6 +538,7 @@ export class Sequencer {
 
     this.log.verbose("ATTEST | Creating block proposal");
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
+    console.log("PROPOSAL send form sequencer ", await proposal.getSender());
 
     this.state = SequencerState.PUBLISHING_BLOCK_TO_PEERS;
     this.log.verbose("Broadcasting block proposal to validators");
@@ -576,6 +577,7 @@ export class Sequencer {
 
     const publishedL2Block = await this.publisher.processL2Block(block, attestations, txHashes);
     if (publishedL2Block) {
+      console.log("\n\n\n\nPUBLISHED L2 BLOCK", block.number, " with tx hashes ", txHashes);
       this.lastPublishedBlock = block.number;
     } else {
       throw new Error(`Failed to publish block ${block.number}`);

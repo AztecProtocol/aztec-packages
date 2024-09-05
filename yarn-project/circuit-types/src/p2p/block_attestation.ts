@@ -56,8 +56,7 @@ export class BlockAttestation extends Gossipable {
     if (!this.sender) {
       // Recover the sender from the attestation
       const payload = serializeToBuffer([this.archive, this.txHashes]);
-      console.log("ATTESTATION PAYLOAD", payload);
-      // TODO(md) - temporarily hashing again to hav eless changes in the rollup
+      // TODO(md) - temporarily hashing again to have less changes in the rollup
       const hashed = keccak256(payload);
       // const payload0x: `0x${string}` = `0x${payload.toString('hex')}`;
       const address = await recoverMessageAddress({

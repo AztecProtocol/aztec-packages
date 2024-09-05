@@ -64,22 +64,56 @@ export class ValidatorClient implements Validator {
 
   public registerBlockProposalHandler() {
     const handler = (block: BlockProposal): Promise<BlockAttestation> => {
-      return this.validationService.attestToProposal(block);
+      return this.attestToProposal(block);
     };
     this.p2pClient.registerBlockProposalHandler(handler);
   }
 
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation> {
-    // Check that we have all of the proposal's transactions in our p2p client
-    const txHashes = proposal.txs;
-    const haveTx = txHashes.map(txHash => this.p2pClient.getTxStatus(txHash));
+    // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
+    await this.ensureTransactionsAreAvailable(proposal);
+    this.log.debug(`Transactions available, attesting to proposal with ${proposal.txs.length} transactions`);
 
-    if (haveTx.length !== txHashes.length) {
-      console.log("WE ARE MISSING TRANSCTIONS");
-    }
-
+    // If the above function does not throw an error, then we can attest to the proposal
     return this.validationService.attestToProposal(proposal);
   }
+
+  /**
+   * Ensure that all of the transactions in the proposal are available in the tx pool before attesting
+   *
+   * 1. Check if the local tx pool contains all of the transactions in the proposal
+   * 2. If any transactions are not in the local tx pool, request them from the network
+   * 3. If we cannot retrieve them from the network, throw an error
+   * @param proposal - The proposal to attest to
+   */
+  async ensureTransactionsAreAvailable(proposal: BlockProposal) {
+    const txHashes: TxHash[] = proposal.txs;
+
+    const transactionStatuses = txHashes.map(txHash => this.p2pClient.getTxStatus(txHash));
+    const haveAllTxs = transactionStatuses.every(tx => tx === 'pending' || tx === 'mined');
+
+    // Only in an if statement here for logging purposes
+    if (!haveAllTxs) {
+      const missingTxs: TxHash[] = txHashes.map((_, index) => {
+        if (!transactionStatuses[index]) {
+          return txHashes[index];
+        }
+        return undefined;
+      }).filter(tx => tx !== undefined) as TxHash[];
+
+      this.log.verbose(`Missing ${missingTxs.length} attestations transactions in the tx pool, requesting from the network`);
+
+      if (missingTxs) {
+        // If transactions are requested successfully, they will be written into the tx pool
+        const requestedTxs = await this.p2pClient.requestTxs(missingTxs);
+        const successfullyRetrievedMissingTxs = requestedTxs.every(tx => tx !== undefined);
+        if (!successfullyRetrievedMissingTxs) {
+          throw new Error("Failed to retrieve missing transactions");
+        }
+      }
+    }
+  }
+
 
   createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
     return this.validationService.createBlockProposal(header, archive, txs);
