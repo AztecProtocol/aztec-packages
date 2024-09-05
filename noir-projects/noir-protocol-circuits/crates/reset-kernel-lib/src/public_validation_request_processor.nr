@@ -20,7 +20,8 @@ use dep::types::{
     MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
     NOTE_HASH_TREE_HEIGHT
 },
-    data::OverridablePublicDataTreeLeaf, hash::compute_siloed_nullifier, partial_state_reference::PartialStateReference, traits::is_empty,
+    data::OverridablePublicDataTreeLeaf, hash::compute_siloed_nullifier,
+    partial_state_reference::PartialStateReference, traits::is_empty,
     utils::arrays::{array_merge, array_to_bounded_vec, assert_sorted_array}
 };
 
