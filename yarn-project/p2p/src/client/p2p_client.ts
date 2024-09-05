@@ -296,19 +296,17 @@ export class P2PClient implements P2P {
     // TODO: adjust this - what if one peer can service all of the requests? then we do not need to send all of these at once and overload the peer
     // have a thinky
     const requestPromises = txHashes.map(txHash => this.requestTxByHash(txHash));
-
     return Promise.all(requestPromises);
   }
 
   public async requestTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    // Underlying I want to use the libp2p service to just have a request method where the subprotocol is defined here
-    console.log("REQUESTING TX BY HASH via req resp!", txHash);
-    const tx =  await this.p2pService.sendRequest(TX_REQ_PROTOCOL, txHash);
-    console.log("GOT TX FROM REQ RESP", tx);
+    const tx = await this.p2pService.sendRequest(TX_REQ_PROTOCOL, txHash);
+
+    this.log.debug(`Requested ${txHash.toString()} from peer | success = ${!!tx}`);
     if (tx) {
-      // tODO: do i need this await
       await this.txPool.addTxs([tx]);
     }
+
     return tx;
   }
 

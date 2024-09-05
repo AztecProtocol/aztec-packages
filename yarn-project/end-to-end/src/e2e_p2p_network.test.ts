@@ -1,12 +1,18 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
-import { CheatCodes, CompleteAddress, type DebugLogger, Fr, GrumpkinScalar, type SentTx, TxStatus, sleep,
+import {
+  CompleteAddress,
+  type DebugLogger,
   type DeployL1Contracts,
   EthCheatCodes,
+  Fr,
+  GrumpkinScalar,
+  type SentTx,
+  TxStatus,
+  sleep,
 } from '@aztec/aztec.js';
-import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
-import {
-} from '@aztec/aztec.js';
+import '@aztec/aztec.js';
+import { EthAddress } from '@aztec/circuits.js';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { type BootstrapNode } from '@aztec/p2p';
 import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
@@ -39,7 +45,6 @@ describe('e2e_p2p_network', () => {
   let teardown: () => Promise<void>;
   let bootstrapNode: BootstrapNode;
   let bootstrapNodeEnr: string;
-  let cheatCodes: CheatCodes;
   let deployL1ContractsValues: DeployL1Contracts;
 
   beforeEach(async () => {
@@ -84,13 +89,12 @@ describe('e2e_p2p_network', () => {
     await cheatCodes.warp(Number(timestamp));
   });
 
-
   const stopNodes = async (bootstrap: BootstrapNode, nodes: AztecNodeService[]) => {
     for (const node of nodes) {
       await node.stop();
     }
     await bootstrap.stop();
-  }
+  };
 
   afterEach(() => teardown());
 
@@ -140,8 +144,7 @@ describe('e2e_p2p_network', () => {
     await stopNodes(bootstrapNode, nodes);
   });
 
-  it("should produce an attestation by requesting tx data over the p2p network", async () => {
-
+  it('should produce an attestation by requesting tx data over the p2p network', async () => {
     // Birds eye overview of the test
     // We spin up x nodes
     // We turn off receiving a tx via gossip from one of the nodes
@@ -162,22 +165,20 @@ describe('e2e_p2p_network', () => {
       config,
       PEER_ID_PRIVATE_KEYS,
       bootstrapNodeEnr,
-      NUM_NODES ,
+      NUM_NODES,
       BOOT_NODE_UDP_PORT,
     );
 
     // wait a bit for peers to discover each other
     await sleep(4000);
 
-    console.log("\n\n\n\n\nALL NODES ARE CREATED\n\n\n\n\n");
-
     // Replace the p2p node implementation of one of the nodes with a spy such that it does not store transactions that are gossiped to it
-    const nodeToTurnOff = 0;
-    jest.spyOn((nodes[nodeToTurnOff] as any).p2pClient.p2pService, 'processTxFromPeer')
-      .mockImplementation((args: any): Promise<void> => {
-        console.log("mocked implementation of received transasction from peer", args.getTxHash());
+    const nodeToTurnOffTxGossip = 0;
+    jest
+      .spyOn((nodes[nodeToTurnOffTxGossip] as any).p2pClient.p2pService, 'processTxFromPeer')
+      .mockImplementation((): Promise<void> => {
         return Promise.resolve();
-    });
+      });
 
     // In this shuffle, the node that we turned off receipt through gossiping with will be the third to create a block
     // And it will not produce a rollup as nothing exists within it's tx pool.
@@ -200,7 +201,7 @@ describe('e2e_p2p_network', () => {
     );
 
     await stopNodes(bootstrapNode, nodes);
-  })
+  });
 
   it('should re-discover stored peers without bootstrap node', async () => {
     const contexts: NodeContext[] = [];

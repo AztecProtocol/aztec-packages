@@ -1,10 +1,10 @@
 import { BlockAttestation, BlockProposal, type TxHash } from '@aztec/circuit-types';
 import { type Header } from '@aztec/circuits.js';
+import { keccak256 } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type ValidatorKeyStore } from '../key_store/interface.js';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
-import { keccak256 } from '@aztec/foundation/crypto';
 
 export class ValidationService {
   constructor(private keyStore: ValidatorKeyStore) {}

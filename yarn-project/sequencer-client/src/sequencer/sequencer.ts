@@ -6,7 +6,7 @@ import {
   type ProcessedTx,
   Signature,
   Tx,
-  TxHash,
+  type TxHash,
   type TxValidator,
 } from '@aztec/circuit-types';
 import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
@@ -489,9 +489,9 @@ export class Sequencer {
     const txHashes = validTxs.map(tx => tx.getTxHash());
 
     this.isFlushing = false;
-    this.log.verbose("Collecting attestations");
+    this.log.verbose('Collecting attestations');
     const attestations = await this.collectAttestations(block, txHashes);
-    this.log.verbose("Attestations collected");
+    this.log.verbose('Attestations collected');
 
     try {
       await this.publishL2Block(block, attestations, txHashes);
@@ -535,11 +535,11 @@ export class Sequencer {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7974): we do not have transaction[] lists in the block for now
     // Dont do anything with the proposals for now - just collect them
 
-    this.log.verbose("ATTEST | Creating block proposal");
+    this.log.verbose('ATTEST | Creating block proposal');
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
 
     this.state = SequencerState.PUBLISHING_BLOCK_TO_PEERS;
-    this.log.verbose("Broadcasting block proposal to validators");
+    this.log.verbose('Broadcasting block proposal to validators');
     this.validatorClient.broadcastBlockProposal(proposal);
 
     // Note do we know if it is wating for attestations as it thinks it should be
@@ -553,7 +553,6 @@ export class Sequencer {
     // // TODO: clean: SELF REPORT LMAO
     // const selfSign = await this.validatorClient.attestToProposal(proposal);
     // attestations.push(selfSign);
-
 
     // note: the smart contract requires that the signatures are provided in the order of the committee
     return await orderAttestations(attestations, committee);

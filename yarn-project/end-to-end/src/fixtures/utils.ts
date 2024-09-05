@@ -149,7 +149,6 @@ export const setupL1Contracts = async (
     },
   };
 
-  console.log("Initial validators", args.initialValidators);
   const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, l1Artifacts, {
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),

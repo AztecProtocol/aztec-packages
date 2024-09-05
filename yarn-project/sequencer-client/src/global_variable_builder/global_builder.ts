@@ -69,9 +69,7 @@ export class GlobalVariableBuilder {
       slotNumber = await this.rollupContract.read.getSlotAt([ts]);
     }
 
-    // TODO: why does this work if I - 1 it
     const timestamp = await this.rollupContract.read.getTimestampForSlot([slotNumber]);
-    console.log("timestamp from the chain ", timestamp, " for the slot number ", slotNumber);
 
     const slotFr = new Fr(slotNumber);
     const timestampFr = new Fr(timestamp);

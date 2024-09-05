@@ -62,7 +62,6 @@ export class Watcher {
           this.logger.error(`Failed to warp to timestamp ${timestamp}: ${e}`);
         }
 
-        console.log("The watcher has jumped slot")
         this.logger.info(`Slot ${currentSlot} was filled, jumped to next slot`);
       }
     } catch (err) {

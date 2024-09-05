@@ -1,5 +1,6 @@
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { Fr } from '@aztec/foundation/fields';
+import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type PrivateKeyAccount } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
@@ -8,7 +9,6 @@ import { TxHash } from '../tx/tx_hash.js';
 import { BlockAttestation } from './block_attestation.js';
 import { BlockProposal } from './block_proposal.js';
 import { Signature } from './signature.js';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 export const makeBlockProposal = async (signer?: PrivateKeyAccount): Promise<BlockProposal> => {
   signer = signer || randomSigner();

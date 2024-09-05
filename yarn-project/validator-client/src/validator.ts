@@ -26,7 +26,6 @@ export interface Validator {
 /** Validator Client
  */
 export class ValidatorClient implements Validator {
-
   private validationService: ValidationService;
 
   constructor(
@@ -34,7 +33,8 @@ export class ValidatorClient implements Validator {
     private p2pClient: P2P,
     private attestationPoolingIntervalMs: number,
     private attestationWaitTimeoutMs: number,
-    private log = createDebugLogger('aztec:validator')) {
+    private log = createDebugLogger('aztec:validator'),
+  ) {
     //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
 
     this.validationService = new ValidationService(keyStore);
@@ -48,7 +48,7 @@ export class ValidatorClient implements Validator {
       localKeyStore,
       p2pClient,
       config.attestationPoolingIntervalMs,
-      config.attestationWaitTimeoutMs
+      config.attestationWaitTimeoutMs,
     );
     validator.registerBlockProposalHandler();
     return validator;
@@ -94,26 +94,29 @@ export class ValidatorClient implements Validator {
 
     // Only in an if statement here for logging purposes
     if (!haveAllTxs) {
-      const missingTxs: TxHash[] = txHashes.map((_, index) => {
-        if (!transactionStatuses[index]) {
-          return txHashes[index];
-        }
-        return undefined;
-      }).filter(tx => tx !== undefined) as TxHash[];
+      const missingTxs: TxHash[] = txHashes
+        .map((_, index) => {
+          if (!transactionStatuses[index]) {
+            return txHashes[index];
+          }
+          return undefined;
+        })
+        .filter(tx => tx !== undefined) as TxHash[];
 
-      this.log.verbose(`Missing ${missingTxs.length} attestations transactions in the tx pool, requesting from the network`);
+      this.log.verbose(
+        `Missing ${missingTxs.length} attestations transactions in the tx pool, requesting from the network`,
+      );
 
       if (missingTxs) {
         // If transactions are requested successfully, they will be written into the tx pool
         const requestedTxs = await this.p2pClient.requestTxs(missingTxs);
         const successfullyRetrievedMissingTxs = requestedTxs.every(tx => tx !== undefined);
         if (!successfullyRetrievedMissingTxs) {
-          throw new Error("Failed to retrieve missing transactions");
+          throw new Error('Failed to retrieve missing transactions');
         }
       }
     }
   }
-
 
   createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
     return this.validationService.createBlockProposal(header, archive, txs);
@@ -150,7 +153,9 @@ export class ValidatorClient implements Validator {
 
       // Rememebr we can subtract 1 from this if we self sign
       if (attestations.length < numberOfRequiredAttestations) {
-        this.log.verbose(`SEAN: collected ${attestations.length} attestations so far ${numberOfRequiredAttestations} required`);
+        this.log.verbose(
+          `SEAN: collected ${attestations.length} attestations so far ${numberOfRequiredAttestations} required`,
+        );
         this.log.verbose(`Waiting ${this.attestationPoolingIntervalMs}ms for more attestations...`);
         await sleep(this.attestationPoolingIntervalMs);
       }

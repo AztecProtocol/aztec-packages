@@ -5,10 +5,10 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { keccak256, recoverMessageAddress } from 'viem';
 
+import { TxHash } from '../tx/tx_hash.js';
 import { Gossipable } from './gossipable.js';
 import { Signature } from './signature.js';
 import { TopicType, createTopicString } from './topic_type.js';
-import { TxHash } from '../tx/tx_hash.js';
 
 export class BlockAttestationHash extends Buffer32 {
   constructor(hash: Buffer) {
@@ -71,12 +71,17 @@ export class BlockAttestation extends Gossipable {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.header, this.archive, this.txHashes.length, this.txHashes,   this.signature]);
+    return serializeToBuffer([this.header, this.archive, this.txHashes.length, this.txHashes, this.signature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
     const reader = BufferReader.asReader(buf);
-    return new BlockAttestation(reader.readObject(Header), reader.readObject(Fr), reader.readArray(reader.readNumber(), TxHash), reader.readObject(Signature));
+    return new BlockAttestation(
+      reader.readObject(Header),
+      reader.readObject(Fr),
+      reader.readArray(reader.readNumber(), TxHash),
+      reader.readObject(Signature),
+    );
   }
 
   static empty(): BlockAttestation {

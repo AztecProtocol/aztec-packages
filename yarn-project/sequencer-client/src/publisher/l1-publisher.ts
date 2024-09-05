@@ -1,7 +1,8 @@
-import { TxHash, type L2Block, type Signature } from '@aztec/circuit-types';
+import { type L2Block, type Signature, type TxHash } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import { ETHEREUM_SLOT_DURATION, EthAddress, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
+import { keccak256 } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
@@ -32,7 +33,6 @@ import type * as chains from 'viem/chains';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
-import { keccak256 } from '@aztec/foundation/crypto';
 
 /**
  * Stats for a sent transaction.
@@ -91,7 +91,6 @@ export type L1SubmitProofArgs = {
   /** The aggregation object for the block's proof. */
   aggregationObject: Buffer;
 };
-
 
 export type MetadataForSlot = {
   proposer: EthAddress;
@@ -251,28 +250,8 @@ export class L1Publisher {
     };
   }
 
-
-  // /**
-  //  * @notice  Calls `getCommitteeAt` with the time of the next Ethereum block
-  //  * @return committee - The committee at the next Ethereum block
-  //  */
-  // public async getCommitteeAtNextEthBlock(): Promise<EthAddress[]> {
-  //   // TODO(md): reuse as a helper?
-  //   const lastBlockTimestamp = (await this.publicClient.getBlock()).timestamp;
-  //   console.log('lastBlockTimestamp', lastBlockTimestamp);
-  //   const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
-  //   console.log('ts', ts);
-  //   const committee = await this.rollupContract.read.getCommitteeAt([
-  //     ts,
-  //   ]);
-  //   console.log('returned committee', committee);
-  //   return committee.map(EthAddress.fromString);
-  // }
-
-
   public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
     const committee = await this.rollupContract.read.getCurrentEpochCommittee();
-    console.log('returned committee', committee);
     return committee.map(EthAddress.fromString);
   }
 
@@ -317,8 +296,6 @@ export class L1Publisher {
       attestations,
       txHashes: txHashes ?? [], // NTS(md): should be 32 bytes?
     };
-
-    console.log('proposeTxArgs', proposeTxArgs);
 
     // Publish body and propose block (if not already published)
     if (!this.interrupted) {
@@ -555,14 +532,11 @@ export class L1Publisher {
             `0x${encodedData.body.toString('hex')}`,
           ] as const;
 
-          // console.log('args length', args.length);
-
           // We almost always want to skip simulation here if we are not already within the slot, else we will be one slot ahead
           if (!L1Publisher.SKIP_SIMULATION) {
             const simulationResult = await this.rollupContract.simulate.proposeWithBody(args, {
               account: this.account,
             });
-            console.log(simulationResult);
           }
 
           return await this.rollupContract.write.proposeWithBody(args, {
@@ -594,9 +568,12 @@ export class L1Publisher {
           const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
           if (revertError instanceof ContractFunctionRevertedError) {
             // TODO: turn this into a function
-            const errorName = revertError.data?.errorName ?? "";
-            const args = revertError.metaMessages && revertError.metaMessages?.length > 1 ? revertError.metaMessages[1].trimStart() : '';
-            this.log.error(`propose failed with "${errorName}${args}"`)
+            const errorName = revertError.data?.errorName ?? '';
+            const args =
+              revertError.metaMessages && revertError.metaMessages?.length > 1
+                ? revertError.metaMessages[1].trimStart()
+                : '';
+            this.log.error(`propose failed with "${errorName}${args}"`);
             return undefined;
           }
         }

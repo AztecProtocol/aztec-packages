@@ -1,6 +1,11 @@
 import { AZTEC_SLOT_DURATION } from '@aztec/circuits.js';
 import { NULL_KEY } from '@aztec/ethereum';
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 
 /**
  * The Validator Configuration
