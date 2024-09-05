@@ -105,9 +105,12 @@ gates-report:
   FROM +source
   WORKDIR /usr/src/noir-projects
 
-  COPY ./gates_report.sh ./gates_report.sh
-
   ENV BB_BIN /usr/src/barretenberg/cpp/build/bin/bb
+
+  RUN yarn
+  RUN cd noir-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
+
+  COPY ./gates_report.sh ./gates_report.sh
   RUN ./gates_report.sh
 
   SAVE ARTIFACT ./noir-protocol-circuits/gates_report.json gates_report.json
