@@ -1,29 +1,17 @@
 #pragma once
 
 #include "../bigfield/bigfield.hpp"
+#include "../bigfield/goblin_field.hpp"
 #include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "../memory/rom_table.hpp"
 #include "../memory/twin_rom_table.hpp"
-#include "./goblin_field.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/707) If using a a circuit builder with Goblin, which is
-// designed to have efficient bb::g1 operations, a developer might accidentally write inefficient circuits
-// using biggroup functions that do not use the OpQueue. We use this concept to prevent compilation of such functions.
-namespace bb::stdlib {
-template <typename Builder, typename NativeGroup>
-concept IsNotGoblinInefficiencyTrap = !(IsMegaBuilder<Builder> && std::same_as<NativeGroup, bb::g1>);
 
-template <typename Builder, class Fq, class Fr, class NativeGroup>
-concept IsGoblinBigGroup =
-    IsMegaBuilder<Builder> && std::same_as<Fq, bb::stdlib::bigfield<Builder, bb::Bn254FqParams>> &&
-    std::same_as<Fr, bb::stdlib::field_t<Builder>> && std::same_as<NativeGroup, bb::g1>;
-
-} // namespace bb::stdlib
 namespace bb::stdlib::element_default {
 
 // ( ͡° ͜ʖ ͡°)
@@ -953,6 +941,15 @@ namespace bb::stdlib {
 template <typename T>
 concept IsBigGroup = std::is_same_v<typename T::biggroup_tag, T>;
 
+template <typename Builder, class Fq, class Fr, class NativeGroup>
+concept IsGoblinBigGroup =
+    IsMegaBuilder<Builder> && std::same_as<Fq, bb::stdlib::bigfield<Builder, bb::Bn254FqParams>> &&
+    std::same_as<Fr, bb::stdlib::field_t<Builder>> && std::same_as<NativeGroup, bb::g1>;
+
+/**
+ * @brief element wraps either element_default::element or element_goblin::goblin_element depending on parametrisation
+ * @details if C = MegaBuilder, G = bn254, Fq = bigfield<C, bb::Bn254FqParams>, Fr = field_t then we're cooking
+ */
 template <typename C, typename Fq, typename Fr, typename G>
 using element = std::conditional_t<IsGoblinBigGroup<C, Fq, Fr, G>,
                                    element_goblin::goblin_element<C, goblin_field<C>, Fr, G>,

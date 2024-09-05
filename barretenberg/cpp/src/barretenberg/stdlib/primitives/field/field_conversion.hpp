@@ -2,7 +2,7 @@
 
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
-#include "barretenberg/stdlib/primitives/biggroup/goblin_field.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/goblin_field.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
@@ -107,28 +107,15 @@ template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builde
         result.y = convert_from_bn254_frs<Builder, BaseField>(
             builder, fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
 
-        auto sum = fr_vec[0].add_two(fr_vec[1], fr_vec[2]);
-        sum = sum + fr_vec[3];
+        // We have a convention that the group element is at infinity if both x/y coordinates are 0.
+        // We also know that all bn254 field elements are 136-bit scalars.
+        // Therefore we can do a cheap "iszero" check by checking the vector sum is 0
+        fr<Builder> sum;
+        for (size_t i = 0; i < BASE_FIELD_SCALAR_SIZE; i += 1) {
+            sum = sum.add_two(fr_vec[2 * i], fr_vec[2 * i + 1]);
+        }
         result.set_point_at_infinity(sum.is_zero());
         return result;
-
-        // we know that all Field elements are constrained to 136 bits.
-        // therefore, if we add them all together, the only way the sum is zero is if all are zero
-        // 19 gates to 6 gates
-        // is zero
-
-        // A * is_zero = 0
-        // (1 - is_zero) * (A * I - 1) = 0
-        // AI - 1 - is_zero * AI + is_zero = 0
-
-        // AZ + AI - 1 - ZAI + Z = 0
-
-        // Z + I - ZI = t0
-        // A * t0 + Z - 1 = 0
-        // we can reduce to 3 gates (2.25 if we fix bool checks)
-        // result.set_point_at_infinity(fr_vec[0].is_zero() && fr_vec[1].is_zero() && fr_vec[2].is_zero() &&
-        //                              fr_vec[3].is_zero());
-        // return result;
     } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
         using BaseField = fr<Builder>;
         constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, BaseField>();

@@ -1,24 +1,33 @@
 #pragma once
 
 #include "../bigfield/bigfield.hpp"
+#include "../bigfield/goblin_field.hpp"
 #include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "../memory/rom_table.hpp"
 #include "../memory/twin_rom_table.hpp"
-#include "./goblin_field.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
-// // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) If using a a circuit builder with Goblin, which is
-// // designed to have efficient bb::g1 operations, a developer might accidentally write inefficient circuits
-// // using biggroup functions that do not use the OpQueue. We use this concept to prevent compilation of such
-// functions. template <typename Builder, typename NativeGroup> concept IsNotGoblinInefficiencyTrap =
-// !(IsMegaBuilder<Builder> && std::same_as<NativeGroup, bb::g1>);
 
 namespace bb::stdlib::element_goblin {
 
-// ( ͡° ͜ʖ ͡°)
+/**
+ * @brief Custom element class for when using goblin
+ * @details When using goblin (builder = MEGA and element = bn254), the assumptions and heuristics
+ *          we apply vary considerably to the "default" case, justifying a separate class
+ *          (we use a `using` declaration to make `element` map to `goblin_element` if the correct parametrisation is
+ * used, see the `IsGoblinBigGroup` concept for details) Differences between goblin and regular biggroup elements:
+ *          1. state model is different (x/y coordinates are 2 136-bit field_t members instead of 4 68-bit field_t
+ * members)
+ *          2. on-curve checks are not applied in-circuit (they are applied in the ECCVM circuit)
+ *          3. we do not need to range-constrain the coordinates to be 136-bits (applied in the Translator circuit)
+ * @tparam Builder
+ * @tparam Fq
+ * @tparam Fr
+ * @tparam NativeGroup
+ */
 template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_element {
   public:
     using BaseField = Fq;
@@ -36,18 +45,12 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         , y(y)
         , _is_infinity(false)
     {}
-
     goblin_element(const goblin_element& other) = default;
     goblin_element(goblin_element&& other) noexcept = default;
     goblin_element& operator=(const goblin_element& other) = default;
-    goblin_element& operator=(goblin_element&& other) = default;
-    // static goblin_element from_witness_unsafe(Builder* ctx, const typename NativeGroup::affine_element& input)
-    // {
-    //     // only valid usecase of this method is with a goblin builder
-    //     ASSERT(IsMegaBuilder<Builder>);
-    //     goblin_element out;
-    //     if (in)
-    // }
+    goblin_element& operator=(goblin_element&& other) noexcept = default;
+    ~goblin_element() = default;
+
     static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
         goblin_element out;
@@ -80,14 +83,6 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         return goblin_element(x_fq, y_fq);
     }
 
-    // byte_array<Builder> to_byte_array() const
-    // {
-    //     byte_array<Builder> result(get_context());
-    //     result.write(y.to_byte_array());
-    //     result.write(x.to_byte_array());
-    //     return result;
-    // }
-
     goblin_element checked_unconditional_add(const goblin_element& other) const
     {
         return goblin_element::operator+(*this, other);
@@ -99,21 +94,14 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
 
     goblin_element operator+(const goblin_element& other) const
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
-        // Current gate count: 6398
         return batch_mul({ *this, other }, { Fr(1), Fr(1) });
     }
     goblin_element operator-(const goblin_element& other) const
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
         std::vector<goblin_element> points{ *this, other };
         return batch_mul({ *this, other }, { Fr(1), -Fr(1) });
     }
-    goblin_element operator-() const
-    {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
-        return batch_mul({ *this }, { -Fr(1) });
-    }
+    goblin_element operator-() const { return batch_mul({ *this }, { -Fr(1) }); }
     goblin_element operator+=(const goblin_element& other)
     {
         *this = *this + other;
