@@ -33,7 +33,7 @@ class MegaHonk : public ::testing::Test {
         Prover prover{ circuit };
         auto proof = prover.construct_proof();
 
-        auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
         Verifier verifier{ verification_key };
 
         return verifier.verify_proof(proof);
@@ -166,6 +166,7 @@ TEST_F(UltraPlonkRAM, TestBlockConstraint)
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
+        .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = { block },
@@ -218,6 +219,7 @@ TEST_F(MegaHonk, Databus)
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
+        .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = { block },
@@ -325,6 +327,7 @@ TEST_F(MegaHonk, DatabusReturn)
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
+        .assert_equalities = {},
         .poly_triple_constraints = { assert_equal },
         .quad_constraints = {},
         .block_constraints = { block },

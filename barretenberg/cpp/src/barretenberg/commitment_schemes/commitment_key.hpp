@@ -92,7 +92,7 @@ template <class Curve> class CommitmentKey {
             ASSERT(false);
         }
         return scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
-            polynomial, { srs->get_monomial_points(), srs->get_monomial_size() }, pippenger_runtime_state);
+            polynomial, srs->get_monomial_points(), pippenger_runtime_state);
     };
 
     /**
@@ -113,7 +113,7 @@ template <class Curve> class CommitmentKey {
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices).
-        G1* point_table = srs->get_monomial_points();
+        std::span<G1> point_table = srs->get_monomial_points();
 
         // Define structures needed to multithread the extraction of non-zero inputs
         const size_t num_threads = degree >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
@@ -133,6 +133,7 @@ template <class Curve> class CommitmentKey {
                 if (!scalar.is_zero()) {
                     thread_scalars[thread_idx].emplace_back(scalar);
                     // Save both the raw srs point and the precomputed endomorphism point from the point table
+                    ASSERT(idx * 2 + 1 < point_table.size());
                     const G1& point = point_table[idx * 2];
                     const G1& endo_point = point_table[idx * 2 + 1];
                     thread_points[thread_idx].emplace_back(point);
@@ -158,7 +159,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call the version of pippenger which assumes all points are distinct
-        return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points.data(), pippenger_runtime_state);
+        return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
     }
 };
 

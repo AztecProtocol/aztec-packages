@@ -70,7 +70,8 @@ template <class Builder> class DataBusDepot {
     using Fq = typename Curve::BaseField;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<Builder>;
-    using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
+    using RecursiveDeciderVerificationKeys =
+        bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
     using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
 
     static constexpr size_t NUM_FR_LIMBS_PER_FQ = Fq::NUM_LIMBS;
@@ -90,17 +91,17 @@ template <class Builder> class DataBusDepot {
      * perform two databus consistency checks: (1) that the return_data of app circuit A_{i} was secondary calldata to
      * K_{i}, and (2) that the return_data of K_{i-1} was calldata to K_{i}.
      *
-     * @param commitments Witness polynomial commitments for an instance that has been accumulated
-     * @param public_inputs The public inputs of that instance
-     * @param propagation_data Data about the presence of databus commitments on the public inputs of the instance
+     * @param commitments Witness polynomial commitments for an key that has been accumulated
+     * @param public_inputs The public inputs of that key
+     * @param propagation_data Data about the presence of databus commitments on the public inputs of the key.
      */
     void execute(const WitnessCommitments& commitments,
                  const std::vector<Fr>& public_inputs,
                  const DatabusPropagationData& propagation_data)
     {
-        // Flag indicating whether the input data corresponds to a kernel instance (else, an app instance). This is
-        // used to indicate whether the return data commitment being propagated belongs to a kernel or an app so that it
-        // can be checked against the appropriate calldata commitment in a subsequent round.
+        // Flag indicating whether the input data corresponds to a kernel decider proving key (else, an app decider
+        // proving key). This is used to indicate whether the return data commitment being propagated belongs to a
+        // kernel or an app so that it can be checked against the appropriate calldata commitment in a subsequent round.
         bool is_kernel_data = propagation_data.is_kernel;
 
         // Assert equality between return data commitments propagated via the public inputs and the corresponding

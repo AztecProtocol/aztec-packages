@@ -108,21 +108,31 @@ Unlike the EVM however, private execution doesn't revert in the traditional way:
 
 Since public execution can only be performed by the sequencer, public functions cannot be executed in a private context. It is possible however to _enqueue_ a public function call during private execution, requesting the sequencer to run it during inclusion of the transaction. It will be [executed in public](#public-execution) normally, including the possibility to enqueue static public calls.
 
-Since the public call is made asynchronously, any return values or side effects are not available during private execution. If the public function fails once executed, the entire transaction is reverted inncluding state changes caused by the private part, such as new notes or nullifiers. Note that this does result in gas being spent, like in the case of the EVM.
+Since the public call is made asynchronously, any return values or side effects are not available during private execution. If the public function fails once executed, the entire transaction is reverted including state changes caused by the private part, such as new notes or nullifiers. Note that this does result in gas being spent, like in the case of the EVM.
 
 #include_code enqueue_public /noir-projects/noir-contracts/contracts/lending_contract/src/main.nr rust
 
-It is also possible to create public functions that can _only_ be invoked by privately enqueing a call from the same contract, which can very useful to update public state after private exection (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[aztec(internal)]`.
+It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[aztec(internal)]`.
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
+#include_code enqueueing /noir-projects/noir-contracts/contracts/router_contract/src/main.nr rust
+
+Note that this reveals what public function is being called on what contract.
+For this reason we've created a canonical router contract which implements some of the checks commonly performed.
+This conceals what contract performed the public call as the `context.msg_sender()` in the public function is the router itself (since the router's private function enqueued the public call).
+
+An example of how a deadline can be checked using the router contract follows:
+
 #include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
-#include_code deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+This is what the implementation of the check timestamp functionality looks like:
 
-:::warning
-Calling public functions privately leaks some privacy! The caller of the function and all arguments will be revelead, so exercise care when mixing the private and public domains. To learn about alternative ways to access public state privately, look into [Shared State](../../reference/developer_references/smart_contract_reference/storage/shared_state.md).
-:::
+#include_code check_timestamp /noir-projects/noir-contracts/contracts/router_contract/src/main.nr rust
+
+Even with the router contract achieving good privacy is hard.
+This is especially the case when the value being checked is unique and stored in the contract's public storage.
+For this reason it is encouraged to try to avoid public function calls and instead privately read [Shared State](../../reference/developer_references/smart_contract_reference/storage/shared_state.md) when possible.
 
 ### Public Execution
 

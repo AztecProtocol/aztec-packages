@@ -15,7 +15,7 @@ using namespace bb;
 class AcirHonkRecursionConstraint : public ::testing::Test {
 
   public:
-    using ProverInstance = ProverInstance_<UltraFlavor>;
+    using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
     using Prover = bb::UltraProver;
     using VerificationKey = UltraFlavor::VerificationKey;
     using Verifier = bb::UltraVerifier;
@@ -116,6 +116,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             .bigint_from_le_bytes_constraints = {},
             .bigint_to_le_bytes_constraints = {},
             .bigint_operations = {},
+            .assert_equalities = {},
             .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
             .quad_constraints = {},
             .block_constraints = {},
@@ -146,9 +147,9 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
 
         for (auto& inner_circuit : inner_circuits) {
 
-            auto instance = std::make_shared<ProverInstance>(inner_circuit);
-            Prover prover(instance);
-            auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+            auto proving_key = std::make_shared<DeciderProvingKey>(inner_circuit);
+            Prover prover(proving_key);
+            auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
             Verifier verifier(verification_key);
             auto inner_proof = prover.construct_proof();
 
@@ -195,11 +196,11 @@ TEST_F(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
 
     info("circuit gates = ", layer_2_circuit.get_num_gates());
 
-    auto instance = std::make_shared<ProverInstance>(layer_2_circuit);
-    Prover prover(instance);
-    info("prover gates = ", instance->proving_key.circuit_size);
+    auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
+    Prover prover(proving_key);
+    info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     Verifier verifier(verification_key);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
@@ -215,11 +216,11 @@ TEST_F(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
 
     info("circuit gates = ", layer_2_circuit.get_num_gates());
 
-    auto instance = std::make_shared<ProverInstance>(layer_2_circuit);
-    Prover prover(instance);
-    info("prover gates = ", instance->proving_key.circuit_size);
+    auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
+    Prover prover(proving_key);
+    info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     Verifier verifier(verification_key);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
@@ -273,11 +274,11 @@ TEST_F(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
     info("created second outer circuit");
     info("number of gates in layer 3 = ", layer_3_circuit.get_num_gates());
 
-    auto instance = std::make_shared<ProverInstance>(layer_3_circuit);
-    Prover prover(instance);
-    info("prover gates = ", instance->proving_key.circuit_size);
+    auto proving_key = std::make_shared<DeciderProvingKey>(layer_3_circuit);
+    Prover prover(proving_key);
+    info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     Verifier verifier(verification_key);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }
@@ -303,11 +304,11 @@ TEST_F(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
     info("created third outer circuit");
     info("number of gates in layer 3 circuit = ", layer_3_circuit.get_num_gates());
 
-    auto instance = std::make_shared<ProverInstance>(layer_3_circuit);
-    Prover prover(instance);
-    info("prover gates = ", instance->proving_key.circuit_size);
+    auto proving_key = std::make_shared<DeciderProvingKey>(layer_3_circuit);
+    Prover prover(proving_key);
+    info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     Verifier verifier(verification_key);
     EXPECT_EQ(verifier.verify_proof(proof), true);
 }

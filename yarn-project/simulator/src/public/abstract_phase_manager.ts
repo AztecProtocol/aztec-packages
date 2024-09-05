@@ -47,6 +47,7 @@ import {
   PublicKernelData,
   ReadRequest,
   RevertCode,
+  TreeLeafReadRequest,
   makeEmptyProof,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
@@ -412,7 +413,7 @@ export abstract class AbstractPhaseManager {
       returnsHash: computeVarArgsHash(result.returnValues),
       noteHashReadRequests: padArrayEnd(
         result.noteHashReadRequests,
-        ReadRequest.empty(),
+        TreeLeafReadRequest.empty(),
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
       ),
       nullifierReadRequests: padArrayEnd(
@@ -427,7 +428,7 @@ export abstract class AbstractPhaseManager {
       ),
       l1ToL2MsgReadRequests: padArrayEnd(
         result.l1ToL2MsgReadRequests,
-        ReadRequest.empty(),
+        TreeLeafReadRequest.empty(),
         MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
       ),
       contractStorageReads: padArrayEnd(

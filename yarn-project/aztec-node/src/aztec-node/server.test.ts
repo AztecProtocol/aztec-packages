@@ -4,12 +4,11 @@ import {
   type L1ToL2MessageSource,
   type L2BlockSource,
   type L2LogsSource,
+  type MerkleTreeAdminOperations,
   MerkleTreeId,
-  type MerkleTreeOperations,
   mockTxForRollup,
 } from '@aztec/circuit-types';
 import { AztecAddress, EthAddress, Fr, GasFees, GlobalVariables, MaxBlockNumber } from '@aztec/circuits.js';
-import { type AztecLmdbStore } from '@aztec/kv-store/lmdb';
 import { type P2P } from '@aztec/p2p';
 import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -24,7 +23,7 @@ import { AztecNodeService } from './server.js';
 describe('aztec node', () => {
   let p2p: MockProxy<P2P>;
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
-  let merkleTreeOps: MockProxy<MerkleTreeOperations>;
+  let merkleTreeOps: MockProxy<MerkleTreeAdminOperations>;
 
   let lastBlockNumber: number;
 
@@ -42,7 +41,7 @@ describe('aztec node', () => {
     p2p = mock<P2P>();
 
     globalVariablesBuilder = mock<GlobalVariableBuilder>();
-    merkleTreeOps = mock<MerkleTreeOperations>();
+    merkleTreeOps = mock<MerkleTreeAdminOperations>();
 
     const worldState = mock<WorldStateSynchronizer>({
       getLatest: () => merkleTreeOps,
@@ -58,8 +57,6 @@ describe('aztec node', () => {
 
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();
-
-    const store = mock<AztecLmdbStore>();
 
     const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
 
@@ -86,7 +83,6 @@ describe('aztec node', () => {
       31337,
       1,
       globalVariablesBuilder,
-      store,
       new TestCircuitVerifier(),
       new NoopTelemetryClient(),
     );
