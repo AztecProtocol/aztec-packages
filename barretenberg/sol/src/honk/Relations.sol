@@ -13,8 +13,6 @@ import {
     CONST_PROOF_SIZE_LOG_N
 } from "./HonkTypes.sol";
 
-import {PoseidonParamsLib as PoseidonParamsLib, PoseidonParams as PoseidonParams} from "./PoseidonParams.sol";
-
 import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint} from "./utils.sol";
 
 // Field arithmetic libraries
@@ -40,7 +38,7 @@ library RelationsLib {
         accumulateEllipticRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulateAuxillaryRelation(purportedEvaluations, tp, evaluations, powPartialEval);
         accumulatePoseidonExternalRelation(purportedEvaluations, tp, evaluations, powPartialEval);
-        accumulatePoseidonInternalRelation(purportedEvaluations, tp, evaluations, powPartialEval);
+        accumulatePoseidonInternalRelation(purportedEvaluations, evaluations, powPartialEval);
         // batch the subrelations with the alpha challenges to obtain the full honk relation
         accumulator = scaleAndBatchSubrelations(evaluations, tp.alphas);
     }
@@ -662,12 +660,17 @@ library RelationsLib {
 
     function accumulatePoseidonInternalRelation(
         Fr[NUMBER_OF_ENTITIES] memory p,
-        Transcript memory tp, // I think this is not needed
         Fr[NUMBER_OF_SUBRELATIONS] memory evals,
-        Fr domainSep // i guess this is the scaling factor?
+        Fr domainSep
     ) internal pure {
         PoseidonInternalParams memory ip;
-        PoseidonParams memory params = PoseidonParamsLib.loadPoseidionParams();
+
+        Fr[4] memory INTERNAL_MATRIX_DIAGONAL = [
+            FrLib.from(0x10dc6e9c006ea38b04b1e03b4bd9490c0d03f98929ca1d7fb56821fd19d3b6e7),
+            FrLib.from(0x0c28145b6a44df3e0149b3d0a30b3bb599df9756d4dd9b84a86b38cfb45a740b),
+            FrLib.from(0x00544b8338791518b2c7645a50392798b21f75bb60e3596170067d00141cac15),
+            FrLib.from(0x222c01175718386f2e2e82eb122789e352e105a3b8fa852613bc534433ee428b)
+        ];
 
         // add round constants
         ip.s1 = wire(p, WIRE.W_L) + wire(p, WIRE.Q_L);
@@ -683,16 +686,16 @@ library RelationsLib {
 
         ip.q_pos_by_scaling = wire(p, WIRE.Q_POSEIDON2_INTERNAL) * domainSep;
 
-        ip.v1 = ip.u1 * params.internal_matrix_diagonal[0] + ip.u_sum;
+        ip.v1 = ip.u1 * INTERNAL_MATRIX_DIAGONAL[0] + ip.u_sum;
         evals[22] = evals[22] + ip.q_pos_by_scaling * (ip.v1 - wire(p, WIRE.W_L_SHIFT));
 
-        ip.v2 = ip.u2 * params.internal_matrix_diagonal[1] + ip.u_sum;
+        ip.v2 = ip.u2 * INTERNAL_MATRIX_DIAGONAL[1] + ip.u_sum;
         evals[23] = evals[23] + ip.q_pos_by_scaling * (ip.v2 - wire(p, WIRE.W_R_SHIFT));
 
-        ip.v3 = ip.u3 * params.internal_matrix_diagonal[2] + ip.u_sum;
+        ip.v3 = ip.u3 * INTERNAL_MATRIX_DIAGONAL[2] + ip.u_sum;
         evals[24] = evals[24] + ip.q_pos_by_scaling * (ip.v3 - wire(p, WIRE.W_O_SHIFT));
 
-        ip.v4 = ip.u4 * params.internal_matrix_diagonal[3] + ip.u_sum;
+        ip.v4 = ip.u4 * INTERNAL_MATRIX_DIAGONAL[3] + ip.u_sum;
         evals[25] = evals[25] + ip.q_pos_by_scaling * (ip.v4 - wire(p, WIRE.W_4_SHIFT));
     }
 

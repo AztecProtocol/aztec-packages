@@ -218,7 +218,7 @@ library TranscriptLib {
     // TODO: Preprocess all of the memory locations
     // TODO: Adjust proof point serde away from poseidon forced field elements
     // TODO: move this back to probably each instance to avoid dynamic init of arrays in the Transcript Lib
-    function loadProof(bytes calldata proof) external view returns (Honk.Proof memory) {
+    function loadProof(bytes calldata proof) internal view returns (Honk.Proof memory) {
         Honk.Proof memory p;
 
         // Metadata

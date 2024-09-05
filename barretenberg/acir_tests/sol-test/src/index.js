@@ -49,9 +49,6 @@ const [test, verifier] = await Promise.all([
   fsPromises.readFile(verifierPath, encoding),
 ]);
 
-// 1. figure out how to deploy the libraries
-// 2. call linker.linkBytecode providing the libraries name and address
-
 export const compilationInput = {
   language: "Solidity",
   sources: {
@@ -245,7 +242,7 @@ try {
       const relationsLibAbi = relationsLib.abi;
 
       // Deploy the two libraries, awaiting to ensure the nonce is modified correctly to prevent race conditions.
-      console.log(await signer.getNonce());
+      await signer.getNonce();
       const transcriptLibAddress = await deploy(
         signer,
         transcriptLibAbi,
@@ -253,7 +250,7 @@ try {
       );
 
       // TODO: maybe this can be done in a better way
-      console.log(await signer.getNonce());
+      await signer.getNonce();
 
       const relationsLibAddress = await deploy(
         signer,
@@ -275,7 +272,7 @@ try {
       // Link the libraries in the contract bytecode
       const linkedBytecode = linker.linkBytecode(bytecode, linkerInput);
 
-      console.log(await signer.getNonce());
+      await signer.getNonce();
 
       // Deploy the verifier contract
       const address = await deploy(signer, abi, linkedBytecode);

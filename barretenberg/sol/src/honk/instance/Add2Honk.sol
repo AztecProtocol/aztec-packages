@@ -4,7 +4,6 @@ pragma solidity >=0.8.21;
 
 import {IVerifier} from "../../interfaces/IVerifier.sol";
 import {Add2HonkVerificationKey as VK, N, LOG_N, NUMBER_OF_PUBLIC_INPUTS} from "../keys/Add2HonkVerificationKey.sol";
-import {PoseidonParamsLib as PoseidonParamsLib, PoseidonParams as PoseidonParams} from "../PoseidonParams.sol";
 
 import {
     Honk,
