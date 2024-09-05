@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725553223527,
+  "lastUpdate": 1725562094126,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "james.zaki@proton.me",
-            "name": "James Zaki",
-            "username": "jzaki"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a7443216dfaa7b2731911e2320b2c1c1a720e8e8",
-          "message": "docs: Update installation info for bb and noir (#8119)\n\nPeople trip up on not having jq installed when noir instructions tell\r\nthem to use the bb command.\r\nUpdate both to smooth this out.\r\n\r\n---------\r\n\r\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
-          "timestamp": "2024-08-22T09:32:18Z",
-          "tree_id": "0420029516b35a7b0be24484d3eab37f9d19c3dc",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a7443216dfaa7b2731911e2320b2c1c1a720e8e8"
-        },
-        "date": 1724320159067,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13671.636196000009,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10562.092021 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5142.773715999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4741.576351999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40214.523316,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40214524000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14693.5976,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14693598000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3774852251,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3774852251 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208037254,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 208037254 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3100115209,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3100115209 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 172818191,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 172818191 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 120793349,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 120793349 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "882af1ed821c135b68a5d693a81b7fc580ad97c2",
+          "message": "feat(ci): tracy gate counter preset (#8382)\n\n- Adds options to use tracy memory stack tree view but with gates\r\ninstead of memory. Similar to how we did a flamegraph of Noir with\r\ngates, it makes sense to view them as stemming from certain function\r\ngroups like we do memory.\r\n- We hackishly pretend gate counts are pointers, and tracy plays along\r\n\r\nNOTE: You may see the occasional tracy warning - this is known, but\r\noverall it works.\r\n\r\n**How to use:**\r\n- For users with a sysbox, run the following:\r\n`export USER=...sysbox user name...`\r\n`ssh $USER-box \"cat\r\n~/aztec-packages/barretenberg/cpp/scripts/benchmark_tracy.sh\" | bash\r\n/dev/stdin $USER`\r\nAnd get a tracy breakdown for the default arguments, so client_ivc_bench\r\nwith the special tracy gates preset, going to a trace file, copying to\r\nlocal machine, building tracy profiler locally, and opening it\r\n\r\nYou should get a view like this on your local computer, with an\r\ninteractive stack tree from bottom or top with total gate counts:\r\n<img width=\"1640\" alt=\"Screenshot 2024-09-04 at 8 23 16 PM\"\r\nsrc=\"https://github.com/user-attachments/assets/33a0fb6c-1de8-402a-bf83-20afda8db9ca\">",
+          "timestamp": "2024-09-05T18:31:53Z",
+          "tree_id": "d0cbf5afbebcd3f8a9bf562c455d6471449da8cf",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/882af1ed821c135b68a5d693a81b7fc580ad97c2"
+        },
+        "date": 1725562086902,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13469.960345000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10336.955414999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5150.856252000011,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4697.179197 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 42261.761411,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 42261762000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14624.620496999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14624621000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3674954671,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3674954671 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 145785136,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 145785136 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3013320804,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3013320804 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 121125855,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 121125855 ns\nthreads: 1"
           }
         ]
       }
