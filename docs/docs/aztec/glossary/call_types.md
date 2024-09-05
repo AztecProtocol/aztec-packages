@@ -133,6 +133,15 @@ This is what the implementation of the check timestamp functionality looks like:
 
 #include_code check_timestamp /noir-projects/noir-contracts/contracts/router_contract/src/main.nr rust
 
+:::note
+Note that the router contract is not currently part of the [aztec-nr repository](https://github.com/AztecProtocol/aztec-nr).
+To add it as a dependency point to the aztec-packages repository instead:
+```toml
+[dependencies]
+aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/router_contract/src" }
+```
+:::
+
 Even with the router contract achieving good privacy is hard.
 For example, if the value being checked against is unique and stored in the contract's public storage, it's then simple to find private transactions that are using that value in the enqueued public reads, and therefore link them to this contract.
 For this reason it is encouraged to try to avoid public function calls and instead privately read [Shared State](../../reference/developer_references/smart_contract_reference/storage/shared_state.md) when possible.

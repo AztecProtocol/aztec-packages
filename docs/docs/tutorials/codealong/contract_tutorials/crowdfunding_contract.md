@@ -93,7 +93,7 @@ aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_
 A word about versions:
 
 - Choose the aztec packages version to match your aztec sandbox version
-- Check that your `compiler_version` in Nargo.toml is satisified by your aztec compiler - `aztec-nargo -V`
+- Check that your `compiler_version` in Nargo.toml is satisfied by your aztec compiler - `aztec-nargo -V`
 
 Inside the Crowdfunding contract definition, use the dependency that defines the address type `AztecAddress` (same syntax as Rust)
 
