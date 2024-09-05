@@ -4,6 +4,8 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
 
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 namespace bb::stdlib::recursion::honk {
 
 /**

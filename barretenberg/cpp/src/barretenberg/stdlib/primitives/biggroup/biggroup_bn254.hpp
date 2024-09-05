@@ -9,7 +9,7 @@
  **/
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
-namespace bb::stdlib {
+namespace bb::stdlib::element_inner {
 
 /**
  * Perform a multi-scalar multiplication over the BN254 curve
@@ -424,4 +424,4 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
     // Return our scalar mul output
     return accumulator;
 }
-} // namespace bb::stdlib
+} // namespace bb::stdlib::element_inner

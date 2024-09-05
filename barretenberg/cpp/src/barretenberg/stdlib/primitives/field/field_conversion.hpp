@@ -2,6 +2,7 @@
 
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/goblin_field.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
@@ -27,6 +28,15 @@ template <typename Builder, typename T> inline T convert_challenge(Builder& buil
     }
 }
 
+template <typename Builder>
+inline std::vector<fr<Builder>> convert_goblin_fr_to_bn254_frs(const goblin_field<Builder>& input)
+{
+    std::vector<fr<Builder>> result(2);
+    result[0] = input.limbs[0];
+    result[1] = input.limbs[1];
+    return result;
+}
+
 template <typename Builder> inline std::vector<fr<Builder>> convert_grumpkin_fr_to_bn254_frs(const fq<Builder>& input)
 {
     fr<Builder> shift(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
@@ -48,10 +58,11 @@ template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
 {
     if constexpr (IsAnyOf<T, fr<Builder>>) {
         return Bn254FrParams::NUM_BN254_SCALARS;
-    } else if constexpr (IsAnyOf<T, fq<Builder>>) {
+    } else if constexpr (IsAnyOf<T, fq<Builder>> || IsAnyOf<T, goblin_field<Builder>>) {
         return Bn254FqParams::NUM_BN254_SCALARS;
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
-        return 2 * calc_num_bn254_frs<Builder, fq<Builder>>();
+        using BaseField = bn254_element<Builder>::BaseField;
+        return 2 * calc_num_bn254_frs<Builder, BaseField>();
     } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
         return 2 * calc_num_bn254_frs<Builder, fr<Builder>>();
     } else {
@@ -82,18 +93,42 @@ template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builde
         ASSERT(fr_vec.size() == 2);
         fq<Builder> result(fr_vec[0], fr_vec[1]);
         return result;
+    } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
+        ASSERT(fr_vec.size() == 2);
+        goblin_field<Builder> result(fr_vec[0], fr_vec[1]);
+        return result;
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
-        using BaseField = fq<Builder>;
+        using BaseField = bn254_element<Builder>::BaseField;
         constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, BaseField>();
         ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
         bn254_element<Builder> result;
+
         result.x = convert_from_bn254_frs<Builder, BaseField>(builder, fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
         result.y = convert_from_bn254_frs<Builder, BaseField>(
             builder, fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
 
-        result.set_point_at_infinity(fr_vec[0].is_zero() && fr_vec[1].is_zero() && fr_vec[2].is_zero() &&
-                                     fr_vec[3].is_zero());
+        auto sum = fr_vec[0].add_two(fr_vec[1], fr_vec[2]);
+        sum = sum + fr_vec[3];
+        result.set_point_at_infinity(sum.is_zero());
         return result;
+
+        // we know that all Field elements are constrained to 136 bits.
+        // therefore, if we add them all together, the only way the sum is zero is if all are zero
+        // 19 gates to 6 gates
+        // is zero
+
+        // A * is_zero = 0
+        // (1 - is_zero) * (A * I - 1) = 0
+        // AI - 1 - is_zero * AI + is_zero = 0
+
+        // AZ + AI - 1 - ZAI + Z = 0
+
+        // Z + I - ZI = t0
+        // A * t0 + Z - 1 = 0
+        // we can reduce to 3 gates (2.25 if we fix bool checks)
+        // result.set_point_at_infinity(fr_vec[0].is_zero() && fr_vec[1].is_zero() && fr_vec[2].is_zero() &&
+        //                              fr_vec[3].is_zero());
+        // return result;
     } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
         using BaseField = fr<Builder>;
         constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, BaseField>();
@@ -136,8 +171,10 @@ template <typename Builder, typename T> std::vector<fr<Builder>> convert_to_bn25
         return fr_vec;
     } else if constexpr (IsAnyOf<T, fq<Builder>>) {
         return convert_grumpkin_fr_to_bn254_frs(val);
+    } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
+        return convert_goblin_fr_to_bn254_frs(val);
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
-        using BaseField = fq<Builder>;
+        using BaseField = bn254_element<Builder>::BaseField;
         auto fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
         auto fr_vec_y = convert_to_bn254_frs<Builder, BaseField>(val.y);
         std::vector<fr<Builder>> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
