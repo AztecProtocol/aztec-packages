@@ -81,8 +81,9 @@ struct NativeTranscriptParams {
      */
     static inline std::array<Fr, 2> split_challenge(const Fr& challenge)
     {
-        static constexpr size_t LO_BITS = plookup::FixedBaseParams::BITS_PER_LO_SCALAR;
-        static constexpr size_t HI_BITS = Fr::modulus.get_msb() - LO_BITS;
+        // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
+        static constexpr size_t LO_BITS = Fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
+        static constexpr size_t HI_BITS = Fr::modulus.get_msb() + 1 - LO_BITS;
 
         auto converted = static_cast<uint256_t>(challenge);
         uint256_t lo = converted.slice(0, LO_BITS);
@@ -148,6 +149,8 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     [[nodiscard]] std::array<Fr, 2> get_next_duplex_challenge_buffer(size_t num_challenges)
     {
+        // challenges need at least 110 bits in them to match the presumed security parameter of the BN254 curve.
+        ASSERT(num_challenges <= 2);
         // Prevent challenge generation if this is the first challenge we're generating,
         // AND nothing was sent by the prover.
         if (is_first_challenge) {
