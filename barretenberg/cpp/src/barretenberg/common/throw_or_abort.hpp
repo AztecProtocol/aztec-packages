@@ -2,7 +2,6 @@
 #include "log.hpp"
 #include <string>
 
-namespace bb {
 inline void throw_or_abort [[noreturn]] (std::string const& err)
 {
 #ifndef __wasm__
@@ -17,4 +16,3 @@ inline void abort_with_message [[noreturn]] (std::string const& err)
     info("abort: ", err);
     std::abort();
 }
-} // namespace bb

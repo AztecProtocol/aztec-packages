@@ -163,7 +163,7 @@ template <typename Curve_> class IPA {
         // Step 4.
         // Set initial vector a to the polynomial monomial coefficients and load vector G
         // Ensure the polynomial copy is fully-formed
-        auto a_vec = polynomial.expand(polynomial.start_index());
+        auto a_vec = polynomial.full();
         std::span<Commitment> srs_elements = ck->srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
 

@@ -71,7 +71,7 @@ void check_msgpack_usage(const auto& object)
 {
     std::string result = check_msgpack_method(object);
     if (!result.empty()) {
-        bb::throw_or_abort(result);
+        throw_or_abort(result);
     }
 }
 } // namespace msgpack
