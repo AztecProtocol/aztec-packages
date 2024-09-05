@@ -1,7 +1,7 @@
 contract Counter {
     // docs:start:imports
     use dep::aztec::prelude::{AztecAddress, Map};
-    use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
+    use dep::value_note::{balance_utils, value_note::ValueNote};
     use dep::easy_private_state::EasyPrivateUint;
     // docs:end:imports
 
