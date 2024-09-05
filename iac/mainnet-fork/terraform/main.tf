@@ -102,8 +102,8 @@ resource "aws_ecs_task_definition" "aztec_mainnet_fork" {
   family                   = "${var.DEPLOY_TAG}-mainnet-fork"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = "2048"
-  memory                   = "4096"
+  cpu                      = var.MAINNET_FORK_CPU_UNITS
+  memory                   = var.MAINNET_FORK_MEMORY_UNITS
   execution_role_arn       = data.terraform_remote_state.setup_iac.outputs.ecs_task_execution_role_arn
 
   volume {

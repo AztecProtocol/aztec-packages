@@ -10,6 +10,7 @@ import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointContract } from '@aztec/protocol-contracts/multi-call-entrypoint';
+import { getCanonicalRouter } from '@aztec/protocol-contracts/router';
 
 import { type PXEServiceConfig } from '../config/index.js';
 import { KVPxeDatabase } from '../database/kv_pxe_database.js';
@@ -52,6 +53,7 @@ export async function createPXEService(
     getCanonicalFeeJuice(),
     getCanonicalKeyRegistry(),
     getCanonicalAuthRegistry(),
+    getCanonicalRouter(),
   ]) {
     await server.registerContract(contract);
   }

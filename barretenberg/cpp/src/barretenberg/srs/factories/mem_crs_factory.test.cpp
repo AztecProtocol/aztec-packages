@@ -29,8 +29,8 @@ TEST(reference_string, mem_bn254_file_consistency)
 
     EXPECT_EQ(mem_prover_crs->get_monomial_size(), file_prover_crs->get_monomial_size());
 
-    EXPECT_EQ(memcmp(mem_prover_crs->get_monomial_points(),
-                     file_prover_crs->get_monomial_points(),
+    EXPECT_EQ(memcmp(mem_prover_crs->get_monomial_points().data(),
+                     file_prover_crs->get_monomial_points().data(),
                      sizeof(g1::affine_element) * 1024 * 2),
               0);
 
@@ -60,8 +60,8 @@ TEST(reference_string, DISABLED_mem_grumpkin_file_consistency)
 
     EXPECT_EQ(mem_prover_crs->get_monomial_size(), file_prover_crs->get_monomial_size());
 
-    EXPECT_EQ(memcmp(mem_prover_crs->get_monomial_points(),
-                     file_prover_crs->get_monomial_points(),
+    EXPECT_EQ(memcmp(mem_prover_crs->get_monomial_points().data(),
+                     file_prover_crs->get_monomial_points().data(),
                      sizeof(Grumpkin::AffineElement) * 1024 * 2),
               0);
 
@@ -69,8 +69,8 @@ TEST(reference_string, DISABLED_mem_grumpkin_file_consistency)
     auto mem_verifier_crs = file_crs.get_verifier_crs();
 
     EXPECT_EQ(mem_verifier_crs->get_g1_identity(), file_verifier_crs->get_g1_identity());
-    EXPECT_EQ(memcmp(file_verifier_crs->get_monomial_points(),
-                     mem_verifier_crs->get_monomial_points(),
+    EXPECT_EQ(memcmp(file_verifier_crs->get_monomial_points().data(),
+                     mem_verifier_crs->get_monomial_points().data(),
                      sizeof(Grumpkin::AffineElement) * 1024 * 2),
               0);
 }
