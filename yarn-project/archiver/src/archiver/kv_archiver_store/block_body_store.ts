@@ -69,6 +69,6 @@ export class BlockBodyStore {
    * @returns The L1 block number
    */
   getSynchedL1BlockNumber(): bigint {
-    return this.#lastSynchedL1Block.get() ?? 0n;
+    return this.#lastSynchedL1Block.get() ?? 15918000n - 1n;
   }
 }

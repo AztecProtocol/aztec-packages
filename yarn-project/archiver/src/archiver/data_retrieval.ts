@@ -18,7 +18,7 @@ import {
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1PublishedData } from './structs/published.js';
 
-const BATCH_SIZE = 10n;
+const BATCH_SIZE = 1000n;
 
 /**
  * Fetches new L2 block metadata (header, archive snapshot).
@@ -44,14 +44,18 @@ export async function retrieveBlockMetadataFromRollup(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
+    const endBatchBlock =
+      searchEndBlock < searchStartBlock + BATCH_SIZE ? searchEndBlock : searchStartBlock + BATCH_SIZE;
+
     const l2BlockProcessedLogs = await getL2BlockProcessedLogs(
       publicClient,
       rollupAddress,
       searchStartBlock,
-      searchStartBlock + BATCH_SIZE,
+      endBatchBlock,
     );
     if (l2BlockProcessedLogs.length === 0) {
-      break;
+      searchStartBlock = endBatchBlock + 1n;
+      continue;
     }
 
     const lastLog = l2BlockProcessedLogs[l2BlockProcessedLogs.length - 1];
@@ -93,14 +97,17 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
+    const endBatchBlock =
+      searchEndBlock < searchStartBlock + BATCH_SIZE ? searchEndBlock : searchStartBlock + BATCH_SIZE;
     const l2TxsPublishedLogs = await getTxsPublishedLogs(
       publicClient,
       availabilityOracleAddress,
       searchStartBlock,
-      searchStartBlock + BATCH_SIZE
+      endBatchBlock,
     );
     if (l2TxsPublishedLogs.length === 0) {
-      break;
+      searchStartBlock = endBatchBlock + 1n;
+      continue;
     }
 
     const newBlockBodies = await processTxsPublishedLogs(publicClient, l2TxsPublishedLogs);
@@ -132,9 +139,12 @@ export async function retrieveL1ToL2Messages(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const messageSentLogs = await getMessageSentLogs(publicClient, inboxAddress, searchStartBlock, searchStartBlock + BATCH_SIZE);
+    const endBatchBlock =
+      searchEndBlock < searchStartBlock + BATCH_SIZE ? searchEndBlock : searchStartBlock + BATCH_SIZE;
+    const messageSentLogs = await getMessageSentLogs(publicClient, inboxAddress, searchStartBlock, endBatchBlock);
     if (messageSentLogs.length === 0) {
-      break;
+      searchStartBlock = endBatchBlock + 1n;
+      continue;
     }
     const l1ToL2Messages = processMessageSentLogs(messageSentLogs);
     retrievedL1ToL2Messages.push(...l1ToL2Messages);
