@@ -30,7 +30,7 @@ library RelationsLib {
         Fr[NUMBER_OF_ENTITIES] memory purportedEvaluations = proof.sumcheckEvaluations;
         Fr[NUMBER_OF_SUBRELATIONS] memory evaluations;
 
-        // Accumulate all 6 custom gates - each with varying number of subrelations
+        // Accumulate all relations in Ultra Honk - each with varying number of subrelations
         accumulateArithmeticRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulatePermutationRelation(purportedEvaluations, tp, evaluations, powPartialEval);
         accumulateLogDerivativeLookupRelation(purportedEvaluations, tp, evaluations, powPartialEval);
