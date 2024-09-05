@@ -1,7 +1,8 @@
 use dep::aztec::{
-    oracle::unsafe_rand, prelude::{PrivateContext, NoteHeader, NoteInterface},
-    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
-    note::utils::compute_note_hash_for_nullify, keys::getters::get_nsk_app
+    hash::poseidon2_hash_with_separator, note::utils::compute_note_hash_for_nullify,
+    keys::getters::get_nsk_app, oracle::unsafe_rand::unsafe_rand,
+    prelude::{PrivateContext, NoteHeader, NoteInterface},
+    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER
 };
 
 global SUBSCRIPTION_NOTE_LEN: Field = 4;
@@ -43,6 +44,9 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN, SUBSCRIPTION_NOTE_BYTES_LEN> for Subsc
 
 impl SubscriptionNote {
     pub fn new(npk_m_hash: Field, expiry_block_number: Field, remaining_txs: Field) -> Self {
-        Self { npk_m_hash, expiry_block_number, remaining_txs, randomness: unsafe_rand(), header: NoteHeader::empty() }
+        let randomness = unsafe {
+            unsafe_rand()
+        };
+        Self { npk_m_hash, expiry_block_number, remaining_txs, randomness, header: NoteHeader::empty() }
     }
 }
