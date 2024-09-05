@@ -149,21 +149,20 @@ export class AztecNodeService implements AztecNode {
 
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
+    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
 
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(
       config,
       new InMemoryAttestationPool(),
       archiver,
-      new TestCircuitVerifier(),
+      proofVerifier,
       worldStateSynchronizer,
       telemetry,
     );
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
-
-    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
 
     const simulationProvider = await createSimulationProvider(config, log);
 

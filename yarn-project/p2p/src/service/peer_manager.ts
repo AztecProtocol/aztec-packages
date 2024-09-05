@@ -3,9 +3,10 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type ENR } from '@chainsafe/enr';
 import { type PeerId } from '@libp2p/interface';
 import { type Multiaddr } from '@multiformats/multiaddr';
-import { type Libp2p } from 'libp2p';
 
 import { type P2PConfig } from '../config.js';
+import { type PubSubLibp2p } from '../util.js';
+import { PeerScoring } from './peer_scoring.js';
 import { type PeerDiscoveryService } from './service.js';
 
 const MAX_DIAL_ATTEMPTS = 3;
@@ -20,8 +21,10 @@ type CachedPeer = {
 
 export class PeerManager {
   private cachedPeers: Map<string, CachedPeer> = new Map();
+  private peerScoring: PeerScoring = new PeerScoring();
+
   constructor(
-    private libP2PNode: Libp2p,
+    private libP2PNode: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
     private config: P2PConfig,
     private logger = createDebugLogger('aztec:p2p:peer_manager'),
@@ -52,10 +55,24 @@ export class PeerManager {
     });
   }
 
+  public heartbeat() {
+    this.discover();
+    this.peerScoring.decayAllScores();
+  }
+
+  public penalizePeer(peerId: PeerId, penalty: number) {
+    const id = peerId.toString();
+    this.peerScoring.updateScore(id, -penalty);
+  }
+
+  public getPeerScore(peerId: string): number {
+    return this.peerScoring.getScore(peerId);
+  }
+
   /**
    * Discovers peers.
    */
-  public discover() {
+  private discover() {
     // Get current connections
     const connections = this.libP2PNode.getConnections();
 
@@ -155,7 +172,7 @@ export class PeerManager {
     }
   }
 
-  async dialPeer(peer: CachedPeer) {
+  private async dialPeer(peer: CachedPeer) {
     const id = peer.peerId.toString();
     await this.libP2PNode.peerStore.merge(peer.peerId, { multiaddrs: [peer.multiaddrTcp] });
 

@@ -326,6 +326,7 @@ export class P2PClient implements P2P {
    * @returns Empty promise.
    **/
   public async sendTx(tx: Tx): Promise<void> {
+    console.log('sending TX to P2P network');
     const ready = await this.isReady();
     if (!ready) {
       throw new Error('P2P client not ready');
