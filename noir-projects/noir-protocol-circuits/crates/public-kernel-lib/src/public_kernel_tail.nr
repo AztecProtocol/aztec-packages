@@ -60,7 +60,9 @@ impl PublicKernelTailCircuitPrivateInputs {
         previous_kernel_validator.validate_phase(PublicKernelPhase.TAIL);
         previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
-        let (output, output_hints, public_data_read_request_hints) = self.generate_output_and_hints();
+        let (output, output_hints, public_data_read_request_hints) = unsafe {
+            self.generate_output_and_hints()
+        };
 
         PublicValidationRequestProcessor::new(
             self.previous_kernel.public_inputs,

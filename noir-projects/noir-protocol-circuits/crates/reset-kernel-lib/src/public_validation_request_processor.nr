@@ -22,7 +22,7 @@ use dep::types::{
 },
     data::OverridablePublicDataTreeLeaf, hash::compute_siloed_nullifier,
     partial_state_reference::PartialStateReference, traits::is_empty,
-    utils::arrays::{array_merge, array_to_bounded_vec, assert_sorted_array}
+    utils::arrays::{array_to_bounded_vec, assert_combined_array, assert_sorted_array, combine_arrays}
 };
 
 struct PublicValidationRequestProcessor<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> {
@@ -52,15 +52,19 @@ impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicVal
         public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_PUBLIC_DATA_LEAVES],
         public_data_read_request_hints: PublicDataReadRequestHints<MAX_PUBLIC_DATA_READS_PER_TX>
     ) -> Self {
-        let validation_requests = public_inputs.validation_requests;
-
-        let end_non_revertible = public_inputs.end_non_revertible;
-        let end = public_inputs.end;
-
-        let pending_nullifiers = array_merge(end_non_revertible.nullifiers, end.nullifiers);
+        let non_revertible_nullifiers = public_inputs.end_non_revertible.nullifiers;
+        let revertible_nullifiers = public_inputs.end.nullifiers;
+        let pending_nullifiers = unsafe {
+            combine_arrays(non_revertible_nullifiers, revertible_nullifiers)
+        };
+        assert_combined_array(
+            non_revertible_nullifiers,
+            revertible_nullifiers,
+            pending_nullifiers
+        );
 
         PublicValidationRequestProcessor {
-            validation_requests,
+            validation_requests: public_inputs.validation_requests,
             note_hash_read_request_hints,
             note_hash_tree_root: start_state.note_hash_tree.root,
             pending_nullifiers,

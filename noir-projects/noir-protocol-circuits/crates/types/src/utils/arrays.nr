@@ -1,3 +1,4 @@
+mod assert_combined_array;
 mod assert_combined_sorted_transformed_value_array;
 mod assert_combined_transformed_array;
 mod assert_deduped_array;
@@ -12,11 +13,12 @@ mod sort_by;
 mod sort_by_counter;
 
 // Re-exports.
+use assert_combined_array::{assert_combined_array, combine_arrays};
 use assert_combined_sorted_transformed_value_array::{
     assert_combined_sorted_transformed_value_array_asc,
     get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc}
 };
-use assert_combined_transformed_array::assert_combined_transformed_array;
+use assert_combined_transformed_array::{assert_combined_transformed_array, combine_and_transform_arrays};
 use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
     get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint}

@@ -115,7 +115,7 @@ mod tests {
             assert_deduped_array(self.original_array, self.deduped_array);
         }
 
-        pub fn succeeds(self) {
+        pub fn check_and_execute(self) {
             assert_eq(self.deduped_array, dedupe_array(self.original_array));
             self.execute();
         }
@@ -124,13 +124,13 @@ mod tests {
     #[test]
     fn assert_deduped_array_empty_succeeds() {
         let builder = TestBuilder::new_empty();
-        builder.succeeds();
+        builder.check_and_execute();
     }
 
     #[test]
     fn assert_deduped_array_succeeds() {
         let builder = TestBuilder::new();
-        builder.succeeds();
+        builder.check_and_execute();
     }
 
     #[test(should_fail_with="mismatch deduped item")]
