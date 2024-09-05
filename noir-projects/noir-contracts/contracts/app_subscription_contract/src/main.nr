@@ -7,12 +7,12 @@ contract AppSubscription {
     use aztec::{
         prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
         encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys},
-        keys::getters::get_current_public_keys,
-        protocol_types::constants::{MAX_FIELD_VALUE, ROUTER_ADDRESS}, utils::comparison::Comparator
+        keys::getters::get_current_public_keys, protocol_types::constants::MAX_FIELD_VALUE,
+        utils::comparison::Comparator
     };
     use authwit::auth::assert_current_call_valid_authwit;
     use token::Token;
-    use router::Router;
+    use router::utils::privately_check_block_number;
 
     #[aztec(storage)]
     struct Storage {
@@ -54,7 +54,7 @@ contract AppSubscription {
 
         // We check that the note is not expired. We do that via the router contract to conceal which contract
         // is performing the check.
-        Router::at(ROUTER_ADDRESS).check_block_number(note.expiry_block_number, Comparator.GT).call(&mut context);
+        privately_check_block_number(Comparator.LT, note.expiry_block_number, &mut context);
 
         payload.execute_calls(&mut context, storage.target_address.read_private());
     }
@@ -86,12 +86,13 @@ contract AppSubscription {
             nonce
         ).call(&mut context);
 
-        // Assert that the `expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS < current_block_number`.
+        // Assert that the `current_block_number > expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS`.
         // --> We do that via the router contract to conceal which contract is performing the check.
-        Router::at(ROUTER_ADDRESS).check_block_number(
+        privately_check_block_number(
+            Comparator.GT,
             expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,
-            Comparator.LT
-        ).call(&mut context);
+            &mut context
+        );
 
         let subscriber_keys = get_current_public_keys(&mut context, subscriber);
         let msg_sender_ovpk_m = get_current_public_keys(&mut context, context.msg_sender()).ovpk_m;

@@ -123,7 +123,6 @@ const INSTRUCTION_SET = () =>
     [NullifierExists.opcode, NullifierExists], // Notes & Nullifiers
     [EmitNullifier.opcode, EmitNullifier], // Notes & Nullifiers
     [L1ToL2MessageExists.opcode, L1ToL2MessageExists], // Messages
-    //[HeaderMember.opcode, HeaderMember], // Header
 
     // Accrued Substate
     [EmitUnencryptedLog.opcode, EmitUnencryptedLog],
