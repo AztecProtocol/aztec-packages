@@ -44,9 +44,7 @@ library RelationsLib {
     }
 
     /**
-     * WIRE
-     *
-     * Wire is an aesthetic helper function that is used to index by enum into proof.sumcheckEvaluations, it avoids
+     * Aesthetic helper function that is used to index by enum into proof.sumcheckEvaluations, it avoids
      * the relation checking code being cluttered with uint256 type casting, which is often a different colour in code
      * editors, and thus is noisy.
      */
