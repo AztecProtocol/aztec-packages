@@ -26,6 +26,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     using Verifier = bb::UltraVerifier_<Flavor>;
     using RecursiveVerifierInputs = AztecIVC::RecursiveVerifierInputs;
     using QUEUE_TYPE = AztecIVC::QUEUE_TYPE;
+    using ArithmeticConstraint = AcirFormat::PolyTripleConstraint;
 
     static Builder construct_mock_app_circuit(AztecIVC& ivc)
     {
@@ -72,6 +73,33 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     }
 
     /**
+     * @brief Create an arithmetic constraint fixing the first public input witness to it's present value
+     * @details Meant to mimic the "business logic" of the aztec kernel. Used to facilitate failure testing since this
+     * will lead to failure of the kernel circuit to verify if a different proof witness is used in the business logic
+     * VS the recursive verification logic.
+     *
+     * @param public_inputs
+     * @param witness
+     * @return ArithmeticConstraint
+     */
+    static ArithmeticConstraint create_public_input_value_constraint(const std::vector<uint32_t>& public_inputs,
+                                                                     const SlabVector<FF>& witness)
+    {
+        const uint32_t pub_input_idx = public_inputs[0];
+        const FF pub_input_val = witness[pub_input_idx];
+        return {
+            .a = pub_input_idx,
+            .b = 0,
+            .c = 0,
+            .q_m = 0,
+            .q_l = -1,
+            .q_r = 0,
+            .q_o = 0,
+            .q_c = pub_input_val,
+        };
+    }
+
+    /**
      * @brief Generate an acir program {constraints, witness} for the mock kernel
      * @details The IVC contains and internal verification queue that contains proofs to be recursively verified.
      * Construct an AcirProgram with a RecursionConstraint for each entry in the ivc verification queue. (In practice
@@ -83,6 +111,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
      * @param inner_circuit_num_pub_inputs Num pub inputs for each circuit whose accumulation is recursively verified
      * @return Builder
      */
+    // WORKTODO: pass this only the verification_queue (maybe make an alias in AztezIvc)
     static AcirProgram construct_mock_kernel_program(AztecIVC& ivc,
                                                      const std::vector<size_t>& inner_circuit_num_pub_inputs)
     {
@@ -98,21 +127,11 @@ class IvcRecursionConstraintTest : public ::testing::Test {
                 ivc.verification_queue[idx], program.witness, inner_circuit_num_pub_inputs[idx]));
         }
 
-        // Add business logic
-        uint32_t pub_input_idx = ivc_recursion_constraints[0].public_inputs[0];
-        FF pub_input_val = program.witness[pub_input_idx];
-        AcirFormat::PolyTripleConstraint pub_input_constraint{
-            .a = pub_input_idx,
-            .b = 0,
-            .c = 0,
-            .q_m = 0,
-            .q_l = -1,
-            .q_r = 0,
-            .q_o = 0,
-            .q_c = pub_input_val,
-        };
+        // Add some mock kernel "business logic" which simply fixes one of the public inputs to a particular value
+        ArithmeticConstraint pub_input_constraint =
+            create_public_input_value_constraint(ivc_recursion_constraints[0].public_inputs, program.witness);
 
-        // Construct a constraint system containing the ivc constraints
+        // Construct a constraint system containing the business logic and ivc recursion constraints
         program.constraints.varnum = static_cast<uint32_t>(program.witness.size());
         program.constraints.recursive = false;
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(ivc_recursion_constraints.size());
@@ -193,43 +212,63 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
     EXPECT_TRUE(ivc.prove_and_verify());
 }
 
-// TEST_F(IvcRecursionConstraintTest, AccumulateTwoFailure)
-// {
-//     // Construct and save a valid dummy queue entry by accumulating an "app" circuit of larger size
-//     RecursiveVerifierInputs valid_dummy_inputs;
-//     {
-//         AztecIVC ivc;
-//         ivc.trace_structure = TraceStructure::SMALL_TEST;
+/**
+ * @brief Demonstrate failure of the IVC if the proof witness differs between those encoded in the constraint system
+ * (i.e. those used in the noir program) and those used in constructing the recursive verifiers internally
+ * @brief The idea is to construct two valid but unique verification queue entries of the form {proof, vkey}. One is
+ * used to construct the acir constraint system and the other is used to construct the recursive verification logic
+ * internally in the IVC. Since the proof/vkey witnesses in the constraint system are asserted equal to those used to
+ * construct the recursive verifiers, the use of different verification queue witnesses should result in failure.
+ * (Specifically, failure results from a failure of the "business logic" of the kernel which constraints one of the
+ * public inputs to a particular value).
+ */
+TEST_F(IvcRecursionConstraintTest, AccumulateTwoFailure)
+{
+    // Run the IVC for one app in order to construct a valid verification queue entry to be used later on. In order to
+    // demonstrate that it is indeed valid, complete the IVC with a kernel which verifies the entry, then prove and
+    // verify the IVC.
+    RecursiveVerifierInputs alternative_verification_queue_entry;
+    {
+        AztecIVC ivc;
+        ivc.trace_structure = TraceStructure::SMALL_TEST;
 
-//         // construct and accumulate a mock app circuit with a single unique public input
-//         Builder app_circuit = construct_mock_app_circuit(ivc);
-//         ivc.accumulate(app_circuit);
+        // construct and accumulate a mock app circuit with a single unique public input
+        Builder app_circuit = construct_mock_app_circuit(ivc);
+        ivc.accumulate(app_circuit);
 
-//         valid_dummy_inputs = ivc.verification_queue[0];
-//     }
+        // Save the single entry in the verification queue at this point
+        alternative_verification_queue_entry = ivc.verification_queue[0];
 
-//     AztecIVC ivc;
-//     ivc.trace_structure = TraceStructure::SMALL_TEST;
+        // Construct and accumulate kernel_0
+        AcirProgram program_0 = construct_mock_kernel_program(ivc, { app_circuit.public_inputs.size() });
+        Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, 0, program_0.witness);
+        ivc.accumulate(kernel_0);
 
-//     // construct a mock app_circuit
-//     Builder app_circuit = construct_mock_app_circuit(ivc);
+        EXPECT_TRUE(ivc.prove_and_verify());
+    }
 
-//     // Complete instance and generate an oink proof
-//     ivc.accumulate(app_circuit);
+    // Repeat a similar IVC but use the alternative queue entry just created to provide different (but independently
+    // valid) witnesses during constraint system construction VS recursive verifier construction.
 
-//     // Construct kernel_0 consisting only of the kernel completion logic
-//     AcirProgram program_0 = construct_mock_kernel_program(ivc, { app_circuit.public_inputs.size() });
-//     Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, 0, program_0.witness);
+    AztecIVC ivc;
+    ivc.trace_structure = TraceStructure::SMALL_TEST;
 
-//     EXPECT_TRUE(CircuitChecker::check(kernel_0));
-//     ivc.accumulate(kernel_0);
+    // construct and accumulate a mock app circuit with a single unique public input
+    Builder app_circuit = construct_mock_app_circuit(ivc);
+    ivc.accumulate(app_circuit);
 
-//     EXPECT_TRUE(ivc.prove_and_verify());
+    // Construct kernel_0
+    AcirProgram program_0 = construct_mock_kernel_program(ivc, { app_circuit.public_inputs.size() });
 
-//     // Perform the normal test logic but add to the kernel circuit a constraint using the valid proof somehow
-//     //  - maybe just add a particular public input then a different one in the real app?
+    // Replace the existing verification queue entry that was used to construct the acir constraint system with a
+    // different (but valid, as shown above) set of inputs
+    ivc.verification_queue[0] = alternative_verification_queue_entry;
+    Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, 0, program_0.witness);
 
-//     // Prior to constructing the recursive verifiers, swap out the real queue entry for the dummy one
+    // The witness should fail to check due to the business logic of the kernel failing
+    EXPECT_FALSE(CircuitChecker::check(kernel_0));
+    ivc.accumulate(kernel_0);
 
-//     // The asserting equal will break the business constraint
-// }
+    // The full IVC should of course also fail to verify since we've accumulated an invalid witness for the kernel
+    EXPECT_FALSE(ivc.prove_and_verify());
+}
