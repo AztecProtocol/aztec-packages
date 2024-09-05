@@ -13,11 +13,11 @@ namespace bb {
  * @tparam a type of UltraFlavor
  * */
 template <IsUltraFlavor Flavor>
-DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Instance>& inst,
+DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<DeciderPK>& proving_key,
                                        const std::shared_ptr<Transcript>& transcript)
-    : accumulator(std::move(inst))
+    : proving_key(std::move(proving_key))
     , transcript(transcript)
-    , commitment_key(accumulator->proving_key.commitment_key)
+    , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
 /**
@@ -28,11 +28,11 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<Instance>& inst,
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor>;
-    auto instance_size = accumulator->proving_key.circuit_size;
-    auto sumcheck = Sumcheck(instance_size, transcript);
+    size_t polynomial_size = proving_key->proving_key.circuit_size;
+    auto sumcheck = Sumcheck(polynomial_size, transcript);
     {
         ZoneScopedN("sumcheck.prove");
-        sumcheck_output = sumcheck.prove(accumulator);
+        sumcheck_output = sumcheck.prove(proving_key);
     }
 }
 
@@ -45,9 +45,9 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
     using ZeroMorph = ZeroMorphProver_<Curve>;
-    auto prover_opening_claim = ZeroMorph::prove(accumulator->proving_key.circuit_size,
-                                                 accumulator->proving_key.polynomials.get_unshifted(),
-                                                 accumulator->proving_key.polynomials.get_to_be_shifted(),
+    auto prover_opening_claim = ZeroMorph::prove(proving_key->proving_key.circuit_size,
+                                                 proving_key->proving_key.polynomials.get_unshifted(),
+                                                 proving_key->proving_key.polynomials.get_to_be_shifted(),
                                                  sumcheck_output.claimed_evaluations.get_unshifted(),
                                                  sumcheck_output.claimed_evaluations.get_shifted(),
                                                  sumcheck_output.challenge,
