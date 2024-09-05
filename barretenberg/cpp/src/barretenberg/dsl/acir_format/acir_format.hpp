@@ -195,16 +195,16 @@ struct AcirProgramStack {
 
 template <typename Builder = bb::UltraCircuitBuilder>
 Builder create_circuit(AcirFormat& constraint_system,
-                       size_t size_hint = 0,
-                       WitnessVector const& witness = {},
+                       const size_t size_hint = 0,
+                       const WitnessVector& witness = {},
                        bool honk_recursion = false,
                        std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
                        bool collect_gates_per_opcode = false);
 
 MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
                                          AztecIVC& ivc,
-                                         size_t size_hint = 0,
-                                         WitnessVector const& witness = {});
+                                         const WitnessVector& witness = {},
+                                         const size_t size_hint = 0);
 
 template <typename Builder>
 void build_constraints(

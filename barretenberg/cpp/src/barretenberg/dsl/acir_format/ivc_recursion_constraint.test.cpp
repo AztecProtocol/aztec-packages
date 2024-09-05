@@ -51,9 +51,9 @@ class IvcRecursionConstraintTest : public ::testing::Test {
      * @param num_public_inputs Number of public inputs to be extracted from the proof
      * @return RecursionConstraint
      */
-    static RecursionConstraint create_recursion_constraint(VerifierInputs& input,
+    static RecursionConstraint create_recursion_constraint(const VerifierInputs& input,
                                                            SlabVector<FF>& witness,
-                                                           size_t num_public_inputs)
+                                                           const size_t num_public_inputs)
     {
         // Assemble simple vectors of witnesses for vkey and proof
         std::vector<FF> key_witnesses = input.honk_verification_key->to_field_elements();
@@ -115,7 +115,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
      * @param inner_circuit_num_pub_inputs Num pub inputs for each circuit whose accumulation is recursively verified
      * @return Builder
      */
-    static AcirProgram construct_mock_kernel_program(VerificationQueue& verification_queue,
+    static AcirProgram construct_mock_kernel_program(const VerificationQueue& verification_queue,
                                                      const std::vector<size_t>& inner_circuit_num_pub_inputs)
     {
         ASSERT(verification_queue.size() == inner_circuit_num_pub_inputs.size());
@@ -171,7 +171,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 
     // Construct kernel_0 consisting only of the kernel completion logic
     AcirProgram program_0 = construct_mock_kernel_program(ivc.verification_queue, { app_circuit.public_inputs.size() });
-    Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, 0, program_0.witness);
+    Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, program_0.witness);
 
     EXPECT_TRUE(CircuitChecker::check(kernel_0));
     ivc.accumulate(kernel_0);
@@ -195,7 +195,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
     // Construct kernel_0; consists of a single oink recursive verification for app (plus databus/merge logic)
     size_t num_pub_inputs_app_0 = app_circuit_0.public_inputs.size();
     AcirProgram program_0 = construct_mock_kernel_program(ivc.verification_queue, { num_pub_inputs_app_0 });
-    Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, 0, program_0.witness);
+    Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, program_0.witness);
     ivc.accumulate(kernel_0);
 
     // construct a mock app_circuit
@@ -207,7 +207,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
     size_t num_pub_inputs_app_1 = app_circuit_0.public_inputs.size();
     AcirProgram program_1 =
         construct_mock_kernel_program(ivc.verification_queue, { num_pub_inputs_kernel_0, num_pub_inputs_app_1 });
-    Builder kernel_1 = acir_format::create_kernel_circuit(program_1.constraints, ivc, 0, program_1.witness);
+    Builder kernel_1 = acir_format::create_kernel_circuit(program_1.constraints, ivc, program_1.witness);
 
     EXPECT_TRUE(CircuitChecker::check(kernel_1));
     ivc.accumulate(kernel_1);
@@ -245,7 +245,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwoFailure)
         // Construct and accumulate kernel_0
         size_t num_pub_inputs_app = app_circuit.public_inputs.size();
         AcirProgram program_0 = construct_mock_kernel_program(ivc.verification_queue, { num_pub_inputs_app });
-        Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, 0, program_0.witness);
+        Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, program_0.witness);
         ivc.accumulate(kernel_0);
 
         EXPECT_TRUE(ivc.prove_and_verify());
@@ -267,7 +267,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwoFailure)
     // Replace the existing verification queue entry that was used to construct the acir constraint system for the
     // kernel with a different (but valid, as shown above) set of inputs
     ivc.verification_queue[0] = alternative_verification_queue_entry;
-    Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, 0, program_0.witness);
+    Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, program_0.witness);
 
     // The witness should fail to check due to the business logic of the kernel failing
     EXPECT_FALSE(CircuitChecker::check(kernel_0));

@@ -383,8 +383,8 @@ void process_honk_recursion_constraints(Builder& builder,
  */
 template <>
 UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
-                                   size_t size_hint,
-                                   WitnessVector const& witness,
+                                   const size_t size_hint,
+                                   const WitnessVector& witness,
                                    bool honk_recursion,
                                    [[maybe_unused]] std::shared_ptr<ECCOpQueue>,
                                    bool collect_gates_per_opcode)
@@ -411,8 +411,8 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
  */
 template <>
 MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
-                                  [[maybe_unused]] size_t size_hint,
-                                  WitnessVector const& witness,
+                                  [[maybe_unused]] const size_t size_hint,
+                                  const WitnessVector& witness,
                                   bool honk_recursion,
                                   std::shared_ptr<ECCOpQueue> op_queue,
                                   bool collect_gates_per_opcode)
@@ -439,8 +439,8 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
  */
 MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
                                          AztecIVC& ivc,
-                                         size_t size_hint,
-                                         WitnessVector const& witness)
+                                         const WitnessVector& witness,
+                                         const size_t size_hint)
 {
     // Construct the main kernel circuit logic excluding recursive verifiers
     auto circuit = create_circuit<MegaCircuitBuilder>(constraint_system,
