@@ -171,6 +171,7 @@ TEST_F(AvmCastTests, truncationFFToU16ModMinus1)
 {
     calldata = { FF::modulus - 1 };
     trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder.op_set(0, 1, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
     trace_builder.op_return(0, 0, 0);
@@ -184,6 +185,7 @@ TEST_F(AvmCastTests, truncationFFToU16ModMinus2)
 {
     calldata = { FF::modulus_minus_two };
     trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder.op_set(0, 1, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
     trace_builder.op_return(0, 0, 0);

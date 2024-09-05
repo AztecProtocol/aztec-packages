@@ -976,10 +976,20 @@ mod tests {
 
         let brillig_bytecode = BrilligBytecode {
             bytecode: vec![
+                BrilligOpcode::Const {
+                    destination: MemoryAddress(0),
+                    bit_size: BitSize::Integer(IntegerBitSize::U32),
+                    value: FieldElement::from(1u64),
+                },
+                BrilligOpcode::Const {
+                    destination: MemoryAddress(1),
+                    bit_size: BitSize::Integer(IntegerBitSize::U32),
+                    value: FieldElement::from(0u64),
+                },
                 BrilligOpcode::CalldataCopy {
                     destination_address: MemoryAddress(0),
-                    size: 1,
-                    offset: 0,
+                    size_address: MemoryAddress(0),
+                    offset_address: MemoryAddress(1),
                 },
                 BrilligOpcode::Const {
                     destination: MemoryAddress::from(1),
@@ -1101,10 +1111,20 @@ mod tests {
         // This Brillig block is equivalent to: z = x + y
         let brillig_bytecode = BrilligBytecode {
             bytecode: vec![
+                BrilligOpcode::Const {
+                    destination: MemoryAddress(0),
+                    bit_size: BitSize::Integer(IntegerBitSize::U32),
+                    value: FieldElement::from(2u64),
+                },
+                BrilligOpcode::Const {
+                    destination: MemoryAddress(1),
+                    bit_size: BitSize::Integer(IntegerBitSize::U32),
+                    value: FieldElement::from(0u64),
+                },
                 BrilligOpcode::CalldataCopy {
                     destination_address: MemoryAddress(0),
-                    size: 2,
-                    offset: 0,
+                    size_address: MemoryAddress(0),
+                    offset_address: MemoryAddress(1),
                 },
                 BrilligOpcode::BinaryFieldOp {
                     destination: MemoryAddress::from(0),
