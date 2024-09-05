@@ -7,7 +7,7 @@ use crate::note::{
     utils::compute_note_hash_for_read_request
 };
 use crate::oracle;
-use crate::utils::comparison::assert_comparison;
+use crate::utils::comparison::compare;
 
 mod test;
 
@@ -51,11 +51,8 @@ fn check_note_fields<let N: u32>(
         let select = selects.get_unchecked(i).unwrap_unchecked();
         let value_field = extract_property_value_from_selector(serialized_note, select.property_selector);
 
-        assert_comparison(
-            value_field,
-            select.comparator,
-            select.value.to_field(),
-            "Mismatch return note field."
+        assert(
+            compare(value_field, select.comparator, select.value.to_field()), "Mismatch return note field."
         );
     }
 }

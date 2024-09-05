@@ -4,7 +4,7 @@ mod test;
 /// call. This is achieved by having a private function on this contract that enques the public call and hence
 /// the `msg_sender` in the public call is the address of this contract.
 contract Router {
-    use aztec::utils::comparison::assert_comparison;
+    use aztec::utils::comparison::compare;
 
     // docs:start:check_timestamp
     /// Enqueues a public call that asserts that `lhs` (left side of the comparison) timestamp satisfies
@@ -20,7 +20,7 @@ contract Router {
     fn _check_timestamp(lhs: u64, operation: u8) {
         let lhs_field = lhs as Field;
         let rhs = context.timestamp() as Field;
-        assert_comparison(lhs_field, operation, rhs, "Timestamp mismatch.");
+        assert(compare(lhs_field, operation, rhs), "Timestamp mismatch.");
     }
     // docs:end:check_timestamp
 
@@ -38,6 +38,6 @@ contract Router {
     #[aztec(view)]
     fn _check_block_number(lhs: Field, operation: u8) {
         let rhs = context.block_number();
-        assert_comparison(lhs, operation, rhs, "Block number mismatch.");
+        assert(compare(lhs, operation, rhs), "Block number mismatch.");
     }
 }
