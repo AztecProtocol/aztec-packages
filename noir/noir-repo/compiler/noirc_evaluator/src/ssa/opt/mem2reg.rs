@@ -286,8 +286,6 @@ impl<'f> PerFunctionContext<'f> {
                 } else {
                     references.mark_value_used(address, self.inserter.function);
 
-                    references.expressions.insert(result, Expression::Other(result));
-                    references.aliases.insert(Expression::Other(result), AliasSet::known(result));
                     references.set_known_value(result, address);
 
                     self.last_loads.insert(address, (instruction, block_id));
