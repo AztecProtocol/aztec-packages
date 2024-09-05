@@ -56,6 +56,7 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
     void tracy_gate()
     {
 #ifdef TRACY_HACK_GATES_AS_MEMORY
+        std::unique_lock<std::mutex> lock(GLOBAL_GATE_MUTEX);
         GLOBAL_GATE++;
         TRACY_GATE_ALLOC(GLOBAL_GATE);
         allocated_gates.push_back(GLOBAL_GATE);
@@ -91,8 +92,12 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 #ifdef TRACY_HACK_GATES_AS_MEMORY
     ~ExecutionTraceBlock()
     {
+        std::unique_lock<std::mutex> lock(GLOBAL_GATE_MUTEX);
         for ([[maybe_unused]] size_t gate : allocated_gates) {
-            TRACY_GATE_FREE(gate);
+            if (!FREED_GATES.contains(gate)) {
+                TRACY_GATE_FREE(gate);
+                FREED_GATES.insert(gate);
+            }
         }
     }
 #endif

@@ -16,14 +16,21 @@
 #define TRACY_GATE_ALLOC(t)
 #define TRACY_GATE_FREE(t)
 #else
+#include <mutex>
+#include <set>
 #define TRACY_ALLOC(t, size)
 #define TRACY_FREE(t)
 
 namespace bb {
+// These are hacks to make sure tracy plays along
+// If we free an ID not allocated, or allocate an index twice without a free it will complain
+// so we hack thread-safety and an incrementing global ID.
+static std::mutex GLOBAL_GATE_MUTEX;
 static size_t GLOBAL_GATE = 0;
-}
-#define TRACY_GATE_ALLOC(index) TracyAllocS(reinterpret_cast<void*>(index), 1, /*stack depth*/ 10)
-#define TRACY_GATE_FREE(index) TracyFreeS(reinterpret_cast<void*>(index), /*stack depth*/ 10)
+static std::set<size_t> FREED_GATES; // hack to prevent instrumentation failures
+} // namespace bb
+#define TRACY_GATE_ALLOC(index) TracyAllocS(reinterpret_cast<void*>(index), 1, /*stack depth*/ 50)
+#define TRACY_GATE_FREE(index) TracyFreeS(reinterpret_cast<void*>(index), /*stack depth*/ 50)
 #endif
 // #define TRACY_ALLOC(t, size) TracyAlloc(t, size)
 // #define TRACY_FREE(t) TracyFree(t)
