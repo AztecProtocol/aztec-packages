@@ -368,7 +368,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
 
     // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
     // directory is passed by bb.js)
-    std::string vkPath = outputDir + "/inst_vk"; // the vk of the last instance
+    std::string vkPath = outputDir + "/final_decider_vk"; // the vk of the last instance
     std::string accPath = outputDir + "/pg_acc";
     std::string proofPath = outputDir + "/client_ivc_proof";
     std::string translatorVkPath = outputDir + "/translator_vk";
@@ -503,7 +503,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 
     // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
     // directory is passed by bb.js)
-    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
+    std::string vkPath = outputPath + "/final_decider_vk"; // the vk of the last instance
     std::string accPath = outputPath + "/pg_acc";
     std::string proofPath = outputPath + "/client_ivc_proof";
     std::string translatorVkPath = outputPath + "/translator_vk";
@@ -533,8 +533,8 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 void prove_tube(const std::string& output_path)
 {
     using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
-    using NativeInstance = ClientIVC::FoldVerifierInput::Instance;
-    using InstanceFlavor = MegaFlavor;
+    using StackDeciderVK = ClientIVC::FoldVerifierInput::Instance;
+    using StackHonkVK = typename MegaFlavor::VerificationKey;
     using ECCVMVk = ECCVMFlavor::VerificationKey;
     using TranslatorVk = TranslatorFlavor::VerificationKey;
     using FoldVerifierInput = ClientIVC::FoldVerifierInput;
@@ -543,7 +543,7 @@ void prove_tube(const std::string& output_path)
     using Builder = UltraCircuitBuilder;
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
-    std::string vkPath = output_path + "/inst_vk"; // the vk of the last instance
+    std::string vkPath = output_path + "/final_decider_vk"; // the vk of the last instance
     std::string accPath = output_path + "/pg_acc";
     std::string proofPath = output_path + "/client_ivc_proof";
     std::string translatorVkPath = output_path + "/translator_vk";
@@ -555,10 +555,10 @@ void prove_tube(const std::string& output_path)
 
     // Read the proof  and verification data from given files
     auto proof = from_buffer<ClientIVC::Proof>(read_file(proofPath));
-    std::shared_ptr<InstanceFlavor::VerificationKey> instance_vk = std::make_shared<InstanceFlavor::VerificationKey>(
-        from_buffer<InstanceFlavor::VerificationKey>(read_file(vkPath)));
-    std::shared_ptr<NativeInstance> verifier_accumulator =
-        std::make_shared<NativeInstance>(from_buffer<NativeInstance>(read_file(accPath)));
+    std::shared_ptr<StackHonkVK> final_stack_vk =
+        std::make_shared<StackHonkVK>(from_buffer<StackHonkVK>(read_file(vkPath)));
+    std::shared_ptr<StackDeciderVK> verifier_accumulator =
+        std::make_shared<StackDeciderVK>(from_buffer<StackDeciderVK>(read_file(accPath)));
     std::shared_ptr<TranslatorVk> translator_vk =
         std::make_shared<TranslatorVk>(from_buffer<TranslatorVk>(read_file(translatorVkPath)));
     std::shared_ptr<ECCVMVk> eccvm_vk = std::make_shared<ECCVMVk>(from_buffer<ECCVMVk>(read_file(eccVkPath)));
@@ -567,7 +567,7 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025)
     eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(eccvm_vk->circuit_size + 1);
 
-    FoldVerifierInput fold_verifier_input{ verifier_accumulator, { instance_vk } };
+    FoldVerifierInput fold_verifier_input{ verifier_accumulator, { final_stack_vk } };
     GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
     VerifierInput input{ fold_verifier_input, goblin_verifier_input };
     auto builder = std::make_shared<Builder>();
@@ -1397,7 +1397,7 @@ int main(int argc, char* argv[])
             std::filesystem::path output_dir = get_option(args, "-o", "./target");
             std::filesystem::path client_ivc_proof_path = output_dir / "client_ivc_proof";
             std::filesystem::path accumulator_path = output_dir / "pg_acc";
-            std::filesystem::path final_vk_path = output_dir / "inst_vk";
+            std::filesystem::path final_vk_path = output_dir / "final_decider_vk";
             std::filesystem::path eccvm_vk_path = output_dir / "ecc_vk";
             std::filesystem::path translator_vk_path = output_dir / "translator_vk";
 

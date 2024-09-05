@@ -110,8 +110,8 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
             inst_verification_key->databus_propagation_data = verification_key->databus_propagation_data;
         }
 
-        for (auto [vk, inst_vk] : zip_view(verification_key->get_all(), inst_verification_key->get_all())) {
-            inst_vk = vk.get_value();
+        for (auto [vk, final_decider_vk] : zip_view(verification_key->get_all(), inst_verification_key->get_all())) {
+            final_decider_vk = vk.get_value();
         }
 
         DeciderVerificationKey inst(inst_verification_key);

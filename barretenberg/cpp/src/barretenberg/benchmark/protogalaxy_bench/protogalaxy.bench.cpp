@@ -15,9 +15,7 @@ namespace bb {
 template <typename Flavor, size_t k> void fold_k(State& state) noexcept
 {
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using Instance = DeciderProvingKey;
-    using Instances = DeciderProvingKeys_<Flavor, k + 1>;
-    using ProtogalaxyProver = ProtogalaxyProver_<Instances>;
+    using ProtogalaxyProver = ProtogalaxyProver_<DeciderProvingKeys_<Flavor, k + 1>>;
     using Builder = typename Flavor::CircuitBuilder;
 
     bb::srs::init_crs_factory("../srs_db/ignition");
@@ -29,13 +27,13 @@ template <typename Flavor, size_t k> void fold_k(State& state) noexcept
         MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
         return std::make_shared<DeciderProvingKey>(builder);
     };
-    std::vector<std::shared_ptr<Instance>> instances;
+    std::vector<std::shared_ptr<DeciderProvingKey>> decider_pks;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
     for (size_t i = 0; i < k + 1; ++i) {
-        instances.emplace_back(construct_instance());
+        decider_pks.emplace_back(construct_instance());
     }
 
-    ProtogalaxyProver folding_prover(instances);
+    ProtogalaxyProver folding_prover(decider_pks);
 
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
