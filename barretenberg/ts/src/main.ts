@@ -56,9 +56,9 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
   const circuitSize = await getGates(bytecodePath, honkRecursion, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
   const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
-  if (subgroupSize > MAX_CIRCUIT_SIZE) {
-    throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
-  }
+  // if (subgroupSize > MAX_CIRCUIT_SIZE) {
+  //   throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
+  // }
 
   debug(`circuit size: ${circuitSize}`);
   debug(`subgroup size: ${subgroupSize}`);
@@ -67,7 +67,7 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
   const crs = await Crs.new(subgroupSize + 1, crsPath);
 
   // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
-  await api.commonInitSlabAllocator(subgroupSize);
+  // await api.commonInitSlabAllocator(subgroupSize);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -189,8 +189,8 @@ export async function prove(bytecodePath: string, witnessPath: string, crsPath: 
 export async function gateCount(bytecodePath: string, honkRecursion: boolean) {
   const api = await Barretenberg.new({ threads: 1 });
   try {
-    const numberOfGates = await getGates(bytecodePath, honkRecursion, api);
-
+    const numberOfGates = await getGates(bytecodePath, honkRecursion as boolean, api);
+    console.log(numberOfGates);
     // Create an 8-byte buffer and write the number into it.
     // Writing number directly to stdout will result in a variable sized
     // input depending on the size.
@@ -326,7 +326,7 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
 }
 
 export async function proveUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
-  const { api } = await init(bytecodePath, crsPath, -1, true);
+  const { api } = await init(bytecodePath, crsPath, -1, false);
   try {
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
@@ -489,10 +489,10 @@ program
   .command('gates')
   .description('Print gate count to standard output.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
-  .option('-hr, --honk-recursion <bool>', 'Specify whether to use UltraHonk recursion', 'false')
+  .option('-hr, --honk-recursion', 'Specify whether to use UltraHonk recursion')
   .action(async ({ bytecodePath: bytecodePath, honkRecursion: honkRecursion }) => {
     handleGlobalOptions();
-    await gateCount(bytecodePath, honkRecursion);
+    await gateCount(bytecodePath, !!honkRecursion);
   });
 
 program
