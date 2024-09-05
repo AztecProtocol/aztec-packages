@@ -203,7 +203,7 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ false,
+            /*static=*/ false
         )
     }
 
@@ -214,7 +214,7 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
+            /*static=*/ true
         )
     }
 }
@@ -258,7 +258,7 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ false,
+            /*static=*/ false
         )
     }
 
@@ -269,7 +269,7 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
+            /*static=*/ true
         )
     }
 }
@@ -309,7 +309,7 @@ impl<let N: u32, T, Env> PublicStaticCallInterface<N, T, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
+            /*static=*/ true
         )
     }
 }
@@ -348,7 +348,7 @@ impl<let N: u32, Env> PublicStaticVoidCallInterface<N, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
+            /*static=*/ true
         )
     }
 }

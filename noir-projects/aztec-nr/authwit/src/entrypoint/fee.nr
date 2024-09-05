@@ -64,7 +64,7 @@ impl FeePayload {
                         call.target_address,
                         call.function_selector,
                         call.args_hash,
-                        call.is_static,
+                        call.is_static
                     );
                 } else {
                     let _result = context.call_private_function_with_packed_args(

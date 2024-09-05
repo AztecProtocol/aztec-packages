@@ -445,7 +445,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args_hash: Field,
-        is_static_call: bool,
+        is_static_call: bool
     ) {
         let counter = self.next_counter();
 
@@ -455,14 +455,14 @@ impl PrivateContext {
             function_selector,
             args_hash,
             counter,
-            is_static_call,
+            is_static_call
         );
 
         let call_context = self.generate_call_context(
             contract_address,
             function_selector,
             is_static_call,
-            /*is_delegate_call=*/ false,
+            /*is_delegate_call=*/ false
         );
 
         let item = PublicCallStackItemCompressed {
@@ -495,7 +495,7 @@ impl PrivateContext {
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args_hash: Field,
-        is_static_call: bool,
+        is_static_call: bool
     ) {
         let counter = self.next_counter();
 
@@ -505,14 +505,14 @@ impl PrivateContext {
             function_selector,
             args_hash,
             counter,
-            is_static_call,
+            is_static_call
         );
 
         let call_context = self.generate_call_context(
             contract_address,
             function_selector,
             is_static_call,
-            /*is_delegate_call=*/ false,
+            /*is_delegate_call=*/ false
         );
 
         let item = PublicCallStackItemCompressed {
