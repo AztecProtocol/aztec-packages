@@ -135,9 +135,9 @@ We read the deadline from public storage in private and use the router contract 
 
 #include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
-We do the check via the router contract to conceal which contract is performing the check (This is achieved by calling a private function on the router contract which then enqueues a call to a public function on the router contract. This then results in the msg_sender in the public call being the router contract.)
+We perform this check via the router contract to not reveal which contract is performing the check - this is achieved by calling a private function on the router contract which then enqueues a call to a public function on the router contract. The result is that `msg_sender` in the public call will then be the router contract.
 Note that the privacy here is dependent upon what deadline value is chosen by the Crowdfunding contract deployer.
-If it's unique to this contract, then we are leaking a privacy.
+If it's unique to this contract, then there'll be a privacy leak regardless, as third parties will be able to observe a deadline check against the Crowdfunding deadline, and therefore infer that the associated transaction is interacting with it.
 
 Now conclude adding all dependencies to the `Crowdfunding` contract:
 

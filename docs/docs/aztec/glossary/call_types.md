@@ -118,9 +118,8 @@ A common pattern is to enqueue public calls to check some validity condition on 
 
 #include_code enqueueing /noir-projects/noir-contracts/contracts/router_contract/src/main.nr rust
 
-Note that this reveals what public function is being called on what contract.
-For this reason we've created a canonical router contract which implements some of the checks commonly performed.
-This conceals what contract performed the public call as the `context.msg_sender()` in the public function is the router itself (since the router's private function enqueued the public call).
+Note that this reveals what public function is being called on what contract, and perhaps more importantly which contract enqueued the call during private execution.
+For this reason we've created a canonical router contract which implements some of the checks commonly performed: this conceals the calling contract, as the `context.msg_sender()` in the public function will be the router itself (since it is the router that enqueues the public call).
 
 An example of how a deadline can be checked using the router contract follows:
 
@@ -131,7 +130,7 @@ This is what the implementation of the check timestamp functionality looks like:
 #include_code check_timestamp /noir-projects/noir-contracts/contracts/router_contract/src/main.nr rust
 
 Even with the router contract achieving good privacy is hard.
-This is especially the case when the value being checked is unique and stored in the contract's public storage.
+For example, if the value being checked against is unique and stored in the contract's public storage, it's then simple to find private transactions that are using that value in the enqueued public reads, and therefore link them to this contract.
 For this reason it is encouraged to try to avoid public function calls and instead privately read [Shared State](../../reference/developer_references/smart_contract_reference/storage/shared_state.md) when possible.
 
 ### Public Execution
