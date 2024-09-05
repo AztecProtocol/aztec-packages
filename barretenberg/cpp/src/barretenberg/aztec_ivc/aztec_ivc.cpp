@@ -33,7 +33,10 @@ void AztecIVC::instantiate_stdlib_verification_queue(ClientCircuit& circuit)
  * @param type The type of the proof (equivalently, the type of the verifier)
  */
 void AztecIVC::perform_recursive_verification_and_databus_consistency_checks(
-    ClientCircuit& circuit, StdProof& proof, std::shared_ptr<RecursiveVerificationKey> vkey, QUEUE_TYPE type)
+    ClientCircuit& circuit,
+    const StdlibProof<ClientCircuit>& proof,
+    const std::shared_ptr<RecursiveVerificationKey>& vkey,
+    const QUEUE_TYPE type)
 {
     switch (type) {
     case QUEUE_TYPE::PG: {
@@ -60,7 +63,7 @@ void AztecIVC::perform_recursive_verification_and_databus_consistency_checks(
         // Perform oink recursive verification to complete the initial verifier accumulator
         OinkRecursiveVerifier oink{ &circuit, verifier_accum };
         oink.verify_proof(proof);
-        verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink on this instance
+        verifier_accum->is_accumulator = true; // indicate to PG that it should not run oink
 
         // Extract native verifier accumulator from the stdlib accum for use on the next round
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
@@ -217,7 +220,7 @@ bool AztecIVC::verify(const Proof& proof,
  * @param proof
  * @return bool
  */
-bool AztecIVC::verify(Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack)
+bool AztecIVC::verify(const Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack)
 {
     auto eccvm_vk = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());

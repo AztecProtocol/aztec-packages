@@ -47,7 +47,6 @@ class AztecIVC {
         bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
     using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::DeciderVK;
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
-    using StdProof = StdlibProof<ClientCircuit>;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
     using OinkRecursiveVerifier = stdlib::recursion::honk::OinkRecursiveVerifier_<RecursiveFlavor>;
@@ -77,7 +76,7 @@ class AztecIVC {
 
     // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
-        StdProof proof; // oink or PG
+        StdlibProof<ClientCircuit> proof; // oink or PG
         std::shared_ptr<RecursiveVerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
@@ -114,10 +113,11 @@ class AztecIVC {
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit);
 
-    void perform_recursive_verification_and_databus_consistency_checks(ClientCircuit& circuit,
-                                                                       StdProof& proof,
-                                                                       std::shared_ptr<RecursiveVerificationKey> vkey,
-                                                                       QUEUE_TYPE type);
+    void perform_recursive_verification_and_databus_consistency_checks(
+        ClientCircuit& circuit,
+        const StdlibProof<ClientCircuit>& proof,
+        const std::shared_ptr<RecursiveVerificationKey>& vkey,
+        const QUEUE_TYPE type);
 
     void process_recursive_merge_verification_queue(ClientCircuit& circuit);
 
@@ -135,7 +135,7 @@ class AztecIVC {
                        const std::shared_ptr<AztecIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<AztecIVC::TranslatorVerificationKey>& translator_vk);
 
-    bool verify(Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack);
+    bool verify(const Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack);
 
     bool prove_and_verify();
 

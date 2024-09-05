@@ -55,7 +55,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
      * @brief Constructs an oink recursive verifier circuit for a provided oink proof.
      *
      */
-    void verify_proof(OinkProof& proof);
+    void verify_proof(const OinkProof& proof);
 
     std::shared_ptr<RecursiveDeciderVK> verification_key;
     Builder* builder;
