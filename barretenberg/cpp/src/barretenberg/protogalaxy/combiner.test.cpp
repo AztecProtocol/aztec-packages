@@ -224,7 +224,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                               keys_data[1]->proving_key.polynomials.get_all(),
                               prover_polynomials.get_all())) {
                     for (size_t i = 0; i < /*circuit_size*/ 2; i++) {
-                        new_polynomial.at(i) = key_0_polynomial[i] + ((key_1_polynomial[i] - key_0_polynomial[i]) * idx);
+                        new_polynomial.at(i) =
+                            key_0_polynomial[i] + ((key_1_polynomial[i] - key_0_polynomial[i]) * idx);
                     }
                 }
                 extended_polynomials.push_back(std::move(prover_polynomials));
