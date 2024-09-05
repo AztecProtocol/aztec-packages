@@ -84,14 +84,14 @@ class MegaFlavor {
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using RelationSeparator = std::array<FF, NUM_SUBRELATIONS - 1>;
 
-    template <size_t NUM_INSTANCES>
+    template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
-        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
+        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_KEYS>());
 
-    template <size_t NUM_INSTANCES>
+    template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariates =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations,
-                                                                   NUM_INSTANCES,
+                                                                   NUM_KEYS,
                                                                    /*optimised=*/true>());
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());

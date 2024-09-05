@@ -97,9 +97,8 @@ template <class Curve> class CommitmentKey {
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial span.
-        std::span<G1> point_table = { srs->get_monomial_points() + polynomial.start_index * 2,
-                                      srs->get_monomial_size() * 2 - polynomial.start_index * 2 };
-        DEBUG_LOG_ALL(polynomial.span);
+        std::span<G1> point_table =
+            srs->get_monomial_points().subspan(polynomial.start_index * 2) DEBUG_LOG_ALL(polynomial.span);
         Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
             polynomial.span, point_table, pippenger_runtime_state);
         DEBUG_LOG(point);
@@ -125,7 +124,7 @@ template <class Curve> class CommitmentKey {
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial spann.
-        G1* point_table = srs->get_monomial_points() + polynomial.start_index * 2;
+        std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
 
         // Define structures needed to multithread the extraction of non-zero inputs
         const size_t num_threads = poly_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
@@ -145,6 +144,7 @@ template <class Curve> class CommitmentKey {
                 if (!scalar.is_zero()) {
                     thread_scalars[thread_idx].emplace_back(scalar);
                     // Save both the raw srs point and the precomputed endomorphism point from the point table
+                    ASSERT(idx * 2 + 1 < point_table.size());
                     const G1& point = point_table[idx * 2];
                     const G1& endo_point = point_table[idx * 2 + 1];
                     thread_points[thread_idx].emplace_back(point);
@@ -170,7 +170,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call the version of pippenger which assumes all points are distinct
-        return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points.data(), pippenger_runtime_state);
+        return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
     }
 };
 
