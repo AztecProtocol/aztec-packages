@@ -53,6 +53,7 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> bigint_from_le_bytes_constraints;
     std::vector<size_t> bigint_to_le_bytes_constraints;
     std::vector<size_t> bigint_operations;
+    std::vector<size_t> assert_equalities;
     std::vector<size_t> poly_triple_constraints;
     std::vector<size_t> quad_constraints;
     // Multiple opcode indices per block:
@@ -98,6 +99,7 @@ struct AcirFormat {
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
     std::vector<BigIntOperation> bigint_operations;
+    std::vector<bb::poly_triple_<bb::curve::BN254::ScalarField>> assert_equalities;
 
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
@@ -109,6 +111,9 @@ struct AcirFormat {
     // Number of gates added to the circuit per original opcode.
     // Has length equal to num_acir_opcodes.
     std::vector<size_t> gates_per_opcode = {};
+
+    // Set of constrained witnesses
+    std::set<uint32_t> constrained_witness = {};
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
@@ -139,7 +144,8 @@ struct AcirFormat {
                    block_constraints,
                    bigint_from_le_bytes_constraints,
                    bigint_to_le_bytes_constraints,
-                   bigint_operations);
+                   bigint_operations,
+                   assert_equalities);
 
     friend bool operator==(AcirFormat const& lhs, AcirFormat const& rhs) = default;
 };
