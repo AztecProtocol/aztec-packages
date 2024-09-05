@@ -191,7 +191,7 @@ std::pair<uint32_t, uint32_t> is_assert_equal(Program::Opcode::AssertZero const&
     if (!arg.value.mul_terms.empty() || arg.value.linear_combinations.size() != 2) {
         return { 0, 0 };
     }
-    if (pt.q_l == -pt.q_r && pt.q_l != 0) {
+    if (pt.q_l == -pt.q_r && pt.q_l != bb::fr::zero() && pt.q_c == bb::fr::zero()) {
         if (af.constrained_witness.contains(pt.a) && af.constrained_witness.contains(pt.b)) {
             return { pt.a, pt.b };
         }
