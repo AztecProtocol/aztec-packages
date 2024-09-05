@@ -27,6 +27,17 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     using RecursiveVerifierInputs = AztecIVC::RecursiveVerifierInputs;
     using QUEUE_TYPE = AztecIVC::QUEUE_TYPE;
 
+    static Builder construct_mock_app_circuit(AztecIVC& ivc)
+    {
+        Builder circuit{ ivc.goblin.op_queue };
+        GoblinMockCircuits::construct_simple_circuit(circuit);
+
+        // add a random (unique) public input
+        circuit.add_public_variable(FF::random_element());
+
+        return circuit;
+    }
+
     /**
      * @brief Create an ACIR RecursionConstraint given the corresponding verifier inputs
      * @brief In practice such constraints are created via a call to verify_proof(...) in noir
@@ -61,11 +72,10 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     }
 
     /**
-     * @brief Generate constraint system based on the verification queue and construct the corresponding kernel circuit
+     * @brief Generate an acir program {constraints, witness} for the mock kernel
      * @details The IVC contains and internal verification queue that contains proofs to be recursively verified.
-     * Construct an AcirFormat constraint system with a RecursionConstraint for each entry in the queue then construct a
-     * bberg style "kernel" circuit from that. (In practice these constraints would come directly from calls to
-     * verify_proof in noir).
+     * Construct an AcirProgram with a RecursionConstraint for each entry in the ivc verification queue. (In practice
+     * these constraints would come directly from calls to verify_proof in noir).
      * @note This method needs the number of public inputs in each proof-to-be-verified since the acir constraint
      * requires that the public inputs be provided separately from the 'main' proof.
      *
@@ -73,33 +83,45 @@ class IvcRecursionConstraintTest : public ::testing::Test {
      * @param inner_circuit_num_pub_inputs Num pub inputs for each circuit whose accumulation is recursively verified
      * @return Builder
      */
-    static Builder construct_mock_kernel_from_constraint_system(AztecIVC& ivc,
-                                                                const std::vector<size_t>& inner_circuit_num_pub_inputs)
+    static AcirProgram construct_mock_kernel_program(AztecIVC& ivc,
+                                                     const std::vector<size_t>& inner_circuit_num_pub_inputs)
     {
-        const size_t num_recursive_verifications = ivc.verification_queue.size();
-        ASSERT(num_recursive_verifications == inner_circuit_num_pub_inputs.size());
+        ASSERT(ivc.verification_queue.size() == inner_circuit_num_pub_inputs.size());
 
-        SlabVector<FF> witness;
+        AcirProgram program;
 
         // Construct recursion constraints based on the ivc verification queue; populate the witness along the way
         std::vector<RecursionConstraint> ivc_recursion_constraints;
-        ivc_recursion_constraints.reserve(num_recursive_verifications);
-        for (size_t idx = 0; idx < num_recursive_verifications; ++idx) {
-            ivc_recursion_constraints.push_back(
-                create_recursion_constraint(ivc.verification_queue[idx], witness, inner_circuit_num_pub_inputs[idx]));
+        ivc_recursion_constraints.reserve(ivc.verification_queue.size());
+        for (size_t idx = 0; idx < ivc.verification_queue.size(); ++idx) {
+            ivc_recursion_constraints.push_back(create_recursion_constraint(
+                ivc.verification_queue[idx], program.witness, inner_circuit_num_pub_inputs[idx]));
         }
 
-        // Construct a constraint system containing only ivc recursion constraints
-        AcirFormat constraint_system{};
-        constraint_system.varnum = static_cast<uint32_t>(witness.size());
-        constraint_system.recursive = false;
-        constraint_system.num_acir_opcodes = static_cast<uint32_t>(ivc_recursion_constraints.size());
-        constraint_system.ivc_recursion_constraints = ivc_recursion_constraints;
-        constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
+        // Add business logic
+        uint32_t pub_input_idx = ivc_recursion_constraints[0].public_inputs[0];
+        FF pub_input_val = program.witness[pub_input_idx];
+        AcirFormat::PolyTripleConstraint pub_input_constraint{
+            .a = pub_input_idx,
+            .b = 0,
+            .c = 0,
+            .q_m = 0,
+            .q_l = -1,
+            .q_r = 0,
+            .q_o = 0,
+            .q_c = pub_input_val,
+        };
 
-        mock_opcode_indices(constraint_system); // WORKTODO: wtf is this
+        // Construct a constraint system containing the ivc constraints
+        program.constraints.varnum = static_cast<uint32_t>(program.witness.size());
+        program.constraints.recursive = false;
+        program.constraints.num_acir_opcodes = static_cast<uint32_t>(ivc_recursion_constraints.size());
+        program.constraints.poly_triple_constraints = { pub_input_constraint };
+        program.constraints.ivc_recursion_constraints = ivc_recursion_constraints;
+        program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
+        mock_opcode_indices(program.constraints); // WORKTODO: wtf is this
 
-        return acir_format::create_kernel_circuit(constraint_system, ivc, /*size_hint=*/0, witness);
+        return program;
     }
 
   protected:
@@ -120,14 +142,14 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     // construct a mock app_circuit
-    Builder app_circuit{ ivc.goblin.op_queue };
-    GoblinMockCircuits::construct_simple_circuit(app_circuit);
+    Builder app_circuit = construct_mock_app_circuit(ivc);
 
     // Complete instance and generate an oink proof
     ivc.accumulate(app_circuit);
 
     // Construct kernel_0 consisting only of the kernel completion logic
-    Builder kernel_0 = construct_mock_kernel_from_constraint_system(ivc, { app_circuit.public_inputs.size() });
+    AcirProgram program_0 = construct_mock_kernel_program(ivc, { app_circuit.public_inputs.size() });
+    Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, 0, program_0.witness);
 
     EXPECT_TRUE(CircuitChecker::check(kernel_0));
     ivc.accumulate(kernel_0);
@@ -136,7 +158,8 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 }
 
 /**
- * @brief Test IVC accumulation of two apps and two kernels; The first kernel contains a recursive oink verification and
+ * @brief Test IVC accumulation of two apps and two kernels; The first kernel contains a recursive oink verification
+ and
  * the second contains two recursive PG verifications, all specified via ACIR RecursionConstraints.
  */
 TEST_F(IvcRecursionConstraintTest, AccumulateFour)
@@ -145,25 +168,68 @@ TEST_F(IvcRecursionConstraintTest, AccumulateFour)
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     // construct a mock app_circuit
-    Builder app_circuit_0{ ivc.goblin.op_queue };
-    GoblinMockCircuits::construct_simple_circuit(app_circuit_0);
+    Builder app_circuit_0 = construct_mock_app_circuit(ivc);
     ivc.accumulate(app_circuit_0);
 
     // Construct kernel_0; consists of a single oink recursive verification for app (plus databus/merge logic)
-    Builder kernel_0 = construct_mock_kernel_from_constraint_system(ivc, { app_circuit_0.public_inputs.size() });
+    size_t num_pub_inputs_app_0 = app_circuit_0.public_inputs.size();
+    AcirProgram program_0 = construct_mock_kernel_program(ivc, { num_pub_inputs_app_0 });
+    Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, 0, program_0.witness);
     ivc.accumulate(kernel_0);
 
     // construct a mock app_circuit
-    Builder app_circuit_1{ ivc.goblin.op_queue };
-    GoblinMockCircuits::construct_simple_circuit(app_circuit_1);
+    Builder app_circuit_1 = construct_mock_app_circuit(ivc);
     ivc.accumulate(app_circuit_1);
 
     // Construct kernel_1; consists of two PG recursive verifications for kernel_0 and app_1 (plus databus/merge logic)
-    Builder kernel_1 = construct_mock_kernel_from_constraint_system(
-        ivc, { kernel_0.public_inputs.size(), app_circuit_1.public_inputs.size() });
+    size_t num_pub_inputs_kernel_0 = kernel_0.public_inputs.size();
+    size_t num_pub_inputs_app_1 = app_circuit_0.public_inputs.size();
+    AcirProgram program_1 = construct_mock_kernel_program(ivc, { num_pub_inputs_kernel_0, num_pub_inputs_app_1 });
+    Builder kernel_1 = acir_format::create_kernel_circuit(program_1.constraints, ivc, 0, program_1.witness);
 
     EXPECT_TRUE(CircuitChecker::check(kernel_1));
     ivc.accumulate(kernel_1);
 
     EXPECT_TRUE(ivc.prove_and_verify());
 }
+
+// TEST_F(IvcRecursionConstraintTest, AccumulateTwoFailure)
+// {
+//     // Construct and save a valid dummy queue entry by accumulating an "app" circuit of larger size
+//     RecursiveVerifierInputs valid_dummy_inputs;
+//     {
+//         AztecIVC ivc;
+//         ivc.trace_structure = TraceStructure::SMALL_TEST;
+
+//         // construct and accumulate a mock app circuit with a single unique public input
+//         Builder app_circuit = construct_mock_app_circuit(ivc);
+//         ivc.accumulate(app_circuit);
+
+//         valid_dummy_inputs = ivc.verification_queue[0];
+//     }
+
+//     AztecIVC ivc;
+//     ivc.trace_structure = TraceStructure::SMALL_TEST;
+
+//     // construct a mock app_circuit
+//     Builder app_circuit = construct_mock_app_circuit(ivc);
+
+//     // Complete instance and generate an oink proof
+//     ivc.accumulate(app_circuit);
+
+//     // Construct kernel_0 consisting only of the kernel completion logic
+//     AcirProgram program_0 = construct_mock_kernel_program(ivc, { app_circuit.public_inputs.size() });
+//     Builder kernel_0 = acir_format::create_kernel_circuit(program_0.constraints, ivc, 0, program_0.witness);
+
+//     EXPECT_TRUE(CircuitChecker::check(kernel_0));
+//     ivc.accumulate(kernel_0);
+
+//     EXPECT_TRUE(ivc.prove_and_verify());
+
+//     // Perform the normal test logic but add to the kernel circuit a constraint using the valid proof somehow
+//     //  - maybe just add a particular public input then a different one in the real app?
+
+//     // Prior to constructing the recursive verifiers, swap out the real queue entry for the dummy one
+
+//     // The asserting equal will break the business constraint
+// }

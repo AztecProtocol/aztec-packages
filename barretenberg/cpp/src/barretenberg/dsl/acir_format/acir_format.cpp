@@ -453,7 +453,7 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
     for (auto [constraint, queue_entry] :
          zip_view(constraint_system.ivc_recursion_constraints, ivc.stdlib_verification_queue)) {
 
-        // Reconstruct complete proof indices from constraint data (in which the proof is stripped of public inputs)
+        // Reconstruct complete proof indices from acir constraint data (in which proof is stripped of public inputs)
         std::vector<uint32_t> complete_proof_indices =
             ProofSurgeon::create_indices_for_reconstructed_proof(constraint.proof, constraint.public_inputs);
         ASSERT(complete_proof_indices.size() == queue_entry.proof.size());
