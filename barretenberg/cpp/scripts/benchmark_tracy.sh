@@ -22,6 +22,7 @@ ssh $BOX "
 	cd ~/aztec-packages/barretenberg/cpp/ ;
 	cmake --preset $PRESET && cmake --build --preset $PRESET --target $BENCHMARK ;
 	! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy ;
+        git checkout 075395620a504c0cdcaf9bab3d196db16a043de7 # release 0.11.0
 	cd ~/tracy/capture ;
 	sudo apt-get install -y libdbus-1-dev libdbus-glib-1-dev ;
 	mkdir -p build && cd build && cmake .. && make -j ;
@@ -33,6 +34,7 @@ ssh $BOX "
 wait # TODO(AD) hack - not sure why needed
 ! [ -d ~/tracy ] && git clone https://github.com/wolfpld/tracy ~/tracy
 cd ~/tracy
+git checkout 075395620a504c0cdcaf9bab3d196db16a043de7 # release 0.11.0
 cmake -B profiler/build -S profiler -DCMAKE_BUILD_TYPE=Release
 cmake --build profiler/build --parallel
 scp $BOX:/mnt/user-data/$USER/tracy/capture/build/trace-$BENCHMARK .
