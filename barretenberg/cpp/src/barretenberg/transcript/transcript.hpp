@@ -71,6 +71,24 @@ struct NativeTranscriptParams {
     {
         return bb::field_conversion::convert_challenge<T>(challenge);
     }
+    /**
+     * @brief Split a challenge field element into two half-width challenges
+     * @details `lo` is 128 bits and `hi` is 126 bits.
+     * This should provide significantly more than our security parameter bound: 100 bits
+     *
+     * @param challenge
+     * @return std::array<Fr, 2>
+     */
+    static inline std::array<Fr, 2> split_challenge(const Fr& challenge)
+    {
+        static constexpr size_t LO_BITS = plookup::FixedBaseParams::BITS_PER_LO_SCALAR;
+        static constexpr size_t HI_BITS = Fr::modulus.get_msb() - LO_BITS;
+
+        auto converted = static_cast<uint256_t>(challenge);
+        uint256_t lo = converted.slice(0, LO_BITS);
+        uint256_t hi = converted.slice(LO_BITS, LO_BITS + HI_BITS);
+        return std::array<Fr, 2>{ Fr(lo), Fr(hi) };
+    }
     template <typename T> static constexpr size_t calc_num_bn254_frs()
     {
         return bb::field_conversion::calc_num_bn254_frs<T>();
@@ -128,7 +146,7 @@ template <typename TranscriptParams> class BaseTranscript {
      * to the current challenge buffer to set up next function call.
      * @return std::array<Fr, HASH_OUTPUT_SIZE>
      */
-    [[nodiscard]] Fr get_next_challenge_buffer()
+    [[nodiscard]] std::array<Fr, 2> get_next_duplex_challenge_buffer(size_t num_challenges)
     {
         // Prevent challenge generation if this is the first challenge we're generating,
         // AND nothing was sent by the prover.
@@ -160,10 +178,11 @@ template <typename TranscriptParams> class BaseTranscript {
         // oracle, removing the need to pre-hash to compress and then hash with a random oracle, as we previously did
         // with Pedersen and Blake3s.
         Fr new_challenge = TranscriptParams::hash(full_buffer);
-
+        std::array<Fr, 2> new_challenges = TranscriptParams::split_challenge(new_challenge);
         // update previous challenge buffer for next time we call this function
-        previous_challenge = new_challenge;
-        return new_challenge;
+        ASSERT(num_challenges <= 2);
+        previous_challenge = new_challenges[num_challenges - 1];
+        return new_challenges;
     };
 
   protected:
@@ -265,7 +284,7 @@ template <typename TranscriptParams> class BaseTranscript {
         std::array<ChallengeType, num_challenges> challenges{};
 
         // Generate the challenges by iteratively hashing over the previous challenge.
-        for (size_t i = 0; i < num_challenges; i++) {
+        for (size_t i = 0; i < num_challenges / 2; i += 1) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/741): Optimize this by truncating hash to 128
             // bits or by splitting hash into 2 challenges.
             /*
@@ -277,8 +296,14 @@ template <typename TranscriptParams> class BaseTranscript {
             //             HASH_OUTPUT_SIZE / 2,
             //             field_element_buffer.begin() + HASH_OUTPUT_SIZE / 2);
             */
-            auto challenge_buffer = get_next_challenge_buffer();
-            challenges[i] = TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer);
+            auto challenge_buffer = get_next_duplex_challenge_buffer(2);
+            challenges[2 * i] = TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[0]);
+            challenges[2 * i + 1] = TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[1]);
+        }
+        if ((num_challenges & 1) == 1) {
+            auto challenge_buffer = get_next_duplex_challenge_buffer(1);
+            challenges[num_challenges - 1] =
+                TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[0]);
         }
 
         // Prepare for next round.
@@ -451,6 +476,10 @@ struct KeccakTranscriptParams {
         // TODO(md): Need to refactor this to be able to NOT just be field elements - Im working about it in the
         // verifier for keccak resulting in twice as much hashing
         return bb::field_conversion::convert_to_bn254_frs(element);
+    }
+    static inline std::array<Fr, 2> split_challenge(const Fr& challenge)
+    {
+        return NativeTranscriptParams::split_challenge(challenge);
     }
 };
 
