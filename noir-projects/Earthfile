@@ -5,8 +5,6 @@ source:
 
   # Install nargo
   COPY ../noir/+nargo/nargo /usr/bin/nargo
-  # Install bb
-  COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
 
   WORKDIR /usr/src/noir-projects
 
@@ -33,6 +31,9 @@ build-protocol-circuits:
   FROM +source
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY mkdir -p ~/.aws && \
       bash -c 'echo -e "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY" > ~/.aws/credentials'
+
+  # Install bb
+  COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
   RUN yarn
   RUN cd noir-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
   SAVE ARTIFACT noir-protocol-circuits
@@ -43,6 +44,9 @@ build-mock-protocol-circuits:
   FROM +source
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY mkdir -p ~/.aws && \
       bash -c 'echo -e "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY" > ~/.aws/credentials'
+
+  # Install bb
+  COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
   RUN yarn
   RUN cd mock-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
   SAVE ARTIFACT mock-protocol-circuits
@@ -90,6 +94,7 @@ format:
   FROM +source
 
   WORKDIR /usr/src/noir-projects/noir-protocol-circuits
+  RUN yarn && node ./generate_variants.js
   RUN nargo fmt --check
 
   WORKDIR /usr/src/noir-projects/mock-protocol-circuits
@@ -105,10 +110,11 @@ gates-report:
   FROM +source
   WORKDIR /usr/src/noir-projects
 
+  # Install bb
+  COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
   ENV BB_BIN /usr/src/barretenberg/cpp/build/bin/bb
 
-  RUN yarn
-  RUN cd noir-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
+  RUN cd noir-protocol-circuits && yarn && node ./generate_variants.js && nargo compile --silence-warnings
 
   COPY ./gates_report.sh ./gates_report.sh
   RUN ./gates_report.sh
