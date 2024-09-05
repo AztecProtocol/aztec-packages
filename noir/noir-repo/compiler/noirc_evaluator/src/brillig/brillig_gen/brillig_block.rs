@@ -289,7 +289,7 @@ impl<'block> BrilligBlock<'block> {
 
                     let input_values = vecmap(arguments, |value_id| {
                         let variable = self.convert_ssa_value(*value_id, dfg);
-                        self.variable_to_value_or_array(variable)
+                        self.brillig_context.variable_to_value_or_array(variable)
                     });
                     let input_value_types = vecmap(arguments, |value_id| {
                         let value_type = dfg.type_of_value(*value_id);
@@ -297,7 +297,7 @@ impl<'block> BrilligBlock<'block> {
                     });
                     let output_values = vecmap(result_ids, |value_id| {
                         let variable = self.allocate_external_call_result(*value_id, dfg);
-                        self.variable_to_value_or_array(variable)
+                        self.brillig_context.variable_to_value_or_array(variable)
                     });
                     let output_value_types = vecmap(result_ids, |value_id| {
                         let value_type = dfg.type_of_value(*value_id);
@@ -314,11 +314,10 @@ impl<'block> BrilligBlock<'block> {
                     for input_value in input_values {
                         match input_value {
                             ValueOrArray::HeapArray(array) => {
-                                self.brillig_context.deallocate_register(array.pointer);
+                                self.brillig_context.deallocate_heap_array(array)
                             }
                             ValueOrArray::HeapVector(vector) => {
-                                self.brillig_context.deallocate_register(vector.pointer);
-                                self.brillig_context.deallocate_register(vector.size);
+                                self.brillig_context.deallocate_heap_vector(vector)
                             }
                             _ => {}
                         }
@@ -1811,12 +1810,7 @@ impl<'block> BrilligBlock<'block> {
             unreachable!("ICE: allocate_foreign_call_array() expects an array, got {typ:?}")
         };
 
-        self.brillig_context.codegen_allocate_immediate_mem(array.pointer, array.size + 1);
-        self.brillig_context.indirect_const_instruction(
-            array.pointer,
-            BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
-            1_usize.into(),
-        );
+        self.brillig_context.codegen_initialize_array(array);
 
         let mut index = 0_usize;
         for _ in 0..*size {
@@ -1876,20 +1870,6 @@ impl<'block> BrilligBlock<'block> {
             _ => {
                 unreachable!("ICE: Cannot get length of {array_variable:?}")
             }
-        }
-    }
-
-    fn variable_to_value_or_array(&mut self, variable: BrilligVariable) -> ValueOrArray {
-        match variable {
-            BrilligVariable::SingleAddr(SingleAddrVariable { address, .. }) => {
-                ValueOrArray::MemoryAddress(address)
-            }
-            BrilligVariable::BrilligArray(array) => ValueOrArray::HeapArray(
-                self.brillig_context.codegen_brillig_array_to_heap_array(array),
-            ),
-            BrilligVariable::BrilligVector(vector) => ValueOrArray::HeapVector(
-                self.brillig_context.codegen_brillig_vector_to_heap_vector(vector),
-            ),
         }
     }
 }

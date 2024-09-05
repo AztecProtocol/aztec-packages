@@ -1,5 +1,5 @@
 use acvm::{
-    acir::brillig::{HeapArray, HeapVector, MemoryAddress},
+    acir::brillig::{HeapArray, HeapVector, MemoryAddress, ValueOrArray},
     AcirField,
 };
 
@@ -158,18 +158,32 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         &mut self,
         vector: BrilligVector,
     ) -> HeapVector {
-        let vector =
+        let heap_vector =
             HeapVector { pointer: self.allocate_register(), size: self.allocate_register() };
         let current_pointer = self.allocate_register();
 
         // Prepare a pointer to the size
         self.codegen_usize_op(vector.pointer, current_pointer, BrilligBinaryOp::Add, 1);
-        self.load_instruction(vector.size, current_pointer);
+        self.load_instruction(heap_vector.size, current_pointer);
         // Now prepare the pointer to the items
-        self.codegen_usize_op(current_pointer, vector.pointer, BrilligBinaryOp::Add, 1);
+        self.codegen_usize_op(current_pointer, heap_vector.pointer, BrilligBinaryOp::Add, 1);
 
         self.deallocate_register(current_pointer);
-        vector
+        heap_vector
+    }
+
+    pub(crate) fn variable_to_value_or_array(&mut self, variable: BrilligVariable) -> ValueOrArray {
+        match variable {
+            BrilligVariable::SingleAddr(SingleAddrVariable { address, .. }) => {
+                ValueOrArray::MemoryAddress(address)
+            }
+            BrilligVariable::BrilligArray(array) => {
+                ValueOrArray::HeapArray(self.codegen_brillig_array_to_heap_array(array))
+            }
+            BrilligVariable::BrilligVector(vector) => {
+                ValueOrArray::HeapVector(self.codegen_brillig_vector_to_heap_vector(vector))
+            }
+        }
     }
 
     /// Returns a variable holding the length of a given vector
@@ -217,6 +231,15 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
             BrilligVariable::BrilligVector(vector) => self.codegen_make_vector_length(vector),
             _ => unreachable!("ICE: Expected array or vector, got {variable:?}"),
         }
+    }
+
+    pub(crate) fn codegen_initialize_array(&mut self, array: BrilligArray) {
+        self.codegen_allocate_immediate_mem(array.pointer, array.size + 1);
+        self.indirect_const_instruction(
+            array.pointer,
+            BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
+            1_usize.into(),
+        );
     }
 
     pub(crate) fn codegen_initialize_vector(
