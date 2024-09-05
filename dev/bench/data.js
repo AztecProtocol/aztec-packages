@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725562094126,
+  "lastUpdate": 1725566456685,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "60546371+PhilWindle@users.noreply.github.com",
-            "name": "PhilWindle",
-            "username": "PhilWindle"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8a1032ec4738e9b592b45500c1cf47c0e1820ad3",
-          "message": "feat: Native Merkle Trees (#7037)\n\nThis PR is the first of several where we are moving to use native\r\nimplementations of Merkle Trees for performance reasons. It includes:\r\n\r\n1. The core tree implementations for both indexed trees and append only\r\ntrees.\r\n2. The introduction of LMDB as a dependency that we retrieve from GIT\r\nand build ourselves.\r\n3. The creation of a set of RAII wrapper objects around the LMDB\r\nconcepts.\r\n4. The creation of a committed/uncommitted store on top of LMDB used by\r\nthe trees for state management\r\n\r\n---------\r\n\r\nCo-authored-by: IlyasRidhuan <ilyasridhuan@gmail.com>\r\nCo-authored-by: Alex Gherghisan <alexg@aztecprotocol.com>",
-          "timestamp": "2024-08-22T12:12:37Z",
-          "tree_id": "853b87b91b705dfc0f1d0cc8f76370c3276fac89",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8a1032ec4738e9b592b45500c1cf47c0e1820ad3"
-        },
-        "date": 1724329474113,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13750.254533000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10445.755941 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5119.2273820000055,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4751.394111 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40354.612466000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40354613000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14629.768457999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14629768000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3780387679,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3780387679 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 209307590,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 209307590 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3099326385,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3099326385 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 174060750,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 174060750 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 121125855,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 121125855 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cfea06ed72449a62e21ba4b0f1b0d77200f91635",
+          "message": "chore: remove unimplemented headermember opcode from avm (#8407)",
+          "timestamp": "2024-09-05T15:42:24-04:00",
+          "tree_id": "c74e980cd778e76455d4868e5a30182e277a59e2",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cfea06ed72449a62e21ba4b0f1b0d77200f91635"
+        },
+        "date": 1725566449992,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13402.169637000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10272.933330999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5092.941577000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4685.075280999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39242.65403600001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39242654000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14631.897964999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14631897000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3685837614,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3685837614 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 147724815,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 147724815 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3009612056,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3009612056 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 120146782,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 120146782 ns\nthreads: 1"
           }
         ]
       }
