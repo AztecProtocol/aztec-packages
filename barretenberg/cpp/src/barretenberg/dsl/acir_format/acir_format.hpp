@@ -53,9 +53,9 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> bigint_from_le_bytes_constraints;
     std::vector<size_t> bigint_to_le_bytes_constraints;
     std::vector<size_t> bigint_operations;
+    std::vector<size_t> assert_equalities;
     std::vector<size_t> poly_triple_constraints;
     std::vector<size_t> quad_constraints;
-    std::vector<size_t> assert_equalities;
     // Multiple opcode indices per block:
     std::vector<std::vector<size_t>> block_constraints;
 
