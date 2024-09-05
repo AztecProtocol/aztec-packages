@@ -6,12 +6,11 @@ use dep::types::{
 struct LinkedIndexHint {
     is_first_write: bool,
     prev_index: u32,
-    next_index: u32,
 }
 
 impl Empty for LinkedIndexHint {
     fn empty() -> Self {
-        LinkedIndexHint { is_first_write: false, prev_index: 0, next_index: 0 }
+        LinkedIndexHint { is_first_write: false, prev_index: 0 }
     }
 }
 
@@ -29,7 +28,6 @@ unconstrained pub fn generate_overridable_public_data_writes<let NUM_WRITES: u32
         let mut is_first_write = false;
         let mut prev_index = 0;
         let mut prev_counter = 0;
-        let mut next_index = 0;
 
         for j in 0..writes_len {
             let other = public_data_writes[j];
@@ -37,7 +35,6 @@ unconstrained pub fn generate_overridable_public_data_writes<let NUM_WRITES: u32
                 if other.counter > write.counter {
                     if (override_counter == 0) | (other.counter < override_counter) {
                         override_counter = other.counter;
-                        next_index = j;
                     }
                 } else if other.counter < write.counter {
                     if other.counter > prev_counter {
@@ -54,7 +51,7 @@ unconstrained pub fn generate_overridable_public_data_writes<let NUM_WRITES: u32
         }
 
         overridable_public_data_writes[i] = OverridablePublicDataWrite { write, override_counter };
-        hints[i] = LinkedIndexHint { is_first_write, prev_index, next_index };
+        hints[i] = LinkedIndexHint { is_first_write, prev_index };
     }
 
     (overridable_public_data_writes, hints)

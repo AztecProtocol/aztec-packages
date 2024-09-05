@@ -13,14 +13,13 @@ use crate::components::{
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
-    log_hash::{LogHash, ScopedLogHash}, note_hash::{NoteHash, ScopedNoteHash}, nullifier::Nullifier,
+    log_hash::{LogHash, ScopedLogHash}, note_hash::ScopedNoteHash, nullifier::Nullifier,
     public_data_update_request::PublicDataUpdateRequest, public_data_write::OverridablePublicDataWrite
 },
-    constants::MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint}, hash::silo_note_hash,
-    messaging::l2_to_l1_message::ScopedL2ToL1Message, partial_state_reference::PartialStateReference,
+    data::PublicDataLeafHint, hash::silo_note_hash, messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    partial_state_reference::PartialStateReference,
     utils::arrays::{
-    array_length, assert_combined_sorted_transformed_value_array_asc, assert_combined_transformed_array,
+    assert_combined_sorted_transformed_value_array_asc, assert_combined_transformed_array,
     assert_deduped_array
 }
 };
@@ -155,30 +154,36 @@ impl<let NUM_PUBLIC_DATA_LEAVES: u32> PublicTailOutputValidator<NUM_PUBLIC_DATA_
     }
 
     fn validate_deduped_public_data_writes(self) {
-        validate_unique_leaf_slots(
-            self.hints.public_data_leaves,
-            self.hints.unique_slot_index_hints
-        );
-
         validate_public_data_leaf_memberships(
             self.hints.public_data_leaves,
             self.public_data_leaf_hints,
             self.start_state.public_data_tree.root
         );
 
+        // Check that public_data_writes are simply the writes in the two accumulated data arrays combined,
+        // with override_counter added to each non-empty write as hint.
+        // override_counter is checked in validate_linked_public_data_writes.
         assert_combined_transformed_array(
             self.previous_kernel.end_non_revertible.public_data_update_requests,
             self.previous_kernel.end.public_data_update_requests,
             self.hints.public_data_writes,
-            |from: PublicDataUpdateRequest, to: OverridablePublicDataWrite| to.write == from // override_counter is checked in validate_linked_public_data_writes.
+            |from: PublicDataUpdateRequest, to: OverridablePublicDataWrite| to.write == from
         );
 
+        // All non-zero slots in leaves must be unique, ensuring that writes with the same leaf slot are grouped into a single linked list.
+        validate_unique_leaf_slots(
+            self.hints.public_data_leaves,
+            self.hints.unique_slot_index_hints
+        );
+
+        // Validate the override_counter of writes, ensuring that they in the correct list in the correct order.
         validate_linked_public_data_writes(
             self.hints.public_data_writes,
             self.hints.public_data_leaves,
             self.hints.public_data_linked_index_hints
         );
 
+        // Check that the output contains the last write in each linked list.
         assert_deduped_array(
             self.hints.public_data_writes,
             self.output.end.public_data_update_requests

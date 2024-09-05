@@ -1,5 +1,5 @@
 use crate::{
-    abis::side_effect::Ordered, traits::{Empty, is_empty},
+    abis::side_effect::Ordered, traits::Empty,
     utils::arrays::{
     sort_by_counter::{compare_by_counter_empty_padded_asc, compare_by_counter_empty_padded_desc},
     get_sorted_tuple::get_sorted_tuple
@@ -26,19 +26,15 @@ impl Eq for OrderHint {
 pub fn get_order_hints<T, let N: u32>(
     array: [T; N],
     ordering: fn(T, T) -> bool
-) -> [OrderHint; N] where T: Ordered + Eq + Empty {
+) -> [OrderHint; N] where T: Ordered {
     let sorted_tuples = get_sorted_tuple(array, ordering);
 
     let mut hints = [OrderHint::empty(); N];
     for i in 0..N {
         let elem = sorted_tuples[i].elem;
         hints[i].counter = elem.counter();
-        if !is_empty(elem) {
-            let original_index = sorted_tuples[i].original_index;
-            hints[original_index].sorted_index = i;
-        } else {
-            hints[i].sorted_index = i;
-        }
+        let original_index = sorted_tuples[i].original_index;
+        hints[original_index].sorted_index = i;
     }
 
     hints
@@ -54,39 +50,16 @@ pub fn get_order_hints_desc<T, let N: u32>(array: [T; N]) -> [OrderHint; N] wher
 
 mod tests {
     use crate::{
-        abis::side_effect::Ordered, traits::Empty,
+        tests::types::TestValue,
         utils::arrays::assert_exposed_sorted_transformed_value_array::get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint}
     };
-
-    struct TestItem {
-        value: Field,
-        counter: u32,
-    }
-
-    impl Ordered for TestItem {
-        fn counter(self) -> u32 {
-            self.counter
-        }
-    }
-
-    impl Eq for TestItem {
-        fn eq(self, other: Self) -> bool {
-            (self.value == other.value) & (self.counter == other.counter)
-        }
-    }
-
-    impl Empty for TestItem {
-        fn empty() -> Self {
-            TestItem { value: 0, counter: 0 }
-        }
-    }
 
     #[test]
     fn get_order_hints_asc_full_non_empty() {
         let array = [
-            TestItem { value: 100, counter: 9 },
-            TestItem { value: 200, counter: 3 },
-            TestItem { value: 300, counter: 6 }
+            TestValue { value: 100, counter: 9 },
+            TestValue { value: 200, counter: 3 },
+            TestValue { value: 300, counter: 6 }
         ];
         let hints = get_order_hints_asc(array);
         let expected_hints = [
@@ -100,11 +73,11 @@ mod tests {
     #[test]
     fn get_order_hints_asc_padded_empty() {
         let array = [
-            TestItem { value: 100, counter: 9 },
-            TestItem { value: 200, counter: 3 },
-            TestItem { value: 300, counter: 6 },
-            TestItem::empty(),
-            TestItem::empty()
+            TestValue { value: 100, counter: 9 },
+            TestValue { value: 200, counter: 3 },
+            TestValue { value: 300, counter: 6 },
+            TestValue::empty(),
+            TestValue::empty()
         ];
         let hints = get_order_hints_asc(array);
         let expected_hints = [
@@ -120,9 +93,9 @@ mod tests {
     #[test]
     fn get_order_hints_desc_full_non_empty() {
         let array = [
-            TestItem { value: 100, counter: 9 },
-            TestItem { value: 200, counter: 3 },
-            TestItem { value: 300, counter: 6 }
+            TestValue { value: 100, counter: 9 },
+            TestValue { value: 200, counter: 3 },
+            TestValue { value: 300, counter: 6 }
         ];
         let hints = get_order_hints_desc(array);
         let expected_hints = [
@@ -136,11 +109,11 @@ mod tests {
     #[test]
     fn get_order_hints_desc_padded_empty() {
         let array = [
-            TestItem { value: 100, counter: 9 },
-            TestItem { value: 200, counter: 3 },
-            TestItem { value: 300, counter: 6 },
-            TestItem::empty(),
-            TestItem::empty()
+            TestValue { value: 100, counter: 9 },
+            TestValue { value: 200, counter: 3 },
+            TestValue { value: 300, counter: 6 },
+            TestValue::empty(),
+            TestValue::empty()
         ];
         let hints = get_order_hints_desc(array);
         let expected_hints = [

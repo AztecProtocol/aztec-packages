@@ -6,7 +6,7 @@ mod assert_sorted_array;
 mod assert_sorted_transformed_value_array;
 mod assert_split_sorted_transformed_value_arrays;
 mod assert_split_transformed_value_arrays;
-mod get_sorted_hints;
+mod get_sorted_result;
 mod get_sorted_tuple;
 mod sort_by;
 mod sort_by_counter;
@@ -29,7 +29,7 @@ use assert_split_sorted_transformed_value_arrays::{
 };
 use assert_sorted_transformed_value_array::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size};
 use assert_split_transformed_value_arrays::assert_split_transformed_value_arrays;
-use get_sorted_hints::{get_sorted_hints, SortedResult};
+use get_sorted_result::{get_sorted_result, SortedResult};
 use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
 
 use crate::traits::{Empty, is_empty};

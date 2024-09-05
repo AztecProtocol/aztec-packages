@@ -1,7 +1,7 @@
 use dep::types::{
     abis::{public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest},
     data::{OverridablePublicDataTreeLeaf, PublicDataLeafHint, PublicDataTreeLeaf}, traits::Empty,
-    utils::arrays::{get_sorted_hints, SortedResult}
+    utils::arrays::{get_sorted_result, SortedResult}
 };
 
 struct SlotIndex {
@@ -31,7 +31,7 @@ fn compare_by_slot_then_index(a: SlotIndex, b: SlotIndex) -> bool {
 }
 
 fn compare_by_index(a: SlotIndex, b: SlotIndex) -> bool {
-    (b.slot == 0) | ((a.slot != 0) & (a.index < b.index))
+    (a.slot != 0) & ((b.slot == 0) | (a.index < b.index))
 }
 
 unconstrained pub fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRITES: u32, let NUM_HINTS: u32>(
@@ -82,8 +82,7 @@ unconstrained pub fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRI
 
     // Sort the data by original index.
     let mut leaves = [OverridablePublicDataTreeLeaf::empty(); NUM_HINTS];
-    let mut sorted_index_hints = [0; NUM_HINTS];
-    let sorted_result = get_sorted_hints(data_with_unique_slot.storage, compare_by_index);
+    let sorted_result = get_sorted_result(data_with_unique_slot.storage, compare_by_index);
     for i in 0..data_with_unique_slot.len() {
         let sorted = sorted_result.sorted_array[i];
         // The provided hints should've been sorted.
@@ -91,8 +90,11 @@ unconstrained pub fn generate_public_data_leaves<let NUM_READS: u32, let NUM_WRI
         let exists = hint.preimage.slot == sorted.slot;
         let value = if exists { hint.preimage.value } else { 0 };
         leaves[i] = OverridablePublicDataTreeLeaf { leaf: PublicDataTreeLeaf { slot: sorted.slot, value  }, override_counter: sorted.counter };
-        sorted_index_hints[sorted_result.sorted_index_hints[i]] = i;
     }
 
-    (leaves, SortedResult { sorted_array: sorted_unique_slots, sorted_index_hints })
+    (leaves, SortedResult {
+        sorted_array: sorted_unique_slots,
+        sorted_index_hints: sorted_result.original_index_hints, // We sort the sorted_unique_slots to get the hints so original_index_hints becomes the sorted_index_hints and vice versa.
+        original_index_hints: sorted_result.sorted_index_hints
+    })
 }
