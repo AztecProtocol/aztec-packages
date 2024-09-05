@@ -15,7 +15,6 @@ describe('Avm Context', () => {
     expect(newContext.environment).toEqual(
       allSameExcept(context.environment, {
         address: newAddress,
-        storageAddress: newAddress,
         contractCallDepth: Fr.ONE,
         // Calldata also includes AvmContextInputs
         calldata: anyAvmContextInputs().concat(newCalldata),
@@ -46,7 +45,6 @@ describe('Avm Context', () => {
     expect(newContext.environment).toEqual(
       allSameExcept(context.environment, {
         address: newAddress,
-        storageAddress: newAddress,
         contractCallDepth: Fr.ONE,
         // Calldata also includes AvmContextInputs
         calldata: anyAvmContextInputs().concat(newCalldata),

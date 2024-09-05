@@ -70,44 +70,44 @@ export class AvmPersistableStateManager {
   /**
    * Write to public storage, journal/trace the write.
    *
-   * @param storageAddress - the address of the contract whose storage is being written to
+   * @param address - the address of the contract whose storage is being written to
    * @param slot - the slot in the contract's storage being written to
    * @param value - the value being written to the slot
    */
-  public writeStorage(storageAddress: Fr, slot: Fr, value: Fr) {
-    this.log.debug(`Storage write (address=${storageAddress}, slot=${slot}): value=${value}`);
+  public writeStorage(address: Fr, slot: Fr, value: Fr) {
+    this.log.debug(`Storage write (address=${address}, slot=${slot}): value=${value}`);
     // Cache storage writes for later reference/reads
-    this.publicStorage.write(storageAddress, slot, value);
-    this.trace.tracePublicStorageWrite(storageAddress, slot, value);
+    this.publicStorage.write(address, slot, value);
+    this.trace.tracePublicStorageWrite(address, slot, value);
   }
 
   /**
    * Read from public storage, trace the read.
    *
-   * @param storageAddress - the address of the contract whose storage is being read from
+   * @param address - the address of the contract whose storage is being read from
    * @param slot - the slot in the contract's storage being read from
    * @returns the latest value written to slot, or 0 if never written to before
    */
-  public async readStorage(storageAddress: Fr, slot: Fr): Promise<Fr> {
-    const { value, exists, cached } = await this.publicStorage.read(storageAddress, slot);
+  public async readStorage(address: Fr, slot: Fr): Promise<Fr> {
+    const { value, exists, cached } = await this.publicStorage.read(address, slot);
     this.log.debug(
-      `Storage read  (address=${storageAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
+      `Storage read  (address=${address}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
     );
-    this.trace.tracePublicStorageRead(storageAddress, slot, value, exists, cached);
+    this.trace.tracePublicStorageRead(address, slot, value, exists, cached);
     return Promise.resolve(value);
   }
 
   /**
    * Read from public storage, don't trace the read.
    *
-   * @param storageAddress - the address of the contract whose storage is being read from
+   * @param address - the address of the contract whose storage is being read from
    * @param slot - the slot in the contract's storage being read from
    * @returns the latest value written to slot, or 0 if never written to before
    */
-  public async peekStorage(storageAddress: Fr, slot: Fr): Promise<Fr> {
-    const { value, exists, cached } = await this.publicStorage.read(storageAddress, slot);
+  public async peekStorage(address: Fr, slot: Fr): Promise<Fr> {
+    const { value, exists, cached } = await this.publicStorage.read(address, slot);
     this.log.debug(
-      `Storage peek  (address=${storageAddress}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
+      `Storage peek  (address=${address}, slot=${slot}): value=${value}, exists=${exists}, cached=${cached}`,
     );
     return Promise.resolve(value);
   }
@@ -116,16 +116,16 @@ export class AvmPersistableStateManager {
   /**
    * Check if a note hash exists at the given leaf index, trace the check.
    *
-   * @param storageAddress - the address of the contract whose storage is being read from
+   * @param address - the address of the contract whose storage is being read from
    * @param noteHash - the unsiloed note hash being checked
    * @param leafIndex - the leaf index being checked
    * @returns true if the note hash exists at the given leaf index, false otherwise
    */
-  public async checkNoteHashExists(storageAddress: Fr, noteHash: Fr, leafIndex: Fr): Promise<boolean> {
+  public async checkNoteHashExists(address: Fr, noteHash: Fr, leafIndex: Fr): Promise<boolean> {
     const gotLeafIndex = await this.hostStorage.commitmentsDb.getCommitmentIndex(noteHash);
     const exists = gotLeafIndex === leafIndex.toBigInt();
-    this.log.debug(`noteHashes(${storageAddress})@${noteHash} ?? leafIndex: ${leafIndex}, exists: ${exists}.`);
-    this.trace.traceNoteHashCheck(storageAddress, noteHash, leafIndex, exists);
+    this.log.debug(`noteHashes(${address})@${noteHash} ?? leafIndex: ${leafIndex}, exists: ${exists}.`);
+    this.trace.traceNoteHashCheck(address, noteHash, leafIndex, exists);
     return Promise.resolve(exists);
   }
 
@@ -133,37 +133,37 @@ export class AvmPersistableStateManager {
    * Write a note hash, trace the write.
    * @param noteHash - the unsiloed note hash to write
    */
-  public writeNoteHash(storageAddress: Fr, noteHash: Fr) {
-    this.log.debug(`noteHashes(${storageAddress}) += @${noteHash}.`);
-    this.trace.traceNewNoteHash(storageAddress, noteHash);
+  public writeNoteHash(address: Fr, noteHash: Fr) {
+    this.log.debug(`noteHashes(${address}) += @${noteHash}.`);
+    this.trace.traceNewNoteHash(address, noteHash);
   }
 
   /**
    * Check if a nullifier exists, trace the check.
-   * @param storageAddress - address of the contract that the nullifier is associated with
+   * @param address - address of the contract that the nullifier is associated with
    * @param nullifier - the unsiloed nullifier to check
    * @returns exists - whether the nullifier exists in the nullifier set
    */
-  public async checkNullifierExists(storageAddress: Fr, nullifier: Fr): Promise<boolean> {
-    const [exists, isPending, leafIndex] = await this.nullifiers.checkExists(storageAddress, nullifier);
+  public async checkNullifierExists(address: Fr, nullifier: Fr): Promise<boolean> {
+    const [exists, isPending, leafIndex] = await this.nullifiers.checkExists(address, nullifier);
     this.log.debug(
-      `nullifiers(${storageAddress})@${nullifier} ?? leafIndex: ${leafIndex}, exists: ${exists}, pending: ${isPending}.`,
+      `nullifiers(${address})@${nullifier} ?? leafIndex: ${leafIndex}, exists: ${exists}, pending: ${isPending}.`,
     );
-    this.trace.traceNullifierCheck(storageAddress, nullifier, leafIndex, exists, isPending);
+    this.trace.traceNullifierCheck(address, nullifier, leafIndex, exists, isPending);
     return Promise.resolve(exists);
   }
 
   /**
    * Write a nullifier to the nullifier set, trace the write.
-   * @param storageAddress - address of the contract that the nullifier is associated with
+   * @param address - address of the contract that the nullifier is associated with
    * @param nullifier - the unsiloed nullifier to write
    */
-  public async writeNullifier(storageAddress: Fr, nullifier: Fr) {
-    this.log.debug(`nullifiers(${storageAddress}) += ${nullifier}.`);
+  public async writeNullifier(address: Fr, nullifier: Fr) {
+    this.log.debug(`nullifiers(${address}) += ${nullifier}.`);
     // Cache pending nullifiers for later access
-    await this.nullifiers.append(storageAddress, nullifier);
+    await this.nullifiers.append(address, nullifier);
     // Trace all nullifier creations (even reverted ones)
-    this.trace.traceNewNullifier(storageAddress, nullifier);
+    this.trace.traceNewNullifier(address, nullifier);
   }
 
   /**

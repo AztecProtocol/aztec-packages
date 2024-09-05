@@ -253,7 +253,6 @@ export abstract class TypedOracle {
     _argsHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
-    _isDelegateCall: boolean,
   ): Promise<void> {
     throw new OracleMethodNotAvailableError('enqueuePublicFunctionCall');
   }
@@ -264,7 +263,6 @@ export abstract class TypedOracle {
     _argsHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
-    _isDelegateCall: boolean,
   ): Promise<void> {
     throw new OracleMethodNotAvailableError('setPublicTeardownFunctionCall');
   }

@@ -78,11 +78,6 @@ mod tests {
             PublicKernelAppLogicCircuitPrivateInputsBuilder { previous_kernel, previous_non_revertible, public_call }
         }
 
-        pub fn is_delegate_call(&mut self) -> Self {
-            let _ = self.public_call.is_delegate_call();
-            *self
-        }
-
         pub fn to_public_data_reads<let N: u32>(self, contract_storage_reads: [StorageRead; N]) -> [PublicDataRead; N] {
             let storage_contract_address = self.public_call.storage_contract_address;
             contract_storage_reads.map(|r: StorageRead| PublicDataRead::from_contract_storage_read(storage_contract_address, r))
@@ -314,15 +309,6 @@ mod tests {
         builder.failed();
     }
 
-    #[test(should_fail_with="curent contract address must not match storage contract address for delegate calls")]
-    fn previous_public_kernel_fails_if_incorrect_storage_contract_on_delegate_call() {
-        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new().is_delegate_call();
-
-        builder.public_call.contract_address = builder.public_call.storage_contract_address;
-
-        builder.failed();
-    }
-
     #[test(should_fail_with="note_hashes must be empty for static calls")]
     fn public_kernel_fails_creating_note_hashes_on_static_call() {
         let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new();
@@ -339,17 +325,6 @@ mod tests {
         builder.public_call.append_nullifiers(1);
 
         builder.failed();
-    }
-
-    #[test(should_fail_with="call stack item does not match item at the top of the call stack")]
-    fn public_kernel_circuit_fails_on_incorrect_storage_contract_in_delegate_call() {
-        let mut builder = PublicKernelAppLogicCircuitPrivateInputsBuilder::new().is_delegate_call();
-
-        let mut item = builder.get_call_request_item();
-        // Set the storage contract address to be the contract address.
-        item.call_context.storage_contract_address = builder.public_call.contract_address;
-
-        builder.failed_with_call_request_item(item);
     }
 
     #[test]

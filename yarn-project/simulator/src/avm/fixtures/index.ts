@@ -78,7 +78,6 @@ export function initPersistableStateManager(overrides?: {
 export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnvironment>): AvmExecutionEnvironment {
   return new AvmExecutionEnvironment(
     overrides?.address ?? AztecAddress.zero(),
-    overrides?.storageAddress ?? AztecAddress.zero(),
     overrides?.sender ?? AztecAddress.zero(),
     overrides?.functionSelector ?? FunctionSelector.empty(),
     overrides?.contractCallDepth ?? Fr.zero(),
@@ -86,7 +85,6 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
     overrides?.header ?? Header.empty(),
     overrides?.globals ?? GlobalVariables.empty(),
     overrides?.isStaticCall ?? false,
-    overrides?.isDelegateCall ?? false,
     overrides?.calldata ?? [],
   );
 }

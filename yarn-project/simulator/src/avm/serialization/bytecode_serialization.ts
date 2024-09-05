@@ -47,7 +47,6 @@ import {
   Shl,
   Shr,
   StaticCall,
-  StorageAddress,
   Sub,
   Timestamp,
   ToRadixLE,
@@ -85,7 +84,6 @@ const INSTRUCTION_SET = () =>
     [Shr.opcode, Shr],
     [Cast.opcode, Cast],
     [Address.opcode, Address],
-    [StorageAddress.opcode, StorageAddress],
     [Sender.opcode, Sender],
     [FunctionSelector.opcode, FunctionSelector],
     [TransactionFee.opcode, TransactionFee],
@@ -133,7 +131,6 @@ const INSTRUCTION_SET = () =>
     // Control Flow - Contract Calls
     [Call.opcode, Call],
     [StaticCall.opcode, StaticCall],
-    //[DelegateCall.opcode, DelegateCall],
     [Return.opcode, Return],
     [Revert.opcode, Revert],
 

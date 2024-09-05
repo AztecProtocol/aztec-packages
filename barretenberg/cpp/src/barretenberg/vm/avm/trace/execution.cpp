@@ -203,10 +203,8 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
 
     // Copy items from PublicCircuitPublicInputs vector to public input columns
     // PublicCircuitPublicInputs - CallContext
-    kernel_inputs[SENDER_SELECTOR] = public_inputs_vec[SENDER_SELECTOR]; // Sender
-    // NOTE: address has same position as storage address (they are the same for now...)
-    // kernel_inputs[ADDRESS_SELECTOR] = public_inputs_vec[ADDRESS_SELECTOR];                 // Address
-    kernel_inputs[STORAGE_ADDRESS_SELECTOR] = public_inputs_vec[STORAGE_ADDRESS_SELECTOR]; // Storage Address
+    kernel_inputs[SENDER_SELECTOR] = public_inputs_vec[SENDER_SELECTOR];   // Sender
+    kernel_inputs[ADDRESS_SELECTOR] = public_inputs_vec[ADDRESS_SELECTOR]; // Address
     kernel_inputs[FUNCTION_SELECTOR_SELECTOR] = public_inputs_vec[FUNCTION_SELECTOR_SELECTOR];
 
     // PublicCircuitPublicInputs - GlobalVariables
@@ -517,10 +515,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6284): support indirect for below
         case OpCode::ADDRESS:
             trace_builder.op_address(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::STORAGEADDRESS:
-            trace_builder.op_storage_address(std::get<uint8_t>(inst.operands.at(0)),
-                                             std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::SENDER:
             trace_builder.op_sender(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));

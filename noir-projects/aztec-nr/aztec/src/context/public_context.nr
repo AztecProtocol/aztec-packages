@@ -101,16 +101,6 @@ impl PublicContext {
         FunctionReturns::new(data_to_return)
     }
 
-    fn delegate_call_public_function<let RETURNS_COUNT: u32>(
-        _self: &mut Self,
-        _contract_address: AztecAddress,
-        _function_selector: FunctionSelector,
-        _args: [Field]
-    ) -> FunctionReturns<RETURNS_COUNT> {
-        assert(false, "'delegate_call_public_function' not implemented!");
-        FunctionReturns::new([0; RETURNS_COUNT])
-    }
-
     fn push_note_hash(_self: &mut Self, note_hash: Field) {
         emit_note_hash(note_hash);
     }
@@ -120,9 +110,6 @@ impl PublicContext {
 
     fn this_address(_self: Self) -> AztecAddress {
         address()
-    }
-    pub fn storage_address(_self: Self) -> AztecAddress {
-        storage_address()
     }
     fn msg_sender(_self: Self) -> AztecAddress {
         sender()
@@ -200,9 +187,6 @@ fn gas_for_call(user_gas: GasOpts) -> [Field; 2] {
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6420): reconsider.
 unconstrained fn address() -> AztecAddress {
     address_opcode()
-}
-unconstrained fn storage_address() -> AztecAddress {
-    storage_address_opcode()
 }
 unconstrained fn sender() -> AztecAddress {
     sender_opcode()
@@ -295,9 +279,6 @@ impl Empty for PublicContext {
 // AVM oracles (opcodes) follow, do not use directly.
 #[oracle(avmOpcodeAddress)]
 unconstrained fn address_opcode() -> AztecAddress {}
-
-#[oracle(avmOpcodeStorageAddress)]
-unconstrained fn storage_address_opcode() -> AztecAddress {}
 
 #[oracle(avmOpcodeSender)]
 unconstrained fn sender_opcode() -> AztecAddress {}

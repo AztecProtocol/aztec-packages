@@ -41,11 +41,7 @@ export class NoteHashExists extends Instruction {
     const noteHash = memory.get(noteHashOffset).toFr();
     const leafIndex = memory.get(leafIndexOffset).toFr();
 
-    const exists = await context.persistableState.checkNoteHashExists(
-      context.environment.storageAddress,
-      noteHash,
-      leafIndex,
-    );
+    const exists = await context.persistableState.checkNoteHashExists(context.environment.address, noteHash, leafIndex);
     memory.set(existsOffset, exists ? new Uint8(1) : new Uint8(0));
 
     memory.assert(memoryOperations);
@@ -76,7 +72,7 @@ export class EmitNoteHash extends Instruction {
     }
 
     const noteHash = memory.get(noteHashOffset).toFr();
-    context.persistableState.writeNoteHash(context.environment.storageAddress, noteHash);
+    context.persistableState.writeNoteHash(context.environment.address, noteHash);
 
     memory.assert(memoryOperations);
     context.machineState.incrementPc();
@@ -150,12 +146,12 @@ export class EmitNullifier extends Instruction {
 
     const nullifier = memory.get(nullifierOffset).toFr();
     try {
-      await context.persistableState.writeNullifier(context.environment.storageAddress, nullifier);
+      await context.persistableState.writeNullifier(context.environment.address, nullifier);
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         // Error is known/expected, raise as InstructionExecutionError that the will lead the simulator to revert this call
         throw new InstructionExecutionError(
-          `Attempted to emit duplicate nullifier ${nullifier} (storage address: ${context.environment.storageAddress}).`,
+          `Attempted to emit duplicate nullifier ${nullifier} (address: ${context.environment.address}).`,
         );
       } else {
         throw e;

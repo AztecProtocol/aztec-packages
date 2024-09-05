@@ -252,7 +252,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
         polys.main_sel_op_shr[i] = rows[i].main_sel_op_shr;
         polys.main_sel_op_sload[i] = rows[i].main_sel_op_sload;
         polys.main_sel_op_sstore[i] = rows[i].main_sel_op_sstore;
-        polys.main_sel_op_storage_address[i] = rows[i].main_sel_op_storage_address;
         polys.main_sel_op_sub[i] = rows[i].main_sel_op_sub;
         polys.main_sel_op_timestamp[i] = rows[i].main_sel_op_timestamp;
         polys.main_sel_op_transaction_fee[i] = rows[i].main_sel_op_transaction_fee;

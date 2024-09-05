@@ -43,7 +43,6 @@ enum class OpCode : uint8_t {
 
     // Execution Environment
     ADDRESS,
-    STORAGEADDRESS,
     SENDER,
     FUNCTIONSELECTOR,
     TRANSACTIONFEE,
@@ -92,7 +91,6 @@ enum class OpCode : uint8_t {
     // Control Flow - Contract Calls
     CALL,
     STATICCALL,
-    DELEGATECALL,
     RETURN,
     REVERT,
 

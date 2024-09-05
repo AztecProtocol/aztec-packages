@@ -619,7 +619,7 @@ fn handle_send_l2_to_l1_msg(
 /// This includes:
 /// - Global variables
 /// - Caller
-/// - storage address
+/// - Address
 /// - ...
 fn handle_getter_instruction(
     avm_instrs: &mut Vec<AvmInstruction>,
@@ -639,7 +639,6 @@ fn handle_getter_instruction(
 
     let opcode = match function {
         "avmOpcodeAddress" => AvmOpcode::ADDRESS,
-        "avmOpcodeStorageAddress" => AvmOpcode::STORAGEADDRESS,
         "avmOpcodeSender" => AvmOpcode::SENDER,
         "avmOpcodeFeePerL2Gas" => AvmOpcode::FEEPERL2GAS,
         "avmOpcodeFeePerDaGas" => AvmOpcode::FEEPERDAGAS,

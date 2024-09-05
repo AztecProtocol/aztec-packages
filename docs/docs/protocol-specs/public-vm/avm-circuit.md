@@ -182,11 +182,9 @@ AvmSessionInputs {
     feePerDaGas: field,
     globals: PublicGlobalVariables,
     address: AztecAddress,
-    storageAddress: AztecAddress,
     sender: AztecAddress,
     contractCallDepth: field,
     isStaticCall: boolean,
-    isDelegateCall: boolean,
     transactionFee: field,
     // Initializes Machine State
     l2GasLeft: field,

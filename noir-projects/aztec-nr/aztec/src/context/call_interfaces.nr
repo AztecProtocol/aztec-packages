@@ -196,11 +196,6 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
         returns.deserialize_into()
     }
 
-    pub fn delegate_call<let M: u32>(self, context: &mut PublicContext) -> T where T: Deserialize<M> {
-        let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
-        returns.deserialize_into()
-    }
-
     pub fn enqueue(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
         assert(args_hash == pack_arguments(self.args));
@@ -208,8 +203,7 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ false,
-            /*delegate=*/ false
+            /*static=*/ false
         )
     }
 
@@ -220,20 +214,7 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
-            /*delegate=*/ false
-        )
-    }
-
-    pub fn delegate_enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/ false,
-            /*delegate=*/ true
+            /*static=*/ true
         )
     }
 }
@@ -270,11 +251,6 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
         returns.assert_empty()
     }
 
-    pub fn delegate_call(self, context: &mut PublicContext) {
-        let returns = context.delegate_call_public_function(self.target_contract, self.selector, self.args);
-        returns.assert_empty()
-    }
-
     pub fn enqueue(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
         assert(args_hash == pack_arguments(self.args));
@@ -282,8 +258,7 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ false,
-            /*delegate=*/ false
+            /*static=*/ false
         )
     }
 
@@ -294,20 +269,7 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
-            /*delegate=*/ false
-        )
-    }
-
-    pub fn delegate_enqueue(self, context: &mut PrivateContext) {
-        let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
-        context.call_public_function_with_packed_args(
-            self.target_contract,
-            self.selector,
-            args_hash,
-            /*static=*/ false,
-            /*delegate=*/ true
+            /*static=*/ true
         )
     }
 }
@@ -347,8 +309,7 @@ impl<let N: u32, T, Env> PublicStaticCallInterface<N, T, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
-            /*delegate=*/ false
+            /*static=*/ true
         )
     }
 }
@@ -387,8 +348,7 @@ impl<let N: u32, Env> PublicStaticVoidCallInterface<N, Env> {
             self.target_contract,
             self.selector,
             args_hash,
-            /*static=*/ true,
-            /*delegate=*/ false
+            /*static=*/ true
         )
     }
 }

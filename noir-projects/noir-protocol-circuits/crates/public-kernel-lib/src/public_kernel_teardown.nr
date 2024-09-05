@@ -75,11 +75,6 @@ mod tests {
             PublicKernelTeardownCircuitPrivateInputsBuilder { previous_kernel, public_call }
         }
 
-        pub fn is_delegate_call(&mut self) -> Self {
-            let _ = self.public_call.is_delegate_call();
-            *self
-        }
-
         pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
             let public_call = self.public_call.to_public_call_data();
             // Adjust the call stack item hash for the current call in the previous iteration.
@@ -179,43 +174,6 @@ mod tests {
         builder.failed();
     }
 
-    #[test]
-    fn delegate_call_succeeds() {
-        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_delegate_call();
-        builder.succeeded();
-    }
-
-    #[test(should_fail_with="call stack item does not match item at the top of the call stack")]
-    fn incorrect_msg_sender_for_delegate_calls_fails() {
-        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_delegate_call();
-
-        let mut item = builder.get_call_request_item();
-        // Set the msg_sender to be the caller contract.
-        item.call_context.msg_sender = builder.previous_kernel.contract_address;
-
-        builder.failed_with_call_request_item(item);
-    }
-
-    #[test(should_fail_with="call stack item does not match item at the top of the call stack")]
-    fn public_kernel_circuit_fails_on_incorrect_storage_contract_in_delegate_call() {
-        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_delegate_call();
-
-        let mut item = builder.get_call_request_item();
-        // Set the storage contract address to be the contract address.
-        item.call_context.storage_contract_address = builder.public_call.contract_address;
-
-        builder.failed_with_call_request_item(item);
-    }
-
-    #[test(should_fail_with="curent contract address must not match storage contract address for delegate calls")]
-    fn previous_private_kernel_fails_if_incorrect_storage_contract_on_delegate_call() {
-        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new().is_delegate_call();
-
-        builder.public_call.contract_address = builder.public_call.storage_contract_address;
-
-        builder.failed();
-    }
-
     #[test(should_fail_with="incorrect storage_contract_address for call request")]
     fn incorrect_storage_contract_address_for_call_request_fails() {
         let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
@@ -224,19 +182,6 @@ mod tests {
         let mut call_request = builder.public_call.public_call_requests.pop();
         // Change the caller contract address to be a different value.
         call_request.item.call_context.storage_contract_address.inner += 1;
-        builder.public_call.public_call_requests.push(call_request);
-
-        builder.failed();
-    }
-
-    #[test(should_fail_with="incorrect storage_contract_address for delegate call request")]
-    fn incorrect_call_context_for_delegate_call_request_fails() {
-        let mut builder = PublicKernelTeardownCircuitPrivateInputsBuilder::new();
-
-        builder.public_call.append_public_call_requests_delegate(1);
-        let mut call_request = builder.public_call.public_call_requests.pop();
-        // Change the storage contract address to be the target contract address.
-        call_request.item.call_context.storage_contract_address = call_request.item.contract_address;
         builder.public_call.public_call_requests.push(call_request);
 
         builder.failed();

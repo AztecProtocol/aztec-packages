@@ -16,7 +16,6 @@ import {
   FeePerL2Gas,
   FunctionSelector,
   Sender,
-  StorageAddress,
   Timestamp,
   TransactionFee,
   Version,
@@ -24,7 +23,6 @@ import {
 
 type GetterInstruction =
   | typeof Sender
-  | typeof StorageAddress
   | typeof Address
   | typeof FunctionSelector
   | typeof TransactionFee
@@ -37,7 +35,6 @@ type GetterInstruction =
 
 describe('Environment getters', () => {
   const address = AztecAddress.random();
-  const storageAddress = AztecAddress.random();
   const sender = AztecAddress.random();
   const functionSelector = FunctionSelectorType.random();
   const transactionFee = Fr.random();
@@ -57,7 +54,6 @@ describe('Environment getters', () => {
   });
   const env = initExecutionEnvironment({
     address,
-    storageAddress,
     sender,
     functionSelector,
     transactionFee,
@@ -70,7 +66,6 @@ describe('Environment getters', () => {
 
   describe.each([
     [Address, address.toField()],
-    [StorageAddress, storageAddress.toField()],
     [Sender, sender.toField()],
     [FunctionSelector, functionSelector.toField(), TypeTag.UINT32],
     [TransactionFee, transactionFee.toField()],

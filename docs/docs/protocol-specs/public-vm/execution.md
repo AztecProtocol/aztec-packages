@@ -118,11 +118,11 @@ An instruction's gas cost is meant to reflect the computational cost of generati
 - In addition to the base cost, the cost of an instruction increases with the number of reads and writes to memory. This is affected by the total number of input and outputs: the gas cost for [`AND`](./instruction-set/#isa-section-and) should be greater than that of [`NOT`](./instruction-set/#isa-section-not) since it takes one more input.
 - Input parameters flagged as "indirect" require an extra memory access, so these should further increase the gas cost of the instruction.
 - The base cost for instructions that operate on a data range of a specified "size" scale in cost with that size, but only if they perform an operation on the data other than copying. For example, [`CALLDATACOPY`](./instruction-set/#isa-section-calldatacopy) copies `copySize` words from `environment.calldata` to `machineState.memory`, so its increased cost is captured by the extra memory accesses. On the other hand, [`SSTORE`](./instruction-set#isa-section-sstore) requires accesses to persistent storage proportional to `srcSize`, so its base cost should also increase.
-- The [`CALL`](./instruction-set#isa-section-call)/[`STATICCALL`](./instruction-set#isa-section-staticcall)/[`DELEGATECALL`](./instruction-set#isa-section-delegatecall) instruction's gas cost is determined by its `*Gas` arguments, but any gas unused by the nested contract call's execution is refunded after its completion ([more on this later](./nested-calls#updating-the-calling-context-after-nested-call-halts)).
+- The [`CALL`](./instruction-set#isa-section-call)/[`STATICCALL`](./instruction-set#isa-section-staticcall) instruction's gas cost is determined by its `*Gas` arguments, but any gas unused by the nested contract call's execution is refunded after its completion ([more on this later](./nested-calls#updating-the-calling-context-after-nested-call-halts)).
 
 > An instruction's gas cost will roughly align with the number of rows it corresponds to in the SNARK execution trace including rows in the sub-operation table, memory table, chiplet tables, etc.
 
-> An instruction's gas cost takes into account the costs of associated downstream computations. An instruction that triggers accesses to the public data tree (`SLOAD`/`SSTORE`) incurs a cost that accounts for state access validation in later circuits (public kernel or rollup). A contract call instruction (`CALL`/`STATICCALL`/`DELEGATECALL`) incurs a cost accounting for the nested call's complete execution as well as any work required by the public kernel circuit for this additional call.
+> An instruction's gas cost takes into account the costs of associated downstream computations. An instruction that triggers accesses to the public data tree (`SLOAD`/`SSTORE`) incurs a cost that accounts for state access validation in later circuits (public kernel or rollup). A contract call instruction (`CALL`/`STATICCALL`) incurs a cost accounting for the nested call's complete execution as well as any work required by the public kernel circuit for this additional call.
 
 ## Halting
 
@@ -188,13 +188,13 @@ The AVM's exceptional halting conditions area listed below:
 1. **Maximum contract call depth (1024) exceeded**
     ```
     assert environment.contractCallDepth <= 1024
-    assert instructions[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
+    assert instructions[machineState.pc].opcode not in {CALL, STATICCALL}
         OR environment.contractCallDepth < 1024
     ```
 1. **Maximum contract call calls per execution request (1024) exceeded**
     ```
     assert worldStateAccessTrace.contractCalls.length <= 1024
-    assert instructions[machineState.pc].opcode not in {CALL, STATICCALL, DELEGATECALL}
+    assert instructions[machineState.pc].opcode not in {CALL, STATICCALL}
         OR worldStateAccessTrace.contractCalls.length < 1024
     ```
 1. **Maximum internal call depth (1024) exceeded**

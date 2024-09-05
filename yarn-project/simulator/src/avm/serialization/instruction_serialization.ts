@@ -25,7 +25,6 @@ export enum Opcode {
   CAST,
   // Execution environment
   ADDRESS,
-  STORAGEADDRESS,
   SENDER,
   FUNCTIONSELECTOR,
   TRANSACTIONFEE,
@@ -66,7 +65,6 @@ export enum Opcode {
   // External calls
   CALL,
   STATICCALL,
-  DELEGATECALL,
   RETURN,
   REVERT,
   // Misc

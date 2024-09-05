@@ -15,24 +15,7 @@ describe('Execution Environment', () => {
     expect(newExecutionEnvironment).toEqual(
       allSameExcept(executionEnvironment, {
         address: newAddress,
-        storageAddress: newAddress,
         contractCallDepth: Fr.ONE,
-        // Calldata also includes AvmContextInputs
-        calldata: anyAvmContextInputs().concat(calldata),
-      }),
-    );
-  });
-
-  // Delegate calls not supported.
-  it.skip('New delegate call should fork execution environment correctly', () => {
-    const executionEnvironment = initExecutionEnvironment();
-    const newExecutionEnvironment = executionEnvironment.newDelegateCall(newAddress, calldata, selector);
-
-    expect(newExecutionEnvironment).toEqual(
-      allSameExcept(executionEnvironment, {
-        address: newAddress,
-        contractCallDepth: Fr.ONE,
-        isDelegateCall: true,
         // Calldata also includes AvmContextInputs
         calldata: anyAvmContextInputs().concat(calldata),
       }),
@@ -50,7 +33,6 @@ describe('Execution Environment', () => {
     expect(newExecutionEnvironment).toEqual(
       allSameExcept(executionEnvironment, {
         address: newAddress,
-        storageAddress: newAddress,
         contractCallDepth: Fr.ONE,
         isStaticCall: true,
         // Calldata also includes AvmContextInputs

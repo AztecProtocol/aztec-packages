@@ -218,20 +218,20 @@ describe('journal', () => {
   //  // We first read value from t0, then value from t1
   //  expect(journalUpdates.storageReads).toEqual([
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      exists: true,
   //      slot: key,
   //      value: value,
   //    }),
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      exists: true,
   //      slot: key,
   //      value: valueT1,
   //    }),
   //    // Read a third time to check storage
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      exists: true,
   //      slot: key,
   //      value: valueT1,
@@ -241,20 +241,20 @@ describe('journal', () => {
   //  // We first write value from t0, then value from t1
   //  expect(journalUpdates.storageWrites).toEqual([
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      slot: key,
   //      value: value,
   //    }),
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      slot: key,
   //      value: valueT1,
   //    }),
   //  ]);
 
   //  expect(journalUpdates.noteHashes).toEqual([
-  //    expect.objectContaining({ noteHash: commitment, storageAddress: contractAddress }),
-  //    expect.objectContaining({ noteHash: commitmentT1, storageAddress: contractAddress }),
+  //    expect.objectContaining({ noteHash: commitment, address: contractAddress }),
+  //    expect.objectContaining({ noteHash: commitmentT1, address: contractAddress }),
   //  ]);
   //  expect(journalUpdates.newLogs).toEqual([
   //    new UnencryptedL2Log(
@@ -278,11 +278,11 @@ describe('journal', () => {
   //  ]);
   //  expect(journalUpdates.nullifiers).toEqual([
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      nullifier: commitment,
   //    }),
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      nullifier: commitmentT1,
   //    }),
   //  ]);
@@ -351,20 +351,20 @@ describe('journal', () => {
   //  // We first read value from t0, then value from t1
   //  expect(journalUpdates.storageReads).toEqual([
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      exists: true,
   //      slot: key,
   //      value: value,
   //    }),
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      exists: true,
   //      slot: key,
   //      value: valueT1,
   //    }),
   //    // Read a third time to check storage
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      exists: true,
   //      slot: key,
   //      value: value,
@@ -374,12 +374,12 @@ describe('journal', () => {
   //  // We first write value from t0, then value from t1
   //  expect(journalUpdates.storageWrites).toEqual([
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      slot: key,
   //      value: value,
   //    }),
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      slot: key,
   //      value: valueT1,
   //    }),
@@ -387,8 +387,8 @@ describe('journal', () => {
 
   //  // Check that the world state _traces_ are merged even on rejection
   //  expect(journalUpdates.noteHashes).toEqual([
-  //    expect.objectContaining({ noteHash: commitment, storageAddress: contractAddress }),
-  //    expect.objectContaining({ noteHash: commitmentT1, storageAddress: contractAddress }),
+  //    expect.objectContaining({ noteHash: commitment, address: contractAddress }),
+  //    expect.objectContaining({ noteHash: commitmentT1, address: contractAddress }),
   //  ]);
   //  expect(journalUpdates.nullifierChecks).toEqual([
   //    expect.objectContaining({ nullifier: commitment, exists: true }),
@@ -396,11 +396,11 @@ describe('journal', () => {
   //  ]);
   //  expect(journalUpdates.nullifiers).toEqual([
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      nullifier: commitment,
   //    }),
   //    expect.objectContaining({
-  //      storageAddress: contractAddress,
+  //      address: contractAddress,
   //      nullifier: commitmentT1,
   //    }),
   //  ]);

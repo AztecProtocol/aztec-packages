@@ -99,7 +99,7 @@ describe('Side Effect Trace', () => {
     const pxResult = toPxResult(trace);
     expect(pxResult.noteHashReadRequests).toEqual([
       {
-        //storageAddress: contractAddress,
+        //address: contractAddress,
         value: utxo,
         //exists: exists,
         counter: startCounter,
@@ -116,7 +116,7 @@ describe('Side Effect Trace', () => {
     const pxResult = toPxResult(trace);
     expect(pxResult.noteHashes).toEqual([
       {
-        //storageAddress: contractAddress,
+        //address: contractAddress,
         value: utxo,
         counter: startCounter,
       },

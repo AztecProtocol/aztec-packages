@@ -8,7 +8,6 @@ This section lists type definitions relevant to AVM State and Circuit I/O.
 | ---               | ---      | ---                          |
 | `callPointer`     | `field`  | The call pointer assigned to this call. |
 | `address`         | `field`  | The called contract address. |
-| `storageAddress`  | `field`  | The storage contract address (different from `address` for delegate calls). |
 | `counter`         | `field`  | When did this occur relative to other world state accesses. |
 | `endLifetime`     | `field`  | End lifetime of a call. Final `accessCounter` for reverted calls, `endLifetime` of parent for successful calls. Successful initial/top-level calls have infinite (max-value) `endLifetime`. |
 

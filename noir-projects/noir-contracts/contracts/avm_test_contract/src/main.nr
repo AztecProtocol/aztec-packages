@@ -273,11 +273,6 @@ contract AvmTest {
     }
 
     #[aztec(public)]
-    fn get_storage_address() -> AztecAddress {
-        context.storage_address()
-    }
-
-    #[aztec(public)]
     fn get_sender() -> AztecAddress {
         context.msg_sender()
     }
@@ -380,19 +375,19 @@ contract AvmTest {
     // Use the standard context interface to check for a nullifier
     #[aztec(public)]
     fn nullifier_exists(nullifier: Field) -> bool {
-        context.nullifier_exists(nullifier, context.storage_address())
+        context.nullifier_exists(nullifier, context.this_address())
     }
 
     #[aztec(public)]
     fn assert_nullifier_exists(nullifier: Field) {
-        assert(context.nullifier_exists(nullifier, context.storage_address()), "Nullifier doesn't exist!");
+        assert(context.nullifier_exists(nullifier, context.this_address()), "Nullifier doesn't exist!");
     }
 
     // Use the standard context interface to emit a new nullifier
     #[aztec(public)]
     fn emit_nullifier_and_check(nullifier: Field) {
         context.push_nullifier(nullifier);
-        let exists = context.nullifier_exists(nullifier, context.storage_address());
+        let exists = context.nullifier_exists(nullifier, context.this_address());
         assert(exists, "Nullifier was just created, but its existence wasn't detected!");
     }
 

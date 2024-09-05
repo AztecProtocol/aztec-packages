@@ -66,8 +66,7 @@ impl DAppPayload {
                     call.target_address,
                     call.function_selector,
                     call.args_hash,
-                    call.is_static,
-                    false
+                    call.is_static
                 );
             } else {
                 let _result = context.call_private_function_with_packed_args(
@@ -75,7 +74,7 @@ impl DAppPayload {
                     call.function_selector,
                     call.args_hash,
                     call.is_static,
-                    false
+                    /*is_delegate_call=*/ false
                 );
             }
         }

@@ -45,17 +45,17 @@ export class PublicStorage {
    * Read a storage value from this' cache or parent's (recursively).
    * DOES NOT CHECK HOST STORAGE!
    *
-   * @param storageAddress - the address of the contract whose storage is being read from
+   * @param address - the address of the contract whose storage is being read from
    * @param slot - the slot in the contract's storage being read from
    * @returns value: the latest value written according to this cache or the parent's. undefined on cache miss.
    */
-  public readHereOrParent(storageAddress: Fr, slot: Fr): Fr | undefined {
+  public readHereOrParent(address: Fr, slot: Fr): Fr | undefined {
     // First try check this storage cache
-    let value = this.cache.read(storageAddress, slot);
+    let value = this.cache.read(address, slot);
     // Then try parent's storage cache
     if (!value && this.parent) {
       // Note: this will recurse to grandparent/etc until a cache-hit is encountered.
-      value = this.parent.readHereOrParent(storageAddress, slot);
+      value = this.parent.readHereOrParent(address, slot);
     }
     return value;
   }
@@ -67,17 +67,17 @@ export class PublicStorage {
    * 3. Fall back to the host state.
    * 4. Not found! Value has never been written to before. Flag it as non-existent and return value zero.
    *
-   * @param storageAddress - the address of the contract whose storage is being read from
+   * @param address - the address of the contract whose storage is being read from
    * @param slot - the slot in the contract's storage being read from
    * @returns exists: whether the slot has EVER been written to before, value: the latest value written to slot, or 0 if never written to before
    */
-  public async read(storageAddress: Fr, slot: Fr): Promise<PublicStorageReadResult> {
+  public async read(address: Fr, slot: Fr): Promise<PublicStorageReadResult> {
     let cached = false;
     // Check this cache and parent's (recursively)
-    let value = this.readHereOrParent(storageAddress, slot);
+    let value = this.readHereOrParent(address, slot);
     // Finally try the host's Aztec state (a trip to the database)
     if (!value) {
-      value = await this.hostPublicStorage.storageRead(storageAddress, slot);
+      value = await this.hostPublicStorage.storageRead(address, slot);
       // TODO(dbanks12): if value retrieved from host storage, we can cache it here
       // any future reads to the same slot can read from cache instead of more expensive
       // DB access
@@ -93,12 +93,12 @@ export class PublicStorage {
   /**
    * Stage a storage write.
    *
-   * @param storageAddress - the address of the contract whose storage is being written to
+   * @param address - the address of the contract whose storage is being written to
    * @param slot - the slot in the contract's storage being written to
    * @param value - the value being written to the slot
    */
-  public write(storageAddress: Fr, slot: Fr, value: Fr) {
-    this.cache.write(storageAddress, slot, value);
+  public write(address: Fr, slot: Fr, value: Fr) {
+    this.cache.write(address, slot, value);
   }
 
   /**
@@ -114,9 +114,9 @@ export class PublicStorage {
    * Commits ALL staged writes to the host's state.
    */
   public async commitToDB() {
-    for (const [storageAddress, cacheAtContract] of this.cache.cachePerContract) {
+    for (const [address, cacheAtContract] of this.cache.cachePerContract) {
       for (const [slot, value] of cacheAtContract) {
-        await this.hostPublicStorage.storageWrite(AztecAddress.fromBigInt(storageAddress), new Fr(slot), value);
+        await this.hostPublicStorage.storageWrite(AztecAddress.fromBigInt(address), new Fr(slot), value);
       }
     }
   }
@@ -130,7 +130,7 @@ export class PublicStorage {
 class PublicStorageCache {
   /**
    * Map for staging storage writes.
-   * One inner-map per contract storage address,
+   * One inner-map per contract address,
    * mapping storage slot to latest staged write value.
    */
   public cachePerContract: Map<bigint, Map<bigint, Fr>> = new Map();
@@ -139,27 +139,27 @@ class PublicStorageCache {
   /**
    * Read a staged value from storage, if it has been previously written to.
    *
-   * @param storageAddress - the address of the contract whose storage is being read from
+   * @param address - the address of the contract whose storage is being read from
    * @param slot - the slot in the contract's storage being read from
    * @returns the latest value written to slot, or undefined if no value has been written
    */
-  public read(storageAddress: Fr, slot: Fr): Fr | undefined {
-    return this.cachePerContract.get(storageAddress.toBigInt())?.get(slot.toBigInt());
+  public read(address: Fr, slot: Fr): Fr | undefined {
+    return this.cachePerContract.get(address.toBigInt())?.get(slot.toBigInt());
   }
 
   /**
    * Stage a storage write.
    *
-   * @param storageAddress - the address of the contract whose storage is being written to
+   * @param address - the address of the contract whose storage is being written to
    * @param slot - the slot in the contract's storage being written to
    * @param value - the value being written to the slot
    */
-  public write(storageAddress: Fr, slot: Fr, value: Fr) {
-    let cacheAtContract = this.cachePerContract.get(storageAddress.toBigInt());
+  public write(address: Fr, slot: Fr, value: Fr) {
+    let cacheAtContract = this.cachePerContract.get(address.toBigInt());
     if (!cacheAtContract) {
       // If this contract's storage has no staged modifications, create a new inner map to store them
       cacheAtContract = new Map();
-      this.cachePerContract.set(storageAddress.toBigInt(), cacheAtContract);
+      this.cachePerContract.set(address.toBigInt(), cacheAtContract);
     }
     cacheAtContract.set(slot.toBigInt(), value);
   }

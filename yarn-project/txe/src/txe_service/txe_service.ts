@@ -227,13 +227,7 @@ export class TXEService {
   ) {
     const parsedAddress = fromSingle(address);
     const parsedSelector = FunctionSelector.fromField(fromSingle(functionSelector));
-    const result = await (this.typedOracle as TXE).avmOpcodeCall(
-      parsedAddress,
-      parsedSelector,
-      fromArray(args),
-      false,
-      false,
-    );
+    const result = await (this.typedOracle as TXE).avmOpcodeCall(parsedAddress, parsedSelector, fromArray(args), false);
     if (!result.reverted) {
       throw new ExpectedFailureError('Public call did not revert');
     }
@@ -548,7 +542,6 @@ export class TXEService {
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromArray(args),
       /* isStaticCall */ false,
-      /* isDelegateCall */ false,
     );
 
     return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(1))]);
@@ -566,7 +559,6 @@ export class TXEService {
       FunctionSelector.fromField(fromSingle(functionSelector)),
       fromArray(args),
       /* isStaticCall */ true,
-      /* isDelegateCall */ false,
     );
 
     return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(1))]);
@@ -691,7 +683,6 @@ export class TXEService {
     argsHash: ForeignCallSingle,
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
-    isDelegateCall: ForeignCallSingle,
   ) {
     await this.typedOracle.enqueuePublicFunctionCall(
       fromSingle(targetContractAddress),
@@ -699,7 +690,6 @@ export class TXEService {
       fromSingle(argsHash),
       fromSingle(sideEffectCounter).toNumber(),
       fromSingle(isStaticCall).toBool(),
-      fromSingle(isDelegateCall).toBool(),
     );
     return toForeignCallResult([]);
   }
@@ -710,7 +700,6 @@ export class TXEService {
     argsHash: ForeignCallSingle,
     sideEffectCounter: ForeignCallSingle,
     isStaticCall: ForeignCallSingle,
-    isDelegateCall: ForeignCallSingle,
   ) {
     await this.typedOracle.setPublicTeardownFunctionCall(
       fromSingle(targetContractAddress),
@@ -718,7 +707,6 @@ export class TXEService {
       fromSingle(argsHash),
       fromSingle(sideEffectCounter).toNumber(),
       fromSingle(isStaticCall).toBool(),
-      fromSingle(isDelegateCall).toBool(),
     );
     return toForeignCallResult([]);
   }
