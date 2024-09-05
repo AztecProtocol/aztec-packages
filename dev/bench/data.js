@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725459119899,
+  "lastUpdate": 1725494767887,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4c568b0545b022a536a6eb4199be817593e6b317",
-          "message": "feat: PG recursive verifier constructors based on stdlib inputs (#8052)\n\nUpdate the PG recursive verifier to take stdlib\r\naccumulators/verification_keys and stdlib proofs as opposed to their\r\nnative counterparts. This work will allow for a connection to be made\r\nbetween the proofs/vkeys used in noir protocol circuits and those used\r\nin the backend. The workflow will be roughly 1) construct stdlib\r\nvkey/proof from their known native counterparts, 2) use `assert_equal`\r\nto connect the witnesses of these objects to those received in the\r\ncorresponding acir `RecursionConstraint`, and 3) run the recursive\r\nverifier as usual.",
-          "timestamp": "2024-08-20T16:45:09Z",
-          "tree_id": "3fcd651b87ccb62eaca1da05ed8f66128d0526d9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4c568b0545b022a536a6eb4199be817593e6b317"
-        },
-        "date": 1724173284608,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13300.210032999985,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10012.99604 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4887.386962000008,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4495.215189 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39827.981034,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39827982000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14388.985789,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14388987000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3762419491,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3762419491 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 207201517,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 207201517 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3076782901,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3076782901 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 172472322,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 172472322 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 121576911,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 121576911 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f1746999ea12cc8117efd5a0c3b2ec5d80196343",
+          "message": "chore(bb): use std::span for srs (#8371)\n\nA bit of safety - will help me catch a bug in polynomial memory PR\r\n\r\nFix a breakage in tests due to bad global grumpkin CRS assumptions",
+          "timestamp": "2024-09-04T23:52:03Z",
+          "tree_id": "afcd8e1ce47e0fb17f89193831f134c4acc96786",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f1746999ea12cc8117efd5a0c3b2ec5d80196343"
+        },
+        "date": 1725494760918,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13411.832933,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10146.560624000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5094.396270000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4631.1410049999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40655.268421,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40655269000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14737.635159,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14737634000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3687480341,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3687480341 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 145227153,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 145227153 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3041576199,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3041576199 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 121873866,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 121873866 ns\nthreads: 1"
           }
         ]
       }
