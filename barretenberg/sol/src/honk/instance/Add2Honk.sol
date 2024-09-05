@@ -419,7 +419,7 @@ contract Add2HonkVerifier is IVerifier {
             let free := mload(0x40)
 
             // Write the original into the accumulator
-            // Load into memory forecMUL, leave offset foreccAdd result
+            // Load into memory for ecMUL, leave offset for eccAdd result
             // base is an array of pointers, so we have to dereference them
             mstore(add(free, 0x40), mload(mload(base)))
             mstore(add(free, 0x60), mload(add(0x20, mload(base))))
