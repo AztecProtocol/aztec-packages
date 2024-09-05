@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725549196951,
+  "lastUpdate": 1725553223527,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e8a9eb4b809f582c0fa185a2193e0493fc579d98",
-          "message": "refactor(avm): separate alu finalization (#8069)\n\nPIL\n* Moved ALU lookups to alu.pil. These are mostly range checks and I expect them to be different once @IlyasRidhuan finishes setting up the gadget changes.\n\nCPP\n* Made ALU entry smaller and encapsulated finalize.",
-          "timestamp": "2024-08-22T10:10:34+01:00",
-          "tree_id": "785b41059dbbfb8f2add99056cd6befa33ad6d3c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e8a9eb4b809f582c0fa185a2193e0493fc579d98"
-        },
-        "date": 1724318715664,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13615.141731999984,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10327.444193 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5069.9080929999955,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4675.631683 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40269.55786,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40269558000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14624.27101,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14624270000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3759112942,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3759112942 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 206720851,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 206720851 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3094599307,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3094599307 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 172900131,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 172900131 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 120607790,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 120607790 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47281315+guipublic@users.noreply.github.com",
+            "name": "guipublic",
+            "username": "guipublic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0d8e835dd6cd6cd545edda20f652ab6f10c530da",
+          "message": "feat: replace arithmetic equalities with assert equal (#8386)\n\nReplace arithmetic equalities with assert_equal if the 2 equal witnesses\r\nhave been both added previously into an arithmetic gate.\r\n\r\n---------\r\n\r\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
+          "timestamp": "2024-09-05T17:04:46+01:00",
+          "tree_id": "f94b94e6cc7e1cc6dcabd97b01f0c5b7f0bcfbb7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0d8e835dd6cd6cd545edda20f652ab6f10c530da"
+        },
+        "date": 1725553216701,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13408.058261000007,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10202.095563000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5132.091070999991,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4702.455685 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39185.085528999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39185086000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14639.280307,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14639281000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3695347337,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3695347337 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146654178,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146654178 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3009207599,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3009207599 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 120793349,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 120793349 ns\nthreads: 1"
           }
         ]
       }
