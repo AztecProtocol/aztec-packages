@@ -7,37 +7,36 @@ contract Router {
     use aztec::utils::comparison::compare;
 
     // docs:start:check_timestamp
-    /// Enqueues a public call that asserts that `lhs` (left side of the comparison) timestamp satisfies
-    /// the `operation` with respect to the current timestamp.
+    /// Asserts that the current timestamp in the enqueued public call satisfies the `operation` with respect
+    /// to the `value.
     #[aztec(private)]
-    fn check_timestamp(lhs: u64, operation: u8) {
-        Router::at(context.this_address())._check_timestamp(lhs, operation).enqueue_view(&mut context);
+    fn check_timestamp(operation: u8, value: u64) {
+        Router::at(context.this_address())._check_timestamp(operation, value).enqueue_view(&mut context);
     }
 
     #[aztec(public)]
     #[aztec(internal)]
     #[aztec(view)]
-    fn _check_timestamp(lhs: u64, operation: u8) {
-        let lhs_field = lhs as Field;
-        let rhs = context.timestamp() as Field;
-        assert(compare(lhs_field, operation, rhs), "Timestamp mismatch.");
+    fn _check_timestamp(operation: u8, value: u64) {
+        let lhs_field = context.timestamp() as Field;
+        let rhs_field = value as Field;
+        assert(compare(lhs_field, operation, rhs_field), "Timestamp mismatch.");
     }
     // docs:end:check_timestamp
 
-    /// Enqueues a public call that asserts that `lhs` (left side of the comparison) block number satisfies
-    /// the `operation` with respect to the current block number.
+    /// Asserts that the current block number in the enqueued public call satisfies the `operation` with respect
+    /// to the `value.
     #[aztec(private)]
-    fn check_block_number(lhs: Field, operation: u8) {
+    fn check_block_number(operation: u8, value: Field) {
         // docs:start:enqueueing
-        Router::at(context.this_address())._check_block_number(lhs, operation).enqueue_view(&mut context);
+        Router::at(context.this_address())._check_block_number(operation, value).enqueue_view(&mut context);
         // docs:end:enqueueing
     }
 
     #[aztec(public)]
     #[aztec(internal)]
     #[aztec(view)]
-    fn _check_block_number(lhs: Field, operation: u8) {
-        let rhs = context.block_number();
-        assert(compare(lhs, operation, rhs), "Block number mismatch.");
+    fn _check_block_number(operation: u8, value: Field) {
+        assert(compare(context.block_number(), operation, value), "Block number mismatch.");
     }
 }

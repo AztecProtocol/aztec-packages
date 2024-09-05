@@ -60,7 +60,7 @@ contract Crowdfunding {
         // is performing the check.
         // docs:start:call-check-deadline
         let deadline = storage.deadline.read_private();
-        Router::at(ROUTER_ADDRESS).check_timestamp(deadline, Comparator.GT).call(&mut context);
+        Router::at(ROUTER_ADDRESS).check_timestamp(Comparator.LT, deadline).call(&mut context);
         // docs:end:call-check-deadline
 
         // docs:start:do-transfer

@@ -54,7 +54,7 @@ contract AppSubscription {
 
         // We check that the note is not expired. We do that via the router contract to conceal which contract
         // is performing the check.
-        Router::at(ROUTER_ADDRESS).check_block_number(note.expiry_block_number, Comparator.GT).call(&mut context);
+        Router::at(ROUTER_ADDRESS).check_block_number(Comparator.LT, note.expiry_block_number).call(&mut context);
 
         payload.execute_calls(&mut context, storage.target_address.read_private());
     }
@@ -86,11 +86,11 @@ contract AppSubscription {
             nonce
         ).call(&mut context);
 
-        // Assert that the `expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS < current_block_number`.
+        // Assert that the `current_block_number > expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS`.
         // --> We do that via the router contract to conceal which contract is performing the check.
         Router::at(ROUTER_ADDRESS).check_block_number(
-            expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,
-            Comparator.LT
+            Comparator.GT,
+            expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS
         ).call(&mut context);
 
         let subscriber_keys = get_current_public_keys(&mut context, subscriber);
