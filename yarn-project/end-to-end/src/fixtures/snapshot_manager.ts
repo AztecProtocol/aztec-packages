@@ -38,7 +38,12 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, getPrivateKeyFromIndex } from './utils.js';
+import {
+  deployCanonicalAuthRegistry,
+  deployCanonicalKeyRegistry,
+  deployCanonicalRouter,
+  getPrivateKeyFromIndex,
+} from './utils.js';
 import { Watcher } from './watcher.js';
 
 export type SubsystemsContext = {
@@ -348,6 +353,10 @@ async function setupFromFresh(
   );
   logger.verbose('Deploying auth registry...');
   await deployCanonicalAuthRegistry(
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
+  );
+  logger.verbose('Deploying router...');
+  await deployCanonicalRouter(
     new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
   );
 
