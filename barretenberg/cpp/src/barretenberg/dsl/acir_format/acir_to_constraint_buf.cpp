@@ -210,10 +210,10 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, s
         if (w1 != 0) {
             if (w1 != w2) {
                 af.assert_equalities.push_back(pt);
+                af.original_opcode_indices.assert_equalities.push_back(opcode_index);
             }
             return;
         }
-
         // Even if the number of linear terms is less than 3, we might not be able to fit it into a width-3 arithmetic
         // gate. This is the case if the linear terms are all disctinct witness from the multiplication term. In that
         // case, the serialize_arithmetic_gate() function will return a poly_triple with all 0's, and we use a width-4
