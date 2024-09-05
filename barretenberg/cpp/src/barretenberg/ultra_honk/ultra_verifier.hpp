@@ -14,18 +14,18 @@ template <typename Flavor> class UltraVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Transcript = typename Flavor::Transcript;
-    using Instance = VerifierInstance_<Flavor>;
+    using DeciderVK = DeciderVerificationKey_<Flavor>;
     using DeciderVerifier = DeciderVerifier_<Flavor>;
 
   public:
     explicit UltraVerifier_(const std::shared_ptr<VerificationKey>& verifier_key)
-        : instance(std::make_shared<Instance>(verifier_key))
+        : verification_key(std::make_shared<DeciderVK>(verifier_key))
     {}
 
     bool verify_proof(const HonkProof& proof);
 
     std::shared_ptr<Transcript> transcript{ nullptr };
-    std::shared_ptr<Instance> instance;
+    std::shared_ptr<DeciderVK> verification_key;
 };
 
 using UltraVerifier = UltraVerifier_<UltraFlavor>;

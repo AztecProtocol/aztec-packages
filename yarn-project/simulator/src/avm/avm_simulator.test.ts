@@ -406,11 +406,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
-
+        const expectedValue = results.output[0].toNumber() === 1 ? value0 : Fr.ZERO;
         expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
         expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(
           storageAddress,
-          /*noteHash=*/ value0,
+          /*noteHash=*/ expectedValue,
           leafIndex,
           /*exists=*/ expectFound,
         );
@@ -472,9 +472,13 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.output).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
 
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledTimes(1);
+        let expectedValue = results.output[0].toNumber() === 1 ? value0 : value1;
+        if (mockAtLeafIndex === undefined) {
+          expectedValue = Fr.ZERO;
+        }
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledWith(
           address,
-          /*msgHash=*/ value0,
+          /*msgHash=*/ expectedValue,
           leafIndex,
           /*exists=*/ expectFound,
         );

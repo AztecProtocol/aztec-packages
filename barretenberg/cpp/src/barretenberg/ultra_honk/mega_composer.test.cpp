@@ -33,9 +33,9 @@ class MegaHonkTests : public ::testing::Test {
      */
     bool construct_and_verify_honk_proof(auto& builder)
     {
-        auto instance = std::make_shared<ProverInstance_<MegaFlavor>>(builder);
-        MegaProver prover(instance);
-        auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(instance->proving_key);
+        auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder);
+        MegaProver prover(proving_key);
+        auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
         MegaVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
@@ -87,9 +87,9 @@ TEST_F(MegaHonkTests, BasicStructured)
 
     // Construct and verify Honk proof using a structured trace
     TraceStructure trace_structure = TraceStructure::SMALL_TEST;
-    auto instance = std::make_shared<ProverInstance_<MegaFlavor>>(builder, trace_structure);
-    MegaProver prover(instance);
-    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(instance->proving_key);
+    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_structure);
+    MegaProver prover(proving_key);
+    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
     MegaVerifier verifier(verification_key);
     auto proof = prover.construct_proof();
     EXPECT_TRUE(verifier.verify_proof(proof));

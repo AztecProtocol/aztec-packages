@@ -5,31 +5,32 @@
 namespace bb {
 
 /**
- * Create UltraProver_ from an instance.
+ * @brief Create UltraProver_ from a decider proving key.
  *
- * @param instance Instance whose proof we want to generate.
+ * @param proving_key key whose proof we want to generate.
  *
  * @tparam a type of UltraFlavor
  * */
 template <IsUltraFlavor Flavor>
-UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<Instance>& inst, const std::shared_ptr<Transcript>& transcript)
-    : instance(std::move(inst))
+UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key,
+                                   const std::shared_ptr<Transcript>& transcript)
+    : proving_key(std::move(proving_key))
     , transcript(transcript)
-    , commitment_key(instance->proving_key.commitment_key)
+    , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
 /**
- * Create UltraProver_ from a circuit.
+ * @brief Create UltraProver_ from a circuit.
  *
- * @param instance Circuit with witnesses whose validity we'd like to prove.
+ * @param circuit Circuit with witnesses whose validity we'd like to prove.
  *
  * @tparam a type of UltraFlavor
  * */
 template <IsUltraFlavor Flavor>
 UltraProver_<Flavor>::UltraProver_(Builder& circuit)
-    : instance(std::make_shared<ProverInstance>(circuit))
+    : proving_key(std::make_shared<DeciderProvingKey>(circuit))
     , transcript(std::make_shared<Transcript>())
-    , commitment_key(instance->proving_key.commitment_key)
+    , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
@@ -43,17 +44,17 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challen
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    instance->gate_challenges = gate_challenges;
+    proving_key->gate_challenges = gate_challenges;
 }
 
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
 {
-    OinkProver<Flavor> oink_prover(instance, transcript);
+    OinkProver<Flavor> oink_prover(proving_key, transcript);
     oink_prover.prove();
 
     generate_gate_challenges();
 
-    DeciderProver_<Flavor> decider_prover(instance, transcript);
+    DeciderProver_<Flavor> decider_prover(proving_key, transcript);
     return decider_prover.construct_proof();
 }
 

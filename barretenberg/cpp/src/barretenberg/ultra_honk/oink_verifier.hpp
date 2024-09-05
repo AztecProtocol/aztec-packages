@@ -20,7 +20,7 @@ namespace bb {
  * @tparam Flavor
  */
 template <IsUltraFlavor Flavor> class OinkVerifier {
-    using Instance = VerifierInstance_<Flavor>;
+    using DeciderVK = DeciderVerificationKey_<Flavor>;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
@@ -29,18 +29,18 @@ template <IsUltraFlavor Flavor> class OinkVerifier {
 
   public:
     std::shared_ptr<Transcript> transcript;
-    std::shared_ptr<Instance> instance;
+    std::shared_ptr<DeciderVK> verification_key;
     std::string domain_separator;
     typename Flavor::CommitmentLabels comm_labels;
     bb::RelationParameters<FF> relation_parameters;
     WitnessCommitments witness_comms;
     std::vector<FF> public_inputs;
 
-    OinkVerifier(const std::shared_ptr<Instance>& instance,
+    OinkVerifier(const std::shared_ptr<DeciderVK>& verification_key,
                  const std::shared_ptr<Transcript>& transcript,
                  std::string domain_separator = "")
         : transcript(transcript)
-        , instance(instance)
+        , verification_key(verification_key)
         , domain_separator(std::move(domain_separator))
     {}
 

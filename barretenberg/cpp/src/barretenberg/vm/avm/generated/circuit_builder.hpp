@@ -3,8 +3,6 @@
 
 #include <vector>
 
-#include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
-
 #include "barretenberg/vm/avm/generated/flavor.hpp"
 #include "barretenberg/vm/avm/generated/full_row.hpp"
 
