@@ -3,6 +3,7 @@ import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
+  AnvilTestWatcher,
   AztecAddress,
   type AztecNode,
   BatchCall,
@@ -19,7 +20,6 @@ import {
   type SentTx,
   SignerlessWallet,
   type Wallet,
-  Watcher,
   createAztecNodeClient,
   createDebugLogger,
   createPXEClient,
@@ -406,7 +406,7 @@ export async function setup(
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
-  const watcher = new Watcher(
+  const watcher = new AnvilTestWatcher(
     new EthCheatCodes(config.l1RpcUrl),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,

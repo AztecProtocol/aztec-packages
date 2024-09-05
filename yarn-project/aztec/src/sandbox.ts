@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { EthCheatCodes, SignerlessWallet, Watcher } from '@aztec/aztec.js';
+import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
 import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, deployCanonicalL2FeeJuice } from '@aztec/cli/misc';
@@ -166,7 +166,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     aztecNodeConfig.validatorPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
 
-  let watcher: Watcher | undefined = undefined;
+  let watcher: AnvilTestWatcher | undefined = undefined;
   if (!aztecNodeConfig.p2pEnabled) {
     const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount);
 
@@ -179,7 +179,11 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
       transport: httpViemTransport(aztecNodeConfig.l1RpcUrl),
     });
 
-    watcher = new Watcher(new EthCheatCodes(aztecNodeConfig.l1RpcUrl), l1ContractAddresses.rollupAddress, publicClient);
+    watcher = new AnvilTestWatcher(
+      new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
+      l1ContractAddresses.rollupAddress,
+      publicClient,
+    );
     await watcher.start();
   }
 

@@ -7,9 +7,13 @@ import { type GetContractReturnType, type HttpTransport, type PublicClient, getA
 import type * as chains from 'viem/chains';
 
 /**
- * Represents a watcher for a rollup contract. It periodically checks if a slot is filled and mines if necessary.
+ * Represents a watcher for a rollup contract.
+ *
+ * It started on a network like anvil where time traveling is allowed, and auto-mine is turned on
+ * it will periodically check if the current slot have already been filled, e.g., there was an L2
+ * block within the slot. And if so, it will time travel into the next slot.
  */
-export class Watcher {
+export class AnvilTestWatcher {
   private rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
 
   private filledRunningPromise?: RunningPromise;
@@ -35,6 +39,10 @@ export class Watcher {
       throw new Error('Watcher already watching for filled slot');
     }
 
+    // If auto mining is not supported (e.g., we are on a real network), then we
+    // will simple do nothing. But if on an anvil or the like, this make sure that
+    // the sandbox and tests don't break because time is frozen and we never get to
+    // the next slot.
     const isAutoMining = await this.cheatcodes.isAutoMining();
 
     if (isAutoMining) {

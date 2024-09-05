@@ -2,6 +2,7 @@ import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accoun
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
+  AnvilTestWatcher,
   type AztecAddress,
   type AztecNode,
   BatchCall,
@@ -14,7 +15,6 @@ import {
   type PXE,
   SignerlessWallet,
   type Wallet,
-  Watcher,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
@@ -55,7 +55,7 @@ export type SubsystemsContext = {
   pxe: PXEService;
   deployL1ContractsValues: DeployL1Contracts;
   proverNode: ProverNode;
-  watcher: Watcher;
+  watcher: AnvilTestWatcher;
 };
 
 type SnapshotEntry = {
@@ -312,7 +312,7 @@ async function setupFromFresh(
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
-  const watcher = new Watcher(
+  const watcher = new AnvilTestWatcher(
     new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
     deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     deployL1ContractsValues.publicClient,
@@ -417,7 +417,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   logger.verbose('Creating ETH clients...');
   const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, mnemonicToAccount(MNEMONIC));
 
-  const watcher = new Watcher(
+  const watcher = new AnvilTestWatcher(
     new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
     aztecNodeConfig.l1Contracts.rollupAddress,
     publicClient,

@@ -39,7 +39,7 @@ export { ContractDeployer } from './deployment/index.js';
 
 export {
   AztecAddressLike,
-  Watcher,
+  AnvilTestWatcher,
   CheatCodes,
   EthAddressLike,
   EthCheatCodes,
