@@ -62,8 +62,6 @@ std::string to_string(OpCode opcode)
     // Execution Environment
     case OpCode::ADDRESS:
         return "ADDRESS";
-    case OpCode::STORAGEADDRESS:
-        return "STORAGEADDRESS";
     case OpCode::SENDER:
         return "SENDER";
     case OpCode::FUNCTIONSELECTOR:

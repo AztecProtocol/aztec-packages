@@ -26,7 +26,6 @@ A context's **execution environment** remains constant throughout a contract cal
 | Field               | Type                         | Description                                                                                                                                                                                                            |
 | ------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | address             | `AztecAddress`               |                                                                                                                                                                                                                        |
-| storageAddress      | `AztecAddress`               |                                                                                                                                                                                                                        |
 | sender              | `AztecAddress`               |                                                                                                                                                                                                                        |
 | functionSelector    | `u32`                        |                                                                                                                                                                                                                        |
 | transactionFee      | `field`                      | Computed transaction fee based on gas fees, inclusion fee, and gas usage. Zero in all phases but teardown.                                                                                                             |
@@ -71,7 +70,6 @@ Given a [`PublicCallRequest`](../transactions/tx-object#public-call-request) and
 ```
 INITIAL_EXECUTION_ENVIRONMENT = ExecutionEnvironment {
     address: PublicCallRequest.contractAddress,
-    storageAddress: PublicCallRequest.CallContext.storageContractAddress,
     sender: PublicCallRequest.CallContext.msgSender,
     functionelector: PublicCallRequest.functionSelector,
     contractCallDepth: 0,
@@ -95,7 +93,6 @@ INITIAL_WORLD_STATE_ACCESS_TRACE = WorldStateAccessTrace {
         TracedContractCall {
             callPointer: nestedContext.environment.callPointer,
             address: nestedContext.address,
-            storageAddress: nestedContext.storageAddress,
             counter: 0,
             endLifetime: 0, // The call's end-lifetime will be updated later if it or its caller reverts
         }

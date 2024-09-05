@@ -171,7 +171,6 @@ describe('AVM WitGen, proof generation and verification', () => {
   describe('AVM Context functions', () => {
     const avmContextFunctions = [
       'get_address',
-      'get_storage_address',
       'get_sender',
       'get_fee_per_l2_gas',
       'get_fee_per_da_gas',

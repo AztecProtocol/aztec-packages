@@ -25,7 +25,6 @@ export enum Opcode {
   CAST,
   // Execution environment
   ADDRESS,
-  STORAGEADDRESS,
   SENDER,
   FUNCTIONSELECTOR,
   TRANSACTIONFEE,

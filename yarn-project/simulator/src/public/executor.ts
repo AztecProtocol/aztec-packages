@@ -134,7 +134,6 @@ function createAvmExecutionEnvironment(
 ): AvmExecutionEnvironment {
   return new AvmExecutionEnvironment(
     executionRequest.contractAddress,
-    executionRequest.callContext.storageContractAddress,
     executionRequest.callContext.msgSender,
     executionRequest.callContext.functionSelector,
     /*contractCallDepth=*/ Fr.zero(),

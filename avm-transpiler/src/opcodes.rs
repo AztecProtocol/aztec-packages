@@ -21,7 +21,6 @@ pub enum AvmOpcode {
     CAST,
     // Execution environment
     ADDRESS,
-    STORAGEADDRESS,
     SENDER,
     FUNCTIONSELECTOR,
     TRANSACTIONFEE,
@@ -107,7 +106,6 @@ impl AvmOpcode {
 
             // Execution Environment
             AvmOpcode::ADDRESS => "ADDRESS",
-            AvmOpcode::STORAGEADDRESS => "STORAGEADDRESS",
             AvmOpcode::SENDER => "SENDER",
             AvmOpcode::FUNCTIONSELECTOR => "FUNCTIONSELECTOR",
             AvmOpcode::TRANSACTIONFEE => "TRANSACTIONFEE",
