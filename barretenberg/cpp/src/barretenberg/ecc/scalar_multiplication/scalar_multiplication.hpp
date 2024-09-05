@@ -150,22 +150,20 @@ template <typename Curve>
 typename Curve::AffineElement* reduce_buckets(affine_product_runtime_state<Curve>& state,
                                               bool first_round = true,
                                               bool handle_edge_cases = false);
-
 template <typename Curve>
 typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> scalars,
-                                  typename Curve::AffineElement* points,
+                                  std::span<const typename Curve::AffineElement> points,
                                   pippenger_runtime_state<Curve>& state,
                                   bool handle_edge_cases = true);
-
 template <typename Curve>
 typename Curve::Element pippenger_unsafe(std::span<const typename Curve::ScalarField> scalars,
-                                         typename Curve::AffineElement* points,
+                                         std::span<const typename Curve::AffineElement> points,
                                          pippenger_runtime_state<Curve>& state);
 
 template <typename Curve>
 typename Curve::Element pippenger_without_endomorphism_basis_points(
     std::span<const typename Curve::ScalarField> scalars,
-    typename Curve::AffineElement* points,
+    std::span<const typename Curve::AffineElement> points,
     pippenger_runtime_state<Curve>& state);
 
 // NOTE: pippenger_unsafe_optimized_for_non_dyadic_polys requires SRS to have #scalars
@@ -173,7 +171,7 @@ typename Curve::Element pippenger_without_endomorphism_basis_points(
 template <typename Curve>
 typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
     std::span<const typename Curve::ScalarField> scalars,
-    std::span<typename Curve::AffineElement> points,
+    std::span<const typename Curve::AffineElement> points,
     pippenger_runtime_state<Curve>& state);
 
 // Explicit instantiation
