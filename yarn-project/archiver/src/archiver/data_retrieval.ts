@@ -18,6 +18,8 @@ import {
 import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1PublishedData } from './structs/published.js';
 
+const BATCH_SIZE = 10n;
+
 /**
  * Fetches new L2 block metadata (header, archive snapshot).
  * @param publicClient - The viem public client to use for transaction retrieval.
@@ -46,7 +48,7 @@ export async function retrieveBlockMetadataFromRollup(
       publicClient,
       rollupAddress,
       searchStartBlock,
-      searchEndBlock,
+      searchStartBlock + BATCH_SIZE,
     );
     if (l2BlockProcessedLogs.length === 0) {
       break;
@@ -95,7 +97,7 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
       publicClient,
       availabilityOracleAddress,
       searchStartBlock,
-      searchEndBlock,
+      searchStartBlock + BATCH_SIZE
     );
     if (l2TxsPublishedLogs.length === 0) {
       break;
@@ -130,7 +132,7 @@ export async function retrieveL1ToL2Messages(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const messageSentLogs = await getMessageSentLogs(publicClient, inboxAddress, searchStartBlock, searchEndBlock);
+    const messageSentLogs = await getMessageSentLogs(publicClient, inboxAddress, searchStartBlock, searchStartBlock + BATCH_SIZE);
     if (messageSentLogs.length === 0) {
       break;
     }
