@@ -110,9 +110,9 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         }
 
         if constexpr (!IsSimulator<OuterBuilder>) {
-            auto instance = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
-            OuterProver prover(instance);
-            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
+            auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
+            OuterProver prover(proving_key);
+            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);

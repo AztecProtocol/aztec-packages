@@ -36,10 +36,10 @@ template <typename RecursiveFlavor> class SimulatorFixture : public benchmark::F
     {
 
         auto builder = construct_mock_function_circuit(large);
-        auto instance = std::make_shared<DeciderProvingKey>(builder);
-        UltraProver_<Flavor> prover(instance);
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        UltraProver_<Flavor> prover(proving_key);
         auto ultra_proof = prover.construct_proof();
-        auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
         return { ultra_proof, verification_key };
     }
 

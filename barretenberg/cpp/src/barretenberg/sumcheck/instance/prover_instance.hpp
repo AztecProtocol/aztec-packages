@@ -34,13 +34,12 @@ template <class Flavor> class DeciderProvingKey_ {
 
   public:
     ProvingKey proving_key;
-    RelationSeparator alphas; // a challenge for each subrelation
-    bb::RelationParameters<FF> relation_parameters;
 
     bool is_accumulator = false;
-
-    // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
+    RelationSeparator alphas; // a challenge for each subrelation
+    bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
+    // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum;
 
     DeciderProvingKey_(Circuit& circuit,

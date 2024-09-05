@@ -22,9 +22,9 @@ void generate_keys_honk(std::string output_path, std::string flavour_prefix, std
     uint256_t public_inputs[4] = { 0, 0, 0, 0 };
     UltraCircuitBuilder builder = Circuit<UltraCircuitBuilder>::generate(public_inputs);
 
-    auto instance = std::make_shared<DeciderProvingKey>(builder);
-    UltraKeccakProver prover(instance);
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    UltraKeccakProver prover(proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
 
     // Make verification key file upper case
     circuit_name.at(0) = static_cast<char>(std::toupper(static_cast<unsigned char>(circuit_name.at(0))));

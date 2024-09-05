@@ -42,14 +42,12 @@ template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
 
     /**
      * @brief Process the public data ϕ for the decider verification keys to be folded.
-     *
      */
     void receive_and_finalise_key(const std::shared_ptr<DeciderVK>&, const std::string&);
 
     /**
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new
      * accumulator, received from the prover is the same as that produced by the verifier.
-     *
      */
     std::shared_ptr<DeciderVK> verify_folding_proof(const std::vector<FF>&);
 };

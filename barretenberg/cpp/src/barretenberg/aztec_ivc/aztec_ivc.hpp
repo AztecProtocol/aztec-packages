@@ -15,7 +15,7 @@ namespace bb {
 
 /**
  * @brief The IVC scheme used by the aztec client for private function execution
- * @details Combines Protogalaxy with Goblin to accumulate one circuit instance at a time with efficient EC group
+ * @details Combines Protogalaxy with Goblin to accumulate one circuit at a time with efficient EC group
  * operations. It is assumed that the circuits being accumulated correspond alternatingly to an app and a kernel, as is
  * the case in Aztec. Two recursive folding verifiers are appended to each kernel (except the first one) to verify the
  * folding of a previous kernel and an app/function circuit. Due to this structure it is enforced that the total number
@@ -45,7 +45,7 @@ class AztecIVC {
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveDeciderVerificationKeys =
         bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
-    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::RecursiveDeciderVK;
+    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::DeciderVK;
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
@@ -67,7 +67,7 @@ class AztecIVC {
     enum class QUEUE_TYPE { OINK, PG };
     struct RecursiveVerifierInputs {
         std::vector<FF> proof; // oink or PG
-        std::shared_ptr<VerificationKey> decider_vk;
+        std::shared_ptr<VerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
 
@@ -80,10 +80,10 @@ class AztecIVC {
   public:
     GoblinProver goblin;
 
-    ProverFoldOutput fold_output; // prover accumulator instance and fold proof
+    ProverFoldOutput fold_output; // prover accumulator and fold proof
 
-    std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator instance
-    std::shared_ptr<VerificationKey> decider_vk;                  // verification key for instance to be folded
+    std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
+    std::shared_ptr<VerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
 
     // Set of pairs of {fold_proof, verification_key} to be recursively verified
     std::vector<RecursiveVerifierInputs> verification_queue;
@@ -108,11 +108,11 @@ class AztecIVC {
 
     static bool verify(const Proof& proof,
                        const std::shared_ptr<DeciderVerificationKey>& accumulator,
-                       const std::shared_ptr<DeciderVerificationKey>& final_verifier_instance,
+                       const std::shared_ptr<DeciderVerificationKey>& final_stack_vk,
                        const std::shared_ptr<AztecIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<AztecIVC::TranslatorVerificationKey>& translator_vk);
 
-    bool verify(Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& verifier_instances);
+    bool verify(Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack);
 
     bool prove_and_verify();
 

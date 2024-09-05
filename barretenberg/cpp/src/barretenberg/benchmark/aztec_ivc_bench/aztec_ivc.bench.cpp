@@ -40,7 +40,7 @@ class AztecIVCBench : public benchmark::Fixture {
      */
     static bool verify_ivc(Proof& proof, AztecIVC& ivc)
     {
-        auto verifier_inst = std::make_shared<DeciderVerificationKey>(ivc.verification_queue[0].verification_key);
+        auto verifier_inst = std::make_shared<DeciderVerificationKey>(ivc.verification_queue[0].honk_verification_key);
         bool verified = ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
 
         // This is a benchmark, not a test, so just print success or failure to the log

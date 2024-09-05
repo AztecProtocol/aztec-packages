@@ -25,12 +25,12 @@ class GoblinRecursionTests : public ::testing::Test {
 
     static GoblinAccumulationOutput construct_accumulator(MegaCircuitBuilder& builder)
     {
-        auto prover_instance = std::make_shared<DeciderProvingKey>(builder);
-        auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover_instance->proving_key);
-        auto verifier_instance = std::make_shared<DeciderVerificationKey>(verification_key);
-        MegaProver prover(prover_instance);
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        auto honk_verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
+        auto decider_verification_key = std::make_shared<DeciderVerificationKey>(honk_verification_key);
+        MegaProver prover(proving_key);
         auto ultra_proof = prover.construct_proof();
-        return { ultra_proof, verifier_instance->verification_key };
+        return { ultra_proof, decider_verification_key->verification_key };
     }
 };
 

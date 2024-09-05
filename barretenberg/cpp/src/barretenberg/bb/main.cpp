@@ -368,7 +368,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
 
     // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
     // directory is passed by bb.js)
-    std::string vkPath = outputDir + "/final_decider_vk"; // the vk of the last instance
+    std::string vkPath = outputDir + "/final_decider_vk"; // the vk of the last circuit in the stack
     std::string accPath = outputDir + "/pg_acc";
     std::string proofPath = outputDir + "/client_ivc_proof";
     std::string translatorVkPath = outputDir + "/translator_vk";
@@ -378,8 +378,8 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_instance = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.decider_vk);
-    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
+    auto last_vk = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.decider_vk);
+    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
@@ -402,7 +402,7 @@ template <typename T> std::shared_ptr<T> read_to_shared_ptr(const std::filesyste
  *   an exit code of 0 will be returned for success and 1 for failure.
  *
  * @param proof_path Path to the file containing the serialized proof
- * @param vk_path Path to the file containing the serialized verification key of the final mega honk instance
+ * @param vk_path Path to the serialized verification key of the final (MegaHonk) circuit in the stack
  * @param accumualtor_path Path to the file containing the serialized protogalaxy accumulator
  * @return true (resp., false) if the proof is valid (resp., invalid).
  */
@@ -503,7 +503,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 
     // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
     // directory is passed by bb.js)
-    std::string vkPath = outputPath + "/final_decider_vk"; // the vk of the last instance
+    std::string vkPath = outputPath + "/final_decider_vk"; // the vk of the last circuit in the stack
     std::string accPath = outputPath + "/pg_acc";
     std::string proofPath = outputPath + "/client_ivc_proof";
     std::string translatorVkPath = outputPath + "/translator_vk";
@@ -513,8 +513,8 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_instance = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.decider_vk);
-    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
+    auto last_vk = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.decider_vk);
+    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
@@ -543,7 +543,7 @@ void prove_tube(const std::string& output_path)
     using Builder = UltraCircuitBuilder;
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
-    std::string vkPath = output_path + "/final_decider_vk"; // the vk of the last instance
+    std::string vkPath = output_path + "/final_decider_vk"; // the vk of the last circuit in the stack
     std::string accPath = output_path + "/pg_acc";
     std::string proofPath = output_path + "/client_ivc_proof";
     std::string translatorVkPath = output_path + "/translator_vk";

@@ -8,20 +8,20 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
     using Flavor = Flavor_;
     using Builder = typename Flavor::CircuitBuilder;
     using VerificationKey = typename Flavor::VerificationKey;
-    using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
-    using ArrayType = std::array<std::shared_ptr<RecursiveDeciderVK>, NUM_>;
+    using DeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
+    using ArrayType = std::array<std::shared_ptr<DeciderVK>, NUM_>;
 
   public:
     static constexpr size_t NUM = NUM_;
     static constexpr size_t BATCHED_EXTENDED_LENGTH = (Flavor::MAX_TOTAL_RELATION_LENGTH - 1 + NUM - 1) * (NUM - 1) + 1;
     ArrayType _data;
-    std::shared_ptr<RecursiveDeciderVK> const& operator[](size_t idx) const { return _data[idx]; }
+    std::shared_ptr<DeciderVK> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
     Builder* builder;
 
     RecursiveDeciderVerificationKeys_(Builder* builder,
-                                      const std::shared_ptr<RecursiveDeciderVK>& accumulator,
+                                      const std::shared_ptr<DeciderVK>& accumulator,
                                       const std::vector<std::shared_ptr<VerificationKey>>& vks)
         : builder(builder)
     {
@@ -31,7 +31,7 @@ template <IsRecursiveFlavor Flavor_, size_t NUM_> struct RecursiveDeciderVerific
 
         size_t idx = 1;
         for (auto& vk : vks) {
-            _data[idx] = std::make_shared<RecursiveDeciderVK>(builder, vk);
+            _data[idx] = std::make_shared<DeciderVK>(builder, vk);
             idx++;
         }
     }

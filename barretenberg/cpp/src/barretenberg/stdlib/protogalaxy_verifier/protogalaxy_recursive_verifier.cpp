@@ -5,7 +5,7 @@
 namespace bb::stdlib::recursion::honk {
 
 template <class DeciderVerificationKeys>
-void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::receive_and_finalise_instance(
+void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::receive_and_finalise_key(
     const std::shared_ptr<DeciderVK>& inst, std::string& domain_separator)
 {
     domain_separator = domain_separator + "_";
@@ -23,7 +23,7 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::prepare_for_folding
     auto domain_separator = std::to_string(index);
 
     if (!inst->is_accumulator) {
-        receive_and_finalise_instance(inst, domain_separator);
+        receive_and_finalise_key(inst, domain_separator);
         inst->target_sum = 0;
         inst->gate_challenges = std::vector<FF>(static_cast<size_t>(inst->verification_key->log_circuit_size), 0);
     }
@@ -32,12 +32,12 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::prepare_for_folding
     for (auto it = keys_to_fold.begin() + 1; it != keys_to_fold.end(); it++, index++) {
         auto inst = *it;
         auto domain_separator = std::to_string(index);
-        receive_and_finalise_instance(inst, domain_separator);
+        receive_and_finalise_key(inst, domain_separator);
     }
 }
 
 template <class DeciderVerificationKeys>
-std::shared_ptr<typename DeciderVerificationKeys::DeciderVerificationKey> ProtogalaxyRecursiveVerifier_<
+std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiveVerifier_<
     DeciderVerificationKeys>::verify_folding_proof(const StdlibProof<Builder>& proof)
 {
     using Transcript = typename Flavor::Transcript;
@@ -109,26 +109,25 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVerificationKey> Protog
     size_t alpha_idx = 0;
     for (auto& alpha : next_accumulator->alphas) {
         alpha = FF(0);
-        size_t instance_idx = 0;
-        for (auto& instance : keys_to_fold) {
-            alpha += instance->alphas[alpha_idx] * lagranges[instance_idx];
-            instance_idx++;
+        size_t vk_idx = 0;
+        for (auto& key : keys_to_fold) {
+            alpha += key->alphas[alpha_idx] * lagranges[vk_idx];
+            vk_idx++;
         }
         alpha_idx++;
     }
 
     auto& expected_parameters = next_accumulator->relation_parameters;
     for (size_t inst_idx = 0; inst_idx < DeciderVerificationKeys::NUM; inst_idx++) {
-        auto instance = keys_to_fold[inst_idx];
-        expected_parameters.eta += instance->relation_parameters.eta * lagranges[inst_idx];
-        expected_parameters.eta_two += instance->relation_parameters.eta_two * lagranges[inst_idx];
-        expected_parameters.eta_three += instance->relation_parameters.eta_three * lagranges[inst_idx];
-        expected_parameters.beta += instance->relation_parameters.beta * lagranges[inst_idx];
-        expected_parameters.gamma += instance->relation_parameters.gamma * lagranges[inst_idx];
-        expected_parameters.public_input_delta +=
-            instance->relation_parameters.public_input_delta * lagranges[inst_idx];
+        auto& key = keys_to_fold[inst_idx];
+        expected_parameters.eta += key->relation_parameters.eta * lagranges[inst_idx];
+        expected_parameters.eta_two += key->relation_parameters.eta_two * lagranges[inst_idx];
+        expected_parameters.eta_three += key->relation_parameters.eta_three * lagranges[inst_idx];
+        expected_parameters.beta += key->relation_parameters.beta * lagranges[inst_idx];
+        expected_parameters.gamma += key->relation_parameters.gamma * lagranges[inst_idx];
+        expected_parameters.public_input_delta += key->relation_parameters.public_input_delta * lagranges[inst_idx];
         expected_parameters.lookup_grand_product_delta +=
-            instance->relation_parameters.lookup_grand_product_delta * lagranges[inst_idx];
+            key->relation_parameters.lookup_grand_product_delta * lagranges[inst_idx];
     }
     return next_accumulator;
 }

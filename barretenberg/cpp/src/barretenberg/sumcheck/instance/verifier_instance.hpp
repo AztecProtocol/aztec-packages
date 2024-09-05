@@ -21,13 +21,13 @@ template <class Flavor, size_t NUM_ = 2> class DeciderVerificationKey_ {
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     std::shared_ptr<VerificationKey> verification_key;
-    RelationParameters<FF> relation_parameters;
-    RelationSeparator alphas;
+
     bool is_accumulator = false;
     std::vector<FF> public_inputs;
-
-    // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
+    RelationSeparator alphas; // a challenge for each subrelation
+    RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
+    // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum{ 0 };
 
     WitnessCommitments witness_commitments;

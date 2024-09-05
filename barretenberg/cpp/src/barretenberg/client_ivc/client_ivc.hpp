@@ -14,9 +14,7 @@ namespace bb {
 
 /**
  * @brief The IVC interface to be used by the aztec client for private function execution
- * @details Combines Protogalaxy with Goblin to accumulate one circuit instance at a time with efficient EC group
- * operations
- *
+ * @details Combines Protogalaxy with Goblin to accumulate one circuit at a time with efficient EC group operations
  */
 class ClientIVC {
 
@@ -40,7 +38,7 @@ class ClientIVC {
     using GURecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveDeciderVerificationKeys =
         bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<GURecursiveFlavor, 2>;
-    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::RecursiveDeciderVK;
+    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::DeciderVK;
     using RecursiveVerificationKey = RecursiveDeciderVerificationKeys::VerificationKey;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
@@ -61,8 +59,8 @@ class ClientIVC {
 
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;
-    // Note: We need to save the last instance that was folded in order to compute its verification key, this will not
-    // be needed in the real IVC as they are provided as inputs
+    // Note: We need to save the last proving key that was folded in order to compute its verification key, this will
+    // not be needed in the real IVC as they are provided as inputs
 
   public:
     GoblinProver goblin;
@@ -73,7 +71,7 @@ class ClientIVC {
     // A flag indicating whether or not to construct a structured trace in the DeciderProvingKey
     TraceStructure trace_structure = TraceStructure::NONE;
 
-    // A flag indicating whether the IVC has been initialized with an initial instance
+    // A flag indicating whether the IVC has been initialized with an initial decider proving key
     bool initialized = false;
 
     void accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk = nullptr);
@@ -82,11 +80,11 @@ class ClientIVC {
 
     static bool verify(const Proof& proof,
                        const std::shared_ptr<DeciderVerificationKey>& accumulator,
-                       const std::shared_ptr<DeciderVerificationKey>& final_verifier_instance,
+                       const std::shared_ptr<DeciderVerificationKey>& final_stack_vk,
                        const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);
 
-    bool verify(Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& verifier_instances) const;
+    bool verify(Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack) const;
 
     bool prove_and_verify();
 

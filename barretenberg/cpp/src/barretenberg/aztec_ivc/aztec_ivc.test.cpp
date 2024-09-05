@@ -86,7 +86,7 @@ class AztecIVCTests : public ::testing::Test {
             for (size_t idx = 0; idx < num_circuits; ++idx) {
                 ClientCircuit circuit = create_next_circuit(ivc, log2_num_gates); // create the next circuit
                 ivc.accumulate(circuit);                                          // accumulate the circuit
-                vkeys.emplace_back(ivc.decider_vk);                               // save the VK for the circuit
+                vkeys.emplace_back(ivc.honk_vk);                                  // save the VK for the circuit
             }
             is_kernel = false;
 

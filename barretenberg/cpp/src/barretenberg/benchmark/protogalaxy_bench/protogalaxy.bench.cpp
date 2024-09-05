@@ -11,7 +11,7 @@ using namespace benchmark;
 
 namespace bb {
 
-// Fold one instance into an accumulator.
+// Fold one proving key into an accumulator.
 template <typename Flavor, size_t k> void fold_k(State& state) noexcept
 {
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
@@ -22,7 +22,7 @@ template <typename Flavor, size_t k> void fold_k(State& state) noexcept
 
     auto log2_num_gates = static_cast<size_t>(state.range(0));
 
-    const auto construct_instance = [&]() {
+    const auto construct_key = [&]() {
         Builder builder;
         MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
         return std::make_shared<DeciderProvingKey>(builder);
@@ -30,7 +30,7 @@ template <typename Flavor, size_t k> void fold_k(State& state) noexcept
     std::vector<std::shared_ptr<DeciderProvingKey>> decider_pks;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
     for (size_t i = 0; i < k + 1; ++i) {
-        decider_pks.emplace_back(construct_instance());
+        decider_pks.emplace_back(construct_key());
     }
 
     ProtogalaxyProver folding_prover(decider_pks);
