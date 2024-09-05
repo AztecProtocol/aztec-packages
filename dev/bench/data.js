@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725494767887,
+  "lastUpdate": 1725526565700,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d86577c2e36c5a077a859058602f455421ed93e1",
-          "message": "feat: Poseidon2 gates for Ultra arithmetisation (#7494)\n\nAdd Poseidon2 gates to the `UltraCircuitBuilder` which now ensures that\r\nrecursive verifier instantiated with the Ultra arithmetisation produce\r\nthe correct number of constraints.\r\n\r\nUpdates required:\r\n* change verification key length and constant proof length constants\r\nacross the codebase (two selectors from the new gate whose commitments\r\nneed to be in the vk and the poseidon relation becomes the one with the\r\nhighest degree); changes to Prover.toml accordingly\r\n* ensure the ultra recursive verifier still stays constant size now that\r\nhashing produces gates\r\n* small modification to solidity verifer to reflect the ones in cpp with\r\nthe caveat that the UltraKeccak flavor still doesnt support Poseidon\r\ngate (changes coming in a followup PR)\r\n\r\nTube circuit changes in # of gates (post finalisation):\r\n- number of gates prior this change, in master: 13947018\r\n- number of gates post this change: 14038982\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/1041",
-          "timestamp": "2024-08-21T10:54:35Z",
-          "tree_id": "1c00b5af5a78048a1bf46b9d9b2ea002b105daf4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d86577c2e36c5a077a859058602f455421ed93e1"
-        },
-        "date": 1724238239889,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13650.790059000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10486.816176 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5066.132444000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4687.170844 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40166.086421,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40166086000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14692.371447,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14692371000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3747146237,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3747146237 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 207923437,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 207923437 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3089209790,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3089209790 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 172251297,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 172251297 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 121873866,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 121873866 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7f029007365b57c06699914f97b93d0891d2a6f1",
+          "message": "feat: ultra keccak honk verifier (#8261)\n\nEnable the new Keccak Ultra Honk flavor for the BlockRootRollup circuit,\r\ndeploy a Solidity verifier for it and tell the rollup to use it\r\n\r\n---------\r\n\r\nCo-authored-by: Santiago Palladino <santiago@aztecprotocol.com>",
+          "timestamp": "2024-09-05T09:40:57+01:00",
+          "tree_id": "47deced190fdbed64f7eeb2f770e8f61db99812d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7f029007365b57c06699914f97b93d0891d2a6f1"
+        },
+        "date": 1725526558586,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13364.734365000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10081.946252 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5101.513808999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4625.598440999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40179.549729,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40179550000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14675.852439999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14675853000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3686540520,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3686540520 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 145163034,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 145163034 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3021970787,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3021970787 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 119688662,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 119688662 ns\nthreads: 1"
           }
         ]
       }
