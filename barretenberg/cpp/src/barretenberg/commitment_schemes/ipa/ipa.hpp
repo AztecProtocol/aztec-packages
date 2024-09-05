@@ -586,11 +586,11 @@ template <typename Curve_> class IPA {
         const BatchOpeningClaim<Curve>&  batch_opening_claim)
     {
         using Utils = CommitmentSchemesUtils<Curve>;
-        /// Extract batch_mul arguments from the accumulator
+        // Extract batch_mul arguments from the accumulator
         const auto& commitments = batch_opening_claim.commitments;
         const auto& scalars = batch_opening_claim.scalars;
         const Fr& shplonk_eval_challenge = batch_opening_claim.evaluation_point;
-        /// Compute \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$
+        // Compute \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$
         GroupElement shplonk_output_commitment;
         if constexpr (Curve::is_stdlib_type) {
             shplonk_output_commitment =
@@ -598,7 +598,7 @@ template <typename Curve_> class IPA {
         } else {
             shplonk_output_commitment = Utils::batch_mul_native(commitments, scalars);
         }
-        /// Output an opening claim to be verified by the IPA opening protocol
+        // Output an opening claim to be verified by the IPA opening protocol
         return { { shplonk_eval_challenge, Fr(0) }, shplonk_output_commitment };
     }
     /**

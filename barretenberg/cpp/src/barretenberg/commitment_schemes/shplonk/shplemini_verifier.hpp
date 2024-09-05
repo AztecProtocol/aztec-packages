@@ -235,27 +235,25 @@ template <typename Curve> class ShpleminiVerifier_ {
         size_t evaluation_idx = 0;
         Fr current_batching_challenge = Fr(1);
         for (auto& unshifted_commitment : unshifted_commitments) {
-            /// Move unshifted commitments to the 'commitments' vector
+            // Move unshifted commitments to the 'commitments' vector
             commitments.emplace_back(std::move(unshifted_commitment));
-            /// Compute \f$ - \rho^{i} \cdot ( \frac{1}{z-r} + \frac{\nu}{z+r} )\f$ and place to the 'scalars'
+            // Compute −ρⁱ ⋅ (1/(z−r) + ν/(z+r)) and place into 'scalars'
             scalars.emplace_back(-unshifted_scalar * current_batching_challenge);
-            /// Accumulate the evaluation of \f$ \sum \rho^i \cdot f_i \f$ at the sumcheck challenge
+            // Accumulate the evaluation of ∑ ρⁱ ⋅ fᵢ at the sumcheck challenge
             batched_evaluation += claimed_evaluations[evaluation_idx] * current_batching_challenge;
             evaluation_idx += 1;
-            /// Update the batching challenge
+            // Update the batching challenge
             current_batching_challenge *= multivariate_batching_challenge;
         }
         for (auto& shifted_commitment : shifted_commitments) {
-            /// Move shifted commitments to the 'commitments' vector
+            // Move shifted commitments to the 'commitments' vector
             commitments.emplace_back(std::move(shifted_commitment));
-            /// Compute \f$ - \rho^{i+k} \cdot r^{-1} \cdot (\frac{1}{z-r} - \frac{\nu}{z+r} ) \f$ and place to
-            /// 'scalars'
+            // Compute −ρ⁽ⁱ⁺ᵏ⁾ ⋅ r⁻¹ ⋅ (1/(z−r) − ν/(z+r)) and place into 'scalars'
             scalars.emplace_back(-shifted_scalar * current_batching_challenge);
-            /// Accumulate the evaluation of \f$ \sum \rho^{i+k} \cdot f_{\text{shift}, i}\f$ at
-            /// the sumcheck challenge
+            // Accumulate the evaluation of ∑ ρ⁽ⁱ⁺ᵏ⁾ ⋅ f_shift, i at the sumcheck challenge
             batched_evaluation += claimed_evaluations[evaluation_idx] * current_batching_challenge;
             evaluation_idx += 1;
-            /// Update the batching challenge
+            // Update the batching challenge
             current_batching_challenge *= multivariate_batching_challenge;
         }
     }
