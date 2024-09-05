@@ -41,7 +41,7 @@ class ClientIVCTests : public ::testing::Test {
         ZoneScopedN("ClientIVC::prove_and_verify");
         auto proof = ivc.prove();
 
-        auto verifier_inst = std::make_shared<DeciderVerificationKey>(ivc.instance_vk);
+        auto verifier_inst = std::make_shared<DeciderVerificationKey>(ivc.decider_vk);
         return ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
     }
 

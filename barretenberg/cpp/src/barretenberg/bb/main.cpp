@@ -197,7 +197,7 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
     auto proof = prover.construct_proof();
 
     // Verify Honk proof
-    auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
 
     Verifier verifier{ verification_key };
 
@@ -378,12 +378,12 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_instance = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.instance_vk);
+    auto last_instance = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.decider_vk);
     vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
-    write_file(vkPath, to_buffer(ivc.instance_vk));
+    write_file(vkPath, to_buffer(ivc.decider_vk));
     write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
     write_file(eccVkPath, to_buffer(eccvm_vk));
@@ -513,12 +513,12 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_instance = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.instance_vk);
+    auto last_instance = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.decider_vk);
     vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
-    write_file(vkPath, to_buffer(ivc.instance_vk)); // maybe dereference
+    write_file(vkPath, to_buffer(ivc.decider_vk)); // maybe dereference
     write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
     write_file(eccVkPath, to_buffer(eccvm_vk));
@@ -533,7 +533,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 void prove_tube(const std::string& output_path)
 {
     using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
-    using StackDeciderVK = ClientIVC::FoldVerifierInput::Instance;
+    using StackDeciderVK = ClientIVC::FoldVerifierInput::DeciderVK;
     using StackHonkVK = typename MegaFlavor::VerificationKey;
     using ECCVMVk = ECCVMFlavor::VerificationKey;
     using TranslatorVk = TranslatorFlavor::VerificationKey;
@@ -604,7 +604,7 @@ void prove_tube(const std::string& output_path)
 
     std::string tubeVkPath = output_path + "/vk";
     auto tube_verification_key =
-        std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
+        std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.proving_key->proving_key);
     write_file(tubeVkPath, to_buffer(tube_verification_key));
 
     std::string tubeAsFieldsVkPath = output_path + "/vk_fields.json";
@@ -1146,7 +1146,7 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
     using VerificationKey = Flavor::VerificationKey;
 
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, "");
-    DeciderProvingKey& prover_inst = *prover.instance;
+    DeciderProvingKey& prover_inst = *prover.proving_key;
     VerificationKey vk(
         prover_inst.proving_key); // uses a partial form of the proving key which only has precomputed entities
 
@@ -1311,7 +1311,7 @@ void prove_honk_output_all(const std::string& bytecodePath,
     std::string proofFieldsPath = outputPath + "/proof_fields.json";
 
     VerificationKey vk(
-        prover.instance->proving_key); // uses a partial form of the proving key which only has precomputed entities
+        prover.proving_key->proving_key); // uses a partial form of the proving key which only has precomputed entities
 
     // Write the 'binary' proof
     write_file(proofPath, to_buffer</*include_size=*/true>(proof));

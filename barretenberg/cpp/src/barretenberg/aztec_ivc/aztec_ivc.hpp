@@ -45,7 +45,7 @@ class AztecIVC {
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveDeciderVerificationKeys =
         bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
-    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::Instance;
+    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::RecursiveDeciderVK;
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
@@ -67,7 +67,7 @@ class AztecIVC {
     enum class QUEUE_TYPE { OINK, PG };
     struct RecursiveVerifierInputs {
         std::vector<FF> proof; // oink or PG
-        std::shared_ptr<VerificationKey> instance_vk;
+        std::shared_ptr<VerificationKey> decider_vk;
         QUEUE_TYPE type;
     };
 
@@ -83,7 +83,7 @@ class AztecIVC {
     ProverFoldOutput fold_output; // prover accumulator instance and fold proof
 
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator instance
-    std::shared_ptr<VerificationKey> instance_vk;                 // verification key for instance to be folded
+    std::shared_ptr<VerificationKey> decider_vk;                  // verification key for instance to be folded
 
     // Set of pairs of {fold_proof, verification_key} to be recursively verified
     std::vector<RecursiveVerifierInputs> verification_queue;

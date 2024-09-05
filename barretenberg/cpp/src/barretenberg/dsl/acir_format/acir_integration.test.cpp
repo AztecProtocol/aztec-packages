@@ -71,7 +71,7 @@ class AcirIntegrationTest : public ::testing::Test {
         auto proof = prover.construct_proof();
 
         // Verify Honk proof
-        auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
         Verifier verifier{ verification_key };
         return verifier.verify_proof(proof);
     }

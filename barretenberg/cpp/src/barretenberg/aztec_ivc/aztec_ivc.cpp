@@ -34,9 +34,9 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
             verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
 
             // Perform databus commitment consistency checks and propagate return data commitments via public inputs
-            bus_depot.execute(verifier.instances[1]->witness_commitments,
-                              verifier.instances[1]->public_inputs,
-                              verifier.instances[1]->verification_key->databus_propagation_data);
+            bus_depot.execute(verifier.keys_to_fold[1]->witness_commitments,
+                              verifier.keys_to_fold[1]->public_inputs,
+                              verifier.keys_to_fold[1]->verification_key->databus_propagation_data);
             break;
         }
         case QUEUE_TYPE::OINK: {
@@ -101,7 +101,7 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
     }
 
     // Set the instance verification key from precomputed if available, else compute it
-    instance_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(prover_instance->proving_key);
+    decider_vk = precomputed_vk ? precomputed_vk : std::make_shared<VerificationKey>(prover_instance->proving_key);
 
     // If this is the first circuit in the IVC, use oink to compute the completed instance and generate an oink proof
     if (!initialized) {
@@ -115,7 +115,7 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
 
         // Add oink proof and corresponding verification key to the verification queue
         verification_queue.push_back(
-            bb::AztecIVC::RecursiveVerifierInputs{ oink_prover.transcript->proof_data, instance_vk, QUEUE_TYPE::OINK });
+            bb::AztecIVC::RecursiveVerifierInputs{ oink_prover.transcript->proof_data, decider_vk, QUEUE_TYPE::OINK });
 
         initialized = true;
     } else { // Otherwise, fold the new instance into the accumulator
@@ -124,7 +124,7 @@ void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verifica
 
         // Add fold proof and corresponding verification key to the verification queue
         verification_queue.push_back(
-            bb::AztecIVC::RecursiveVerifierInputs{ fold_output.proof, instance_vk, QUEUE_TYPE::PG });
+            bb::AztecIVC::RecursiveVerifierInputs{ fold_output.proof, decider_vk, QUEUE_TYPE::PG });
     }
 
     // Track the maximum size of each block for all circuits porcessed (for debugging purposes only)
@@ -200,7 +200,7 @@ bool AztecIVC::prove_and_verify()
     auto proof = prove();
 
     ASSERT(verification_queue.size() == 1); // ensure only a single fold proof remains in the queue
-    auto verifier_inst = std::make_shared<DeciderVerificationKey>(this->verification_queue[0].instance_vk);
+    auto verifier_inst = std::make_shared<DeciderVerificationKey>(this->verification_queue[0].decider_vk);
     return verify(proof, { this->verifier_accumulator, verifier_inst });
 }
 

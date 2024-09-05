@@ -8,7 +8,7 @@ class ClientIVCRecursiveVerifier {
     using Builder = UltraCircuitBuilder;                   // The circuit will be an Ultra circuit
     using RecursiveFlavor = MegaRecursiveFlavor_<Builder>; // The verifier algorithms are Mega
     using RecursiveDeciderVerificationKeys = RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
-    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::Instance;
+    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::RecursiveDeciderVK;
     using RecursiveVerificationKey = RecursiveDeciderVerificationKeys::VerificationKey;
     using DeciderVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;
     using FoldingVerifier = ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;

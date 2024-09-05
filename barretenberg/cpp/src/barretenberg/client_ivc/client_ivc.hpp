@@ -40,7 +40,7 @@ class ClientIVC {
     using GURecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveDeciderVerificationKeys =
         bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<GURecursiveFlavor, 2>;
-    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::Instance;
+    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::RecursiveDeciderVK;
     using RecursiveVerificationKey = RecursiveDeciderVerificationKeys::VerificationKey;
     using FoldingRecursiveVerifier =
         bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
@@ -68,7 +68,7 @@ class ClientIVC {
     GoblinProver goblin;
     ProverFoldOutput fold_output;
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator;
-    std::shared_ptr<VerificationKey> instance_vk;
+    std::shared_ptr<VerificationKey> decider_vk;
 
     // A flag indicating whether or not to construct a structured trace in the DeciderProvingKey
     TraceStructure trace_structure = TraceStructure::NONE;

@@ -21,9 +21,7 @@ DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerifica
 {}
 
 /**
- * @brief This function verifies a decider proof for a given Flavor, produced for a relaxed instance (ϕ, \vec{β*},
- * e*).
- *
+ * @brief Verify a decider proof relative to a decider verification key (ϕ, \vec{β*}, e*).
  */
 template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const DeciderProof& proof)
 {

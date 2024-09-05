@@ -19,18 +19,15 @@ template <typename Flavor> class DeciderVerifier_ {
   public:
     explicit DeciderVerifier_();
     /**
-     * @brief Constructor from prover instance and a transcript assumed to be initialized with a full honk proof
+     * @brief Constructor from a verification key and a transcript assumed to be initialized with a full Honk proof
      * @details Used in the case where an external transcript already exists and has been initialized with a proof, e.g.
-     * when the decider is being used in the context of the larger honk protocol.
+     * when the decider is being used in the context of the larger Honk protocol.
      *
      */
-    explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator,
+    explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& verification_key,
                               const std::shared_ptr<Transcript>& transcript);
-    /**
-     * @brief Constructor from prover instance
-     *
-     */
-    explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator);
+
+    explicit DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& verification_key);
 
     bool verify_proof(const DeciderProof&); // used when a decider proof is known explicitly
     bool verify();                          // used when transcript that has been initialized with a proof

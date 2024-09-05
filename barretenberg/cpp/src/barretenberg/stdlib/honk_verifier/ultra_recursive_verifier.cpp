@@ -47,7 +47,7 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     using Transcript = typename Flavor::Transcript;
 
     transcript = std::make_shared<Transcript>(proof);
-    auto instance = std::make_shared<Instance>(builder, key);
+    auto instance = std::make_shared<RecursiveDeciderVK>(builder, key);
     OinkVerifier oink_verifier{ builder, instance, transcript };
     oink_verifier.verify();
 

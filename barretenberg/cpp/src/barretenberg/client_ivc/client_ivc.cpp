@@ -21,10 +21,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
         // Construct stdlib accumulator, vkey and proof
         auto stdlib_verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
-        auto stdlib_instance_vk = std::make_shared<RecursiveVerificationKey>(&circuit, instance_vk);
+        auto stdlib_decider_vk = std::make_shared<RecursiveVerificationKey>(&circuit, decider_vk);
         auto stdlib_proof = bb::convert_proof_to_witness(&circuit, fold_output.proof);
 
-        FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { stdlib_instance_vk } };
+        FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { stdlib_decider_vk } };
         auto verifier_accum = verifier.verify_folding_proof(stdlib_proof);
         verifier_accumulator = std::make_shared<DeciderVerificationKey>(verifier_accum->get_value());
     }
@@ -50,15 +50,15 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
     // Set the instance verification key from precomputed if available, else compute it
     if (precomputed_vk) {
-        instance_vk = precomputed_vk;
+        decider_vk = precomputed_vk;
     } else {
-        instance_vk = std::make_shared<VerificationKey>(prover_instance->proving_key);
+        decider_vk = std::make_shared<VerificationKey>(prover_instance->proving_key);
     }
 
     // If the IVC is uninitialized, simply initialize the prover and verifier accumulator instances
     if (!initialized) {
         fold_output.accumulator = prover_instance;
-        verifier_accumulator = std::make_shared<DeciderVerificationKey>(instance_vk);
+        verifier_accumulator = std::make_shared<DeciderVerificationKey>(decider_vk);
         initialized = true;
     } else { // Otherwise, fold the new instance into the accumulator
         FoldingProver folding_prover({ fold_output.accumulator, prover_instance });
@@ -143,7 +143,7 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
 
     for (auto& circuit : circuits) {
         accumulate(circuit);
-        vkeys.emplace_back(instance_vk);
+        vkeys.emplace_back(decider_vk);
     }
 
     // Reset the scheme so it can be reused for actual accumulation, maintaining the trace structure setting as is
@@ -164,7 +164,7 @@ bool ClientIVC::prove_and_verify()
 {
     auto proof = prove();
 
-    auto verifier_inst = std::make_shared<DeciderVerificationKey>(this->instance_vk);
+    auto verifier_inst = std::make_shared<DeciderVerificationKey>(this->decider_vk);
     return verify(proof, { this->verifier_accumulator, verifier_inst });
 }
 

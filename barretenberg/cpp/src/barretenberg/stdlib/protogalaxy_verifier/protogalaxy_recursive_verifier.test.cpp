@@ -38,7 +38,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
     using RecursiveDeciderVerificationKeys =
         ::bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
-    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::Instance;
+    using RecursiveDeciderVerificationKey = RecursiveDeciderVerificationKeys::RecursiveDeciderVK;
     using RecursiveVerificationKey = RecursiveDeciderVerificationKeys::VerificationKey;
     using FoldingRecursiveVerifier = ProtogalaxyRecursiveVerifier_<RecursiveDeciderVerificationKeys>;
     using DeciderRecursiveVerifier = DeciderRecursiveVerifier_<RecursiveFlavor>;

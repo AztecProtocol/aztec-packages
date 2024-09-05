@@ -234,7 +234,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         auto pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         bool result = pcs_verification_key->pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         info("input pairing points result: ", result);
-        auto recursive_result = native_verifier.instance->verification_key->pcs_verification_key->pairing_check(
+        auto recursive_result = native_verifier.verification_key->verification_key->pcs_verification_key->pairing_check(
             pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(recursive_result, native_result);
 

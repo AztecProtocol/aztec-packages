@@ -6,7 +6,7 @@ namespace bb::stdlib::recursion::honk {
 
 template <class DeciderVerificationKeys>
 void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::receive_and_finalise_instance(
-    const std::shared_ptr<Instance>& inst, std::string& domain_separator)
+    const std::shared_ptr<DeciderVK>& inst, std::string& domain_separator)
 {
     domain_separator = domain_separator + "_";
     OinkVerifier oink_verifier{ builder, inst, transcript, domain_separator };
@@ -19,7 +19,7 @@ template <class DeciderVerificationKeys>
 void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::prepare_for_folding()
 {
     auto index = 0;
-    auto inst = instances[0];
+    auto inst = keys_to_fold[0];
     auto domain_separator = std::to_string(index);
 
     if (!inst->is_accumulator) {
@@ -29,7 +29,7 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::prepare_for_folding
     }
     index++;
 
-    for (auto it = instances.begin() + 1; it != instances.end(); it++, index++) {
+    for (auto it = keys_to_fold.begin() + 1; it != keys_to_fold.end(); it++, index++) {
         auto inst = *it;
         auto domain_separator = std::to_string(index);
         receive_and_finalise_instance(inst, domain_separator);
@@ -37,7 +37,7 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::prepare_for_folding
 }
 
 template <class DeciderVerificationKeys>
-std::shared_ptr<typename DeciderVerificationKeys::Instance> ProtogalaxyRecursiveVerifier_<
+std::shared_ptr<typename DeciderVerificationKeys::DeciderVerificationKey> ProtogalaxyRecursiveVerifier_<
     DeciderVerificationKeys>::verify_folding_proof(const StdlibProof<Builder>& proof)
 {
     using Transcript = typename Flavor::Transcript;
@@ -78,7 +78,7 @@ std::shared_ptr<typename DeciderVerificationKeys::Instance> ProtogalaxyRecursive
     auto vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     auto lagranges = std::vector<FF>{ FF(1) - combiner_challenge, combiner_challenge };
 
-    auto next_accumulator = std::make_shared<Instance>(builder);
+    auto next_accumulator = std::make_shared<DeciderVK>(builder);
 
     next_accumulator->verification_key = std::make_shared<VerificationKey>(
         accumulator->verification_key->circuit_size, accumulator->verification_key->num_public_inputs);
@@ -104,13 +104,13 @@ std::shared_ptr<typename DeciderVerificationKeys::Instance> ProtogalaxyRecursive
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // Compute ϕ
-    fold_commitments(lagranges, instances, next_accumulator);
+    fold_commitments(lagranges, keys_to_fold, next_accumulator);
 
     size_t alpha_idx = 0;
     for (auto& alpha : next_accumulator->alphas) {
         alpha = FF(0);
         size_t instance_idx = 0;
-        for (auto& instance : instances) {
+        for (auto& instance : keys_to_fold) {
             alpha += instance->alphas[alpha_idx] * lagranges[instance_idx];
             instance_idx++;
         }
@@ -119,7 +119,7 @@ std::shared_ptr<typename DeciderVerificationKeys::Instance> ProtogalaxyRecursive
 
     auto& expected_parameters = next_accumulator->relation_parameters;
     for (size_t inst_idx = 0; inst_idx < DeciderVerificationKeys::NUM; inst_idx++) {
-        auto instance = instances[inst_idx];
+        auto instance = keys_to_fold[inst_idx];
         expected_parameters.eta += instance->relation_parameters.eta * lagranges[inst_idx];
         expected_parameters.eta_two += instance->relation_parameters.eta_two * lagranges[inst_idx];
         expected_parameters.eta_three += instance->relation_parameters.eta_three * lagranges[inst_idx];

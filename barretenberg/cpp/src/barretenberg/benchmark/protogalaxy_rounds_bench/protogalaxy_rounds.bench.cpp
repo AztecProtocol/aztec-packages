@@ -14,13 +14,13 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Decide
 {
     using Builder = typename Flavor::CircuitBuilder;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using Instances = DeciderProvingKeys_<Flavor, 2>;
-    using ProtogalaxyProver = ProtogalaxyProver_<Instances>;
+    using DeciderPKs = DeciderProvingKeys_<Flavor, 2>;
+    using ProtogalaxyProver = ProtogalaxyProver_<DeciderPKs>;
 
     bb::srs::init_crs_factory("../srs_db/ignition");
     auto log2_num_gates = static_cast<size_t>(state.range(0));
 
-    const auto construct_instance = [&]() {
+    const auto construct_key = [&]() {
         Builder builder;
         MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
         return std::make_shared<DeciderProvingKey>(builder);
@@ -28,13 +28,13 @@ void _bench_round(::benchmark::State& state, void (*F)(ProtogalaxyProver_<Decide
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop, also extend to more than
     // k=1
-    std::shared_ptr<DeciderProvingKey> prover_instance_1 = construct_instance();
-    std::shared_ptr<DeciderProvingKey> prover_instance_2 = construct_instance();
+    std::shared_ptr<DeciderProvingKey> key_1 = construct_key();
+    std::shared_ptr<DeciderProvingKey> key_2 = construct_key();
 
-    ProtogalaxyProver folding_prover({ prover_instance_1, prover_instance_2 });
+    ProtogalaxyProver folding_prover({ key_1, key_2 });
 
     // prepare the prover state
-    folding_prover.accumulator = prover_instance_1;
+    folding_prover.accumulator = key_1;
     folding_prover.deltas.resize(log2_num_gates);
     std::fill_n(folding_prover.deltas.begin(), log2_num_gates, 0);
     folding_prover.perturbator = Flavor::Polynomial::random(1 << log2_num_gates);

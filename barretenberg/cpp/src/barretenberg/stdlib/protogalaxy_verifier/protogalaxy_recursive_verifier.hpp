@@ -16,8 +16,8 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
-    using Instance = typename DeciderVerificationKeys::Instance;
-    using NativeInstance = bb::DeciderVerificationKey_<NativeFlavor>;
+    using DeciderVK = typename DeciderVerificationKeys::DeciderVerificationKey;
+    using NativeDeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
@@ -30,9 +30,9 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
     using OinkVerifier = OinkRecursiveVerifier_<Flavor>;
     struct VerifierInput {
       public:
-        using Instance = NativeInstance;
-        std::shared_ptr<Instance> accumulator;
-        std::vector<std::shared_ptr<NativeVerificationKey>> instance_vks;
+        using DeciderVK = NativeDeciderVK;
+        std::shared_ptr<DeciderVK> accumulator;
+        std::vector<std::shared_ptr<NativeVerificationKey>> decider_vks;
     };
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
@@ -41,13 +41,13 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
 
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
-    DeciderVerificationKeys instances;
+    DeciderVerificationKeys keys_to_fold;
 
     ProtogalaxyRecursiveVerifier_(Builder* builder,
-                                  const std::shared_ptr<Instance>& accumulator,
-                                  const std::vector<std::shared_ptr<VerificationKey>>& instance_vks)
+                                  const std::shared_ptr<DeciderVK>& accumulator,
+                                  const std::vector<std::shared_ptr<VerificationKey>>& decider_vks)
         : builder(builder)
-        , instances(DeciderVerificationKeys(builder, accumulator, instance_vks)){};
+        , keys_to_fold(DeciderVerificationKeys(builder, accumulator, decider_vks)){};
 
     /**
      * @brief Given a new round challenge δ for each iteration of the full Protogalaxy protocol, compute the vector
@@ -76,7 +76,7 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
         return next_gate_challenges;
     }
 
-    std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
+    std::shared_ptr<DeciderVK> get_accumulator() { return keys_to_fold[0]; }
 
     /**
      * @brief Instatiate the instances and the transcript.
@@ -89,13 +89,13 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
      * @brief Instantiate the accumulator (i.e. the relaxed instance) from the transcript.
      *
      */
-    void receive_accumulator(const std::shared_ptr<Instance>&, const std::string&);
+    void receive_accumulator(const std::shared_ptr<DeciderVK>&, const std::string&);
 
     /**
      * @brief Process the public data ϕ for the Instances to be folded.
      *
      */
-    void receive_and_finalise_instance(const std::shared_ptr<Instance>&, std::string&);
+    void receive_and_finalise_instance(const std::shared_ptr<DeciderVK>&, std::string&);
 
     /**
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new
@@ -106,7 +106,7 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
      * by the prover, are expressed as constraints.
      *
      */
-    std::shared_ptr<Instance> verify_folding_proof(const StdlibProof<Builder>&);
+    std::shared_ptr<DeciderVK> verify_folding_proof(const StdlibProof<Builder>&);
 
     /**
      * @brief Evaluates the perturbator at a  given scalar, in a sequential manner for the recursive setting.
@@ -137,7 +137,7 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
 
     void fold_commitments(std::vector<FF> lagranges,
                           DeciderVerificationKeys& instances,
-                          std::shared_ptr<Instance>& accumulator)
+                          std::shared_ptr<DeciderVK>& accumulator)
     {
         size_t vk_idx = 0;
         for (auto& expected_vk : accumulator->verification_key->get_all()) {

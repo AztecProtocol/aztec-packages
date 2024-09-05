@@ -11,7 +11,7 @@ class ClientIVCRecursionTests : public testing::Test {
     using VerifierInput = ClientIVCVerifier::VerifierInput;
     using FoldVerifierInput = ClientIVCVerifier::FoldVerifierInput;
     using GoblinVerifierInput = ClientIVCVerifier::GoblinVerifierInput;
-    using DeciderVerificationKey = FoldVerifierInput::Instance;
+    using DeciderVerificationKey = FoldVerifierInput::DeciderVK;
     using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
     using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
     using Proof = ClientIVC::Proof;
@@ -47,7 +47,7 @@ class ClientIVCRecursionTests : public testing::Test {
         }
 
         Proof proof = ivc.prove();
-        FoldVerifierInput fold_verifier_input{ ivc.verifier_accumulator, { ivc.instance_vk } };
+        FoldVerifierInput fold_verifier_input{ ivc.verifier_accumulator, { ivc.decider_vk } };
         GoblinVerifierInput goblin_verifier_input{ std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key()),
                                                    std::make_shared<TranslatorVK>(
                                                        ivc.goblin.get_translator_proving_key()) };
@@ -67,7 +67,7 @@ TEST_F(ClientIVCRecursionTests, NativeVerification)
 
     // Construct the set of native verifier instances to be processed by the folding verifier
     std::vector<std::shared_ptr<DeciderVerificationKey>> instances{ verifier_input.fold_input.accumulator };
-    for (auto vk : verifier_input.fold_input.instance_vks) {
+    for (auto vk : verifier_input.fold_input.decider_vks) {
         instances.emplace_back(std::make_shared<DeciderVerificationKey>(vk));
     }
 

@@ -11,7 +11,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
-    using Instance = RecursiveDeciderVerificationKey_<Flavor>;
+    using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
@@ -30,7 +30,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
      * @param domain_separator string used for differentiating instances in the transcript (PG only)
      */
     explicit OinkRecursiveVerifier_(Builder* builder,
-                                    const std::shared_ptr<Instance>& instance,
+                                    const std::shared_ptr<RecursiveDeciderVK>& instance,
                                     std::shared_ptr<Transcript> transcript,
                                     std::string domain_separator = "");
 
@@ -42,7 +42,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
      * @param domain_separator string used for differentiating instances in the transcript (PG only)
      */
     explicit OinkRecursiveVerifier_(Builder* builder,
-                                    const std::shared_ptr<Instance>& instance,
+                                    const std::shared_ptr<RecursiveDeciderVK>& instance,
                                     std::string domain_separator = "");
 
     /**
@@ -57,7 +57,7 @@ template <typename Flavor> class OinkRecursiveVerifier_ {
      */
     void verify_proof(OinkProof& proof);
 
-    std::shared_ptr<Instance> instance;
+    std::shared_ptr<RecursiveDeciderVK> instance;
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
     std::string domain_separator; // used in PG to distinguish between instances in transcript
