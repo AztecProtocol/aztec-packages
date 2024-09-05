@@ -195,7 +195,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
             let target_item_size = item_type.len();
             let source_item_size = Self::flattened_tuple_size(item_type);
 
-            self.codegen_allocate_fixed_length_array(
+            self.codegen_allocate_immediate_mem(
                 deflattened_array_pointer,
                 item_count * target_item_size,
             );

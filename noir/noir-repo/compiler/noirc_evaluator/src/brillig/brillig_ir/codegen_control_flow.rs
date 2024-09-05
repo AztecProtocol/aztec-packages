@@ -162,7 +162,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
                 // + 1 due to the revert data id being the first item returned
                 size: Self::flattened_tuple_size(&revert_data_types) + 1,
             };
-            ctx.codegen_allocate_fixed_length_array(revert_data.pointer, revert_data.size);
+            ctx.codegen_allocate_immediate_mem(revert_data.pointer, revert_data.size);
 
             let current_revert_data_pointer = ctx.allocate_register();
             ctx.mov_instruction(current_revert_data_pointer, revert_data.pointer);
