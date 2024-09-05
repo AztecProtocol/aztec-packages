@@ -189,8 +189,8 @@ export async function prove(bytecodePath: string, witnessPath: string, crsPath: 
 export async function gateCount(bytecodePath: string, honkRecursion: boolean) {
   const api = await Barretenberg.new({ threads: 1 });
   try {
-    const numberOfGates = await getGates(bytecodePath, honkRecursion as boolean, api);
-    console.log(numberOfGates);
+    const numberOfGates = await getGates(bytecodePath, honkRecursion, api);
+    debug(`number of gates: : ${numberOfGates}`);
     // Create an 8-byte buffer and write the number into it.
     // Writing number directly to stdout will result in a variable sized
     // input depending on the size.
@@ -492,7 +492,7 @@ program
   .option('-hr, --honk-recursion', 'Specify whether to use UltraHonk recursion')
   .action(async ({ bytecodePath: bytecodePath, honkRecursion: honkRecursion }) => {
     handleGlobalOptions();
-    await gateCount(bytecodePath, !!honkRecursion);
+    await gateCount(bytecodePath, honkRecursion);
   });
 
 program
