@@ -164,18 +164,22 @@ impl TestEnvironment {
         let original_fn_selector = cheatcodes::get_function_selector();
         let target_address = call_interface.get_contract_address();
         let fn_selector = call_interface.get_selector();
+        let calldata = call_interface.get_args();
 
         cheatcodes::set_fn_selector(fn_selector);
         cheatcodes::set_contract_address(target_address);
         cheatcodes::set_msg_sender(original_contract_address);
         let mut inputs = cheatcodes::get_public_context_inputs();
-        inputs.args_hash = hash_args(call_interface.get_args());
+        inputs.calldata_length = call_interface.get_args().len() as Field;
         inputs.is_static_call = call_interface.get_is_static();
+        cheatcodes::set_calldata(calldata);
+
         let result = original_fn(inputs);
 
         cheatcodes::set_fn_selector(original_fn_selector);
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);
+        cheatcodes::set_calldata(calldata);
         result
     }
 

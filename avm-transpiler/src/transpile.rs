@@ -263,6 +263,7 @@ fn handle_foreign_call(
         "avmOpcodeGetContractInstance" => {
             handle_get_contract_instance(avm_instrs, destinations, inputs);
         }
+        "avmOpcodeCalldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
         "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
         "debugLog" => handle_debug_log(avm_instrs, destinations, inputs),
@@ -968,6 +969,47 @@ fn handle_debug_log(
             AvmOperand::U32 { value: fields_offset_ptr },
             // indirect
             AvmOperand::U32 { value: fields_size_ptr },
+        ],
+        ..Default::default()
+    });
+}
+
+// #[oracle(avmOpcodeCalldataCopy)]
+// unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: Field) -> [Field; N] {}
+fn handle_calldata_copy(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    assert!(inputs.len() == 2);
+    assert!(destinations.len() == 1);
+
+    let cd_offset = match inputs[0] {
+        ValueOrArray::MemoryAddress(address) => address.0,
+        _ => panic!("CalldataCopy offset should be a memory address"),
+    };
+
+    let copy_size_offset = match inputs[1] {
+        ValueOrArray::MemoryAddress(address) => address.0,
+        _ => panic!("CalldataCopy size should be a memory address"),
+    };
+
+    let (dest_offset, ..) = match destinations[0] {
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
+        _ => panic!("CalldataCopy destination should be an array"),
+    };
+
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::CALLDATACOPY,
+        indirect: Some(SECOND_OPERAND_INDIRECT),
+        operands: vec![
+            AvmOperand::U32 {
+                value: cd_offset as u32, // cdOffset (calldata offset)
+            },
+            AvmOperand::U32 { value: copy_size_offset as u32 }, // copy size
+            AvmOperand::U32 {
+                value: dest_offset as u32, // dstOffset
+            },
         ],
         ..Default::default()
     });
