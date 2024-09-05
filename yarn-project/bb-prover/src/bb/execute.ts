@@ -8,6 +8,8 @@ import * as proc from 'child_process';
 import * as fs from 'fs/promises';
 import { basename, dirname, join } from 'path';
 
+import { type UltraHonkFlavor } from '../honk.js';
+
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
 export const PROOF_FILENAME = 'proof';
@@ -113,7 +115,7 @@ export async function generateKeyForNoirCircuit(
   workingDirectory: string,
   circuitName: string,
   compiledCircuit: NoirCompiledCircuit,
-  key: 'vk' | 'pk',
+  flavor: UltraHonkFlavor,
   log: LogFn,
   force = false,
 ): Promise<BBSuccess | BBFailure> {
@@ -123,7 +125,7 @@ export async function generateKeyForNoirCircuit(
   // The bytecode hash file is also written here as /workingDirectory/pk/BaseParityArtifact/bytecode-hash
   // The bytecode is written to e.g. /workingDirectory/pk/BaseParityArtifact/bytecode
   // The bytecode is removed after the key is generated, leaving just the hash file
-  const circuitOutputDirectory = `${workingDirectory}/${key}/${circuitName}`;
+  const circuitOutputDirectory = `${workingDirectory}/vk/${circuitName}`;
   const outputPath = `${circuitOutputDirectory}`;
   const bytecodeHash = sha256(bytecode);
 
@@ -148,11 +150,11 @@ export async function generateKeyForNoirCircuit(
       // args are the output path and the input bytecode path
       const args = ['-o', `${outputPath}/${VK_FILENAME}`, '-b', bytecodePath];
       const timer = new Timer();
-      let result = await executeBB(pathToBB, `write_${key}_ultra_honk`, args, log);
+      let result = await executeBB(pathToBB, `write_vk_${flavor}`, args, log);
       // If we succeeded and the type of key if verification, have bb write the 'fields' version too
-      if (result.status == BB_RESULT.SUCCESS && key === 'vk') {
+      if (result.status == BB_RESULT.SUCCESS) {
         const asFieldsArgs = ['-k', `${outputPath}/${VK_FILENAME}`, '-o', `${outputPath}/${VK_FIELDS_FILENAME}`, '-v'];
-        result = await executeBB(pathToBB, `vk_as_fields_ultra_honk`, asFieldsArgs, log);
+        result = await executeBB(pathToBB, `vk_as_fields_${flavor}`, asFieldsArgs, log);
       }
       const duration = timer.ms();
 
@@ -160,8 +162,8 @@ export async function generateKeyForNoirCircuit(
         return {
           status: BB_RESULT.SUCCESS,
           durationMs: duration,
-          pkPath: key === 'pk' ? outputPath : undefined,
-          vkPath: key === 'vk' ? outputPath : undefined,
+          pkPath: undefined,
+          vkPath: outputPath,
           proofPath: undefined,
         };
       }
@@ -179,8 +181,8 @@ export async function generateKeyForNoirCircuit(
     return {
       status: BB_RESULT.ALREADY_PRESENT,
       durationMs: 0,
-      pkPath: key === 'pk' ? outputPath : undefined,
-      vkPath: key === 'vk' ? outputPath : undefined,
+      pkPath: undefined,
+      vkPath: outputPath,
     };
   }
 
@@ -261,6 +263,7 @@ export async function computeVerificationKey(
   workingDirectory: string,
   circuitName: string,
   bytecode: Buffer,
+  flavor: UltraHonkFlavor,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -293,7 +296,7 @@ export async function computeVerificationKey(
     };
     let result = await executeBB(
       pathToBB,
-      'write_vk_ultra_honk',
+      `write_vk_${flavor}`,
       ['-o', outputPath, '-b', bytecodePath, '-v'],
       logFunction,
     );
@@ -302,7 +305,7 @@ export async function computeVerificationKey(
     }
     result = await executeBB(
       pathToBB,
-      'vk_as_fields_ultra_honk',
+      `vk_as_fields_${flavor}`,
       ['-o', outputPath + '_fields.json', '-k', outputPath, '-v'],
       logFunction,
     );
@@ -343,6 +346,7 @@ export async function generateProof(
   circuitName: string,
   bytecode: Buffer,
   inputWitnessFile: string,
+  flavor: UltraHonkFlavor,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -355,7 +359,7 @@ export async function generateProof(
   // The bytecode is written to e.g. /workingDirectory/BaseParityArtifact-bytecode
   const bytecodePath = `${workingDirectory}/${circuitName}-bytecode`;
 
-  // The proof is written to e.g. /workingDirectory/proof
+  // The proof is written to e.g. /workingDirectory/ultra_honk/proof
   const outputPath = `${workingDirectory}`;
 
   const binaryPresent = await fs
@@ -374,7 +378,7 @@ export async function generateProof(
     const logFunction = (message: string) => {
       log(`${circuitName} BB out - ${message}`);
     };
-    const result = await executeBB(pathToBB, 'prove_ultra_honk_output_all', args, logFunction);
+    const result = await executeBB(pathToBB, `prove_${flavor}_output_all`, args, logFunction);
     const duration = timer.ms();
 
     if (result.status == BB_RESULT.SUCCESS) {
@@ -599,9 +603,10 @@ export async function verifyProof(
   pathToBB: string,
   proofFullPath: string,
   verificationKeyPath: string,
+  ultraHonkFlavor: UltraHonkFlavor,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
-  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, 'verify_ultra_honk', log);
+  return await verifyProofInternal(pathToBB, proofFullPath, verificationKeyPath, `verify_${ultraHonkFlavor}`, log);
 }
 
 /**
@@ -674,7 +679,7 @@ async function verifyProofInternal(
   pathToBB: string,
   proofFullPath: string,
   verificationKeyPath: string,
-  command: 'verify_ultra_honk' | 'avm_verify',
+  command: 'verify_ultra_honk' | 'verify_ultra_keccak_honk' | 'avm_verify',
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   const binaryPresent = await fs
@@ -851,7 +856,7 @@ export async function generateContractForCircuit(
     workingDirectory,
     circuitName,
     compiledCircuit,
-    'vk',
+    'ultra_keccak_honk',
     log,
     force,
   );
