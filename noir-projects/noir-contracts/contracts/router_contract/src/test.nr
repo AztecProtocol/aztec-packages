@@ -17,10 +17,10 @@ unconstrained fn test_check_block_number() {
     assert(current_block_number == 10, "Expected block number to be 10");
 
     // We test just one success case and 1 failure case in this test as the rest is tested in the comparator unit tests
-    let call_1 = router.check_block_number(11, Comparator.GT);
+    let call_1 = router.check_block_number(Comparator.LT, 11);
     env.call_private_void(call_1);
 
-    let call_2 = router.check_block_number(5, Comparator.GT);
+    let call_2 = router.check_block_number(Comparator.LT, 5);
     env.assert_private_call_fails(call_2);
 }
 
