@@ -86,6 +86,15 @@ TEST(Polynomial, EdgeConditions)
     EXPECT_NE(poly_clone, poly);
 }
 
+TEST(Polynomial, Indices)
+{
+    auto poly = bb::Polynomial<bb::fr>::random(100, /*offset*/ 1);
+    EXPECT_EQ(poly.start_index(), 1);
+    EXPECT_EQ((*poly.indices().begin()), poly.start_index());
+    EXPECT_EQ(std::get<0>(*poly.indexed_values().begin()), poly.start_index());
+    EXPECT_EQ(std::get<1>(*poly.indexed_values().begin()), poly[poly.start_index()]);
+}
+
 #undef NDEBUG
 #ifndef NDEBUG
 // Only run in an assert-enabled test suite.
