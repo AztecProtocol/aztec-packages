@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
@@ -577,6 +578,49 @@ template <typename Curve_> class IPA {
                                              const OpeningClaim<Curve>& opening_claim,
                                              const auto& transcript)
     {
+        return reduce_verify_internal(vk, opening_claim, transcript);
+    }
+    /**
+     * @brief A method that produces an IPA opening claim from Shplemini accumulator containing vectors of commitments
+     * and scalars and a Shplonk evaluation challenge.
+     *
+     * @details Compute the commitment \f$ C \f$ that will be used to prove that Shplonk batching is performed correctly
+     * and check the evaluation claims of the batched univariate polynomials. The check is done by verifying that the
+     * polynomial corresponding to \f$ C \f$ evaluates to \f$ 0 \f$ at the Shplonk challenge point \f$ z \f$.
+     *
+     */
+    static OpeningClaim<Curve> reduce_batch_opening_claim(
+        const BatchOpeningClaim<Curve>&  batch_opening_claim)
+    {
+        using Utils = CommitmentSchemesUtils<Curve>;
+        // Extract batch_mul arguments from the accumulator
+        const auto& commitments = batch_opening_claim.commitments;
+        const auto& scalars = batch_opening_claim.scalars;
+        const Fr& shplonk_eval_challenge = batch_opening_claim.evaluation_point;
+        // Compute \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$
+        GroupElement shplonk_output_commitment;
+        if constexpr (Curve::is_stdlib_type) {
+            shplonk_output_commitment =
+                GroupElement::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+        } else {
+            shplonk_output_commitment = Utils::batch_mul_native(commitments, scalars);
+        }
+        // Output an opening claim to be verified by the IPA opening protocol
+        return { { shplonk_eval_challenge, Fr(0) }, shplonk_output_commitment };
+    }
+    /**
+     * @brief Verify the IPA opening claim obtained from a Shplemini accumulator
+     *
+     * @param batch_opening_claim
+     * @param vk
+     * @param transcript
+     * @return VerifierAccumulator
+     */
+    static VerifierAccumulator reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
+                                                                 const std::shared_ptr<VK>& vk,
+                                                                 auto& transcript)
+    {
+        const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
         return reduce_verify_internal(vk, opening_claim, transcript);
     }
 };

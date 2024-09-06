@@ -3,7 +3,7 @@
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 namespace bb {
 
 template <class Flavor>
@@ -64,17 +64,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
     // For each block in the trace, populate wire polys, copy cycles and selector polys
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1078): remove when Keccak flavor works with Poseidon
-    // gate
-    auto get_blocks = [&]() {
-        if constexpr (!HasKeccak<Flavor>) {
-            return builder.blocks.get();
-        } else {
-            return builder.blocks.get_for_ultra_keccak();
-        }
-    };
-
-    for (auto& block : get_blocks()) {
+    for (auto& block : builder.blocks.get()) {
         auto block_size = static_cast<uint32_t>(block.size());
 
         // Update wire polynomials and copy cycles
@@ -96,7 +86,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 
         // Insert the selector values for this block into the selector polynomials at the correct offset
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
-        for (size_t selector_idx = 0; selector_idx < NUM_USED_SELECTORS; selector_idx++) {
+        for (size_t selector_idx = 0; selector_idx < NUM_SELECTORS; selector_idx++) {
             auto selector_poly = trace_data.selectors[selector_idx];
             auto selector = block.selectors[selector_idx];
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {

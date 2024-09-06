@@ -7,7 +7,7 @@ use crate::note::{
     utils::compute_note_hash_for_read_request
 };
 use crate::oracle;
-use crate::utils::comparison::assert_comparison;
+use crate::utils::comparison::compare;
 
 mod test;
 
@@ -51,11 +51,8 @@ fn check_note_fields<let N: u32>(
         let select = selects.get_unchecked(i).unwrap_unchecked();
         let value_field = extract_property_value_from_selector(serialized_note, select.property_selector);
 
-        assert_comparison(
-            value_field,
-            select.comparator,
-            select.value.to_field(),
-            "Mismatch return note field."
+        assert(
+            compare(value_field, select.comparator, select.value.to_field()), "Mismatch return note field."
         );
     }
 }
@@ -83,13 +80,17 @@ pub fn get_note<Note, let N: u32, let M: u32>(
     context: &mut PrivateContext,
     storage_slot: Field
 ) -> (Note, Field) where Note: NoteInterface<N, M> {
-    let note = get_note_internal(storage_slot);
+    let note = unsafe {
+        get_note_internal(storage_slot)
+    };
 
+    // Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do is check that
+    // the metadata is correct, and that the note exists.
     check_note_header(*context, storage_slot, note);
 
     let note_hash_for_read_request = compute_note_hash_for_read_request(note);
-
     context.push_note_hash_read_request(note_hash_for_read_request);
+
     (note, note_hash_for_read_request)
 }
 
@@ -98,8 +99,12 @@ pub fn get_notes<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS>
 ) -> (BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) where Note: NoteInterface<N, M> + Eq {
-    let opt_notes = get_notes_internal(storage_slot, options);
+    let opt_notes = unsafe {
+        get_notes_internal(storage_slot, options)
+    };
 
+    // We apply the constraints in a separate function instead of inlining them here to make it easier to test that
+    // these checks correctly reject bad notes.
     constrain_get_notes_internal(context, storage_slot, opt_notes, options)
 }
 
@@ -125,7 +130,7 @@ fn constrain_get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS,
     let filter_args = options.filter_args;
     let filtered_notes = filter_fn(opt_notes, filter_args);
 
-    let notes = crate::utils::collapse::collapse_array(filtered_notes);
+    let notes = crate::utils::collapse_array(filtered_notes);
     let mut note_hashes: BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = BoundedVec::new();
 
     // We have now collapsed the sparse array of Options into a BoundedVec. This is a more ergonomic type and also

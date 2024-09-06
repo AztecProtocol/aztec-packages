@@ -30,8 +30,6 @@ template <typename FF_> class UltraArith {
                              aux,        lookup,     poseidon_external, poseidon_internal };
         }
 
-        auto get_for_ultra_keccak() { return RefArray{ pub_inputs, arithmetic, delta_range, elliptic, aux, lookup }; }
-
         bool operator==(const UltraTraceBlocks& other) const = default;
     };
 
@@ -63,6 +61,7 @@ template <typename FF_> class UltraArith {
 #ifdef CHECK_CIRCUIT_STACKTRACES
             this->stack_traces.populate();
 #endif
+            this->tracy_gate();
             this->wires[0].emplace_back(idx_1);
             this->wires[1].emplace_back(idx_2);
             this->wires[2].emplace_back(idx_3);
@@ -122,12 +121,6 @@ template <typename FF_> class UltraArith {
         {
             return RefArray{ this->pub_inputs, this->arithmetic, this->delta_range,       this->elliptic,
                              this->aux,        this->lookup,     this->poseidon_external, this->poseidon_internal };
-        }
-
-        auto get_for_ultra_keccak()
-        {
-            return RefArray{ this->pub_inputs, this->arithmetic, this->delta_range,
-                             this->elliptic,   this->aux,        this->lookup };
         }
 
         void summarize() const

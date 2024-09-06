@@ -29,11 +29,8 @@ pub enum AvmOpcode {
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
-    COINBASE,
     FEEPERL2GAS,
     FEEPERDAGAS,
-    BLOCKL2GASLIMIT,
-    BLOCKDAGASLIMIT,
     CALLDATACOPY,
     // Gas
     L2GASLEFT,
@@ -55,7 +52,6 @@ pub enum AvmOpcode {
     NULLIFIEREXISTS,
     EMITNULLIFIER,
     L1TOL2MSGEXISTS,
-    HEADERMEMBER,
     GETCONTRACTINSTANCE,
     EMITUNENCRYPTEDLOG,
     SENDL2TOL1MSG,
@@ -117,11 +113,8 @@ impl AvmOpcode {
             AvmOpcode::VERSION => "VERSION",
             AvmOpcode::BLOCKNUMBER => "BLOCKNUMBER",
             AvmOpcode::TIMESTAMP => "TIMESTAMP",
-            AvmOpcode::COINBASE => "COINBASE",
             AvmOpcode::FEEPERL2GAS => "FEEPERL2GAS",
             AvmOpcode::FEEPERDAGAS => "FEEPERDAGAS",
-            AvmOpcode::BLOCKL2GASLIMIT => "BLOCKL2GASLIMIT",
-            AvmOpcode::BLOCKDAGASLIMIT => "BLOCKDAGASLIMIT",
             // Execution Environment - Calldata
             AvmOpcode::CALLDATACOPY => "CALLDATACOPY",
 
@@ -147,7 +140,6 @@ impl AvmOpcode {
             AvmOpcode::NULLIFIEREXISTS => "NULLIFIEREXISTS", // Notes & Nullifiers
             AvmOpcode::EMITNULLIFIER => "EMITNULLIFIER", // Notes & Nullifiers
             AvmOpcode::L1TOL2MSGEXISTS => "L1TOL2MSGEXISTS", // Messages
-            AvmOpcode::HEADERMEMBER => "HEADERMEMBER", // Archive tree & Headers
 
             // Accrued Substate
             AvmOpcode::EMITUNENCRYPTEDLOG => "EMITUNENCRYPTEDLOG",

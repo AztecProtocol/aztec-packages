@@ -85,12 +85,23 @@
     },
     {
       "name": "tracy",
-      "displayName": "Release build with tracy",
-      "description": "Release build with tracy",
+      "displayName": "Release build with tracy, optimized for memory tracking",
+      "description": "Release build with tracy, optimized for memory tracking",
       "inherits": "clang16",
       "binaryDir": "build-tracy",
       "cacheVariables": {
         "ENABLE_TRACY": "ON"
+      }
+    },
+    {
+      "name": "tracy-gates",
+      "displayName": "Release build with tracy - but hacked for gate tracking",
+      "description": "Release build with tracy - but hacker for gate tracking",
+      "inherits": "clang16",
+      "binaryDir": "build-tracy-gates",
+      "cacheVariables": {
+        "ENABLE_TRACY": "ON",
+        "CMAKE_CXX_FLAGS": "-DTRACY_HACK_GATES_AS_MEMORY"
       }
     },
     {
@@ -434,6 +445,11 @@
       "name": "tracy",
       "inherits": "default",
       "configurePreset": "tracy"
+    },
+    {
+      "name": "tracy-gates",
+      "inherits": "default",
+      "configurePreset": "tracy-gates"
     },
     {
       "name": "clang16-dbg-fast",
