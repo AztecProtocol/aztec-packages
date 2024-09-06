@@ -61,6 +61,16 @@ spec:
               "-c",
               "source /shared/contracts.env && env && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --pxe",
             ]
+          livenessProbe:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - curl -fSs http://127.0.0.1:{{ .Values.bootNode.service.nodePort }}/status
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 30
+            failureThreshold: 3
           volumeMounts:
             - name: shared-volume
               mountPath: /shared
