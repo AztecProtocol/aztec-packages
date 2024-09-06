@@ -52,11 +52,8 @@ enum class OpCode : uint8_t {
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
-    COINBASE,
     FEEPERL2GAS,
     FEEPERDAGAS,
-    BLOCKL2GASLIMIT,
-    BLOCKDAGASLIMIT,
     // Execution Environment - Calldata
     CALLDATACOPY,
 

@@ -161,7 +161,7 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
-    ASSERT(input.proof_type == HONK_RECURSION);
+    ASSERT(input.proof_type == HONK);
 
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.

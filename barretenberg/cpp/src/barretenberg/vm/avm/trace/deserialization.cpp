@@ -68,14 +68,11 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::CHAINID, getter_format },
     { OpCode::VERSION, getter_format },
     { OpCode::BLOCKNUMBER, getter_format },
-    // COINBASE, -- not in simulator
     { OpCode::TIMESTAMP, getter_format },
     // Execution Environment - Globals - Gas
     { OpCode::FEEPERL2GAS, getter_format },
     { OpCode::FEEPERDAGAS, getter_format },
-    // BLOCKL2GASLIMIT, -- not in simulator
-    // BLOCKDAGASLIMIT, -- not in simulator
-    //
+
     // Execution Environment - Calldata
     { OpCode::CALLDATACOPY, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
 
