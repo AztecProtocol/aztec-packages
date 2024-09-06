@@ -89,6 +89,7 @@ describe('Archiver', () => {
       registryAddress,
       archiverStore,
       1000,
+      100n,
       instrumentation,
     );
 
@@ -221,6 +222,7 @@ describe('Archiver', () => {
       registryAddress,
       archiverStore,
       1000,
+      100n,
       instrumentation,
     );
 

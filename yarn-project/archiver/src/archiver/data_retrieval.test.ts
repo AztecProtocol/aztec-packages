@@ -35,7 +35,9 @@ describe('data_retrieval', () => {
     ])('reads between %s and %s', async (startBlock, endBlock, expectedRanges, expectedReadUpTo) => {
       const { retrievedData, lastProcessedL1BlockNumber } = await batchedRead(
         client,
-        { startBlock, endBlock, batchSize: 10n },
+        startBlock,
+        endBlock,
+        10n,
         (_client, startBlock, endBlock) => {
           return Promise.resolve([[startBlock, endBlock]]);
         },

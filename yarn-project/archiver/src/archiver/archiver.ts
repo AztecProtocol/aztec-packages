@@ -91,6 +91,7 @@ export class Archiver implements ArchiveSource {
     private readonly registryAddress: EthAddress,
     private readonly store: ArchiverDataStore,
     private readonly pollingIntervalMs = 10_000,
+    private readonly l1BatchSize: bigint,
     private readonly instrumentation: ArchiverInstrumentation,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
   ) {}
@@ -123,6 +124,7 @@ export class Archiver implements ArchiveSource {
       config.l1Contracts.registryAddress,
       archiverStore,
       config.archiverPollingIntervalMS,
+      BigInt(config.archiverL1BatchSize),
       new ArchiverInstrumentation(telemetry),
     );
     await archiver.start(blockUntilSynced);
@@ -225,6 +227,7 @@ export class Archiver implements ArchiveSource {
       this.inboxAddress,
       messagesSynchedTo + 1n,
       currentL1BlockNumber,
+      this.l1BatchSize,
     );
 
     if (retrievedL1ToL2Messages.retrievedData.length !== 0) {
@@ -246,6 +249,7 @@ export class Archiver implements ArchiveSource {
       this.availabilityOracleAddress,
       blockBodiesSynchedTo + 1n,
       currentL1BlockNumber,
+      this.l1BatchSize,
     );
 
     this.log.debug(
@@ -265,6 +269,7 @@ export class Archiver implements ArchiveSource {
         this.rollupAddress,
         blocksSynchedTo + 1n,
         currentL1BlockNumber,
+        this.l1BatchSize,
         nextExpectedL2BlockNum,
       );
 

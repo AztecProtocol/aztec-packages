@@ -32,12 +32,15 @@ export async function retrieveBlockMetadataFromRollup(
   rollupAddress: EthAddress,
   startBlock: bigint,
   endBlock: bigint,
+  batchSize: bigint,
   expectedNextL2BlockNum: bigint,
   logger: DebugLogger = createDebugLogger('aztec:archiver'),
 ): Promise<[Header, AppendOnlyTreeSnapshot, L1PublishedData][]> {
   const { retrievedData } = await batchedRead(
     publicClient,
-    { startBlock, endBlock },
+    startBlock,
+    endBlock,
+    batchSize,
     async (client, startBlock, endBlock) => {
       const L2BlockProposedLogs = await getL2BlockProposedLogs(client, rollupAddress, startBlock, endBlock);
       if (L2BlockProposedLogs.length === 0) {
@@ -75,8 +78,9 @@ export function retrieveBlockBodiesFromAvailabilityOracle(
   availabilityOracleAddress: EthAddress,
   startBlock: bigint,
   endBlock: bigint,
+  batchSize: bigint,
 ): Promise<DataRetrieval<Body>> {
-  return batchedRead(publicClient, { startBlock, endBlock }, async (client, startBlock, endBlock) => {
+  return batchedRead(publicClient, startBlock, endBlock, batchSize, async (client, startBlock, endBlock) => {
     const l2TxsPublishedLogs = await getTxsPublishedLogs(client, availabilityOracleAddress, startBlock, endBlock);
     const logs = await processTxsPublishedLogs(publicClient, l2TxsPublishedLogs);
     return logs.map(([body]) => body);
@@ -96,8 +100,9 @@ export function retrieveL1ToL2Messages(
   inboxAddress: EthAddress,
   startBlock: bigint,
   endBlock: bigint,
+  batchSize: bigint,
 ): Promise<DataRetrieval<InboxLeaf>> {
-  return batchedRead(publicClient, { startBlock, endBlock }, async (publicClient, startBlock, endBlock) => {
+  return batchedRead(publicClient, startBlock, endBlock, batchSize, async (publicClient, startBlock, endBlock) => {
     const messageSentLogs = await getMessageSentLogs(publicClient, inboxAddress, startBlock, endBlock);
     return processMessageSentLogs(messageSentLogs);
   });
@@ -148,30 +153,26 @@ export async function retrieveL2ProofsFromRollup(
 }
 
 type ReadFn<T> = (client: PublicClient, startBlock: bigint, endBlock: bigint) => Promise<T[]>;
-type BatchReadOpts = {
-  /** The start block of the range */
-  startBlock: bigint;
-  /** Optional. The end block of the range. If missing will read up to the current tip of the chain */
-  endBlock?: bigint;
-  /** Optional. The batch size */
-  batchSize?: bigint;
-};
 
 /**
  * Repeatedly calls the provided read function to retrieve data from L1
  * @param publicClient - The client used to read from the chain
- * @param opts - The block range to read
+ * @param startBlock - The block number to start reading from
+ * @param endBlock - The block number to stop reading at
+ * @param batchSize - The number of blocks to read at a time
  * @param fn - The function to read from the chain
  */
 export async function batchedRead<T>(
   publicClient: PublicClient,
-  { startBlock, endBlock, batchSize = 100n }: BatchReadOpts,
+  startBlock: bigint,
+  endBlock: bigint | undefined,
+  batchSize: bigint,
   fn: ReadFn<T>,
 ): Promise<DataRetrieval<T>> {
   endBlock ??= await publicClient.getBlockNumber();
   const retrievedData: T[] = [];
 
-  while (startBlock < endBlock) {
+  while (startBlock <= endBlock) {
     const batchEndBlock = startBlock + batchSize;
     // make sure we're not going to read beyond the requested interval
     const min = endBlock - 1n < batchEndBlock ? endBlock : batchEndBlock;

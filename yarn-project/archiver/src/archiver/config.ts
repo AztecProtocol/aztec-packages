@@ -23,6 +23,11 @@ export type ArchiverConfig = {
   archiverPollingIntervalMS?: number;
 
   /**
+   * The polling interval in ms for retrieving new L2 blocks and encrypted logs.
+   */
+  archiverL1BatchSize: number;
+
+  /**
    * The polling interval viem uses in ms
    */
   viemPollingIntervalMS?: number;
@@ -51,6 +56,11 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
     description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',
     ...numberConfigHelper(1000),
+  },
+  archiverL1BatchSize: {
+    env: 'ARCHIVER_L1_BATCH_SIZE',
+    description: 'The batch size for fetching L1 blocks.',
+    ...numberConfigHelper(100),
   },
   viemPollingIntervalMS: {
     env: 'ARCHIVER_VIEM_POLLING_INTERVAL_MS',
