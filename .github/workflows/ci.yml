@@ -94,14 +94,14 @@ jobs:
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        if: ${{ needs.changes.outputs.build-images == 'true' }}
+        if: needs.changes.outputs.build-images == 'true'
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
-        if: ${{ needs.changes.outputs.build-images == 'true' }}
+        if: needs.changes.outputs.build-images == 'true'
         with:
           concurrency_key: build-images-x86
       - name: "Push Build Images If Changed"
-        if: ${{ needs.changes.outputs.build-images == 'true' }}
+        if: needs.changes.outputs.build-images == 'true'
         timeout-minutes: 40
         run: |
           earthly-ci --push ./build-images/+build
@@ -136,7 +136,7 @@ jobs:
   # all the non-bench end-to-end integration tests for aztec
   e2e:
     needs: [build, changes]
-    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.non-barretenberg-cpp == 'true'
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -166,7 +166,7 @@ jobs:
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
     needs: [build, changes]
-    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.non-barretenberg-cpp == 'true'
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -199,7 +199,7 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [build-images, changes]
     # Note: not fully accurate, but to work with bench-summary needs to be the same as bench-e2e
-    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.non-barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -241,7 +241,7 @@ jobs:
         run: |
           earthly-ci -P +bench-aggregate
       - name: "Download base benchmark and package into earthly"
-        if: ${{ github.event_name == 'pull_request' }}
+        if: github.event_name == 'pull_request'
         run: |
           # Download the base benchmark locally (requires AWS creds and .git history)
           mkdir -p $BENCH_FOLDER
@@ -254,7 +254,7 @@ jobs:
           BENCH_FOLDER: "./scripts/logs/tmp/bench"
           PULL_REQUEST: "${{ github.event.pull_request.number }}"
       - name: "Generate summary comment if pull request"
-        if: ${{ github.event_name == 'pull_request' }}
+        if: github.event_name == 'pull_request'
         working-directory: ./yarn-project/scripts
         run: |
           earthly-ci -P +bench-comment
@@ -264,7 +264,7 @@ jobs:
   bb-gcc:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -284,7 +284,7 @@ jobs:
   bb-native-tests:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -302,7 +302,7 @@ jobs:
   bb-js-test:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -317,7 +317,7 @@ jobs:
   noir-build-acir-tests:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -331,7 +331,7 @@ jobs:
   bb-acir-tests-bb:
     needs: [noir-build-acir-tests, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -346,7 +346,7 @@ jobs:
   bb-acir-tests-sol:
     needs: [noir-build-acir-tests, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -361,7 +361,7 @@ jobs:
   bb-acir-tests-sol-honk:
     needs: [noir-build-acir-tests, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -376,7 +376,7 @@ jobs:
   bb-acir-tests-bb-js:
     needs: [noir-build-acir-tests, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -391,7 +391,7 @@ jobs:
   noir-format:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true' }}
+    if: needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -411,7 +411,7 @@ jobs:
   noir-test:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -424,7 +424,7 @@ jobs:
   noir-examples:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -437,7 +437,7 @@ jobs:
   noir-packages-test:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -451,7 +451,7 @@ jobs:
   noir-projects:
     needs: [build-images, changes, build]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -466,7 +466,7 @@ jobs:
   avm-format:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.avm-transpiler == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.avm-transpiler == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -520,7 +520,7 @@ jobs:
   l1-contracts-test:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.l1-contracts == 'true' }}
+    if: needs.changes.outputs.l1-contracts == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -533,7 +533,7 @@ jobs:
   docs-preview:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.non-barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -553,7 +553,7 @@ jobs:
   bb-bench:
     runs-on: ubuntu-20.04
     needs: [build-images, changes]
-    if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -581,7 +581,7 @@ jobs:
       # https://aztecprotocol.github.io/aztec-packages/dev/bench/ with new benchmark data.
       # This also creates an alert if benchmarks exceed the threshold specified below.
       - name: Store benchmark result
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: github.ref == 'refs/heads/master'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: C++ Benchmark
