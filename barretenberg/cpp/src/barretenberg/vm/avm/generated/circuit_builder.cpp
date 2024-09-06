@@ -24,7 +24,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
     }
 
     for (size_t i = 0; i < rows.size(); i++) {
-<<<<<<< HEAD
         polys.byte_lookup_sel_bin.at(i) = rows[i].byte_lookup_sel_bin;
         polys.byte_lookup_table_byte_lengths.at(i) = rows[i].byte_lookup_table_byte_lengths;
         polys.byte_lookup_table_in_tags.at(i) = rows[i].byte_lookup_table_in_tags;
