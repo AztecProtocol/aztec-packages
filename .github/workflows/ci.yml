@@ -28,6 +28,7 @@ env:
 
 jobs:
   setup:
+    if: github.event.pull_request.draft == false
     uses: ./.github/workflows/setup-runner.yml
     with:
       username: ${{ github.event.pull_request.user.login || github.actor }}
@@ -36,6 +37,7 @@ jobs:
 
   changes:
     runs-on: ubuntu-20.04
+    if: github.event.pull_request.draft == false
     # Required permissions.
     permissions:
       pull-requests: read
@@ -635,7 +637,7 @@ jobs:
 
   protocol-circuits-gates-report:
     needs: [build-images, changes]
-    if: ${{ needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' }}
+    if: needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true'
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     permissions:
       pull-requests: write
@@ -703,7 +705,7 @@ jobs:
       - boxes
       - boxes-test
       # - protocol-circuits-gates-report # non-blocking
-    if: always()
+    if: github.event.pull_request.draft == false && always()
     steps:
       - name: Report overall success
         env:
@@ -754,7 +756,7 @@ jobs:
       - boxes
       - boxes-test
       # - protocol-circuits-gates-report # non-blocking
-    if: ${{ !cancelled() }}
+    if: github.event.pull_request.draft == false && !cancelled()
     steps:
       - name: Check for Rerun
         env:
@@ -773,7 +775,7 @@ jobs:
     needs:
       - merge-check
     runs-on: ubuntu-20.04
-    if: ${{ github.ref == 'refs/heads/master' && failure() && github.run_attempt >= 2 }}
+    if: github.event.pull_request.draft == false && github.ref == 'refs/heads/master' && failure() && github.run_attempt >= 2
     steps:
       - name: Send notification to aztec3-ci channel if workflow failed on master
         uses: slackapi/slack-github-action@v1.25.0
