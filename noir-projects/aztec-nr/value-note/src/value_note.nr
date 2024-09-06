@@ -13,11 +13,6 @@ global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.
 // VALUE_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
 global VALUE_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 
-trait OwnedNote {
-    fn new(amount: U128, owner_npk_m_hash: Field) -> Self;
-    fn get_amount(self) -> U128;
-}
-
 // docs:start:value-note-def
 #[aztec(note)]
 struct ValueNote {
@@ -102,21 +97,6 @@ impl Eq for ValueNote {
         (self.value == other.value) &
         (self.npk_m_hash == other.npk_m_hash) &
         (self.randomness == other.randomness)
-    }
-}
-
-impl OwnedNote for ValueNote {
-    fn new(value: U128, owner_npk_m_hash: Field) -> Self {
-        Self {
-            value: value.to_field(),
-            npk_m_hash: owner_npk_m_hash,
-            randomness: unsafe_rand(),
-            header: NoteHeader::empty(),
-        }
-    }
-
-    fn get_amount(self) -> U128 {
-        U128::from_field(self.value)
     }
 }
 
