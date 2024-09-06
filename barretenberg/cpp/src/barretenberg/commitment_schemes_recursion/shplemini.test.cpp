@@ -56,8 +56,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     std::vector<Polynomial> f_polynomials; // unshifted polynomials
     std::vector<NativeFr> v_evaluations;
     for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
-        f_polynomials.emplace_back(Polynomial::random(N));
-        f_polynomials[i][0] = NativeFr(0); // ensure f is "shiftable"
+        f_polynomials.emplace_back(Polynomial::random(N, /*shiftable*/ 1));
         v_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge));
     }
 

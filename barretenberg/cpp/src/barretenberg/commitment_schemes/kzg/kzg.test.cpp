@@ -191,9 +191,8 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n);
-    poly2[0] = Fr::zero(); // this property is required of polynomials whose shift is used
+    auto poly1 = Polynomial::random(n);
+    auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
 
     Commitment commitment1 = this->commit(poly1);
     Commitment commitment2 = this->commit(poly2);
