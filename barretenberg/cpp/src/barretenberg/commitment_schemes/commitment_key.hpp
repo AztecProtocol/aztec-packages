@@ -121,7 +121,7 @@ template <class Curve> class CommitmentKey {
     {
         BB_OP_COUNT_TIME();
         const size_t poly_size = polynomial.size();
-        ASSERT(poly_size + polynomial.start_index * 2 <= srs->get_monomial_size());
+        ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align

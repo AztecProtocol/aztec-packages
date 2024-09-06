@@ -530,53 +530,44 @@ class ECCVMFlavor {
                 lookup_read_counts_1.at(i + 1) = point_table_read_counts[1][i];
             }
 
-            // A custom set function that only sets in the defined region of the polynomial
-            // Namely, this is used to not set i=0 in to-be-shifted polynomials
-            // TODO(AD): consider a nicer way of doing this
-            auto set_poly_index = [](Polynomial& poly, size_t i, const FF& value) {
-                if (i < poly.start_index() || i >= poly.end_index()) {
-                    ASSERT(value.is_zero());
-                    return;
-                }
-                poly.at(i) = value;
-            };
             // compute polynomials for transcript columns
             parallel_for_range(transcript_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
-                    set_poly_index(transcript_accumulator_empty, i, transcript_rows[i].accumulator_empty);
-                    set_poly_index(transcript_add, i, transcript_rows[i].q_add);
-                    set_poly_index(transcript_mul, i, transcript_rows[i].q_mul);
-                    set_poly_index(transcript_eq, i, transcript_rows[i].q_eq);
-                    set_poly_index(transcript_reset_accumulator, i, transcript_rows[i].q_reset_accumulator);
-                    set_poly_index(transcript_msm_transition, i, transcript_rows[i].msm_transition);
-                    set_poly_index(transcript_pc, i, transcript_rows[i].pc);
-                    set_poly_index(transcript_msm_count, i, transcript_rows[i].msm_count);
-                    set_poly_index(transcript_Px, i, transcript_rows[i].base_x);
-                    set_poly_index(transcript_Py, i, transcript_rows[i].base_y);
-                    set_poly_index(transcript_z1, i, transcript_rows[i].z1);
-                    set_poly_index(transcript_z2, i, transcript_rows[i].z2);
-                    set_poly_index(transcript_z1zero, i, transcript_rows[i].z1_zero);
-                    set_poly_index(transcript_z2zero, i, transcript_rows[i].z2_zero);
-                    set_poly_index(transcript_op, i, transcript_rows[i].opcode);
-                    set_poly_index(transcript_accumulator_x, i, transcript_rows[i].accumulator_x);
-                    set_poly_index(transcript_accumulator_y, i, transcript_rows[i].accumulator_y);
-                    set_poly_index(transcript_msm_x, i, transcript_rows[i].msm_output_x);
-                    set_poly_index(transcript_msm_y, i, transcript_rows[i].msm_output_y);
-                    set_poly_index(transcript_base_infinity, i, transcript_rows[i].base_infinity);
-                    set_poly_index(transcript_base_x_inverse, i, transcript_rows[i].base_x_inverse);
-                    set_poly_index(transcript_base_y_inverse, i, transcript_rows[i].base_y_inverse);
-                    set_poly_index(transcript_add_x_equal, i, transcript_rows[i].transcript_add_x_equal);
-                    set_poly_index(transcript_add_y_equal, i, transcript_rows[i].transcript_add_y_equal);
-                    set_poly_index(transcript_add_lambda, i, transcript_rows[i].transcript_add_lambda);
-                    set_poly_index(transcript_msm_intermediate_x, i, transcript_rows[i].transcript_msm_intermediate_x);
-                    set_poly_index(transcript_msm_intermediate_y, i, transcript_rows[i].transcript_msm_intermediate_y);
-                    set_poly_index(transcript_msm_infinity, i, transcript_rows[i].transcript_msm_infinity);
-                    set_poly_index(transcript_msm_x_inverse, i, transcript_rows[i].transcript_msm_x_inverse);
-                    set_poly_index(
-                        transcript_msm_count_zero_at_transition, i, transcript_rows[i].msm_count_zero_at_transition);
-                    set_poly_index(transcript_msm_count_at_transition_inverse,
-                                   i,
-                                   transcript_rows[i].msm_count_at_transition_inverse);
+                    transcript_accumulator_empty.set_if_valid_index(i, transcript_rows[i].accumulator_empty);
+                    transcript_add.set_if_valid_index(i, transcript_rows[i].q_add);
+                    transcript_mul.set_if_valid_index(i, transcript_rows[i].q_mul);
+                    transcript_eq.set_if_valid_index(i, transcript_rows[i].q_eq);
+                    transcript_reset_accumulator.set_if_valid_index(i, transcript_rows[i].q_reset_accumulator);
+                    transcript_msm_transition.set_if_valid_index(i, transcript_rows[i].msm_transition);
+                    transcript_pc.set_if_valid_index(i, transcript_rows[i].pc);
+                    transcript_msm_count.set_if_valid_index(i, transcript_rows[i].msm_count);
+                    transcript_Px.set_if_valid_index(i, transcript_rows[i].base_x);
+                    transcript_Py.set_if_valid_index(i, transcript_rows[i].base_y);
+                    transcript_z1.set_if_valid_index(i, transcript_rows[i].z1);
+                    transcript_z2.set_if_valid_index(i, transcript_rows[i].z2);
+                    transcript_z1zero.set_if_valid_index(i, transcript_rows[i].z1_zero);
+                    transcript_z2zero.set_if_valid_index(i, transcript_rows[i].z2_zero);
+                    transcript_op.set_if_valid_index(i, transcript_rows[i].opcode);
+                    transcript_accumulator_x.set_if_valid_index(i, transcript_rows[i].accumulator_x);
+                    transcript_accumulator_y.set_if_valid_index(i, transcript_rows[i].accumulator_y);
+                    transcript_msm_x.set_if_valid_index(i, transcript_rows[i].msm_output_x);
+                    transcript_msm_y.set_if_valid_index(i, transcript_rows[i].msm_output_y);
+                    transcript_base_infinity.set_if_valid_index(i, transcript_rows[i].base_infinity);
+                    transcript_base_x_inverse.set_if_valid_index(i, transcript_rows[i].base_x_inverse);
+                    transcript_base_y_inverse.set_if_valid_index(i, transcript_rows[i].base_y_inverse);
+                    transcript_add_x_equal.set_if_valid_index(i, transcript_rows[i].transcript_add_x_equal);
+                    transcript_add_y_equal.set_if_valid_index(i, transcript_rows[i].transcript_add_y_equal);
+                    transcript_add_lambda.set_if_valid_index(i, transcript_rows[i].transcript_add_lambda);
+                    transcript_msm_intermediate_x.set_if_valid_index(i,
+                                                                     transcript_rows[i].transcript_msm_intermediate_x);
+                    transcript_msm_intermediate_y.set_if_valid_index(i,
+                                                                     transcript_rows[i].transcript_msm_intermediate_y);
+                    transcript_msm_infinity.set_if_valid_index(i, transcript_rows[i].transcript_msm_infinity);
+                    transcript_msm_x_inverse.set_if_valid_index(i, transcript_rows[i].transcript_msm_x_inverse);
+                    transcript_msm_count_zero_at_transition.set_if_valid_index(
+                        i, transcript_rows[i].msm_count_zero_at_transition);
+                    transcript_msm_count_at_transition_inverse.set_if_valid_index(
+                        i, transcript_rows[i].msm_count_at_transition_inverse);
                 }
             });
 
@@ -585,14 +576,14 @@ class ECCVMFlavor {
             // values that are all zero (issue #2217)
             if (transcript_rows[transcript_rows.size() - 1].accumulator_empty) {
                 for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
-                    set_poly_index(transcript_accumulator_empty, i, 1);
+                    transcript_accumulator_empty.set_if_valid_index(i, 1);
                 }
             }
             // in addition, unless the accumulator is reset, it contains the value from the previous row so this
             // must be propagated
             for (size_t i = transcript_rows.size(); i < dyadic_num_rows; ++i) {
-                set_poly_index(transcript_accumulator_x, i, transcript_accumulator_x[i - 1]);
-                set_poly_index(transcript_accumulator_y, i, transcript_accumulator_y[i - 1]);
+                transcript_accumulator_x.set_if_valid_index(i, transcript_accumulator_x[i - 1]);
+                transcript_accumulator_y.set_if_valid_index(i, transcript_accumulator_y[i - 1]);
             }
 
             parallel_for_range(point_table_rows.size(), [&](size_t start, size_t end) {
@@ -600,68 +591,68 @@ class ECCVMFlavor {
                     // first row is always an empty row (to accommodate shifted polynomials which must have 0 as 1st
                     // coefficient). All other rows in the point_table_rows represent active wnaf gates (i.e.
                     // precompute_select = 1)
-                    set_poly_index(precompute_select, i, (i != 0) ? 1 : 0);
-                    set_poly_index(precompute_pc, i, point_table_rows[i].pc);
-                    set_poly_index(
-                        precompute_point_transition, i, static_cast<uint64_t>(point_table_rows[i].point_transition));
-                    set_poly_index(precompute_round, i, point_table_rows[i].round);
-                    set_poly_index(precompute_scalar_sum, i, point_table_rows[i].scalar_sum);
-                    set_poly_index(precompute_s1hi, i, point_table_rows[i].s1);
-                    set_poly_index(precompute_s1lo, i, point_table_rows[i].s2);
-                    set_poly_index(precompute_s2hi, i, point_table_rows[i].s3);
-                    set_poly_index(precompute_s2lo, i, point_table_rows[i].s4);
-                    set_poly_index(precompute_s3hi, i, point_table_rows[i].s5);
-                    set_poly_index(precompute_s3lo, i, point_table_rows[i].s6);
-                    set_poly_index(precompute_s4hi, i, point_table_rows[i].s7);
-                    set_poly_index(precompute_s4lo, i, point_table_rows[i].s8);
+                    precompute_select.set_if_valid_index(i, (i != 0) ? 1 : 0);
+                    precompute_pc.set_if_valid_index(i, point_table_rows[i].pc);
+                    precompute_point_transition.set_if_valid_index(
+                        i, static_cast<uint64_t>(point_table_rows[i].point_transition));
+                    precompute_round.set_if_valid_index(i, point_table_rows[i].round);
+                    precompute_scalar_sum.set_if_valid_index(i, point_table_rows[i].scalar_sum);
+                    precompute_s1hi.set_if_valid_index(i, point_table_rows[i].s1);
+                    precompute_s1lo.set_if_valid_index(i, point_table_rows[i].s2);
+                    precompute_s2hi.set_if_valid_index(i, point_table_rows[i].s3);
+                    precompute_s2lo.set_if_valid_index(i, point_table_rows[i].s4);
+                    precompute_s3hi.set_if_valid_index(i, point_table_rows[i].s5);
+                    precompute_s3lo.set_if_valid_index(i, point_table_rows[i].s6);
+                    precompute_s4hi.set_if_valid_index(i, point_table_rows[i].s7);
+                    precompute_s4lo.set_if_valid_index(i, point_table_rows[i].s8);
                     // If skew is active (i.e. we need to subtract a base point from the msm result),
                     // write `7` into rows.precompute_skew. `7`, in binary representation, equals `-1` when converted
                     // into WNAF form
-                    set_poly_index(precompute_skew, i, point_table_rows[i].skew ? 7 : 0);
-                    set_poly_index(precompute_dx, i, point_table_rows[i].precompute_double.x);
-                    set_poly_index(precompute_dy, i, point_table_rows[i].precompute_double.y);
-                    set_poly_index(precompute_tx, i, point_table_rows[i].precompute_accumulator.x);
-                    set_poly_index(precompute_ty, i, point_table_rows[i].precompute_accumulator.y);
+                    precompute_skew.set_if_valid_index(i, point_table_rows[i].skew ? 7 : 0);
+                    precompute_dx.set_if_valid_index(i, point_table_rows[i].precompute_double.x);
+                    precompute_dy.set_if_valid_index(i, point_table_rows[i].precompute_double.y);
+                    precompute_tx.set_if_valid_index(i, point_table_rows[i].precompute_accumulator.x);
+                    precompute_ty.set_if_valid_index(i, point_table_rows[i].precompute_accumulator.y);
                 }
             });
 
             // compute polynomials for the msm columns
             parallel_for_range(msm_rows.size(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
-                    set_poly_index(msm_transition, i, static_cast<int>(msm_rows[i].msm_transition));
-                    set_poly_index(msm_add, i, static_cast<int>(msm_rows[i].q_add));
-                    set_poly_index(msm_double, i, static_cast<int>(msm_rows[i].q_double));
-                    set_poly_index(msm_skew, i, static_cast<int>(msm_rows[i].q_skew));
-                    set_poly_index(msm_accumulator_x, i, msm_rows[i].accumulator_x);
-                    set_poly_index(msm_accumulator_y, i, msm_rows[i].accumulator_y);
-                    set_poly_index(msm_pc, i, msm_rows[i].pc);
-                    set_poly_index(msm_size_of_msm, i, msm_rows[i].msm_size);
-                    set_poly_index(msm_count, i, msm_rows[i].msm_count);
-                    set_poly_index(msm_round, i, msm_rows[i].msm_round);
-                    set_poly_index(msm_add1, i, static_cast<int>(msm_rows[i].add_state[0].add));
-                    set_poly_index(msm_add2, i, static_cast<int>(msm_rows[i].add_state[1].add));
-                    set_poly_index(msm_add3, i, static_cast<int>(msm_rows[i].add_state[2].add));
-                    set_poly_index(msm_add4, i, static_cast<int>(msm_rows[i].add_state[3].add));
-                    set_poly_index(msm_x1, i, msm_rows[i].add_state[0].point.x);
-                    set_poly_index(msm_y1, i, msm_rows[i].add_state[0].point.y);
-                    set_poly_index(msm_x2, i, msm_rows[i].add_state[1].point.x);
-                    set_poly_index(msm_y2, i, msm_rows[i].add_state[1].point.y);
-                    set_poly_index(msm_x3, i, msm_rows[i].add_state[2].point.x);
-                    set_poly_index(msm_y3, i, msm_rows[i].add_state[2].point.y);
-                    set_poly_index(msm_x4, i, msm_rows[i].add_state[3].point.x);
-                    set_poly_index(msm_y4, i, msm_rows[i].add_state[3].point.y);
-                    set_poly_index(msm_collision_x1, i, msm_rows[i].add_state[0].collision_inverse);
-                    set_poly_index(msm_collision_x2, i, msm_rows[i].add_state[1].collision_inverse);
-                    set_poly_index(msm_collision_x3, i, msm_rows[i].add_state[2].collision_inverse);
-                    set_poly_index(msm_collision_x4, i, msm_rows[i].add_state[3].collision_inverse);
-                    set_poly_index(msm_lambda1, i, msm_rows[i].add_state[0].lambda);
-                    set_poly_index(msm_lambda2, i, msm_rows[i].add_state[1].lambda);
-                    set_poly_index(msm_lambda3, i, msm_rows[i].add_state[2].lambda);
-                    set_poly_index(msm_lambda4, i, msm_rows[i].add_state[3].lambda);
-                    set_poly_index(msm_slice1, i, msm_rows[i].add_state[0].slice);
-                    set_poly_index(msm_slice2, i, msm_rows[i].add_state[1].slice);
-                    set_poly_index(msm_slice3, i, msm_rows[i].add_state[2].slice);
-                    set_poly_index(msm_slice4, i, msm_rows[i].add_state[3].slice);
+                    msm_transition.set_if_valid_index(i, static_cast<int>(msm_rows[i].msm_transition));
+                    msm_add.set_if_valid_index(i, static_cast<int>(msm_rows[i].q_add));
+                    msm_double.set_if_valid_index(i, static_cast<int>(msm_rows[i].q_double));
+                    msm_skew.set_if_valid_index(i, static_cast<int>(msm_rows[i].q_skew));
+                    msm_accumulator_x.set_if_valid_index(i, msm_rows[i].accumulator_x);
+                    msm_accumulator_y.set_if_valid_index(i, msm_rows[i].accumulator_y);
+                    msm_pc.set_if_valid_index(i, msm_rows[i].pc);
+                    msm_size_of_msm.set_if_valid_index(i, msm_rows[i].msm_size);
+                    msm_count.set_if_valid_index(i, msm_rows[i].msm_count);
+                    msm_round.set_if_valid_index(i, msm_rows[i].msm_round);
+                    msm_add1.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[0].add));
+                    msm_add2.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[1].add));
+                    msm_add3.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[2].add));
+                    msm_add4.set_if_valid_index(i, static_cast<int>(msm_rows[i].add_state[3].add));
+                    msm_x1.set_if_valid_index(i, msm_rows[i].add_state[0].point.x);
+                    msm_y1.set_if_valid_index(i, msm_rows[i].add_state[0].point.y);
+                    msm_x2.set_if_valid_index(i, msm_rows[i].add_state[1].point.x);
+                    msm_y2.set_if_valid_index(i, msm_rows[i].add_state[1].point.y);
+                    msm_x3.set_if_valid_index(i, msm_rows[i].add_state[2].point.x);
+                    msm_y3.set_if_valid_index(i, msm_rows[i].add_state[2].point.y);
+                    msm_x4.set_if_valid_index(i, msm_rows[i].add_state[3].point.x);
+                    msm_y4.set_if_valid_index(i, msm_rows[i].add_state[3].point.y);
+                    msm_collision_x1.set_if_valid_index(i, msm_rows[i].add_state[0].collision_inverse);
+                    msm_collision_x2.set_if_valid_index(i, msm_rows[i].add_state[1].collision_inverse);
+                    msm_collision_x3.set_if_valid_index(i, msm_rows[i].add_state[2].collision_inverse);
+                    msm_collision_x4.set_if_valid_index(i, msm_rows[i].add_state[3].collision_inverse);
+                    msm_lambda1.set_if_valid_index(i, msm_rows[i].add_state[0].lambda);
+                    msm_lambda2.set_if_valid_index(i, msm_rows[i].add_state[1].lambda);
+                    msm_lambda3.set_if_valid_index(i, msm_rows[i].add_state[2].lambda);
+                    msm_lambda4.set_if_valid_index(i, msm_rows[i].add_state[3].lambda);
+                    msm_slice1.set_if_valid_index(i, msm_rows[i].add_state[0].slice);
+                    msm_slice2.set_if_valid_index(i, msm_rows[i].add_state[1].slice);
+                    msm_slice3.set_if_valid_index(i, msm_rows[i].add_state[2].slice);
+                    msm_slice4.set_if_valid_index(i, msm_rows[i].add_state[3].slice);
                 }
             });
             this->set_shifted();
