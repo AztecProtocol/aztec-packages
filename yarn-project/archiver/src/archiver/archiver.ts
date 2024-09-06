@@ -223,7 +223,6 @@ export class Archiver implements ArchiveSource {
     const retrievedL1ToL2Messages = await retrieveL1ToL2Messages(
       this.publicClient,
       this.inboxAddress,
-      blockUntilSynced,
       messagesSynchedTo + 1n,
       currentL1BlockNumber,
     );
@@ -245,7 +244,6 @@ export class Archiver implements ArchiveSource {
     const retrievedBlockBodies = await retrieveBlockBodiesFromAvailabilityOracle(
       this.publicClient,
       this.availabilityOracleAddress,
-      blockUntilSynced,
       blockBodiesSynchedTo + 1n,
       currentL1BlockNumber,
     );
@@ -265,7 +263,6 @@ export class Archiver implements ArchiveSource {
       const retrievedBlockMetadata = await retrieveBlockMetadataFromRollup(
         this.publicClient,
         this.rollupAddress,
-        blockUntilSynced,
         blocksSynchedTo + 1n,
         currentL1BlockNumber,
         nextExpectedL2BlockNum,
