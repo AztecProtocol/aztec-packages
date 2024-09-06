@@ -88,11 +88,16 @@ export class ReqResp {
       return undefined;
     }
 
-    return await executeTimeoutWithCustomError<Buffer | undefined>(
-      requestFunction,
-      this.overallRequestTimeoutMs,
-      () => new CollectiveReqRespTimeoutError()
-    );
+    try {
+      return await executeTimeoutWithCustomError<Buffer | undefined>(
+        requestFunction,
+        this.overallRequestTimeoutMs,
+        () => new CollectiveReqRespTimeoutError()
+      );
+    } catch (e: any) {
+      this.logger.error(`${e.message} | subProtocol: ${subProtocol}`);
+      return undefined;
+    }
   }
 
   /**
@@ -112,7 +117,7 @@ export class ReqResp {
     try {
       stream = await this.libp2p.dialProtocol(peerId, subProtocol);
 
-      this.logger.debug(`Stream opened with ${peerId.publicKey} for ${subProtocol}`);
+      this.logger.debug(`Stream opened with ${peerId.toString()} for ${subProtocol}`);
 
       const result = await executeTimeoutWithCustomError<Buffer>(
         (): Promise<Buffer> => pipe([payload], stream!, this.readMessage),
@@ -121,16 +126,16 @@ export class ReqResp {
       );
 
       await stream.close();
-      this.logger.debug(`Stream closed with ${peerId.publicKey} for ${subProtocol}`);
+      this.logger.debug(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
 
       return result;
     } catch (e: any) {
-      this.logger.error(`${e.message} | peer: ${peerId.publicKey?.toString()} | subProtocol: ${subProtocol}`);
+      this.logger.error(`${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`);
     } finally {
       if (stream) {
         try {
           await stream.close();
-          this.logger.debug(`Stream closed with ${peerId.publicKey} for ${subProtocol}`);
+          this.logger.debug(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
         } catch (closeError) {
           this.logger.error(`Error closing stream: ${closeError instanceof Error ? closeError.message : 'Unknown error'}`);
         }
