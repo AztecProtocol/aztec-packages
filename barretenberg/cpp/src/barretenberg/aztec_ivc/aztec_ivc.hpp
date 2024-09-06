@@ -64,12 +64,23 @@ class AztecIVC {
         MSGPACK_FIELDS(folding_proof, decider_proof, goblin_proof);
     };
 
-    enum class QUEUE_TYPE { OINK, PG };
-    struct RecursiveVerifierInputs {
+    enum class QUEUE_TYPE { OINK, PG }; // for specifying type of proof in the verification queue
+
+    // An entry in the native verification queue
+    struct VerifierInputs {
         std::vector<FF> proof; // oink or PG
         std::shared_ptr<VerificationKey> honk_verification_key;
         QUEUE_TYPE type;
     };
+    using VerificationQueue = std::vector<VerifierInputs>;
+
+    // An entry in the stdlib verification queue
+    struct StdlibVerifierInputs {
+        StdlibProof<ClientCircuit> proof; // oink or PG
+        std::shared_ptr<RecursiveVerificationKey> honk_verification_key;
+        QUEUE_TYPE type;
+    };
+    using StdlibVerificationQueue = std::vector<StdlibVerifierInputs>;
 
     // Utility for tracking the max size of each block across the full IVC
     MaxBlockSizeTracker max_block_size_tracker;
@@ -85,8 +96,10 @@ class AztecIVC {
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator; // verifier accumulator
     std::shared_ptr<VerificationKey> honk_vk; // honk vk to be completed and folded into the accumulator
 
-    // Set of pairs of {fold_proof, verification_key} to be recursively verified
-    std::vector<RecursiveVerifierInputs> verification_queue;
+    // Set of tuples {proof, verification_key, type} to be recursively verified
+    VerificationQueue verification_queue;
+    // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
+    StdlibVerificationQueue stdlib_verification_queue;
     // Set of merge proofs to be recursively verified
     std::vector<MergeProof> merge_verification_queue;
 
@@ -97,6 +110,16 @@ class AztecIVC {
     TraceStructure trace_structure = TraceStructure::NONE;
 
     bool initialized = false; // Is the IVC accumulator initialized
+
+    void instantiate_stdlib_verification_queue(ClientCircuit& circuit);
+
+    void perform_recursive_verification_and_databus_consistency_checks(
+        ClientCircuit& circuit,
+        const StdlibProof<ClientCircuit>& proof,
+        const std::shared_ptr<RecursiveVerificationKey>& vkey,
+        const QUEUE_TYPE type);
+
+    void process_recursive_merge_verification_queue(ClientCircuit& circuit);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
@@ -112,7 +135,7 @@ class AztecIVC {
                        const std::shared_ptr<AztecIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<AztecIVC::TranslatorVerificationKey>& translator_vk);
 
-    bool verify(Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack);
+    bool verify(const Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack);
 
     bool prove_and_verify();
 
