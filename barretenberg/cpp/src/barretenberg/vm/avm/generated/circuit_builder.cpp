@@ -19,8 +19,17 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
     ProverPolynomials polys;
 
     // Allocate mem for each column
-    for (auto& poly : polys.get_all()) {
-        poly = Polynomial(num_rows);
+    for (auto& poly : polys.get_to_be_shifted()) {
+        poly = Polynomial{ /*memory size*/ num_rows - 1,
+                           /*largest possible index*/ num_rows,
+                           /*make shiftable with offset*/ 1 };
+    }
+    // catch-all with fully formed polynomials
+    for (auto& poly : polys.get_unshifted()) {
+        if (poly.is_empty()) {
+            // Not set above
+            poly = Polynomial{ /*memory size*/ num_rows, /*largest possible index*/ num_rows };
+        }
     }
 
     for (size_t i = 0; i < rows.size(); i++) {
