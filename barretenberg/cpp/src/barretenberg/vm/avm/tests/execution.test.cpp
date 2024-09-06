@@ -587,10 +587,10 @@ TEST_F(AvmExecutionTests, movOpcode)
                                "01"                       // U8
                                "13"                       // val 19
                                "000000AB"                 // dst_offset 171
-                               + to_hex(OpCode::MOV) +    // opcode MOV
+                               + to_hex(OpCode::MOV_8) +  // opcode MOV
                                "00"                       // Indirect flag
-                               "000000AB"                 // src_offset 171
-                               "00000021"                 // dst_offset 33
+                               "AB"                       // src_offset 171
+                               "21"                       // dst_offset 33
                                + to_hex(OpCode::RETURN) + // opcode RETURN
                                "00"                       // Indirect flag
                                "00000000"                 // ret offset 0
@@ -613,9 +613,9 @@ TEST_F(AvmExecutionTests, movOpcode)
     // MOV
     EXPECT_THAT(
         instructions.at(1),
-        AllOf(Field(&Instruction::op_code, OpCode::MOV),
+        AllOf(Field(&Instruction::op_code, OpCode::MOV_8),
               Field(&Instruction::operands,
-                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(171), VariantWith<uint32_t>(33)))));
+                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint8_t>(171), VariantWith<uint8_t>(33)))));
 
     auto trace = gen_trace_from_instr(instructions);
 
@@ -701,10 +701,10 @@ TEST_F(AvmExecutionTests, indMovOpcode)
                                "01"                       // U8
                                "FF"                       // val 255
                                "0000000A"                 // dst_offset 10
-                               + to_hex(OpCode::MOV) +    // opcode MOV
+                               + to_hex(OpCode::MOV_8) +  // opcode MOV
                                "01"                       // Indirect flag
-                               "00000001"                 // src_offset 1 --> direct offset 10
-                               "00000002"                 // dst_offset 2 --> direct offset 11
+                               "01"                       // src_offset 1 --> direct offset 10
+                               "02"                       // dst_offset 2 --> direct offset 11
                                + to_hex(OpCode::RETURN) + // opcode RETURN
                                "00"                       // Indirect flag
                                "00000000"                 // ret offset 0
@@ -717,9 +717,9 @@ TEST_F(AvmExecutionTests, indMovOpcode)
 
     // MOV
     EXPECT_THAT(instructions.at(3),
-                AllOf(Field(&Instruction::op_code, OpCode::MOV),
+                AllOf(Field(&Instruction::op_code, OpCode::MOV_8),
                       Field(&Instruction::operands,
-                            ElementsAre(VariantWith<uint8_t>(1), VariantWith<uint32_t>(1), VariantWith<uint32_t>(2)))));
+                            ElementsAre(VariantWith<uint8_t>(1), VariantWith<uint8_t>(1), VariantWith<uint8_t>(2)))));
 
     auto trace = gen_trace_from_instr(instructions);
 

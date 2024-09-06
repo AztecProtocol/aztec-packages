@@ -7,7 +7,7 @@ use log::{debug, info, trace};
 use acvm::acir::brillig::Opcode as BrilligOpcode;
 use acvm::acir::circuit::{AssertionPayload, Opcode, Program};
 
-use crate::instructions::AvmInstruction;
+use crate::instructions::{AvmInstruction, AvmOperand};
 use crate::opcodes::AvmOpcode;
 
 /// Extract the Brillig program from its `Program` wrapper.
@@ -88,5 +88,16 @@ pub fn dbg_print_avm_program(avm_program: &[AvmInstruction]) {
     sorted_counts.sort_by_key(|(_, count)| -(*count as isize));
     for (opcode, count) in sorted_counts {
         debug!("\t{0:?}: {1}", opcode, count);
+    }
+}
+
+pub fn make_operand<T: Into<u128> + Copy>(bits: usize, value: &T) -> AvmOperand {
+    match bits {
+        8 => AvmOperand::U8 { value: Into::<u128>::into(*value) as u8 },
+        16 => AvmOperand::U16 { value: Into::<u128>::into(*value) as u16 },
+        32 => AvmOperand::U32 { value: Into::<u128>::into(*value) as u32 },
+        64 => AvmOperand::U64 { value: Into::<u128>::into(*value) as u64 },
+        128 => AvmOperand::U128 { value: Into::<u128>::into(*value) },
+        _ => panic!("Invalid operand size for bits: {}", bits),
     }
 }

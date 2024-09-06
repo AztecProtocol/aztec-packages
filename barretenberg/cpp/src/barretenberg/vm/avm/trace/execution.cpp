@@ -616,10 +616,15 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                 std::get<uint8_t>(inst.operands.at(0)), val, std::get<uint32_t>(inst.operands.at(3)), in_tag);
             break;
         }
-        case OpCode::MOV:
+        case OpCode::MOV_8:
             trace_builder.op_mov(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint32_t>(inst.operands.at(1)),
-                                 std::get<uint32_t>(inst.operands.at(2)));
+                                 std::get<uint8_t>(inst.operands.at(1)),
+                                 std::get<uint8_t>(inst.operands.at(2)));
+            break;
+        case OpCode::MOV_16:
+            trace_builder.op_mov(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(1)),
+                                 std::get<uint16_t>(inst.operands.at(2)));
             break;
         case OpCode::CMOV:
             trace_builder.op_cmov(std::get<uint8_t>(inst.operands.at(0)),

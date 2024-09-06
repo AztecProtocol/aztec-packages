@@ -4,11 +4,11 @@ import type { AvmContext } from '../avm_context.js';
 import { getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
 import { type MemoryOperations } from '../avm_memory_types.js';
 import { type BufferCursor } from '../serialization/buffer_cursor.js';
-import { Opcode, type OperandType, deserialize, serialize } from '../serialization/instruction_serialization.js';
+import { type Serializable } from '../serialization/bytecode_serialization.js';
+import { Opcode, type OperandType, deserialize, serializeAs } from '../serialization/instruction_serialization.js';
 
 type InstructionConstructor = {
   new (...args: any[]): Instruction;
-  wireFormat?: OperandType[];
 };
 
 /**
@@ -37,29 +37,51 @@ export abstract class Instruction {
     return instructionStr;
   }
 
-  /**
-   * Serialize the instruction to a Buffer according to its wire format specified in its subclass.
-   * If you want to use this, your subclass should specify a {@code static wireFormat: OperandType[]}.
-   * @param this - The instruction to serialize.
-   * @returns The serialized instruction.
-   */
-  public serialize(this: any): Buffer {
-    assert(!!this.constructor.wireFormat, 'wireFormat must be defined on the class');
-    return serialize(this.constructor.wireFormat, this);
+  // Default deserialization which uses Class.opcode and Class.wireFormat.
+  public static deserialize(
+    this: InstructionConstructor & { wireFormat: OperandType[]; as: any },
+    buf: BufferCursor | Buffer,
+  ): Instruction {
+    return this.as(this.wireFormat).deserialize(buf);
+  }
+
+  // Default serialization which uses Class.opcode and Class.wireFormat.
+  public serialize(): Buffer {
+    const klass = this.constructor as any;
+    assert(klass.opcode !== undefined && klass.opcode !== null);
+    assert(klass.wireFormat !== undefined && klass.wireFormat !== null);
+    return this.as(klass.opcode, klass.wireFormat).serialize();
   }
 
   /**
-   * Deserializes a subclass of Instruction from a Buffer.
-   * If you want to use this, your subclass should specify a {@code static wireFormat: OperandType[]}.
-   * @param this Class object to deserialize to.
-   * @param buf Buffer to read from.
-   * @returns Constructed instance of Class.
+   * Returns a new instruction instance that can be serialized with the given opcode and wire format.
+   * @param opcode The opcode of the instruction.
+   * @param wireFormat The wire format of the instruction.
+   * @returns The new instruction instance.
    */
-  public static deserialize(this: InstructionConstructor, buf: BufferCursor | Buffer): Instruction {
-    assert(!!this.wireFormat, 'wireFormat must be defined on the instruction class');
-    const res = deserialize(buf, this.wireFormat);
-    const args = res.slice(1); // Remove opcode.
-    return new this(...args);
+  public as(opcode: Opcode, wireFormat: OperandType[]): Instruction & Serializable {
+    return Object.defineProperty(this, 'serialize', {
+      value: (): Buffer => {
+        return serializeAs(wireFormat, opcode, this);
+      },
+      enumerable: false,
+    });
+  }
+
+  /**
+   * Returns a new instruction class that can be deserialized with the given opcode and wire format.
+   * @param opcode The opcode of the instruction.
+   * @param wireFormat The wire format of the instruction.
+   * @returns The new instruction class.
+   */
+  public static as(this: InstructionConstructor, wireFormat: OperandType[]) {
+    return Object.assign(this, {
+      deserialize: (buf: BufferCursor | Buffer): Instruction => {
+        const res = deserialize(buf, wireFormat);
+        const args = res.slice(1); // Remove opcode.
+        return new this(...args);
+      },
+    });
   }
 
   /**

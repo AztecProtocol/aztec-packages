@@ -1817,7 +1817,8 @@ void AvmTraceBuilder::op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst
     mem_trace_builder.write_into_memory(call_ptr, clk, IntermRegister::IC, direct_dst_offset, val, tag, tag);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::MOV);
+    // FIXME: not great that we are having to choose one specific opcode here!
+    gas_trace_builder.constrain_gas(clk, OpCode::MOV_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
