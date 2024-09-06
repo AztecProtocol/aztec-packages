@@ -1,14 +1,12 @@
 #include "shplonk.hpp"
+#include "../commitment_key.test.hpp"
 #include "../gemini/gemini.hpp"
-
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include <algorithm>
 #include <gtest/internal/gtest-internal.h>
 #include <iterator>
 #include <random>
 #include <vector>
-
-#include "../commitment_key.test.hpp"
-#include "barretenberg/commitment_schemes/claim.hpp"
 namespace bb {
 template <class Params> class ShplonkTest : public CommitmentTest<Params> {};
 

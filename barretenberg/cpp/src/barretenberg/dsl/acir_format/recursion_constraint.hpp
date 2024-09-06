@@ -8,7 +8,7 @@ namespace acir_format {
 
 // Used to specify the type of recursive verifier via the proof_type specified by the RecursiveAggregation opcode from
 // ACIR
-enum PROOF_TYPE { PLONK_RECURSION, HONK_RECURSION };
+enum PROOF_TYPE { PLONK, HONK, OINK, PG };
 
 using namespace bb::plonk;
 using Builder = bb::UltraCircuitBuilder;
