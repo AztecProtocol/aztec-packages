@@ -20,15 +20,15 @@ class AztecIVCTests : public ::testing::Test {
     using FF = typename Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
     using Builder = AztecIVC::ClientCircuit;
-    using ProverInstance = AztecIVC::ProverInstance;
-    using VerifierInstance = AztecIVC::VerifierInstance;
+    using DeciderProvingKey = AztecIVC::DeciderProvingKey;
+    using DeciderVerificationKey = AztecIVC::DeciderVerificationKey;
     using FoldProof = AztecIVC::FoldProof;
     using DeciderProver = AztecIVC::DeciderProver;
     using DeciderVerifier = AztecIVC::DeciderVerifier;
-    using ProverInstances = ProverInstances_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<ProverInstances>;
-    using VerifierInstances = VerifierInstances_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
+    using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
+    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
+    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
 
     /**
      * @brief Construct mock circuit with arithmetic gates and goblin ops
@@ -86,7 +86,7 @@ class AztecIVCTests : public ::testing::Test {
             for (size_t idx = 0; idx < num_circuits; ++idx) {
                 ClientCircuit circuit = create_next_circuit(ivc, log2_num_gates); // create the next circuit
                 ivc.accumulate(circuit);                                          // accumulate the circuit
-                vkeys.emplace_back(ivc.instance_vk);                              // save the VK for the circuit
+                vkeys.emplace_back(ivc.honk_vk);                                  // save the VK for the circuit
             }
             is_kernel = false;
 

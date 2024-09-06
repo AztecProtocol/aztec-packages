@@ -79,7 +79,7 @@ export class CommitmentMap {
 // TODO: find better home for these constants
 export const CIRCUIT_SIZE_INDEX = 0;
 export const CIRCUIT_PUBLIC_INPUTS_INDEX = 1;
-export const CIRCUIT_RECURSIVE_INDEX = 0;
+export const CIRCUIT_RECURSIVE_INDEX = 3;
 
 /**
  * Provides a 'fields' representation of a circuit's verification key

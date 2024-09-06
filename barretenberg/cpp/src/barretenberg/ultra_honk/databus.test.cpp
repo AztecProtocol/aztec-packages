@@ -28,7 +28,7 @@ class DataBusTests : public ::testing::Test {
     static bool construct_and_verify_proof(MegaCircuitBuilder& builder)
     {
         MegaProver prover{ builder };
-        auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.instance->proving_key);
+        auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
         MegaVerifier verifier{ verification_key };
         auto proof = prover.construct_proof();
         return verifier.verify_proof(proof);

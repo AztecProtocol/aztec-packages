@@ -15,7 +15,7 @@
 using namespace bb;
 using numeric::uint256_t;
 
-using ProverInstance = ProverInstance_<UltraKeccakFlavor>;
+using DeciderProvingKey = DeciderProvingKey_<UltraKeccakFlavor>;
 using VerificationKey = UltraKeccakFlavor::VerificationKey;
 using Prover = UltraKeccakProver;
 using Verifier = UltraKeccakVerifier;
@@ -25,7 +25,7 @@ template <template <typename> typename Circuit> void generate_proof(uint256_t in
 
     UltraCircuitBuilder builder = Circuit<UltraCircuitBuilder>::generate(inputs);
 
-    auto instance = std::make_shared<ProverInstance>(builder);
+    auto instance = std::make_shared<DeciderProvingKey>(builder);
     Prover prover(instance);
     auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
     Verifier verifier(verification_key);

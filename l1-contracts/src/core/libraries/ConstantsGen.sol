@@ -102,8 +102,9 @@ library Constants {
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
-  uint256 internal constant AZTEC_SLOT_DURATION = 12;
+  uint256 internal constant AZTEC_SLOT_DURATION = 36;
   uint256 internal constant AZTEC_EPOCH_DURATION = 48;
+  uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =
     8142738430000951296386584486068033372964809139261822027365426310856631083550;
   uint256 internal constant FEE_JUICE_INITIAL_MINT = 20000000000;
@@ -142,6 +143,8 @@ library Constants {
     2631409926445785927331173506476539962589925110142857699603561302478860342858;
   uint256 internal constant FEE_JUICE_ADDRESS =
     10248142274714515101077825679585135641434041564851038865006795089686437446849;
+  uint256 internal constant ROUTER_ADDRESS =
+    7268799613082469933251235702514160327341161584122631177360064643484764773587;
   uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
   uint256 internal constant GAS_FEES_LENGTH = 2;
   uint256 internal constant GAS_LENGTH = 2;
@@ -165,6 +168,7 @@ library Constants {
   uint256 internal constant SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH = 6;
   uint256 internal constant PARTIAL_STATE_REFERENCE_LENGTH = 6;
   uint256 internal constant READ_REQUEST_LENGTH = 2;
+  uint256 internal constant TREE_LEAF_READ_REQUEST_LENGTH = 2;
   uint256 internal constant LOG_HASH_LENGTH = 3;
   uint256 internal constant SCOPED_LOG_HASH_LENGTH = 4;
   uint256 internal constant ENCRYPTED_LOG_HASH_LENGTH = 4;
@@ -191,14 +195,14 @@ library Constants {
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 2;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
-  uint256 internal constant PUBLIC_VALIDATION_REQUESTS_LENGTH = 514;
+  uint256 internal constant PUBLIC_VALIDATION_REQUESTS_LENGTH = 770;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 610;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 43;
   uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1336;
   uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2167;
   uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 1311;
-  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3629;
+  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3885;
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 663;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 12;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 29;

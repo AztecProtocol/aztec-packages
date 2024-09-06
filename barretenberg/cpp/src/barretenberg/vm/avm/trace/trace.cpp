@@ -2095,6 +2095,44 @@ Row AvmTraceBuilder::create_kernel_output_opcode_with_set_metadata_output_from_h
     };
 }
 
+// Specifically for handling the L1TOL2MSGEXISTS and NOTEHASHEXISTS opcodes
+Row AvmTraceBuilder::create_kernel_output_opcode_for_leaf_index(
+    uint8_t indirect, uint32_t clk, uint32_t data_offset, uint32_t metadata_offset, uint32_t leaf_index)
+{
+    // If doesnt exist, should not read_a, but instead get from public inputs
+    FF exists = execution_hints.get_leaf_index_hints().at(leaf_index);
+
+    auto [resolved_data, resolved_metadata] = unpack_indirects<2>(indirect, { data_offset, metadata_offset });
+    auto read_a = constrained_read_from_memory(
+        call_ptr, clk, resolved_data, AvmMemoryTag::FF, AvmMemoryTag::U8, IntermRegister::IA);
+
+    auto write_b = constrained_write_to_memory(
+        call_ptr, clk, resolved_metadata, exists, AvmMemoryTag::FF, AvmMemoryTag::U8, IntermRegister::IB);
+    bool tag_match = read_a.tag_match && write_b.tag_match;
+
+    return Row{
+        .main_clk = clk,
+        .main_ia = read_a.val,
+        .main_ib = write_b.val,
+        .main_ind_addr_a = FF(read_a.indirect_address),
+        .main_ind_addr_b = FF(write_b.indirect_address),
+        .main_internal_return_ptr = internal_return_ptr,
+        .main_mem_addr_a = FF(read_a.direct_address),
+        .main_mem_addr_b = FF(write_b.direct_address),
+        .main_pc = pc++,
+        .main_r_in_tag = static_cast<uint32_t>(AvmMemoryTag::FF),
+        .main_rwa = 0,
+        .main_rwb = 1,
+        .main_sel_mem_op_a = 1,
+        .main_sel_mem_op_b = 1,
+        .main_sel_q_kernel_output_lookup = 1,
+        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_a.is_indirect)),
+        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(write_b.is_indirect)),
+        .main_tag_err = static_cast<uint32_t>(!tag_match),
+        .main_w_in_tag = static_cast<uint32_t>(AvmMemoryTag::U8),
+    };
+}
+
 /**
  * @brief Create a kernel output opcode with set metadata output object
  *
@@ -2303,14 +2341,20 @@ void AvmTraceBuilder::op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t 
     op_jump(old_pc + 1);
 }
 
-void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect, uint32_t note_hash_offset, uint32_t dest_offset)
+void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect,
+                                          uint32_t note_hash_offset,
+                                          uint32_t leaf_index_offset,
+                                          uint32_t dest_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
+    auto leaf_index = unconstrained_read_from_memory(leaf_index_offset);
     Row row =
-        create_kernel_output_opcode_with_set_metadata_output_from_hint(indirect, clk, note_hash_offset, dest_offset);
-    kernel_trace_builder.op_note_hash_exists(
-        clk, side_effect_counter, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
+        create_kernel_output_opcode_for_leaf_index(indirect, clk, note_hash_offset, dest_offset, uint32_t(leaf_index));
+    kernel_trace_builder.op_note_hash_exists(clk,
+                                             /*side_effect_counter*/ uint32_t(leaf_index),
+                                             row.main_ia,
+                                             /*safe*/ static_cast<uint32_t>(row.main_ib));
     row.main_sel_op_note_hash_exists = FF(1);
 
     // Constrain gas cost
@@ -2319,7 +2363,6 @@ void AvmTraceBuilder::op_note_hash_exists(uint8_t indirect, uint32_t note_hash_o
     main_trace.push_back(row);
 
     debug("note_hash_exists side-effect cnt: ", side_effect_counter);
-    side_effect_counter++;
 }
 
 void AvmTraceBuilder::op_emit_note_hash(uint8_t indirect, uint32_t note_hash_offset)
@@ -2375,13 +2418,17 @@ void AvmTraceBuilder::op_emit_nullifier(uint8_t indirect, uint32_t nullifier_off
     side_effect_counter++;
 }
 
-void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect, uint32_t log_offset, uint32_t dest_offset)
+void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect,
+                                             uint32_t log_offset,
+                                             uint32_t leaf_index_offset,
+                                             uint32_t dest_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
-    Row row = create_kernel_output_opcode_with_set_metadata_output_from_hint(indirect, clk, log_offset, dest_offset);
+    auto leaf_index = unconstrained_read_from_memory(leaf_index_offset);
+    Row row = create_kernel_output_opcode_for_leaf_index(indirect, clk, log_offset, dest_offset, uint32_t(leaf_index));
     kernel_trace_builder.op_l1_to_l2_msg_exists(
-        clk, side_effect_counter, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
+        clk, uint32_t(leaf_index) /*side_effect_counter*/, row.main_ia, /*safe*/ static_cast<uint32_t>(row.main_ib));
     row.main_sel_op_l1_to_l2_msg_exists = FF(1);
 
     // Constrain gas cost
@@ -2390,7 +2437,6 @@ void AvmTraceBuilder::op_l1_to_l2_msg_exists(uint8_t indirect, uint32_t log_offs
     main_trace.push_back(row);
 
     debug("l1_to_l2_msg_exists side-effect cnt: ", side_effect_counter);
-    side_effect_counter++;
 }
 
 void AvmTraceBuilder::op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset)

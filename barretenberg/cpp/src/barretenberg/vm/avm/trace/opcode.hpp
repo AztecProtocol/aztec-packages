@@ -82,7 +82,6 @@ enum class OpCode : uint8_t {
     NULLIFIEREXISTS, // Notes & Nullifiers
     EMITNULLIFIER,   // Notes & Nullifiers
     L1TOL2MSGEXISTS, // Messages
-    HEADERMEMBER,    // Archive tree & Headers
     GETCONTRACTINSTANCE,
 
     // Accrued Substate
