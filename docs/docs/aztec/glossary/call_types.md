@@ -116,22 +116,34 @@ It is also possible to create public functions that can _only_ be invoked by pri
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
-#include_code enqueueing /noir-projects/noir-contracts/contracts/router_contract/src/main.nr rust
+#include_code enqueueing /noir-projects/noir-contracts/contracts/router_contract/src/utils.nr rust
 
-Note that this reveals what public function is being called on what contract.
-For this reason we've created a canonical router contract which implements some of the checks commonly performed.
-This conceals what contract performed the public call as the `context.msg_sender()` in the public function is the router itself (since the router's private function enqueued the public call).
+Note that this reveals what public function is being called on what contract, and perhaps more importantly which contract enqueued the call during private execution.
+For this reason we've created a canonical router contract which implements some of the checks commonly performed: this conceals the calling contract, as the `context.msg_sender()` in the public function will be the router itself (since it is the router that enqueues the public call).
 
 An example of how a deadline can be checked using the router contract follows:
 
 #include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
 
+`privately_check_timestamp` and `privately_check_block_number` are helper functions around the call to the router contract:
+
+#include_code helper_router_functions /noir-projects/noir-contracts/contracts/router_contract/src/utils.nr rust
+
 This is what the implementation of the check timestamp functionality looks like:
 
 #include_code check_timestamp /noir-projects/noir-contracts/contracts/router_contract/src/main.nr rust
 
+:::note
+Note that the router contract is not currently part of the [aztec-nr repository](https://github.com/AztecProtocol/aztec-nr).
+To add it as a dependency point to the aztec-packages repository instead:
+```toml
+[dependencies]
+aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/router_contract/src" }
+```
+:::
+
 Even with the router contract achieving good privacy is hard.
-This is especially the case when the value being checked is unique and stored in the contract's public storage.
+For example, if the value being checked against is unique and stored in the contract's public storage, it's then simple to find private transactions that are using that value in the enqueued public reads, and therefore link them to this contract.
 For this reason it is encouraged to try to avoid public function calls and instead privately read [Shared State](../../reference/developer_references/smart_contract_reference/storage/shared_state.md) when possible.
 
 ### Public Execution
@@ -174,11 +186,11 @@ No correctness is guaranteed on the result of `simulate`! Correct execution is e
 
 #### `prove`
 
-This creates and returns a transaction request, which includes proof of correct private execution and side-efects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or to check for execution failure.
+This creates and returns a transaction request, which includes proof of correct private execution and side-effects. The request is not broadcast however, and no gas is spent. It is typically used in testing contexts to inspect transaction parameters or to check for execution failure.
 
 #include_code local-tx-fails /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
-Like most Ethereum libraries, `prove` also simulates public execution to try to detect runtime errors that would only occur once the transaction is picked up by the sequencer. This makes `prove` very useful in testing environments, but users shuld be wary of both false positives and negatives in production environments, particularly if the node's data is stale. Public simulation can be skipped by setting the `skipPublicSimulation` flag.
+Like most Ethereum libraries, `prove` also simulates public execution to try to detect runtime errors that would only occur once the transaction is picked up by the sequencer. This makes `prove` very useful in testing environments, but users should be wary of both false positives and negatives in production environments, particularly if the node's data is stale. Public simulation can be skipped by setting the `skipPublicSimulation` flag.
 
 #### `send`
 

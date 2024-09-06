@@ -55,7 +55,6 @@ pub enum AvmOpcode {
     NULLIFIEREXISTS,
     EMITNULLIFIER,
     L1TOL2MSGEXISTS,
-    HEADERMEMBER,
     GETCONTRACTINSTANCE,
     EMITUNENCRYPTEDLOG,
     SENDL2TOL1MSG,
@@ -147,7 +146,6 @@ impl AvmOpcode {
             AvmOpcode::NULLIFIEREXISTS => "NULLIFIEREXISTS", // Notes & Nullifiers
             AvmOpcode::EMITNULLIFIER => "EMITNULLIFIER", // Notes & Nullifiers
             AvmOpcode::L1TOL2MSGEXISTS => "L1TOL2MSGEXISTS", // Messages
-            AvmOpcode::HEADERMEMBER => "HEADERMEMBER", // Archive tree & Headers
 
             // Accrued Substate
             AvmOpcode::EMITUNENCRYPTEDLOG => "EMITUNENCRYPTEDLOG",

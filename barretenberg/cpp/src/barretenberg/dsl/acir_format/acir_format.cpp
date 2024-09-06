@@ -212,6 +212,14 @@ void build_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.bigint_to_le_bytes_constraints.at(i));
     }
+    // assert equals
+    for (size_t i = 0; i < constraint_system.assert_equalities.size(); ++i) {
+        const auto& constraint = constraint_system.assert_equalities.at(i);
+
+        builder.assert_equal(constraint.a, constraint.b);
+        gate_counter.track_diff(constraint_system.gates_per_opcode,
+                                constraint_system.original_opcode_indices.assert_equalities.at(i));
+    }
 
     // RecursionConstraints
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since we're
@@ -227,10 +235,11 @@ void build_constraints(Builder& builder,
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
         process_honk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
 
-        // If the circuit does not itself contain honk recursion constraints but is going to be proven with honk then
-        // recursively verified, add a default aggregation object
+        // If the circuit does not itself contain honk recursion constraints but is going to be
+        // proven with honk then recursively verified, add a default aggregation object
         if (constraint_system.honk_recursion_constraints.empty() && honk_recursion &&
-            builder.is_recursive_circuit) { // Set a default aggregation object if we don't have one.
+            builder.is_recursive_circuit) { // Set a default aggregation object if we don't have
+                                            // one.
             AggregationObjectIndices current_aggregation_object =
                 stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
             // Make sure the verification key records the public input indices of the
@@ -265,31 +274,34 @@ void process_plonk_recursion_constraints(Builder& builder,
     for (size_t constraint_idx = 0; constraint_idx < constraint_system.recursion_constraints.size(); ++constraint_idx) {
         auto constraint = constraint_system.recursion_constraints[constraint_idx];
 
-        // A proof passed into the constraint should be stripped of its public inputs, except in the case where a
-        // proof contains an aggregation object itself. We refer to this as the `nested_aggregation_object`. The
-        // verifier circuit requires that the indices to a nested proof aggregation state are a circuit constant.
-        // The user tells us they how they want these constants set by keeping the nested aggregation object
-        // attached to the proof as public inputs. As this is the only object that can prepended to the proof if the
-        // proof is above the expected size (with public inputs stripped)
+        // A proof passed into the constraint should be stripped of its public inputs, except in
+        // the case where a proof contains an aggregation object itself. We refer to this as the
+        // `nested_aggregation_object`. The verifier circuit requires that the indices to a
+        // nested proof aggregation state are a circuit constant. The user tells us they how
+        // they want these constants set by keeping the nested aggregation object attached to
+        // the proof as public inputs. As this is the only object that can prepended to the
+        // proof if the proof is above the expected size (with public inputs stripped)
         AggregationObjectPubInputIndices nested_aggregation_object = {};
-        // If the proof has public inputs attached to it, we should handle setting the nested aggregation object
+        // If the proof has public inputs attached to it, we should handle setting the nested
+        // aggregation object
         if (constraint.proof.size() > proof_size_no_pub_inputs) {
             // The public inputs attached to a proof should match the aggregation object in size
             if (constraint.proof.size() - proof_size_no_pub_inputs != bb::AGGREGATION_OBJECT_SIZE) {
-                auto error_string = format(
-                    "Public inputs are always stripped from proofs unless we have a recursive proof.\n"
-                    "Thus, public inputs attached to a proof must match the recursive aggregation object in size "
-                    "which is ",
-                    bb::AGGREGATION_OBJECT_SIZE);
+                auto error_string = format("Public inputs are always stripped from proofs "
+                                           "unless we have a recursive proof.\n"
+                                           "Thus, public inputs attached to a proof must match "
+                                           "the recursive aggregation object in size "
+                                           "which is ",
+                                           bb::AGGREGATION_OBJECT_SIZE);
                 throw_or_abort(error_string);
             }
             for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
-                // Set the nested aggregation object indices to the current size of the public inputs
-                // This way we know that the nested aggregation object indices will always be the last
-                // indices of the public inputs
+                // Set the nested aggregation object indices to the current size of the public
+                // inputs This way we know that the nested aggregation object indices will
+                // always be the last indices of the public inputs
                 nested_aggregation_object[i] = static_cast<uint32_t>(constraint.public_inputs.size());
-                // Attach the nested aggregation object to the end of the public inputs to fill in
-                // the slot where the nested aggregation object index will point into
+                // Attach the nested aggregation object to the end of the public inputs to fill
+                // in the slot where the nested aggregation object index will point into
                 constraint.public_inputs.emplace_back(constraint.proof[i]);
             }
             // Remove the aggregation object so that they can be handled as normal public inputs
