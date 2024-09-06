@@ -373,33 +373,8 @@ class MegaFlavor {
       public:
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
-        ProverPolynomials(size_t circuit_size, BB_UNUSED bool is_structured, const TraceBlocks& block_data)
+        ProverPolynomials(size_t circuit_size, BB_UNUSED bool is_structured, BB_UNUSED const TraceBlocks& block_data)
         {
-            // Initialize all unshifted polynomials to the zero polynomial and initialize the
-            // shifted polys
-            // PLAN: hack these to use upper bounds into megaflavor and make sure e2e works
-            // (check if we are structured)
-            // PLAN: first try aztec ivc tests and aztec ivc bench with the test bounds
-            // -> polynomials start with q_ + trace block name and can use this size
-            // this->ecc_op = 1 << 9;
-            // this->pub_inputs = 4000; // offset = ecc_op
-            // this->arithmetic = 200000; // offset = ecc_op + pub_inputs, size = arithmetic
-            // -> corresponds to q_arith, q_m,
-            // q_l, q_r, q_4 -> likely fully initialize
-            // this->delta_range = 25000;
-            // this->elliptic = 80000;
-            // this->aux = 100000; // offset = sum all previous, size = this->aux
-            // -> q_aux
-            // this->lookup = 200000;
-            // this->busread = 10;
-            // this->poseidon_external = 30000;
-            // this->poseidon_internal = 150000;
-            // The Goblin ECC op wires (4x): Each of these has a single non-zero block at the start of the polynomial
-            // with length equal to the number of goblin ops used, which is never very large ( at most ~ 2 10)
-            // -> goblin ops in mega
-            // lagrange first and lagrange last -> one value is set?
-            // Initialize all unshifted polynomials to the zero
-            // polynomial and initialize the shifted polys
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
             // of these polys (in aztec_ivc_bench only).
             BB_OP_COUNT_TIME_NAME("ProverPolynomials(size_t)");
@@ -409,28 +384,6 @@ class MegaFlavor {
                                    /*largest possible index*/ circuit_size,
                                    /* offset */ 1 };
             }
-            // Could collapse this constant, but more explanatory - allocate one zero for shifts:
-            size_t structured_poly_offset = has_zero_row ? 1 : 0;
-            // structured here means specifically that it summarizes zeroes at the beginning and end
-            auto make_structured_poly = [=](size_t memory_size) {
-                return Polynomial{ memory_size,
-                                   /*largest possible index*/ circuit_size,
-                                   /*offset*/ structured_poly_offset };
-            };
-            this->ecc_op_wire_1 = make_structured_poly(block_data.ecc_op.size());
-            this->ecc_op_wire_2 = make_structured_poly(block_data.ecc_op.size());
-            this->ecc_op_wire_3 = make_structured_poly(block_data.ecc_op.size());
-            this->ecc_op_wire_4 = make_structured_poly(block_data.ecc_op.size());
-            // offset for ecc_op block
-            // WORKTODO(sparse) should the is_structured flag go into the block data?
-            structured_poly_offset = block_data.ecc_op.get_fixed_size(is_structured);
-            // offset for public inputs (no associated polynomials)
-            structured_poly_offset += block_data.pub_inputs.get_fixed_size(is_structured);
-            this->q_arith = make_structured_poly(block_data.arithmetic.size());
-            this->q_m = make_structured_poly(block_data.arithmetic.size());
-            structured_poly_offset += block_data.arithmetic.get_fixed_size(is_structured);
-            this->q_delta_range = make_structured_poly(block_data.arithmetic.size());
-
             // catch-all with fully formed polynomials
             for (auto& poly : get_unshifted()) {
                 if (poly.is_empty()) {
