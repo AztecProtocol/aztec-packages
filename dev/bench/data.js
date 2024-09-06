@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725566456685,
+  "lastUpdate": 1725608438144,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b1f9fb6a4986fdfa10207ec89f8b23e14d466073",
-          "message": "feat(avm): enable zeromorph in AVM verification (#8111)\n\nResolves #4944",
-          "timestamp": "2024-08-22T15:10:35+02:00",
-          "tree_id": "29f3db899b4876aa136b43c44c8a1fef2a4ea478",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b1f9fb6a4986fdfa10207ec89f8b23e14d466073"
-        },
-        "date": 1724333393834,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13616.287578999987,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10365.409744999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5052.450032999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4690.233216 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40121.292698000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40121293000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14733.815796,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14733816000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3751842381,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3751842381 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 210523123,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 210523123 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3069713219,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3069713219 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173538164,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173538164 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 120146782,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 120146782 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f7e4bfb0fc8070b7b79366241f3d37357dfaee27",
+          "message": "feat: add poseidon relations to UltraKeccak flavor and Solidity verifier (#8243)\n\nAdd PoseidonRelation to UltraKeccak and reflect the changes in Solidity\r\nverifier. This required :\r\n- implementing the Poseidon relations in Solidity and port the Poseidon\r\nparameters\r\n- changing constants\r\n-  adding the missing selectors in verification key\r\n- regenerate the Lagrange denominators for the Barycentric evaluation\r\n(Poseidon becomes the largest relation so the univariates in sumcheck\r\nhave length 8 rather than 7 so we need more precomputed stuff),\r\n- removed hardcoded constants in Zeromorph to aid debugging when we\r\nchange the number of commitments again\r\n\r\nSolidity verifier quirks: \r\n- moved the relations in a relation library and the transcript in a\r\ntranscript library which both have an external function because the\r\nverifier contract became too big (this might get reverted when\r\noptimising the contract)\r\n- modified the Javascript test thingy that deploys the verifier contract\r\nfor flow tests. I had to separately deploy the two libraries link them\r\nin the contract's bytecode and only then deploy the contract.\r\n\r\nAlso, now the ultra_honk_tests are typed and run both Ultra and\r\nUltraKeccak flavor to have a way of debugging problems in proofs sent to\r\nthe Solidity contract at bberg level as well.\r\n\r\nCloses:\r\nhttps://github.com/AztecProtocol/barretenberg/issues/1078",
+          "timestamp": "2024-09-06T07:30:20Z",
+          "tree_id": "0e6fcb5b59e8575ca217b8be99e2459c4b4c2779",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f7e4bfb0fc8070b7b79366241f3d37357dfaee27"
+        },
+        "date": 1725608430740,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13321.889499999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10109.712199999998 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5117.664004999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4613.850700000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39465.905832,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39465905000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14655.116689,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14655117000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3668143068,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3668143068 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 145637301,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 145637301 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2976019353,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2976019353 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 121370720,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 121370720 ns\nthreads: 1"
           }
         ]
       }
