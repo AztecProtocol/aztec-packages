@@ -1,6 +1,7 @@
 [package]
-name = "verify_honk_proof"
+name = "unquote_struct"
 type = "bin"
 authors = [""]
+compiler_version = ">=0.33.0"
 
 [dependencies]
