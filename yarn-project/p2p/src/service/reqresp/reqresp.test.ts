@@ -3,9 +3,9 @@ import { sleep } from '@aztec/foundation/sleep';
 
 import { describe, expect, it, jest } from '@jest/globals';
 
+import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
 import { MOCK_SUB_PROTOCOL_HANDLERS, connectToPeers, createNodes, startNodes, stopNodes } from '../../mocks/index.js';
 import { PING_PROTOCOL, TX_REQ_PROTOCOL } from './interface.js';
-import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
 
 // The Req Resp protocol should allow nodes to dial specific peers
 // and ask for specific data that they missed via the traditional gossip protocol.
@@ -142,13 +142,15 @@ describe('ReqResp', () => {
       expect(res).toBeUndefined();
 
       // Make sure the error message is logged
-      const errorMessage = `${new IndiviualReqRespTimeoutError().message} | peerId: ${nodes[1].p2p.peerId.toString()} | subProtocol: ${TX_REQ_PROTOCOL}`;
+      const errorMessage = `${
+        new IndiviualReqRespTimeoutError().message
+      } | peerId: ${nodes[1].p2p.peerId.toString()} | subProtocol: ${TX_REQ_PROTOCOL}`;
       expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
 
       await stopNodes(nodes);
     });
 
-    it("Should hit collective timeout if nothing is returned over the stream from multiple peers", async () => {
+    it('Should hit collective timeout if nothing is returned over the stream from multiple peers', async () => {
       const nodes = await createNodes(4);
 
       await startNodes(nodes);
@@ -175,8 +177,5 @@ describe('ReqResp', () => {
 
       await stopNodes(nodes);
     });
-
   });
-
-
 });

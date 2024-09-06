@@ -1,18 +1,18 @@
 // @attribution: lodestar impl for inspiration
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { executeTimeoutWithCustomError } from '@aztec/foundation/timer';
 
-import { type Stream, type IncomingStreamData, type PeerId } from '@libp2p/interface';
+import { type IncomingStreamData, type PeerId, type Stream } from '@libp2p/interface';
 import { pipe } from 'it-pipe';
 import { type Libp2p } from 'libp2p';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
+import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   type ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
 } from './interface.js';
-import { executeTimeoutWithCustomError } from '@aztec/foundation/timer';
-import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
 
 /**
  * The Request Response Service
@@ -86,13 +86,13 @@ export class ReqResp {
         }
       }
       return undefined;
-    }
+    };
 
     try {
       return await executeTimeoutWithCustomError<Buffer | undefined>(
         requestFunction,
         this.overallRequestTimeoutMs,
-        () => new CollectiveReqRespTimeoutError()
+        () => new CollectiveReqRespTimeoutError(),
       );
     } catch (e: any) {
       this.logger.error(`${e.message} | subProtocol: ${subProtocol}`);
@@ -137,7 +137,9 @@ export class ReqResp {
           await stream.close();
           this.logger.debug(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
         } catch (closeError) {
-          this.logger.error(`Error closing stream: ${closeError instanceof Error ? closeError.message : 'Unknown error'}`);
+          this.logger.error(
+            `Error closing stream: ${closeError instanceof Error ? closeError.message : 'Unknown error'}`,
+          );
         }
       }
     }
