@@ -69,7 +69,6 @@ pub enum AvmOpcode {
     // Gadgets
     KECCAK,
     POSEIDON2,
-    SHA256COMPRESSION,
     PEDERSEN, // temp - may be removed, but alot of contracts rely on it
     ECADD,
     MSM,
