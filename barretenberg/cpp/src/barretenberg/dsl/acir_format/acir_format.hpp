@@ -1,5 +1,6 @@
 #pragma once
 #include "aes128_constraint.hpp"
+#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "bigint_constraint.hpp"
@@ -50,6 +51,7 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> ec_add_constraints;
     std::vector<size_t> recursion_constraints;
     std::vector<size_t> honk_recursion_constraints;
+    std::vector<size_t> ivc_recursion_constraints;
     std::vector<size_t> bigint_from_le_bytes_constraints;
     std::vector<size_t> bigint_to_le_bytes_constraints;
     std::vector<size_t> bigint_operations;
@@ -75,6 +77,7 @@ struct AcirFormat {
 
     uint32_t num_acir_opcodes;
 
+    using PolyTripleConstraint = bb::poly_triple_<bb::curve::BN254::ScalarField>;
     std::vector<uint32_t> public_inputs;
 
     std::vector<LogicConstraint> logic_constraints;
@@ -96,6 +99,7 @@ struct AcirFormat {
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
     std::vector<RecursionConstraint> honk_recursion_constraints;
+    std::vector<RecursionConstraint> ivc_recursion_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
     std::vector<BigIntOperation> bigint_operations;
@@ -104,7 +108,7 @@ struct AcirFormat {
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
     // for q_M,q_L,q_R,q_O,q_C and indices of three variables taking the role of left, right and output wire
     // This could be a large vector so use slab allocator, we don't expect the blackbox implementations to be so large.
-    bb::SlabVector<bb::poly_triple_<bb::curve::BN254::ScalarField>> poly_triple_constraints;
+    bb::SlabVector<PolyTripleConstraint> poly_triple_constraints;
     bb::SlabVector<bb::mul_quad_<bb::curve::BN254::ScalarField>> quad_constraints;
     std::vector<BlockConstraint> block_constraints;
 
@@ -140,6 +144,7 @@ struct AcirFormat {
                    ec_add_constraints,
                    recursion_constraints,
                    honk_recursion_constraints,
+                   ivc_recursion_constraints,
                    poly_triple_constraints,
                    block_constraints,
                    bigint_from_le_bytes_constraints,
@@ -190,11 +195,16 @@ struct AcirProgramStack {
 
 template <typename Builder = bb::UltraCircuitBuilder>
 Builder create_circuit(AcirFormat& constraint_system,
-                       size_t size_hint = 0,
-                       WitnessVector const& witness = {},
+                       const size_t size_hint = 0,
+                       const WitnessVector& witness = {},
                        bool honk_recursion = false,
                        std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
                        bool collect_gates_per_opcode = false);
+
+MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
+                                         AztecIVC& ivc,
+                                         const WitnessVector& witness = {},
+                                         const size_t size_hint = 0);
 
 template <typename Builder>
 void build_constraints(
