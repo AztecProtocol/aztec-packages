@@ -68,7 +68,7 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
 
     auto ensure_non_zero = [](auto& polynomial) {
         bool has_non_zero_coefficient = false;
-        for (auto& coeff : polynomial) {
+        for (auto& coeff : polynomial.coeffs()) {
             has_non_zero_coefficient |= !coeff.is_zero();
         }
         ASSERT_TRUE(has_non_zero_coefficient);
@@ -226,102 +226,24 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
     };
 
-    for (auto& poly : polynomials.get_selectors()) {
-        ensure_non_zero(poly);
-    }
+    using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor>;
+    TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 
-    for (auto& poly : polynomials.get_tables()) {
-        ensure_non_zero(poly);
-    }
-
-    for (auto& poly : polynomials.get_wires()) {
-        ensure_non_zero(poly);
-    }
-}
-
-/**
- * @brief Test proof construction/verification for a structured execution trace
- *
- */
-TYPED_TEST(UltraHonkTests, StructuredTrace)
-{
-    auto builder = UltraCircuitBuilder();
-    size_t num_gates = 3;
-
-    // Add some arbitrary arithmetic gates that utilize public inputs
-    MockCircuits::add_arithmetic_gates_with_public_inputs(builder, num_gates);
-
-    // Construct an proving_key with a structured execution trace
-    TraceStructure trace_structure = TraceStructure::SMALL_TEST;
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder, trace_structure);
-    typename TestFixture::Prover prover(proving_key);
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    typename TestFixture::Verifier verifier(verification_key);
-    auto proof = prover.construct_proof();
-    EXPECT_TRUE(verifier.verify_proof(proof));
-}
-
-/**
- * @brief Test simple circuit with public inputs
- *
- */
-TYPED_TEST(UltraHonkTests, PublicInputs)
-{
-    auto builder = UltraCircuitBuilder();
-    size_t num_gates = 10;
-
-    // Add some arbitrary arithmetic gates that utilize public inputs
-    MockCircuits::add_arithmetic_gates_with_public_inputs(builder, num_gates);
-
-    TestFixture::prove_and_verify(builder, /*expected_result=*/true);
-}
-
-TYPED_TEST(UltraHonkTests, XorConstraint)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-
-    uint32_t left_value = engine.get_random_uint32();
-    uint32_t right_value = engine.get_random_uint32();
-
-    fr left_witness_value = fr{ left_value, 0, 0, 0 }.to_montgomery_form();
-    fr right_witness_value = fr{ right_value, 0, 0, 0 }.to_montgomery_form();
-
-    uint32_t left_witness_index = circuit_builder.add_variable(left_witness_value);
-    uint32_t right_witness_index = circuit_builder.add_variable(right_witness_value);
-
-    uint32_t xor_result_expected = left_value ^ right_value;
-
-    const auto lookup_accumulators = plookup::get_lookup_accumulators(
-        plookup::MultiTableId::UINT32_XOR, left_witness_value, right_witness_value, true);
-    auto xor_result = lookup_accumulators[plookup::ColumnIdx::C3]
-                                         [0]; // The zeroth index in the 3rd column is the fully accumulated xor
-
-    EXPECT_EQ(xor_result, xor_result_expected);
-    circuit_builder.create_gates_from_plookup_accumulators(
-        plookup::MultiTableId::UINT32_XOR, lookup_accumulators, left_witness_index, right_witness_index);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-}
-
-TYPED_TEST(UltraHonkTests, create_gates_from_plookup_accumulators)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-
-    fr input_value = fr::random_element();
-    const fr input_lo = static_cast<uint256_t>(input_value).slice(0, plookup::fixed_base::table::BITS_PER_LO_SCALAR);
-    const auto input_lo_index = circuit_builder.add_variable(input_lo);
-
-    const auto sequence_data_lo = plookup::get_lookup_accumulators(plookup::MultiTableId::FIXED_BASE_LEFT_LO, input_lo);
-
-    const auto lookup_witnesses = circuit_builder.create_gates_from_plookup_accumulators(
-        plookup::MultiTableId::FIXED_BASE_LEFT_LO, sequence_data_lo, input_lo_index);
-
-    const size_t num_lookups = plookup::fixed_base::table::NUM_TABLES_PER_LO_MULTITABLE;
-
-    EXPECT_EQ(num_lookups, lookup_witnesses[plookup::ColumnIdx::C1].size());
-
+    /**
+     * @brief A quick test to ensure that none of our polynomials are identically zero
+     *
+     * @note This test assumes that gates have been added by default in the composer
+     * to achieve non-zero polynomials
+     *
+     */
+<<<<<<< HEAD
+    struct test {};
+    TEST_F(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
+=======
+TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
+>>>>>>> origin/master
     {
-        const auto mask = plookup::fixed_base::table::MAX_TABLE_SIZE - 1;
+        auto circuit_builder = UltraCircuitBuilder();
 
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
         auto& polynomials = proving_key->proving_key.polynomials;
@@ -340,8 +262,14 @@ TYPED_TEST(UltraHonkTests, create_gates_from_plookup_accumulators)
         EXPECT_FALSE(prove_and_verify(proving_key));
     }
 
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-}
+    /**
+     * @brief Test proof construction/verification for a structured execution trace
+     *
+     */
+    TYPED_TEST(UltraHonkTests, StructuredTrace)
+    {
+        auto builder = UltraCircuitBuilder();
+        size_t num_gates = 3;
 
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
         auto& polynomials = proving_key->proving_key.polynomials;
@@ -371,65 +299,64 @@ TYPED_TEST(UltraHonkTests, create_gates_from_plookup_accumulators)
         auto construct_circuit_with_lookups = []() {
             UltraCircuitBuilder builder;
 
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        auto& polynomials = proving_key->proving_key.polynomials;
-
-        // Turn the lookup selector on for an arbitrary row where it is not already active
-        polynomials.q_lookup = polynomials.q_lookup.full();
-        EXPECT_TRUE(polynomials.q_lookup[25] != 1);
-        polynomials.q_lookup.at(25) = 1;
-
-        EXPECT_FALSE(prove_and_verify(proving_key));
-    }
-}
-
-TYPED_TEST(UltraHonkTests, test_no_lookup_proof)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-
-            auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-
-            prove_and_verify(proving_key);
-        }
-
-        // Failure mode 1: bad read counts/tags
-        {
-            auto builder = construct_circuit_with_lookups();
-
             auto proving_key = std::make_shared<DeciderProvingKey>(builder);
             auto& polynomials = proving_key->proving_key.polynomials;
 
-            // Erroneously update the read counts/tags at an arbitrary index
-            // Note: updating only one or the other may not cause failure due to the design of the relation algebra. For
+            // Turn the lookup selector on for an arbitrary row where it is not already active
+            polynomials.q_lookup = polynomials.q_lookup.full();
+            EXPECT_TRUE(polynomials.q_lookup[25] != 1);
+            polynomials.q_lookup.at(25) = 1;
+
+            EXPECT_FALSE(prove_and_verify(proving_key));
+        }
+    }
+
+    TYPED_TEST(UltraHonkTests, test_no_lookup_proof)
+    {
+        auto circuit_builder = UltraCircuitBuilder();
+
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+
+        prove_and_verify(proving_key);
+    }
+
+    // Failure mode 1: bad read counts/tags
+    {
+        auto builder = construct_circuit_with_lookups();
+
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        auto& polynomials = proving_key->proving_key.polynomials;
+
+        // Erroneously update the read counts/tags at an arbitrary index
+        // Note: updating only one or the other may not cause failure due to the design of the relation algebra. For
 <<<<<<< HEAD
-            // example, the inverse is only computed if read tags is non-zero, otherwise the inverse at the row in
-            // question will be zero. So if read counts is incremented at some arbitrary index but read tags is not, the
-            // inverse will be 0 and the erroneous read_counts value will get multiplied by 0 in the relation. This is
-            // expected behavior.
-            polynomials.lookup_read_counts.at(25) = 1;
-            polynomials.lookup_read_tags.at(25) = 1;
-=======
         // example, the inverse is only computed if read tags is non-zero, otherwise the inverse at the row in
         // question will be zero. So if read counts is incremented at some arbitrary index but read tags is not, the
         // inverse will be 0 and the erroneous read_counts value will get multiplied by 0 in the relation. This is
         // expected behavior.
-        polynomials.lookup_read_counts[25] = 1;
-        polynomials.lookup_read_tags[25] = 1;
+        polynomials.lookup_read_counts.at(25) = 1;
+        polynomials.lookup_read_tags.at(25) = 1;
+=======
+    // example, the inverse is only computed if read tags is non-zero, otherwise the inverse at the row in
+    // question will be zero. So if read counts is incremented at some arbitrary index but read tags is not, the
+    // inverse will be 0 and the erroneous read_counts value will get multiplied by 0 in the relation. This is
+    // expected behavior.
+    polynomials.lookup_read_counts[25] = 1;
+    polynomials.lookup_read_tags[25] = 1;
+>>>>>>> origin/master
 
         EXPECT_FALSE(prove_and_verify(proving_key));
     }
 
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-}
+    // Failure mode 2: bad lookup gate wire value
+    {
+        auto builder = construct_circuit_with_lookups();
 
-TYPED_TEST(UltraHonkTests, test_elliptic_gate)
-{
-    typedef grumpkin::g1::affine_element affine_element;
-    typedef grumpkin::g1::element element;
-    auto circuit_builder = UltraCircuitBuilder();
+        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+        auto& polynomials = proving_key->proving_key.polynomials;
 
         // Find a lookup gate and alter one of the wire values
-        for (auto [q_lookup, wire_3] : zip_view(polynomials.q_lookup, polynomials.w_o)) {
+        for (auto [q_lookup, wire_3] : zip_polys(polynomials.q_lookup, polynomials.w_o)) {
             if (!q_lookup.is_zero()) {
                 wire_3 += 1;
                 break;
@@ -448,11 +375,47 @@ TYPED_TEST(UltraHonkTests, test_elliptic_gate)
 
         // Turn the lookup selector on for an arbitrary row where it is not already active
         EXPECT_TRUE(polynomials.q_lookup[25] != 1);
-        polynomials.q_lookup[25] = 1;
+        polynomials.q_lookup.at(25) = 1;
 
         EXPECT_FALSE(prove_and_verify(proving_key));
     }
 }
+
+TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+}
+
+TYPED_TEST(UltraHonkTests, test_elliptic_gate)
+{
+    typedef grumpkin::g1::affine_element affine_element;
+    typedef grumpkin::g1::element element;
+    auto circuit_builder = UltraCircuitBuilder();
+
+    uint32_t add_idx = circuit_builder.add_variable(fr(left) + fr(right) + circuit_builder.get_variable(result_idx));
+    circuit_builder.create_big_add_gate(
+        { left_idx, right_idx, result_idx, add_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
+}
+}
+
+TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+}
+
+TYPED_TEST(UltraHonkTests, test_elliptic_gate)
+{
+    typedef grumpkin::g1::affine_element affine_element;
+    typedef grumpkin::g1::element element;
+    auto circuit_builder = UltraCircuitBuilder();
+
+    affine_element p1 = affine_element::random_element();
+    affine_element p2 = affine_element::random_element();
+
+    affine_element p3(element(p1) + element(p2));
+
+    uint32_t x1 = circuit_builder.add_variable(p1.x);
+    uint32_t y1 = circuit_builder.add_variable(p1.y);
+    uint32_t x2 = circuit_builder.add_variable(p2.x);
+    uint32_t y2 = circuit_builder.add_variable(p2.y);
+    uint32_t x3 = circuit_builder.add_variable(p3.x);
+    uint32_t y3 = circuit_builder.add_variable(p3.y);
 
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
@@ -463,22 +426,23 @@ TYPED_TEST(UltraHonkTests, non_trivial_tag_permutation)
     fr a = fr::random_element();
     fr b = -a;
 
-            uint32_t add_idx =
-                circuit_builder.add_variable(fr(left) + fr(right) + circuit_builder.get_variable(result_idx));
-            circuit_builder.create_big_add_gate(
-                { left_idx, right_idx, result_idx, add_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
-        }
-    }
-
-    circuit_builder.create_tag(1, 2);
-    circuit_builder.create_tag(2, 1);
-
-    circuit_builder.assign_tag(a_idx, 1);
-    circuit_builder.assign_tag(b_idx, 1);
-    circuit_builder.assign_tag(c_idx, 2);
-    circuit_builder.assign_tag(d_idx, 2);
+    p3 = affine_element(element(p1) - element(p2));
+    x3 = circuit_builder.add_variable(p3.x);
+    y3 = circuit_builder.add_variable(p3.y);
+    circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, -1 });
 
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+}
+
+circuit_builder.create_tag(1, 2);
+circuit_builder.create_tag(2, 1);
+
+circuit_builder.assign_tag(a_idx, 1);
+circuit_builder.assign_tag(b_idx, 1);
+circuit_builder.assign_tag(c_idx, 2);
+circuit_builder.assign_tag(d_idx, 2);
+
+TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
 TYPED_TEST(UltraHonkTests, non_trivial_tag_permutation_and_cycles)
@@ -528,10 +492,12 @@ TYPED_TEST(UltraHonkTests, bad_tag_permutation)
         auto a_idx = circuit_builder.add_variable(a);
         auto b_idx = circuit_builder.add_variable(b);
         auto c_idx = circuit_builder.add_variable(b);
-        auto d_idx = circuit_builder.add_variable(a + 1);
+        auto d_idx = circuit_builder.add_variable(a);
 
-        circuit_builder.create_add_gate({ a_idx, b_idx, circuit_builder.zero_idx, 1, 1, 0, 0 });
-        circuit_builder.create_add_gate({ c_idx, d_idx, circuit_builder.zero_idx, 1, 1, 0, -1 });
+        circuit_builder.create_add_gate(
+            { a_idx, b_idx, circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), fr::zero() });
+        circuit_builder.create_add_gate(
+            { c_idx, d_idx, circuit_builder.zero_idx, fr::one(), fr::one(), fr::zero(), fr::zero() });
 
         circuit_builder.create_tag(1, 2);
         circuit_builder.create_tag(2, 1);
@@ -543,11 +509,12 @@ TYPED_TEST(UltraHonkTests, bad_tag_permutation)
 
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
     }
-    // Same as above but without tag creation to check reason of failure is really tag mismatch
+
+    TYPED_TEST(UltraHonkTests, non_trivial_tag_permutation_and_cycles)
     {
         auto circuit_builder = UltraCircuitBuilder();
         fr a = fr::random_element();
-        fr b = -a;
+        fr c = -a;
 
         auto a_idx = circuit_builder.add_variable(a);
         auto b_idx = circuit_builder.add_variable(b);
@@ -605,7 +572,6 @@ TYPED_TEST(UltraHonkTests, sort_with_edges_gate)
 
         TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
     }
-}
 
     TYPED_TEST(UltraHonkTests, bad_tag_permutation)
     {
@@ -966,9 +932,53 @@ TYPED_TEST(UltraHonkTests, ram)
 
     circuit_builder.create_big_add_gate(
         {
-            auto circuit_builder = UltraCircuitBuilder();
-            fr a = fr::random_element();
-            fr b = -a;
+        auto circuit_builder = UltraCircuitBuilder();
+        fr a = fr::random_element();
+        fr b = -a;
+
+        auto a_idx = circuit_builder.add_variable(a);
+        auto b_idx = circuit_builder.add_variable(b);
+        auto c_idx = circuit_builder.add_variable(b);
+        auto d_idx = circuit_builder.add_variable(a + 1);
+
+        circuit_builder.create_add_gate({ a_idx, b_idx, circuit_builder.zero_idx, 1, 1, 0, 0 });
+        circuit_builder.create_add_gate({ c_idx, d_idx, circuit_builder.zero_idx, 1, 1, 0, -1 });
+
+        circuit_builder.create_tag(1, 2);
+        circuit_builder.create_tag(2, 1);
+
+        circuit_builder.assign_tag(a_idx, 1);
+        circuit_builder.assign_tag(b_idx, 1);
+        circuit_builder.assign_tag(c_idx, 2);
+        circuit_builder.assign_tag(d_idx, 2);
+
+        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
+        }
+        // Same as above but without tag creation to check reason of failure is really tag mismatch
+        {
+        auto circuit_builder = UltraCircuitBuilder();
+        fr a = fr::random_element();
+        fr b = -a;
+
+        auto a_idx = circuit_builder.add_variable(a);
+        auto b_idx = circuit_builder.add_variable(b);
+        auto c_idx = circuit_builder.add_variable(b);
+        auto d_idx = circuit_builder.add_variable(a + 1);
+
+        circuit_builder.create_add_gate({ a_idx, b_idx, circuit_builder.zero_idx, 1, 1, 0, 0 });
+        circuit_builder.create_add_gate({ c_idx, d_idx, circuit_builder.zero_idx, 1, 1, 0, -1 });
+
+        TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+        }
+}
+
+TYPED_TEST(UltraHonkTests, sort_widget)
+{
+    auto circuit_builder = UltraCircuitBuilder();
+    fr a = fr::one();
+    fr b = fr(2);
+    fr c = fr(3);
+    fr d = fr(4);
 
     auto a_idx = circuit_builder.add_variable(a);
     auto b_idx = circuit_builder.add_variable(b);
@@ -1329,7 +1339,7 @@ TYPED_TEST(UltraHonkTests, rom)
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
-TYPED_TEST(UltraHonkTests, ram)
+TYPED_TEST(UltraHonkTests, range_checks_on_duplicates)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
@@ -1349,81 +1359,6 @@ TYPED_TEST(UltraHonkTests, ram)
     uint32_t a_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(5));
     EXPECT_EQ(a_idx != ram_values[5], true);
 
-    uint32_t b_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(4));
-    uint32_t c_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(1));
-
-    circuit_builder.write_RAM_array(ram_id, circuit_builder.add_variable(4), circuit_builder.add_variable(500));
-    uint32_t d_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(4));
-
-    EXPECT_EQ(circuit_builder.get_variable(d_idx), 500);
-
-    // ensure these vars get used in another arithmetic gate
-    const auto e_value = circuit_builder.get_variable(a_idx) + circuit_builder.get_variable(b_idx) +
-                         circuit_builder.get_variable(c_idx) + circuit_builder.get_variable(d_idx);
-    uint32_t e_idx = circuit_builder.add_variable(e_value);
-
-    circuit_builder.create_big_add_gate(
-        {
-            a_idx,
-            b_idx,
-            c_idx,
-            d_idx,
-            -1,
-            -1,
-            -1,
-            -1,
-            0,
-        },
-        true);
-    circuit_builder.create_big_add_gate(
-        {
-            circuit_builder.zero_idx,
-            circuit_builder.zero_idx,
-            circuit_builder.zero_idx,
-            e_idx,
-            0,
-            0,
-            0,
-            0,
-            0,
-        },
-        false);
-
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
-}
-
-TYPED_TEST(UltraHonkTests, range_checks_on_duplicates)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-
-    uint32_t a = circuit_builder.add_variable(100);
-    uint32_t b = circuit_builder.add_variable(100);
-    uint32_t c = circuit_builder.add_variable(100);
-    uint32_t d = circuit_builder.add_variable(100);
-
-    circuit_builder.assert_equal(a, b);
-    circuit_builder.assert_equal(a, c);
-    circuit_builder.assert_equal(a, d);
-
-    circuit_builder.create_new_range_constraint(a, 1000);
-    circuit_builder.create_new_range_constraint(b, 1001);
-    circuit_builder.create_new_range_constraint(c, 999);
-    circuit_builder.create_new_range_constraint(d, 1000);
-
-    circuit_builder.create_big_add_gate(
-        {
-            a,
-            b,
-            c,
-            d,
-            0,
-            0,
-            0,
-            0,
-            0,
-        },
-        false);
-
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
@@ -1435,17 +1370,7 @@ TYPED_TEST(UltraHonkTests, range_constraint_small_variable)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
-    uint16_t mask = (1 << 8) - 1;
-    int a = engine.get_random_uint16() & mask;
-    uint32_t a_idx = circuit_builder.add_variable(fr(a));
-    uint32_t b_idx = circuit_builder.add_variable(fr(a));
-    ASSERT_NE(a_idx, b_idx);
-    uint32_t c_idx = circuit_builder.add_variable(fr(a));
-    ASSERT_NE(c_idx, b_idx);
-    circuit_builder.create_range_constraint(b_idx, 8, "bad range");
-    circuit_builder.assert_equal(a_idx, b_idx);
-    circuit_builder.create_range_constraint(c_idx, 8, "bad range");
-    circuit_builder.assert_equal(a_idx, c_idx);
+    EXPECT_EQ(circuit_builder.get_variable(d_idx), 500);
 
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
