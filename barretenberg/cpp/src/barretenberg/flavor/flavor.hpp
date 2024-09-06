@@ -93,10 +93,10 @@ namespace bb {
  */
 class PrecomputedEntitiesBase {
   public:
+    bool operator==(const PrecomputedEntitiesBase& other) const = default;
     uint64_t circuit_size;
     uint64_t log_circuit_size;
     uint64_t num_public_inputs;
-    CircuitType circuit_type; // TODO(#392)
 };
 
 /**
@@ -158,6 +158,7 @@ class VerificationKey_ : public PrecomputedCommitments {
     AggregationObjectPubInputIndices recursive_proof_public_input_indices = {};
     uint64_t pub_inputs_offset = 0;
 
+    bool operator==(const VerificationKey_&) const = default;
     VerificationKey_() = default;
     VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
