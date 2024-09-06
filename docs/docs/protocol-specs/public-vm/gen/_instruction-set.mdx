@@ -398,20 +398,6 @@ M[existsOffset] = exists`}
 </tr>
 <tr>
 	<td style={{'text-align': 'center'}}>0x2e</td>
-	<td style={{'text-align': 'center'}}><a id='isa-table-headermember'/><Markdown>\[\`HEADERMEMBER\`\](#isa-section-headermember)</Markdown></td>
-	<td><Markdown>(UNIMPLEMENTED) Check if a header exists in the [archive tree](../state/archive) and retrieve the specified member if so</Markdown></td>
-	<td><CodeBlock language="jsx">
-{`exists = context.worldState.header.has({
-    leafIndex: M[blockIndexOffset], leaf: M[msgKeyOffset]
-})
-M[existsOffset] = exists
-if exists:
-    header = context.worldState.headers.get(M[blockIndexOffset])
-    M[dstOffset] = header[M[memberIndexOffset]] // member`}
-	</CodeBlock></td>
-</tr>
-<tr>
-	<td style={{'text-align': 'center'}}>0x2f</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-getcontractinstance'/><Markdown>\[\`GETCONTRACTINSTANCE\`\](#isa-section-getcontractinstance)</Markdown></td>
 	<td><Markdown>Copies contract instance data to memory</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -427,7 +413,7 @@ if exists:
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x30</td>
+	<td style={{'text-align': 'center'}}>0x2f</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-emitunencryptedlog'/><Markdown>\[\`EMITUNENCRYPTEDLOG\`\](#isa-section-emitunencryptedlog)</Markdown></td>
 	<td><Markdown>Emit an unencrypted log</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -440,7 +426,7 @@ if exists:
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x31</td>
+	<td style={{'text-align': 'center'}}>0x30</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-sendl2tol1msg'/><Markdown>\[\`SENDL2TOL1MSG\`\](#isa-section-sendl2tol1msg)</Markdown></td>
 	<td><Markdown>Send an L2-to-L1 message</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -454,7 +440,7 @@ if exists:
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x32</td>
+	<td style={{'text-align': 'center'}}>0x31</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-call'/><Markdown>\[\`CALL\`\](#isa-section-call)</Markdown></td>
 	<td><Markdown>Call into another contract</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -469,7 +455,7 @@ updateContextAfterNestedCall(context, instr.args, nestedContext)`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x33</td>
+	<td style={{'text-align': 'center'}}>0x32</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-staticcall'/><Markdown>\[\`STATICCALL\`\](#isa-section-staticcall)</Markdown></td>
 	<td><Markdown>Call into another contract, disallowing World State and Accrued Substate modifications</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -484,7 +470,7 @@ updateContextAfterNestedCall(context, instr.args, nestedContext)`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x34</td>
+	<td style={{'text-align': 'center'}}>0x33</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-delegatecall'/><Markdown>\[\`DELEGATECALL\`\](#isa-section-delegatecall)</Markdown></td>
 	<td><Markdown>(UNIMPLEMENTED) Call into another contract, but keep the caller's `sender` and `storageAddress`</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -499,7 +485,7 @@ updateContextAfterNestedCall(context, instr.args, nestedContext)`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x35</td>
+	<td style={{'text-align': 'center'}}>0x34</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-return'/><Markdown>\[\`RETURN\`\](#isa-section-return)</Markdown></td>
 	<td><Markdown>Halt execution within this context (without revert), optionally returning some data</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -508,7 +494,7 @@ halt`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x36</td>
+	<td style={{'text-align': 'center'}}>0x35</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-revert'/><Markdown>\[\`REVERT\`\](#isa-section-revert)</Markdown></td>
 	<td><Markdown>Halt execution within this context as `reverted`, optionally returning some data</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -518,7 +504,7 @@ halt`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x37</td>
+	<td style={{'text-align': 'center'}}>0x36</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-to_radix_le'/><Markdown>\[\`TORADIXLE\`\](#isa-section-to_radix_le)</Markdown></td>
 	<td><Markdown>Convert a word to an array of limbs in little-endian radix form</Markdown></td>
 	<td><Markdown>TBD: Storage of limbs and if T[dstOffset] is constrained to U8</Markdown></td>
@@ -1519,55 +1505,12 @@ M[existsOffset] = exists`}
 - **Bit-size**: 120
 
 
-### <a id='isa-section-headermember'/>`HEADERMEMBER`
-(UNIMPLEMENTED) Check if a header exists in the [archive tree](../state/archive) and retrieve the specified member if so
-
-[See in table.](#isa-table-headermember)
-
-- **Opcode**: 0x2e
-- **Category**: World State - Archive Tree & Headers
-- **Flags**: 
-	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
-- **Args**: 
-	- **blockIndexOffset**: memory offset of the block index (same as archive tree leaf index) of the header to access
-	- **memberIndexOffset**: memory offset of the index of the member to retrieve from the header of the specified block
-	- **existsOffset**: memory offset specifying where to store operation's result (whether the leaf exists in the archive tree)
-	- **dstOffset**: memory offset specifying where to store operation's result (the retrieved header member)
-- **Expression**: 
-<CodeBlock language="jsx">
-{`exists = context.worldState.header.has({
-    leafIndex: M[blockIndexOffset], leaf: M[msgKeyOffset]
-})
-M[existsOffset] = exists
-if exists:
-    header = context.worldState.headers.get(M[blockIndexOffset])
-    M[dstOffset] = header[M[memberIndexOffset]] // member`}
-</CodeBlock>
-- **World State access tracing**: 
-<CodeBlock language="jsx">
-{`context.worldStateAccessTrace.archiveChecks.append(
-    TracedArchiveLeafCheck {
-        leafIndex: M[blockIndexOffset], // leafIndex == blockIndex
-        leaf: exists ? hash(header) : 0, // "exists" defined above
-    }
-)`}
-</CodeBlock>
-- **Additional AVM circuit checks**: Hashes entire header to archive leaf for tracing. Aggregates header accesses and so that a header need only be hashed once.
-- **Triggers downstream circuit operations**: Archive tree membership check
-- **Tag updates**: 
-<CodeBlock language="jsx">
-{`T[existsOffset] = u8
-T[dstOffset] = field`}
-</CodeBlock>
-- **Bit-size**: 152
-
-
 ### <a id='isa-section-getcontractinstance'/>`GETCONTRACTINSTANCE`
 Copies contract instance data to memory
 
 [See in table.](#isa-table-getcontractinstance)
 
-- **Opcode**: 0x2f
+- **Opcode**: 0x2e
 - **Category**: Other
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1597,7 +1540,7 @@ Emit an unencrypted log
 
 [See in table.](#isa-table-emitunencryptedlog)
 
-- **Opcode**: 0x30
+- **Opcode**: 0x2f
 - **Category**: Accrued Substate - Logging
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1622,7 +1565,7 @@ Send an L2-to-L1 message
 
 [See in table.](#isa-table-sendl2tol1msg)
 
-- **Opcode**: 0x31
+- **Opcode**: 0x30
 - **Category**: Accrued Substate - Messaging
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1648,7 +1591,7 @@ Call into another contract
 
 [See in table.](#isa-table-call)
 
-- **Opcode**: 0x32
+- **Opcode**: 0x31
 - **Category**: Control Flow - Contract Calls
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1695,7 +1638,7 @@ Call into another contract, disallowing World State and Accrued Substate modific
 
 [See in table.](#isa-table-staticcall)
 
-- **Opcode**: 0x33
+- **Opcode**: 0x32
 - **Category**: Control Flow - Contract Calls
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1739,7 +1682,7 @@ T[retOffset:retOffset+retSize] = field`}
 
 [See in table.](#isa-table-delegatecall)
 
-- **Opcode**: 0x34
+- **Opcode**: 0x33
 - **Category**: Control Flow - Contract Calls
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1783,7 +1726,7 @@ Halt execution within this context (without revert), optionally returning some d
 
 [See in table.](#isa-table-return)
 
-- **Opcode**: 0x35
+- **Opcode**: 0x34
 - **Category**: Control Flow - Contract Calls
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1805,7 +1748,7 @@ Halt execution within this context as `reverted`, optionally returning some data
 
 [See in table.](#isa-table-revert)
 
-- **Opcode**: 0x36
+- **Opcode**: 0x35
 - **Category**: Control Flow - Contract Calls
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1828,7 +1771,7 @@ Convert a word to an array of limbs in little-endian radix form
 
 [See in table.](#isa-table-to_radix_le)
 
-- **Opcode**: 0x37
+- **Opcode**: 0x36
 - **Category**: Conversions
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.

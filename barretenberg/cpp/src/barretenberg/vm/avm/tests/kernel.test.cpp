@@ -1226,14 +1226,16 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
 
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
-        trace_builder.op_note_hash_exists(/*indirect*/ false, value_offset, metadata_offset);
+        // TODO(#8287): Leaf index isnt constrained properly so we just set it to 0
+        trace_builder.op_note_hash_exists(/*indirect*/ false, value_offset, 0, metadata_offset);
     };
     // TODO: fix
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
         trace_builder.op_set(0, value_offset, indirect_value_offset, AvmMemoryTag::U32);
         trace_builder.op_set(0, metadata_offset, indirect_metadata_offset, AvmMemoryTag::U32);
-        trace_builder.op_note_hash_exists(/*indirect*/ 3, indirect_value_offset, indirect_metadata_offset);
+        // TODO(#8287): Leaf index isnt constrained properly so we just set it to 0
+        trace_builder.op_note_hash_exists(/*indirect*/ 3, indirect_value_offset, 0, indirect_metadata_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(
@@ -1352,7 +1354,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
-        trace_builder.op_l1_to_l2_msg_exists(/*indirect*/ false, value_offset, metadata_offset);
+        // TODO(#8287): Leaf index isnt constrained properly so we just set it to 0
+        trace_builder.op_l1_to_l2_msg_exists(/*indirect*/ false, value_offset, 0, metadata_offset);
     };
     auto checks = [=]([[maybe_unused]] bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(

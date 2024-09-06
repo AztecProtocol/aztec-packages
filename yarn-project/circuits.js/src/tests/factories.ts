@@ -37,12 +37,14 @@ import {
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_TREE_HEIGHT,
   L2ToL1Message,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_CALL,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
+  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
@@ -73,6 +75,7 @@ import {
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
+  NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -144,7 +147,13 @@ import { GasFees } from '../structs/gas_fees.js';
 import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
-import { PublicValidationRequests, ScopedL2ToL1Message, ScopedNoteHash } from '../structs/index.js';
+import {
+  PublicValidationRequests,
+  ScopedL2ToL1Message,
+  ScopedNoteHash,
+  TreeLeafReadRequest,
+  TreeLeafReadRequestHint,
+} from '../structs/index.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
 import { KernelData } from '../structs/kernel/kernel_data.js';
 import { BlockMergeRollupInputs } from '../structs/rollup/block_merge_rollup.js';
@@ -237,6 +246,14 @@ function makeScopedReadRequest(n: number): ScopedReadRequest {
   return new ScopedReadRequest(makeReadRequest(n), AztecAddress.fromBigInt(BigInt(n + 2)));
 }
 
+function makeTreeLeafReadRequest(seed: number) {
+  return new TreeLeafReadRequest(new Fr(seed), new Fr(seed + 1));
+}
+
+function makeTreeLeafReadRequestHint<N extends number>(seed: number, size: N) {
+  return new TreeLeafReadRequestHint(size, makeSiblingPath(seed, size));
+}
+
 /**
  * Creates arbitrary KeyValidationRequest from the given seed.
  * @param seed - The seed to use for generating the KeyValidationRequest.
@@ -310,8 +327,10 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 function makePublicValidationRequests(seed = 1) {
   return new PublicValidationRequests(
     makeRollupValidationRequests(seed),
-    makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
+    makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeTreeLeafReadRequest, seed + 0x10),
+    makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
     makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x95),
+    makeTuple(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, makeTreeLeafReadRequest, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
 }
@@ -421,10 +440,20 @@ export function makePublicCircuitPublicInputs(
     makeCallContext(seed, { storageContractAddress: storageContractAddress ?? makeAztecAddress(seed) }),
     fr(seed + 0x100),
     fr(seed + 0x200),
-    tupleGenerator(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300, ReadRequest.empty),
+    tupleGenerator(
+      MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+      makeTreeLeafReadRequest,
+      seed + 0x300,
+      TreeLeafReadRequest.empty,
+    ),
     tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x400, ReadRequest.empty),
     tupleGenerator(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x420, ReadRequest.empty),
-    tupleGenerator(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x440, ReadRequest.empty),
+    tupleGenerator(
+      MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
+      makeTreeLeafReadRequest,
+      seed + 0x440,
+      TreeLeafReadRequest.empty,
+    ),
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       makeContractStorageUpdateRequest,
@@ -518,6 +547,10 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
   );
 }
 
+function makeSiblingPath<N extends number>(seed: number, size: N) {
+  return makeTuple(size, fr, seed);
+}
+
 /**
  * Creates arbitrary/mocked membership witness where the sibling paths is an array of fields in an ascending order starting from `start`.
  * @param size - The size of the membership witness.
@@ -525,7 +558,7 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
  * @returns A membership witness.
  */
 export function makeMembershipWitness<N extends number>(size: N, start: number): MembershipWitness<N> {
-  return new MembershipWitness(size, BigInt(start), makeTuple(size, fr, start));
+  return new MembershipWitness(size, BigInt(start), makeSiblingPath(start, size));
 }
 
 /**
@@ -676,8 +709,18 @@ export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCirc
 export function makePublicKernelTailCircuitPrivateInputs(seed = 1): PublicKernelTailCircuitPrivateInputs {
   return new PublicKernelTailCircuitPrivateInputs(
     makePublicKernelData(seed),
+    makeTuple(
+      MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+      s => makeTreeLeafReadRequestHint(s, NOTE_HASH_TREE_HEIGHT),
+      seed + 0x20,
+    ),
     NullifierReadRequestHintsBuilder.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX),
     NullifierNonExistentReadRequestHintsBuilder.empty(),
+    makeTuple(
+      MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
+      s => makeTreeLeafReadRequestHint(s, L1_TO_L2_MSG_TREE_HEIGHT),
+      seed + 0x80,
+    ),
     makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataHint.empty, seed + 0x100),
     PublicDataReadRequestHintsBuilder.empty(),
     makePartialStateReference(seed + 0x200),

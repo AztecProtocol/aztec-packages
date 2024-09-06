@@ -129,7 +129,7 @@ Usually, an account contract will validate a signature of the incoming payload a
 
 This is a snippet of our Schnorr Account contract implementation, which uses Schnorr signatures for authentication:
 
-#include_code entrypoint /noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
+#include_code is_valid_impl /noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
 
 Still, different accounts may use different signing schemes, may require multi-factor authentication, or _may not even use signing keys_ and instead rely on other authentication mechanisms. Read [how to write an account contract](../../../tutorials/codealong/contract_tutorials/write_accounts_contract.md) for a full example of how to manage authentication.
 

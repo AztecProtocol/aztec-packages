@@ -45,7 +45,7 @@ export class TXEService {
     const noteCache = new ExecutionNoteCache(txHash);
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
-    logger.info(`TXE service initialized`);
+    logger.debug(`TXE service initialized`);
     const txe = new TXE(logger, trees, packedValuesCache, noteCache, keyStore, txeDatabase);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
@@ -306,6 +306,16 @@ export class TXEService {
   avmOpcodeFunctionSelector() {
     const functionSelector = (this.typedOracle as TXE).getFunctionSelector();
     return toForeignCallResult([toSingle(functionSelector.toField())]);
+  }
+
+  async avmOpcodeChainId() {
+    const chainId = await (this.typedOracle as TXE).getChainId();
+    return toForeignCallResult([toSingle(chainId)]);
+  }
+
+  async avmOpcodeVersion() {
+    const version = await (this.typedOracle as TXE).getVersion();
+    return toForeignCallResult([toSingle(version)]);
   }
 
   async packArgumentsArray(args: ForeignCallArray) {

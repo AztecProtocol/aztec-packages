@@ -10,9 +10,9 @@ template <typename FF_> class kernelImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 44> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+    static constexpr std::array<size_t, 43> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
                                                                             3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
+                                                                            3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
@@ -363,22 +363,15 @@ template <typename FF_> class kernelImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
-            auto tmp = (main_KERNEL_OUTPUT_SELECTORS *
-                        (new_term.main_side_effect_counter_shift - (new_term.main_side_effect_counter + FF(1))));
+            auto tmp = (main_KERNEL_INPUT_SELECTORS * (FF(1) - new_term.main_sel_q_kernel_lookup));
             tmp *= scaling_factor;
             std::get<41>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
-            auto tmp = (main_KERNEL_INPUT_SELECTORS * (FF(1) - new_term.main_sel_q_kernel_lookup));
-            tmp *= scaling_factor;
-            std::get<42>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
             auto tmp = (main_KERNEL_OUTPUT_SELECTORS * (FF(1) - new_term.main_sel_q_kernel_output_lookup));
             tmp *= scaling_factor;
-            std::get<43>(evals) += typename Accumulator::View(tmp);
+            std::get<42>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -453,10 +446,8 @@ template <typename FF> class kernel : public Relation<kernelImpl<FF>> {
         case 39:
             return "SSTORE_KERNEL_OUTPUT";
         case 41:
-            return "SIDE_EFFECT_COUNTER_INCREMENT";
-        case 42:
             return "KERNEL_INPUT_ACTIVE_CHECK";
-        case 43:
+        case 42:
             return "KERNEL_OUTPUT_ACTIVE_CHECK";
         }
         return std::to_string(index);
