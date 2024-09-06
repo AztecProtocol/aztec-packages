@@ -1,8 +1,10 @@
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
+#include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplemini_verifier.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
@@ -12,15 +14,15 @@
 
 using namespace bb;
 
-template <class PCS> class ZeroMorphRecursionTest : public CommitmentTest<typename PCS::Curve::NativeCurve> {};
+template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typename PCS::Curve::NativeCurve> {};
 
-numeric::RNG& engine = numeric::get_debug_randomness();
+numeric::RNG& shplemini_engine = numeric::get_debug_randomness();
 
 /**
- * @brief Test full Prover/Verifier protocol for proving single multilinear evaluation
+ * @brief Test Recursive Verification for 2 multilinear polynomials and a shift of one of them
  *
  */
-TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
+TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 {
     // Define some useful type aliases
     using Builder = UltraCircuitBuilder;
@@ -31,24 +33,25 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     using NativeCurve = typename Curve::NativeCurve;
     using NativePCS = std::conditional_t<std::same_as<NativeCurve, curve::BN254>, KZG<NativeCurve>, IPA<NativeCurve>>;
     using CommitmentKey = typename NativePCS::CK;
-    using ZeroMorphProver = ZeroMorphProver_<NativeCurve>;
+    using GeminiProver = GeminiProver_<NativeCurve>;
+    using ShplonkProver = ShplonkProver_<NativeCurve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using NativeFr = typename Curve::NativeCurve::ScalarField;
     using Polynomial = bb::Polynomial<NativeFr>;
-    using ZeroMorphVerifier = ZeroMorphVerifier_<Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
-    constexpr size_t N = 8;
-    constexpr size_t LOG_N = 3;
+    constexpr size_t N = 16;
+    constexpr size_t log_circuit_size = 4;
     constexpr size_t NUM_UNSHIFTED = 2;
     constexpr size_t NUM_SHIFTED = 1;
 
     srs::init_crs_factory("../srs_db/ignition");
-    std::vector<NativeFr> u_challenge(LOG_N);
-    for (size_t idx = 0; idx < LOG_N; ++idx) {
-        u_challenge[idx] = NativeFr::random_element(&engine);
-    };
 
+    std::vector<NativeFr> u_challenge(log_circuit_size);
+    for (size_t idx = 0; idx < log_circuit_size; ++idx) {
+        u_challenge[idx] = NativeFr::random_element(&shplemini_engine);
+    };
     // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)
     std::vector<Polynomial> f_polynomials; // unshifted polynomials
     std::vector<NativeFr> v_evaluations;
@@ -57,6 +60,7 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
         f_polynomials[i][0] = NativeFr(0); // ensure f is "shiftable"
         v_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge));
     }
+
     // Construct some "shifted" multilinear polynomials h_i as the left-shift-by-1 of f_i
     std::vector<Polynomial> g_polynomials; // to-be-shifted polynomials
     std::vector<Polynomial> h_polynomials; // shifts of the to-be-shifted polynomials
@@ -69,13 +73,16 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
         }
     }
 
+    std::vector<NativeFr> claimed_evaluations;
+    claimed_evaluations.reserve(v_evaluations.size() + w_evaluations.size());
+    claimed_evaluations.insert(claimed_evaluations.end(), v_evaluations.begin(), v_evaluations.end());
+    claimed_evaluations.insert(claimed_evaluations.end(), w_evaluations.begin(), w_evaluations.end());
     // Compute commitments [f_i]
     std::vector<NativeCommitment> f_commitments;
-    auto commitment_key = std::make_shared<CommitmentKey>(1024);
+    auto commitment_key = std::make_shared<CommitmentKey>(4096);
     for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
         f_commitments.emplace_back(commitment_key->commit(f_polynomials[i]));
     }
-
     // Construct container of commitments of the "to-be-shifted" polynomials [g_i] (= [f_i])
     std::vector<NativeCommitment> g_commitments;
     for (size_t i = 0; i < NUM_SHIFTED; ++i) {
@@ -85,15 +92,48 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     // Initialize an empty NativeTranscript
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
-    // Execute Prover protocol
-    ZeroMorphProver::prove(N,
-                           RefVector(f_polynomials),
-                           RefVector(g_polynomials),
-                           RefVector(v_evaluations),
-                           RefVector(w_evaluations),
-                           u_challenge,
-                           commitment_key,
-                           prover_transcript);
+    NativeFr rho = prover_transcript->template get_challenge<NativeFr>("rho");
+    std::vector<NativeFr> rhos = gemini::powers_of_rho(rho, NUM_SHIFTED + NUM_UNSHIFTED);
+    // Batch the unshifted polynomials and the to-be-shifted polynomials using ρ
+    Polynomial batched_poly_unshifted(N);
+    size_t poly_idx = 0;
+    for (auto& unshifted_poly : f_polynomials) {
+        batched_poly_unshifted.add_scaled(unshifted_poly, rhos[poly_idx]);
+        ++poly_idx;
+    }
+
+    Polynomial batched_poly_to_be_shifted(N); // batched to-be-shifted polynomials
+    for (auto& to_be_shifted_poly : g_polynomials) {
+        batched_poly_to_be_shifted.add_scaled(to_be_shifted_poly, rhos[poly_idx]);
+        ++poly_idx;
+    };
+
+    // Compute d-1 polynomials Fold^(i), i = 1, ..., d-1.
+    auto fold_polynomials = GeminiProver::compute_gemini_polynomials(
+        u_challenge, std::move(batched_poly_unshifted), std::move(batched_poly_to_be_shifted));
+    // Comute and add to trasnscript the commitments [Fold^(i)], i = 1, ..., d-1
+    for (size_t l = 0; l < log_circuit_size - 1; ++l) {
+        NativeCommitment current_commitment = commitment_key->commit(fold_polynomials[l + 2]);
+        prover_transcript->send_to_verifier("Gemini:FOLD_" + std::to_string(l + 1), current_commitment);
+    }
+    const NativeFr r_challenge = prover_transcript->template get_challenge<NativeFr>("Gemini:r");
+
+    const auto [gemini_opening_pairs, gemini_witnesses] =
+        GeminiProver::compute_fold_polynomial_evaluations(u_challenge, std::move(fold_polynomials), r_challenge);
+
+    std::vector<ProverOpeningClaim<NativeCurve>> opening_claims;
+    for (size_t l = 0; l < log_circuit_size; ++l) {
+        std::string label = "Gemini:a_" + std::to_string(l);
+        const auto& evaluation = gemini_opening_pairs[l + 1].evaluation;
+        prover_transcript->send_to_verifier(label, evaluation);
+        opening_claims.emplace_back(gemini_witnesses[l], gemini_opening_pairs[l]);
+    }
+    opening_claims.emplace_back(gemini_witnesses[log_circuit_size], gemini_opening_pairs[log_circuit_size]);
+
+    // Shplonk prover output:
+    // - opening pair: (z_challenge, 0)
+    // - witness: polynomial Q - Q_z
+    ShplonkProver::prove(commitment_key, opening_claims, prover_transcript);
 
     Builder builder;
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, prover_transcript->proof_data);
@@ -121,22 +161,18 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     };
     auto stdlib_f_commitments = commitments_to_witnesses(f_commitments);
     auto stdlib_g_commitments = commitments_to_witnesses(g_commitments);
-    auto stdlib_v_evaluations = elements_to_witness(v_evaluations);
-    auto stdlib_w_evaluations = elements_to_witness(w_evaluations);
+    auto stdlib_claimed_evaluations = elements_to_witness(claimed_evaluations);
 
-    std::vector<Fr> u_challenge_in_circuit(CONST_PROOF_SIZE_LOG_N);
-    std::fill_n(u_challenge_in_circuit.begin(), CONST_PROOF_SIZE_LOG_N, Fr::from_witness(&builder, 0));
-    u_challenge_in_circuit[0] = Fr::from_witness(&builder, u_challenge[0]);
+    std::vector<Fr> u_challenge_in_circuit = elements_to_witness(u_challenge);
 
-    [[maybe_unused]] auto opening_claim = ZeroMorphVerifier::verify(Fr::from_witness(&builder, N),
-                                                                    RefVector(stdlib_f_commitments), // unshifted
-                                                                    RefVector(stdlib_g_commitments), // to-be-shifted
-                                                                    RefVector(stdlib_v_evaluations), // unshifted
-                                                                    RefVector(stdlib_w_evaluations), // shifted
-                                                                    u_challenge_in_circuit,
-                                                                    Commitment::one(&builder),
-                                                                    stdlib_verifier_transcript,
-                                                                    {},
-                                                                    {});
+    [[maybe_unused]] auto opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, log_circuit_size),
+                                                       RefVector(stdlib_f_commitments),
+                                                       RefVector(stdlib_g_commitments),
+                                                       RefVector(stdlib_claimed_evaluations),
+                                                       u_challenge_in_circuit,
+                                                       Commitment::one(&builder),
+                                                       stdlib_verifier_transcript);
+
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
