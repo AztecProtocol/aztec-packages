@@ -22,7 +22,6 @@ export class L2Block {
   /**
    * Constructs a new instance from named fields.
    * @param fields - Fields to pass to the constructor.
-   * @param blockHash - Hash of the block.
    * @returns A new instance.
    */
   static fromFields(fields: {
