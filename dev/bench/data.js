@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725636247310,
+  "lastUpdate": 1725638347078,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "580708a1f7c18338888d83e749a0740a322c86e0",
-          "message": "feat: oink recursive verifier (#8121)\n\nIntroduce an Oink recursive verifier and use it to replace the\r\nequivalent logic in Ultra and PG recursive verifiers.\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/949",
-          "timestamp": "2024-08-22T08:20:27-07:00",
-          "tree_id": "da593a8c45d22b5e003204ff946f155e1efdfcec",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/580708a1f7c18338888d83e749a0740a322c86e0"
-        },
-        "date": 1724341551910,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13596.150179999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10470.292163999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5052.010317999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4645.362612999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40237.851298,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40237851000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14713.377862,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14713377000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3781292675,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3781292675 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208385654,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 208385654 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3080830471,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3080830471 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173627302,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173627302 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 121334074,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 121334074 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "iakovenkos",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e51d157fc7ae9a8ffeba8e6f89dbe87034d36db4",
+          "message": "refactor: more efficient verification with shplonk and gemini (#8351)\n\n- Created a separate ShpleminiVerifier class\n- Reduced the number of batch_mul calls. Only 1 batch_mul call with KZG (compared to 6 in the existing Gemini+Shplonk and to 4 in the Zeromorph flow)\n- Shplemini Docs + minor docs improvements in other parts\n- Shplemini Tests: unit tests for shplemini functions, recursion test, integration tests with KZG, IPA\n- batch_mul_native moved to commitment_schemes/utils",
+          "timestamp": "2024-09-06T11:43:32-04:00",
+          "tree_id": "42734654a00633a7f46e74420634e4276115288e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e51d157fc7ae9a8ffeba8e6f89dbe87034d36db4"
+        },
+        "date": 1725638340329,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13396.093276000016,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10185.861603000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5099.453604999993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4691.627821 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39177.849045,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39177848000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14628.956683,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14628957000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3676608383,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3676608383 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 147332608,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 147332608 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3018374283,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3018374283 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 121505119,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 121505119 ns\nthreads: 1"
           }
         ]
       }
