@@ -1010,7 +1010,6 @@ fn solve_blackbox_func_call(
     witness_map[&Witness(3)]
 }
 
-
 // N inputs
 // 32 outputs
 fn blake2s_op(
@@ -1353,7 +1352,6 @@ fn poseidon2_permutation_zeroes() {
     assert_eq!(expected_result, into_repr_vec(internal_expected_result));
     assert_eq!(result, expected_result);
 }
-
 
 #[test]
 fn sha256_compression_zeros() {
