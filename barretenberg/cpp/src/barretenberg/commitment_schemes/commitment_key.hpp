@@ -95,7 +95,6 @@ template <class Curve> class CommitmentKey {
                                   " points with an SRS of size ",
                                   srs->get_monomial_size()));
         }
-<<<<<<< HEAD
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
@@ -106,10 +105,6 @@ template <class Curve> class CommitmentKey {
             polynomial.span, point_table, pippenger_runtime_state);
         DEBUG_LOG(point);
         return point;
-=======
-        return scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
-            polynomial, srs->get_monomial_points(), pippenger_runtime_state);
->>>>>>> origin/master
     };
 
     /**
@@ -129,7 +124,6 @@ template <class Curve> class CommitmentKey {
         ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
-<<<<<<< HEAD
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial spann.
         std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
