@@ -13,7 +13,6 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
 import {
-  BaseError,
   ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
@@ -503,7 +502,7 @@ export class L1Publisher {
           // We almost always want to skip simulation here if we are not already within the slot, else we will be one slot ahead
           // See comment attached to static SKIP_SIMULATION definition
           if (!L1Publisher.SKIP_SIMULATION) {
-            const simulationResult = await this.rollupContract.simulate.proposeWithBody(args, {
+            await this.rollupContract.simulate.proposeWithBody(args, {
               account: this.account,
             });
           }

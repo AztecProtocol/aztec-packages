@@ -19,7 +19,6 @@ export class ValidationService {
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
   async createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
-
     // NOTE: just signing the archive and txs for now
     const payload = serializeToBuffer([archive, txs]);
     const hashed = keccak256(payload);
