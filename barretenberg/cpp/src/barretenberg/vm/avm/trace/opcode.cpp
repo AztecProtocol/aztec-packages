@@ -79,16 +79,10 @@ std::string to_string(OpCode opcode)
         return "BLOCKNUMBER";
     case OpCode::TIMESTAMP:
         return "TIMESTAMP";
-    case OpCode::COINBASE:
-        return "COINBASE";
     case OpCode::FEEPERL2GAS:
         return "FEEPERL2GAS";
     case OpCode::FEEPERDAGAS:
         return "FEEPERDAGAS";
-    case OpCode::BLOCKL2GASLIMIT:
-        return "BLOCKL2GASLIMIT";
-    case OpCode::BLOCKDAGASLIMIT:
-        return "BLOCKDAGASLIMIT";
     // Execution Environment - Calldata
     case OpCode::CALLDATACOPY:
         return "CALLDATACOPY";
