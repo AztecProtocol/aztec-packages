@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/ref_array.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include <cstddef>
@@ -49,6 +50,18 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
     // If enabled, we keep slow stack traces to be able to correlate gates with code locations where they were added
     StackTraces stack_traces;
 #endif
+#ifdef TRACY_HACK_GATES_AS_MEMORY
+    std::vector<size_t> allocated_gates;
+#endif
+    void tracy_gate()
+    {
+#ifdef TRACY_HACK_GATES_AS_MEMORY
+        std::unique_lock<std::mutex> lock(GLOBAL_GATE_MUTEX);
+        GLOBAL_GATE++;
+        TRACY_GATE_ALLOC(GLOBAL_GATE);
+        allocated_gates.push_back(GLOBAL_GATE);
+#endif
+    }
 
     Wires wires; // vectors of indices into a witness variables array
     Selectors selectors;
@@ -76,6 +89,18 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 
     uint32_t get_fixed_size() const { return fixed_size; }
     void set_fixed_size(uint32_t size_in) { fixed_size = size_in; }
+#ifdef TRACY_HACK_GATES_AS_MEMORY
+    ~ExecutionTraceBlock()
+    {
+        std::unique_lock<std::mutex> lock(GLOBAL_GATE_MUTEX);
+        for ([[maybe_unused]] size_t gate : allocated_gates) {
+            if (!FREED_GATES.contains(gate)) {
+                TRACY_GATE_FREE(gate);
+                FREED_GATES.insert(gate);
+            }
+        }
+    }
+#endif
 };
 
 } // namespace bb

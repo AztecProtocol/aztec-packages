@@ -730,24 +730,23 @@ AvmFlavor::AllConstRefValues::AllConstRefValues(
     , main_nullifier_non_exists_write_offset_shift(il[722])
     , main_pc_shift(il[723])
     , main_sel_execution_row_shift(il[724])
-    , main_side_effect_counter_shift(il[725])
-    , main_sload_write_offset_shift(il[726])
-    , main_sstore_write_offset_shift(il[727])
-    , mem_glob_addr_shift(il[728])
-    , mem_rw_shift(il[729])
-    , mem_sel_mem_shift(il[730])
-    , mem_tag_shift(il[731])
-    , mem_tsp_shift(il[732])
-    , mem_val_shift(il[733])
-    , slice_addr_shift(il[734])
-    , slice_clk_shift(il[735])
-    , slice_cnt_shift(il[736])
-    , slice_col_offset_shift(il[737])
-    , slice_sel_cd_cpy_shift(il[738])
-    , slice_sel_mem_active_shift(il[739])
-    , slice_sel_return_shift(il[740])
-    , slice_sel_start_shift(il[741])
-    , slice_space_id_shift(il[742])
+    , main_sload_write_offset_shift(il[725])
+    , main_sstore_write_offset_shift(il[726])
+    , mem_glob_addr_shift(il[727])
+    , mem_rw_shift(il[728])
+    , mem_sel_mem_shift(il[729])
+    , mem_tag_shift(il[730])
+    , mem_tsp_shift(il[731])
+    , mem_val_shift(il[732])
+    , slice_addr_shift(il[733])
+    , slice_clk_shift(il[734])
+    , slice_cnt_shift(il[735])
+    , slice_col_offset_shift(il[736])
+    , slice_sel_cd_cpy_shift(il[737])
+    , slice_sel_mem_active_shift(il[738])
+    , slice_sel_return_shift(il[739])
+    , slice_sel_start_shift(il[740])
+    , slice_space_id_shift(il[741])
 {}
 
 AvmFlavor::ProverPolynomials::ProverPolynomials(ProvingKey& proving_key)
@@ -1489,7 +1488,6 @@ AvmFlavor::AllConstRefValues AvmFlavor::ProverPolynomials::get_row(size_t row_id
                      main_nullifier_non_exists_write_offset_shift[row_idx],
                      main_pc_shift[row_idx],
                      main_sel_execution_row_shift[row_idx],
-                     main_side_effect_counter_shift[row_idx],
                      main_sload_write_offset_shift[row_idx],
                      main_sstore_write_offset_shift[row_idx],
                      mem_glob_addr_shift[row_idx],
@@ -2263,5 +2261,24 @@ AvmFlavor::PartiallyEvaluatedMultivariates::PartiallyEvaluatedMultivariates(cons
         poly = Polynomial(circuit_size / 2);
     }
 }
+
+AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
+    : circuit_size(circuit_size)
+    , evaluation_domain(bb::EvaluationDomain<FF>(circuit_size, circuit_size))
+    , commitment_key(std::make_shared<CommitmentKey>(circuit_size + 1))
+{
+    // TODO: These come from PrecomputedEntitiesBase, ideal we'd just call that class's constructor.
+    this->log_circuit_size = numeric::get_msb(circuit_size);
+    this->num_public_inputs = num_public_inputs;
+
+    // Allocate memory for precomputed polynomials
+    for (auto& poly : PrecomputedEntities<Polynomial>::get_all()) {
+        poly = Polynomial(circuit_size);
+    }
+    // Allocate memory for witness polynomials
+    for (auto& poly : WitnessEntities<Polynomial>::get_all()) {
+        poly = Polynomial(circuit_size);
+    }
+};
 
 } // namespace bb

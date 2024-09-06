@@ -2,7 +2,7 @@ mod util;
 mod auth_oracle;
 
 contract SchnorrSingleKeyAccount {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext};
+    use dep::aztec::prelude::PrivateContext;
 
     use dep::authwit::{entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions};
 
@@ -24,8 +24,9 @@ contract SchnorrSingleKeyAccount {
 
     #[contract_library_method]
     fn is_valid_impl(context: &mut PrivateContext, outer_hash: Field) -> bool {
-        let witness = get_auth_witness(outer_hash);
-        assert(recover_address(outer_hash, witness).eq(context.this_address()));
-        true
+        let witness = unsafe {
+            get_auth_witness(outer_hash)
+        };
+        recover_address(outer_hash, witness).eq(context.this_address())
     }
 }

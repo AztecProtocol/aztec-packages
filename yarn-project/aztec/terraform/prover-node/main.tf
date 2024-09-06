@@ -104,8 +104,6 @@ resource "aws_service_discovery_service" "aztec-prover-node" {
 # Configure an EFS filesystem.
 resource "aws_efs_file_system" "prover_node_data_store" {
   creation_token                  = "${var.DEPLOY_TAG}-prover-node-data"
-  throughput_mode                 = "provisioned"
-  provisioned_throughput_in_mibps = 20
 
   tags = {
     Name = "${var.DEPLOY_TAG}-prover-node-data"

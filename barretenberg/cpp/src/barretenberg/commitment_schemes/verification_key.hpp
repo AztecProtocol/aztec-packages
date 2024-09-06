@@ -33,11 +33,7 @@ template <> class VerifierCommitmentKey<curve::BN254> {
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
 
-    VerifierCommitmentKey()
-    {
-        srs::init_crs_factory("../srs_db/ignition");
-        srs = srs::get_crs_factory<Curve>()->get_verifier_crs();
-    };
+    VerifierCommitmentKey() { srs = srs::get_crs_factory<Curve>()->get_verifier_crs(); };
 
     Commitment get_g1_identity() { return srs->get_g1_identity(); }
 
@@ -88,13 +84,12 @@ template <> class VerifierCommitmentKey<curve::Grumpkin> {
     VerifierCommitmentKey(size_t num_points)
         : pippenger_runtime_state(num_points)
     {
-        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
         srs = srs::get_crs_factory<Curve>()->get_verifier_crs(num_points);
     }
 
     Commitment get_g1_identity() { return srs->get_g1_identity(); }
 
-    Commitment* get_monomial_points() { return srs->get_monomial_points(); }
+    std::span<const Commitment> get_monomial_points() { return srs->get_monomial_points(); }
 
     bb::scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
 

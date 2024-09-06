@@ -83,13 +83,13 @@ class UltraFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    template <size_t NUM_INSTANCES>
+    template <size_t NUM_KEYS>
+    using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
+        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_KEYS>());
+    template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariates =
-        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
-    template <size_t NUM_INSTANCES>
-    using OptimisedProtogalaxyTupleOfTuplesOfUnivariates =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations,
-                                                                   NUM_INSTANCES,
+                                                                   NUM_KEYS,
                                                                    /*optimised=*/true>());
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
@@ -570,7 +570,7 @@ class UltraFlavor {
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH, size_t SKIP_COUNT>
-    using OptimisedProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
+    using ProverUnivariatesWithOptimisticSkipping = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.

@@ -1250,61 +1250,6 @@ T[existsOffset] = u8,
 `,
   },
   {
-    id: "headermember",
-    Name: "`HEADERMEMBER`",
-    Category: "World State - Archive Tree & Headers",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "blockIndexOffset",
-        description:
-          "memory offset of the block index (same as archive tree leaf index) of the header to access",
-      },
-      {
-        name: "memberIndexOffset",
-        description:
-          "memory offset of the index of the member to retrieve from the header of the specified block",
-      },
-      {
-        name: "existsOffset",
-        description:
-          "memory offset specifying where to store operation's result (whether the leaf exists in the archive tree)",
-      },
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result (the retrieved header member)",
-      },
-    ],
-    Expression: `
-exists = context.worldState.header.has({
-    leafIndex: M[blockIndexOffset], leaf: M[msgKeyOffset]
-})
-M[existsOffset] = exists
-if exists:
-    header = context.worldState.headers.get(M[blockIndexOffset])
-    M[dstOffset] = header[M[memberIndexOffset]] // member
-`,
-    Summary:
-      "(UNIMPLEMENTED) Check if a header exists in the [archive tree](../state/archive) and retrieve the specified member if so",
-    "World State access tracing": `
-context.worldStateAccessTrace.archiveChecks.append(
-    TracedArchiveLeafCheck {
-        leafIndex: M[blockIndexOffset], // leafIndex == blockIndex
-        leaf: exists ? hash(header) : 0, // "exists" defined above
-    }
-)
-`,
-    "Additional AVM circuit checks":
-      "Hashes entire header to archive leaf for tracing. Aggregates header accesses and so that a header need only be hashed once.",
-    "Triggers downstream circuit operations": "Archive tree membership check",
-    "Tag checks": "",
-    "Tag updates": `
-T[existsOffset] = u8
-T[dstOffset] = field
-`,
-  },
-  {
     id: "getcontractinstance",
     Name: "`GETCONTRACTINSTANCE`",
     Category: "Other",

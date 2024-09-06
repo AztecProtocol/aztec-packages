@@ -209,12 +209,12 @@ void work_queue::process_queue()
 
             ASSERT(msm_size <= key->reference_string->get_monomial_size());
 
-            bb::g1::affine_element* srs_points = key->reference_string->get_monomial_points();
+            std::span<bb::g1::affine_element> srs_points = key->reference_string->get_monomial_points();
 
             // Run pippenger multi-scalar multiplication.
             auto runtime_state = bb::scalar_multiplication::pippenger_runtime_state<curve::BN254>(msm_size);
             bb::g1::affine_element result(bb::scalar_multiplication::pippenger_unsafe<curve::BN254>(
-                { item.mul_scalars.get(), msm_size }, srs_points, msm_size, runtime_state));
+                { item.mul_scalars.get(), msm_size }, srs_points, runtime_state));
 
             transcript->add_element(item.tag, result.to_buffer());
 

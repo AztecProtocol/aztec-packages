@@ -1,5 +1,9 @@
 import { type L2BlockSource } from '@aztec/circuit-types';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore } from '@aztec/kv-store';
+import { type DataStoreConfig, createStore } from '@aztec/kv-store/utils';
+import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { P2PClient } from '../client/p2p_client.js';
@@ -7,18 +11,21 @@ import { type P2PConfig } from '../config.js';
 import { DiscV5Service } from '../service/discV5_service.js';
 import { DummyP2PService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
-import { type TxPool } from '../tx_pool/index.js';
+import { AztecKVTxPool, type TxPool } from '../tx_pool/index.js';
 import { getPublicIp, resolveAddressIfNecessary, splitAddressPort } from '../util.js';
 
 export * from './p2p_client.js';
 
 export const createP2PClient = async (
-  config: P2PConfig,
-  store: AztecKVStore,
-  txPool: TxPool,
+  config: P2PConfig & DataStoreConfig,
   attestationsPool: AttestationPool,
   l2BlockSource: L2BlockSource,
+  telemetry: TelemetryClient = new NoopTelemetryClient(),
+  deps: { txPool?: TxPool; store?: AztecKVStore } = {},
 ) => {
+  const store = deps.store ?? (await createStore('p2p', config, createDebugLogger('aztec:p2p:lmdb')));
+  const txPool = deps.txPool ?? new AztecKVTxPool(store, telemetry);
+
   let p2pService;
 
   if (config.p2pEnabled) {

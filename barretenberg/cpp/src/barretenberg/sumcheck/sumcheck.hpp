@@ -79,7 +79,7 @@ to the transcript.
 
 ## Round Univariates
 
-\subsubsection SumcheckProverContributionsofPow Contributions of PowPolynomial
+\subsubsection SumcheckProverContributionsofPow Contributions of GateSeparatorPolynomial
 
  * Let \f$ \vec \beta = (\beta_0,\ldots, \beta_{d-1}) \in \mathbb{F}\f$ be a vector of challenges.
  *
@@ -91,7 +91,7 @@ is computed as follows. First, we introduce notation
  - \f$ S^i_{\ell} (X_i) = F \left(P_1(u_0,\ldots, u_{i-1}, X_i, \vec \ell), \ldots,  P_1(u_0,\ldots, u_{i-1}, X_i, \vec
 \ell) \right) \f$
 
- As explained in \ref bb::PowPolynomial "PowPolynomial",
+ As explained in \ref bb::GateSeparatorPolynomial "GateSeparatorPolynomial",
  \f{align}{
     \tilde{S}^{i}(X_i) =  \sum_{ \ell = 0} ^{2^{d-i-1}-1}   pow^i_\beta ( X_i, \ell_{i+1}, \ldots, \ell_{d-1} ) \cdot
 S^i_{\ell}( X_i ) = c_i\cdot ( (1−X_i) + X_i\cdot \beta_i ) \cdot \sum_{\ell = 0}^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}}
@@ -123,7 +123,7 @@ template <typename Flavor> class SumcheckProver {
     using ClaimedEvaluations = typename Flavor::AllValues;
 
     using Transcript = typename Flavor::Transcript;
-    using Instance = ProverInstance_<Flavor>;
+    using DeciderPK = DeciderProvingKey_<Flavor>;
     using RelationSeparator = typename Flavor::RelationSeparator;
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
@@ -182,12 +182,9 @@ template <typename Flavor> class SumcheckProver {
      * @brief Compute round univariate, place it in transcript, compute challenge, partially evaluate. Repeat
      * until final round, then get full evaluations of prover polynomials, and place them in transcript.
      */
-    SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
+    SumcheckOutput<Flavor> prove(std::shared_ptr<DeciderPK> key)
     {
-        return prove(instance->proving_key.polynomials,
-                     instance->relation_parameters,
-                     instance->alphas,
-                     instance->gate_challenges);
+        return prove(key->proving_key.polynomials, key->relation_parameters, key->alphas, key->gate_challenges);
     };
 
     /**
@@ -211,7 +208,7 @@ template <typename Flavor> class SumcheckProver {
             setup_zk_sumcheck_data(zk_sumcheck_data);
         };
 
-        bb::PowPolynomial<FF> pow_univariate(gate_challenges, multivariate_d);
+        bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges, multivariate_d);
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
@@ -220,7 +217,7 @@ template <typename Flavor> class SumcheckProver {
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns. When the Flavor has ZK,
         // compute_univariate also takes into account the zk_sumcheck_data.
         auto round_univariate = round.compute_univariate(
-            round_idx, full_polynomials, relation_parameters, pow_univariate, alpha, zk_sumcheck_data);
+            round_idx, full_polynomials, relation_parameters, gate_separators, alpha, zk_sumcheck_data);
         {
             ZoneScopedN("rest of sumcheck round 1");
 
@@ -234,7 +231,7 @@ template <typename Flavor> class SumcheckProver {
             if constexpr (Flavor::HasZK) {
                 update_zk_sumcheck_data(zk_sumcheck_data, round_challenge, round_idx);
             };
-            pow_univariate.partially_evaluate(round_challenge);
+            gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1; // TODO(#224)(Cody): Maybe partially_evaluate should do this and
                                                       // release memory?        // All but final round
                                                       // We operate on partially_evaluated_polynomials in place.
@@ -245,7 +242,7 @@ template <typename Flavor> class SumcheckProver {
             round_univariate = round.compute_univariate(round_idx,
                                                         partially_evaluated_polynomials,
                                                         relation_parameters,
-                                                        pow_univariate,
+                                                        gate_separators,
                                                         alpha,
                                                         zk_sumcheck_data);
             // Place evaluations of Sumcheck Round Univariate in the transcript
@@ -259,7 +256,7 @@ template <typename Flavor> class SumcheckProver {
                 update_zk_sumcheck_data(zk_sumcheck_data, round_challenge, round_idx);
             };
 
-            pow_univariate.partially_evaluate(round_challenge);
+            gate_separators.partially_evaluate(round_challenge);
             round.round_size = round.round_size >> 1;
         }
         // Check that the challenges \f$ u_0,\ldots, u_{d-1} \f$ do not satisfy the equation \f$ u_0(1-u_0) + \ldots +
@@ -431,13 +428,9 @@ polynomials that are sent in clear.
 
         std::vector<FF> libra_evaluations;
         libra_evaluations.reserve(multivariate_d);
-        zk_sumcheck_data = ZKSumcheckData<Flavor>(eval_masking_scalars,
-                                                  masking_terms_evaluations,
-                                                  libra_univariates,
-                                                  libra_scaling_factor,
-                                                  libra_challenge,
-                                                  libra_running_sum,
-                                                  libra_evaluations);
+        zk_sumcheck_data = ZKSumcheckData<Flavor>{ eval_masking_scalars, masking_terms_evaluations, libra_univariates,
+                                                   libra_scaling_factor, libra_challenge,           libra_running_sum,
+                                                   libra_evaluations };
     };
 
     /**
@@ -653,7 +646,7 @@ polynomials that are sent in clear.
  * ### Final Verification Step
  * - Extract \ref ClaimedEvaluations of prover polynomials \f$P_1,\ldots, P_N\f$ at the challenge point \f$
  (u_0,\ldots,u_{d-1}) \f$ from the transcript and \ref bb::SumcheckVerifierRound< Flavor
- >::compute_full_honk_relation_purported_value "compute evaluation:"
+ >::compute_full_relation_purported_value "compute evaluation:"
  \f{align}{\tilde{F}\left( P_1(u_0,\ldots, u_{d-1}), \ldots, P_N(u_0,\ldots, u_{d-1}) \right)\f}
  and store it at \f$ \texttt{full_honk_relation_purported_value} \f$.
  * - Compare \f$ \sigma_d \f$ against the evaluation of \f$ \tilde{F} \f$ at \f$P_1(u_0,\ldots, u_{d-1}), \ldots,
@@ -720,7 +713,7 @@ template <typename Flavor> class SumcheckVerifier {
     {
         bool verified(true);
 
-        bb::PowPolynomial<FF> pow_univariate(gate_challenges);
+        bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
 
@@ -762,7 +755,7 @@ template <typename Flavor> class SumcheckVerifier {
                 multivariate_challenge.emplace_back(round_challenge);
 
                 round.compute_next_target_sum(round_univariate, round_challenge, dummy_round);
-                pow_univariate.partially_evaluate(round_challenge, dummy_round);
+                gate_separators.partially_evaluate(round_challenge, dummy_round);
 
             } else {
                 if (round_idx < multivariate_d) {
@@ -770,7 +763,7 @@ template <typename Flavor> class SumcheckVerifier {
                     verified = verified && checked;
                     multivariate_challenge.emplace_back(round_challenge);
                     round.compute_next_target_sum(round_univariate, round_challenge);
-                    pow_univariate.partially_evaluate(round_challenge);
+                    gate_separators.partially_evaluate(round_challenge);
                 } else {
                     multivariate_challenge.emplace_back(round_challenge);
                 }
@@ -796,8 +789,8 @@ template <typename Flavor> class SumcheckVerifier {
         }
         // Evaluate the Honk relation at the point (u_0, ..., u_{d-1}) using claimed evaluations of prover polynomials.
         // In ZK Flavors, the evaluation is corrected by full_libra_purported_value
-        FF full_honk_purported_value = round.compute_full_honk_relation_purported_value(
-            purported_evaluations, relation_parameters, pow_univariate, alpha, full_libra_purported_value);
+        FF full_honk_purported_value = round.compute_full_relation_purported_value(
+            purported_evaluations, relation_parameters, gate_separators, alpha, full_libra_purported_value);
         bool final_check(false);
         //! [Final Verification Step]
         if constexpr (IsRecursiveFlavor<Flavor>) {

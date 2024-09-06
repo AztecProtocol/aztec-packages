@@ -20,15 +20,15 @@ class ClientIVCTests : public ::testing::Test {
     using FF = typename Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
     using Builder = ClientIVC::ClientCircuit;
-    using ProverInstance = ClientIVC::ProverInstance;
-    using VerifierInstance = ClientIVC::VerifierInstance;
+    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
+    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
     using FoldProof = ClientIVC::FoldProof;
     using DeciderProver = ClientIVC::DeciderProver;
     using DeciderVerifier = ClientIVC::DeciderVerifier;
-    using ProverInstances = ProverInstances_<Flavor>;
-    using FoldingProver = ProtoGalaxyProver_<ProverInstances>;
-    using VerifierInstances = VerifierInstances_<Flavor>;
-    using FoldingVerifier = ProtoGalaxyVerifier_<VerifierInstances>;
+    using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
+    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
+    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
 
     /**
      * @brief Prove and verify the IVC scheme
@@ -41,7 +41,7 @@ class ClientIVCTests : public ::testing::Test {
         ZoneScopedN("ClientIVC::prove_and_verify");
         auto proof = ivc.prove();
 
-        auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
+        auto verifier_inst = std::make_shared<DeciderVerificationKey>(ivc.decider_vk);
         return ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
     }
 
@@ -106,7 +106,7 @@ TEST_F(ClientIVCTests, BasicThree)
 };
 
 /**
- * @brief Check that the IVC fails to verify if an intermediate fold proof is invalid
+ * @brief Check that the IVC fails if an intermediate fold proof is invalid
  *
  */
 TEST_F(ClientIVCTests, BasicFailure)
@@ -128,13 +128,10 @@ TEST_F(ClientIVCTests, BasicFailure)
             break;
         }
     }
-
-    // Accumulate another circuit; this involves recursive folding verification of the bad proof
+    // Accumulate another circuit; this involves recursive folding verification of the bad proof which throws an error
+    // because of circuit sizes don't match.
     Builder circuit_2 = create_mock_circuit(ivc);
-    ivc.accumulate(circuit_2);
-
-    // The bad fold proof should result in an invalid witness in the final circuit and the IVC should fail to verify
-    EXPECT_FALSE(prove_and_verify(ivc));
+    EXPECT_ANY_THROW(ivc.accumulate(circuit_2));
 };
 
 /**

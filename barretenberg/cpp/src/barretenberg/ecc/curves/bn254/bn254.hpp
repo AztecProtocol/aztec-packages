@@ -18,6 +18,7 @@ class BN254 {
     using G2BaseField = typename bb::fq2;
     using TargetField = bb::fq12;
 
+    static constexpr const char* name = "BN254";
     // TODO(#673): This flag is temporary. It is needed in the verifier classes (GeminiVerifier, etc.) while these
     // classes are instantiated with "native" curve types. Eventually, the verifier classes will be instantiated only
     // with stdlib types, and "native" verification will be acheived via a simulated builder.

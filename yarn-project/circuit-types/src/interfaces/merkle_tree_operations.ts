@@ -84,9 +84,7 @@ type LeafTypes = {
 
 export type MerkleTreeLeafType<ID extends MerkleTreeId> = LeafTypes[ID];
 
-/**
- * Defines the interface for operations on a set of Merkle Trees.
- */
+/** Defines the interface for operations on a set of Merkle Trees. */
 export interface MerkleTreeOperations {
   /**
    * Appends leaves to a given tree.
@@ -203,7 +201,10 @@ export interface MerkleTreeOperations {
     leaves: Buffer[],
     subtreeHeight: number,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
+}
 
+/** Operations on merkle trees world state that can modify the underlying store. */
+export interface MerkleTreeAdminOperations extends MerkleTreeOperations {
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.

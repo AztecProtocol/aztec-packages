@@ -28,6 +28,7 @@ import {
   randomMemoryBytes,
   randomMemoryFields,
   randomMemoryUint64s,
+  resolveAvmTestContractAssertionMessage,
 } from './fixtures/index.js';
 import { type HostStorage } from './journal/host_storage.js';
 import { type AvmPersistableStateManager } from './journal/journal.js';
@@ -178,16 +179,20 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const bytecode = getAvmTestContractBytecode('u128_addition_overflow');
       const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
       expect(results.reverted).toBe(true);
-      expect(results.revertReason?.message).toEqual('Assertion failed: attempt to add with overflow');
+      expect(results.revertReason).toBeDefined();
+      expect(resolveAvmTestContractAssertionMessage('u128_addition_overflow', results.revertReason!)).toMatch(
+        'attempt to add with overflow',
+      );
     });
 
     it('Expect failure on U128::from_integer() overflow', async () => {
       const bytecode = getAvmTestContractBytecode('u128_from_integer_overflow');
       const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
       expect(results.reverted).toBe(true);
-      expect(results.revertReason?.message).toMatch('Assertion failed.');
-      // Note: compiler intrinsic messages (like below) are not known to the AVM, they are recovered by the PXE.
-      // "Assertion failed: call to assert_max_bit_size 'self.__assert_max_bit_size(bit_size)'"
+      expect(results.revertReason).toBeDefined();
+      expect(resolveAvmTestContractAssertionMessage('u128_from_integer_overflow', results.revertReason!)).toMatch(
+        'call to assert_max_bit_size',
+      );
     });
   });
 
@@ -208,11 +213,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(true);
-    expect(results.revertReason?.message).toEqual("Assertion failed: Nullifier doesn't exist!");
-    expect(results.output).toEqual([
-      new Fr(0),
-      ...[..."Nullifier doesn't exist!"].flatMap(c => new Fr(c.charCodeAt(0))),
-    ]);
+    expect(results.revertReason).toBeDefined();
+    expect(resolveAvmTestContractAssertionMessage('assert_nullifier_exists', results.revertReason!)).toMatch(
+      "Nullifier doesn't exist!",
+    );
+    expect(results.output).toEqual([]);
   });
 
   describe.each([
@@ -401,11 +406,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
-
+        const expectedValue = results.output[0].toNumber() === 1 ? value0 : Fr.ZERO;
         expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
         expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(
           storageAddress,
-          /*noteHash=*/ value0,
+          /*noteHash=*/ expectedValue,
           leafIndex,
           /*exists=*/ expectFound,
         );
@@ -467,9 +472,13 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.output).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
 
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledTimes(1);
+        let expectedValue = results.output[0].toNumber() === 1 ? value0 : value1;
+        if (mockAtLeafIndex === undefined) {
+          expectedValue = Fr.ZERO;
+        }
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledWith(
           address,
-          /*msgHash=*/ value0,
+          /*msgHash=*/ expectedValue,
           leafIndex,
           /*exists=*/ expectFound,
         );
@@ -886,7 +895,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(true); // The outer call should revert.
-        expect(results.revertReason?.message).toEqual('Assertion failed: Values are not equal');
+        expect(results.revertReason).toBeDefined();
+        expect(resolveAvmTestContractAssertionMessage('assert_same', results.revertReason!)).toMatch(
+          'Values are not equal',
+        );
       });
     });
   });

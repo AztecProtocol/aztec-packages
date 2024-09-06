@@ -8,19 +8,19 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 
 namespace bb {
 /**
- * @brief  A ProverInstance is normally constructed from a finalized circuit and it contains all the information
- * required by an Ultra Goblin Honk prover to create a proof. A ProverInstance is also the result of running the
+ * @brief  A DeciderProvingKey is normally constructed from a finalized circuit and it contains all the information
+ * required by an Ultra Goblin Honk prover to create a proof. A DeciderProvingKey is also the result of running the
  * Protogalaxy prover, in which case it becomes a relaxed counterpart with the folding parameters (target sum and gate
  * challenges set to non-zero values).
  *
  * @details This is the equivalent of ω in the paper.
  */
 
-template <class Flavor> class ProverInstance_ {
+template <class Flavor> class DeciderProvingKey_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -34,23 +34,21 @@ template <class Flavor> class ProverInstance_ {
 
   public:
     ProvingKey proving_key;
-    RelationSeparator alphas; // a challenge for each subrelation
-    bb::RelationParameters<FF> relation_parameters;
 
     bool is_accumulator = false;
-
-    // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
+    RelationSeparator alphas; // a challenge for each subrelation
+    bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
+    // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum;
 
-    ProverInstance_(Circuit& circuit,
-                    TraceStructure trace_structure = TraceStructure::NONE,
-                    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
+    DeciderProvingKey_(Circuit& circuit,
+                       TraceStructure trace_structure = TraceStructure::NONE,
+                       std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
     {
-        BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");
+        BB_OP_COUNT_TIME_NAME("DeciderProvingKey(Circuit&)");
         circuit.add_gates_to_ensure_all_polys_are_non_zero();
         circuit.finalize_circuit();
-        info("finalized gate count: ", circuit.num_gates);
 
         // Set flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
         const bool is_structured = (trace_structure != TraceStructure::NONE);
@@ -112,8 +110,8 @@ template <class Flavor> class ProverInstance_ {
         }
     }
 
-    ProverInstance_() = default;
-    ~ProverInstance_() = default;
+    DeciderProvingKey_() = default;
+    ~DeciderProvingKey_() = default;
 
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;

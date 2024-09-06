@@ -30,7 +30,7 @@ class GoblinProver {
     using Builder = MegaCircuitBuilder;
     using Fr = bb::fr;
     using Transcript = NativeTranscript;
-    using MegaProverInstance = ProverInstance_<MegaFlavor>;
+    using MegaDeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
     using OpQueue = bb::ECCOpQueue;
     using ECCVMFlavor = bb::ECCVMFlavor;
     using ECCVMBuilder = bb::ECCVMCircuitBuilder;
@@ -92,10 +92,10 @@ class GoblinProver {
         }
 
         // Construct a Honk proof for the main circuit
-        auto instance = std::make_shared<MegaProverInstance>(circuit_builder);
-        MegaProver prover(instance);
+        auto proving_key = std::make_shared<MegaDeciderProvingKey>(circuit_builder);
+        MegaProver prover(proving_key);
         auto ultra_proof = prover.construct_proof();
-        auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
 
         // Construct and store the merge proof to be recursively verified on the next call to accumulate
         MergeProver merge_prover{ circuit_builder.op_queue };
@@ -151,8 +151,8 @@ class GoblinProver {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/993): Some circuits (particularly on the first call
         // to accumulate) may not have any goblin ecc ops prior to the call to merge(), so the commitment to the new
         // contribution (C_t_shift) in the merge prover will be the point at infinity. (Note: Some dummy ops are added
-        // in 'add_gates_to_ensure...' but not until instance construction which comes later). See issue for ideas about
-        // how to resolve.
+        // in 'add_gates_to_ensure...' but not until proving_key construction which comes later). See issue for ideas
+        // about how to resolve.
         if (circuit_builder.blocks.ecc_op.size() == 0) {
             MockCircuits::construct_goblin_ecc_op_circuit(circuit_builder); // Add some arbitrary goblin ECC ops
         }
