@@ -103,8 +103,8 @@ pub fn get_notes<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
         get_notes_internal(storage_slot, options)
     };
 
-    // We apply the constraints in a separate function instead of inlining them here to make testing that these checks
-    // correctly reject bad notes.
+    // We apply the constraints in a separate function instead of inlining them here to make it easier to test that
+    // these checks correctly reject bad notes.
     constrain_get_notes_internal(context, storage_slot, opt_notes, options)
 }
 
