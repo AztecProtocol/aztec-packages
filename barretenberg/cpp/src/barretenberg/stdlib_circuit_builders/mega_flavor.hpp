@@ -104,6 +104,7 @@ class MegaFlavor {
      */
     template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
+        bool operator==(const PrecomputedEntities&) const = default;
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               q_m,                  // column 0
@@ -519,6 +520,7 @@ class MegaFlavor {
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
         DatabusPropagationData databus_propagation_data;
 
+        bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
@@ -550,6 +552,7 @@ class MegaFlavor {
                         const size_t pub_inputs_offset,
                         const bool contains_recursive_proof,
                         const AggregationObjectPubInputIndices& recursive_proof_public_input_indices,
+                        const DatabusPropagationData& databus_propagation_data,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -588,6 +591,7 @@ class MegaFlavor {
             this->pub_inputs_offset = pub_inputs_offset;
             this->contains_recursive_proof = contains_recursive_proof;
             this->recursive_proof_public_input_indices = recursive_proof_public_input_indices;
+            this->databus_propagation_data = databus_propagation_data;
             this->q_m = q_m;
             this->q_c = q_c;
             this->q_l = q_l;
@@ -625,6 +629,7 @@ class MegaFlavor {
                        pub_inputs_offset,
                        contains_recursive_proof,
                        recursive_proof_public_input_indices,
+                       databus_propagation_data,
                        q_m,
                        q_c,
                        q_l,
