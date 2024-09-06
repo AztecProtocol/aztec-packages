@@ -68,7 +68,7 @@ pub(super) fn compile_array_copy_procedure<F: AcirField + DebugToString>(
                 new_array_pointer_return,
                 BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
                 1_usize.into(),
-            )
+            );
         }
     });
 }

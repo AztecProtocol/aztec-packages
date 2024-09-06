@@ -233,6 +233,19 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         }
     }
 
+    pub(crate) fn codegen_make_array_or_vector_items_pointer(
+        &mut self,
+        variable: BrilligVariable,
+    ) -> MemoryAddress {
+        match variable {
+            BrilligVariable::BrilligArray(array) => self.codegen_make_array_items_pointer(array),
+            BrilligVariable::BrilligVector(vector) => {
+                self.codegen_make_vector_items_pointer(vector)
+            }
+            _ => unreachable!("ICE: Expected array or vector, got {variable:?}"),
+        }
+    }
+
     pub(crate) fn codegen_initialize_array(&mut self, array: BrilligArray) {
         self.codegen_allocate_immediate_mem(array.pointer, array.size + 1);
         self.indirect_const_instruction(

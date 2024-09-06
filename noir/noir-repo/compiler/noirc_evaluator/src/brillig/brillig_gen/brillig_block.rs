@@ -246,7 +246,7 @@ impl<'block> BrilligBlock<'block> {
             }
             Instruction::Allocate => {
                 let result_value = dfg.instruction_results(instruction_id)[0];
-                let address_register = self.variables.define_single_addr_variable(
+                self.variables.define_single_addr_variable(
                     self.function_context,
                     self.brillig_context,
                     result_value,
@@ -314,10 +314,10 @@ impl<'block> BrilligBlock<'block> {
                     for input_value in input_values {
                         match input_value {
                             ValueOrArray::HeapArray(array) => {
-                                self.brillig_context.deallocate_heap_array(array)
+                                self.brillig_context.deallocate_heap_array(array);
                             }
                             ValueOrArray::HeapVector(vector) => {
-                                self.brillig_context.deallocate_heap_vector(vector)
+                                self.brillig_context.deallocate_heap_vector(vector);
                             }
                             _ => {}
                         }
@@ -600,19 +600,20 @@ impl<'block> BrilligBlock<'block> {
                 );
 
                 let array_variable = self.convert_ssa_value(*array, dfg);
-                let array_pointer = match array_variable {
-                    BrilligVariable::BrilligArray(BrilligArray { pointer, .. }) => pointer,
-                    BrilligVariable::BrilligVector(BrilligVector { pointer, .. }) => pointer,
-                    _ => unreachable!("ICE: array get on non-array"),
-                };
 
                 let index_variable = self.convert_ssa_single_addr_value(*index, dfg);
                 self.validate_array_index(array_variable, index_variable);
+
+                let items_pointer =
+                    self.brillig_context.codegen_make_array_or_vector_items_pointer(array_variable);
+
                 self.brillig_context.codegen_array_get(
-                    array_pointer,
+                    items_pointer,
                     index_variable,
                     destination_variable.extract_register(),
                 );
+
+                self.brillig_context.deallocate_register(items_pointer);
             }
             Instruction::ArraySet { array, index, value, mutable: _ } => {
                 let source_variable = self.convert_ssa_value(*array, dfg);
@@ -627,6 +628,7 @@ impl<'block> BrilligBlock<'block> {
                     dfg,
                 );
                 self.validate_array_index(source_variable, index_register);
+
                 self.convert_ssa_array_set(
                     source_variable,
                     destination_variable,
@@ -816,8 +818,6 @@ impl<'block> BrilligBlock<'block> {
         value_variable: BrilligVariable,
     ) {
         assert!(index_register.bit_size == BRILLIG_MEMORY_ADDRESSING_BIT_SIZE);
-        let destination_pointer = destination_variable.extract_register();
-
         match (source_variable, destination_variable) {
             (
                 BrilligVariable::BrilligArray(source_array),
@@ -835,8 +835,11 @@ impl<'block> BrilligBlock<'block> {
         }
 
         // Then set the value in the newly created array
+        let items_pointer =
+            self.brillig_context.codegen_make_array_or_vector_items_pointer(destination_variable);
+
         self.brillig_context.codegen_array_set(
-            destination_pointer,
+            items_pointer,
             index_register,
             value_variable.extract_register(),
         );
@@ -1855,8 +1858,8 @@ impl<'block> BrilligBlock<'block> {
                 self.brillig_context
                     .usize_const_instruction(result_register, (size / element_size).into());
             }
-            BrilligVariable::BrilligVector(BrilligVector { pointer }) => {
-                let size = self.brillig_context.codegen_make_array_or_vector_length(array_variable);
+            BrilligVariable::BrilligVector(vector) => {
+                let size = self.brillig_context.codegen_make_vector_length(vector);
 
                 self.brillig_context.codegen_usize_op(
                     size.address,

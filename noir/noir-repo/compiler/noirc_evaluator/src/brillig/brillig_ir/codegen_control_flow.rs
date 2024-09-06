@@ -255,7 +255,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         item_type: &[BrilligParameter],
         item_count: usize,
         flattened_array_pointer: MemoryAddress,
-        deflattened_array_pointer: MemoryAddress,
+        deflattened_items_pointer: MemoryAddress,
     ) {
         if Self::has_nested_arrays(item_type) {
             let movement_register = self.allocate_register();
@@ -280,7 +280,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
                     match subitem {
                         BrilligParameter::SingleAddr(_) => {
                             self.codegen_array_get(
-                                deflattened_array_pointer,
+                                deflattened_items_pointer,
                                 source_index,
                                 movement_register,
                             );
@@ -295,34 +295,22 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
                             nested_array_item_type,
                             nested_array_item_count,
                         ) => {
-                            let nested_array_reference = self.allocate_register();
+                            let deflattened_nested_array = BrilligArray {
+                                pointer: self.allocate_register(),
+                                size: *nested_array_item_count,
+                            };
+
                             self.codegen_array_get(
-                                deflattened_array_pointer,
+                                deflattened_items_pointer,
                                 source_index,
-                                nested_array_reference,
+                                deflattened_nested_array.pointer,
                             );
-
-                            let nested_array_variable =
-                                BrilligVariable::BrilligArray(BrilligArray {
-                                    pointer: self.allocate_register(),
-                                    size: nested_array_item_type.len() * nested_array_item_count,
-                                    rc: self.allocate_register(),
-                                });
-
-                            self.codegen_load_variable(
-                                nested_array_variable,
-                                nested_array_reference,
-                            );
+                            let deflattened_nested_array_items =
+                                self.codegen_make_array_items_pointer(deflattened_nested_array);
 
                             let flattened_nested_array_pointer = self.allocate_register();
-
-                            self.mov_instruction(
-                                flattened_nested_array_pointer,
-                                flattened_array_pointer,
-                            );
-
                             self.memory_op_instruction(
-                                flattened_nested_array_pointer,
+                                flattened_array_pointer,
                                 target_index.address,
                                 flattened_nested_array_pointer,
                                 BrilligBinaryOp::Add,
@@ -332,15 +320,12 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
                                 nested_array_item_type,
                                 *nested_array_item_count,
                                 flattened_nested_array_pointer,
-                                nested_array_variable.extract_array().pointer,
+                                deflattened_nested_array_items,
                             );
 
-                            self.deallocate_register(nested_array_reference);
+                            self.deallocate_register(deflattened_nested_array.pointer);
+                            self.deallocate_register(deflattened_nested_array_items);
                             self.deallocate_register(flattened_nested_array_pointer);
-                            nested_array_variable
-                                .extract_registers()
-                                .into_iter()
-                                .for_each(|register| self.deallocate_register(register));
 
                             target_offset += Self::flattened_size(subitem);
                         }
@@ -356,7 +341,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         } else {
             let item_count =
                 self.make_usize_constant_instruction((item_count * item_type.len()).into());
-            self.codegen_mem_copy(deflattened_array_pointer, flattened_array_pointer, item_count);
+            self.codegen_mem_copy(deflattened_items_pointer, flattened_array_pointer, item_count);
             self.deallocate_single_addr(item_count);
         }
     }

@@ -27,11 +27,7 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
             if let ([message], [BrilligVariable::BrilligArray(result_array)]) =
                 (function_arguments, function_results)
             {
-                let message_vector = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*message),
-                    bb_func,
-                );
+                let message_vector = convert_array_or_vector(brillig_context, *message, bb_func);
                 let output_heap_array =
                     brillig_context.codegen_brillig_array_to_heap_array(*result_array);
 
@@ -50,11 +46,7 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
             if let ([message], [BrilligVariable::BrilligArray(result_array)]) =
                 (function_arguments, function_results)
             {
-                let message_vector = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*message),
-                    bb_func,
-                );
+                let message_vector = convert_array_or_vector(brillig_context, *message, bb_func);
                 let output_heap_array =
                     brillig_context.codegen_brillig_array_to_heap_array(*result_array);
 
@@ -73,11 +65,7 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
             if let ([message], [BrilligVariable::BrilligArray(result_array)]) =
                 (function_arguments, function_results)
             {
-                let message_vector = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*message),
-                    bb_func,
-                );
+                let message_vector = convert_array_or_vector(brillig_context, *message, bb_func);
                 let output_heap_array =
                     brillig_context.codegen_brillig_array_to_heap_array(*result_array);
 
@@ -98,11 +86,7 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 [BrilligVariable::BrilligArray(result_array)],
             ) = (function_arguments, function_results)
             {
-                let message_vector = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*message),
-                    bb_func,
-                );
+                let message_vector = convert_array_or_vector(brillig_context, *message, bb_func);
                 let output_heap_array =
                     brillig_context.codegen_brillig_array_to_heap_array(*result_array);
 
@@ -127,11 +111,7 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
             if let ([message], [BrilligVariable::BrilligArray(result_array)]) =
                 (function_arguments, function_results)
             {
-                let message_vector = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*message),
-                    bb_func,
-                );
+                let message_vector = convert_array_or_vector(brillig_context, *message, bb_func);
                 let output_heap_array =
                     brillig_context.codegen_brillig_array_to_heap_array(*result_array);
 
@@ -152,11 +132,7 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 [BrilligVariable::SingleAddr(result_register)],
             ) = (function_arguments, function_results)
             {
-                let hashed_msg = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*message),
-                    bb_func,
-                );
+                let hashed_msg = convert_array_or_vector(brillig_context, *message, bb_func);
                 let public_key_x =
                     brillig_context.codegen_brillig_array_to_heap_array(*public_key_x);
                 let public_key_y =
@@ -187,11 +163,7 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 [BrilligVariable::SingleAddr(result_register)],
             ) = (function_arguments, function_results)
             {
-                let hashed_msg = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*message),
-                    bb_func,
-                );
+                let hashed_msg = convert_array_or_vector(brillig_context, *message, bb_func);
                 let public_key_x =
                     brillig_context.codegen_brillig_array_to_heap_array(*public_key_x);
                 let public_key_y =
@@ -223,11 +195,7 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 [BrilligVariable::BrilligArray(result_array)],
             ) = (function_arguments, function_results)
             {
-                let inputs = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*message),
-                    bb_func,
-                );
+                let inputs = convert_array_or_vector(brillig_context, *message, bb_func);
                 let output = brillig_context.codegen_brillig_array_to_heap_array(*result_array);
                 brillig_context.black_box_op_instruction(BlackBoxOp::PedersenCommitment {
                     inputs,
@@ -246,11 +214,7 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 [BrilligVariable::SingleAddr(result)],
             ) = (function_arguments, function_results)
             {
-                let inputs = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*message),
-                    bb_func,
-                );
+                let inputs = convert_array_or_vector(brillig_context, *message, bb_func);
                 brillig_context.black_box_op_instruction(BlackBoxOp::PedersenHash {
                     inputs,
                     domain_separator: domain_separator.address,
@@ -267,16 +231,8 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 [BrilligVariable::SingleAddr(result_register)],
             ) = (function_arguments, function_results)
             {
-                let message = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*message),
-                    bb_func,
-                );
-                let signature = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*signature),
-                    bb_func,
-                );
+                let message = convert_array_or_vector(brillig_context, *message, bb_func);
+                let signature = convert_array_or_vector(brillig_context, *signature, bb_func);
                 brillig_context.black_box_op_instruction(BlackBoxOp::SchnorrVerify {
                     public_key_x: public_key_x.address,
                     public_key_y: public_key_y.address,
@@ -294,16 +250,8 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
             if let ([points, scalars], [BrilligVariable::BrilligArray(outputs)]) =
                 (function_arguments, function_results)
             {
-                let points = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*points),
-                    bb_func,
-                );
-                let scalars = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*scalars),
-                    bb_func,
-                );
+                let points = convert_array_or_vector(brillig_context, *points, bb_func);
+                let scalars = convert_array_or_vector(brillig_context, *scalars, bb_func);
                 let outputs = brillig_context.codegen_brillig_array_to_heap_array(*outputs);
 
                 brillig_context.black_box_op_instruction(BlackBoxOp::MultiScalarMul {
@@ -428,16 +376,8 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 [BrilligVariable::SingleAddr(output), BrilligVariable::SingleAddr(_modulus_id)],
             ) = (function_arguments, function_results)
             {
-                let inputs = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*inputs),
-                    bb_func,
-                );
-                let modulus = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*modulus),
-                    bb_func,
-                );
+                let inputs = convert_array_or_vector(brillig_context, *inputs, bb_func);
+                let modulus = convert_array_or_vector(brillig_context, *modulus, bb_func);
                 brillig_context.black_box_op_instruction(BlackBoxOp::BigIntFromLeBytes {
                     inputs,
                     modulus,
@@ -457,11 +397,7 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 [output],
             ) = (function_arguments, function_results)
             {
-                let output = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*output),
-                    bb_func,
-                );
+                let output = convert_array_or_vector(brillig_context, *output, bb_func);
                 brillig_context.black_box_op_instruction(BlackBoxOp::BigIntToLeBytes {
                     input: input.address,
                     output,
@@ -479,11 +415,7 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 [BrilligVariable::BrilligArray(result_array)],
             ) = (function_arguments, function_results)
             {
-                let message_vector = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*message),
-                    bb_func,
-                );
+                let message_vector = convert_array_or_vector(brillig_context, *message, bb_func);
                 let output_heap_array =
                     brillig_context.codegen_brillig_array_to_heap_array(*result_array);
 
@@ -503,16 +435,8 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
             if let ([message, hash_values], [BrilligVariable::BrilligArray(result_array)]) =
                 (function_arguments, function_results)
             {
-                let message_vector = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*message),
-                    bb_func,
-                );
-                let hash_values = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*hash_values),
-                    bb_func,
-                );
+                let message_vector = convert_array_or_vector(brillig_context, *message, bb_func);
+                let hash_values = convert_array_or_vector(brillig_context, *hash_values, bb_func);
                 let output = brillig_context.codegen_brillig_array_to_heap_array(*result_array);
 
                 brillig_context.black_box_op_instruction(BlackBoxOp::Sha256Compression {
@@ -534,11 +458,7 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 [BrilligVariable::SingleAddr(out_len), BrilligVariable::BrilligVector(outputs)],
             ) = (function_arguments, function_results)
             {
-                let inputs = convert_array_or_vector(
-                    brillig_context,
-                    brillig_context.variable_to_value_or_array(*inputs),
-                    bb_func,
-                );
+                let inputs = convert_array_or_vector(brillig_context, *inputs, bb_func);
                 let iv = brillig_context.codegen_brillig_array_to_heap_array(*iv);
                 let key = brillig_context.codegen_brillig_array_to_heap_array(*key);
 
@@ -557,14 +477,14 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
                 brillig_context.codegen_usize_op_in_place(
                     outputs_vector.size,
                     BrilligBinaryOp::Add,
-                    2_usize.into(),
+                    2_usize,
                 );
                 brillig_context.increase_free_memory_pointer_instruction(outputs_vector.size);
                 // We also need to write the size of the vector to the memory
                 brillig_context.codegen_usize_op_in_place(
                     outputs_vector.pointer,
                     BrilligBinaryOp::Sub,
-                    1_usize.into(),
+                    1_usize,
                 );
                 brillig_context.store_instruction(outputs_vector.pointer, out_len.address);
 
@@ -581,9 +501,10 @@ pub(crate) fn convert_black_box_call<F: AcirField + DebugToString, Registers: Re
 
 fn convert_array_or_vector<F: AcirField + DebugToString, Registers: RegisterAllocator>(
     brillig_context: &mut BrilligContext<F, Registers>,
-    array_or_vector: ValueOrArray,
+    array_or_vector: BrilligVariable,
     bb_func: &BlackBoxFunc,
 ) -> HeapVector {
+    let array_or_vector = brillig_context.variable_to_value_or_array(array_or_vector);
     match array_or_vector {
         ValueOrArray::HeapArray(array) => {
             let vector =
