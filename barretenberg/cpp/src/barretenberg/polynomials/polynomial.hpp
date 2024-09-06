@@ -280,11 +280,17 @@ template <typename Fr> class Polynomial {
     auto indices() const { return std::ranges::iota_view(start_index(), end_index()); }
     auto indexed_values() { return zip_view(indices(), coeffs()); }
     auto indexed_values() const { return zip_view(indices(), coeffs()); }
-
+    /**
+     * @brief Is this index valid for a set? i.e. calling poly.at(index) = value
+     */
+    bool is_valid_set_index(size_t index) const { return (index >= start_index() && index < end_index()); }
+    /**
+     * @brief Like setting with at(), but allows zeroes to result in no set.
+     */
     void set_if_valid_index(size_t index, const Fr& value)
     {
-        ASSERT(value.is_zero() || (index >= start_index() && index < end_index()));
-        if (index >= start_index() && index < end_index()) {
+        ASSERT(value.is_zero() || is_valid_set_index(index));
+        if (is_valid_set_index(index)) {
             at(index) = value;
         }
     }

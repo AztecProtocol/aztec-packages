@@ -274,15 +274,16 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
         auto& polynomials = proving_key->proving_key.polynomials;
 
-        polynomials.w_o = polynomials.w_o.full();
+        bool altered = false;
         // Find a lookup gate and alter one of the wire values
         for (auto [i, q_lookup] : polynomials.q_lookup.indexed_values()) {
-            if (!q_lookup.is_zero()) {
+            if (!q_lookup.is_zero() && polynomials.q_lookup.is_valid_set_index(i)) {
                 polynomials.w_o.at(i) += 1;
+                altered = true;
                 break;
             }
         }
-
+        EXPECT_TRUE(altered);
         EXPECT_FALSE(prove_and_verify(proving_key));
     }
 
