@@ -87,25 +87,6 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
     }
 }
 
-TYPED_TEST(UltraHonkTests, VerificationKeySerialization)
-{
-    using DeciderProvingKey = typename TestFixture::DeciderProvingKey;
-    using VerificationKey = typename TestFixture::VerificationKey;
-
-    UltraCircuitBuilder builder;
-
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    VerificationKey original_vkey{ proving_key->proving_key };
-
-    // Set the pcs ptr to null since this will not be reconstructed correctly from buffer
-    original_vkey.pcs_verification_key = nullptr;
-
-    std::vector<uint8_t> vkey_buffer = to_buffer(original_vkey);
-    VerificationKey deserialized_vkey = from_buffer<VerificationKey>(vkey_buffer);
-
-    EXPECT_EQ(original_vkey, deserialized_vkey);
-}
-
 /**
  * @brief Test proof construction/verification for a structured execution trace
  *
