@@ -2,7 +2,7 @@ import type { AvmContext } from '../avm_context.js';
 import { Field, TaggedMemory, TypeTag } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { BufferCursor } from '../serialization/buffer_cursor.js';
-import { Opcode, OperandType, deserialize, serialize } from '../serialization/instruction_serialization.js';
+import { Opcode, OperandType, deserialize, serializeAs } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
 import { TwoOperandInstruction } from './instruction_impl.js';
@@ -51,11 +51,11 @@ export class Set extends Instruction {
       getOperandTypeFromInTag(this.inTag),
       ...Set.wireFormatAfterConst,
     ];
-    return serialize(format, this);
+    return serializeAs(format, this.opcode, this);
   }
 
   /** We need to use a custom deserialize function because of the variable length of the value. */
-  public static override deserialize(this: typeof Set, buf: BufferCursor | Buffer): Set {
+  public static override deserialize(buf: BufferCursor | Buffer): Set {
     if (buf instanceof Buffer) {
       buf = new BufferCursor(buf);
     }
@@ -65,7 +65,7 @@ export class Set extends Instruction {
     const afterConst = deserialize(buf, Set.wireFormatAfterConst);
     const res = [...beforeConst, ...val, ...afterConst];
     const args = res.slice(1) as ConstructorParameters<typeof Set>; // Remove opcode.
-    return new this(...args);
+    return new Set(...args);
   }
 
   public async execute(context: AvmContext): Promise<void> {
@@ -161,13 +161,20 @@ export class Cast extends TwoOperandInstruction {
 
 export class Mov extends Instruction {
   static readonly type: string = 'MOV';
-  static readonly opcode: Opcode = Opcode.MOV;
-  // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [
+  // FIXME: This is needed for gas.
+  static readonly opcode: Opcode = Opcode.MOV_8;
+
+  static readonly wireFormat8: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT8,
+    OperandType.UINT8,
+  ];
+  static readonly wireFormat16: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(private indirect: number, private srcOffset: number, private dstOffset: number) {

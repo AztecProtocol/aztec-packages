@@ -4,6 +4,7 @@ import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { adjustCalldataIndex, initContext, initExecutionEnvironment } from '../fixtures/index.js';
+import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
 
@@ -302,12 +303,15 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         Mov.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // srcOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('12', 'hex'), // srcOffset
+        ...Buffer.from('34', 'hex'), // dstOffset
       ]);
-      const inst = new Mov(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12345678, /*dstOffset=*/ 0x3456789a);
+      const inst = new Mov(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12, /*dstOffset=*/ 0x34).as(
+        Opcode.MOV_8,
+        Mov.wireFormat8,
+      );
 
-      expect(Mov.deserialize(buf)).toEqual(inst);
+      expect(Mov.as(Mov.wireFormat8).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 

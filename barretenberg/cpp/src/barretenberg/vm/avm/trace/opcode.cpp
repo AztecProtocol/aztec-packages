@@ -104,8 +104,10 @@ std::string to_string(OpCode opcode)
     // Machine State - Memory
     case OpCode::SET:
         return "SET";
-    case OpCode::MOV:
-        return "MOV";
+    case OpCode::MOV_8:
+        return "MOV_8";
+    case OpCode::MOV_16:
+        return "MOV_16";
     case OpCode::CMOV:
         return "CMOV";
     // World State
