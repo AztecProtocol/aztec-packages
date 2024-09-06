@@ -68,7 +68,6 @@ TEST_F(MSMTests, TestMSM)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
