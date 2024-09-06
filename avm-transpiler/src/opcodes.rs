@@ -29,11 +29,8 @@ pub enum AvmOpcode {
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
-    COINBASE,
     FEEPERL2GAS,
     FEEPERDAGAS,
-    BLOCKL2GASLIMIT,
-    BLOCKDAGASLIMIT,
     CALLDATACOPY,
     // Gas
     L2GASLEFT,
@@ -115,11 +112,8 @@ impl AvmOpcode {
             AvmOpcode::VERSION => "VERSION",
             AvmOpcode::BLOCKNUMBER => "BLOCKNUMBER",
             AvmOpcode::TIMESTAMP => "TIMESTAMP",
-            AvmOpcode::COINBASE => "COINBASE",
             AvmOpcode::FEEPERL2GAS => "FEEPERL2GAS",
             AvmOpcode::FEEPERDAGAS => "FEEPERDAGAS",
-            AvmOpcode::BLOCKL2GASLIMIT => "BLOCKL2GASLIMIT",
-            AvmOpcode::BLOCKDAGASLIMIT => "BLOCKDAGASLIMIT",
             // Execution Environment - Calldata
             AvmOpcode::CALLDATACOPY => "CALLDATACOPY",
 

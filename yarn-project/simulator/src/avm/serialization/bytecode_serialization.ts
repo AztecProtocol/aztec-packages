@@ -94,11 +94,8 @@ const INSTRUCTION_SET = () =>
     [Version.opcode, Version],
     [BlockNumber.opcode, BlockNumber],
     [Timestamp.opcode, Timestamp],
-    //[Coinbase.opcode, Coinbase],
     [FeePerL2Gas.opcode, FeePerL2Gas],
     [FeePerDAGas.opcode, FeePerDAGas],
-    //[Blockl2gaslimit.opcode, Blockl2gaslimit],
-    //[Blockdagaslimit.opcode, Blockdagaslimit],
     // Execution Environment - Calldata
     [CalldataCopy.opcode, CalldataCopy],
 
