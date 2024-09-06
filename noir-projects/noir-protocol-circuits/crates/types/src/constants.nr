@@ -135,7 +135,7 @@ global INITIAL_L2_BLOCK_NUM: Field = 1;
 global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
 global ETHEREUM_SLOT_DURATION: u32 = 12;
 // AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
-global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 1;
+global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 3;
 global AZTEC_EPOCH_DURATION: u32 = 48;
 global AZTEC_TARGET_COMMITTEE_SIZE: u32 = 48;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
