@@ -97,12 +97,12 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     });
 
     describe('getSynchPoint', () => {
-      it('returns 0n if no blocks have been added', async () => {
+      it('returns undefined if no blocks have been added', async () => {
         await expect(store.getSynchPoint()).resolves.toEqual({
-          blocksSynchedTo: 0n,
-          messagesSynchedTo: 0n,
-          blockBodiesSynchedTo: 0n,
-          provenLogsSynchedTo: 0n,
+          blocksSynchedTo: undefined,
+          messagesSynchedTo: undefined,
+          blockBodiesSynchedTo: undefined,
+          provenLogsSynchedTo: undefined,
         } satisfies ArchiverL1SynchPoint);
       });
 
@@ -110,19 +110,19 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await store.addBlocks(blocks);
         await expect(store.getSynchPoint()).resolves.toEqual({
           blocksSynchedTo: 19n,
-          messagesSynchedTo: 0n,
-          blockBodiesSynchedTo: 0n,
-          provenLogsSynchedTo: 0n,
+          messagesSynchedTo: undefined,
+          blockBodiesSynchedTo: undefined,
+          provenLogsSynchedTo: undefined,
         } satisfies ArchiverL1SynchPoint);
       });
 
       it('returns the L1 block number in which the most recent L2 block body was published', async () => {
         await store.addBlockBodies(blockBodies);
         await expect(store.getSynchPoint()).resolves.toEqual({
-          blocksSynchedTo: 0n,
-          messagesSynchedTo: 0n,
+          blocksSynchedTo: undefined,
+          messagesSynchedTo: undefined,
           blockBodiesSynchedTo: blockBodies.lastProcessedL1BlockNumber,
-          provenLogsSynchedTo: 0n,
+          provenLogsSynchedTo: undefined,
         } satisfies ArchiverL1SynchPoint);
       });
 
@@ -132,19 +132,19 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           retrievedData: [new InboxLeaf(0n, 0n, Fr.ZERO)],
         });
         await expect(store.getSynchPoint()).resolves.toEqual({
-          blocksSynchedTo: 0n,
+          blocksSynchedTo: undefined,
           messagesSynchedTo: 1n,
-          blockBodiesSynchedTo: 0n,
-          provenLogsSynchedTo: 0n,
+          blockBodiesSynchedTo: undefined,
+          provenLogsSynchedTo: undefined,
         } satisfies ArchiverL1SynchPoint);
       });
 
       it('returns the L1 block number that most recently logged a proven block', async () => {
         await store.setProvenL2BlockNumber({ lastProcessedL1BlockNumber: 3n, retrievedData: 5 });
         await expect(store.getSynchPoint()).resolves.toEqual({
-          blocksSynchedTo: 0n,
-          messagesSynchedTo: 0n,
-          blockBodiesSynchedTo: 0n,
+          blocksSynchedTo: undefined,
+          messagesSynchedTo: undefined,
+          blockBodiesSynchedTo: undefined,
           provenLogsSynchedTo: 3n,
         } satisfies ArchiverL1SynchPoint);
       });
