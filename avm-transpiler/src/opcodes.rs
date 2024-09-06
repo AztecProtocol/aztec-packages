@@ -36,8 +36,8 @@ pub enum AvmOpcode {
     L2GASLEFT,
     DAGASLEFT,
     // Control flow
-    JUMP,
-    JUMPI,
+    JUMP_16,
+    JUMPI_16,
     INTERNALCALL,
     INTERNALRETURN,
     // Memory
@@ -129,8 +129,8 @@ impl AvmOpcode {
             AvmOpcode::L2GASLEFT => "L2GASLEFT",
             AvmOpcode::DAGASLEFT => "DAGASLEFT",
             // Machine State - Internal Control Flow
-            AvmOpcode::JUMP => "JUMP",
-            AvmOpcode::JUMPI => "JUMPI",
+            AvmOpcode::JUMP_16 => "JUMP_16",
+            AvmOpcode::JUMPI_16 => "JUMPI_16",
             AvmOpcode::INTERNALCALL => "INTERNALCALL",
             AvmOpcode::INTERNALRETURN => "INTERNALRETURN",
             // Machine State - Memory

@@ -50,6 +50,12 @@ impl BitsQueryable for u128 {
     }
 }
 
+impl BitsQueryable for usize {
+    fn num_bits(&self) -> usize {
+        get_msb(*self as u128)
+    }
+}
+
 pub fn bits_needed_for<T: BitsQueryable>(val: &T) -> usize {
     let num_bits = val.num_bits();
     if num_bits < 8 {

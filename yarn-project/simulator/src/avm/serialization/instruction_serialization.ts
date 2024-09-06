@@ -40,8 +40,8 @@ export enum Opcode {
   L2GASLEFT,
   DAGASLEFT,
   // Control flow
-  JUMP,
-  JUMPI,
+  JUMP_16,
+  JUMPI_16,
   INTERNALCALL,
   INTERNALRETURN,
   // Memory
