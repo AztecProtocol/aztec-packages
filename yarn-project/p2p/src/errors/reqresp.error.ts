@@ -1,14 +1,21 @@
-import { type ReqRespSubProtocol, TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
-
-export class ReqRespError extends Error {
-  constructor(protocol: ReqRespSubProtocol, message: string) {
-    super(message);
+/** Individual request timeout error
+ *
+ * This error will be thrown when a request to a specific peer times out.
+ * @category Errors
+ */
+export class IndiviualReqRespTimeoutError extends Error {
+  constructor() {
+    super(`Request to peer timed out`);
   }
 }
 
-// TODO(md): think about what these errors should ideally be
-export class TxHandlerReqRespError extends ReqRespError {
+/** Collective request timeout error
+ *
+ * This error will be thrown when a req resp request times out regardless of the peer.
+ * @category Errors
+ */
+export class CollectiveReqRespTimeoutError extends Error {
   constructor() {
-    super(TX_REQ_PROTOCOL, 'Could not perform tx handler request response');
+    super(`Request to all peers timed out`);
   }
 }

@@ -155,7 +155,7 @@ describe('L1Publisher', () => {
     rollupContractSimulate.propose.mockResolvedValueOnce(proposeTxHash);
     publicClient.getTransactionReceipt.mockResolvedValueOnce(proposeTxReceipt);
 
-    const result = await publisher.processL2Block(l2Block);
+    const result = await publisher.proposeL2Block(l2Block);
 
     expect(result).toEqual(true);
 
@@ -179,7 +179,7 @@ describe('L1Publisher', () => {
     rollupContractSimulate.propose.mockResolvedValueOnce(processTxHash);
     publicClient.getTransactionReceipt.mockResolvedValueOnce(processTxReceipt);
 
-    const result = await publisher.processL2Block(l2Block);
+    const result = await publisher.proposeL2Block(l2Block);
 
     expect(result).toEqual(true);
     const args = [
@@ -206,7 +206,7 @@ describe('L1Publisher', () => {
       .mockResolvedValueOnce(processTxHash as `0x${string}`)
       .mockResolvedValueOnce(processTxHash as `0x${string}`);
 
-    const result = await publisher.processL2Block(l2Block);
+    const result = await publisher.proposeL2Block(l2Block);
 
     expect(result).toEqual(false);
     expect(rollupContractWrite.propose).toHaveBeenCalledTimes(1);
@@ -216,7 +216,7 @@ describe('L1Publisher', () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     rollupContractRead.validateHeader.mockRejectedValueOnce(new Error('Test error'));
 
-    await expect(publisher.processL2Block(l2Block)).rejects.toThrow();
+    await expect(publisher.proposeL2Block(l2Block)).rejects.toThrow();
 
     expect(rollupContractRead.validateHeader).toHaveBeenCalledTimes(1);
     expect(rollupContractWrite.propose).toHaveBeenCalledTimes(0);
@@ -227,7 +227,7 @@ describe('L1Publisher', () => {
     rollupContractSimulate.propose.mockResolvedValueOnce(proposeTxHash as `0x${string}`);
     rollupContractWrite.propose.mockRejectedValueOnce(new Error());
 
-    const result = await publisher.processL2Block(l2Block);
+    const result = await publisher.proposeL2Block(l2Block);
 
     expect(result).toEqual(false);
     expect(rollupContractWrite.propose).toHaveBeenCalledTimes(1);
@@ -240,7 +240,7 @@ describe('L1Publisher', () => {
     rollupContractWrite.propose.mockResolvedValueOnce(processTxHash);
     publicClient.getTransactionReceipt.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(processTxReceipt);
 
-    const result = await publisher.processL2Block(l2Block);
+    const result = await publisher.proposeL2Block(l2Block);
 
     expect(result).toEqual(true);
     expect(publicClient.getTransactionReceipt).toHaveBeenCalledTimes(2);
@@ -252,7 +252,7 @@ describe('L1Publisher', () => {
     rollupContractWrite.propose.mockResolvedValueOnce(proposeTxHash as `0x${string}`);
     publicClient.getTransactionReceipt.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxReceipt);
 
-    const result = await publisher.processL2Block(l2Block);
+    const result = await publisher.proposeL2Block(l2Block);
 
     expect(result).toEqual(true);
     expect(publicClient.getTransactionReceipt).toHaveBeenCalledTimes(2);
@@ -263,7 +263,7 @@ describe('L1Publisher', () => {
     rollupContractWrite.propose.mockResolvedValueOnce(proposeTxHash);
     publicClient.getTransactionReceipt.mockResolvedValueOnce({ ...proposeTxReceipt, status: 'reverted' });
 
-    const result = await publisher.processL2Block(l2Block);
+    const result = await publisher.proposeL2Block(l2Block);
 
     expect(result).toEqual(false);
   });
@@ -274,7 +274,7 @@ describe('L1Publisher', () => {
 
     publicClient.getTransactionReceipt.mockResolvedValueOnce({ ...processTxReceipt, status: 'reverted' });
 
-    const result = await publisher.processL2Block(l2Block);
+    const result = await publisher.proposeL2Block(l2Block);
 
     expect(result).toEqual(false);
   });
@@ -283,7 +283,7 @@ describe('L1Publisher', () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     rollupContractWrite.propose.mockImplementationOnce(() => sleep(10, proposeTxHash) as Promise<`0x${string}`>);
 
-    const resultPromise = publisher.processL2Block(l2Block);
+    const resultPromise = publisher.proposeL2Block(l2Block);
     publisher.interrupt();
     const result = await resultPromise;
 
@@ -296,7 +296,7 @@ describe('L1Publisher', () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     rollupContractWrite.propose.mockImplementationOnce(() => sleep(10, processTxHash) as Promise<`0x${string}`>);
 
-    const resultPromise = publisher.processL2Block(l2Block);
+    const resultPromise = publisher.proposeL2Block(l2Block);
     publisher.interrupt();
     const result = await resultPromise;
 

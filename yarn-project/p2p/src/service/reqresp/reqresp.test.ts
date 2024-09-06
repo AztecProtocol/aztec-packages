@@ -1,7 +1,7 @@
 import { TxHash, mockTx } from '@aztec/circuit-types';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
 import { MOCK_SUB_PROTOCOL_HANDLERS, connectToPeers, createNodes, startNodes, stopNodes } from '../../mocks/index.js';
 import { PING_PROTOCOL, TX_REQ_PROTOCOL } from './interface.js';
@@ -116,6 +116,26 @@ describe('ReqResp', () => {
       await sleep(500);
 
       const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, txHash.toBuffer());
+      expect(res).toBeUndefined();
+
+      await stopNodes(nodes);
+    });
+
+    it('Should timeout if nothing is returned over the stream', async () => {
+      const nodes = await createNodes(2);
+
+      await startNodes(nodes);
+
+      console.log((nodes[1].req as any).subProtocolHandlers[TX_REQ_PROTOCOL])
+      jest.spyOn((nodes[1].req as any).subProtocolHandlers, TX_REQ_PROTOCOL).mockImplementation(() => {
+        return new Promise(() => {});
+      });
+
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      const res = await nodes[0].req.sendRequest(TX_REQ_PROTOCOL, Buffer.from('ping'));
       expect(res).toBeUndefined();
 
       await stopNodes(nodes);

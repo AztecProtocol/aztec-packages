@@ -1,7 +1,7 @@
 // @attribution: lodestar impl for inspiration
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 
-import { type IncomingStreamData, type PeerId } from '@libp2p/interface';
+import { Stream, type IncomingStreamData, type PeerId } from '@libp2p/interface';
 import { pipe } from 'it-pipe';
 import { type Libp2p } from 'libp2p';
 import { type Uint8ArrayList } from 'uint8arraylist';
@@ -11,6 +11,8 @@ import {
   type ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
 } from './interface.js';
+import { executeTimeoutWithCustomError } from '@aztec/foundation/timer';
+import { IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
 
 /**
  * The Request Response Service
@@ -27,6 +29,10 @@ export class ReqResp {
   protected readonly logger: Logger;
 
   private abortController: AbortController = new AbortController();
+
+  // TODO: change defaults and add to configuration
+  private overallRequestTimeoutMs: number = 4000;
+  private individualRequestTimeoutMs: number = 2000;
 
   private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
 
@@ -71,6 +77,7 @@ export class ReqResp {
     // Attempt to ask all of our peers
     for (const peer of peers) {
       const response = await this.sendRequestToPeer(peer, subProtocol, payload);
+      console.log("In send request response", response);
 
       // If we get a response, return it, otherwise we iterate onto the next peer
       // We do not consider it a success if we have an empty buffer
@@ -94,18 +101,35 @@ export class ReqResp {
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
   ): Promise<Buffer | undefined> {
+    let stream: Stream | undefined;
     try {
-      const stream = await this.libp2p.dialProtocol(peerId, subProtocol);
+      stream = await this.libp2p.dialProtocol(peerId, subProtocol);
+
       this.logger.debug(`Stream opened with ${peerId.publicKey} for ${subProtocol}`);
 
-      const result = await pipe([payload], stream, this.readMessage);
+      const result = await executeTimeoutWithCustomError<Buffer>(
+        (): Promise<Buffer> => pipe([payload], stream!, this.readMessage),
+        this.overallRequestTimeoutMs,
+        () => new IndiviualReqRespTimeoutError(),
+      );
+      console.log("after timeout check", result);
 
       await stream.close();
       this.logger.debug(`Stream closed with ${peerId.publicKey} for ${subProtocol}`);
+      console.log("after stream close", result);
 
       return result;
-    } catch (e) {
-      this.logger.warn(`Failed to send request to peer ${peerId.publicKey}`);
+    } catch (e: any) {
+      this.logger.error(`${e.message} | peer: ${peerId.publicKey?.toString()} | subProtocol: ${subProtocol}`);
+    } finally {
+      if (stream) {
+        try {
+          await stream.close();
+          this.logger.debug(`Stream closed with ${peerId.publicKey} for ${subProtocol}`);
+        } catch (closeError) {
+          this.logger.error(`Error closing stream: ${closeError instanceof Error ? closeError.message : 'Unknown error'}`);
+        }
+      }
       return undefined;
     }
   }

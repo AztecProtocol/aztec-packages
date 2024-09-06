@@ -10,9 +10,9 @@ export class TimeoutTask<T> {
   private interrupt = () => {};
   private totalTime = 0;
 
-  constructor(private fn: () => Promise<T>, private timeout = 0, fnName = '') {
+  constructor(private fn: () => Promise<T>, private timeout = 0, fnName = '', error = () => new Error(`Timeout${fnName ? ` running ${fnName}` : ''} after ${timeout}ms.`)) {
     this.interruptPromise = new Promise<T>((_, reject) => {
-      this.interrupt = () => reject(new Error(`Timeout${fnName ? ` running ${fnName}` : ''} after ${timeout}ms.`));
+      this.interrupt = () => reject(error());
     });
   }
 
@@ -28,7 +28,9 @@ export class TimeoutTask<T> {
     const interruptTimeout = !this.timeout ? 0 : setTimeout(this.interrupt, this.timeout);
     try {
       const start = Date.now();
+      console.log("before race");
       const result = await Promise.race<T>([this.fn(), this.interruptPromise]);
+      console.log("after race", result);
       this.totalTime = Date.now() - start;
       return result;
     } finally {
@@ -60,5 +62,10 @@ export class TimeoutTask<T> {
 
 export const executeTimeout = async <T>(fn: () => Promise<T>, timeout = 0, fnName = '') => {
   const task = new TimeoutTask(fn, timeout, fnName);
+  return await task.exec();
+};
+
+export const executeTimeoutWithCustomError = async <T>(fn: () => Promise<T>, timeout = 0, error = () => new Error("No custom error provided"), fnName = '') => {
+  const task = new TimeoutTask(fn, timeout, fnName, error);
   return await task.exec();
 };
