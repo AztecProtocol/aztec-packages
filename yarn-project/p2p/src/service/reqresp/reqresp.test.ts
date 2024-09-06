@@ -121,12 +121,11 @@ describe('ReqResp', () => {
       await stopNodes(nodes);
     });
 
-    it('Should timeout if nothing is returned over the stream', async () => {
+    it('Should hit individual timeout if nothing is returned over the stream', async () => {
       const nodes = await createNodes(2);
 
       await startNodes(nodes);
 
-      console.log((nodes[1].req as any).subProtocolHandlers[TX_REQ_PROTOCOL])
       jest.spyOn((nodes[1].req as any).subProtocolHandlers, TX_REQ_PROTOCOL).mockImplementation(() => {
         return new Promise(() => {});
       });
@@ -140,5 +139,20 @@ describe('ReqResp', () => {
 
       await stopNodes(nodes);
     });
+
+    // TODO: complete this test
+    it("Should hit collective timeout if nothing is returned over the stream from multiple peers", async () => {
+      const nodes = await createNodes(3);
+
+      await startNodes(nodes);
+
+      jest.spyOn((nodes[1].req as any).subProtocolHandlers, TX_REQ_PROTOCOL).mockImplementation(() => {
+        return new Promise(() => {});
+      });
+
+    });
+
   });
+
+
 });

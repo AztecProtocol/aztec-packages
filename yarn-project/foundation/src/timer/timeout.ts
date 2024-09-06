@@ -28,9 +28,7 @@ export class TimeoutTask<T> {
     const interruptTimeout = !this.timeout ? 0 : setTimeout(this.interrupt, this.timeout);
     try {
       const start = Date.now();
-      console.log("before race");
       const result = await Promise.race<T>([this.fn(), this.interruptPromise]);
-      console.log("after race", result);
       this.totalTime = Date.now() - start;
       return result;
     } finally {
