@@ -92,7 +92,7 @@ import {
   writeProofAsFields,
 } from '../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../config.js';
-import { type UltraHonkFlavor, getExpectedProofLength, getUltraHonkFlavorForCircuit } from '../honk.js';
+import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { ProverInstrumentation } from '../instrumentation.js';
 import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
@@ -145,7 +145,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       'BaseParityArtifact',
-      getExpectedProofLength('BaseParityArtifact'),
+      RECURSIVE_PROOF_LENGTH,
       convertBaseParityInputsToWitnessMap,
       convertBaseParityOutputsFromWitnessMap,
     );
@@ -937,7 +937,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     ]);
     const json = JSON.parse(proofString);
     const vkData = await this.getVerificationKeyDataForCircuit(circuitType);
-    // TODO (alexg) is this needed anymore? Shouldn't I just use the vkData.numPublicInputs?
     const numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const fieldsWithoutPublicInputs = json
       .slice(0, 3)
