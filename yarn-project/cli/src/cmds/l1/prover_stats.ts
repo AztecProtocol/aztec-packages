@@ -17,13 +17,27 @@ export async function proverStats(opts: {
   log: LogFn;
   startBlock: bigint;
   endBlock: bigint | undefined;
+  startL2Block: bigint | undefined;
+  endL2Block: bigint | undefined;
   batchSize: bigint;
   provingTimeout: bigint | undefined;
   rawLogs: boolean;
 }) {
   const debugLog = createDebugLogger('aztec:cli:prover_stats');
-  const { startBlock, chainId, l1RpcUrl, l1RollupAddress, batchSize, nodeUrl, provingTimeout, endBlock, rawLogs, log } =
-    opts;
+  const {
+    startBlock,
+    chainId,
+    l1RpcUrl,
+    l1RollupAddress,
+    batchSize,
+    nodeUrl,
+    provingTimeout,
+    endBlock,
+    rawLogs,
+    log,
+    startL2Block,
+    endL2Block,
+  } = opts;
   if (!l1RollupAddress && !nodeUrl) {
     throw new Error('Either L1 rollup address or node URL must be set');
   }
@@ -40,7 +54,13 @@ export async function proverStats(opts: {
   debugLog.verbose(`Querying events on rollup at ${rollup.toString()} from ${startBlock} up to ${lastBlockNum}`);
 
   // Get all events for L2 proof submissions
-  const events = await getL2ProofVerifiedEvents(startBlock, lastBlockNum, batchSize, debugLog, publicClient, rollup);
+  const events = (
+    await getL2ProofVerifiedEvents(startBlock, lastBlockNum, batchSize, debugLog, publicClient, rollup)
+  ).filter(
+    e =>
+      (startL2Block === undefined || e.l2BlockNumber >= startL2Block) &&
+      (endL2Block === undefined || e.l2BlockNumber <= endL2Block),
+  );
 
   // If we only care for raw logs, output them
   if (rawLogs) {

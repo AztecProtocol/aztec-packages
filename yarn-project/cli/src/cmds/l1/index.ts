@@ -198,6 +198,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(l1ChainIdOption)
     .option('--start-block <number>', 'The L1 block number to start from', parseBigint, 1n)
     .option('--end-block <number>', 'The last L1 block number to query', parseBigint)
+    .option('--start-l2-block <number>', 'The L2 block number to start from', parseBigint)
+    .option('--end-l2-block <number>', 'The last L2 block number to query', parseBigint)
     .option('--batch-size <number>', 'The number of blocks to query in each batch', parseBigint, 100n)
     .option('--proving-timeout <number>', 'Cutoff for proving time to consider a block', parseBigint)
     .option('--l1-rollup-address <string>', 'Address of the rollup contract (required if node URL is not set)')
@@ -208,14 +210,27 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .option('--raw-logs', 'Output raw logs instead of aggregated stats')
     .action(async options => {
       const { proverStats } = await import('./prover_stats.js');
-      const { l1RpcUrl, chainId, l1RollupAddress, startBlock, endBlock, batchSize, nodeUrl, provingTimeout, rawLogs } =
-        options;
+      const {
+        l1RpcUrl,
+        chainId,
+        l1RollupAddress,
+        startBlock,
+        endBlock,
+        startL2Block,
+        endL2Block,
+        batchSize,
+        nodeUrl,
+        provingTimeout,
+        rawLogs,
+      } = options;
       await proverStats({
         l1RpcUrl,
         chainId,
         l1RollupAddress,
         startBlock,
         endBlock,
+        startL2Block,
+        endL2Block,
         batchSize,
         nodeUrl,
         provingTimeout,
