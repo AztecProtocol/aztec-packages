@@ -332,7 +332,7 @@ export class L1Publisher {
       archive: archiveRoot.toBuffer(),
       proverId: proverId.toBuffer(),
       aggregationObject: serializeToBuffer(aggregationObject),
-      proof: proof.toBuffer(),
+      proof: proof.withoutPublicInputs(),
     };
 
     // Process block
