@@ -1,6 +1,6 @@
-use std::collections::BTreeMap;
-
 use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
+use fxhash::FxHashMap as HashMap;
+use std::collections::BTreeMap;
 
 use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
@@ -982,7 +982,7 @@ fn handle_storage_write(
     inputs: &Vec<ValueOrArray>,
 ) {
     assert!(inputs.len() == 2);
-    assert!(destinations.len() == 0);
+    assert!(destinations.is_empty());
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
@@ -1098,6 +1098,18 @@ pub fn patch_debug_info_pcs(
         patched_debug_info.brillig_locations = patched_brillig_locations;
     }
     debug_infos
+}
+
+/// Patch the assert messages with updated PCs since transpilation injects extra
+/// opcodes into the bytecode.
+pub fn patch_assert_message_pcs(
+    assert_messages: HashMap<usize, String>,
+    brillig_pcs_to_avm_pcs: &[usize],
+) -> HashMap<usize, String> {
+    assert_messages
+        .into_iter()
+        .map(|(brillig_pc, message)| (brillig_pcs_to_avm_pcs[brillig_pc], message))
+        .collect()
 }
 
 /// Compute an array that maps each Brillig pc to an AVM pc.

@@ -67,10 +67,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   bytes32 public vkTreeRoot;
 
-  // @note  This should not exists, but we have it now to ensure we will not be killing the devnet with our
-  //        timeliness requirements.
-  bool public isDevNet = Constants.IS_DEV_NET == 1;
-
   // @note  Assume that all blocks up to this value are automatically proven. Speeds up bootstrapping.
   //        Testing only. This should be removed eventually.
   uint256 private assumeProvenUntilBlockNumber;
@@ -104,18 +100,17 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     for (uint256 i = 0; i < _validators.length; i++) {
       _addValidator(_validators[i]);
     }
+    setupEpoch();
   }
 
   /**
    * @notice  Prune the pending chain up to the last proven block
    *
    * @dev     Will revert if there is nothing to prune or if the chain is not ready to be pruned
+   *
+   * @dev     While in devnet, this will be guarded behind an `onlyOwner`
    */
-  function prune() external override(IRollup) {
-    if (isDevNet) {
-      revert Errors.DevNet__NoPruningAllowed();
-    }
-
+  function prune() external override(IRollup) onlyOwner {
     if (pendingBlockCount == provenBlockCount) {
       revert Errors.Rollup__NothingToPrune();
     }
@@ -152,17 +147,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       provenBlockCount = blockNumber;
     }
     assumeProvenUntilBlockNumber = blockNumber;
-  }
-
-  /**
-   * @notice  Set the devnet mode
-   *
-   * @dev     This is only needed for testing, and should be removed
-   *
-   * @param _devNet - Whether or not the contract is in devnet mode
-   */
-  function setDevNet(bool _devNet) external override(ITestRollup) onlyOwner {
-    isDevNet = _devNet;
   }
 
   /**
@@ -232,9 +216,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @notice  Submit a proof for a block in the pending chain
    *
    * @dev     TODO(#7346): Verify root proofs rather than block root when batch rollups are integrated.
-   *
-   * @dev     Will call `_progressState` to update the proven chain. Notice this have potentially
-   *          unbounded gas consumption.
    *
    * @dev     Will emit `L2ProofVerified` if the proof is valid
    *
@@ -384,16 +365,15 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
-   * @notice  Check if a proposer can propose at a given time
+   * @notice  Check if msg.sender can propose at a given time
    *
    * @param _ts - The timestamp to check
-   * @param _proposer - The proposer to check
    * @param _archive - The archive to check (should be the latest archive)
    *
    * @return uint256 - The slot at the given timestamp
    * @return uint256 - The block number at the given timestamp
    */
-  function canProposeAtTime(uint256 _ts, address _proposer, bytes32 _archive)
+  function canProposeAtTime(uint256 _ts, bytes32 _archive)
     external
     view
     override(IRollup)
@@ -411,14 +391,10 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidArchive(tipArchive, _archive);
     }
 
-    if (isDevNet) {
-      _devnetSequencerSubmissionChecks(_proposer);
-    } else {
-      address proposer = getProposerAt(_ts);
-      if (proposer != address(0) && proposer != _proposer) {
-        revert Errors.Leonidas__InvalidProposer(proposer, _proposer);
-      }
-    }
+    SignatureLib.Signature[] memory sigs = new SignatureLib.Signature[](0);
+    DataStructures.ExecutionFlags memory flags =
+      DataStructures.ExecutionFlags({ignoreDA: true, ignoreSignatures: true});
+    _validateLeonidas(slot, sigs, _archive, flags);
 
     return (slot, pendingBlockCount);
   }
@@ -567,8 +543,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *            This might be relaxed for allow consensus set to better handle short-term bursts of L1 congestion
    *          - The slot MUST be in the current epoch
    *
-   * @dev     While in isDevNet, we allow skipping all of the checks as we simply assume only TRUSTED sequencers
-   *
    * @param _slot - The slot of the header to validate
    * @param _signatures - The signatures to validate
    * @param _digest - The digest that signatures sign over
@@ -580,19 +554,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     uint256 _currentTime,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
-    if (isDevNet) {
-      // @note  If we are running in a devnet, we don't want to perform all the consensus
-      //        checks, we instead simply require that either there are NO validators or
-      //        that the proposer is a validator.
-      //
-      //        This means that we relaxes the condition that the block must land in the
-      //        correct slot and epoch to make it more fluid for the devnet launch
-      //        or for testing.
-
-      _devnetSequencerSubmissionChecks(msg.sender);
-      return;
-    }
-
     // Ensure that the slot proposed is NOT in the future
     uint256 currentSlot = getSlotAt(_currentTime);
     if (_slot != currentSlot) {
@@ -610,7 +571,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidEpoch(currentEpoch, epochNumber);
     }
 
-    _proposePendingBlock(_slot, _signatures, _digest, _flags);
+    _validateLeonidas(_slot, _signatures, _digest, _flags);
   }
 
   /**
@@ -685,16 +646,5 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     ) {
       revert Errors.Rollup__UnavailableTxs(_header.contentCommitment.txsEffectsHash);
     }
-  }
-
-  function _devnetSequencerSubmissionChecks(address _proposer) internal view {
-    if (getValidatorCount() == 0) {
-      return;
-    }
-
-    if (!isValidator(_proposer)) {
-      revert Errors.DevNet__InvalidProposer(getValidatorAt(0), _proposer);
-    }
-    return;
   }
 }

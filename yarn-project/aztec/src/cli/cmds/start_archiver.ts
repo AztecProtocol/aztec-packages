@@ -21,8 +21,7 @@ export const startArchiver = async (options: any, signalHandlers: (() => Promise
   const archiverConfig = extractRelevantOptions<ArchiverConfig>(options, archiverConfigMappings, 'archiver');
 
   const storeLog = createDebugLogger('aztec:archiver:lmdb');
-  const rollupAddress = archiverConfig.l1Contracts.rollupAddress;
-  const store = await createStore(archiverConfig, rollupAddress, storeLog);
+  const store = await createStore('archiver', archiverConfig, storeLog);
   const archiverStore = new KVArchiverDataStore(store, archiverConfig.maxLogs);
 
   const telemetry = await createAndStartTelemetryClient(getTelemetryClientConfig());
