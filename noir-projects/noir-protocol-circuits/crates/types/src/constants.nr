@@ -1,3 +1,5 @@
+use crate::address::AztecAddress;
+
 global MAX_FIELD_VALUE: Field = 21888242871839275222246405745257275088548364400416034343698204186575808495616;
 global ARGS_LENGTH: u32 = 16;
 
@@ -115,7 +117,9 @@ global BASE_PARITY_INDEX: u32 = 18;
 global ROOT_PARITY_INDEX: u32 = 19;
 global BASE_ROLLUP_INDEX: u32 = 20;
 global MERGE_ROLLUP_INDEX: u32 = 21;
-global ROOT_ROLLUP_INDEX: u32 = 22;
+global BLOCK_ROOT_ROLLUP_INDEX: u32 = 22;
+global BLOCK_MERGE_ROLLUP_INDEX: u32 = 23;
+global ROOT_ROLLUP_INDEX: u32 = 24;
 
 // MISC CONSTANTS
 global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
@@ -130,7 +134,16 @@ global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 global INITIAL_L2_BLOCK_NUM: Field = 1;
 global BLOB_SIZE_IN_BYTES: Field = 31 * 4096;
 global ETHEREUM_SLOT_DURATION: u32 = 12;
-global IS_DEV_NET: bool = true;
+// AZTEC_SLOT_DURATION should be a multiple of ETHEREUM_SLOT_DURATION
+global AZTEC_SLOT_DURATION: u32 = ETHEREUM_SLOT_DURATION * 1;
+global AZTEC_EPOCH_DURATION: u32 = 48;
+global AZTEC_TARGET_COMMITTEE_SIZE: u32 = 48;
+// The following is taken from building a block and looking at the `lastArchive` value in it.
+// You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
+global GENESIS_ARCHIVE_ROOT: Field = 0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e;
+// The following and the value in `deploy_l1_contracts´ must match. We should not have the code both places, but
+// we are running into circular dependency issues. #3342
+global FEE_JUICE_INITIAL_MINT: Field = 20000000000;
 
 // CONTRACT CLASS CONSTANTS
 global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 20000;
@@ -178,11 +191,11 @@ global L2_GAS_PER_NOTE_HASH: u32 = 32;
 global L2_GAS_PER_NULLIFIER: u32 = 64;
 
 // CANONICAL CONTRACT ADDRESSES
-global CANONICAL_KEY_REGISTRY_ADDRESS = 0x2ee3f8c67efa88f9e6fb44242f1e9dcc0f9a6752ded07af0d9fac3875a61d421;
-global CANONICAL_AUTH_REGISTRY_ADDRESS = 0x24877c50868f86712240eb535d90d1c97403d074805dd3758c3aecb02958f8d4;
-global DEPLOYER_CONTRACT_ADDRESS = 0x2ab1a2bd6d07d8d61ea56d85861446349e52c6b7c0612b702cb1e6db6ad0b089;
-global REGISTERER_CONTRACT_ADDRESS = 0x05d15342d76e46e5be07d3cda0d753158431cdc5e39d29ce4e8fe1f5c070564a;
-global FEE_JUICE_ADDRESS = 0x16a83e3395bc921a2441db55dce24f0e0932636901a2e676fa68b9b2b9a644c1;
+global CANONICAL_KEY_REGISTRY_ADDRESS = AztecAddress::from_field(0x156eabf84e3ea50d40e3330224f2d2e81648fff8f1f7ec1bc6d2873cca6e959d);
+global CANONICAL_AUTH_REGISTRY_ADDRESS = AztecAddress::from_field(0x24877c50868f86712240eb535d90d1c97403d074805dd3758c3aecb02958f8d4);
+global DEPLOYER_CONTRACT_ADDRESS = AztecAddress::from_field(0x2ab1a2bd6d07d8d61ea56d85861446349e52c6b7c0612b702cb1e6db6ad0b089);
+global REGISTERER_CONTRACT_ADDRESS = AztecAddress::from_field(0x05d15342d76e46e5be07d3cda0d753158431cdc5e39d29ce4e8fe1f5c070564a);
+global FEE_JUICE_ADDRESS = AztecAddress::from_field(0x16a83e3395bc921a2441db55dce24f0e0932636901a2e676fa68b9b2b9a644c1);
 
 // LENGTH OF STRUCTS SERIALIZED TO FIELDS
 global AZTEC_ADDRESS_LENGTH = 1;
@@ -254,6 +267,8 @@ global CONSTANT_ROLLUP_DATA_LENGTH = APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 1 + GLOB
 
 // + 5 for rollup_type, height_in_block_tree, txs_effects_hash, out_hash, accumulated_fees
 global BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = CONSTANT_ROLLUP_DATA_LENGTH + PARTIAL_STATE_REFERENCE_LENGTH + PARTIAL_STATE_REFERENCE_LENGTH + 5;
+// + 64 for 32 * FeeRecipient { recipient, value }, + 4 for previous_block_hash, end_block_hash, out_hash, vk_tree_root + 1 temporarily for prover_id
+global BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH + 2 * GLOBAL_VARIABLES_LENGTH + 69;
 
 global GET_NOTES_ORACLE_RETURN_LENGTH: u32 = 674;
 global NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP: u32 = 32 * MAX_NOTE_HASHES_PER_TX;
@@ -270,11 +285,17 @@ global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
-global RECURSIVE_PROOF_LENGTH = 409;
-global NESTED_RECURSIVE_PROOF_LENGTH = 409;
+global RECURSIVE_PROOF_LENGTH = 439;
+global NESTED_RECURSIVE_PROOF_LENGTH = 439;
 global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS = 120;
+global VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
+// VK is composed of
+// - circuit size encoded as a fr field element (32 bytes)
+// - num of inputs encoded as a fr field element (32 bytes)
+// - 16 affine elements (curve base field fq) encoded as fr elements takes (16 * 4 * 32 bytes)
+// 16 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
+global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS = 2 + 16 * 4;
 
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
@@ -320,6 +341,8 @@ global GENERATOR_INDEX__PARTIAL_ADDRESS: u32 = 27;
 global GENERATOR_INDEX__BLOCK_HASH: u32 = 28;
 global GENERATOR_INDEX__SIDE_EFFECT: u32 = 29;
 global GENERATOR_INDEX__FEE_PAYLOAD: u32 = 30;
+global GENERATOR_INDEX__COMBINED_PAYLOAD: u32 = 31;
+global GENERATOR_INDEX__TX_NULLIFIER: u32 = 32;
 // Indices with size ≤ 16
 global GENERATOR_INDEX__TX_REQUEST: u32 = 33;
 global GENERATOR_INDEX__SIGNATURE_PAYLOAD: u32 = 34;

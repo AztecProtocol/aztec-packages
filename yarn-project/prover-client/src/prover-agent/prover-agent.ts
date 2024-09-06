@@ -53,6 +53,10 @@ export class ProverAgent {
     return this.runningPromise?.isRunning() ?? false;
   }
 
+  getCurrentJobs(): { id: string; type: string }[] {
+    return Array.from(this.inFlightPromises.values()).map(({ id, type }) => ({ id, type: ProvingRequestType[type] }));
+  }
+
   start(jobSource: ProvingJobSource): void {
     if (this.runningPromise) {
       throw new Error('Agent is already running');
@@ -136,20 +140,16 @@ export class ProverAgent {
         );
       }
     } catch (err) {
+      const type = ProvingRequestType[job.request.type];
       if (this.isRunning()) {
-        this.log.error(
-          `Error processing proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: ${
-            (err as any).stack || err
-          }`,
-          err,
-        );
+        if (job.request.type === ProvingRequestType.PUBLIC_VM && !process.env.AVM_PROVING_STRICT) {
+          this.log.warn(`Expected error processing VM proving job id=${job.id} type=${type}: ${err}`);
+        } else {
+          this.log.error(`Error processing proving job id=${job.id} type=${type}: ${err}`, err);
+        }
         await jobSource.rejectProvingJob(job.id, new ProvingError((err as any)?.message ?? String(err)));
       } else {
-        this.log.verbose(
-          `Dropping proving job id=${job.id} type=${ProvingRequestType[job.request.type]}: agent stopped: ${
-            (err as any).stack || err
-          }`,
-        );
+        this.log.verbose(`Dropping proving job id=${job.id} type=${type}: agent stopped: ${(err as any).stack || err}`);
       }
     }
   }
@@ -181,6 +181,14 @@ export class ProverAgent {
 
       case ProvingRequestType.MERGE_ROLLUP: {
         return this.circuitProver.getMergeRollupProof(inputs);
+      }
+
+      case ProvingRequestType.BLOCK_ROOT_ROLLUP: {
+        return this.circuitProver.getBlockRootRollupProof(inputs);
+      }
+
+      case ProvingRequestType.BLOCK_MERGE_ROLLUP: {
+        return this.circuitProver.getBlockMergeRollupProof(inputs);
       }
 
       case ProvingRequestType.ROOT_ROLLUP: {

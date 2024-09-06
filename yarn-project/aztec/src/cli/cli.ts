@@ -7,6 +7,7 @@ import { createPXERpcServer } from '@aztec/pxe';
 import { Command } from 'commander';
 import http from 'http';
 
+import { setupConsoleJsonLog } from '../logging.js';
 import { createSandbox } from '../sandbox.js';
 import { github, splash } from '../splash.js';
 import { aztecStartOptions } from './aztec_start_options.js';
@@ -36,6 +37,11 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
   startCmd.helpInformation = printAztecStartHelpText;
 
   startCmd.action(async options => {
+    // setup json logging
+    if (['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '')) {
+      setupConsoleJsonLog();
+    }
+
     // list of 'stop' functions to call when process ends
     const signalHandlers: Array<() => Promise<void>> = [];
     let services: ServerList = [];
@@ -70,6 +76,9 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       if (options.node) {
         const { startNode } = await import('./cmds/start_node.js');
         services = await startNode(options, signalHandlers, userLog);
+      } else if (options.proofVerifier) {
+        const { startProofVerifier } = await import('./cmds/start_proof_verifier.js');
+        services = await startProofVerifier(options, signalHandlers, userLog);
       } else if (options.bot) {
         const { startBot } = await import('./cmds/start_bot.js');
         services = await startBot(options, signalHandlers, userLog);
@@ -95,10 +104,11 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
         userLog(`Cannot run a standalone sequencer without a node`);
         process.exit(1);
       } else {
-        userLog(`No module specified to start ${JSON.stringify(options, null, 2)}`);
+        userLog(`No module specified to start`);
         process.exit(1);
       }
     }
+
     installSignalHandlers(debugLogger.info, signalHandlers);
 
     if (services.length) {
@@ -111,7 +121,7 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
 
       const httpServer = http.createServer(app.callback());
       httpServer.listen(options.port);
-      userLog(`Aztec Server listening on port ${options.port}`);
+      debugLogger.info(`Aztec Server listening on port ${options.port}`);
     }
   });
 

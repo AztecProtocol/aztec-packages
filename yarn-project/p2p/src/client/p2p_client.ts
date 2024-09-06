@@ -11,8 +11,11 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 
+import { type ENR } from '@chainsafe/enr';
+
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { getP2PConfigEnvVars } from '../config.js';
+import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
 import type { P2PService } from '../service/service.js';
 import { type TxPool } from '../tx_pool/index.js';
 
@@ -70,6 +73,12 @@ export interface P2P {
   registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation>): void;
 
   /**
+   * Request a transaction from another peer by its tx hash.
+   * @param txHash - Hash of the tx to query.
+   */
+  requestTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+
+  /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
    * @param tx - The transaction.
    **/
@@ -124,6 +133,11 @@ export interface P2P {
    * Returns the current status of the p2p client.
    */
   getStatus(): Promise<P2PSyncState>;
+
+  /**
+   * Returns the ENR for this node, if any.
+   */
+  getEnr(): ENR | undefined;
 }
 
 /**
@@ -269,6 +283,11 @@ export class P2PClient implements P2P {
     this.p2pService.registerBlockReceivedCallback(handler);
   }
 
+  public requestTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    // Underlying I want to use the libp2p service to just have a request method where the subprotocol is defined here
+    return this.p2pService.sendRequest(TX_REQ_PROTOCOL, txHash);
+  }
+
   /**
    * Returns all transactions in the transaction pool.
    * @returns An array of Txs.
@@ -322,6 +341,10 @@ export class P2PClient implements P2P {
    */
   public getTxStatus(txHash: TxHash): 'pending' | 'mined' | undefined {
     return this.txPool.getTxStatus(txHash);
+  }
+
+  public getEnr(): ENR | undefined {
+    return this.p2pService.getEnr();
   }
 
   /**

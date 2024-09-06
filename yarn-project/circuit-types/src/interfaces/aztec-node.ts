@@ -284,6 +284,12 @@ export interface AztecNode {
   getPendingTxs(): Promise<Tx[]>;
 
   /**
+   * Retrieves the number of pending txs
+   * @returns The number of pending txs.
+   */
+  getPendingTxCount(): Promise<number>;
+
+  /**
    * Method to retrieve a single pending tx.
    * @param txHash - The transaction hash to return.
    * @returns The pending tx if it exists.
@@ -321,8 +327,9 @@ export interface AztecNode {
    * made invalid by *other* transactions if e.g. they emit the same nullifiers, or come become invalid
    * due to e.g. the max_block_number property.
    * @param tx - The transaction to validate for correctness.
+   * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
    */
-  isValidTx(tx: Tx): Promise<boolean>;
+  isValidTx(tx: Tx, isSimulation?: boolean): Promise<boolean>;
 
   /**
    * Updates the configuration of this node.
@@ -341,4 +348,12 @@ export interface AztecNode {
    * @param address - Address of the deployed contract.
    */
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+
+  /** Forces the next block to be built bypassing all time and pending checks. Useful for testing. */
+  flushTxs(): Promise<void>;
+
+  /**
+   * Returns the ENR of this node for peer discovery, if available.
+   */
+  getEncodedEnr(): Promise<string | undefined>;
 }

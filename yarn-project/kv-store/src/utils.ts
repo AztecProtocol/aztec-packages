@@ -1,21 +1,25 @@
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 
+import { join } from 'path';
+
 import { type AztecKVStore } from './interfaces/store.js';
 import { AztecLmdbStore } from './lmdb/store.js';
 
-export function createStore(
-  config: { dataDirectory: string | undefined },
-  rollupAddress: EthAddress,
-  log: Logger = createDebugLogger('aztec:kv-store'),
-) {
-  if (config.dataDirectory) {
-    log.info(`Using data directory: ${config.dataDirectory}`);
-  } else {
-    log.info('Using ephemeral data directory');
+export type DataStoreConfig = { dataDirectory: string | undefined; l1Contracts: { rollupAddress: EthAddress } };
+
+export function createStore(name: string, config: DataStoreConfig, log: Logger = createDebugLogger('aztec:kv-store')) {
+  let { dataDirectory } = config;
+  if (typeof dataDirectory !== 'undefined') {
+    dataDirectory = join(dataDirectory, name);
   }
 
-  return initStoreForRollup(AztecLmdbStore.open(config.dataDirectory, false), rollupAddress, log);
+  log.info(
+    dataDirectory
+      ? `Creating ${name} data store at directory ${dataDirectory}`
+      : `Creating ${name} ephemeral data store`,
+  );
+  return initStoreForRollup(AztecLmdbStore.open(dataDirectory, false), config.l1Contracts.rollupAddress, log);
 }
 
 /**
@@ -25,7 +29,7 @@ export function createStore(
  * @param rollupAddress - The ETH address of the rollup contract
  * @returns A promise that resolves when the store is cleared, or rejects if the rollup address does not match
  */
-export async function initStoreForRollup<T extends AztecKVStore>(
+async function initStoreForRollup<T extends AztecKVStore>(
   store: T,
   rollupAddress: EthAddress,
   log?: Logger,
@@ -38,9 +42,10 @@ export async function initStoreForRollup<T extends AztecKVStore>(
   const storedRollupAddressString = rollupAddressValue.get();
 
   if (typeof storedRollupAddressString !== 'undefined' && storedRollupAddressString !== rollupAddressString) {
-    log?.warn(
-      `Rollup address mismatch: expected ${rollupAddress}, found ${rollupAddressValue}. Clearing entire database...`,
-    );
+    log?.warn(`Rollup address mismatch. Clearing entire database...`, {
+      expected: rollupAddressString,
+      found: storedRollupAddressString,
+    });
 
     await store.clear();
   }

@@ -52,6 +52,7 @@ export async function bootstrapNetwork(
   const fpc = await deployFPC(wallet, token.address);
 
   const counter = await deployCounter(wallet);
+  // NOTE: Disabling for now in order to get devnet running
   await fundFPC(counter.address, wallet, l1Clients, fpc.address, debugLog);
 
   if (json) {
@@ -112,19 +113,17 @@ async function deployERC20({ walletClient, publicClient }: L1Clients) {
     contractBytecode: TokenPortalBytecode,
   };
 
-  const erc20Address = await deployL1Contract(
+  const { address: erc20Address } = await deployL1Contract(
     walletClient,
     publicClient,
     erc20.contractAbi,
     erc20.contractBytecode,
-    [],
   );
-  const portalAddress = await deployL1Contract(
+  const { address: portalAddress } = await deployL1Contract(
     walletClient,
     publicClient,
     portal.contractAbi,
     portal.contractBytecode,
-    [],
   );
 
   return {
@@ -227,6 +226,7 @@ async function deployCounter(wallet: Wallet): Promise<ContractDeploymentInfo> {
   return info;
 }
 
+// NOTE: Disabling for now in order to get devnet running
 async function fundFPC(
   counterAddress: AztecAddress,
   wallet: Wallet,
@@ -243,7 +243,7 @@ async function fundFPC(
 
   const feeJuiceContract = await FeeJuiceContract.at(feeJuice, wallet);
 
-  const feeJuicePortal = await FeeJuicePortalManager.create(
+  const feeJuicePortal = await FeeJuicePortalManager.new(
     wallet,
     l1Clients.publicClient,
     l1Clients.walletClient,
@@ -251,7 +251,7 @@ async function fundFPC(
   );
 
   const amount = 10n ** 21n;
-  const { secret } = await feeJuicePortal.prepareTokensOnL1(amount, amount, fpcAddress, true);
+  const { claimAmount, claimSecret } = await feeJuicePortal.bridgeTokensPublic(fpcAddress, amount, true);
 
   const counter = await CounterContract.at(counterAddress, wallet);
 
@@ -266,5 +266,8 @@ async function fundFPC(
     .send()
     .wait({ proven: true, provenTimeout: 600 });
 
-  await feeJuiceContract.methods.claim(fpcAddress, amount, secret).send().wait({ proven: true, provenTimeout: 600 });
+  await feeJuiceContract.methods
+    .claim(fpcAddress, claimAmount, claimSecret)
+    .send()
+    .wait({ proven: true, provenTimeout: 600 });
 }

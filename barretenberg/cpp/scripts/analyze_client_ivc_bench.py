@@ -17,7 +17,7 @@ PREFIX = args.prefix
 to_keep = [
     "construct_circuits(t)",
     "ProverInstance(Circuit&)(t)",
-    "ProtogalaxyProver::fold_instances(t)",
+    "ProtogalaxyProver::prove(t)",
     "Decider::construct_proof(t)",
     "ECCVMProver(CircuitBuilder&)(t)",
     "ECCVMProver::construct_proof(t)",
@@ -64,12 +64,12 @@ for key in ['commit(t)', 'compute_combiner(t)', 'compute_perturbator(t)', 'compu
         time_ms = bench[key]/1e6
     print(f"{key:<{max_label_length}}{time_ms:>8.0f} {time_ms/sum_of_kept_times_ms:>8.2%}")
 
-print('\nBreakdown of ProtogalaxyProver::fold_instances:')
+print('\nBreakdown of ProtogalaxyProver::prove:')
 protogalaxy_round_labels = [
-    "ProtoGalaxyProver_::preparation_round(t)",
-    "ProtoGalaxyProver_::perturbator_round(t)",
-    "ProtoGalaxyProver_::combiner_quotient_round(t)",
-    "ProtoGalaxyProver_::accumulator_update_round(t)"
+    "ProtogalaxyProver_::preparation_round(t)",
+    "ProtogalaxyProver_::perturbator_round(t)",
+    "ProtogalaxyProver_::combiner_quotient_round(t)",
+    "ProtogalaxyProver_::update_target_sum_and_fold(t)"
 ]
 max_label_length = max(len(label) for label in protogalaxy_round_labels)
 for key in protogalaxy_round_labels:
@@ -77,10 +77,10 @@ for key in protogalaxy_round_labels:
         time_ms = 0
     else:
         time_ms = bench[key]/1e6
-    total_time_ms = bench["ProtogalaxyProver::fold_instances(t)"]/1e6
+    total_time_ms = bench["ProtogalaxyProver::prove(t)"]/1e6
     print(f"{key:<{max_label_length}}{time_ms:>8.0f}  {time_ms/total_time_ms:>8.2%}")
 
-# Extract a set of components from the benchmark data and display timings and relative percentages 
+# Extract a set of components from the benchmark data and display timings and relative percentages
 def print_contributions(prefix, ivc_bench_json, bench_name, components):
 
     # Read JSON file and extract benchmark
@@ -93,7 +93,7 @@ def print_contributions(prefix, ivc_bench_json, bench_name, components):
     except FileNotFoundError:
         print(f"File not found: {prefix / ivc_bench_json}")
         return
-    
+
     # Filter and sum up kept times
     bench_components = {key: bench[key] for key in components if key in bench}
     sum_of_kept_times_ms = sum(float(time) for time in bench_components.values()) / 1e6

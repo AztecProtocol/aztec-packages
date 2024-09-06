@@ -1,6 +1,6 @@
 import { type AccountWallet, AztecAddress, Fr, type PXE } from '@aztec/aztec.js';
 import { CompleteAddress, Point, PublicKeys } from '@aztec/circuits.js';
-import { NewKeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
+import { KeyRegistryContract, TestContract } from '@aztec/noir-contracts.js';
 import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 
 import { jest } from '@jest/globals';
@@ -10,7 +10,7 @@ import { publicDeployAccounts, setup } from './fixtures/utils.js';
 const TIMEOUT = 120_000;
 
 describe('Key Registry', () => {
-  let keyRegistry: NewKeyRegistryContract;
+  let keyRegistry: KeyRegistryContract;
 
   let pxe: PXE;
   let testContract: TestContract;
@@ -24,7 +24,7 @@ describe('Key Registry', () => {
 
   beforeAll(async () => {
     ({ teardown, pxe, wallets } = await setup(2));
-    keyRegistry = await NewKeyRegistryContract.at(getCanonicalKeyRegistryAddress(), wallets[0]);
+    keyRegistry = await KeyRegistryContract.at(getCanonicalKeyRegistryAddress(), wallets[0]);
 
     testContract = await TestContract.deploy(wallets[0]).send().deployed();
 
@@ -66,7 +66,7 @@ describe('Key Registry', () => {
       await expect(
         keyRegistry
           .withWallet(wallets[0])
-          .methods.rotate_npk_m(wallets[1].getAddress(), Point.random().toNoirStruct(), Fr.ZERO)
+          .methods.rotate_npk_m(wallets[1].getAddress(), Point.random().toWrappedNoirStruct(), Fr.ZERO)
           .simulate(),
       ).rejects.toThrow(/unauthorized/);
     });
@@ -129,7 +129,7 @@ describe('Key Registry', () => {
       // docs:start:key-rotation
       await keyRegistry
         .withWallet(wallets[0])
-        .methods.rotate_npk_m(wallets[0].getAddress(), firstNewMasterNullifierPublicKey.toNoirStruct(), Fr.ZERO)
+        .methods.rotate_npk_m(wallets[0].getAddress(), firstNewMasterNullifierPublicKey.toWrappedNoirStruct(), Fr.ZERO)
         .send()
         .wait();
       // docs:end:key-rotation
@@ -143,7 +143,11 @@ describe('Key Registry', () => {
     it(`rotates npk_m with authwit`, async () => {
       const action = keyRegistry
         .withWallet(wallets[1])
-        .methods.rotate_npk_m(wallets[0].getAddress(), secondNewMasterNullifierPublicKey.toNoirStruct(), Fr.ZERO);
+        .methods.rotate_npk_m(
+          wallets[0].getAddress(),
+          secondNewMasterNullifierPublicKey.toWrappedNoirStruct(),
+          Fr.ZERO,
+        );
 
       await wallets[0]
         .setPublicAuthWit({ caller: wallets[1].getCompleteAddress().address, action }, true)

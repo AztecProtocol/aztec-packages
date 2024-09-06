@@ -3,7 +3,7 @@ use crate::event::event_interface::EventInterface;
 use dep::protocol_types::{scalar::Scalar, point::Point};
 
 use std::aes128::aes128_encrypt;
-use crate::keys::point_to_symmetric_key::point_to_symmetric_key;
+use crate::keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::IvpkM};
 
 struct EncryptedLogIncomingBody<let M: u32> {
     plaintext: [u8; M]
@@ -23,8 +23,8 @@ impl<let M: u32> EncryptedLogIncomingBody<M> {
         EncryptedLogIncomingBody { plaintext }
     }
 
-    pub fn compute_ciphertext(self, eph_sk: Scalar, ivpk: Point) -> [u8] {
-        let full_key = point_to_symmetric_key(eph_sk, ivpk);
+    pub fn compute_ciphertext(self, eph_sk: Scalar, ivpk: IvpkM) -> [u8] {
+        let full_key = point_to_symmetric_key(eph_sk, ivpk.to_point());
         let mut sym_key = [0; 16];
         let mut iv = [0; 16];
 
@@ -45,7 +45,7 @@ mod test {
     use crate::{
         note::{note_header::NoteHeader, note_interface::NoteInterface},
         encrypted_logs::incoming_body::EncryptedLogIncomingBody, event::event_interface::EventInterface,
-        context::PrivateContext
+        context::PrivateContext, keys::public_keys::IvpkM
     };
 
     struct AddressNote {
@@ -59,7 +59,7 @@ mod test {
     global ADDRESS_NOTE_BYTES_LEN = 32 * 3 + 64;
 
     impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
-        fn compute_note_hiding_point(self) -> Point {
+        fn compute_note_hiding_point(_self: Self) -> Point {
             crate::generators::Ga1
         }
 
@@ -90,8 +90,8 @@ mod test {
 
             let mut buffer: [u8; ADDRESS_NOTE_BYTES_LEN] = [0; ADDRESS_NOTE_BYTES_LEN];
 
-            let storage_slot_bytes = storage_slot.to_be_bytes(32);
-            let note_type_id_bytes = AddressNote::get_note_type_id().to_be_bytes(32);
+            let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
+            let note_type_id_bytes: [u8; 32] = AddressNote::get_note_type_id().to_be_bytes();
 
             for i in 0..32 {
                 buffer[i] = storage_slot_bytes[i];
@@ -99,7 +99,7 @@ mod test {
             }
 
             for i in 0..serialized_note.len() {
-                let bytes = serialized_note[i].to_be_bytes(32);
+                let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
                 for j in 0..32 {
                     buffer[64 + i * 32 + j] = bytes[j];
                 }
@@ -129,10 +129,12 @@ mod test {
             lo: 0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd,
             hi: 0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06
         };
-        let ivpk = Point {
-            x: 0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,
-            y: 0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e,
-            is_infinite: false
+        let ivpk = IvpkM {
+            inner: Point {
+                x: 0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,
+                y: 0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e,
+                is_infinite: false
+            }
         };
 
         /// 1. `EncryptedLogIncomingBody::from_note` calls `note.to_be_bytes(storage_slot)` function which serializes
@@ -175,14 +177,14 @@ mod test {
 
     impl EventInterface<TEST_EVENT_BYTES_LEN, TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS> for TestEvent {
         fn get_event_type_id() -> EventSelector {
-            EventSelector::from_signature("TestEvent(Field,Field,Field)")
+            comptime { EventSelector::from_signature("TestEvent(Field,Field,Field)") }
         }
 
         fn private_to_be_bytes(self, randomness: Field) -> [u8; TEST_EVENT_BYTES_LEN] {
             let mut buffer: [u8; TEST_EVENT_BYTES_LEN] = [0; TEST_EVENT_BYTES_LEN];
 
-            let randomness_bytes = randomness.to_be_bytes(32);
-            let event_type_id_bytes = TestEvent::get_event_type_id().to_field().to_be_bytes(32);
+            let randomness_bytes: [u8; 32] = randomness.to_be_bytes();
+            let event_type_id_bytes: [u8; 32] = TestEvent::get_event_type_id().to_field().to_be_bytes();
 
             for i in 0..32 {
                 buffer[i] = randomness_bytes[i];
@@ -192,7 +194,7 @@ mod test {
             let serialized_event = self.serialize();
 
             for i in 0..serialized_event.len() {
-                let bytes = serialized_event[i].to_be_bytes(32);
+                let bytes: [u8; 32] = serialized_event[i].to_be_bytes();
                 for j in 0..32 {
                     buffer[64 + i * 32 + j] = bytes[j];
                 }
@@ -204,7 +206,7 @@ mod test {
         fn to_be_bytes(self) -> [u8; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS] {
              let mut buffer: [u8; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS] = [0; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS];
 
-             let event_type_id_bytes = TestEvent::get_event_type_id().to_field().to_be_bytes(32);
+             let event_type_id_bytes: [u8; 32] = TestEvent::get_event_type_id().to_field().to_be_bytes();
 
              for i in 0..32 {
                  buffer[i] = event_type_id_bytes[i];
@@ -213,7 +215,7 @@ mod test {
              let serialized_event = self.serialize();
 
              for i in 0..serialized_event.len() {
-                 let bytes = serialized_event[i].to_be_bytes(32);
+                 let bytes: [u8; 32] = serialized_event[i].to_be_bytes();
                  for j in 0..32 {
                      buffer[32 + i * 32 + j] = bytes[j];
                 }
@@ -236,10 +238,12 @@ mod test {
             hi: 0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06
         };
 
-        let ivpk = Point {
-            x: 0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,
-            y: 0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e,
-            is_infinite: false
+        let ivpk = IvpkM {
+            inner: Point {
+                x: 0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,
+                y: 0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e,
+                is_infinite: false
+            }
         };
 
         let randomness = 2;

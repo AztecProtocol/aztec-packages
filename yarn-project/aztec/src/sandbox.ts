@@ -90,7 +90,7 @@ export async function deployContractsToL1(
   aztecNodeConfig: AztecNodeConfig,
   hdAccount: HDAccount | PrivateKeyAccount,
   contractDeployLogger = logger,
-  opts: { assumeProvenUntilBlockNumber?: number } = {},
+  opts: { assumeProvenUntilBlockNumber?: number; salt?: number } = {},
 ) {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     registry: {
@@ -132,6 +132,7 @@ export async function deployContractsToL1(
       l2FeeJuiceAddress: FeeJuiceAddress,
       vkTreeRoot: getVKTreeRoot(),
       assumeProvenUntil: opts.assumeProvenUntilBlockNumber,
+      salt: opts.salt,
     }),
   );
 
@@ -169,7 +170,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     await deployContractsToL1(aztecNodeConfig, hdAccount);
   }
 
-  const client = createAndStartTelemetryClient(getTelemetryClientConfig());
+  const client = await createAndStartTelemetryClient(getTelemetryClientConfig());
   const node = await createAztecNode(aztecNodeConfig, client);
   const pxe = await createAztecPXE(node);
 

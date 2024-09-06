@@ -11,8 +11,13 @@ import {
   type TxProvider,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import { type L1Publisher } from '@aztec/sequencer-client';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
+
+import * as crypto from 'node:crypto';
+
+import { type ProverNodeMetrics } from '../metrics.js';
 
 /**
  * Job that grabs a range of blocks from the unfinalised chain from L1, gets their txs given their hashes,
@@ -22,6 +27,7 @@ import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simula
 export class BlockProvingJob {
   private state: BlockProvingJobState = 'initialized';
   private log = createDebugLogger('aztec:block-proving-job');
+  private uuid: string;
 
   constructor(
     private prover: BlockProver,
@@ -30,8 +36,15 @@ export class BlockProvingJob {
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private txProvider: TxProvider,
-    private cleanUp: () => Promise<void> = () => Promise.resolve(),
-  ) {}
+    private metrics: ProverNodeMetrics,
+    private cleanUp: (job: BlockProvingJob) => Promise<void> = () => Promise.resolve(),
+  ) {
+    this.uuid = crypto.randomUUID();
+  }
+
+  public getId(): string {
+    return this.uuid;
+  }
 
   public getState(): BlockProvingJobState {
     return this.state;
@@ -42,8 +55,9 @@ export class BlockProvingJob {
       throw new Error(`Block ranges are not yet supported`);
     }
 
-    this.log.info(`Starting block proving job`, { fromBlock, toBlock });
+    this.log.info(`Starting block proving job`, { fromBlock, toBlock, uuid: this.uuid });
     this.state = 'processing';
+    const timer = new Timer();
     try {
       let historicalHeader = (await this.l2BlockSource.getBlock(fromBlock - 1))?.header;
       for (let blockNumber = fromBlock; blockNumber <= toBlock; blockNumber++) {
@@ -61,6 +75,7 @@ export class BlockProvingJob {
           nullifierTreeRoot: block.header.state.partial.nullifierTree.root,
           publicDataTreeRoot: block.header.state.partial.publicDataTree.root,
           historicalHeader: historicalHeader?.hash(),
+          uuid: this.uuid,
           ...globalVariables,
         });
 
@@ -75,6 +90,7 @@ export class BlockProvingJob {
         this.log.verbose(`Processed all txs for block`, {
           blockNumber: block.number,
           blockHash: block.hash().toString(),
+          uuid: this.uuid,
         });
 
         await this.prover.setBlockCompleted();
@@ -90,7 +106,7 @@ export class BlockProvingJob {
       }
 
       const { block, aggregationObject, proof } = await this.prover.finaliseBlock();
-      this.log.info(`Finalised proof for block range`, { fromBlock, toBlock });
+      this.log.info(`Finalised proof for block range`, { fromBlock, toBlock, uuid: this.uuid });
 
       this.state = 'publishing-proof';
       await this.publisher.submitProof(
@@ -100,15 +116,20 @@ export class BlockProvingJob {
         aggregationObject,
         proof,
       );
-      this.log.info(`Submitted proof for block range`, { fromBlock, toBlock });
+      this.log.info(`Submitted proof for block range`, { fromBlock, toBlock, uuid: this.uuid });
 
       this.state = 'completed';
+      this.metrics.recordProvingJob(timer);
     } catch (err) {
-      this.log.error(`Error running block prover job: ${err}`);
+      this.log.error(`Error running block prover job`, err, { uuid: this.uuid });
       this.state = 'failed';
     } finally {
-      await this.cleanUp();
+      await this.cleanUp(this);
     }
+  }
+
+  public stop() {
+    this.prover.cancelBlock();
   }
 
   private async getBlock(blockNumber: number): Promise<L2Block> {

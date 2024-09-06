@@ -1,5 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 
+import { mkdirSync } from 'fs';
 import { mkdtemp } from 'fs/promises';
 import { type Database, type Key, type RootDatabase, open } from 'lmdb';
 import { tmpdir } from 'os';
@@ -60,7 +61,10 @@ export class AztecLmdbStore implements AztecKVStore {
     ephemeral: boolean = false,
     log = createDebugLogger('aztec:kv-store:lmdb'),
   ): AztecLmdbStore {
-    log.verbose(`Opening LMDB database at ${path || 'temporary location'}`);
+    log.debug(`Opening LMDB database at ${path || 'temporary location'}`);
+    if (path) {
+      mkdirSync(path, { recursive: true });
+    }
     const rootDb = open({ path, noSync: ephemeral });
     return new AztecLmdbStore(rootDb, ephemeral, path);
   }
@@ -149,5 +153,17 @@ export class AztecLmdbStore implements AztecKVStore {
   /** Deletes this store */
   async delete() {
     await this.#rootDb.drop();
+  }
+
+  estimateSize(): { bytes: number } {
+    const stats = this.#rootDb.getStats();
+    // `mapSize` represents to total amount of memory currently being used by the database.
+    // since the database is mmap'd, this is a good estimate of the size of the database for now.
+    // http://www.lmdb.tech/doc/group__mdb.html#a4bde3c8b676457342cba2fe27aed5fbd
+    if ('mapSize' in stats && typeof stats.mapSize === 'number') {
+      return { bytes: stats.mapSize };
+    } else {
+      return { bytes: 0 };
+    }
   }
 }

@@ -1,7 +1,8 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
-#include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
+#include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp" // just for an alias; should perhaps move to prover
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include <benchmark/benchmark.h>
 
@@ -53,9 +54,9 @@ template <typename Flavor, typename Relation> void execute_relation_for_univaria
 template <typename Flavor, typename Relation> void execute_relation_for_pg_univariates(::benchmark::State& state)
 {
     using ProverInstances = ProverInstances_<Flavor>;
-    using ProtoGalaxyProver = ProtoGalaxyProver_<ProverInstances>;
-    using Input = ProtoGalaxyProver::ExtendedUnivariates;
-    using Accumulator = typename Relation::template ProtogalaxyTupleOfUnivariatesOverSubrelations<ProverInstances::NUM>;
+    using Input = ProtogalaxyProverInternal<ProverInstances>::ExtendedUnivariatesNoOptimisticSkipping;
+    using Accumulator = typename Relation::template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<
+        ProverInstances::NUM>;
 
     execute_relation<Flavor, Relation, Input, Accumulator>(state);
 }

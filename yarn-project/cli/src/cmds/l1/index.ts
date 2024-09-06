@@ -30,6 +30,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'test test test test test test test test test test test junk',
     )
     .addOption(l1ChainIdOption)
+    .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
@@ -38,10 +39,98 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options.l1ChainId,
         options.privateKey,
         options.mnemonic,
+        options.salt,
         options.json,
         log,
         debugLogger,
       );
+    });
+
+  program
+    .command('generate-l1-account')
+    .description('Generates a new private key for an account on L1.')
+    .option('--json', 'Output the private key in JSON format')
+    .action(async () => {
+      const { generateL1Account } = await import('./update_l1_validators.js');
+      const account = generateL1Account();
+      log(JSON.stringify(account, null, 2));
+    });
+
+  program
+    .command('add-l1-validator')
+    .description('Adds a validator to the L1 rollup contract.')
+    .requiredOption(
+      '-u, --rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
+    .option(
+      '-m, --mnemonic <string>',
+      'The mnemonic to use in deployment',
+      'test test test test test test test test test test test junk',
+    )
+    .addOption(l1ChainIdOption)
+    .option('--validator <addresse>', 'ethereum address of the validator', parseEthereumAddress)
+    .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
+    .action(async options => {
+      const { addL1Validator } = await import('./update_l1_validators.js');
+      await addL1Validator({
+        rpcUrl: options.rpcUrl,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        validatorAddress: options.validator,
+        rollupAddress: options.rollup,
+        log,
+        debugLogger,
+      });
+    });
+
+  program
+    .command('fast-forward-epochs')
+    .description('Fast forwards the epoch of the L1 rollup contract.')
+    .requiredOption(
+      '-u, --rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .addOption(l1ChainIdOption)
+    .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
+    .option('--count <number>', 'The number of epochs to fast forward', arg => BigInt(parseInt(arg)), 1n)
+    .action(async options => {
+      const { fastForwardEpochs } = await import('./update_l1_validators.js');
+      await fastForwardEpochs({
+        rpcUrl: options.rpcUrl,
+        chainId: options.l1ChainId,
+        rollupAddress: options.rollup,
+        numEpochs: options.count,
+        log,
+        debugLogger,
+      });
+    });
+
+  program
+    .command('debug-rollup')
+    .description('Debugs the rollup contract.')
+    .requiredOption(
+      '-u, --rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .addOption(l1ChainIdOption)
+    .option('--rollup <address>', 'ethereum address of the rollup contract', parseEthereumAddress)
+    .action(async options => {
+      const { debugRollup } = await import('./update_l1_validators.js');
+      await debugRollup({
+        rpcUrl: options.rpcUrl,
+        chainId: options.l1ChainId,
+        privateKey: options.privateKey,
+        mnemonic: options.mnemonic,
+        rollupAddress: options.rollup,
+        log,
+        debugLogger,
+      });
     });
 
   program
@@ -106,6 +195,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
       'test test test test test test test test test test test junk',
     )
     .option('--mint', 'Mint the tokens on L1', false)
+    .option('--private', 'If the bridge should use the private flow', false)
     .addOption(l1ChainIdOption)
     .requiredOption('-t, --token <string>', 'The address of the token to bridge', parseEthereumAddress)
     .requiredOption('-p, --portal <string>', 'The address of the portal contract', parseEthereumAddress)
@@ -122,6 +212,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options.mnemonic,
         options.token,
         options.portal,
+        options.private,
         options.mint,
         options.json,
         log,
@@ -155,7 +246,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
-    .command('set-proven-until')
+    .command('set-proven-until', { hidden: true })
     .description(
       'Instructs the L1 rollup contract to assume all blocks until the given number are automatically proven.',
     )
@@ -184,6 +275,42 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         options.mnemonic,
         log,
       );
+    });
+
+  program
+    .command('prover-stats', { hidden: true })
+    .requiredOption(
+      '--l1-rpc-url <string>',
+      'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
+      ETHEREUM_HOST,
+    )
+    .addOption(l1ChainIdOption)
+    .option('--start-block <number>', 'The L1 block number to start from', parseBigint, 1n)
+    .option('--end-block <number>', 'The last L1 block number to query', parseBigint)
+    .option('--batch-size <number>', 'The number of blocks to query in each batch', parseBigint, 100n)
+    .option('--proving-timeout <number>', 'Cutoff for proving time to consider a block', parseBigint)
+    .option('--l1-rollup-address <string>', 'Address of the rollup contract (required if node URL is not set)')
+    .option(
+      '--node-url <string>',
+      'JSON RPC URL of an Aztec node to retrieve the rollup contract address (required if L1 rollup address is not set)',
+    )
+    .option('--raw-logs', 'Output raw logs instead of aggregated stats')
+    .action(async options => {
+      const { proverStats } = await import('./prover_stats.js');
+      const { l1RpcUrl, chainId, l1RollupAddress, startBlock, endBlock, batchSize, nodeUrl, provingTimeout, rawLogs } =
+        options;
+      await proverStats({
+        l1RpcUrl,
+        chainId,
+        l1RollupAddress,
+        startBlock,
+        endBlock,
+        batchSize,
+        nodeUrl,
+        provingTimeout,
+        rawLogs,
+        log,
+      });
     });
 
   return program;

@@ -3,6 +3,7 @@ import type { BlockAttestation, BlockProposal, Gossipable, TxHash } from '@aztec
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
+import { type ReqRespSubProtocol, type SubProtocolMap } from './reqresp/interface.js';
 import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
 
 /**
@@ -41,6 +42,27 @@ export class DummyP2PService implements P2PService {
    * Register a callback into the validator client for when a block proposal is received
    */
   public registerBlockReceivedCallback(_: (block: BlockProposal) => Promise<BlockAttestation>) {}
+
+  /**
+   * Sends a request to a peer.
+   * @param _protocol - The protocol to send the request on.
+   * @param _request - The request to send.
+   * @returns The response from the peer, otherwise undefined.
+   */
+  public sendRequest<Protocol extends ReqRespSubProtocol>(
+    _protocol: Protocol,
+    _request: InstanceType<SubProtocolMap[Protocol]['request']>,
+  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  /**
+   * Returns the ENR of the peer.
+   * @returns The ENR of the peer, otherwise undefined.
+   */
+  public getEnr(): undefined {
+    return undefined;
+  }
 }
 
 /**
@@ -82,5 +104,9 @@ export class DummyPeerDiscoveryService extends EventEmitter implements PeerDisco
 
   public getStatus(): PeerDiscoveryState {
     return this.currentState;
+  }
+
+  public getEnr(): undefined {
+    return undefined;
   }
 }

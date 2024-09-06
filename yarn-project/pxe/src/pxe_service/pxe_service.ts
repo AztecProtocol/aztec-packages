@@ -17,6 +17,7 @@ import {
   type PXE,
   type PXEInfo,
   type PrivateKernelProver,
+  type SiblingPath,
   SimulatedTx,
   SimulationError,
   TaggedLog,
@@ -27,12 +28,15 @@ import {
   type TxReceipt,
   UnencryptedTxL2Logs,
   UniqueNote,
+  getNonNullifiedL1ToL2MessageWitness,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
   type CompleteAddress,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,
+  computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -62,6 +66,7 @@ import {
   collectSortedEncryptedLogs,
   collectSortedNoteEncryptedLogs,
   collectSortedUnencryptedLogs,
+  resolveAssertionMessage,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -269,6 +274,13 @@ export class PXEService implements PXE {
           `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
         );
       }
+      if (
+        // Computed address from the instance does not match address inside instance
+        !computeContractAddressFromInstance(instance).equals(instance.address)
+      ) {
+        throw new Error('Added a contract in which the address does not match the contract instance.');
+      }
+
       await this.db.addContractArtifact(contractClassId, artifact);
       await this.node.addContractArtifact(instance.address, artifact);
     } else {
@@ -353,6 +365,14 @@ export class PXEService implements PXE {
       );
     });
     return Promise.all(extendedNotes);
+  }
+
+  public async getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
+    return await getNonNullifiedL1ToL2MessageWitness(this.node, contractAddress, messageHash, secret);
   }
 
   public async addNote(note: ExtendedNote, scope?: AztecAddress) {
@@ -513,7 +533,7 @@ export class PXEService implements PXE {
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
-    skipTxValidation: boolean = true, // TODO(#7956): make the default be false
+    skipTxValidation: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<SimulatedTx> {
     return await this.jobQueue.put(async () => {
@@ -523,7 +543,7 @@ export class PXEService implements PXE {
       }
 
       if (!skipTxValidation) {
-        if (!(await this.node.isValidTx(simulatedTx.tx))) {
+        if (!(await this.node.isValidTx(simulatedTx.tx, true))) {
           throw new Error('The simulated transaction is unable to be added to state and is invalid.');
         }
       }
@@ -546,6 +566,7 @@ export class PXEService implements PXE {
     }
     this.log.info(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx);
+    this.log.info(`Sent transaction ${txHash}`);
     return txHash;
   }
 
@@ -617,18 +638,21 @@ export class PXEService implements PXE {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, protocolVersion, chainId, contractAddresses, protocolContractAddresses] = await Promise.all([
-      this.node.getNodeVersion(),
-      this.node.getVersion(),
-      this.node.getChainId(),
-      this.node.getL1ContractAddresses(),
-      this.node.getProtocolContractAddresses(),
-    ]);
+    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
+      await Promise.all([
+        this.node.getNodeVersion(),
+        this.node.getVersion(),
+        this.node.getChainId(),
+        this.node.getEncodedEnr(),
+        this.node.getL1ContractAddresses(),
+        this.node.getProtocolContractAddresses(),
+      ]);
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
       l1ChainId: chainId,
       protocolVersion,
+      enr,
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,
     };
@@ -739,19 +763,25 @@ export class PXEService implements PXE {
           originalFailingFunction.functionSelector,
         );
         const noirCallStack = err.getNoirCallStack();
-        if (debugInfo && isNoirCallStackUnresolved(noirCallStack)) {
-          try {
-            // Public functions are simulated as a single Brillig entry point.
-            // Thus, we can safely assume here that the Brillig function id is `0`.
-            const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo, 0);
-            err.setNoirCallStack(parsedCallStack);
-          } catch (err) {
-            this.log.warn(
-              `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${originalFailingFunction.functionSelector.toString()}: ${err}`,
-            );
+        if (debugInfo) {
+          if (isNoirCallStackUnresolved(noirCallStack)) {
+            const assertionMessage = resolveAssertionMessage(noirCallStack, debugInfo);
+            if (assertionMessage) {
+              err.setOriginalMessage(err.getOriginalMessage() + `: ${assertionMessage}`);
+            }
+            try {
+              // Public functions are simulated as a single Brillig entry point.
+              // Thus, we can safely assume here that the Brillig function id is `0`.
+              const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo, 0);
+              err.setNoirCallStack(parsedCallStack);
+            } catch (err) {
+              this.log.warn(
+                `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${originalFailingFunction.functionSelector.toString()}: ${err}`,
+              );
+            }
           }
+          await this.#enrichSimulationError(err);
         }
-        await this.#enrichSimulationError(err);
       }
 
       throw err;

@@ -4,16 +4,16 @@ use dep::protocol_types::{
 };
 use std::aes128::aes128_encrypt;
 
-use crate::{keys::point_to_symmetric_key::point_to_symmetric_key, utils::point::point_to_bytes};
+use crate::{keys::public_keys::IvpkM, utils::point::point_to_bytes};
 
 struct EncryptedLogOutgoingBody {
     eph_sk: Scalar,
     recipient: AztecAddress,
-    recipient_ivpk: Point,
+    recipient_ivpk: IvpkM,
 }
 
 impl EncryptedLogOutgoingBody {
-    pub fn new(eph_sk: Scalar, recipient: AztecAddress, recipient_ivpk: Point) -> Self {
+    pub fn new(eph_sk: Scalar, recipient: AztecAddress, recipient_ivpk: IvpkM) -> Self {
         Self { eph_sk, recipient, recipient_ivpk }
     }
 
@@ -25,11 +25,11 @@ impl EncryptedLogOutgoingBody {
 
         let mut buffer = [0 as u8; 128];
 
-        let serialized_eph_sk_high = self.eph_sk.hi.to_be_bytes(32);
-        let serialized_eph_sk_low = self.eph_sk.lo.to_be_bytes(32);
+        let serialized_eph_sk_high: [u8; 32] = self.eph_sk.hi.to_be_bytes();
+        let serialized_eph_sk_low: [u8; 32] = self.eph_sk.lo.to_be_bytes();
 
-        let address_bytes = self.recipient.to_field().to_be_bytes(32);
-        let serialized_recipient_ivpk = point_to_bytes(self.recipient_ivpk);
+        let address_bytes: [u8; 32] = self.recipient.to_field().to_be_bytes();
+        let serialized_recipient_ivpk = point_to_bytes(self.recipient_ivpk.to_point());
 
         for i in 0..32 {
             buffer[i] = serialized_eph_sk_high[i];
@@ -44,7 +44,7 @@ impl EncryptedLogOutgoingBody {
         let full_key: [u8; 32] = poseidon2_hash_with_separator(
             [ovsk_app.hi, ovsk_app.lo, eph_pk.x, eph_pk.y],
             GENERATOR_INDEX__SYMMETRIC_KEY as Field
-        ).to_be_bytes(32).as_array();
+        ).to_be_bytes();
 
         let mut sym_key = [0; 16];
         let mut iv = [0; 16];
@@ -58,7 +58,7 @@ impl EncryptedLogOutgoingBody {
 }
 
 mod test {
-    use crate::encrypted_logs::outgoing_body::EncryptedLogOutgoingBody;
+    use crate::{encrypted_logs::outgoing_body::EncryptedLogOutgoingBody, keys::public_keys::IvpkM};
     use dep::protocol_types::{
         address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
         scalar::Scalar, point::Point, hash::poseidon2_hash_with_separator
@@ -83,7 +83,7 @@ mod test {
         };
 
         let eph_pk = derive_public_key(eph_sk);
-        let recipient_ivpk = derive_public_key(recipient_ivsk);
+        let recipient_ivpk = IvpkM { inner: derive_public_key(recipient_ivsk) };
 
         let recipient = AztecAddress::from_field(0xdeadbeef);
 

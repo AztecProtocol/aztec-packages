@@ -21,6 +21,7 @@
 
 namespace bb {
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1078): Update flavor to support Poseidon relation.
 class UltraKeccakFlavor {
   public:
     using CircuitBuilder = UltraCircuitBuilder;
@@ -33,6 +34,8 @@ class UltraKeccakFlavor {
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
 
+    // Indicates that this flavor runs with non-ZK Sumcheck.
+    static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -42,6 +45,8 @@ class UltraKeccakFlavor {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 25;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 8;
+    // The total number of witnesses including shifts and derived entities.
+    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = 13;
     // Total number of folded polynomials, which is just all polynomials except the shifts
     static constexpr size_t NUM_FOLDED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
 
@@ -71,14 +76,13 @@ class UltraKeccakFlavor {
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
-    static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     template <size_t NUM_INSTANCES>
-    using ProtogalaxyTupleOfTuplesOfUnivariates =
+    using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
     template <size_t NUM_INSTANCES>
-    using OptimisedProtogalaxyTupleOfTuplesOfUnivariates =
+    using ProtogalaxyTupleOfTuplesOfUnivariates =
         decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations,
                                                                    NUM_INSTANCES,
                                                                    /*optimised=*/true>());
@@ -273,12 +277,13 @@ class UltraKeccakFlavor {
      */
     class ProvingKey : public ProvingKey_<FF, CommitmentKey> {
       public:
-        // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
-        using Base::Base;
 
-        ProvingKey(const size_t circuit_size, const size_t num_public_inputs)
-            : Base(circuit_size, num_public_inputs)
+        ProvingKey() = default;
+        ProvingKey(const size_t circuit_size,
+                   const size_t num_public_inputs,
+                   std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+            : Base(circuit_size, num_public_inputs, commitment_key)
             , polynomials(circuit_size){};
 
         std::vector<uint32_t> memory_read_records;
@@ -497,7 +502,7 @@ class UltraKeccakFlavor {
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH, size_t SKIP_COUNT>
-    using OptimisedProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
+    using ProverUnivariatesWithOptimisticSkipping = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.

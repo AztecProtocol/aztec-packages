@@ -1,6 +1,7 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
 import {
   type BlockProver,
+  type MerkleTreeAdminOperations,
   type ProcessedTx,
   type PublicExecutionRequest,
   type ServerCircuitProver,
@@ -23,7 +24,7 @@ import {
   type WorldStatePublicDB,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { MerkleTrees } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -42,7 +43,7 @@ export class TestContext {
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
-    public actualDb: MerkleTreeOperations,
+    public actualDb: MerkleTreeAdminOperations,
     public prover: ServerCircuitProver,
     public proverAgent: ProverAgent,
     public orchestrator: ProvingOrchestrator,
@@ -68,8 +69,8 @@ export class TestContext {
     const publicContractsDB = mock<ContractsDataSourcePublicDB>();
     const publicWorldStateDB = mock<WorldStatePublicDB>();
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
-    const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     const telemetry = new NoopTelemetryClient();
+    const actualDb = await MerkleTrees.new(openTmpStore(), telemetry).then(t => t.asLatest());
     const processor = new PublicProcessor(
       actualDb,
       publicExecutor,

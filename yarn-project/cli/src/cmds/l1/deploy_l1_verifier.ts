@@ -26,7 +26,10 @@ export async function deployUltraHonkVerifier(
   const { BBCircuitVerifier } = await import('@aztec/bb-prover');
 
   const circuitVerifier = await BBCircuitVerifier.new({ bbBinaryPath, bbWorkingDirectory });
-  const contractSrc = await circuitVerifier.generateSolidityContract('RootRollupArtifact', 'UltraHonkVerifier.sol');
+  const contractSrc = await circuitVerifier.generateSolidityContract(
+    'BlockRootRollupArtifact',
+    'UltraHonkVerifier.sol',
+  );
   log('Generated UltraHonkVerifier contract');
 
   const input = {
@@ -63,7 +66,7 @@ export async function deployUltraHonkVerifier(
     createEthereumChain(ethRpcUrl, l1ChainId).chainInfo,
   );
 
-  const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
+  const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
   log(`Deployed HonkVerifier at ${verifierAddress.toString()}`);
 
   const pxe = await createCompatibleClient(pxeRpcUrl, debugLogger);
@@ -97,7 +100,12 @@ export async function deployMockVerifier(
   );
   const { MockVerifierAbi, MockVerifierBytecode, RollupAbi } = await import('@aztec/l1-artifacts');
 
-  const mockVerifierAddress = await deployL1Contract(walletClient, publicClient, MockVerifierAbi, MockVerifierBytecode);
+  const { address: mockVerifierAddress } = await deployL1Contract(
+    walletClient,
+    publicClient,
+    MockVerifierAbi,
+    MockVerifierBytecode,
+  );
   log(`Deployed MockVerifier at ${mockVerifierAddress.toString()}`);
 
   const pxe = await createCompatibleClient(pxeRpcUrl, debugLogger);

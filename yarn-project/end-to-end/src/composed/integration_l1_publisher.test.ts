@@ -21,6 +21,7 @@ import {
 import {
   ETHEREUM_SLOT_DURATION,
   EthAddress,
+  GENESIS_ARCHIVE_ROOT,
   GasFees,
   type Header,
   KernelCircuitPublicInputs,
@@ -41,7 +42,7 @@ import { AvailabilityOracleAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { TxProver } from '@aztec/prover-client';
-import { type L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
+import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees, ServerWorldStateSynchronizer, type WorldStateConfig } from '@aztec/world-state';
 
@@ -113,10 +114,10 @@ describe('L1Publisher integration', () => {
   // If running ANVIL locally, you can use ETHEREUM_HOST="http://0.0.0.0:8545"
   const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 
-  const setTimeToNextSlot = async () => {
+  const progressTimeBySlot = async (slotsToJump = 1n) => {
     const currentTime = (await publicClient.getBlock()).timestamp;
     const currentSlot = await rollup.read.getCurrentSlot();
-    const timestamp = (await rollup.read.getTimestampForSlot([currentSlot + 1n])) - BigInt(ETHEREUM_SLOT_DURATION);
+    const timestamp = await rollup.read.getTimestampForSlot([currentSlot + slotsToJump]);
     if (timestamp > currentTime) {
       await ethCheatCodes.warp(Number(timestamp));
     }
@@ -148,7 +149,7 @@ describe('L1Publisher integration', () => {
     });
 
     const tmpStore = openTmpStore();
-    builderDb = await MerkleTrees.new(tmpStore);
+    builderDb = await MerkleTrees.new(tmpStore, new NoopTelemetryClient());
     blockSource = mock<ArchiveSource>();
     blockSource.getBlocks.mockResolvedValue([]);
     const worldStateConfig: WorldStateConfig = {
@@ -161,7 +162,7 @@ describe('L1Publisher integration', () => {
     builder = await TxProver.new(config, new NoopTelemetryClient());
     prover = builder.createBlockProver(builderDb.asLatest());
 
-    publisher = getL1Publisher(
+    publisher = new L1Publisher(
       {
         l1RpcUrl: config.l1RpcUrl,
         requiredConfirmations: 1,
@@ -178,7 +179,9 @@ describe('L1Publisher integration', () => {
 
     prevHeader = builderDb.getInitialHeader();
 
-    await setTimeToNextSlot();
+    // We jump to the next epoch such that the committee can be setup.
+    const timeToJump = await rollup.read.EPOCH_DURATION();
+    await progressTimeBySlot(timeToJump);
   });
 
   const makeEmptyProcessedTx = () =>
@@ -345,7 +348,7 @@ describe('L1Publisher integration', () => {
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
-    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
+    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
     const blockNumber = await publicClient.getBlockNumber();
     // random recipient address, just kept consistent for easy testing ts/sol.
@@ -411,7 +414,7 @@ describe('L1Publisher integration', () => {
         address: rollupAddress,
         event: getAbiItem({
           abi: RollupAbi,
-          name: 'L2BlockProcessed',
+          name: 'L2BlockProposed',
         }),
         fromBlock: blockNumber + 1n,
       });
@@ -424,10 +427,11 @@ describe('L1Publisher integration', () => {
 
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
-        functionName: 'publishAndProcess',
+        functionName: 'propose',
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
+          `0x${block.header.hash().toBuffer().toString('hex')}`,
           `0x${block.body.toBuffer().toString('hex')}`,
         ],
       });
@@ -462,14 +466,14 @@ describe('L1Publisher integration', () => {
       // We wipe the messages from previous iteration
       nextL1ToL2Messages = [];
 
-      // @todo @LHerskind need to make sure that time have progressed to the next slot!
-      await setTimeToNextSlot();
+      // Make sure that time have progressed to the next slot!
+      await progressTimeBySlot();
     }
   });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 2 empty txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
-    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
+    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
     const blockNumber = await publicClient.getBlockNumber();
 
@@ -510,7 +514,7 @@ describe('L1Publisher integration', () => {
         address: rollupAddress,
         event: getAbiItem({
           abi: RollupAbi,
-          name: 'L2BlockProcessed',
+          name: 'L2BlockProposed',
         }),
         fromBlock: blockNumber + 1n,
       });
@@ -525,24 +529,26 @@ describe('L1Publisher integration', () => {
         i == 0
           ? encodeFunctionData({
               abi: RollupAbi,
-              functionName: 'publishAndProcess',
+              functionName: 'propose',
               args: [
                 `0x${block.header.toBuffer().toString('hex')}`,
                 `0x${block.archive.root.toBuffer().toString('hex')}`,
+                `0x${block.header.hash().toBuffer().toString('hex')}`,
                 `0x${block.body.toBuffer().toString('hex')}`,
               ],
             })
           : encodeFunctionData({
               abi: RollupAbi,
-              functionName: 'process',
+              functionName: 'propose',
               args: [
                 `0x${block.header.toBuffer().toString('hex')}`,
                 `0x${block.archive.root.toBuffer().toString('hex')}`,
+                `0x${block.header.hash().toBuffer().toString('hex')}`,
               ],
             });
       expect(ethTx.input).toEqual(expectedData);
 
-      await setTimeToNextSlot();
+      await progressTimeBySlot();
     }
   });
 });

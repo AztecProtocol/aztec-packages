@@ -132,14 +132,14 @@ impl BaseRollupInputs {
         let siloed_l2_to_l1_msgs = self.kernel_data.public_inputs.end.l2_to_l1_msgs.map(
             |message: ScopedL2ToL1Message| silo_l2_to_l1_message(message, self.kernel_data.public_inputs.constants.tx_context.version, self.kernel_data.public_inputs.constants.tx_context.chain_id)
         );
+        let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
         let tx_effects_hash = compute_tx_effects_hash(
             self.kernel_data.public_inputs.end,
             self.kernel_data.public_inputs.revert_code,
             transaction_fee,
             all_public_data_update_requests,
-            siloed_l2_to_l1_msgs
+            out_hash
         );
-        let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
 
         // Perform membership checks that the notes provided exist within the historical trees data
         self.perform_archive_membership_checks();
@@ -210,7 +210,7 @@ impl BaseRollupInputs {
         )
     }
 
-    fn create_nullifier_subtree<N>(leaves: [NullifierLeafPreimage; N]) -> Field {
+    fn create_nullifier_subtree<let N: u32>(leaves: [NullifierLeafPreimage; N]) -> Field {
         calculate_subtree_root(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
     }
 
@@ -420,9 +420,11 @@ fn insert_public_data_update_requests(
 
 fn compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
     let balances_slot_in_fee_juice_contract = 1;
-    let fee_juice = AztecAddress::from_field(FEE_JUICE_ADDRESS);
     let fee_payer_balance_slot_in_fee_juice_contract = derive_storage_slot_in_map(balances_slot_in_fee_juice_contract, fee_payer);
-    compute_public_data_tree_index(fee_juice, fee_payer_balance_slot_in_fee_juice_contract)
+    compute_public_data_tree_index(
+        FEE_JUICE_ADDRESS,
+        fee_payer_balance_slot_in_fee_juice_contract
+    )
 }
 
 #[test]
@@ -487,9 +489,12 @@ mod tests {
         public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
         tests::{
         fixtures, fixture_builder::FixtureBuilder,
-        merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}, sort::sort_high_to_low
+        merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}
     },
-        utils::{field::{full_field_less_than, field_from_bytes_32_trunc, field_from_bytes}, uint256::U256},
+        utils::{
+        arrays::get_sorted_tuple::get_sorted_tuple,
+        field::{full_field_less_than, field_from_bytes_32_trunc, field_from_bytes}, uint256::U256
+    },
         traits::Empty
     };
 
@@ -501,7 +506,7 @@ mod tests {
     global MAX_nullifiers_PER_TEST = 4;
     global MAX_PUBLIC_DATA_READS_PER_TEST = 2;
 
-    fn update_public_data_tree<EXISTING_LEAVES, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>(
+    fn update_public_data_tree<let EXISTING_LEAVES: u32, let SUBTREE_SIBLING_PATH_LENGTH: u32, let SUBTREE_HEIGHT: u32>(
         public_data_tree: &mut NonEmptyMerkleTree<EXISTING_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,
         kernel_data: &mut KernelData,
         snapshot: AppendOnlyTreeSnapshot,
@@ -535,14 +540,14 @@ mod tests {
             final_public_data_writes.extend_from_array(protocol_public_data_writes.storage);
         }
 
-        let mut sorted_write_tuples = sort_high_to_low(
+        let mut sorted_write_tuples = get_sorted_tuple(
             final_public_data_writes.storage,
-            |(_, leaf_a): (u32, PublicDataTreeLeaf),(_,leaf_b):(u32, PublicDataTreeLeaf)| full_field_less_than(leaf_a.slot, leaf_b.slot)
+            |(_, leaf_a): (u32, PublicDataTreeLeaf), (_, leaf_b): (u32, PublicDataTreeLeaf)| full_field_less_than(leaf_b.slot, leaf_a.slot)
         );
 
         for i in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             if i < final_public_data_writes.len() {
-                let (low_leaf_index, leaf): (u32, PublicDataTreeLeaf) = sorted_write_tuples[i].value;
+                let (low_leaf_index, leaf): (u32, PublicDataTreeLeaf) = sorted_write_tuples[i].elem;
 
                 sorted_public_data_writes[i] = leaf;
                 sorted_public_data_writes_indexes[i] = sorted_write_tuples[i].original_index;
@@ -610,7 +615,7 @@ mod tests {
         fee_payer_fee_juice_balance_pre_existing_public_data_index: Option<u32>
     }
 
-    fn test_compute_empty_root<N>(size: [Field; N]) -> Field {
+    fn test_compute_empty_root<let N: u32>(size: [Field; N]) -> Field {
         compute_zero_hashes(size)[N - 1]
     }
 
@@ -648,7 +653,7 @@ mod tests {
             )
         }
 
-        fn extract_subtree_sibling_path<FULL_HEIGHT, SIBLING_PATH_LENGTH>(
+        fn extract_subtree_sibling_path<let FULL_HEIGHT: u32, let SIBLING_PATH_LENGTH: u32>(
             path: [Field; FULL_HEIGHT],
             mut sibling_path: [Field; SIBLING_PATH_LENGTH]
         ) -> [Field; SIBLING_PATH_LENGTH] {
@@ -668,9 +673,9 @@ mod tests {
             let mut nullifier_predecessor_preimages = [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX];
             let mut low_nullifier_membership_witness = [MembershipWitness::empty(); MAX_NULLIFIERS_PER_TX];
 
-            let sorted_new_nullifier_tuples = sort_high_to_low(
+            let sorted_new_nullifier_tuples = get_sorted_tuple(
                 self.nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value),
-                full_field_less_than
+                |a, b| full_field_less_than(b, a)
             );
 
             let mut sorted_nullifiers = [0; MAX_NULLIFIERS_PER_TX];
@@ -678,7 +683,7 @@ mod tests {
 
             for i in 0..MAX_NULLIFIERS_PER_TX {
                 if (i as u32) < (MAX_nullifiers_PER_TEST as u32) {
-                    sorted_nullifiers[i] = sorted_new_nullifier_tuples[i].value;
+                    sorted_nullifiers[i] = sorted_new_nullifier_tuples[i].elem;
                     sorted_nullifiers_indexes[i] = sorted_new_nullifier_tuples[i].original_index;
                 } else {
                     sorted_nullifiers[i] = 0;
@@ -691,7 +696,7 @@ mod tests {
             for i in 0..MAX_nullifiers_PER_TEST {
                 if i < self.nullifiers.len() {
                     let sorted_tuple = sorted_new_nullifier_tuples[i];
-                    let new_nullifier = sorted_tuple.value;
+                    let new_nullifier = sorted_tuple.elem;
                     let original_index = sorted_tuple.original_index;
 
                     let low_index = self.nullifiers.get_unchecked(original_index).existing_index;
@@ -1082,12 +1087,7 @@ mod tests {
     #[test]
     unconstrained fn empty_block_out_hash() {
         let outputs = BaseRollupInputsBuilder::new().execute();
-        // For now setting an empty out hash to be H(0,0) to keep consistent
-        // with prev work.
-        let hash_input_flattened = [0; 64];
-        let sha_digest = std::hash::sha256(hash_input_flattened);
-        let expected_out_hash = field_from_bytes_32_trunc(sha_digest);
-        assert_eq(outputs.out_hash, expected_out_hash);
+        assert_eq(outputs.out_hash, 0);
     }
 
     #[test]

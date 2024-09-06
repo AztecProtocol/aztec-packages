@@ -31,7 +31,7 @@ preset-release:
 
 preset-release-assert:
     FROM +source
-    RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb && rm -rf build/{deps,lib,src}
+    RUN cmake --preset clang16-assert -Bbuild && cmake --build build --target bb crypto_merkle_tree_tests && rm -rf build/{deps,lib,src}
     SAVE ARTIFACT build/bin
 
 preset-debug:
@@ -233,12 +233,9 @@ test-clang-format:
 test:
     ARG hardware_concurrency=""
     # prefetch
-    BUILD +test-binaries
     BUILD +preset-release-assert-test
     BUILD +test-clang-format
     BUILD ./srs_db/+build # prefetch
-    FROM +source
-    COPY --dir +test-binaries/build build
     FROM +preset-release-assert-test
     COPY --dir ./srs_db/+build/. srs_db
     # limit hardware concurrency, if provided

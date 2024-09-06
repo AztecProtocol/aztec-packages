@@ -18,6 +18,7 @@ import { type Logger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { ExecutionNoteCache, PackedValuesCache, type TypedOracle } from '@aztec/simulator';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
 
 import { TXE } from '../oracle/txe_oracle.js';
@@ -38,13 +39,13 @@ export class TXEService {
 
   static async init(logger: Logger) {
     const store = openTmpStore(true);
-    const trees = await MerkleTrees.new(store, logger);
+    const trees = await MerkleTrees.new(store, new NoopTelemetryClient(), logger);
     const packedValuesCache = new PackedValuesCache();
     const txHash = new Fr(1); // The txHash is used for computing the revertible nullifiers for non-revertible note hashes. It can be any value for testing.
     const noteCache = new ExecutionNoteCache(txHash);
     const keyStore = new KeyStore(store);
     const txeDatabase = new TXEDatabase(store);
-    logger.info(`TXE service initialized`);
+    logger.debug(`TXE service initialized`);
     const txe = new TXE(logger, trees, packedValuesCache, noteCache, keyStore, txeDatabase);
     const service = new TXEService(logger, txe);
     await service.advanceBlocksBy(toSingle(new Fr(1n)));
@@ -307,6 +308,16 @@ export class TXEService {
     return toForeignCallResult([toSingle(functionSelector.toField())]);
   }
 
+  async avmOpcodeChainId() {
+    const chainId = await (this.typedOracle as TXE).getChainId();
+    return toForeignCallResult([toSingle(chainId)]);
+  }
+
+  async avmOpcodeVersion() {
+    const version = await (this.typedOracle as TXE).getVersion();
+    return toForeignCallResult([toSingle(version)]);
+  }
+
   async packArgumentsArray(args: ForeignCallArray) {
     const packed = await this.typedOracle.packArgumentsArray(fromArray(args));
     return toForeignCallResult([toSingle(packed)]);
@@ -561,13 +572,13 @@ export class TXEService {
     return toForeignCallResult([toArray(result.returnValues), toSingle(new Fr(1))]);
   }
 
-  async avmOpcodeStorageRead(slot: ForeignCallSingle, length: ForeignCallSingle) {
-    const values = await (this.typedOracle as TXE).avmOpcodeStorageRead(fromSingle(slot), fromSingle(length));
-    return toForeignCallResult([toArray(values)]);
+  async avmOpcodeStorageRead(slot: ForeignCallSingle) {
+    const value = await (this.typedOracle as TXE).avmOpcodeStorageRead(fromSingle(slot));
+    return toForeignCallResult([toSingle(value)]);
   }
 
-  async avmOpcodeStorageWrite(startStorageSlot: ForeignCallSingle, values: ForeignCallArray) {
-    await this.typedOracle.storageWrite(fromSingle(startStorageSlot), fromArray(values));
+  async avmOpcodeStorageWrite(slot: ForeignCallSingle, value: ForeignCallSingle) {
+    await this.typedOracle.storageWrite(fromSingle(slot), [fromSingle(value)]);
     return toForeignCallResult([]);
   }
 

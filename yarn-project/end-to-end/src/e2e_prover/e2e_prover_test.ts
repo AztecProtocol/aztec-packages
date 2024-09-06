@@ -1,9 +1,11 @@
 import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { type Archiver, createArchiver } from '@aztec/archiver';
 import {
   type AccountWalletWithSecretKey,
   type AztecNode,
   type CompleteAddress,
   type DebugLogger,
+  type DeployL1Contracts,
   ExtendedNote,
   type Fq,
   Fr,
@@ -17,7 +19,9 @@ import {
 import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
+import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService } from '@aztec/pxe';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 // TODO(#7373): Deploy honk solidity verifier
 // @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
@@ -34,7 +38,7 @@ import {
   createSnapshotManager,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { setupPXEService } from '../fixtures/utils.js';
+import { getPrivateKeyFromIndex, setupPXEService } from '../fixtures/utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -72,6 +76,9 @@ export class FullProverTest {
   circuitProofVerifier?: BBCircuitVerifier;
   provenAssets: TokenContract[] = [];
   private context!: SubsystemsContext;
+  private proverNode!: ProverNode;
+  private simulatedProverNode!: ProverNode;
+  private l1Contracts!: DeployL1Contracts;
 
   constructor(testName: string, private minNumberOfTxsPerBlock: number) {
     this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
@@ -109,7 +116,7 @@ export class FullProverTest {
           FullProverTest.TOKEN_DECIMALS,
         )
           .send()
-          .deployed();
+          .deployed({ proven: true });
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
         return { tokenContractAddress: asset.address };
@@ -133,7 +140,12 @@ export class FullProverTest {
 
   async setup() {
     this.context = await this.snapshotManager.setup();
-    ({ pxe: this.pxe, aztecNode: this.aztecNode } = this.context);
+    ({
+      pxe: this.pxe,
+      aztecNode: this.aztecNode,
+      proverNode: this.simulatedProverNode,
+      deployL1ContractsValues: this.l1Contracts,
+    } = this.context);
 
     // Configure a full prover PXE
 
@@ -153,12 +165,11 @@ export class FullProverTest {
 
     this.logger.debug(`Configuring the node for real proofs...`);
     await this.aztecNode.setConfig({
-      proverAgentConcurrency: 2,
       realProofs: true,
       minTxsPerBlock: this.minNumberOfTxsPerBlock,
     });
 
-    this.logger.debug(`Main setup completed, initializing full prover PXE and Node...`);
+    this.logger.debug(`Main setup completed, initializing full prover PXE, Node, and Prover Node...`);
 
     for (let i = 0; i < 2; i++) {
       const result = await setupPXEService(
@@ -204,7 +215,43 @@ export class FullProverTest {
       this.provenAssets.push(asset);
     }
 
-    this.logger.debug(`Full prover PXE started!!`);
+    this.logger.info(`Full prover PXE started`);
+
+    // Shutdown the current, simulated prover node
+    this.logger.verbose('Shutting down simulated prover node');
+    await this.simulatedProverNode.stop();
+
+    // Creating temp store and archiver for fully proven prover node
+
+    this.logger.verbose('Starting archiver for new prover node');
+    const archiver = await createArchiver(
+      { ...this.context.aztecNodeConfig, dataDirectory: undefined },
+      new NoopTelemetryClient(),
+      { blockUntilSync: true },
+    );
+
+    // The simulated prover node (now shutdown) used private key index 2
+    const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+
+    this.logger.verbose('Starting fully proven prover node');
+    const proverConfig: ProverNodeConfig = {
+      ...this.context.aztecNodeConfig,
+      txProviderNodeUrl: undefined,
+      dataDirectory: undefined,
+      proverId: new Fr(81),
+      realProofs: true,
+      proverAgentConcurrency: 2,
+      publisherPrivateKey: `0x${proverNodePrivateKey!.toString('hex')}`,
+      proverNodeMaxPendingJobs: 100,
+    };
+    this.proverNode = await createProverNode(proverConfig, {
+      aztecNodeTxProvider: this.aztecNode,
+      archiver: archiver as Archiver,
+    });
+    this.proverNode.start();
+
+    this.logger.info('Prover node started');
+
     return this;
   }
 
@@ -221,6 +268,9 @@ export class FullProverTest {
     for (let i = 0; i < this.provenComponents.length; i++) {
       await this.provenComponents[i].teardown();
     }
+
+    // clean up the full prover node
+    await this.proverNode.stop();
 
     await this.bbConfigCleanup?.();
     await this.acvmConfigCleanup?.();
@@ -246,17 +296,19 @@ export class FullProverTest {
         const { fakeProofsAsset: asset, accounts } = this;
         const amount = 10000n;
 
+        const waitOpts = { proven: true };
+
         this.logger.verbose(`Minting ${amount} publicly...`);
-        await asset.methods.mint_public(accounts[0].address, amount).send().wait();
+        await asset.methods.mint_public(accounts[0].address, amount).send().wait(waitOpts);
 
         this.logger.verbose(`Minting ${amount} privately...`);
         const secret = Fr.random();
         const secretHash = computeSecretHash(secret);
-        const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
+        const receipt = await asset.methods.mint_private(amount, secretHash).send().wait(waitOpts);
 
         await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
         const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
-        await txClaim.wait({ debug: true });
+        await txClaim.wait({ debug: true, proven: true });
         this.logger.verbose(`Minting complete.`);
 
         return { amount };
@@ -327,7 +379,7 @@ export class FullProverTest {
     const abi = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].abi;
     const bytecode: string = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].evm.bytecode.object;
 
-    const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
+    const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
 
     this.logger.info(`Deployed Real verifier at ${verifierAddress}`);
 

@@ -5,11 +5,13 @@
 #include "barretenberg/vm/avm/trace/alu_trace.hpp"
 #include "barretenberg/vm/avm/trace/binary_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/execution_hints.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/conversion_trace.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/ecc.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/keccak.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/pedersen.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/poseidon2.hpp"
+#include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/sha256.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/slice_trace.hpp"
 #include "barretenberg/vm/avm/trace/gas_trace.hpp"
@@ -193,6 +195,14 @@ class AvmTraceBuilder {
 
   private:
     std::vector<Row> main_trace;
+
+    std::vector<FF> calldata;
+    std::vector<FF> returndata;
+    // Side effect counter will increment when any state writing values are encountered.
+    uint32_t side_effect_counter = 0;
+    uint32_t external_call_counter = 0;
+    ExecutionHints execution_hints;
+
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
     AvmBinaryTraceBuilder bin_trace_builder;
@@ -205,12 +215,9 @@ class AvmTraceBuilder {
     AvmPedersenTraceBuilder pedersen_trace_builder;
     AvmEccTraceBuilder ecc_trace_builder;
     AvmSliceTraceBuilder slice_trace_builder;
+    AvmRangeCheckBuilder range_check_builder;
 
-    std::vector<FF> calldata{};
-    std::vector<FF> returndata{};
-
-    Row create_kernel_lookup_opcode(
-        uint8_t indirect, uint32_t dst_offset, uint32_t selector, FF value, AvmMemoryTag w_tag);
+    Row create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_offset, FF value, AvmMemoryTag w_tag);
 
     Row create_kernel_output_opcode(uint8_t indirect, uint32_t clk, uint32_t data_offset);
 
@@ -239,16 +246,6 @@ class AvmTraceBuilder {
     uint32_t internal_return_ptr =
         0; // After a nested call, it should be initialized with MAX_SIZE_INTERNAL_STACK * call_ptr
     uint8_t call_ptr = 0;
-
-    // Side effect counter will increment when any state writing values are
-    // encountered
-    uint32_t side_effect_counter = 0;
-    uint32_t initial_side_effect_counter; // This one is constant.
-    uint32_t external_call_counter = 0;
-
-    // Execution hints aid witness solving for instructions that require auxiliary information to construct
-    // Mapping of side effect counter -> value
-    ExecutionHints execution_hints;
 
     MemOp constrained_read_from_memory(uint8_t space_id,
                                        uint32_t clk,

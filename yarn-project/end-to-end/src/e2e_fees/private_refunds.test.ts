@@ -10,7 +10,7 @@ import {
 import { Fr, type GasSettings } from '@aztec/circuits.js';
 import { deriveStorageSlotInMap, siloNullifier } from '@aztec/circuits.js/hash';
 import { FunctionSelector, FunctionType } from '@aztec/foundation/abi';
-import { type PrivateFPCContract, TokenWithRefundsContract } from '@aztec/noir-contracts.js';
+import { type PrivateFPCContract, TokenContract } from '@aztec/noir-contracts.js';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -19,7 +19,7 @@ describe('e2e_fees/private_refunds', () => {
   let aliceWallet: AccountWallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
-  let tokenWithRefunds: TokenWithRefundsContract;
+  let token: TokenContract;
   let privateFPC: PrivateFPCContract;
 
   let initialAliceBalance: bigint;
@@ -33,9 +33,9 @@ describe('e2e_fees/private_refunds', () => {
     await t.applyInitialAccountsSnapshot();
     await t.applyPublicDeployAccountsSnapshot();
     await t.applyDeployFeeJuiceSnapshot();
-    await t.applyTokenWithRefundsAndFPC();
+    await t.applyTokenAndFPC();
     await t.applyFundAliceWithTokens();
-    ({ aliceWallet, aliceAddress, bobAddress, privateFPC, tokenWithRefunds } = await t.setup());
+    ({ aliceWallet, aliceAddress, bobAddress, privateFPC, token } = await t.setup());
     t.logger.debug(`Alice address: ${aliceAddress}`);
 
     // We give Alice access to Bob's notes because Alice is used to check if balances are correct.
@@ -48,7 +48,7 @@ describe('e2e_fees/private_refunds', () => {
 
   beforeEach(async () => {
     [[initialAliceBalance, initialBobBalance], [initialFPCGasBalance]] = await Promise.all([
-      t.getTokenWithRefundsBalanceFn(aliceAddress, t.bobAddress),
+      t.getTokenBalanceFn(aliceAddress, t.bobAddress),
       t.getGasBalanceFn(privateFPC.address),
     ]);
   });
@@ -59,13 +59,13 @@ describe('e2e_fees/private_refunds', () => {
     const bobRandomness = siloNullifier(privateFPC.address, aliceRandomness); // Called fee_payer_randomness in contracts
 
     // 2. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
-    const { txHash, transactionFee, debugInfo } = await tokenWithRefunds.methods
+    const { txHash, transactionFee, debugInfo } = await token.methods
       .private_get_name()
       .send({
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateRefundPaymentMethod(
-            tokenWithRefunds.address,
+            token.address,
             privateFPC.address,
             aliceWallet,
             aliceRandomness,
@@ -93,13 +93,14 @@ describe('e2e_fees/private_refunds', () => {
     // should be able to add the note to our PXE. Just calling `pxe.addNote(...)` is enough of a check that the note
     // hash was emitted because the endpoint will compute the hash and then it will try to find it in the note hash
     // tree. If the note hash is not found in the tree, an error is thrown.
+    // TODO(#8238): Implement proper note delivery
     await t.aliceWallet.addNote(
       new ExtendedNote(
         aliceRefundNote,
         t.aliceAddress,
-        tokenWithRefunds.address,
-        deriveStorageSlotInMap(TokenWithRefundsContract.storage.balances.slot, t.aliceAddress),
-        TokenWithRefundsContract.notes.TokenNote.id,
+        token.address,
+        deriveStorageSlotInMap(TokenContract.storage.balances.slot, t.aliceAddress),
+        TokenContract.notes.TokenNote.id,
         txHash,
       ),
     );
@@ -112,13 +113,14 @@ describe('e2e_fees/private_refunds', () => {
     const bobFeeNote = new Note([new Fr(transactionFee!), bobNpkMHash, bobRandomness]);
 
     // 7. Once again we add the note to PXE which computes the note hash and checks that it is in the note hash tree.
+    // TODO(#8238): Implement proper note delivery
     await t.bobWallet.addNote(
       new ExtendedNote(
         bobFeeNote,
         t.bobAddress,
-        tokenWithRefunds.address,
-        deriveStorageSlotInMap(TokenWithRefundsContract.storage.balances.slot, t.bobAddress),
-        TokenWithRefundsContract.notes.TokenNote.id,
+        token.address,
+        deriveStorageSlotInMap(TokenContract.storage.balances.slot, t.bobAddress),
+        TokenContract.notes.TokenNote.id,
         txHash,
       ),
     );
@@ -127,7 +129,7 @@ describe('e2e_fees/private_refunds', () => {
     await expectMapping(t.getGasBalanceFn, [privateFPC.address], [initialFPCGasBalance - transactionFee!]);
     // ... and that the transaction fee was correctly transferred from Alice to Bob.
     await expectMapping(
-      t.getTokenWithRefundsBalanceFn,
+      t.getTokenBalanceFn,
       [aliceAddress, t.bobAddress],
       [initialAliceBalance - transactionFee!, initialBobBalance + transactionFee!],
     );
@@ -141,11 +143,11 @@ describe('e2e_fees/private_refunds', () => {
 
     // 2. We call arbitrary `private_get_name(...)` function to check that the fee refund flow works.
     await expect(
-      tokenWithRefunds.methods.private_get_name().prove({
+      token.methods.private_get_name().prove({
         fee: {
           gasSettings: t.gasSettings,
           paymentMethod: new PrivateRefundPaymentMethod(
-            tokenWithRefunds.address,
+            token.address,
             privateFPC.address,
             aliceWallet,
             aliceRandomness,

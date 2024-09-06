@@ -1,5 +1,5 @@
 import {
-  type ProofAndVerificationKey,
+  type AvmProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
   type PublicInputsAndTubeProof,
   type PublicKernelNonTailRequest,
@@ -11,6 +11,9 @@ import {
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
@@ -84,6 +87,26 @@ export interface ServerCircuitProver {
    * Creates a proof for the given input.
    * @param input - Input to the circuit.
    */
+  getBlockRootRollupProof(
+    input: BlockRootRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>>;
+
+  /**
+   * Creates a proof for the given input.
+   * @param input - Input to the circuit.
+   */
+  getBlockMergeRollupProof(
+    input: BlockMergeRollupInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>>;
+
+  /**
+   * Creates a proof for the given input.
+   * @param input - Input to the circuit.
+   */
   getRootRollupProof(
     input: RootRollupInputs,
     signal?: AbortSignal,
@@ -126,7 +149,11 @@ export interface ServerCircuitProver {
    * Create a proof for the AVM circuit.
    * @param inputs - Inputs to the AVM circuit.
    */
-  getAvmProof(inputs: AvmCircuitInputs, signal?: AbortSignal, epochNumber?: number): Promise<ProofAndVerificationKey>;
+  getAvmProof(
+    inputs: AvmCircuitInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<AvmProofAndVerificationKey>;
 }
 
 /**

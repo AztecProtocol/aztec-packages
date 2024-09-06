@@ -1,5 +1,5 @@
 import { getIdentities } from '@aztec/accounts/utils';
-import { createCompatibleClient } from '@aztec/aztec.js';
+import { TxHash, createCompatibleClient } from '@aztec/aztec.js';
 import { Fr, PublicKeys } from '@aztec/circuits.js';
 import {
   ETHEREUM_HOST,
@@ -19,11 +19,12 @@ import { type Command, Option } from 'commander';
 import inquirer from 'inquirer';
 
 import { type WalletDB } from '../storage/wallet_db.js';
-import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
+import { type AccountType, addScopeToWallet, createOrRetrieveAccount, getWalletWithScopes } from '../utils/accounts.js';
 import { FeeOpts } from '../utils/options/fees.js';
 import {
   ARTIFACT_DESCRIPTION,
   aliasedAddressParser,
+  aliasedAuthWitParser,
   aliasedSecretKeyParser,
   aliasedTxHashParser,
   artifactPathFromPromiseOrAlias,
@@ -34,6 +35,8 @@ import {
   createArtifactOption,
   createContractAddressOption,
   createTypeOption,
+  integerArgParser,
+  parsePaymentMethod,
 } from '../utils/options/index.js';
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: DebugLogger, db?: WalletDB) {
@@ -70,7 +73,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction');
 
   addOptions(createAccountCommand, FeeOpts.getOptions()).action(async (_options, command) => {
-    const { createAccount } = await import('../cmds/create_account.js');
+    const { createAccount } = await import('./create_account.js');
     const options = command.optsWithGlobals();
     const { type, secretKey, wait, registerOnly, skipInitialization, publicDeploy, rpcUrl, alias, json } = options;
     let { publicKey } = options;
@@ -120,7 +123,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction');
 
   addOptions(deployAccountCommand, FeeOpts.getOptions()).action(async (_options, command) => {
-    const { deployAccount } = await import('../cmds/deploy_account.js');
+    const { deployAccount } = await import('./deploy_account.js');
     const options = command.optsWithGlobals();
     const { rpcUrl, wait, from: parsedFromAddress, json } = options;
 
@@ -163,7 +166,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .option('--no-public-deployment', "Don't emit this contract's public bytecode");
 
   addOptions(deployCommand, FeeOpts.getOptions()).action(async (artifactPathPromise, _options, command) => {
-    const { deploy } = await import('../cmds/deploy.js');
+    const { deploy } = await import('./deploy.js');
     const options = command.optsWithGlobals();
     const {
       json,
@@ -183,7 +186,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
-    const wallet = await account.getWallet();
+    const wallet = await getWalletWithScopes(account, db);
     const artifactPath = await artifactPathPromise;
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
@@ -228,42 +231,46 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     )
     .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
     .addOption(createTypeOption(false))
-    .option('--no-wait', 'Print transaction hash without waiting for it to be mined');
+    .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
+    .option('--no-cancel', 'Do not allow the transaction to be cancelled. This makes for cheaper transactions.');
 
   addOptions(sendCommand, FeeOpts.getOptions()).action(async (functionName, _options, command) => {
-    const { send } = await import('../cmds/send.js');
+    const { send } = await import('./send.js');
     const options = command.optsWithGlobals();
     const {
       args,
       contractArtifact: artifactPathPromise,
       contractAddress,
       from: parsedFromAddress,
-      noWait,
+      wait,
       rpcUrl,
       type,
       secretKey,
       publicKey,
       alias,
+      cancel,
     } = options;
     const client = await createCompatibleClient(rpcUrl, debugLogger);
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
-    const wallet = await account.getWallet();
+    const wallet = await getWalletWithScopes(account, db);
     const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
-    const txHash = await send(
+    const sentTx = await send(
       wallet,
       functionName,
       args,
       artifactPath,
       contractAddress,
-      !noWait,
+      wait,
+      cancel,
       FeeOpts.fromCli(options, log, db),
       log,
     );
-    if (db && txHash) {
-      await db.storeTxHash(txHash, log, alias);
+    if (db && sentTx) {
+      const txAlias = alias ? alias : `${functionName}-${sentTx.nonce.toString().slice(-4)}`;
+      await db.storeTx(sentTx, log, txAlias);
     }
   });
 
@@ -281,7 +288,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
     .addOption(createTypeOption(false))
     .action(async (functionName, _options, command) => {
-      const { simulate } = await import('../cmds/simulate.js');
+      const { simulate } = await import('./simulate.js');
       const options = command.optsWithGlobals();
       const {
         args,
@@ -296,7 +303,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
 
       const client = await createCompatibleClient(rpcUrl, debugLogger);
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
-      const wallet = await account.getWallet();
+      const wallet = await getWalletWithScopes(account, db);
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
       await simulate(wallet, functionName, args, artifactPath, contractAddress, log);
     });
@@ -323,18 +330,29 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(pxeOption)
     .addOption(l1ChainIdOption)
     .option('--json', 'Output the claim in JSON format')
+    // `options.wait` is default true. Passing `--no-wait` will set it to false.
+    // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
+    .option('--no-wait', 'Wait for the brigded funds to be available in L2, polling every 60 seconds')
+    .addOption(
+      new Option('--interval <number>', 'The polling interval in seconds for the bridged funds')
+        .default('60')
+        .conflicts('wait'),
+    )
     .action(async (amount, recipient, options) => {
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
+      const { rpcUrl, l1RpcUrl, l1ChainId, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
       const secret = await bridgeL1FeeJuice(
         amount,
         recipient,
-        options.rpcUrl,
-        options.l1RpcUrl,
-        options.l1ChainId,
-        options.l1PrivateKey,
-        options.mnemonic,
-        options.mint,
-        options.json,
+        rpcUrl,
+        l1RpcUrl,
+        l1ChainId,
+        l1PrivateKey,
+        mnemonic,
+        mint,
+        json,
+        wait,
+        intervalS * 1000,
         log,
         debugLogger,
       );
@@ -354,7 +372,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .requiredOption('-a, --address <string>', 'The Aztec address of the note owner.', address =>
       aliasedAddressParser('accounts', address, db),
     )
-    .requiredOption('-h, --hash <string>', 'The tx hash of the tx containing the note.', txHash =>
+    .addOption(createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)))
+    .requiredOption('-t, --transaction-hash <string>', 'The hash of the tx containing the note.', txHash =>
       aliasedTxHashParser(txHash, db),
     )
     .addOption(createContractAddressOption(db))
@@ -372,13 +391,221 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (noteName, storageFieldName, _options, command) => {
       const { addNote } = await import('./add_note.js');
       const options = command.optsWithGlobals();
-      const { contractArtifact: artifactPathPromise, contractAddress, address, rpcUrl, fields, hash } = options;
+      const {
+        contractArtifact: artifactPathPromise,
+        contractAddress,
+        address,
+        secretKey,
+        rpcUrl,
+        body,
+        transactionHash,
+      } = options;
       const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
       const client = await createCompatibleClient(rpcUrl, debugLogger);
-      const account = await createOrRetrieveAccount(client, address, db);
-      const wallet = await account.getWallet();
+      const account = await createOrRetrieveAccount(client, address, db, undefined, secretKey);
+      const wallet = await getWalletWithScopes(account, db);
 
-      await addNote(wallet, address, contractAddress, noteName, storageFieldName, artifactPath, hash, fields, log);
+      await addNote(
+        wallet,
+        address,
+        contractAddress,
+        noteName,
+        storageFieldName,
+        artifactPath,
+        transactionHash,
+        body,
+        log,
+      );
+    });
+
+  program
+    .command('create-authwit')
+    .description(
+      'Creates an authorization witness that can be privately sent to a caller so they can perform an action on behalf of the provided account',
+    )
+    .argument('<functionName>', 'Name of function to authorize')
+    .argument('<caller>', 'Account to be authorized to perform the action', address =>
+      aliasedAddressParser('accounts', address, db),
+    )
+    .addOption(pxeOption)
+    .addOption(createArgsOption(false, db))
+    .addOption(createContractAddressOption(db))
+    .addOption(createArtifactOption(db))
+    .addOption(
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+    )
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createTypeOption(false))
+    .addOption(
+      createAliasOption('Alias for the authorization witness. Used for easy reference in subsequent commands.', !db),
+    )
+    .action(async (functionName, caller, _options, command) => {
+      const { createAuthwit } = await import('./create_authwit.js');
+      const options = command.optsWithGlobals();
+      const {
+        args,
+        contractArtifact: artifactPathPromise,
+        contractAddress,
+        from: parsedFromAddress,
+        rpcUrl,
+        type,
+        secretKey,
+        publicKey,
+        alias,
+      } = options;
+
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
+      const wallet = await getWalletWithScopes(account, db);
+      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+      const witness = await createAuthwit(wallet, functionName, caller, args, artifactPath, contractAddress, log);
+
+      if (db) {
+        await db.storeAuthwitness(witness, log, alias);
+      }
+    });
+
+  program
+    .command('authorize-action')
+    .description(
+      'Authorizes a public call on the caller, so they can perform an action on behalf of the provided account',
+    )
+    .argument('<functionName>', 'Name of function to authorize')
+    .argument('<caller>', 'Account to be authorized to perform the action', address =>
+      aliasedAddressParser('accounts', address, db),
+    )
+    .addOption(pxeOption)
+    .addOption(createArgsOption(false, db))
+    .addOption(createContractAddressOption(db))
+    .addOption(createArtifactOption(db))
+    .addOption(
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+    )
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createTypeOption(false))
+    .action(async (functionName, caller, _options, command) => {
+      const { authorizeAction } = await import('./authorize_action.js');
+      const options = command.optsWithGlobals();
+      const {
+        args,
+        contractArtifact: artifactPathPromise,
+        contractAddress,
+        from: parsedFromAddress,
+        rpcUrl,
+        type,
+        secretKey,
+        publicKey,
+      } = options;
+
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
+      const wallet = await getWalletWithScopes(account, db);
+      const artifactPath = await artifactPathFromPromiseOrAlias(artifactPathPromise, contractAddress, db);
+      await authorizeAction(wallet, functionName, caller, args, artifactPath, contractAddress, log);
+    });
+
+  program
+    .command('add-authwit')
+    .description(
+      'Adds an authorization witness to the provided account, granting PXE access to the notes of the authorizer so that it can be verified',
+    )
+    .argument('<authwit>', 'Authorization witness to add to the account', witness => aliasedAuthWitParser(witness, db))
+    .argument('<authorizer>', 'Account that provides the authorization to perform the action', address =>
+      aliasedAddressParser('accounts', address, db),
+    )
+    .addOption(pxeOption)
+    .addOption(
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+    )
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createTypeOption(false))
+    .addOption(
+      createAliasOption('Alias for the authorization witness. Used for easy reference in subsequent commands.', !db),
+    )
+    .action(async (authwit, authorizer, _options, command) => {
+      const { addAuthwit } = await import('./add_authwit.js');
+      const options = command.optsWithGlobals();
+      const { from: parsedFromAddress, rpcUrl, type, secretKey, publicKey } = options;
+
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
+      const wallet = await getWalletWithScopes(account, db);
+      await addAuthwit(wallet, authwit, authorizer, log);
+      await addScopeToWallet(wallet, authorizer, db);
+    });
+
+  program
+    .command('get-tx')
+    .description('Gets the status of the recent txs, or a detailed view if a specific transaction hash is provided')
+    .argument('[txHash]', 'A transaction hash to get the receipt for.', txHash => aliasedTxHashParser(txHash, db))
+    .addOption(pxeOption)
+    .option('-p, --page <number>', 'The page number to display', value => integerArgParser(value, '--page', 1), 1)
+    .option(
+      '-s, --page-size <number>',
+      'The number of transactions to display per page',
+      value => integerArgParser(value, '--page-size', 1),
+      10,
+    )
+    .action(async (txHash, options) => {
+      const { checkTx } = await import('./check_tx.js');
+      const { rpcUrl, pageSize } = options;
+      let { page } = options;
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+
+      if (txHash) {
+        await checkTx(client, txHash, false, log);
+      } else if (db) {
+        const aliases = db.listAliases('transactions');
+        const totalPages = Math.ceil(aliases.length / pageSize);
+        page = Math.min(page - 1, totalPages - 1);
+        const dataRows = await Promise.all(
+          aliases.slice(page * pageSize, pageSize * (1 + page)).map(async ({ key, value }) => ({
+            alias: key,
+            txHash: value,
+            cancellable: db.retrieveTxData(TxHash.fromString(value)).cancellable,
+            status: await checkTx(client, TxHash.fromString(value), true, log),
+          })),
+        );
+        log(`Recent transactions:`);
+        log('');
+        log(`${'Alias'.padEnd(32, ' ')} | ${'TxHash'.padEnd(64, ' ')} | ${'Cancellable'.padEnd(12, ' ')} | Status`);
+        log(''.padEnd(32 + 64 + 12 + 20, '-'));
+        for (const { alias, txHash, status, cancellable } of dataRows) {
+          log(`${alias.padEnd(32, ' ')} | ${txHash} | ${cancellable.toString()?.padEnd(12, ' ')} | ${status}`);
+          log(''.padEnd(32 + 64 + 12 + 20, '-'));
+        }
+        log(`Displaying ${Math.min(pageSize, aliases.length)} rows, page ${page + 1}/${totalPages}`);
+      } else {
+        log('Recent transactions are not available, please provide a specific transaction hash');
+      }
+    });
+
+  program
+    .command('cancel-tx')
+    .description('Cancels a peding tx by reusing its nonce with a higher fee and an empty payload')
+    .argument('<txHash>', 'A transaction hash to cancel.', txHash => aliasedTxHashParser(txHash, db))
+    .addOption(pxeOption)
+    .addOption(
+      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+    )
+    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
+    .addOption(createTypeOption(false))
+    .addOption(FeeOpts.paymentMethodOption().default('method=none'))
+    .action(async (txHash, options) => {
+      const { cancelTx } = await import('./cancel_tx.js');
+      const { from: parsedFromAddress, rpcUrl, type, secretKey, publicKey, payment } = options;
+      const client = await createCompatibleClient(rpcUrl, debugLogger);
+      const account = await createOrRetrieveAccount(client, parsedFromAddress, db, type, secretKey, Fr.ZERO, publicKey);
+      const wallet = await getWalletWithScopes(account, db);
+
+      const txData = db?.retrieveTxData(txHash);
+
+      if (!txData) {
+        throw new Error('Transaction data not found in the database, cannnot reuse nonce');
+      }
+      const paymentMethod = await parsePaymentMethod(payment, log, db)(wallet);
+
+      await cancelTx(wallet, txData, paymentMethod, log);
     });
 
   return program;

@@ -7,6 +7,7 @@ import {
   logJson,
   parseAztecAddress,
   parseEthereumAddress,
+  parseField,
   parseFieldFromHexString,
   parseOptionalAztecAddress,
   parseOptionalInteger,
@@ -14,7 +15,6 @@ import {
   parseOptionalTxHash,
   parsePartialAddress,
   parsePublicKey,
-  parseTxHash,
   pxeOption,
 } from '../../utils/commands.js';
 
@@ -48,16 +48,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
         debugLogger,
         log,
       );
-    });
-
-  program
-    .command('get-tx')
-    .description('Gets the receipt for the specified transaction hash.')
-    .argument('<txHash>', 'A transaction hash to get the receipt for.', parseTxHash)
-    .addOption(pxeOption)
-    .action(async (txHash, options) => {
-      const { getTx } = await import('./get_tx.js');
-      await getTx(options.rpcUrl, txHash, debugLogger, log);
     });
 
   program
@@ -163,6 +153,18 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .action(async (options: any) => {
       const { blockNumber } = await import('./block_number.js');
       await blockNumber(options.rpcUrl, debugLogger, log);
+    });
+
+  program
+    .command('get-l1-to-l2-message-witness')
+    .description('Gets a L1 to L2 message witness.')
+    .requiredOption('-ca, --contract-address <address>', 'Aztec address of the contract.', parseAztecAddress)
+    .requiredOption('--message-hash <messageHash>', 'The L1 to L2 message hash.', parseField)
+    .requiredOption('--secret <secret>', 'The secret used to claim the L1 to L2 message', parseField)
+    .addOption(pxeOption)
+    .action(async ({ contractAddress, messageHash, secret, rpcUrl }) => {
+      const { getL1ToL2MessageWitness } = await import('./get_l1_to_l2_message_witness.js');
+      await getL1ToL2MessageWitness(rpcUrl, contractAddress, messageHash, secret, debugLogger, log);
     });
 
   program

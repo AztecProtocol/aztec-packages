@@ -132,9 +132,9 @@ cli-wallet-build:
 
 cli-wallet:
     FROM ubuntu:noble
-    RUN apt update && apt install nodejs curl -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    RUN apt update && apt install nodejs curl socat -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
     COPY +cli-wallet-build/usr/src /usr/src
-    ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/cli-wallet/dest/bin/index.js"]
+    ENTRYPOINT ["/usr/src/yarn-project/cli-wallet/wallet-entrypoint.sh"]
 
 export-cli-wallet:
     FROM +cli-wallet
@@ -150,7 +150,7 @@ aztec-prod:
 
 aztec:
     FROM ubuntu:noble
-    RUN apt update && apt install nodejs curl -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    RUN apt update && apt install nodejs curl jq -y && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
     COPY +aztec-prod/usr/src /usr/src
     ENV BB_WORKING_DIRECTORY=/usr/src/bb
     ENV BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
@@ -160,8 +160,8 @@ aztec:
     ENTRYPOINT ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"]
     LET port=8080
     ENV PORT=$port
-    HEALTHCHECK --interval=10s --timeout=10s --retries=6 \
-        CMD curl -fsSd '{\"jsonrpc\":\"2.0\",\"method\":\"pxe_getNodeInfo\",\"id\":1}' http://127.0.0.1:$port
+    HEALTHCHECK --interval=10s --timeout=10s --retries=6 --start-period=120s \
+        CMD curl -fsS http://127.0.0.1:$port/status
     EXPOSE $port
 
 aztec-faucet-build:
@@ -189,8 +189,9 @@ export-aztec-faucet:
 # We care about creating a slimmed down e2e image because we have to serialize it from earthly to docker for running.
 end-to-end-prod:
     FROM +cli-base
-    RUN yarn workspaces focus @aztec/end-to-end --production && yarn cache clean
+    RUN yarn workspaces focus @aztec/end-to-end @aztec/cli-wallet --production && yarn cache clean
     COPY --dir +rollup-verifier-contract/usr/src/bb /usr/src
+    COPY --dir +build-dev/usr/src/noir-projects/noir-contracts /usr/src/noir-projects/noir-contracts
     SAVE ARTIFACT /usr/src /usr/src
 
 anvil:

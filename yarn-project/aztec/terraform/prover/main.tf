@@ -101,12 +101,12 @@ EOF
 }
 
 # Launch template for our prover agents
-# 32 cores and 128 GB memory
+# 16 cores and 128 GB memory
 resource "aws_launch_template" "proving-agent-launch-template" {
   count                  = local.node_count
   name                   = "${var.DEPLOY_TAG}-proving-agent-launch-template-${count.index + 1}"
   image_id               = "ami-0cd4858f2b923aa6b"
-  instance_type          = "m5.8xlarge"
+  instance_type          = "r5a.4xlarge"
   vpc_security_group_ids = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
 
   iam_instance_profile {
@@ -237,8 +237,8 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
     "image": "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}",
     "command": ["start", "--prover"],
     "essential": true,
-    "cpu": 32768,
-    "memoryReservation": 122880,
+    "cpu": 16384,
+    "memoryReservation": 127800,
     "portMappings": [
       {
         "containerPort": 80
@@ -274,8 +274,8 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
         "value": "${var.PROVING_ENABLED}"
       },
       {
-        "name": "OTEL_EXPORTER_OTLP_ENDPOINT",
-        "value": "http://aztec-otel.local:4318"
+        "name": "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+        "value": "http://aztec-otel.local:4318/v1/metrics"
       },
       {
         "name": "OTEL_SERVICE_NAME",
@@ -284,6 +284,10 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
       {
         "name": "NETWORK_NAME",
         "value": "${var.DEPLOY_TAG}"
+      },
+      {
+        "name": "LOG_JSON",
+        "value": "1"
       }
     ],
     "logConfiguration": {
