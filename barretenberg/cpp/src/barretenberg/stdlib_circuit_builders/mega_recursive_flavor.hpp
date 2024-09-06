@@ -140,40 +140,42 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
         {
+            using namespace bb::stdlib::field_conversion;
+
             // deserialize circuit size
             size_t num_frs_read = 0;
-            size_t num_frs_FF = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
-            size_t num_frs_Comm = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
+            size_t num_frs_FF = calc_num_bn254_frs<CircuitBuilder, FF>();
+            size_t num_frs_Comm = calc_num_bn254_frs<CircuitBuilder, Commitment>();
 
-            this->circuit_size = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                              builder, elements.subspan(num_frs_read, num_frs_FF))
-                                              .get_value());
+            this->circuit_size =
+                uint64_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
+                             .get_value());
             num_frs_read += num_frs_FF;
-            this->num_public_inputs = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                   builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                   .get_value());
+            this->num_public_inputs =
+                uint64_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
+                             .get_value());
             num_frs_read += num_frs_FF;
 
-            this->pub_inputs_offset = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                   builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                   .get_value());
+            this->pub_inputs_offset =
+                uint64_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
+                             .get_value());
             num_frs_read += num_frs_FF;
-            this->contains_recursive_proof = bool(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                      builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                      .get_value());
+            this->contains_recursive_proof =
+                bool(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
+                         .get_value());
             num_frs_read += num_frs_FF;
 
             for (uint32_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
-                this->recursive_proof_public_input_indices[i] =
-                    uint32_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                 builder, elements.subspan(num_frs_read, num_frs_FF))
-                                 .get_value());
+                this->recursive_proof_public_input_indices[i] = uint32_t(
+                    convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
+                        .get_value());
                 num_frs_read += num_frs_FF;
             }
+            // WORKTODO: missing databus_propagation_data
 
             for (Commitment& comm : this->get_all()) {
-                comm = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(
-                    builder, elements.subspan(num_frs_read, num_frs_Comm));
+                comm = convert_from_bn254_frs<CircuitBuilder, Commitment>(builder,
+                                                                          elements.subspan(num_frs_read, num_frs_Comm));
                 num_frs_read += num_frs_Comm;
             }
         }

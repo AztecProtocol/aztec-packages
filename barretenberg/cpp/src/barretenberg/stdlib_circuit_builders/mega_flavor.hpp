@@ -544,6 +544,7 @@ class MegaFlavor {
             }
         }
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
+        // WORKTODO: missing databus_propagation_data
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
                         const size_t pub_inputs_offset,
@@ -580,6 +581,7 @@ class MegaFlavor {
                         const Commitment& lagrange_ecc_op,
                         const Commitment& databus_id)
         {
+            // WORKTODO: missing databus_propagation_data
             this->circuit_size = circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
