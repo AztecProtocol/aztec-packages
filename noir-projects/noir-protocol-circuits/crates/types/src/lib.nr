@@ -3,8 +3,8 @@ mod address;
 mod debug_log;
 mod point;
 mod scalar;
-// This is intentionally spelled like this 
-// since contract is a reserved keyword, so it cannot 
+// This is intentionally spelled like this
+// since contract is a reserved keyword, so it cannot
 // be used as an ident.
 mod contrakt;
 mod transaction;
@@ -35,3 +35,4 @@ mod recursion;
 mod data;
 mod storage;
 mod validate;
+mod meta;

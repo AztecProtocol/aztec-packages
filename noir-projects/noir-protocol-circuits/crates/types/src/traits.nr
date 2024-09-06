@@ -1,5 +1,5 @@
 use crate::utils::field::field_from_bytes;
-use std::meta::quoted;
+use crate::meta::derive_serialize;
 
 // Trait: is_empty
 //
@@ -85,6 +85,7 @@ impl FromField for U128 {
 }
 
 // docs:start:serialize
+#[derive_via(derive_serialize)]
 trait Serialize<let N: u32> {
     fn serialize(self) -> [Field; N];
 }
@@ -95,14 +96,15 @@ impl<let N: u32> Serialize<N> for [Field; N] {
         self
     }
 }
+
 impl<let N: u32> Serialize<N> for str<N> {
     fn serialize(self) -> [Field; N] {
-        let mut result = [0; N];
-        let bytes: [u8; N] = self.as_bytes();
-        for i in 0..N {
-            result[i] = field_from_bytes([bytes[i];1], true);
+        let bytes = self.as_bytes();
+        let mut fields = [0; N];
+        for i in 0..bytes.len() {
+            fields[i] = bytes[i] as Field;
         }
-        result
+        fields
     }
 }
 
