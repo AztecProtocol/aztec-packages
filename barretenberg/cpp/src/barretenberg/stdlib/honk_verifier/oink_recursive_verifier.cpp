@@ -27,7 +27,7 @@ OinkRecursiveVerifier_<Flavor>::OinkRecursiveVerifier_(Builder* builder,
     , domain_separator(std::move(domain_separator))
 {}
 
-template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify_proof(OinkProof& proof)
+template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify_proof(const OinkProof& proof)
 {
     transcript = std::make_shared<Transcript>(proof);
     verify();
