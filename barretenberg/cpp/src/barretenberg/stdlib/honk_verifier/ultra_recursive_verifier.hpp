@@ -13,7 +13,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
-    using Instance = RecursiveVerifierInstance_<Flavor>;
+    using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
@@ -32,7 +32,6 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
                                    aggregation_state<typename Flavor::Curve> agg_obj);
 
     std::shared_ptr<VerificationKey> key;
-    std::map<std::string, Commitment> commitments;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
     Builder* builder;
     std::shared_ptr<Transcript> transcript;

@@ -52,6 +52,7 @@ export async function bootstrapNetwork(
   const fpc = await deployFPC(wallet, token.address);
 
   const counter = await deployCounter(wallet);
+  // NOTE: Disabling for now in order to get devnet running
   await fundFPC(counter.address, wallet, l1Clients, fpc.address, debugLog);
 
   if (json) {
@@ -112,8 +113,18 @@ async function deployERC20({ walletClient, publicClient }: L1Clients) {
     contractBytecode: TokenPortalBytecode,
   };
 
-  const erc20Address = await deployL1Contract(walletClient, publicClient, erc20.contractAbi, erc20.contractBytecode);
-  const portalAddress = await deployL1Contract(walletClient, publicClient, portal.contractAbi, portal.contractBytecode);
+  const { address: erc20Address } = await deployL1Contract(
+    walletClient,
+    publicClient,
+    erc20.contractAbi,
+    erc20.contractBytecode,
+  );
+  const { address: portalAddress } = await deployL1Contract(
+    walletClient,
+    publicClient,
+    portal.contractAbi,
+    portal.contractBytecode,
+  );
 
   return {
     erc20Address,
@@ -215,6 +226,7 @@ async function deployCounter(wallet: Wallet): Promise<ContractDeploymentInfo> {
   return info;
 }
 
+// NOTE: Disabling for now in order to get devnet running
 async function fundFPC(
   counterAddress: AztecAddress,
   wallet: Wallet,

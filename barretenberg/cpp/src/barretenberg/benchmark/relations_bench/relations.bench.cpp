@@ -53,9 +53,10 @@ template <typename Flavor, typename Relation> void execute_relation_for_univaria
 // Single execution of relation on PG univariates, i.e. PG combiner work
 template <typename Flavor, typename Relation> void execute_relation_for_pg_univariates(::benchmark::State& state)
 {
-    using ProverInstances = ProverInstances_<Flavor>;
-    using Input = ProtogalaxyProverInternal<ProverInstances>::ExtendedUnivariates;
-    using Accumulator = typename Relation::template ProtogalaxyTupleOfUnivariatesOverSubrelations<ProverInstances::NUM>;
+    using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
+    using Input = ProtogalaxyProverInternal<DeciderProvingKeys>::ExtendedUnivariatesNoOptimisticSkipping;
+    using Accumulator = typename Relation::template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<
+        DeciderProvingKeys::NUM>;
 
     execute_relation<Flavor, Relation, Input, Accumulator>(state);
 }

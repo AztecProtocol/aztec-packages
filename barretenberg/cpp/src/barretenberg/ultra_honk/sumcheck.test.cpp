@@ -146,24 +146,24 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         false);
 
     // Create a prover (it will compute proving key and witness)
-    auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
+    auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
 
     // Generate eta, beta and gamma
-    instance->relation_parameters.eta = FF::random_element();
-    instance->relation_parameters.eta = FF::random_element();
-    instance->relation_parameters.eta_two = FF::random_element();
-    instance->relation_parameters.eta_three = FF::random_element();
-    instance->relation_parameters.beta = FF::random_element();
-    instance->relation_parameters.gamma = FF::random_element();
+    decider_pk->relation_parameters.eta = FF::random_element();
+    decider_pk->relation_parameters.eta = FF::random_element();
+    decider_pk->relation_parameters.eta_two = FF::random_element();
+    decider_pk->relation_parameters.eta_three = FF::random_element();
+    decider_pk->relation_parameters.beta = FF::random_element();
+    decider_pk->relation_parameters.gamma = FF::random_element();
 
-    instance->proving_key.add_ram_rom_memory_records_to_wire_4(instance->relation_parameters.eta,
-                                                               instance->relation_parameters.eta_two,
-                                                               instance->relation_parameters.eta_three);
-    instance->proving_key.compute_logderivative_inverses(instance->relation_parameters);
-    instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
+    decider_pk->proving_key.add_ram_rom_memory_records_to_wire_4(decider_pk->relation_parameters.eta,
+                                                                 decider_pk->relation_parameters.eta_two,
+                                                                 decider_pk->relation_parameters.eta_three);
+    decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomials(decider_pk->relation_parameters);
 
     auto prover_transcript = Transcript::prover_init_empty();
-    auto circuit_size = instance->proving_key.circuit_size;
+    auto circuit_size = decider_pk->proving_key.circuit_size;
     auto log_circuit_size = numeric::get_msb(circuit_size);
 
     RelationSeparator prover_alphas;
@@ -171,15 +171,15 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         prover_alphas[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
     }
 
-    instance->alphas = prover_alphas;
+    decider_pk->alphas = prover_alphas;
     auto sumcheck_prover = SumcheckProver<Flavor>(circuit_size, prover_transcript);
     std::vector<FF> prover_gate_challenges(log_circuit_size);
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         prover_gate_challenges[idx] =
             prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    instance->gate_challenges = prover_gate_challenges;
-    auto prover_output = sumcheck_prover.prove(instance);
+    decider_pk->gate_challenges = prover_gate_challenges;
+    auto prover_output = sumcheck_prover.prove(decider_pk);
 
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
@@ -195,7 +195,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
             verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
     auto verifier_output =
-        sumcheck_verifier.verify(instance->relation_parameters, verifier_alphas, verifier_gate_challenges);
+        sumcheck_verifier.verify(decider_pk->relation_parameters, verifier_alphas, verifier_gate_challenges);
 
     auto verified = verifier_output.verified.value();
 

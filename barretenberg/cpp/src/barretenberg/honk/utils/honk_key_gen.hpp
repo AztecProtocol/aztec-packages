@@ -79,6 +79,8 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
     print_g1(key->q_elliptic, "qElliptic");
     print_g1(key->q_aux, "qAux");
     print_g1(key->q_lookup, "qLookup");
+    print_g1(key->q_poseidon2_external, "qPoseidon2External");
+    print_g1(key->q_poseidon2_internal, "qPoseidon2Internal");
     print_g1(key->sigma_1, "s1");
     print_g1(key->sigma_2, "s2");
     print_g1(key->sigma_3, "s3");

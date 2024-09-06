@@ -94,11 +94,8 @@ const INSTRUCTION_SET = () =>
     [Version.opcode, Version],
     [BlockNumber.opcode, BlockNumber],
     [Timestamp.opcode, Timestamp],
-    //[Coinbase.opcode, Coinbase],
     [FeePerL2Gas.opcode, FeePerL2Gas],
     [FeePerDAGas.opcode, FeePerDAGas],
-    //[Blockl2gaslimit.opcode, Blockl2gaslimit],
-    //[Blockdagaslimit.opcode, Blockdagaslimit],
     // Execution Environment - Calldata
     [CalldataCopy.opcode, CalldataCopy],
 
@@ -123,7 +120,6 @@ const INSTRUCTION_SET = () =>
     [NullifierExists.opcode, NullifierExists], // Notes & Nullifiers
     [EmitNullifier.opcode, EmitNullifier], // Notes & Nullifiers
     [L1ToL2MessageExists.opcode, L1ToL2MessageExists], // Messages
-    //[HeaderMember.opcode, HeaderMember], // Header
 
     // Accrued Substate
     [EmitUnencryptedLog.opcode, EmitUnencryptedLog],

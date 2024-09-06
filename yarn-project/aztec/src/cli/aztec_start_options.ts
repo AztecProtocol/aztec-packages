@@ -9,6 +9,7 @@ import {
   isBooleanConfigValue,
 } from '@aztec/foundation/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p';
+import { proofVerifierConfigMappings } from '@aztec/proof-verifier';
 import { proverClientConfigMappings } from '@aztec/prover-client';
 import { proverNodeConfigMappings } from '@aztec/prover-node';
 import { allPxeConfigMappings } from '@aztec/pxe';
@@ -172,9 +173,17 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     {
       flag: '--node.deployAztecContracts',
-      description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set',
+      description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set.',
       envVar: 'DEPLOY_AZTEC_CONTRACTS',
       ...booleanConfigHelper(),
+    },
+    {
+      flag: '--node.deployAztecContractsSalt',
+      description:
+        'Numeric salt for deploying L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set. Implies --node.deployAztecContracts.',
+      envVar: 'DEPLOY_AZTEC_CONTRACTS_SALT',
+      defaultValue: undefined,
+      parseVal: (val: string) => (val ? parseInt(val) : undefined),
     },
     {
       flag: '--node.assumeProvenUntilBlockNumber',
@@ -294,6 +303,15 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     ...getOptions('bot', botConfigMappings),
+  ],
+  'PROOF VERIFIER': [
+    {
+      flag: '--proof-verifier',
+      description: 'Starts Aztec Proof Verifier with options',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    ...getOptions('proofVerifier', proofVerifierConfigMappings),
   ],
   TXE: [
     {

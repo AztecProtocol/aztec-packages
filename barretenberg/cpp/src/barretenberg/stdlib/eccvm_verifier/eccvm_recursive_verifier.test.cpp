@@ -29,7 +29,7 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
     using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
-    using OuterProverInstance = ProverInstance_<OuterFlavor>;
+    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
     static void SetUpTestSuite()
     {
         srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
@@ -113,9 +113,9 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
 
         // Construct a full proof from the recursive verifier circuit
         {
-            auto instance = std::make_shared<OuterProverInstance>(outer_circuit);
-            OuterProver prover(instance);
-            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
+            auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
+            OuterProver prover(proving_key);
+            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);

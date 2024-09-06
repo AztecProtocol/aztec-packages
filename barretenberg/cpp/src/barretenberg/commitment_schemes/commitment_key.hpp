@@ -10,6 +10,7 @@
 #include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
@@ -36,6 +37,17 @@ template <class Curve> class CommitmentKey {
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using G1 = typename Curve::AffineElement;
+    static constexpr size_t EXTRA_SRS_POINTS_FOR_ECCVM_IPA = 1;
+
+    static size_t get_num_needed_srs_points(size_t num_points)
+    {
+        // NOTE 1: Currently we must round up internal space for points as our pippenger algorithm (specifically,
+        // pippenger_unsafe_optimized_for_non_dyadic_polys) will use next power of 2. This is used to simplify the
+        // recursive halving scheme. We do, however allow the polynomial to not be fully formed. Pippenger internally
+        // will pad 0s into the runtime state.
+        // NOTE 2: We then add one for ECCVM to provide for IPA verification
+        return numeric::round_up_power_2(num_points) + EXTRA_SRS_POINTS_FOR_ECCVM_IPA;
+    }
 
   public:
     scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
@@ -52,9 +64,9 @@ template <class Curve> class CommitmentKey {
      *
      */
     CommitmentKey(const size_t num_points)
-        : pippenger_runtime_state(num_points)
+        : pippenger_runtime_state(get_num_needed_srs_points(num_points))
         , crs_factory(srs::get_crs_factory<Curve>())
-        , srs(crs_factory->get_prover_crs(num_points))
+        , srs(crs_factory->get_prover_crs(get_num_needed_srs_points(num_points)))
     {}
 
     // Note: This constructor is to be used only by Plonk; For Honk the srs lives in the CommitmentKey
@@ -72,14 +84,16 @@ template <class Curve> class CommitmentKey {
     Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
         BB_OP_COUNT_TIME();
-        const size_t degree = polynomial.size();
-        if (degree > srs->get_monomial_size()) {
-            info("Attempting to commit to a polynomial of degree ",
-                 degree,
-                 " with an SRS of size ",
+        // See constructor, we must round up the number of used srs points to a power of 2.
+        const size_t consumed_srs = numeric::round_up_power_2(polynomial.size());
+        if (consumed_srs > srs->get_monomial_size()) {
+            info("Attempting to commit to a polynomial that needs ",
+                 consumed_srs,
+                 " points with an SRS of size ",
                  srs->get_monomial_size());
             ASSERT(false);
         }
+<<<<<<< HEAD
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
@@ -90,6 +104,10 @@ template <class Curve> class CommitmentKey {
             polynomial.data(), point_table, degree, pippenger_runtime_state);
         DEBUG_LOG(point);
         return point;
+=======
+        return scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
+            polynomial, srs->get_monomial_points(), pippenger_runtime_state);
+>>>>>>> origin/master
     };
 
     /**
@@ -109,9 +127,14 @@ template <class Curve> class CommitmentKey {
         ASSERT(poly_size + polynomial.start_index * 2 <= srs->get_monomial_size());
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
+<<<<<<< HEAD
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial spann.
         G1* point_table = srs->get_monomial_points() + polynomial.start_index * 2;
+=======
+        // endomorphism point (\beta*x, -y) at odd indices).
+        std::span<G1> point_table = srs->get_monomial_points();
+>>>>>>> origin/master
 
         // Define structures needed to multithread the extraction of non-zero inputs
         const size_t num_threads = poly_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
@@ -131,6 +154,7 @@ template <class Curve> class CommitmentKey {
                 if (!scalar.is_zero()) {
                     thread_scalars[thread_idx].emplace_back(scalar);
                     // Save both the raw srs point and the precomputed endomorphism point from the point table
+                    ASSERT(idx * 2 + 1 < point_table.size());
                     const G1& point = point_table[idx * 2];
                     const G1& endo_point = point_table[idx * 2 + 1];
                     thread_points[thread_idx].emplace_back(point);
@@ -156,8 +180,7 @@ template <class Curve> class CommitmentKey {
         }
 
         // Call the version of pippenger which assumes all points are distinct
-        return scalar_multiplication::pippenger_unsafe<Curve>(
-            scalars.data(), points.data(), scalars.size(), pippenger_runtime_state);
+        return scalar_multiplication::pippenger_unsafe<Curve>(scalars, points, pippenger_runtime_state);
     }
 };
 

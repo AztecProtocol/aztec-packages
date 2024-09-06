@@ -130,7 +130,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
     {
         if (commitment_key == nullptr) {
             ZoneScopedN("init commitment key");
-            this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size + 1);
+            this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size);
         } else {
             // Don't create another commitment key if we already have one
             this->commitment_key = commitment_key;
@@ -139,52 +139,6 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
         this->circuit_size = circuit_size;
         this->log_circuit_size = numeric::get_msb(circuit_size);
         this->num_public_inputs = num_public_inputs;
-    };
-};
-template <typename PrecomputedPolynomials, typename WitnessPolynomials, typename CommitmentKey_>
-class ProvingKeyAvm_ : public PrecomputedPolynomials, public WitnessPolynomials {
-  public:
-    using Polynomial = typename PrecomputedPolynomials::DataType;
-    using FF = typename Polynomial::FF;
-
-    size_t circuit_size;
-    bool contains_recursive_proof;
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
-    bb::EvaluationDomain<FF> evaluation_domain;
-    std::shared_ptr<CommitmentKey_> commitment_key;
-
-    // Offset off the public inputs from the start of the execution trace
-    size_t pub_inputs_offset = 0;
-
-    // The number of public inputs has to be the same for all instances because they are
-    // folded element by element.
-    std::vector<FF> public_inputs;
-
-    std::vector<std::string> get_labels() const
-    {
-        return concatenate(PrecomputedPolynomials::get_labels(), WitnessPolynomials::get_labels());
-    }
-    // This order matters! must match get_unshifted in entity classes
-    auto get_all() { return concatenate(get_precomputed_polynomials(), get_witness_polynomials()); }
-    auto get_witness_polynomials() { return WitnessPolynomials::get_all(); }
-    auto get_precomputed_polynomials() { return PrecomputedPolynomials::get_all(); }
-    auto get_selectors() { return PrecomputedPolynomials::get_selectors(); }
-    ProvingKeyAvm_() = default;
-    ProvingKeyAvm_(const size_t circuit_size, const size_t num_public_inputs)
-    {
-        this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size + 1);
-        this->evaluation_domain = bb::EvaluationDomain<FF>(circuit_size, circuit_size);
-        this->circuit_size = circuit_size;
-        this->log_circuit_size = numeric::get_msb(circuit_size);
-        this->num_public_inputs = num_public_inputs;
-        // Allocate memory for precomputed polynomials
-        for (auto& poly : PrecomputedPolynomials::get_all()) {
-            poly = Polynomial(circuit_size);
-        }
-        // Allocate memory for witness polynomials
-        for (auto& poly : WitnessPolynomials::get_all()) {
-            poly = Polynomial(circuit_size);
-        }
     };
 };
 
@@ -319,22 +273,22 @@ template <typename Tuple> constexpr size_t compute_number_of_subrelations()
  * @brief Utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
  * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
  * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
- * tuple is determined by the corresponding subrelation length and the number of instances to be folded.
+ * tuple is determined by the corresponding subrelation length and the number of keys to be folded.
  * @tparam optimised Enable optimised version with skipping some of the computation
  */
-template <typename Tuple, size_t NUM_INSTANCES, bool optimised = false>
+template <typename Tuple, size_t NUM_KEYS, bool optimised = false>
 constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<size_t... I>(std::index_sequence<I...>) {
         if constexpr (optimised) {
             return std::make_tuple(
-                typename std::tuple_element_t<I, Tuple>::
-                    template OptimisedProtogalaxyTupleOfUnivariatesOverSubrelations<NUM_INSTANCES>{}...);
+                typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
+                    NUM_KEYS>{}...);
         } else {
             return std::make_tuple(
-                typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
-                    NUM_INSTANCES>{}...);
+                typename std::tuple_element_t<I, Tuple>::
+                    template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<NUM_KEYS>{}...);
         }
     }(seq);
 }
@@ -382,10 +336,12 @@ class ECCVMFlavor;
 class UltraKeccakFlavor;
 class MegaFlavor;
 class TranslatorFlavor;
+class AvmFlavor;
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class TranslatorRecursiveFlavor_;
 template <typename BuilderType> class ECCVMRecursiveFlavor_;
+template <typename BuilderType> class AvmRecursiveFlavor_;
 } // namespace bb
 
 // Forward declare plonk flavors
@@ -410,17 +366,14 @@ concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra
 template <typename T>
 concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra, UltraKeccakFlavor>;
 
-template <typename T> 
+template <typename T>
 concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
-template <typename T> 
+template <typename T>
 concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
-template <typename T> 
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
-
 template <typename T>
-concept HasKeccak = IsAnyOf<T, UltraKeccakFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T>
 concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,
@@ -437,7 +390,8 @@ MegaRecursiveFlavor_<CircuitSimulatorBN254>,
 TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
 TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
 TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
-ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
+ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
+AvmRecursiveFlavor_<UltraCircuitBuilder>>;
 
 template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
@@ -448,9 +402,9 @@ template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,
                                                            UltraFlavorWithZK,
-                                                           MegaFlavor, 
-                                                           UltraRecursiveFlavor_<UltraCircuitBuilder>, 
-                                                           UltraRecursiveFlavor_<MegaCircuitBuilder>, 
+                                                           MegaFlavor,
+                                                           UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                                                           UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                                            UltraRecursiveFlavor_<CircuitSimulatorBN254>,
                                                            MegaRecursiveFlavor_<UltraCircuitBuilder>,
                                                            MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;

@@ -8,6 +8,10 @@ on:
         description: "Don't rebuild images"
         required: false
         type: boolean
+      no_deploy:
+        description: "Skip deployment (only release images)"
+        required: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -29,6 +33,7 @@ env:
   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
   API_KEY: ${{ secrets.DEVNET_API_KEY }}
+  FORK_ADMIN_API_KEY: ${{ secrets.DEVNET_API_KEY }}
   FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
   CONTRACT_PUBLISHER_PRIVATE_KEY: ${{ secrets.CONTRACT_PUBLISHER_PRIVATE_KEY }}
   CONTRACT_S3_BUCKET: s3://static.aztec.network
@@ -60,6 +65,9 @@ env:
   # Anvil
   TF_VAR_FORK_MNEMONIC: ${{ secrets.FORK_MNEMONIC }}
   TF_VAR_INFURA_API_KEY: ${{ secrets.INFURA_API_KEY }}
+  TF_VAR_FORK_ADMIN_API_KEY: ${{ secrets.DEVNET_API_KEY }}
+  TF_VAR_MAINNET_FORK_CPU_UNITS: 2048
+  TF_VAR_MAINNET_FORK_MEMORY_UNITS: 4096
 
   # Faucet
   TF_VAR_FAUCET_ACCOUNT_INDEX: 9
@@ -93,13 +101,6 @@ jobs:
       runner_type: builder-x86
     secrets: inherit
 
-  setup-arm:
-    uses: ./.github/workflows/setup-runner.yml
-    with:
-      username: ${{ github.actor }}
-      runner_type: builder-arm
-    secrets: inherit
-
   # Set network specific variables as outputs from this job to be referenced in later jobs
   set-network:
     needs: setup
@@ -108,6 +109,7 @@ jobs:
       deploy_tag: ${{ steps.set_network_vars.outputs.deploy_tag }}
       branch_name: ${{ steps.set_network_vars.outputs.branch_name }}
       network_api_key: ${{ steps.set_network_vars.outputs.network_api_key }}
+      network_fork_admin_api_key: ${{ steps.set_network_vars.outputs.network_fork_admin_api_key }}
       agents_per_prover: ${{ steps.set_network_vars.outputs.agents_per_prover }}
       bot_interval: ${{ steps.set_network_vars.outputs.bot_interval }}
       node_tcp_range_start: ${{ steps.set_network_vars.outputs.node_tcp_range_start }}
@@ -123,6 +125,12 @@ jobs:
       min_txs_per_block: ${{ steps.set_network_vars.outputs.min_txs_per_block }}
       bot_flush_setup_txs: ${{ steps.set_network_vars.outputs.bot_flush_setup_txs }}
       bot_max_pending_txs: ${{ steps.set_network_vars.outputs.bot_max_pending_txs }}
+      mainnet_fork_cpu_units: ${{ steps.set_network_vars.outputs.mainnet_fork_cpu_units }}
+      mainnet_fork_memory_units: ${{ steps.set_network_vars.outputs.mainnet_fork_memory_units }}
+      bot_skip_simulation: ${{ steps.set_network_vars.outputs.bot_skip_simulation }}
+      bot_l2_gas_limit: ${{ steps.set_network_vars.outputs.bot_l2_gas_limit }}
+      bot_da_gas_limit: ${{ steps.set_network_vars.outputs.bot_da_gas_limit }}
+      bot_count: ${{ steps.set_network_vars.outputs.bot_count }}
     steps:
       - name: Set network vars
         shell: bash
@@ -134,7 +142,8 @@ jobs:
               echo "deploy_tag=devnet" >> $GITHUB_OUTPUT
               echo "branch_name=devnet" >> $GITHUB_OUTPUT
               echo "network_api_key=DEVNET_API_KEY" >> $GITHUB_OUTPUT
-              echo "agents_per_prover=4" >> $GITHUB_OUTPUT
+              echo "network_fork_admin_api_key=DEVNET_API_KEY" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=2" >> $GITHUB_OUTPUT
               echo "bot_interval=180" >> $GITHUB_OUTPUT
               echo "node_tcp_range_start=40100" >> $GITHUB_OUTPUT
               echo "node_udp_range_start=45100" >> $GITHUB_OUTPUT
@@ -146,16 +155,23 @@ jobs:
               echo "faucet_lb_priority=601" >> $GITHUB_OUTPUT
               echo "min_txs_per_block=1" >> $GITHUB_OUTPUT
               echo "max_txs_per_block=64" >> $GITHUB_OUTPUT
-              echo "bot_follow_chain=NONE" >> $GITHUB_OUTPUT
+              echo "bot_follow_chain=PROVEN" >> $GITHUB_OUTPUT
               echo "bot_flush_setup_txs=false" >> $GITHUB_OUTPUT
               echo "bot_max_pending_txs=1" >> $GITHUB_OUTPUT
+              echo "mainnet_fork_cpu_units=2048" >> $GITHUB_OUTPUT
+              echo "mainnet_fork_memory_units=4096" >> $GITHUB_OUTPUT
+              echo "bot_skip_simulation=false" >> $GITHUB_OUTPUT
+              echo "bot_l2_gas_limit=" >> $GITHUB_OUTPUT
+              echo "bot_da_gas_limit=" >> $GITHUB_OUTPUT
+              echo "bot_count=1" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "provernet" ]
           then
               echo "deploy_tag=provernet" >> $GITHUB_OUTPUT
               echo "branch_name=provernet" >> $GITHUB_OUTPUT
               echo "network_api_key=PROVERNET_API_KEY" >> $GITHUB_OUTPUT
-              echo "agents_per_prover=4" >> $GITHUB_OUTPUT
-              echo "bot_interval=300" >> $GITHUB_OUTPUT
+              echo "network_fork_admin_api_key=PROVERNET_FORK_ADMIN_API_KEY" >> $GITHUB_OUTPUT
+              echo "agents_per_prover=8" >> $GITHUB_OUTPUT
+              echo "bot_interval=10" >> $GITHUB_OUTPUT
               echo "node_tcp_range_start=40200" >> $GITHUB_OUTPUT
               echo "node_udp_range_start=45200" >> $GITHUB_OUTPUT
               echo "prover_node_tcp_range_start=41200" >> $GITHUB_OUTPUT
@@ -168,14 +184,21 @@ jobs:
               echo "max_txs_per_block=4" >> $GITHUB_OUTPUT
               echo "bot_follow_chain=NONE" >> $GITHUB_OUTPUT
               echo "bot_flush_setup_txs=true" >> $GITHUB_OUTPUT
-              echo "bot_max_pending_txs=20" >> $GITHUB_OUTPUT
+              echo "bot_max_pending_txs=32" >> $GITHUB_OUTPUT
+              echo "mainnet_fork_cpu_units=8192" >> $GITHUB_OUTPUT
+              echo "mainnet_fork_memory_units=32768" >> $GITHUB_OUTPUT
+              echo "bot_skip_simulation=true" >> $GITHUB_OUTPUT
+              echo "bot_l2_gas_limit=1000000000" >> $GITHUB_OUTPUT
+              echo "bot_da_gas_limit=1000000000" >> $GITHUB_OUTPUT
+              echo "bot_count=1" >> $GITHUB_OUTPUT
           elif [ "$BRANCH_NAME" = "alphanet" ]
           then
               echo "deploy_tag=alphanet" >> $GITHUB_OUTPUT
               echo "branch_name=alphanet" >> $GITHUB_OUTPUT
               echo "network_api_key=ALPHANET_API_KEY" >> $GITHUB_OUTPUT
+              echo "network_fork_admin_api_key=ALPHANET_API_KEY" >> $GITHUB_OUTPUT
               echo "agents_per_prover=1" >> $GITHUB_OUTPUT
-              echo "bot_interval=30" >> $GITHUB_OUTPUT
+              echo "bot_interval=10" >> $GITHUB_OUTPUT
               echo "node_tcp_range_start=40000" >> $GITHUB_OUTPUT
               echo "node_udp_range_start=45000" >> $GITHUB_OUTPUT
               echo "prover_node_tcp_range_start=41000" >> $GITHUB_OUTPUT
@@ -189,6 +212,12 @@ jobs:
               echo "bot_follow_chain=PROVEN" >> $GITHUB_OUTPUT
               echo "bot_flush_setup_txs=false" >> $GITHUB_OUTPUT
               echo "bot_max_pending_txs=1" >> $GITHUB_OUTPUT
+              echo "mainnet_fork_cpu_units=2048" >> $GITHUB_OUTPUT
+              echo "mainnet_fork_memory_units=4096" >> $GITHUB_OUTPUT
+              echo "bot_skip_simulation=false" >> $GITHUB_OUTPUT
+              echo "bot_l2_gas_limit=" >> $GITHUB_OUTPUT
+              echo "bot_da_gas_limit=" >> $GITHUB_OUTPUT
+              echo "bot_count=1" >> $GITHUB_OUTPUT
           else
               echo "Unrecognized Branch!!"
               exit 1
@@ -203,6 +232,8 @@ jobs:
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      FORK_ADMIN_API_KEY: ${{ secrets[needs.set-network.outputs.network_fork_admin_api_key] }}
+      TF_VAR_FORK_ADMIN_API_KEY: ${{ secrets[needs.set-network.outputs.network_fork_admin_api_key] }}
       API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
     runs-on: ${{ github.actor }}-x86
     steps:
@@ -256,41 +287,6 @@ jobs:
           docker tag aztecprotocol/aztec:${{ env.DEPLOY_TAG }}-x86_64 aztecprotocol/aztec:${{ github.sha }}-x86_64
           docker push aztecprotocol/aztec:${{ github.sha }}-x86_64
 
-  build-aztec-arm:
-    needs: [set-network, setup-arm]
-    env:
-      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
-      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
-      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
-      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
-    runs-on: ${{ github.actor }}-arm
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: build-aztec-${{ github.actor }}
-          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-      - name: "Build & Push aztec images"
-        timeout-minutes: 60
-        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
-        run: |
-          env
-          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ github.sha }} --ARCH=arm64
-          earthly-ci --no-output --push ./yarn-project+export-aztec-arch --DIST_TAG=${{ env.DEPLOY_TAG }} --ARCH=arm64
-
-      - name: "Re-tag Aztec image"
-        if: ${{ github.event.inputs.no_rebuild_images == 'true' }}
-        run: |
-          env
-          docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}-arm64
-          docker tag aztecprotocol/aztec:${{ env.DEPLOY_TAG }}-arm64 aztecprotocol/aztec:${{ github.sha }}-arm64
-          docker push aztecprotocol/aztec:${{ github.sha }}-arm64
-
   build-aztec-nargo:
     needs: [set-network, build-aztec]
     env:
@@ -317,41 +313,8 @@ jobs:
           earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ github.sha }} --ARCH=x86_64
           earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ env.DEPLOY_TAG }} --ARCH=x86_64
 
-  build-aztec-nargo-arm:
-    needs: [set-network, setup-arm, build-aztec-arm]
-    env:
-      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
-      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
-      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
-      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
-    runs-on: ${{ github.actor }}-arm
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: build-aztec-nargo-${{ github.actor }}
-          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-
-      - name: Build & push aztec nargo image
-        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
-        run: |
-          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ github.sha }} --ARCH=arm64
-          earthly-ci --no-output --push ./aztec-nargo+export-aztec-nargo --DIST_TAG=${{ env.DEPLOY_TAG }} --ARCH=arm64
-
   publish-aztec-manifests:
-    needs:
-      [
-        set-network,
-        build-aztec,
-        build-aztec-arm,
-        build-aztec-nargo,
-        build-aztec-nargo-arm,
-      ]
+    needs: [set-network, build-aztec, build-aztec-nargo]
     env:
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
     runs-on: ubuntu-latest
@@ -367,14 +330,11 @@ jobs:
         run: |
           env
           docker pull aztecprotocol/aztec:${{ github.sha }}-x86_64
-          docker pull aztecprotocol/aztec:${{ github.sha }}-arm64
 
           docker manifest create aztecprotocol/aztec:${{ env.DEPLOY_TAG }} \
-            aztecprotocol/aztec:${{ github.sha }}-x86_64 \
-            aztecprotocol/aztec:${{ github.sha }}-arm64
+            aztecprotocol/aztec:${{ github.sha }}-x86_64
           docker manifest create aztecprotocol/aztec:${{ github.sha }} \
-            aztecprotocol/aztec:${{ github.sha }}-x86_64 \
-            aztecprotocol/aztec:${{ github.sha }}-arm64
+            aztecprotocol/aztec:${{ github.sha }}-x86_64
 
           docker manifest push aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
           docker manifest push aztecprotocol/aztec:${{ github.sha }}
@@ -383,14 +343,11 @@ jobs:
         if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
         run: |
           docker pull aztecprotocol/aztec-nargo:${{ github.sha }}-x86_64
-          docker pull aztecprotocol/aztec-nargo:${{ github.sha }}-arm64
 
           docker manifest create aztecprotocol/aztec-nargo:${{ env.DEPLOY_TAG }} \
-            aztecprotocol/aztec-nargo:${{ github.sha }}-x86_64 \
-            aztecprotocol/aztec-nargo:${{ github.sha }}-arm64
+            aztecprotocol/aztec-nargo:${{ github.sha }}-x86_64
           docker manifest create aztecprotocol/aztec-nargo:${{ github.sha }} \
-            aztecprotocol/aztec-nargo:${{ github.sha }}-x86_64 \
-            aztecprotocol/aztec-nargo:${{ github.sha }}-arm64
+            aztecprotocol/aztec-nargo:${{ github.sha }}-x86_64
 
           docker manifest push aztecprotocol/aztec-nargo:${{ env.DEPLOY_TAG }}
           docker manifest push aztecprotocol/aztec-nargo:${{ github.sha }}
@@ -403,6 +360,8 @@ jobs:
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      FORK_ADMIN_API_KEY: ${{ secrets[needs.set-network.outputs.network_fork_admin_api_key] }}
+      TF_VAR_FORK_ADMIN_API_KEY: ${{ secrets[needs.set-network.outputs.network_fork_admin_api_key] }}
       API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
     runs-on: ${{ github.actor }}-x86
     steps:
@@ -457,35 +416,8 @@ jobs:
           earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ env.DEPLOY_TAG }} --ARCH=x86_64
           earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ github.sha }} --ARCH=x86_64
 
-  build-cli-wallet-arm:
-    needs: [set-network, build-aztec-arm]
-    env:
-      BRANCH_NAME: ${{ needs.set-network.outputs.branch_name }}
-      DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
-      API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
-      TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
-      API_KEY_NAME: ${{ needs.set-network.outputs.network_api_key }}
-    runs-on: ${{ github.actor }}-arm
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: "${{ env.GIT_COMMIT }}"
-          fetch-depth: 0
-      - uses: ./.github/ci-setup-action
-        with:
-          concurrency_key: build-cli-wallet-${{ github.actor }}
-          dockerhub_password: "${{ env.DOCKERHUB_PASSWORD }}"
-      - name: "Build & Push aztec images"
-        timeout-minutes: 40
-        if: ${{ github.event.inputs.no_rebuild_images == 'false' }}
-        run: |
-          env
-          earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ env.DEPLOY_TAG }} --ARCH=arm64
-          earthly-ci --no-output --push ./yarn-project+export-cli-wallet --DIST_TAG=${{ github.sha }} --ARCH=arm64
-
   publish-cli-wallet-manifest:
-    needs: [set-network, build-cli-wallet, build-cli-wallet-arm]
+    needs: [set-network, build-cli-wallet]
     env:
       DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
     runs-on: ${{ github.actor }}-x86
@@ -503,14 +435,11 @@ jobs:
         run: |
           env
           docker pull aztecprotocol/cli-wallet:${{ github.sha }}-x86_64
-          docker pull aztecprotocol/cli-wallet:${{ github.sha }}-arm64
 
           docker manifest create aztecprotocol/cli-wallet:${{ env.DEPLOY_TAG }} \
-            aztecprotocol/cli-wallet:${{ github.sha }}-x86_64 \
-            aztecprotocol/cli-wallet:${{ github.sha }}-arm64
+            aztecprotocol/cli-wallet:${{ github.sha }}-x86_64
           docker manifest create aztecprotocol/cli-wallet:${{ github.sha }} \
-            aztecprotocol/cli-wallet:${{ github.sha }}-x86_64 \
-            aztecprotocol/cli-wallet:${{ github.sha }}-arm64
+            aztecprotocol/cli-wallet:${{ github.sha }}-x86_64
 
           docker manifest push aztecprotocol/cli-wallet:${{ env.DEPLOY_TAG }}
           docker manifest push aztecprotocol/cli-wallet:${{ github.sha }}
@@ -541,6 +470,7 @@ jobs:
           terraform_version: 1.7.5
 
   terraform-deploy:
+    if: ${{ github.event.inputs.no_deploy == 'false' }}
     runs-on: ubuntu-latest
     needs: [build-end, set-network]
     env:
@@ -549,6 +479,8 @@ jobs:
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      FORK_ADMIN_API_KEY: ${{ secrets[needs.set-network.outputs.network_fork_admin_api_key] }}
+      TF_VAR_FORK_ADMIN_API_KEY: ${{ secrets[needs.set-network.outputs.network_fork_admin_api_key] }}
       TF_VAR_AGENTS_PER_PROVER: ${{ needs.set-network.outputs.agents_per_prover }}
       TF_VAR_BOT_TX_INTERVAL_SECONDS: ${{ needs.set-network.outputs.bot_interval }}
       TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
@@ -556,6 +488,12 @@ jobs:
       TF_VAR_PROVER_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.prover_node_lb_priority_range_start }}
       TF_VAR_SEQ_MIN_TX_PER_BLOCK: 1
       TF_VAR_SEQ_MAX_TX_PER_BLOCK: ${{ needs.set-network.outputs.max_txs_per_block }}
+      TF_VAR_MAINNET_FORK_CPU_UNITS: ${{ needs.set-network.outputs.mainnet_fork_cpu_units }}
+      TF_VAR_MAINNET_FORK_MEMORY_UNITS: ${{ needs.set-network.outputs.mainnet_fork_memory_units }}
+      TF_VAR_BOT_SKIP_PUBLIC_SIMULATION: ${{ needs.set-network.outputs.bot_skip_simulation }}
+      TF_VAR_BOT_L2_GAS_LIMIT: ${{ needs.set-network.outputs.bot_l2_gas_limit }}
+      TF_VAR_BOT_DA_GAS_LIMIT: ${{ needs.set-network.outputs.bot_da_gas_limit }}
+      TF_VAR_BOT_COUNT: ${{ needs.set-network.outputs.bot_count }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -577,7 +515,7 @@ jobs:
         run: |
           env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/mainnet-fork"
-          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.aztec_mainnet_fork_data_store"
+          terraform apply -input=false -auto-approve
 
       - name: Wait for mainnet fork deployment
         run: |
@@ -591,7 +529,7 @@ jobs:
           docker pull aztecprotocol/aztec:${{ env.DEPLOY_TAG }}
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-l1-contracts \
             --private-key ${{ env.CONTRACT_PUBLISHER_PRIVATE_KEY }} \
-            --rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ env.API_KEY }} \
+            --rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/admin-${{ env.FORK_ADMIN_API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }} \
             --salt ${{ github.run_id }} \
             --json | tee ./l1_contracts.json
@@ -629,13 +567,13 @@ jobs:
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-node"
-          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.node_data_store" -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.node_udp_range_start }}"
+          terraform apply -input=false -auto-approve -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.node_udp_range_start }}"
 
       - name: Deploy Aztec Prover Nodes
         working-directory: ./yarn-project/aztec/terraform/prover-node
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-prover-node"
-          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.prover_node_data_store" -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.prover_node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.prover_node_udp_range_start }}"
+          terraform apply -input=false -auto-approve -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.prover_node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.prover_node_udp_range_start }}"
 
       - name: Deploy Provers
         working-directory: ./yarn-project/aztec/terraform/prover
@@ -650,6 +588,7 @@ jobs:
           terraform apply -input=false -auto-approve -replace="aws_efs_file_system.pxe_data_store"
 
   bootstrap:
+    if: ${{ github.event.inputs.no_deploy == 'false' }}
     runs-on: ubuntu-latest
     needs: [terraform-deploy, set-network]
     env:
@@ -658,6 +597,8 @@ jobs:
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      FORK_ADMIN_API_KEY: ${{ secrets[needs.set-network.outputs.network_fork_admin_api_key] }}
+      TF_VAR_FORK_ADMIN_API_KEY: ${{ secrets[needs.set-network.outputs.network_fork_admin_api_key] }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -695,7 +636,7 @@ jobs:
           set -o pipefail
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} bootstrap-network \
             --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ env.API_KEY }} \
-            --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ env.API_KEY }} \
+            --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/admin-${{ env.FORK_ADMIN_API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }} \
             --l1-private-key ${{ env.CONTRACT_PUBLISHER_PRIVATE_KEY }} \
             --json | tee ./basic_contracts.json
@@ -703,6 +644,7 @@ jobs:
           aws s3 cp ./basic_contracts.json ${{ env.CONTRACT_S3_BUCKET }}/${{ env.DEPLOY_TAG }}/basic_contracts.json
 
   deploy-faucet:
+    if: ${{ github.event.inputs.no_deploy == 'false' }}
     runs-on: ubuntu-latest
     needs: [terraform-deploy, bootstrap, set-network]
     env:
@@ -711,6 +653,8 @@ jobs:
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      FORK_ADMIN_API_KEY: ${{ secrets[needs.set-network.outputs.network_fork_admin_api_key] }}
+      TF_VAR_FORK_ADMIN_API_KEY: ${{ secrets[needs.set-network.outputs.network_fork_admin_api_key] }}
       TF_VAR_FAUCET_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.faucet_lb_priority }}
     steps:
       - uses: actions/checkout@v4
@@ -744,6 +688,7 @@ jobs:
           terraform apply -input=false -auto-approve
 
   enable-proving:
+    if: ${{ github.event.inputs.no_deploy == 'false' }}
     runs-on: ubuntu-latest
     needs: [deploy-faucet, set-network]
     env:
@@ -752,6 +697,8 @@ jobs:
       TF_VAR_DEPLOY_TAG: ${{ needs.set-network.outputs.deploy_tag }}
       API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
       TF_VAR_API_KEY: ${{ secrets[needs.set-network.outputs.network_api_key] }}
+      FORK_ADMIN_API_KEY: ${{ secrets[needs.set-network.outputs.network_fork_admin_api_key] }}
+      TF_VAR_FORK_ADMIN_API_KEY: ${{ secrets[needs.set-network.outputs.network_fork_admin_api_key] }}
       TF_VAR_AGENTS_PER_PROVER: ${{ needs.set-network.outputs.agents_per_prover }}
       TF_VAR_BOT_TX_INTERVAL_SECONDS: ${{ needs.set-network.outputs.bot_interval }}
       TF_VAR_NODE_LB_RULE_PRIORITY: ${{ needs.set-network.outputs.node_lb_priority_range_start }}
@@ -764,6 +711,10 @@ jobs:
       TF_VAR_BOT_FOLLOW_CHAIN: ${{ needs.set-network.outputs.bot_follow_chain }}
       TF_VAR_PROVING_ENABLED: true
       TF_VAR_BOT_NO_START: false
+      TF_VAR_BOT_SKIP_PUBLIC_SIMULATION: ${{ needs.set-network.outputs.bot_skip_simulation }}
+      TF_VAR_BOT_L2_GAS_LIMIT: ${{ needs.set-network.outputs.bot_l2_gas_limit }}
+      TF_VAR_BOT_DA_GAS_LIMIT: ${{ needs.set-network.outputs.bot_da_gas_limit }}
+      TF_VAR_BOT_COUNT: ${{ needs.set-network.outputs.bot_count }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -787,7 +738,7 @@ jobs:
       #     set -eo pipefail
       #     docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} set-proven-until \
       #       --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ env.API_KEY }} \
-      #       --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ env.API_KEY }} \
+      #       --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/admin-${{ env.FORK_ADMIN_API_KEY }} \
       #       --l1-chain-id ${{ env.L1_CHAIN_ID }} \
       #       --l1-private-key ${{ env.CONTRACT_PUBLISHER_PRIVATE_KEY }}
 
@@ -827,7 +778,7 @@ jobs:
           set -eo pipefail
           docker run aztecprotocol/aztec:${{ env.DEPLOY_TAG }} deploy-l1-verifier \
             --rpc-url https://api.aztec.network/${{ env.DEPLOY_TAG }}/aztec-pxe/${{ env.API_KEY }} \
-            --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/${{ env.API_KEY }} \
+            --l1-rpc-url https://${{ env.DEPLOY_TAG }}-mainnet-fork.aztec.network:8545/admin-${{ env.FORK_ADMIN_API_KEY }} \
             --l1-chain-id ${{ env.L1_CHAIN_ID }} \
             --l1-private-key ${{ env.CONTRACT_PUBLISHER_PRIVATE_KEY }}
 

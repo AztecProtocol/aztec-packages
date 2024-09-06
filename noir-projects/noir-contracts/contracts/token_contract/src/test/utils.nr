@@ -2,11 +2,10 @@ use dep::aztec::{
     hash::compute_secret_hash, prelude::AztecAddress,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
-    note::{note_getter::{MAX_NOTES_PER_PAGE, view_notes}, note_viewer_options::NoteViewerOptions},
     oracle::{execution::{get_block_number, get_contract_address}, unsafe_rand::unsafe_rand, storage::storage_read}
 };
 
-use crate::{types::{token_note::TokenNote, transparent_note::TransparentNote}, Token};
+use crate::{types::transparent_note::TransparentNote, Token};
 
 pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys

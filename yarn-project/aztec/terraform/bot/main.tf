@@ -150,7 +150,7 @@ resource "aws_ecs_task_definition" "aztec-bot" {
       command           = ["start", "--bot", "--pxe"]
       essential         = true
       cpu               = 8192
-      memoryReservation = 14336
+      memoryReservation = 15685
       portMappings = [
         {
           containerPort = 80
@@ -173,6 +173,9 @@ resource "aws_ecs_task_definition" "aztec-bot" {
         { name = "NETWORK", value = var.DEPLOY_TAG },
         { name = "BOT_FLUSH_SETUP_TRANSACTIONS", value = tostring(var.BOT_FLUSH_SETUP_TRANSACTIONS) },
         { name = "BOT_MAX_PENDING_TXS", value = tostring(var.BOT_MAX_PENDING_TXS) },
+        { name = "BOT_SKIP_PUBLIC_SIMULATION", value = tostring(var.BOT_SKIP_PUBLIC_SIMULATION) },
+        { name = "BOT_L2_GAS_LIMIT", value = var.BOT_L2_GAS_LIMIT },
+        { name = "BOT_DA_GAS_LIMIT", value = var.BOT_DA_GAS_LIMIT },
         { name = "LOG_JSON", value = "1" }
       ]
       logConfiguration = {

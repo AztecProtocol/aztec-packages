@@ -3,6 +3,7 @@ import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
+  AnvilTestWatcher,
   AztecAddress,
   type AztecNode,
   BatchCall,
@@ -32,12 +33,14 @@ import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import {
   CANONICAL_AUTH_REGISTRY_ADDRESS,
   CANONICAL_KEY_REGISTRY_ADDRESS,
+  type EthAddress,
   GasSettings,
   MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+  ROUTER_ADDRESS,
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { NULL_KEY } from '@aztec/ethereum';
+import { NULL_KEY, isAnvilTestChain } from '@aztec/ethereum';
 import { bufferAsFields } from '@aztec/foundation/abi';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import {
@@ -56,12 +59,13 @@ import {
   RollupAbi,
   RollupBytecode,
 } from '@aztec/l1-artifacts';
-import { AuthRegistryContract, KeyRegistryContract } from '@aztec/noir-contracts.js';
+import { AuthRegistryContract, KeyRegistryContract, RouterContract } from '@aztec/noir-contracts.js';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import { FeeJuiceAddress, getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalKeyRegistry } from '@aztec/protocol-contracts/key-registry';
+import { getCanonicalRouter } from '@aztec/protocol-contracts/router';
 import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type SequencerClient } from '@aztec/sequencer-client';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
@@ -113,7 +117,7 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
-  args: { salt?: number } = {},
+  args: { salt?: number; initialValidators?: EthAddress[] } = {},
   chain: Chain = foundry,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
@@ -151,6 +155,7 @@ export const setupL1Contracts = async (
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
     salt: args.salt,
+    initialValidators: args.initialValidators,
   });
 
   return l1Data;
@@ -295,6 +300,10 @@ type SetupOptions = {
   skipProtocolContracts?: boolean;
   /** Salt to use in L1 contract deployment */
   salt?: number;
+  /** An initial set of validators */
+  initialValidators?: EthAddress[];
+  /** Anvil block time (interval) */
+  l1BlockTime?: number;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -332,7 +341,6 @@ export async function setup(
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEServiceConfig> = {},
   enableGas = false,
-  enableValidators = false,
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
@@ -341,7 +349,7 @@ export async function setup(
   let anvil: Anvil | undefined;
 
   if (!config.l1RpcUrl) {
-    if (chain.id != foundry.id) {
+    if (!isAnvilTestChain(chain.id)) {
       throw new Error(`No ETHEREUM_HOST set but non anvil chain requested`);
     }
     if (PXE_URL) {
@@ -350,7 +358,7 @@ export async function setup(
       );
     }
 
-    const res = await startAnvil();
+    const res = await startAnvil(opts.l1BlockTime);
     anvil = res.anvil;
     config.l1RpcUrl = res.rpcUrl;
   }
@@ -388,16 +396,27 @@ export async function setup(
 
   const deployL1ContractsValues =
     opts.deployL1ContractsValues ??
-    (await setupL1Contracts(config.l1RpcUrl, publisherHdAccount!, logger, { salt: opts.salt }, chain));
+    (await setupL1Contracts(
+      config.l1RpcUrl,
+      publisherHdAccount!,
+      logger,
+      { salt: opts.salt, initialValidators: opts.initialValidators },
+      chain,
+    ));
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
+  const watcher = new AnvilTestWatcher(
+    new EthCheatCodes(config.l1RpcUrl),
+    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    deployL1ContractsValues.publicClient,
+  );
+
+  await watcher.start();
+
   // Run the test with validators enabled
-  if (enableValidators) {
-    const validatorPrivKey = getPrivateKeyFromIndex(1);
-    config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
-  }
-  config.disableValidator = !enableValidators;
+  const validatorPrivKey = getPrivateKeyFromIndex(1);
+  config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
 
   logger.verbose('Creating and synching an aztec node...');
 
@@ -439,6 +458,11 @@ export async function setup(
         new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
       );
     }
+
+    logger.verbose('Deploying router...');
+    await deployCanonicalRouter(
+      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
+    );
   }
 
   const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];
@@ -459,6 +483,7 @@ export async function setup(
     }
 
     await anvil?.stop();
+    await watcher.stop();
   };
 
   return {
@@ -489,7 +514,7 @@ export function getL1WalletClient(rpcUrl: string, index: number) {
  * Ensures there's a running Anvil instance and returns the RPC URL.
  * @returns
  */
-export async function startAnvil(): Promise<{ anvil: Anvil; rpcUrl: string }> {
+export async function startAnvil(l1BlockTime?: number): Promise<{ anvil: Anvil; rpcUrl: string }> {
   let rpcUrl: string | undefined = undefined;
 
   // Start anvil.
@@ -498,7 +523,11 @@ export async function startAnvil(): Promise<{ anvil: Anvil; rpcUrl: string }> {
     async () => {
       const ethereumHostPort = await getPort();
       rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
-      const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
+      const anvil = createAnvil({
+        anvilBinary: './scripts/anvil_kill_wrapper.sh',
+        port: ethereumHostPort,
+        blockTime: l1BlockTime,
+      });
       await anvil.start();
       return anvil;
     },
@@ -762,6 +791,39 @@ export async function deployCanonicalAuthRegistry(deployer: Wallet) {
   expect(getContractClassFromArtifact(authRegistry.artifact).id).toEqual(authRegistry.instance.contractClassId);
   await expect(deployer.isContractClassPubliclyRegistered(canonicalAuthRegistry.contractClass.id)).resolves.toBe(true);
   await expect(deployer.getContractInstance(canonicalAuthRegistry.instance.address)).resolves.toBeDefined();
+}
+
+export async function deployCanonicalRouter(deployer: Wallet) {
+  const canonicalRouter = getCanonicalRouter();
+
+  // We check to see if there exists a contract at the Router address with the same contract class id as we expect. This means that
+  // the router has already been deployed to the correct address.
+  if (
+    (await deployer.getContractInstance(canonicalRouter.address))?.contractClassId.equals(
+      canonicalRouter.contractClass.id,
+    ) &&
+    (await deployer.isContractClassPubliclyRegistered(canonicalRouter.contractClass.id))
+  ) {
+    return;
+  }
+
+  const router = await RouterContract.deploy(deployer)
+    .send({ contractAddressSalt: canonicalRouter.instance.salt, universalDeploy: true })
+    .deployed();
+
+  if (
+    !router.address.equals(canonicalRouter.address) ||
+    !router.address.equals(AztecAddress.fromBigInt(ROUTER_ADDRESS))
+  ) {
+    throw new Error(
+      `Deployed Router address ${router.address} does not match expected address ${canonicalRouter.address}, or they both do not equal ROUTER_ADDRESS`,
+    );
+  }
+
+  expect(computeContractAddressFromInstance(router.instance)).toEqual(router.address);
+  expect(getContractClassFromArtifact(router.artifact).id).toEqual(router.instance.contractClassId);
+  await expect(deployer.isContractClassPubliclyRegistered(canonicalRouter.contractClass.id)).resolves.toBe(true);
+  await expect(deployer.getContractInstance(canonicalRouter.instance.address)).resolves.toBeDefined();
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {

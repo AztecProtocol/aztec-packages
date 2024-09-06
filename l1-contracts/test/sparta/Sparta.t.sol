@@ -24,8 +24,6 @@ import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
 /**
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
- *
- * We will skip these test if we are running with IS_DEV_NET = true
  */
 
 contract SpartaTest is DecoderBase {
@@ -59,11 +57,24 @@ contract SpartaTest is DecoderBase {
       vm.warp(initialTime);
     }
 
+    address[] memory initialValidators = new address[](_validatorCount);
+    for (uint256 i = 1; i < _validatorCount + 1; i++) {
+      uint256 privateKey = uint256(keccak256(abi.encode("validator", i)));
+      address validator = vm.addr(privateKey);
+      privateKeys[validator] = privateKey;
+      initialValidators[i - 1] = validator;
+    }
+
     registry = new Registry(address(this));
     availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
     rollup = new Rollup(
-      registry, availabilityOracle, IFeeJuicePortal(address(0)), bytes32(0), address(this)
+      registry,
+      availabilityOracle,
+      IFeeJuicePortal(address(0)),
+      bytes32(0),
+      address(this),
+      initialValidators
     );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
@@ -73,20 +84,31 @@ contract SpartaTest is DecoderBase {
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
 
-    for (uint256 i = 1; i < _validatorCount + 1; i++) {
-      uint256 privateKey = uint256(keccak256(abi.encode("validator", i)));
-      address validator = vm.addr(privateKey);
-      privateKeys[validator] = privateKey;
-      rollup.addValidator(validator);
-    }
     _;
   }
 
-  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
+  mapping(address => bool) internal _seenValidators;
+  mapping(address => bool) internal _seenCommittee;
+
+  function testInitialCommitteMatch() public setup(4) {
+    address[] memory validators = rollup.getValidators();
+    address[] memory committee = rollup.getCurrentEpochCommittee();
+    assertEq(rollup.getCurrentEpoch(), 0);
+    assertEq(validators.length, 4, "Invalid validator set size");
+    assertEq(committee.length, 4, "invalid committee set size");
+
+    for (uint256 i = 0; i < validators.length; i++) {
+      _seenValidators[validators[i]] = true;
     }
 
+    for (uint256 i = 0; i < committee.length; i++) {
+      assertTrue(_seenValidators[committee[i]]);
+      assertFalse(_seenCommittee[committee[i]]);
+      _seenCommittee[committee[i]] = true;
+    }
+  }
+
+  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
     uint256 pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_DURATION() * rollup.SLOT_DURATION()
@@ -104,10 +126,6 @@ contract SpartaTest is DecoderBase {
   }
 
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
     assertGt(rollup.getValidators().length, rollup.TARGET_COMMITTEE_SIZE(), "Not enough validators");
     uint256 committeSize = rollup.TARGET_COMMITTEE_SIZE() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 
@@ -121,27 +139,15 @@ contract SpartaTest is DecoderBase {
   }
 
   function testHappyPath() public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
     _testBlock("mixed_block_1", false, 3, false);
     _testBlock("mixed_block_2", false, 3, false);
   }
 
   function testInvalidProposer() public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
     _testBlock("mixed_block_1", true, 3, true);
   }
 
   function testInsufficientSigs() public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
     _testBlock("mixed_block_1", true, 2, false);
   }
 
@@ -213,13 +219,13 @@ contract SpartaTest is DecoderBase {
       }
 
       vm.prank(ree.proposer);
-      rollup.process(header, archive, bytes32(0), signatures);
+      rollup.propose(header, archive, bytes32(0), signatures);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
-      rollup.process(header, archive, bytes32(0));
+      rollup.propose(header, archive, bytes32(0));
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
