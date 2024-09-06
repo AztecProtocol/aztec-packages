@@ -59,6 +59,7 @@ TEST_F(Sha256Tests, TestSha256Compression)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},

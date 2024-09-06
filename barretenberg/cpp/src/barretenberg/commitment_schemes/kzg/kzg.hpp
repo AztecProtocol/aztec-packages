@@ -2,6 +2,7 @@
 
 #include "../claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -54,7 +55,7 @@ template <typename Curve_> class KZG {
      * @param claim OpeningClaim ({r, v}, C)
      * @return  {P₀, P₁} where
      *      - P₀ = C − v⋅[1]₁ + r⋅[W(x)]₁
-     *      - P₁ = [W(x)]₁
+     *      - P₁ = - [W(x)]₁
      */
     template <typename Transcript>
     static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& claim,
@@ -85,5 +86,50 @@ template <typename Curve_> class KZG {
         auto P_1 = -quotient_commitment;
         return { P_0, P_1 };
     };
+
+    /**
+     * @brief Computes the input points for the pairing check needed to verify a KZG opening claim obtained from a
+     * Shplemini accumulator.
+     *
+     * @details This function is used in a recursive setting where we want to "aggregate" proofs. In the Shplemini case,
+     * the commitment \f$ C \f$ is encoded into the vectors `commitments` and `scalars` contained in the
+     * `batch_opening_claim`. More explicitly, \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$. To avoid
+     * performing an extra `batch_mul`, we simply add the commitment \f$ [W]_1 \f$ to the vector of commitments and
+     * the Shplonk evaluation challenge to the vector of scalars and perform a single batch_mul that computes \f$C +
+     * W\cdot z \f$.
+     *
+     * @param batch_opening_claim \f$(\text{commitments}, \text{scalars}, \text{shplonk_evaluation_challenge})\f$
+     *        A struct containing the commitments, scalars, and the Shplonk evaluation challenge.
+     * @return \f$ \{P_0, P_1\}\f$ where:
+     *         - \f$ P_0 = C + [W(x)]_1 \cdot z \f$
+     *         - \f$ P_1 = - [W(x)]_1 \f$
+     */
+    template <typename Transcript>
+    static VerifierAccumulator reduce_verify_batch_opening_claim(BatchOpeningClaim<Curve> batch_opening_claim,
+                                                                 const std::shared_ptr<Transcript>& transcript)
+    {
+        using Utils = CommitmentSchemesUtils<Curve>;
+        auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");
+
+        // The pairing check can be expressed as
+        // e(C + [W]₁ ⋅ z, [1]₂) * e(−[W]₁, [X]₂) = 1, where C = ∑ commitmentsᵢ ⋅ scalarsᵢ.
+        GroupElement P_0;
+        // Place the commitment to W to 'commitments'
+        batch_opening_claim.commitments.emplace_back(quotient_commitment);
+        // Update the scalars by adding the Shplonk evaluation challenge z
+        batch_opening_claim.scalars.emplace_back(batch_opening_claim.evaluation_point);
+        // Compute C + [W]₁ ⋅ z
+        if constexpr (Curve::is_stdlib_type) {
+            P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
+                                          batch_opening_claim.scalars,
+                                          /*max_num_bits=*/0,
+                                          /*with_edgecases=*/true);
+        } else {
+            P_0 = Utils::batch_mul_native(batch_opening_claim.commitments, batch_opening_claim.scalars);
+        }
+        auto P_1 = -quotient_commitment;
+
+        return { P_0, P_1 };
+    }
 };
 } // namespace bb

@@ -383,8 +383,8 @@ void process_honk_recursion_constraints(Builder& builder,
  */
 template <>
 UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
-                                   size_t size_hint,
-                                   WitnessVector const& witness,
+                                   const size_t size_hint,
+                                   const WitnessVector& witness,
                                    bool honk_recursion,
                                    [[maybe_unused]] std::shared_ptr<ECCOpQueue>,
                                    bool collect_gates_per_opcode)
@@ -411,8 +411,8 @@ UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
  */
 template <>
 MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
-                                  [[maybe_unused]] size_t size_hint,
-                                  WitnessVector const& witness,
+                                  [[maybe_unused]] const size_t size_hint,
+                                  const WitnessVector& witness,
                                   bool honk_recursion,
                                   std::shared_ptr<ECCOpQueue> op_queue,
                                   bool collect_gates_per_opcode)
@@ -426,6 +426,62 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
         builder, constraint_system, has_valid_witness_assignments, honk_recursion, collect_gates_per_opcode);
 
     return builder;
+};
+
+/**
+ * @brief Create a kernel circuit from a constraint system and an IVC instance
+ *
+ * @param constraint_system AcirFormat constraint system possibly containing IVC recursion constraints
+ * @param ivc An IVC instance containing internal data about proofs to be verified
+ * @param size_hint
+ * @param witness
+ * @return MegaCircuitBuilder
+ */
+MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
+                                         AztecIVC& ivc,
+                                         const WitnessVector& witness,
+                                         const size_t size_hint)
+{
+    // Construct the main kernel circuit logic excluding recursive verifiers
+    auto circuit = create_circuit<MegaCircuitBuilder>(constraint_system,
+                                                      size_hint,
+                                                      witness,
+                                                      /*honk_recursion=*/false,
+                                                      ivc.goblin.op_queue,
+                                                      /*collect_gates_per_opcode=*/false);
+
+    // We expect the length of the internal verification queue to matche the number of ivc recursion constraints
+    if (constraint_system.ivc_recursion_constraints.size() != ivc.verification_queue.size()) {
+        info("WARNING: Mismatch in number of recursive verifications during kernel creation!");
+        ASSERT(false);
+    }
+
+    // Create stdlib representations of each {proof, vkey} pair in the queue based on their native counterparts
+    ivc.instantiate_stdlib_verification_queue(circuit);
+
+    // Connect each {proof, vkey} pair from the constraint to the corresponding entry in the internal verification
+    // queue. This ensures that the witnesses utlized in constraints generated based on acir are properly connected to
+    // the constraints generated herein via the ivc scheme (e.g. recursive verifications).
+    for (auto [constraint, queue_entry] :
+         zip_view(constraint_system.ivc_recursion_constraints, ivc.stdlib_verification_queue)) {
+
+        // Reconstruct complete proof indices from acir constraint data (in which proof is stripped of public inputs)
+        std::vector<uint32_t> complete_proof_indices =
+            ProofSurgeon::create_indices_for_reconstructed_proof(constraint.proof, constraint.public_inputs);
+        ASSERT(complete_proof_indices.size() == queue_entry.proof.size());
+
+        // Assert equality between the proof indices from the constraint data and those of the internal proof
+        for (auto [proof_idx, proof_value] : zip_view(complete_proof_indices, queue_entry.proof)) {
+            circuit.assert_equal(proof_value.get_witness_index(), proof_idx);
+        }
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1090): assert equality between the internal vkey
+        // and the constaint vkey, or simply use the constraint vkey directly to construct the stdlib vkey used in IVC.
+    }
+
+    // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
+    ivc.complete_kernel_circuit_logic(circuit);
+
+    return circuit;
 };
 
 template void build_constraints<MegaCircuitBuilder>(MegaCircuitBuilder&, AcirFormat&, bool, bool, bool);
