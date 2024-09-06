@@ -103,7 +103,7 @@ void AztecIVC::process_recursive_merge_verification_queue(ClientCircuit& circuit
  *
  * @param circuit
  */
-void AztecIVC::instantiate_stdlib_verification_queue(ClientCircuit& circuit)
+void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
     circuit.databus_propagation_data.is_kernel = true;
 
