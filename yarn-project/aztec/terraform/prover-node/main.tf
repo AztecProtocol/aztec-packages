@@ -215,7 +215,7 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
       command           = ["start", "--prover-node", "--archiver"]
       essential         = true
       cpu               = 4096
-      memoryReservation = 8192
+      memoryReservation = 7790
       portMappings = [
         {
           containerPort = 80

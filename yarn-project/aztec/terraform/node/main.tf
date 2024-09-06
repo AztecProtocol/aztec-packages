@@ -216,7 +216,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       command           = ["start", "--node", "--archiver", "--sequencer"]
       essential         = true
       cpu               = 4096
-      memoryReservation = 8192
+      memoryReservation = 7790
       portMappings = [
         {
           containerPort = 80
