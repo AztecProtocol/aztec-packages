@@ -287,7 +287,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
     static bool check_recursive_proof_public_inputs(OuterBuilder& builder, const bb::pairing::miller_lines* lines)
     {
-        if (builder.contains_recursive_proof && builder.recursive_proof_public_input_indices.size() == 16) {
+        if (builder.contains_recursive_proof) {
             const auto& inputs = builder.public_inputs;
             const auto recover_fq_from_public_inputs =
                 [&inputs, &builder](const size_t idx0, const size_t idx1, const size_t idx2, const size_t idx3) {
@@ -326,9 +326,6 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
             pairing_target_field result = pairing::reduced_ate_pairing_batch_precomputed(P_affine, lines, 2);
 
             return (result == pairing_target_field::one());
-        }
-        if (builder.contains_recursive_proof && builder.recursive_proof_public_input_indices.size() != 16) {
-            return false;
         }
         return true;
     }
@@ -394,8 +391,6 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
         create_inner_circuit(inner_circuit, inner_public_inputs);
 
         auto circuit_output = create_outer_circuit(inner_circuit, outer_circuit);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[0].get_value(), inner_public_inputs[0]);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[1].get_value(), inner_public_inputs[1]);
 
         circuit_output.aggregation_state.assign_object_to_proof_outputs();
         EXPECT_EQ(outer_circuit.failed(), false);
@@ -459,8 +454,6 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         auto circuit_output = create_double_outer_circuit(mid_circuit_a, mid_circuit_b, outer_circuit);
         circuit_output.aggregation_state.assign_object_to_proof_outputs();
-        EXPECT_EQ(circuit_output_a.aggregation_state.public_inputs[0].get_value(), inner_inputs[0]);
-        EXPECT_EQ(circuit_output_a.aggregation_state.public_inputs[1].get_value(), inner_inputs[1]);
 
         check_pairing(circuit_output);
         check_recursive_verification_circuit(outer_circuit, true);
@@ -487,9 +480,6 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         auto circuit_output =
             create_outer_circuit_with_variable_inner_circuit(inner_circuit_a, inner_circuit_b, outer_circuit, true);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[0].get_value(), inner_inputs_a[0]);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[1].get_value(), inner_inputs_a[1]);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[2].get_value(), inner_inputs_a[2]);
 
         check_pairing(circuit_output);
         check_recursive_verification_circuit(outer_circuit, true);
@@ -516,9 +506,6 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         auto circuit_output =
             create_outer_circuit_with_variable_inner_circuit(inner_circuit_a, inner_circuit_b, outer_circuit, false);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[0].get_value(), inner_inputs_b[0]);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[1].get_value(), inner_inputs_b[1]);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[2].get_value(), inner_inputs_b[2]);
 
         check_pairing(circuit_output);
         check_recursive_verification_circuit(outer_circuit, true);
@@ -543,9 +530,6 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         auto circuit_output = create_outer_circuit_with_variable_inner_circuit(
             inner_circuit_a, inner_circuit_b, outer_circuit, true, true);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[0].get_value(), inner_inputs_a[0]);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[1].get_value(), inner_inputs_a[1]);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[2].get_value(), inner_inputs_a[2]);
 
         check_pairing(circuit_output);
         check_recursive_verification_circuit(outer_circuit, false);
@@ -570,9 +554,6 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         auto circuit_output = create_outer_circuit_with_variable_inner_circuit(
             inner_circuit_a, inner_circuit_b, outer_circuit, true, false, true);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[0].get_value(), inner_inputs_a[0]);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[1].get_value(), inner_inputs_a[1]);
-        EXPECT_EQ(circuit_output.aggregation_state.public_inputs[2].get_value(), inner_inputs_a[2]);
 
         check_pairing(circuit_output);
         check_recursive_verification_circuit(outer_circuit, true);

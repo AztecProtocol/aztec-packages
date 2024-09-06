@@ -7,13 +7,13 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
-template <class VerifierInstances> class ProtoGalaxyVerifier_ {
+template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
   public:
-    using Flavor = typename VerifierInstances::Flavor;
+    using Flavor = typename DeciderVerificationKeys::Flavor;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
-    using Instance = typename VerifierInstances::Instance;
+    using DeciderVK = typename DeciderVerificationKeys::DeciderVK;
     using VerificationKey = typename Flavor::VerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
@@ -21,63 +21,35 @@ template <class VerifierInstances> class ProtoGalaxyVerifier_ {
 
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
-    VerifierInstances instances;
+    DeciderVerificationKeys keys_to_fold;
 
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     CommitmentLabels commitment_labels;
 
-    ProtoGalaxyVerifier_(const std::vector<std::shared_ptr<Instance>>& insts)
-        : instances(VerifierInstances(insts)){};
-    ~ProtoGalaxyVerifier_() = default;
-    /**
-     * @brief Given a new round challenge δ for each iteration of the full ProtoGalaxy protocol, compute the vector
-     * [δ, δ^2,..., δ^t] where t = logn and n is the size of the instance.
-     */
-    static std::vector<FF> compute_round_challenge_pows(size_t log_instance_size, FF round_challenge)
-    {
-        std::vector<FF> pows(log_instance_size);
-        pows[0] = round_challenge;
-        for (size_t i = 1; i < log_instance_size; i++) {
-            pows[i] = pows[i - 1].sqr();
-        }
-        return pows;
-    }
+    ProtogalaxyVerifier_(const std::vector<std::shared_ptr<DeciderVK>>& keys)
+        : keys_to_fold(DeciderVerificationKeys(keys)){};
+    ~ProtogalaxyVerifier_() = default;
 
-    static std::vector<FF> update_gate_challenges(const FF perturbator_challenge,
-                                                  const std::vector<FF>& gate_challenges,
-                                                  const std::vector<FF>& round_challenges)
-    {
-        auto log_instance_size = gate_challenges.size();
-        std::vector<FF> next_gate_challenges(log_instance_size);
-
-        for (size_t idx = 0; idx < log_instance_size; idx++) {
-            next_gate_challenges[idx] = gate_challenges[idx] + perturbator_challenge * round_challenges[idx];
-        }
-        return next_gate_challenges;
-    }
-
-    std::shared_ptr<Instance> get_accumulator() { return instances[0]; }
+    std::shared_ptr<DeciderVK> get_accumulator() { return keys_to_fold[0]; }
 
     /**
-     * @brief Instatiate the instances and the transcript.
+     * @brief Instatiate the vks and the transcript.
      *
      * @param fold_data The data transmitted via the transcript by the prover.
      */
     void prepare_for_folding(const std::vector<FF>&);
 
     /**
-     * @brief Process the public data ϕ for the Instances to be folded.
-     *
+     * @brief Process the public data ϕ for the decider verification keys to be folded.
      */
-    void receive_and_finalise_instance(const std::shared_ptr<Instance>&, const std::string&);
+    void receive_and_finalise_key(const std::shared_ptr<DeciderVK>&, const std::string&);
 
     /**
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new
      * accumulator, received from the prover is the same as that produced by the verifier.
-     *
      */
-    std::shared_ptr<Instance> verify_folding_proof(const std::vector<FF>&);
+    std::shared_ptr<DeciderVK> verify_folding_proof(const std::vector<FF>&);
 };
 
 } // namespace bb

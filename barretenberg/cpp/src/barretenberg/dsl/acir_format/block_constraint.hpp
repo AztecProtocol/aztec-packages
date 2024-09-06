@@ -22,6 +22,7 @@ struct BlockConstraint {
     std::vector<bb::poly_triple> init;
     std::vector<MemOp> trace;
     BlockType type;
+    uint32_t calldata_id{ 0 };
 };
 
 template <typename Builder>

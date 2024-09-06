@@ -24,16 +24,21 @@ import {
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
-import { type DataRetrieval } from './data_retrieval.js';
+import { type DataRetrieval, type SingletonDataRetrieval } from './structs/data_retrieval.js';
+import { type L1Published } from './structs/published.js';
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
  */
 export type ArchiverL1SynchPoint = {
-  /** Number of the last L1 block that added a new L2 block.  */
+  /** Number of the last L1 block that added a new L2 block metadata.  */
   blocksSynchedTo: bigint;
+  /** Number of the last L1 block that added a new L2 block body.  */
+  blockBodiesSynchedTo: bigint;
   /** Number of the last L1 block that added L1 -> L2 messages from the Inbox. */
   messagesSynchedTo: bigint;
+  /** Number of the last L1 block that added a new proven block. */
+  provenLogsSynchedTo: bigint;
 };
 
 /**
@@ -46,14 +51,14 @@ export interface ArchiverDataStore {
    * @param blocks - The L2 blocks to be added to the store and the last processed L1 block.
    * @returns True if the operation is successful.
    */
-  addBlocks(blocks: DataRetrieval<L2Block>): Promise<boolean>;
+  addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean>;
 
   /**
    * Append new block bodies to the store's list.
    * @param blockBodies - The L2 block bodies to be added to the store.
    * @returns True if the operation is successful.
    */
-  addBlockBodies(blockBodies: Body[]): Promise<boolean>;
+  addBlockBodies(blockBodies: DataRetrieval<Body>): Promise<boolean>;
 
   /**
    * Gets block bodies that have the same txsEffectsHashes as we supply.
@@ -61,7 +66,7 @@ export interface ArchiverDataStore {
    * @param txsEffectsHashes - A list of txsEffectsHashes.
    * @returns The requested L2 block bodies
    */
-  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<Body[]>;
+  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<(Body | undefined)[]>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
@@ -69,7 +74,7 @@ export interface ArchiverDataStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getBlocks(from: number, limit: number): Promise<L2Block[]>;
+  getBlocks(from: number, limit: number): Promise<L1Published<L2Block>[]>;
 
   /**
    * Gets a tx effect.
@@ -158,7 +163,7 @@ export interface ArchiverDataStore {
    * Stores the number of the latest proven L2 block processed.
    * @param l2BlockNumber - The number of the latest proven L2 block processed.
    */
-  setProvenL2BlockNumber(l2BlockNumber: number): Promise<void>;
+  setProvenL2BlockNumber(l2BlockNumber: SingletonDataRetrieval<number>): Promise<void>;
 
   /**
    * Gets the synch point of the archiver

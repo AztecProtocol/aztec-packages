@@ -105,15 +105,16 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed Lookup check relation at row idx = ", idx);
         }
+        result = result && check_relation<PoseidonInternal>(values, params);
+        if (!result) {
+            return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
+        }
+        result = result && check_relation<PoseidonExternal>(values, params);
+        if (!result) {
+            return report_fail("Failed PoseidonExternal relation at row idx = ", idx);
+        }
+
         if constexpr (IsMegaBuilder<Builder>) {
-            result = result && check_relation<PoseidonInternal>(values, params);
-            if (!result) {
-                return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
-            }
-            result = result && check_relation<PoseidonExternal>(values, params);
-            if (!result) {
-                return report_fail("Failed PoseidonExternal relation at row idx = ", idx);
-            }
             result = result && check_databus_read(values, builder);
             if (!result) {
                 return report_fail("Failed databus read at row idx = ", idx);
@@ -169,14 +170,19 @@ template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& v
 
         // Determine the type of read based on selector values
         bool is_calldata_read = (values.q_l == 1);
-        bool is_return_data_read = (values.q_r == 1);
-        ASSERT(is_calldata_read || is_return_data_read);
+        bool is_secondary_calldata_read = (values.q_r == 1);
+        bool is_return_data_read = (values.q_o == 1);
+        ASSERT(is_calldata_read || is_secondary_calldata_read || is_return_data_read);
 
         // Check that the claimed value is present in the calldata/return data at the corresponding index
         FF bus_value;
         if (is_calldata_read) {
             auto calldata = builder.get_calldata();
             bus_value = builder.get_variable(calldata[raw_read_idx]);
+        }
+        if (is_secondary_calldata_read) {
+            auto secondary_calldata = builder.get_secondary_calldata();
+            bus_value = builder.get_variable(secondary_calldata[raw_read_idx]);
         }
         if (is_return_data_read) {
             auto return_data = builder.get_return_data();
@@ -284,10 +290,10 @@ void UltraCircuitChecker::populate_values(
     values.q_elliptic = block.q_elliptic()[idx];
     values.q_aux = block.q_aux()[idx];
     values.q_lookup = block.q_lookup_type()[idx];
+    values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
+    values.q_poseidon2_external = block.q_poseidon2_external()[idx];
     if constexpr (IsMegaBuilder<Builder>) {
         values.q_busread = block.q_busread()[idx];
-        values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
-        values.q_poseidon2_external = block.q_poseidon2_external()[idx];
     }
 }
 

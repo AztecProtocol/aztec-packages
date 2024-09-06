@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/pedersen_commitment_type.hpp"
@@ -48,7 +49,7 @@ class CircuitSimulatorBN254 {
     static constexpr uint32_t zero_idx = 0; // Ditto?
     std::vector<FF> public_inputs;
 
-    void add_recursive_proof(const std::vector<FF>& proof_element_limbs)
+    void add_recursive_proof(const AggregationObjectIndices& proof_element_limbs)
     {
 
         if (contains_recursive_proof) {
@@ -58,7 +59,7 @@ class CircuitSimulatorBN254 {
 
         for (uint32_t idx = 0; idx < proof_element_limbs.size(); idx++) {
             set_public_input(proof_element_limbs[idx]);
-            recursive_proof_public_input_indices.push_back(static_cast<uint32_t>(public_inputs.size() - 1));
+            recursive_proof_public_input_indices[idx] = static_cast<uint32_t>(public_inputs.size() - 1);
         }
     }
 
@@ -87,6 +88,9 @@ class CircuitSimulatorBN254 {
                                                [[maybe_unused]] const fixed_group_init_quad_<FF>& init){};
     void create_fixed_group_add_gate_final([[maybe_unused]] const add_quad_<FF>& in){};
     void create_ecc_add_gate([[maybe_unused]] const ecc_add_gate_<FF>& in){};
+
+    void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
+    void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
 
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         [[maybe_unused]] const plookup::MultiTableId& id,
@@ -184,7 +188,7 @@ class CircuitSimulatorBN254 {
     [[nodiscard]] bool check_circuit() const { return !_failed; }
 
     // Public input indices which contain recursive proof information
-    std::vector<uint32_t> recursive_proof_public_input_indices;
+    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
 };
 
 class SimulatorCircuitChecker {

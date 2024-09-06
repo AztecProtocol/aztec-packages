@@ -1,7 +1,7 @@
+import { createCompatibleClient } from '@aztec/aztec.js';
 import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
 
-import { createCompatibleClient } from '../../client.js';
-import { inspectBlock } from '../../inspect.js';
+import { inspectBlock } from '../../utils/inspect.js';
 
 export async function getBlock(
   rpcUrl: string,

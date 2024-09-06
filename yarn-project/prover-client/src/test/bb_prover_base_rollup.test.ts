@@ -1,6 +1,10 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import { makePaddingProcessedTxFromTubeProof } from '@aztec/circuit-types';
-import { NESTED_RECURSIVE_PROOF_LENGTH, makeEmptyRecursiveProof } from '@aztec/circuits.js';
+import {
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  PrivateKernelEmptyInputData,
+  makeEmptyRecursiveProof,
+} from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -27,25 +31,23 @@ describe('prover/bb_prover/base-rollup', () => {
   });
 
   it('proves the base rollup', async () => {
-    const header = await context.actualDb.buildInitialHeader();
+    const header = context.actualDb.getInitialHeader();
     const chainId = context.globalVariables.chainId;
     const version = context.globalVariables.version;
     const vkTreeRoot = getVKTreeRoot();
 
-    const inputs = {
-      header,
-      chainId,
-      version,
-      vkTreeRoot,
-    };
-
+    const inputs = new PrivateKernelEmptyInputData(header, chainId, version, vkTreeRoot);
     const paddingTxPublicInputsAndProof = await context.prover.getEmptyTubeProof(inputs);
     const tx = makePaddingProcessedTxFromTubeProof(paddingTxPublicInputsAndProof);
 
     logger.verbose('Building base rollup inputs');
+    const baseRollupInputProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
+    baseRollupInputProof.proof[0] = paddingTxPublicInputsAndProof.verificationKey.keyAsFields.key[0];
+    baseRollupInputProof.proof[1] = paddingTxPublicInputsAndProof.verificationKey.keyAsFields.key[1];
+    baseRollupInputProof.proof[2] = paddingTxPublicInputsAndProof.verificationKey.keyAsFields.key[2];
     const baseRollupInputs = await buildBaseRollupInput(
       tx,
-      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      baseRollupInputProof,
       context.globalVariables,
       context.actualDb,
       paddingTxPublicInputsAndProof.verificationKey,

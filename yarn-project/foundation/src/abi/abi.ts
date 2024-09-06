@@ -84,7 +84,14 @@ export interface BasicType<T extends string> {
 /**
  * A variable type.
  */
-export type AbiType = BasicType<'field'> | BasicType<'boolean'> | IntegerType | ArrayType | StringType | StructType;
+export type AbiType =
+  | BasicType<'field'>
+  | BasicType<'boolean'>
+  | IntegerType
+  | ArrayType
+  | StringType
+  | StructType
+  | TupleType;
 
 type Sign = 'unsigned' | 'signed';
 
@@ -114,6 +121,16 @@ export interface ArrayType extends BasicType<'array'> {
    * The type of the array elements.
    */
   type: AbiType;
+}
+
+/**
+ * A tuple type.
+ */
+export interface TupleType extends BasicType<'tuple'> {
+  /**
+   * The types of the tuple elements.
+   */
+  fields: AbiType[];
 }
 
 /**
@@ -193,6 +210,10 @@ export interface FunctionArtifact extends FunctionAbi {
   verificationKey?: string;
   /** Maps opcodes to source code pointers */
   debugSymbols: string;
+  /**
+   * Public functions store their static assertion messages externally to the bytecode.
+   */
+  assertMessages?: Record<number, string>;
   /** Debug metadata for the function. */
   debug?: FunctionDebugMetadata;
 }
@@ -231,6 +252,10 @@ export interface SourceCodeLocation {
  */
 export type OpcodeLocation = string;
 
+export type BrilligFunctionId = number;
+
+export type OpcodeToLocationsMap = Record<OpcodeLocation, SourceCodeLocation[]>;
+
 /**
  * The debug information for a given function.
  */
@@ -238,7 +263,11 @@ export interface DebugInfo {
   /**
    * A map of the opcode location to the source code location.
    */
-  locations: Record<OpcodeLocation, SourceCodeLocation[]>;
+  locations: OpcodeToLocationsMap;
+  /**
+   * For each Brillig function, we have a map of the opcode location to the source code location.
+   */
+  brillig_locations: Record<BrilligFunctionId, OpcodeToLocationsMap>;
 }
 
 /**
@@ -344,6 +373,10 @@ export interface FunctionDebugMetadata {
    * Maps the file IDs to the file contents to resolve pointers
    */
   files: DebugFileMap;
+  /**
+   * Public functions store their static assertion messages externally to the bytecode.
+   */
+  assertMessages?: Record<number, string>;
 }
 
 /**
@@ -382,7 +415,11 @@ export function getFunctionDebugMetadata(
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/5813)
     // We only support handling debug info for the contract function entry point.
     // So for now we simply index into the first debug info.
-    return { debugSymbols: programDebugSymbols.debug_infos[0], files: contractArtifact.fileMap };
+    return {
+      debugSymbols: programDebugSymbols.debug_infos[0],
+      files: contractArtifact.fileMap,
+      assertMessages: functionArtifact.assertMessages,
+    };
   }
   return undefined;
 }

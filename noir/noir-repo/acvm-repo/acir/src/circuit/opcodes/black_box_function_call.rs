@@ -155,6 +155,7 @@ pub enum BlackBoxFuncCall<F> {
         /// The circuit implementing this opcode can use this hash to ensure that the
         /// key provided to the circuit matches the key produced by the circuit creator
         key_hash: FunctionInput<F>,
+        proof_type: u32,
     },
     BigIntAdd {
         lhs: u32,
@@ -271,7 +272,8 @@ impl<F: Copy> BlackBoxFuncCall<F> {
             | BlackBoxFuncCall::BigIntDiv { .. }
             | BlackBoxFuncCall::BigIntToLeBytes { .. } => Vec::new(),
             BlackBoxFuncCall::MultiScalarMul { points, scalars, .. } => {
-                let mut inputs: Vec<FunctionInput<F>> = Vec::with_capacity(points.len() * 2);
+                let mut inputs: Vec<FunctionInput<F>> =
+                    Vec::with_capacity(points.len() + scalars.len());
                 inputs.extend(points.iter().copied());
                 inputs.extend(scalars.iter().copied());
                 inputs
@@ -343,6 +345,7 @@ impl<F: Copy> BlackBoxFuncCall<F> {
                 proof,
                 public_inputs,
                 key_hash,
+                proof_type: _,
             } => {
                 let mut inputs = Vec::new();
                 inputs.extend(key.iter().copied());

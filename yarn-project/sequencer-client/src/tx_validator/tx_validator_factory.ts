@@ -1,11 +1,12 @@
 import { type AllowedElement, type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
 import { type GlobalVariables } from '@aztec/circuits.js';
-import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
 import { WorldStateDB, WorldStatePublicDB } from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { AggregateTxValidator } from './aggregate_tx_validator.js';
+import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator } from './double_spend_validator.js';
 import { GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
@@ -20,10 +21,11 @@ export class TxValidatorFactory {
 
   validatorForNewTxs(globalVariables: GlobalVariables, setupAllowList: AllowedElement[]): TxValidator<Tx> {
     return new AggregateTxValidator(
+      new DataTxValidator(),
       new MetadataTxValidator(globalVariables),
       new DoubleSpendTxValidator(new WorldStateDB(this.merkleTreeDb)),
       new PhasesTxValidator(this.contractDataSource, setupAllowList),
-      new GasTxValidator(new WorldStatePublicDB(this.merkleTreeDb), GasTokenAddress, this.enforceFees),
+      new GasTxValidator(new WorldStatePublicDB(this.merkleTreeDb), FeeJuiceAddress, this.enforceFees),
     );
   }
 

@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [master]
+    branches: [master, provernet]
   pull_request:
     branches-ignore: [devnet]
   workflow_dispatch:
@@ -78,6 +78,7 @@ jobs:
               - barretenberg/cpp/pil/**
               - barretenberg/cpp/src/barretenberg/vm/**
               - barretenberg/cpp/src/barretenberg/**/generated/*
+              - barretenberg/cpp/src/barretenberg/client_ivc.{hpp,cpp}
             non-docs:
               - '!(docs/**)'
             non-misc-ci:
@@ -91,14 +92,14 @@ jobs:
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        if: ${{ needs.changes.outputs.build-images }}
+        if: ${{ needs.changes.outputs.build-images == 'true' }}
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
-        if: ${{ needs.changes.outputs.build-images }}
+        if: ${{ needs.changes.outputs.build-images == 'true' }}
         with:
           concurrency_key: build-images-x86
       - name: "Push Build Images If Changed"
-        if: ${{ needs.changes.outputs.build-images }}
+        if: ${{ needs.changes.outputs.build-images == 'true' }}
         timeout-minutes: 40
         run: |
           earthly-ci --push ./build-images/+build
@@ -125,7 +126,7 @@ jobs:
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' | grep -v "+network" | grep -v 'devnet' | sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
         run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
@@ -190,7 +191,7 @@ jobs:
             cd ./yarn-project/end-to-end/
             export FORCE_COLOR=1
             export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            ../../scripts/earthly-ci -P --no-output +${{ matrix.test }}
+            ../../scripts/earthly-ci --exec-stats -P --no-output +${{ matrix.test }}
 
   acir-bench:
     runs-on: ubuntu-20.04
@@ -255,6 +256,8 @@ jobs:
         working-directory: ./yarn-project/scripts
         run: |
           earthly-ci -P +bench-comment
+        env:
+          AZTEC_BOT_GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
   bb-gcc:
     needs: [build-images, changes]
@@ -274,7 +277,7 @@ jobs:
         # limit our parallelism to half our cores
         run: earthly-ci --no-output +preset-gcc
 
-  # barretenberg (prover) native and AVM (public VM) tests
+  # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
   # only ran on x86 for resource reasons (memory intensive)
   bb-native-tests:
     needs: [build-images, changes]
@@ -292,7 +295,7 @@ jobs:
         working-directory: ./barretenberg/cpp/
         timeout-minutes: 40
         # limit our parallelism to half our cores
-        run: earthly-ci --no-output +test --hardware_concurrency=64
+        run: earthly-ci --exec-stats --no-output +test --hardware_concurrency=64
 
   bb-js-test:
     needs: [build-images, changes]
@@ -352,6 +355,21 @@ jobs:
         working-directory: ./barretenberg/
         timeout-minutes: 40
         run: earthly-ci --no-output ./+barretenberg-acir-tests-sol
+
+  bb-acir-tests-sol-honk:
+    needs: [noir-build-acir-tests, changes]
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: barretenberg-acir-tests-sol-honk-x86
+      - name: "BB Solidity Acir Tests"
+        working-directory: ./barretenberg/
+        timeout-minutes: 40
+        run: earthly-ci --no-output ./+barretenberg-acir-tests-sol-honk
 
   bb-acir-tests-bb-js:
     needs: [noir-build-acir-tests, changes]
@@ -425,6 +443,7 @@ jobs:
         with:
           concurrency_key: noir-packages-x86
       - name: "Test Noir JS packages"
+        timeout-minutes: 50
         run: earthly-ci --no-output ./noir+packages-test
 
   noir-projects:
@@ -560,6 +579,7 @@ jobs:
       # https://aztecprotocol.github.io/aztec-packages/dev/bench/ with new benchmark data.
       # This also creates an alert if benchmarks exceed the threshold specified below.
       - name: Store benchmark result
+        if: ${{ github.ref == 'refs/heads/master' }}
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: C++ Benchmark
@@ -574,6 +594,7 @@ jobs:
           comment-on-alert: true
           fail-on-alert: false
           alert-comment-cc-users: "@ludamad @codygunton"
+          max-items-in-chart: 50
 
   boxes:
     needs: build
@@ -665,6 +686,7 @@ jobs:
       - noir-build-acir-tests
       - bb-acir-tests-bb
       - bb-acir-tests-sol
+      - bb-acir-tests-sol-honk
       - bb-acir-tests-bb-js
       - noir-format
       - noir-test
@@ -715,6 +737,7 @@ jobs:
       - noir-build-acir-tests
       - bb-acir-tests-bb
       - bb-acir-tests-sol
+      - bb-acir-tests-sol-honk
       - bb-acir-tests-bb-js
       - noir-format
       - noir-test

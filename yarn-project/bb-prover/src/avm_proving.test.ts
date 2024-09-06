@@ -1,5 +1,6 @@
 import {
   AvmCircuitInputs,
+  AvmVerificationKeyData,
   AztecAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -22,9 +23,11 @@ import {
   MAX_UNENCRYPTED_LOGS_PER_CALL,
   NoteHash,
   Nullifier,
+  PublicCallRequest,
   PublicCircuitPublicInputs,
   ReadRequest,
   RevertCode,
+  TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -37,6 +40,7 @@ import {
   initExecutionEnvironment,
   initHostStorage,
   initPersistableStateManager,
+  resolveAvmTestContractAssertionMessage,
 } from '@aztec/simulator/avm/fixtures';
 
 import { jest } from '@jest/globals';
@@ -48,7 +52,7 @@ import path from 'path';
 import { PublicSideEffectTrace } from '../../simulator/src/public/side_effect_trace.js';
 import { SerializableContractInstance } from '../../types/src/contracts/contract_instance.js';
 import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from './bb/execute.js';
-import { extractVkData } from './verification_key/verification_key_data.js';
+import { extractAvmVkData } from './verification_key/verification_key_data.js';
 
 const TIMEOUT = 60_000;
 const TIMESTAMP = new Fr(99833);
@@ -123,7 +127,7 @@ describe('AVM WitGen, proof generation and verification', () => {
       async (name, calldata) => {
         await proveAndVerifyAvmTestContract(name, calldata);
       },
-      TIMEOUT,
+      TIMEOUT * 2, // We need more for keccak for now
     );
   });
 
@@ -148,11 +152,15 @@ describe('AVM WitGen, proof generation and verification', () => {
    * Avm Embedded Curve functions
    ************************************************************************/
   describe('AVM Embedded Curve functions', () => {
-    const avmEmbeddedCurveFunctions: string[] = ['elliptic_curve_add_and_double', 'variable_base_msm'];
+    const avmEmbeddedCurveFunctions: [string, Fr[]][] = [
+      ['elliptic_curve_add_and_double', []],
+      ['variable_base_msm', []],
+      ['pedersen_commit', [new Fr(1), new Fr(100)]],
+    ];
     it.each(avmEmbeddedCurveFunctions)(
       'Should prove %s',
-      async name => {
-        await proveAndVerifyAvmTestContract(name);
+      async (name, calldata) => {
+        await proveAndVerifyAvmTestContract(name, calldata);
       },
       TIMEOUT,
     );
@@ -250,7 +258,8 @@ const proveAndVerifyAvmTestContract = async (
   } else {
     // Explicit revert when an assertion failed.
     expect(avmResult.reverted).toBe(true);
-    expect(avmResult.revertReason?.message).toContain(assertionErrString);
+    expect(avmResult.revertReason).toBeDefined();
+    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!)).toContain(assertionErrString);
   }
 
   const pxResult = trace.toPublicExecutionResult(
@@ -274,10 +283,10 @@ const proveAndVerifyAvmTestContract = async (
   const proofRes = await generateAvmProof(bbPath, bbWorkingDirectory, avmCircuitInputs, logger);
   expect(proofRes.status).toEqual(BB_RESULT.SUCCESS);
 
-  // Then we test VK extraction.
+  // Then we test VK extraction and serialization.
   const succeededRes = proofRes as BBSuccess;
-  const verificationKey = await extractVkData(succeededRes.vkPath!);
-  expect(verificationKey.keyAsBytes).toHaveLength(16);
+  const vkData = await extractAvmVkData(succeededRes.vkPath!);
+  AvmVerificationKeyData.fromBuffer(vkData.toBuffer());
 
   // Then we verify.
   const rawVkPath = path.join(succeededRes.vkPath!, 'vk');
@@ -299,7 +308,7 @@ const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInpu
     returnsHash: computeVarArgsHash(result.returnValues),
     noteHashReadRequests: padArrayEnd(
       result.noteHashReadRequests,
-      ReadRequest.empty(),
+      TreeLeafReadRequest.empty(),
       MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     ),
     nullifierReadRequests: padArrayEnd(
@@ -314,7 +323,7 @@ const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInpu
     ),
     l1ToL2MsgReadRequests: padArrayEnd(
       result.l1ToL2MsgReadRequests,
-      ReadRequest.empty(),
+      TreeLeafReadRequest.empty(),
       MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
     ),
     contractStorageReads: padArrayEnd(
@@ -327,7 +336,7 @@ const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInpu
       ContractStorageUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     ),
-    publicCallStackHashes: padArrayEnd([], Fr.zero(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
+    publicCallRequests: padArrayEnd([], PublicCallRequest.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
     unencryptedLogsHashes: padArrayEnd(result.unencryptedLogsHashes, LogHash.empty(), MAX_UNENCRYPTED_LOGS_PER_CALL),
     historicalHeader: Header.empty(),
     globalVariables: GlobalVariables.empty(),

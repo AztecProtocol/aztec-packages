@@ -1,15 +1,14 @@
 import { type AztecNode, type L2Block, MerkleTreeId, type TxHash } from '@aztec/circuit-types';
 import { type NoteProcessorCaughtUpStats } from '@aztec/circuit-types/stats';
 import { type AztecAddress, type Fr, INITIAL_L2_BLOCK_NUM, type PublicKey } from '@aztec/circuits.js';
-import { type SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type KeyStore } from '@aztec/key-store';
 
 import { type DeferredNoteDao } from '../database/deferred_note_dao.js';
 import { type IncomingNoteDao } from '../database/incoming_note_dao.js';
 import { type PxeDatabase } from '../database/index.js';
-import { type OutgoingNoteDao } from '../database/outgoing_note_dao.js';
 import { NoteProcessor } from '../note_processor/index.js';
 
 /**
@@ -334,7 +333,6 @@ export class Synchronizer {
 
     // keep track of decoded notes
     const incomingNotes: IncomingNoteDao[] = [];
-    const outgoingNotes: OutgoingNoteDao[] = [];
 
     // now process each txHash
     for (const deferredNotes of txHashToDeferredNotes.values()) {
@@ -342,27 +340,29 @@ export class Synchronizer {
       for (const processor of this.noteProcessors) {
         const { incomingNotes: inNotes, outgoingNotes: outNotes } = await processor.decodeDeferredNotes(deferredNotes);
         incomingNotes.push(...inNotes);
-        outgoingNotes.push(...outNotes);
+
+        await this.db.addNotes(inNotes, outNotes, processor.account);
+
+        inNotes.forEach(noteDao => {
+          this.log.debug(
+            `Decoded deferred incoming note under account ${processor.account.toString()} for contract ${
+              noteDao.contractAddress
+            } at slot ${noteDao.storageSlot} with nullifier ${noteDao.siloedNullifier.toString()}`,
+          );
+        });
+
+        outNotes.forEach(noteDao => {
+          this.log.debug(
+            `Decoded deferred outgoing note under account ${processor.account.toString()} for contract ${
+              noteDao.contractAddress
+            } at slot ${noteDao.storageSlot}`,
+          );
+        });
       }
     }
 
     // now drop the deferred notes, and add the decoded notes
     await this.db.removeDeferredNotesByContract(contractAddress);
-    await this.db.addNotes(incomingNotes, outgoingNotes);
-
-    incomingNotes.forEach(noteDao => {
-      this.log.debug(
-        `Decoded deferred incoming note for contract ${noteDao.contractAddress} at slot ${
-          noteDao.storageSlot
-        } with nullifier ${noteDao.siloedNullifier.toString()}`,
-      );
-    });
-
-    outgoingNotes.forEach(noteDao => {
-      this.log.debug(
-        `Decoded deferred outgoing note for contract ${noteDao.contractAddress} at slot ${noteDao.storageSlot}`,
-      );
-    });
 
     await this.#removeNullifiedNotes(incomingNotes);
   }

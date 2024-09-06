@@ -16,7 +16,7 @@ class MegaTranscriptTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
     using Flavor = MegaFlavor;
-    using ProverInstance = ProverInstance_<Flavor>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using FF = Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
 
@@ -31,11 +31,9 @@ class MegaTranscriptTests : public ::testing::Test {
      *
      * @return TranscriptManifest
      */
-    static TranscriptManifest construct_mega_honk_manifest(size_t circuit_size)
+    static TranscriptManifest construct_mega_honk_manifest()
     {
         TranscriptManifest manifest_expected;
-
-        auto log_n = numeric::get_msb(circuit_size);
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
@@ -61,6 +59,9 @@ class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "CALLDATA", frs_per_G);
         manifest_expected.add_entry(round, "CALLDATA_READ_COUNTS", frs_per_G);
         manifest_expected.add_entry(round, "CALLDATA_READ_TAGS", frs_per_G);
+        manifest_expected.add_entry(round, "SECONDARY_CALLDATA", frs_per_G);
+        manifest_expected.add_entry(round, "SECONDARY_CALLDATA_READ_COUNTS", frs_per_G);
+        manifest_expected.add_entry(round, "SECONDARY_CALLDATA_READ_TAGS", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_READ_COUNTS", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_READ_TAGS", frs_per_G);
@@ -75,6 +76,7 @@ class MegaTranscriptTests : public ::testing::Test {
         round++;
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "CALLDATA_INVERSES", frs_per_G);
+        manifest_expected.add_entry(round, "SECONDARY_CALLDATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
 
@@ -84,7 +86,7 @@ class MegaTranscriptTests : public ::testing::Test {
             round++;
         }
 
-        for (size_t i = 0; i < log_n; i++) {
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
             round++;
@@ -154,16 +156,21 @@ TEST_F(MegaTranscriptTests, ProverManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    MegaProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    MegaProver prover(proving_key);
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = construct_mega_honk_manifest(instance->proving_key.circuit_size);
+    auto manifest_expected = construct_mega_honk_manifest();
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
-        ASSERT_EQ(prover_manifest[round], manifest_expected[round]) << "Prover manifest discrepency in round " << round;
+        if (prover_manifest[round] != manifest_expected[round]) {
+            info("Prover manifest discrepency in round ", round);
+            prover_manifest[round].print();
+            manifest_expected[round].print();
+            ASSERT(false);
+        }
     }
 }
 
@@ -180,12 +187,12 @@ TEST_F(MegaTranscriptTests, VerifierManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    MegaProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    MegaProver prover(proving_key);
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     MegaVerifier verifier(verification_key);
     verifier.verify_proof(proof);
 
@@ -195,8 +202,12 @@ TEST_F(MegaTranscriptTests, VerifierManifestConsistency)
 
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < prover_manifest.size(); ++round) {
-        ASSERT_EQ(prover_manifest[round], verifier_manifest[round])
-            << "Prover/Verifier manifest discrepency in round " << round;
+        if (prover_manifest[round] != verifier_manifest[round]) {
+            info("Prover/Verifier manifest discrepency in round ", round);
+            prover_manifest[round].print();
+            verifier_manifest[round].print();
+            ASSERT(false);
+        }
     }
 }
 
@@ -231,10 +242,10 @@ TEST_F(MegaTranscriptTests, StructureTest)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    MegaProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    MegaProver prover(proving_key);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     MegaVerifier verifier(verification_key);
     EXPECT_TRUE(verifier.verify_proof(proof));
 

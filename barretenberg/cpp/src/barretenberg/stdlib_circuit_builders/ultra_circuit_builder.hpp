@@ -5,10 +5,11 @@
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/pedersen_commitment_type.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
+
+// TODO(md): note that this has now been added
 #include "circuit_builder_base.hpp"
 #include <optional>
 #include <unordered_set>
@@ -331,7 +332,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * @param varnum number of known witness
      *
      * @note The size of witness_values may be less than varnum. The former is the set of actual witness values known at
-     * the time of acir generation. The former may be larger and essentially acounts for placeholders for witnesses that
+     * the time of acir generation. The latter may be larger and essentially acounts for placeholders for witnesses that
      * we know will exist but whose values are not known during acir generation. Both are in general less than the total
      * number of variables/witnesses that might be present for a circuit generated from acir, since many gates will
      * depend on the details of the bberg implementation (or more generally on the backend used to process acir).
@@ -587,6 +588,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
      * 3) Number of Rom array-associated gates
      * 4) Number of range-list associated gates
      * 5) Number of non-native field multiplication gates.
+     * !!! WARNING: This function is predictive and might report an incorrect number. Make sure to finalise the circuit
+     * and then check the number of gates for a precise result. Kesha: it's basically voodoo
      *
      * @return size_t
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/875): This method may return an incorrect value before
@@ -813,6 +816,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename Arithmetization_
     void write_RAM_array(const size_t ram_id, const uint32_t index_witness, const uint32_t value_witness);
     void process_RAM_array(const size_t ram_id);
     void process_RAM_arrays();
+
+    void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
+    void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
 
     uint256_t hash_circuit();
 

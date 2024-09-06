@@ -1,4 +1,4 @@
-import { UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
+import { PublicExecutionRequest, UnencryptedFunctionL2Logs, UnencryptedL2Log } from '@aztec/circuit-types';
 import {
   AvmContractInstanceHint,
   AvmExecutionHints,
@@ -14,7 +14,9 @@ import {
   LogHash,
   NoteHash,
   Nullifier,
+  type PublicCallRequest,
   ReadRequest,
+  TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -23,7 +25,7 @@ import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
 import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { createSimulationError } from '../common/errors.js';
-import { type PublicExecutionRequest, type PublicExecutionResult } from './execution.js';
+import { type PublicExecutionResult, resultToPublicCallRequest } from './execution.js';
 import { type PublicSideEffectTraceInterface } from './side_effect_trace_interface.js';
 
 export type TracedContractInstance = { exists: boolean } & ContractInstanceWithAddress;
@@ -37,19 +39,21 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   private contractStorageReads: ContractStorageRead[] = [];
   private contractStorageUpdateRequests: ContractStorageUpdateRequest[] = [];
 
-  private noteHashReadRequests: ReadRequest[] = [];
+  private noteHashReadRequests: TreeLeafReadRequest[] = [];
   private noteHashes: NoteHash[] = [];
 
   private nullifierReadRequests: ReadRequest[] = [];
   private nullifierNonExistentReadRequests: ReadRequest[] = [];
   private nullifiers: Nullifier[] = [];
 
-  private l1ToL2MsgReadRequests: ReadRequest[] = [];
+  private l1ToL2MsgReadRequests: TreeLeafReadRequest[] = [];
   private newL2ToL1Messages: L2ToL1Message[] = [];
 
   private unencryptedLogs: UnencryptedL2Log[] = [];
   private allUnencryptedLogs: UnencryptedL2Log[] = [];
   private unencryptedLogsHashes: LogHash[] = [];
+
+  private publicCallRequests: PublicCallRequest[] = [];
 
   private gotContractInstances: ContractInstanceWithAddress[] = [];
 
@@ -101,17 +105,16 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceNoteHashCheck(_storageAddress: Fr, noteHash: Fr, _leafIndex: Fr, exists: boolean) {
+  // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
+  public traceNoteHashCheck(_storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean) {
     // TODO(4805): check if some threshold is reached for max note hash checks
     // NOTE: storageAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     // TODO(dbanks12): leafIndex is unused for now but later must be used by kernel to constrain that the kernel
     // is in fact checking the leaf indicated by the user
-    this.noteHashReadRequests.push(new ReadRequest(noteHash, this.sideEffectCounter));
+    this.noteHashReadRequests.push(new TreeLeafReadRequest(noteHash, leafIndex));
     this.avmCircuitHints.noteHashExists.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ new Fr(exists ? 1 : 0)),
+      new AvmKeyValueHint(/*key=*/ new Fr(leafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
-    this.logger.debug(`NOTE_HASH_CHECK cnt: ${this.sideEffectCounter}`);
-    this.incrementSideEffectCounter();
   }
 
   public traceNewNoteHash(_storageAddress: Fr, noteHash: Fr) {
@@ -151,17 +154,16 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     this.incrementSideEffectCounter();
   }
 
-  public traceL1ToL2MessageCheck(_contractAddress: Fr, msgHash: Fr, _msgLeafIndex: Fr, exists: boolean) {
+  // TODO(8287): _exists can be removed once we have the vm properly handling the equality check
+  public traceL1ToL2MessageCheck(_contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean) {
     // TODO(4805): check if some threshold is reached for max message reads
     // NOTE: contractAddress is unused but will be important when an AVM circuit processes an entire enqueued call
     // TODO(dbanks12): leafIndex is unused for now but later must be used by kernel to constrain that the kernel
     // is in fact checking the leaf indicated by the user
-    this.l1ToL2MsgReadRequests.push(new ReadRequest(msgHash, this.sideEffectCounter));
+    this.l1ToL2MsgReadRequests.push(new TreeLeafReadRequest(msgHash, msgLeafIndex));
     this.avmCircuitHints.l1ToL2MessageExists.items.push(
-      new AvmKeyValueHint(/*key=*/ new Fr(this.sideEffectCounter), /*value=*/ new Fr(exists ? 1 : 0)),
+      new AvmKeyValueHint(/*key=*/ new Fr(msgLeafIndex), /*value=*/ exists ? Fr.ONE : Fr.ZERO),
     );
-    this.logger.debug(`L1_TO_L2_MSG_CHECK cnt: ${this.sideEffectCounter}`);
-    this.incrementSideEffectCounter();
   }
 
   public traceNewL2ToL1Message(recipient: Fr, content: Fr) {
@@ -247,6 +249,9 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       result.startGasLeft.daGas - result.endGasLeft.daGas,
       result.startGasLeft.l2Gas - result.endGasLeft.l2Gas,
     );
+
+    this.publicCallRequests.push(resultToPublicCallRequest(result));
+
     this.avmCircuitHints.externalCalls.items.push(
       new AvmExternalCallHint(
         /*success=*/ new Fr(result.reverted ? 0 : 1),
@@ -305,6 +310,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
       // TODO(dbanks12): process contract instance read requests in public kernel
       //gotContractInstances: this.gotContractInstances,
 
+      publicCallRequests: this.publicCallRequests,
       nestedExecutions: this.nestedExecutions,
 
       avmCircuitHints: this.avmCircuitHints,
@@ -325,11 +331,10 @@ function createPublicExecutionRequest(avmEnvironment: AvmExecutionEnvironment): 
     isDelegateCall: avmEnvironment.isDelegateCall,
     isStaticCall: avmEnvironment.isStaticCall,
   });
-  return {
-    contractAddress: avmEnvironment.address,
-    functionSelector: avmEnvironment.functionSelector,
+  return new PublicExecutionRequest(
+    avmEnvironment.address,
     callContext,
     // execution request does not contain AvmContextInputs prefix
-    args: avmEnvironment.getCalldataWithoutPrefix(),
-  };
+    avmEnvironment.getCalldataWithoutPrefix(),
+  );
 }

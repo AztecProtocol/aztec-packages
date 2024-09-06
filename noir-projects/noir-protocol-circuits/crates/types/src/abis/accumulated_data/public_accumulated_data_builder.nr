@@ -1,34 +1,49 @@
 use crate::{
     abis::{
     gas::Gas, accumulated_data::public_accumulated_data::PublicAccumulatedData,
-    call_request::CallRequest, note_hash::NoteHash, nullifier::Nullifier,
+    note_hash::ScopedNoteHash, nullifier::Nullifier, public_call_request::PublicCallRequest,
     public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, NoteLogHash, ScopedLogHash}
 },
+    messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
     MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
-    traits::Empty
+    traits::Empty, utils::arrays::array_to_bounded_vec
 };
 
 struct PublicAccumulatedDataBuilder {
-    note_hashes: BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_TX>,
+    note_hashes: BoundedVec<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
     nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_TX>,
-    l2_to_l1_msgs: BoundedVec<Field, MAX_L2_TO_L1_MSGS_PER_TX>,
+    l2_to_l1_msgs: BoundedVec<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX>,
 
     note_encrypted_logs_hashes: BoundedVec<LogHash, MAX_NOTE_ENCRYPTED_LOGS_PER_TX>,
-    encrypted_logs_hashes: BoundedVec<LogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
+    encrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_ENCRYPTED_LOGS_PER_TX>,
     unencrypted_logs_hashes: BoundedVec<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX>,
 
     public_data_update_requests: BoundedVec<PublicDataUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
 
-    public_call_stack: BoundedVec<CallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public_call_stack: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
 
     gas_used: Gas,
 }
 
 impl PublicAccumulatedDataBuilder {
+    pub fn new(data: PublicAccumulatedData) -> Self {
+        PublicAccumulatedDataBuilder {
+            note_hashes: array_to_bounded_vec(data.note_hashes),
+            nullifiers: array_to_bounded_vec(data.nullifiers),
+            l2_to_l1_msgs: array_to_bounded_vec(data.l2_to_l1_msgs),
+            note_encrypted_logs_hashes: array_to_bounded_vec(data.note_encrypted_logs_hashes),
+            encrypted_logs_hashes: array_to_bounded_vec(data.encrypted_logs_hashes),
+            unencrypted_logs_hashes: array_to_bounded_vec(data.unencrypted_logs_hashes),
+            public_data_update_requests: array_to_bounded_vec(data.public_data_update_requests),
+            public_call_stack: array_to_bounded_vec(data.public_call_stack),
+            gas_used: data.gas_used
+        }
+    }
+
     pub fn finish(self) -> PublicAccumulatedData {
         PublicAccumulatedData {
             note_hashes: self.note_hashes.storage,

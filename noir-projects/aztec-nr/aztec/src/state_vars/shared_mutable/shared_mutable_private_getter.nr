@@ -1,16 +1,6 @@
-use dep::protocol_types::{
-    hash::{pedersen_hash, poseidon2_hash}, traits::{FromField, ToField}, address::AztecAddress,
-    header::Header
-};
+use dep::protocol_types::{traits::{FromField, ToField}, address::AztecAddress, header::Header};
 
-use crate::context::PrivateContext;
-use crate::state_vars::{
-    storage::Storage,
-    shared_mutable::{
-    shared_mutable::SharedMutable, scheduled_delay_change::ScheduledDelayChange,
-    scheduled_value_change::ScheduledValueChange
-}
-};
+use crate::{context::PrivateContext, state_vars::shared_mutable::shared_mutable::SharedMutable};
 
 struct SharedMutablePrivateGetter<T, INITIAL_DELAY> {
     context: &mut PrivateContext,
@@ -18,9 +8,6 @@ struct SharedMutablePrivateGetter<T, INITIAL_DELAY> {
     other_contract_address: AztecAddress,
     // The storage slot where the SharedMutable is stored on the other contract
     storage_slot: Field,
-    // The _dummy variable forces INITIAL_DELAY to be interpreted as a numberic value. This is a workaround to
-    // https://github.com/noir-lang/noir/issues/4633. Remove once resolved.
-    _dummy: [Field; INITIAL_DELAY],
 }
 
 // We have this as a view-only interface to reading Shared Mutables in other contracts.
@@ -33,7 +20,7 @@ impl<T, INITIAL_DELAY> SharedMutablePrivateGetter<T, INITIAL_DELAY>  where T: Fr
     ) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         assert(other_contract_address.to_field() != 0, "Other contract address cannot be 0");
-        Self { context, other_contract_address, storage_slot, _dummy: [0; INITIAL_DELAY] }
+        Self { context, other_contract_address, storage_slot }
     }
 
     pub fn get_value_in_private(self, header: Header) -> T {

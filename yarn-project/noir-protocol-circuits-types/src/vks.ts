@@ -1,6 +1,8 @@
 import {
   BASE_PARITY_INDEX,
   BASE_ROLLUP_INDEX,
+  BLOCK_MERGE_ROLLUP_INDEX,
+  BLOCK_ROOT_ROLLUP_INDEX,
   EMPTY_NESTED_INDEX,
   Fr,
   MERGE_ROLLUP_INDEX,
@@ -11,6 +13,7 @@ import {
   PRIVATE_KERNEL_INNER_INDEX,
   PRIVATE_KERNEL_RESET_BIG_INDEX,
   PRIVATE_KERNEL_RESET_FULL_INDEX,
+  PRIVATE_KERNEL_RESET_FULL_INNER_INDEX,
   PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
   PRIVATE_KERNEL_RESET_SMALL_INDEX,
   PRIVATE_KERNEL_RESET_TINY_INDEX,
@@ -27,6 +30,7 @@ import {
   VerificationKeyAsFields,
   VerificationKeyData,
 } from '@aztec/circuits.js';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { assertLength } from '@aztec/foundation/serialize';
 
 import EmptyNestedVkJson from '../artifacts/keys/empty_nested.vk.data.json' assert { type: 'json' };
@@ -37,6 +41,7 @@ import PrivateKernelInitVkJson from '../artifacts/keys/private_kernel_init.vk.da
 import PrivateKernelInnerVkJson from '../artifacts/keys/private_kernel_inner.vk.data.json' assert { type: 'json' };
 import PrivateKernelResetFullVkJson from '../artifacts/keys/private_kernel_reset.vk.data.json' assert { type: 'json' };
 import PrivateKernelResetBigVkJson from '../artifacts/keys/private_kernel_reset_big.vk.data.json' assert { type: 'json' };
+import PrivateKernelResetFullInnerVkJson from '../artifacts/keys/private_kernel_reset_full_inner.vk.data.json' assert { type: 'json' };
 import PrivateKernelResetMediumVkJson from '../artifacts/keys/private_kernel_reset_medium.vk.data.json' assert { type: 'json' };
 import PrivateKernelResetSmallVkJson from '../artifacts/keys/private_kernel_reset_small.vk.data.json' assert { type: 'json' };
 import PrivateKernelResetTinyVkJson from '../artifacts/keys/private_kernel_reset_tiny.vk.data.json' assert { type: 'json' };
@@ -47,6 +52,8 @@ import PublicKernelSetupVkJson from '../artifacts/keys/public_kernel_setup.vk.da
 import PublicKernelTailVkJson from '../artifacts/keys/public_kernel_tail.vk.data.json' assert { type: 'json' };
 import PublicKernelTeardownVkJson from '../artifacts/keys/public_kernel_teardown.vk.data.json' assert { type: 'json' };
 import BaseRollupVkJson from '../artifacts/keys/rollup_base.vk.data.json' assert { type: 'json' };
+import BlockMergeRollupVkJson from '../artifacts/keys/rollup_block_merge.vk.data.json' assert { type: 'json' };
+import BlockRootRollupVkJson from '../artifacts/keys/rollup_block_root.vk.data.json' assert { type: 'json' };
 import MergeRollupVkJson from '../artifacts/keys/rollup_merge.vk.data.json' assert { type: 'json' };
 import RootRollupVkJson from '../artifacts/keys/rollup_root.vk.data.json' assert { type: 'json' };
 import { type ClientProtocolArtifact, type ProtocolArtifact, type ServerProtocolArtifact } from './artifacts.js';
@@ -82,6 +89,8 @@ const ServerCircuitVks: Record<ServerProtocolArtifact, VerificationKeyData> = {
   RootParityArtifact: keyJsonToVKData(RootParityVkJson),
   BaseRollupArtifact: keyJsonToVKData(BaseRollupVkJson),
   MergeRollupArtifact: keyJsonToVKData(MergeRollupVkJson),
+  BlockRootRollupArtifact: keyJsonToVKData(BlockRootRollupVkJson),
+  BlockMergeRollupArtifact: keyJsonToVKData(BlockMergeRollupVkJson),
   RootRollupArtifact: keyJsonToVKData(RootRollupVkJson),
 };
 
@@ -89,6 +98,7 @@ const ClientCircuitVks: Record<ClientProtocolArtifact, VerificationKeyData> = {
   PrivateKernelInitArtifact: keyJsonToVKData(PrivateKernelInitVkJson),
   PrivateKernelInnerArtifact: keyJsonToVKData(PrivateKernelInnerVkJson),
   PrivateKernelResetFullArtifact: keyJsonToVKData(PrivateKernelResetFullVkJson),
+  PrivateKernelResetFullInnerArtifact: keyJsonToVKData(PrivateKernelResetFullInnerVkJson),
   PrivateKernelResetBigArtifact: keyJsonToVKData(PrivateKernelResetBigVkJson),
   PrivateKernelResetMediumArtifact: keyJsonToVKData(PrivateKernelResetMediumVkJson),
   PrivateKernelResetSmallArtifact: keyJsonToVKData(PrivateKernelResetSmallVkJson),
@@ -108,6 +118,7 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolArtifact, number> = {
   PrivateKernelInitArtifact: PRIVATE_KERNEL_INIT_INDEX,
   PrivateKernelInnerArtifact: PRIVATE_KERNEL_INNER_INDEX,
   PrivateKernelResetFullArtifact: PRIVATE_KERNEL_RESET_FULL_INDEX,
+  PrivateKernelResetFullInnerArtifact: PRIVATE_KERNEL_RESET_FULL_INNER_INDEX,
   PrivateKernelResetBigArtifact: PRIVATE_KERNEL_RESET_BIG_INDEX,
   PrivateKernelResetMediumArtifact: PRIVATE_KERNEL_RESET_MEDIUM_INDEX,
   PrivateKernelResetSmallArtifact: PRIVATE_KERNEL_RESET_SMALL_INDEX,
@@ -122,11 +133,15 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolArtifact, number> = {
   RootParityArtifact: ROOT_PARITY_INDEX,
   BaseRollupArtifact: BASE_ROLLUP_INDEX,
   MergeRollupArtifact: MERGE_ROLLUP_INDEX,
+  BlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_INDEX,
+  BlockMergeRollupArtifact: BLOCK_MERGE_ROLLUP_INDEX,
   RootRollupArtifact: ROOT_ROLLUP_INDEX,
 };
 
 function buildVKTree() {
-  const calculator = new MerkleTreeCalculator(VK_TREE_HEIGHT);
+  const calculator = new MerkleTreeCalculator(VK_TREE_HEIGHT, Buffer.alloc(32), (a, b) =>
+    poseidon2Hash([a, b]).toBuffer(),
+  );
   const vkHashes = new Array(2 ** VK_TREE_HEIGHT).fill(Buffer.alloc(32));
 
   for (const [key, value] of Object.entries(ProtocolCircuitVks)) {

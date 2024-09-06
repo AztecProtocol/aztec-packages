@@ -1,8 +1,12 @@
 import {
   type AvmCircuitInputs,
+  type AvmVerificationKeyData,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
@@ -22,9 +26,9 @@ import {
 
 import type { PublicKernelNonTailRequest, PublicKernelTailRequest } from '../tx/processed_tx.js';
 
-export type ProofAndVerificationKey = {
+export type AvmProofAndVerificationKey = {
   proof: Proof;
-  verificationKey: VerificationKeyData;
+  verificationKey: AvmVerificationKeyData;
 };
 
 export type PublicInputsAndRecursiveProof<T> = {
@@ -66,6 +70,8 @@ export enum ProvingRequestType {
 
   BASE_ROLLUP,
   MERGE_ROLLUP,
+  BLOCK_ROOT_ROLLUP,
+  BLOCK_MERGE_ROLLUP,
   ROOT_ROLLUP,
 
   BASE_PARITY,
@@ -106,6 +112,14 @@ export type ProvingRequest =
       inputs: MergeRollupInputs;
     }
   | {
+      type: ProvingRequestType.BLOCK_ROOT_ROLLUP;
+      inputs: BlockRootRollupInputs;
+    }
+  | {
+      type: ProvingRequestType.BLOCK_MERGE_ROLLUP;
+      inputs: BlockMergeRollupInputs;
+    }
+  | {
       type: ProvingRequestType.ROOT_ROLLUP;
       inputs: RootRollupInputs;
     }
@@ -120,19 +134,21 @@ export type ProvingRequest =
 
 export type ProvingRequestPublicInputs = {
   [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>;
-  [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey;
+  [ProvingRequestType.PUBLIC_VM]: AvmProofAndVerificationKey;
 
   [ProvingRequestType.PUBLIC_KERNEL_NON_TAIL]: PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>;
   [ProvingRequestType.PUBLIC_KERNEL_TAIL]: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>;
 
   [ProvingRequestType.BASE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
   [ProvingRequestType.MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BaseOrMergeRollupPublicInputs>;
+  [ProvingRequestType.BLOCK_ROOT_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
+  [ProvingRequestType.BLOCK_MERGE_ROLLUP]: PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>;
   [ProvingRequestType.ROOT_ROLLUP]: PublicInputsAndRecursiveProof<RootRollupPublicInputs>;
 
   [ProvingRequestType.BASE_PARITY]: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>;
   [ProvingRequestType.ROOT_PARITY]: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
   // TODO(#7369) properly structure tube proof flow
-  [ProvingRequestType.TUBE_PROOF]: { tubeVK: VerificationKeyData; tubeProof: RecursiveProof<393> };
+  [ProvingRequestType.TUBE_PROOF]: { tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> };
 };
 
 export type ProvingRequestResult<T extends ProvingRequestType> = ProvingRequestPublicInputs[T];

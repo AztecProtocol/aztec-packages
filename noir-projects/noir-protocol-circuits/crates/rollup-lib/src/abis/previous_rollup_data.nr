@@ -17,9 +17,9 @@ impl Verifiable for PreviousRollupData {
   fn verify(self) {
     let inputs = BaseOrMergeRollupPublicInputs::serialize(self.base_or_merge_rollup_public_inputs);
     std::verify_proof(
-        self.vk.key.as_slice(),
-        self.proof.fields.as_slice(),
-        inputs.as_slice(),
+        self.vk.key,
+        self.proof.fields,
+        inputs,
         self.vk.hash
     );
   }
@@ -37,9 +37,10 @@ impl Empty for PreviousRollupData {
 }
 
 impl PreviousRollupData {
-    fn validate_in_vk_tree<N>(self, allowed_indices: [u32; N]) {
-        let index_hint = find_index_hint(allowed_indices, self.vk_witness.leaf_index as u32);
-        assert_eq(allowed_indices[index_hint], self.vk_witness.leaf_index as u32, "Invalid vk index");
+    fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
+        let leaf_index = self.vk_witness.leaf_index as u32;
+        let index_hint = find_index_hint(allowed_indices, |index: u32| index == leaf_index);
+        assert_eq(allowed_indices[index_hint], leaf_index, "Invalid vk index");
 
         assert_check_membership(
             self.vk.hash,

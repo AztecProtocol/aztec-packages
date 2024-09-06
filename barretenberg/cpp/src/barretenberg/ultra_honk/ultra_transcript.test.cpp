@@ -19,7 +19,7 @@ class UltraTranscriptTests : public ::testing::Test {
     using Flavor = UltraFlavor;
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
-    using ProverInstance = ProverInstance_<Flavor>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
 
     /**
      * @brief Construct a manifest for a Ultra Honk proof
@@ -32,11 +32,9 @@ class UltraTranscriptTests : public ::testing::Test {
      *
      * @return TranscriptManifest
      */
-    TranscriptManifest construct_ultra_honk_manifest(size_t circuit_size)
+    TranscriptManifest construct_ultra_honk_manifest()
     {
         TranscriptManifest manifest_expected;
-
-        auto log_n = numeric::get_msb(circuit_size);
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
@@ -73,7 +71,7 @@ class UltraTranscriptTests : public ::testing::Test {
             round++;
         }
 
-        for (size_t i = 0; i < log_n; i++) {
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
             round++;
@@ -136,12 +134,12 @@ TEST_F(UltraTranscriptTests, ProverManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    UltraProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    UltraProver prover(proving_key);
     auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
-    auto manifest_expected = construct_ultra_honk_manifest(instance->proving_key.circuit_size);
+    auto manifest_expected = construct_ultra_honk_manifest();
     auto prover_manifest = prover.transcript->get_manifest();
     // Note: a manifest can be printed using manifest.print()
     for (size_t round = 0; round < manifest_expected.size(); ++round) {
@@ -162,12 +160,12 @@ TEST_F(UltraTranscriptTests, VerifierManifestConsistency)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    UltraProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    UltraProver prover(proving_key);
     auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     UltraVerifier verifier(verification_key);
     verifier.verify_proof(proof);
 
@@ -213,10 +211,10 @@ TEST_F(UltraTranscriptTests, StructureTest)
     generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto instance = std::make_shared<ProverInstance>(builder);
-    UltraProver prover(instance);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
+    UltraProver prover(proving_key);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
     UltraVerifier verifier(verification_key);
     EXPECT_TRUE(verifier.verify_proof(proof));
 

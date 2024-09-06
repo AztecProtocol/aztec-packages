@@ -1,7 +1,10 @@
 use dep::aztec::prelude::{PrivateContext, AztecAddress};
-use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::pedersen_hash, traits::{Hash, Serialize}};
+use dep::aztec::protocol_types::{
+    constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::poseidon2_hash_with_separator,
+    traits::{Hash, Serialize}
+};
 
-use dep::authwit::entrypoint::function_call::{FunctionCall, FUNCTION_CALL_SIZE_IN_BYTES};
+use dep::authwit::entrypoint::function_call::FunctionCall;
 
 global DAPP_MAX_CALLS: u64 = 1;
 // FUNCTION_CALL_SIZE * DAPP_MAX_CALLS + 1
@@ -31,7 +34,7 @@ impl Serialize<DAPP_PAYLOAD_SIZE> for DAppPayload {
 
 impl Hash for DAppPayload {
   fn hash(self) -> Field {
-    pedersen_hash(
+    poseidon2_hash_with_separator(
       self.serialize(),
       GENERATOR_INDEX__SIGNATURE_PAYLOAD
     )
@@ -46,7 +49,7 @@ impl DAppPayload {
         for i in 0..DAPP_MAX_CALLS {
             bytes.extend_from_array(self.function_calls[i].to_be_bytes());
         }
-        bytes.extend_from_slice(self.nonce.to_be_bytes(32));
+        bytes.extend_from_array(self.nonce.to_be_bytes::<32>());
 
         bytes.storage
     }

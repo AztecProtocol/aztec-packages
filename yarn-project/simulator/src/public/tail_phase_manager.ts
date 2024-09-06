@@ -1,6 +1,5 @@
 import { type PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
 import {
-  CombineHints,
   type GlobalVariables,
   type Header,
   type KernelCircuitPublicInputs,
@@ -78,6 +77,10 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
     const { validationRequests, endNonRevertibleData: nonRevertibleData, end: revertibleData } = previousOutput;
 
+    const noteHashReadRequestHints = await this.hintsBuilder.getNoteHashReadRequestsHints(
+      validationRequests.noteHashReadRequests,
+    );
+
     const pendingNullifiers = mergeAccumulatedData(
       nonRevertibleData.nullifiers,
       revertibleData.nullifiers,
@@ -92,6 +95,10 @@ export class TailPhaseManager extends AbstractPhaseManager {
     const nullifierNonExistentReadRequestHints = await this.hintsBuilder.getNullifierNonExistentReadRequestHints(
       validationRequests.nullifierNonExistentReadRequests,
       pendingNullifiers,
+    );
+
+    const l1ToL2MsgReadRequestHints = await this.hintsBuilder.getL1ToL2MsgReadRequestsHints(
+      validationRequests.l1ToL2MsgReadRequests,
     );
 
     const pendingPublicDataWrites = mergeAccumulatedData(
@@ -113,16 +120,15 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
     const currentState = await this.db.getStateReference();
 
-    const hints = CombineHints.fromPublicData({ nonRevertibleData, revertibleData });
-
     return new PublicKernelTailCircuitPrivateInputs(
       previousKernel,
+      noteHashReadRequestHints,
       nullifierReadRequestHints,
       nullifierNonExistentReadRequestHints,
+      l1ToL2MsgReadRequestHints,
       publicDataHints,
       publicDataReadRequestHints,
       currentState.partial,
-      hints,
     );
   }
 }

@@ -16,7 +16,7 @@ using namespace bb;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 
-class MegaHonkComposerTests : public ::testing::Test {
+class MegaHonkTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
@@ -33,9 +33,9 @@ class MegaHonkComposerTests : public ::testing::Test {
      */
     bool construct_and_verify_honk_proof(auto& builder)
     {
-        auto instance = std::make_shared<ProverInstance_<MegaFlavor>>(builder);
-        MegaProver prover(instance);
-        auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(instance->proving_key);
+        auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder);
+        MegaProver prover(proving_key);
+        auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
         MegaVerifier verifier(verification_key);
         auto proof = prover.construct_proof();
         bool verified = verifier.verify_proof(proof);
@@ -64,7 +64,7 @@ class MegaHonkComposerTests : public ::testing::Test {
  * gates
  *
  */
-TEST_F(MegaHonkComposerTests, Basic)
+TEST_F(MegaHonkTests, Basic)
 {
     MegaCircuitBuilder builder;
 
@@ -79,7 +79,7 @@ TEST_F(MegaHonkComposerTests, Basic)
  * @brief Test proof construction/verification for a structured execution trace
  *
  */
-TEST_F(MegaHonkComposerTests, BasicStructured)
+TEST_F(MegaHonkTests, BasicStructured)
 {
     MegaCircuitBuilder builder;
 
@@ -87,9 +87,9 @@ TEST_F(MegaHonkComposerTests, BasicStructured)
 
     // Construct and verify Honk proof using a structured trace
     TraceStructure trace_structure = TraceStructure::SMALL_TEST;
-    auto instance = std::make_shared<ProverInstance_<MegaFlavor>>(builder, trace_structure);
-    MegaProver prover(instance);
-    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(instance->proving_key);
+    auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(builder, trace_structure);
+    MegaProver prover(proving_key);
+    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(proving_key->proving_key);
     MegaVerifier verifier(verification_key);
     auto proof = prover.construct_proof();
     EXPECT_TRUE(verifier.verify_proof(proof));
@@ -102,7 +102,7 @@ TEST_F(MegaHonkComposerTests, BasicStructured)
  * with non-empty 'previous' data. This avoid complications with zero-commitments etc.
  *
  */
-TEST_F(MegaHonkComposerTests, SingleCircuit)
+TEST_F(MegaHonkTests, SingleCircuit)
 {
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
 
@@ -125,7 +125,7 @@ TEST_F(MegaHonkComposerTests, SingleCircuit)
  * basic arithmetic gates
  *
  */
-TEST_F(MegaHonkComposerTests, MultipleCircuitsMergeOnly)
+TEST_F(MegaHonkTests, MultipleCircuitsMergeOnly)
 {
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
@@ -150,7 +150,7 @@ TEST_F(MegaHonkComposerTests, MultipleCircuitsMergeOnly)
  * basic arithmetic gates
  *
  */
-TEST_F(MegaHonkComposerTests, MultipleCircuitsHonkOnly)
+TEST_F(MegaHonkTests, MultipleCircuitsHonkOnly)
 {
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
@@ -175,7 +175,7 @@ TEST_F(MegaHonkComposerTests, MultipleCircuitsHonkOnly)
  * and basic arithmetic gates
  *
  */
-TEST_F(MegaHonkComposerTests, MultipleCircuitsHonkAndMerge)
+TEST_F(MegaHonkTests, MultipleCircuitsHonkAndMerge)
 {
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();

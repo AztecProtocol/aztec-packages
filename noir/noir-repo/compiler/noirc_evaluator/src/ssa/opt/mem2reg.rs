@@ -66,6 +66,8 @@ mod block;
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use fxhash::FxHashMap as HashMap;
+
 use crate::ssa::{
     ir::{
         basic_block::BasicBlockId,
@@ -111,6 +113,14 @@ struct PerFunctionContext<'f> {
     /// We avoid removing individual instructions as we go since removing elements
     /// from the middle of Vecs many times will be slower than a single call to `retain`.
     instructions_to_remove: BTreeSet<InstructionId>,
+
+    /// Track a value's last load across all blocks.
+    /// If a value is not used in anymore loads we can remove the last store to that value.
+    last_loads: HashMap<ValueId, (InstructionId, BasicBlockId)>,
+
+    /// Track whether the last instruction is an inc_rc/dec_rc instruction.
+    /// If it is we should not remove any known store values.
+    inside_rc_reload: bool,
 }
 
 impl<'f> PerFunctionContext<'f> {
@@ -124,6 +134,8 @@ impl<'f> PerFunctionContext<'f> {
             inserter: FunctionInserter::new(function),
             blocks: BTreeMap::new(),
             instructions_to_remove: BTreeSet::new(),
+            last_loads: HashMap::default(),
+            inside_rc_reload: false,
         }
     }
 
@@ -139,6 +151,40 @@ impl<'f> PerFunctionContext<'f> {
         for block in block_order {
             let references = self.find_starting_references(block);
             self.analyze_block(block, references);
+        }
+
+        // If we never load from an address within a function we can remove all stores to that address.
+        // This rule does not apply to reference parameters, which we must also check for before removing these stores.
+        for (block_id, block) in self.blocks.iter() {
+            let block_params = self.inserter.function.dfg.block_parameters(*block_id);
+            for (store_address, store_instruction) in block.last_stores.iter() {
+                let is_reference_param = block_params.contains(store_address);
+                let terminator = self.inserter.function.dfg[*block_id].unwrap_terminator();
+
+                let is_return = matches!(terminator, TerminatorInstruction::Return { .. });
+                let remove_load = if is_return {
+                    // Determine whether the last store is used in the return value
+                    let mut is_return_value = false;
+                    terminator.for_each_value(|return_value| {
+                        is_return_value = return_value == *store_address || is_return_value;
+                    });
+
+                    // If the last load of a store is not part of the block with a return terminator,
+                    // we can safely remove this store.
+                    let last_load_not_in_return = self
+                        .last_loads
+                        .get(store_address)
+                        .map(|(_, last_load_block)| *last_load_block != *block_id)
+                        .unwrap_or(true);
+                    !is_return_value && last_load_not_in_return
+                } else {
+                    self.last_loads.get(store_address).is_none()
+                };
+
+                if remove_load && !is_reference_param {
+                    self.instructions_to_remove.insert(*store_instruction);
+                }
+            }
         }
     }
 
@@ -239,6 +285,23 @@ impl<'f> PerFunctionContext<'f> {
                     self.instructions_to_remove.insert(instruction);
                 } else {
                     references.mark_value_used(address, self.inserter.function);
+
+                    let expression = if let Some(expression) = references.expressions.get(&result) {
+                        expression.clone()
+                    } else {
+                        references.expressions.insert(result, Expression::Other(result));
+                        Expression::Other(result)
+                    };
+                    if let Some(aliases) = references.aliases.get_mut(&expression) {
+                        aliases.insert(result);
+                    } else {
+                        references
+                            .aliases
+                            .insert(Expression::Other(result), AliasSet::known(result));
+                    }
+                    references.set_known_value(result, address);
+
+                    self.last_loads.insert(address, (instruction, block_id));
                 }
             }
             Instruction::Store { address, value } => {
@@ -251,6 +314,14 @@ impl<'f> PerFunctionContext<'f> {
                 // function calls in-between, we can remove the previous store.
                 if let Some(last_store) = references.last_stores.get(&address) {
                     self.instructions_to_remove.insert(*last_store);
+                }
+
+                let known_value = references.get_known_value(value);
+                if let Some(known_value) = known_value {
+                    let known_value_is_address = known_value == address;
+                    if known_value_is_address && !self.inside_rc_reload {
+                        self.instructions_to_remove.insert(instruction);
+                    }
                 }
 
                 references.set_known_value(address, value);
@@ -306,6 +377,18 @@ impl<'f> PerFunctionContext<'f> {
             }
             Instruction::Call { arguments, .. } => self.mark_all_unknown(arguments, references),
             _ => (),
+        }
+
+        self.track_rc_reload_state(instruction);
+    }
+
+    fn track_rc_reload_state(&mut self, instruction: InstructionId) {
+        match &self.inserter.function.dfg[instruction] {
+            // We just had an increment or decrement to an array's reference counter
+            Instruction::IncrementRc { .. } | Instruction::DecrementRc { .. } => {
+                self.inside_rc_reload = true;
+            }
+            _ => self.inside_rc_reload = false,
         }
     }
 
@@ -404,7 +487,7 @@ impl<'f> PerFunctionContext<'f> {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     use acvm::{acir::AcirField, FieldElement};
     use im::vector;
@@ -433,11 +516,11 @@ mod tests {
 
         let func_id = Id::test_new(0);
         let mut builder = FunctionBuilder::new("func".into(), func_id);
-        let v0 = builder.insert_allocate(Type::Array(Rc::new(vec![Type::field()]), 2));
+        let v0 = builder.insert_allocate(Type::Array(Arc::new(vec![Type::field()]), 2));
         let one = builder.field_constant(FieldElement::one());
         let two = builder.field_constant(FieldElement::one());
 
-        let element_type = Rc::new(vec![Type::field()]);
+        let element_type = Arc::new(vec![Type::field()]);
         let array_type = Type::Array(element_type, 2);
         let array = builder.array_constant(vector![one, two], array_type.clone());
 
@@ -594,10 +677,8 @@ mod tests {
         // acir fn main f0 {
         //   b0():
         //     v7 = allocate
-        //     store Field 5 at v7
         //     jmp b1(Field 5)
         //   b1(v3: Field):
-        //     store Field 6 at v7
         //     return v3, Field 5, Field 6
         // }
         let ssa = ssa.mem2reg();
@@ -609,9 +690,9 @@ mod tests {
         assert_eq!(count_loads(main.entry_block(), &main.dfg), 0);
         assert_eq!(count_loads(b1, &main.dfg), 0);
 
-        // Neither store is removed since they are each the last in the block and there are multiple blocks
-        assert_eq!(count_stores(main.entry_block(), &main.dfg), 1);
-        assert_eq!(count_stores(b1, &main.dfg), 1);
+        // All stores are removed as there are no loads to the values being stored anywhere in the function.
+        assert_eq!(count_stores(main.entry_block(), &main.dfg), 0);
+        assert_eq!(count_stores(b1, &main.dfg), 0);
 
         // The jmp to b1 should also be a constant 5 now
         match main.dfg[main.entry_block()].terminator() {
@@ -641,8 +722,8 @@ mod tests {
         //     b1():
         //       store Field 1 at v3
         //       store Field 2 at v4
-        //       v8 = load v3
-        //       v9 = eq v8, Field 2
+        //       v7 = load v3
+        //       v8 = eq v7, Field 2
         //       return
         // }
         let main_id = Id::test_new(0);
@@ -653,7 +734,7 @@ mod tests {
         let zero = builder.field_constant(0u128);
         builder.insert_store(v0, zero);
 
-        let v2 = builder.insert_allocate(Type::Reference(Rc::new(Type::field())));
+        let v2 = builder.insert_allocate(Type::Reference(Arc::new(Type::field())));
         builder.insert_store(v2, v0);
 
         let v3 = builder.insert_load(v2, Type::field());
@@ -681,12 +762,9 @@ mod tests {
         // acir fn main f0 {
         //   b0():
         //     v9 = allocate
-        //     store Field 0 at v9
         //     v10 = allocate
-        //     store v9 at v10
         //     jmp b1()
         //   b1():
-        //     store Field 2 at v9
         //     return
         // }
         let ssa = ssa.mem2reg();
@@ -698,14 +776,17 @@ mod tests {
         assert_eq!(count_loads(main.entry_block(), &main.dfg), 0);
         assert_eq!(count_loads(b1, &main.dfg), 0);
 
-        // Only the first store in b1 is removed since there is another store to the same reference
+        // All stores should be removed.
+        // The first store in b1 is removed since there is another store to the same reference
         // in the same block, and the store is not needed before the later store.
-        assert_eq!(count_stores(main.entry_block(), &main.dfg), 2);
-        assert_eq!(count_stores(b1, &main.dfg), 1);
+        // The rest of the stores are also removed as no loads are done within any blocks
+        // to the stored values.
+        assert_eq!(count_stores(main.entry_block(), &main.dfg), 0);
+        assert_eq!(count_stores(b1, &main.dfg), 0);
 
         let b1_instructions = main.dfg[b1].instructions();
 
         // We expect the last eq to be optimized out
-        assert_eq!(b1_instructions.len(), 1);
+        assert_eq!(b1_instructions.len(), 0);
     }
 }

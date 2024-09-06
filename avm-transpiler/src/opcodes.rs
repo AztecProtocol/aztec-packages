@@ -55,7 +55,6 @@ pub enum AvmOpcode {
     NULLIFIEREXISTS,
     EMITNULLIFIER,
     L1TOL2MSGEXISTS,
-    HEADERMEMBER,
     GETCONTRACTINSTANCE,
     EMITUNENCRYPTEDLOG,
     SENDL2TOL1MSG,
@@ -74,8 +73,12 @@ pub enum AvmOpcode {
     PEDERSEN, // temp - may be removed, but alot of contracts rely on it
     ECADD,
     MSM,
+    PEDERSENCOMMITMENT, // temp
     // Conversions
     TORADIXLE,
+    // Other
+    SHA256COMPRESSION,
+    KECCAKF1600,
 }
 
 impl AvmOpcode {
@@ -143,7 +146,6 @@ impl AvmOpcode {
             AvmOpcode::NULLIFIEREXISTS => "NULLIFIEREXISTS", // Notes & Nullifiers
             AvmOpcode::EMITNULLIFIER => "EMITNULLIFIER", // Notes & Nullifiers
             AvmOpcode::L1TOL2MSGEXISTS => "L1TOL2MSGEXISTS", // Messages
-            AvmOpcode::HEADERMEMBER => "HEADERMEMBER", // Archive tree & Headers
 
             // Accrued Substate
             AvmOpcode::EMITUNENCRYPTEDLOG => "EMITUNENCRYPTEDLOG",
@@ -167,8 +169,12 @@ impl AvmOpcode {
             AvmOpcode::PEDERSEN => "PEDERSEN",
             AvmOpcode::ECADD => "ECADD",
             AvmOpcode::MSM => "MSM",
+            AvmOpcode::PEDERSENCOMMITMENT => "PEDERSENCOMMITMENT",
             // Conversions
             AvmOpcode::TORADIXLE => "TORADIXLE",
+            // Other
+            AvmOpcode::SHA256COMPRESSION => "SHA256COMPRESSION",
+            AvmOpcode::KECCAKF1600 => "KECCAKF1600",
         }
     }
 }

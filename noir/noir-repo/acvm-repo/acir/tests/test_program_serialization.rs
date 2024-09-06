@@ -13,14 +13,14 @@ use std::collections::BTreeSet;
 
 use acir::{
     circuit::{
-        brillig::{BrilligBytecode, BrilligInputs, BrilligOutputs},
-        opcodes::{BlackBoxFuncCall, BlockId, FunctionInput, MemOp},
+        brillig::{BrilligBytecode, BrilligFunctionId, BrilligInputs, BrilligOutputs},
+        opcodes::{AcirFunctionId, BlackBoxFuncCall, BlockId, FunctionInput, MemOp},
         Circuit, Opcode, Program, PublicInputs,
     },
     native_types::{Expression, Witness},
 };
 use acir_field::{AcirField, FieldElement};
-use brillig::{HeapArray, HeapValueType, MemoryAddress, ValueOrArray};
+use brillig::{BitSize, HeapArray, HeapValueType, IntegerBitSize, MemoryAddress, ValueOrArray};
 
 #[test]
 fn addition_circuit() {
@@ -181,7 +181,7 @@ fn simple_brillig_foreign_call() {
     };
 
     let opcodes = vec![Opcode::BrilligCall {
-        id: 0,
+        id: BrilligFunctionId(0),
         inputs: vec![
             BrilligInputs::Single(w_input.into()), // Input Register 0,
         ],
@@ -204,12 +204,11 @@ fn simple_brillig_foreign_call() {
     let bytes = Program::serialize_program(&program);
 
     let expected_serialization: Vec<u8> = vec![
-        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 173, 144, 193, 10, 192, 32, 8, 134, 117, 99, 99, 236,
-        182, 55, 105, 111, 176, 151, 217, 161, 75, 135, 136, 30, 63, 42, 82, 144, 8, 47, 245, 65,
-        252, 230, 47, 162, 34, 52, 174, 242, 144, 226, 131, 148, 255, 18, 206, 125, 164, 102, 142,
-        23, 215, 245, 50, 114, 222, 173, 15, 80, 38, 65, 217, 108, 39, 61, 7, 30, 115, 11, 223,
-        186, 248, 251, 160, 221, 170, 146, 64, 191, 39, 215, 60, 3, 47, 3, 99, 171, 188, 84, 164,
-        1, 0, 0,
+        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 173, 80, 49, 10, 192, 32, 12, 52, 45, 45, 133, 110, 190,
+        68, 127, 224, 103, 28, 92, 28, 68, 124, 191, 130, 9, 4, 137, 46, 122, 16, 46, 119, 7, 33,
+        9, 168, 142, 175, 21, 96, 255, 32, 147, 230, 32, 207, 33, 155, 61, 88, 56, 55, 203, 240,
+        125, 175, 177, 1, 110, 170, 197, 101, 55, 242, 43, 100, 132, 159, 229, 33, 22, 159, 242,
+        234, 87, 51, 45, 121, 90, 200, 42, 48, 209, 35, 111, 164, 1, 0, 0,
     ];
 
     assert_eq!(bytes, expected_serialization)
@@ -239,7 +238,7 @@ fn complex_brillig_foreign_call() {
             brillig::Opcode::Const {
                 destination: MemoryAddress(0),
                 value: FieldElement::from(32_usize),
-                bit_size: 32,
+                bit_size: BitSize::Integer(IntegerBitSize::U32),
             },
             brillig::Opcode::CalldataCopy {
                 destination_address: MemoryAddress(1),
@@ -273,7 +272,7 @@ fn complex_brillig_foreign_call() {
     };
 
     let opcodes = vec![Opcode::BrilligCall {
-        id: 0,
+        id: BrilligFunctionId(0),
         inputs: vec![
             // Input 0,1,2
             BrilligInputs::Array(vec![
@@ -308,15 +307,15 @@ fn complex_brillig_foreign_call() {
 
     let bytes = Program::serialize_program(&program);
     let expected_serialization: Vec<u8> = vec![
-        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 213, 84, 75, 10, 131, 64, 12, 77, 102, 90, 43, 221, 245,
-        6, 133, 246, 0, 211, 158, 192, 187, 136, 59, 69, 151, 158, 94, 116, 48, 131, 241, 233, 70,
-        28, 65, 3, 195, 155, 79, 62, 47, 9, 25, 166, 81, 210, 97, 177, 236, 239, 130, 70, 208, 223,
-        91, 154, 75, 208, 205, 4, 221, 62, 249, 113, 60, 95, 238, 40, 142, 230, 2, 28, 237, 1, 28,
-        73, 245, 255, 132, 253, 142, 217, 151, 168, 245, 179, 43, 243, 115, 163, 113, 190, 18, 57,
-        63, 4, 83, 44, 180, 55, 50, 180, 28, 188, 153, 224, 196, 122, 175, 111, 112, 68, 24, 65,
-        116, 178, 40, 89, 254, 93, 162, 120, 48, 196, 126, 170, 12, 243, 186, 106, 202, 162, 181,
-        160, 138, 84, 63, 106, 255, 133, 119, 6, 187, 14, 108, 59, 133, 250, 243, 90, 139, 19, 238,
-        205, 6, 223, 47, 154, 202, 27, 74, 222, 3, 234, 73, 242, 82, 65, 5, 0, 0,
+        31, 139, 8, 0, 0, 0, 0, 0, 0, 255, 213, 84, 75, 10, 132, 48, 12, 77, 90, 199, 17, 102, 55,
+        39, 24, 152, 57, 64, 199, 19, 120, 23, 113, 167, 232, 210, 227, 107, 49, 98, 124, 22, 92,
+        88, 65, 31, 148, 244, 147, 207, 75, 66, 202, 52, 33, 27, 23, 203, 254, 33, 210, 136, 244,
+        247, 150, 214, 152, 117, 11, 145, 238, 24, 254, 28, 207, 151, 59, 139, 163, 185, 1, 71,
+        123, 2, 71, 82, 253, 191, 96, 191, 99, 246, 37, 106, 253, 108, 96, 126, 18, 154, 230, 43,
+        149, 243, 83, 100, 134, 133, 246, 70, 134, 182, 131, 183, 2, 78, 172, 247, 250, 1, 71, 132,
+        17, 196, 46, 137, 150, 105, 238, 82, 197, 133, 33, 254, 75, 101, 89, 182, 77, 87, 87, 189,
+        5, 85, 164, 251, 85, 251, 31, 188, 51, 216, 161, 173, 134, 254, 192, 66, 186, 28, 208, 219,
+        243, 253, 166, 165, 196, 115, 217, 7, 253, 216, 100, 109, 69, 5, 0, 0,
     ];
 
     assert_eq!(bytes, expected_serialization)
@@ -382,13 +381,13 @@ fn nested_acir_call_circuit() {
     //     x
     // }
     let nested_call = Opcode::Call {
-        id: 1,
+        id: AcirFunctionId(1),
         inputs: vec![Witness(0), Witness(1)],
         outputs: vec![Witness(2)],
         predicate: None,
     };
     let nested_call_two = Opcode::Call {
-        id: 1,
+        id: AcirFunctionId(1),
         inputs: vec![Witness(0), Witness(1)],
         outputs: vec![Witness(3)],
         predicate: None,
@@ -420,7 +419,7 @@ fn nested_acir_call_circuit() {
         q_c: FieldElement::one() + FieldElement::one(),
     });
     let call = Opcode::Call {
-        id: 2,
+        id: AcirFunctionId(2),
         inputs: vec![Witness(2), Witness(1)],
         outputs: vec![Witness(3)],
         predicate: None,

@@ -1,6 +1,4 @@
 import { makeTuple } from '@aztec/foundation/array';
-import { isArrayEmpty } from '@aztec/foundation/collection';
-import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import {
   BufferReader,
@@ -12,7 +10,6 @@ import {
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import {
-  GeneratorIndex,
   MAX_ENCRYPTED_LOGS_PER_CALL,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_CALL,
@@ -36,6 +33,7 @@ import { MaxBlockNumber } from './max_block_number.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
 import { PrivateCallRequest } from './private_call_request.js';
+import { PublicCallRequest } from './public_call_request.js';
 import { ReadRequest } from './read_request.js';
 import { TxContext } from './tx_context.js';
 
@@ -98,11 +96,11 @@ export class PrivateCircuitPublicInputs {
     /**
      * Public call stack at the current kernel iteration.
      */
-    public publicCallStackHashes: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public publicCallRequests: Tuple<PublicCallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * Hash of the public teardown function.
      */
-    public publicTeardownFunctionHash: Fr,
+    public publicTeardownCallRequest: PublicCallRequest,
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
@@ -173,8 +171,8 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr),
-      reader.readObject(Fr),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest),
+      reader.readObject(PublicCallRequest),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readObject(Fr),
       reader.readObject(Fr),
@@ -201,8 +199,8 @@ export class PrivateCircuitPublicInputs {
       reader.readArray(MAX_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest),
-      reader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
-      reader.readField(),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest),
+      reader.readObject(PublicCallRequest),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
       reader.readField(),
       reader.readField(),
@@ -232,8 +230,8 @@ export class PrivateCircuitPublicInputs {
       makeTuple(MAX_NOTE_HASHES_PER_CALL, NoteHash.empty),
       makeTuple(MAX_NULLIFIERS_PER_CALL, Nullifier.empty),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PrivateCallRequest.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      Fr.ZERO,
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest.empty),
+      PublicCallRequest.empty(),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
       Fr.ZERO,
       Fr.ZERO,
@@ -246,7 +244,6 @@ export class PrivateCircuitPublicInputs {
   }
 
   isEmpty() {
-    const isZeroArray = (arr: { isZero: (...args: any[]) => boolean }[]) => isArrayEmpty(arr, item => item.isZero());
     return (
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
@@ -260,8 +257,8 @@ export class PrivateCircuitPublicInputs {
       isEmptyArray(this.noteHashes) &&
       isEmptyArray(this.nullifiers) &&
       isEmptyArray(this.privateCallRequests) &&
-      isZeroArray(this.publicCallStackHashes) &&
-      this.publicTeardownFunctionHash.isZero() &&
+      isEmptyArray(this.publicCallRequests) &&
+      this.publicTeardownCallRequest.isEmpty() &&
       isEmptyArray(this.l2ToL1Msgs) &&
       isEmptyArray(this.noteEncryptedLogsHashes) &&
       isEmptyArray(this.encryptedLogsHashes) &&
@@ -290,8 +287,8 @@ export class PrivateCircuitPublicInputs {
       fields.noteHashes,
       fields.nullifiers,
       fields.privateCallRequests,
-      fields.publicCallStackHashes,
-      fields.publicTeardownFunctionHash,
+      fields.publicCallRequests,
+      fields.publicTeardownCallRequest,
       fields.l2ToL1Msgs,
       fields.startSideEffectCounter,
       fields.endSideEffectCounter,
@@ -322,9 +319,5 @@ export class PrivateCircuitPublicInputs {
       );
     }
     return fields;
-  }
-
-  hash(): Fr {
-    return pedersenHash(this.toFields(), GeneratorIndex.PRIVATE_CIRCUIT_PUBLIC_INPUTS);
   }
 }

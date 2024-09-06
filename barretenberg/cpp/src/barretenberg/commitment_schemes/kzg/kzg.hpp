@@ -3,7 +3,6 @@
 #include "../claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <memory>
@@ -30,9 +29,10 @@ template <typename Curve_> class KZG {
      * computed
      * @param prover_transcript Prover transcript
      */
+    template <typename Transcript>
     static void compute_opening_proof(std::shared_ptr<CK> ck,
                                       const ProverOpeningClaim<Curve>& opening_claim,
-                                      const std::shared_ptr<NativeTranscript>& prover_trancript)
+                                      const std::shared_ptr<Transcript>& prover_trancript)
     {
         Polynomial quotient = opening_claim.polynomial;
         OpeningPair<Curve> pair = opening_claim.opening_pair;
@@ -56,7 +56,9 @@ template <typename Curve_> class KZG {
      *      - P₀ = C − v⋅[1]₁ + r⋅[W(x)]₁
      *      - P₁ = [W(x)]₁
      */
-    static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& claim, const auto& verifier_transcript)
+    template <typename Transcript>
+    static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& claim,
+                                             const std::shared_ptr<Transcript>& verifier_transcript)
     {
         auto quotient_commitment = verifier_transcript->template receive_from_prover<Commitment>("KZG:W");
 

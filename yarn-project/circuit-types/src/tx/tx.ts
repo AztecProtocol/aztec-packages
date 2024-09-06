@@ -2,22 +2,27 @@ import {
   ClientIvcProof,
   ContractClassRegisteredEvent,
   PrivateKernelTailCircuitPublicInputs,
-  PublicCallRequest,
   type PublicKernelCircuitPublicInputs,
 } from '@aztec/circuits.js';
+import { type Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type GetUnencryptedLogsResponse } from '../logs/get_unencrypted_logs_response.js';
 import { type L2LogsSource } from '../logs/l2_logs_source.js';
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
+import { Gossipable } from '../p2p/gossipable.js';
+import { TopicType, createTopicString } from '../p2p/topic_type.js';
+import { PublicExecutionRequest } from '../public_execution_request.js';
 import { type TxStats } from '../stats/stats.js';
 import { TxHash } from './tx_hash.js';
 
 /**
  * The interface of an L2 transaction.
  */
-export class Tx {
+export class Tx extends Gossipable {
+  static override p2pTopic: string;
+
   constructor(
     /**
      * Output of the private kernel circuit for this tx.
@@ -43,26 +48,42 @@ export class Tx {
     public unencryptedLogs: UnencryptedTxL2Logs,
     /**
      * Enqueued public functions from the private circuit to be run by the sequencer.
-     * Preimages of the public call stack entries from the private kernel circuit output.
      */
-    public readonly enqueuedPublicFunctionCalls: PublicCallRequest[],
+    public readonly enqueuedPublicFunctionCalls: PublicExecutionRequest[],
     /**
      * Public function call to be run by the sequencer as part of teardown.
      */
-    public readonly publicTeardownFunctionCall: PublicCallRequest,
+    public readonly publicTeardownFunctionCall: PublicExecutionRequest,
   ) {
-    const kernelPublicCallStackSize = data.numberOfPublicCallRequests();
-    const totalPublicCalls = enqueuedPublicFunctionCalls.length + (publicTeardownFunctionCall.isEmpty() ? 0 : 1);
-    if (kernelPublicCallStackSize !== totalPublicCalls) {
-      throw new Error(
-        `Mismatch number of enqueued public function calls in kernel circuit public inputs (expected
-          ${kernelPublicCallStackSize}, got ${totalPublicCalls})`,
-      );
-    }
+    super();
+  }
+
+  // Gossipable method
+  static {
+    this.p2pTopic = createTopicString(TopicType.tx);
+  }
+
+  // Gossipable method
+  override p2pMessageIdentifier(): Buffer32 {
+    return this.getTxHash();
   }
 
   hasPublicCalls() {
     return this.data.numberOfPublicCallRequests() > 0;
+  }
+
+  getNonRevertiblePublicExecutionRequests(): PublicExecutionRequest[] {
+    const numRevertible = this.data.numberOfRevertiblePublicCallRequests();
+    return this.enqueuedPublicFunctionCalls.slice(numRevertible);
+  }
+
+  getRevertiblePublicExecutionRequests(): PublicExecutionRequest[] {
+    const numRevertible = this.data.numberOfRevertiblePublicCallRequests();
+    return this.enqueuedPublicFunctionCalls.slice(0, numRevertible);
+  }
+
+  getPublicTeardownExecutionRequest(): PublicExecutionRequest | undefined {
+    return this.publicTeardownFunctionCall.isEmpty() ? undefined : this.publicTeardownFunctionCall;
   }
 
   /**
@@ -78,8 +99,8 @@ export class Tx {
       reader.readObject(EncryptedNoteTxL2Logs),
       reader.readObject(EncryptedTxL2Logs),
       reader.readObject(UnencryptedTxL2Logs),
-      reader.readArray(reader.readNumber(), PublicCallRequest),
-      reader.readObject(PublicCallRequest),
+      reader.readArray(reader.readNumber(), PublicExecutionRequest),
+      reader.readObject(PublicExecutionRequest),
     );
   }
 
@@ -137,9 +158,11 @@ export class Tx {
     const unencryptedLogs = UnencryptedTxL2Logs.fromBuffer(Buffer.from(obj.unencryptedLogs, 'hex'));
     const clientIvcProof = ClientIvcProof.fromBuffer(Buffer.from(obj.clientIvcProof, 'hex'));
     const enqueuedPublicFunctions = obj.enqueuedPublicFunctions
-      ? obj.enqueuedPublicFunctions.map((x: string) => PublicCallRequest.fromBuffer(Buffer.from(x, 'hex')))
+      ? obj.enqueuedPublicFunctions.map((x: string) => PublicExecutionRequest.fromBuffer(Buffer.from(x, 'hex')))
       : [];
-    const publicTeardownFunctionCall = PublicCallRequest.fromBuffer(Buffer.from(obj.publicTeardownFunctionCall, 'hex'));
+    const publicTeardownFunctionCall = PublicExecutionRequest.fromBuffer(
+      Buffer.from(obj.publicTeardownFunctionCall, 'hex'),
+    );
     return new Tx(
       publicInputs,
       clientIvcProof,
@@ -187,10 +210,14 @@ export class Tx {
           ? // needsSetup? then we pay through a fee payment contract
             this.data.forPublic?.needsSetup
             ? // if the first call is to `approve_public_authwit`, then it's a public payment
-              this.enqueuedPublicFunctionCalls.at(-1)!.functionSelector.toField().toBigInt() === 0x43417bb1n
+              this.data
+                .getNonRevertiblePublicCallRequests()
+                .at(-1)!
+                .item.callContext.functionSelector.toField()
+                .toBigInt() === 0x43417bb1n
               ? 'fpc_public'
               : 'fpc_private'
-            : 'native'
+            : 'fee_juice'
           : 'none',
       classRegisteredCount: this.unencryptedLogs
         .unrollLogs()
@@ -239,17 +266,17 @@ export class Tx {
     const noteEncryptedLogs = EncryptedNoteTxL2Logs.fromBuffer(Buffer.from(tx.noteEncryptedLogs.toBuffer()));
     const encryptedLogs = EncryptedTxL2Logs.fromBuffer(tx.encryptedLogs.toBuffer());
     const unencryptedLogs = UnencryptedTxL2Logs.fromBuffer(tx.unencryptedLogs.toBuffer());
-    const enqueuedPublicFunctions = tx.enqueuedPublicFunctionCalls.map(x => {
-      return PublicCallRequest.fromBuffer(x.toBuffer());
-    });
-    const publicTeardownFunctionCall = PublicCallRequest.fromBuffer(tx.publicTeardownFunctionCall.toBuffer());
+    const enqueuedPublicFunctionCalls = tx.enqueuedPublicFunctionCalls.map(x =>
+      PublicExecutionRequest.fromBuffer(x.toBuffer()),
+    );
+    const publicTeardownFunctionCall = PublicExecutionRequest.fromBuffer(tx.publicTeardownFunctionCall.toBuffer());
     return new Tx(
       publicInputs,
       clientIvcProof,
       noteEncryptedLogs,
       encryptedLogs,
       unencryptedLogs,
-      enqueuedPublicFunctions,
+      enqueuedPublicFunctionCalls,
       publicTeardownFunctionCall,
     );
   }
@@ -269,7 +296,7 @@ export class Tx {
    * @param out the output to put passing logs in, to keep this function abstract
    */
   public filterRevertedLogs(kernelOutput: PublicKernelCircuitPublicInputs) {
-    this.encryptedLogs = this.encryptedLogs.filter(
+    this.encryptedLogs = this.encryptedLogs.filterScoped(
       kernelOutput.endNonRevertibleData.encryptedLogsHashes,
       EncryptedTxL2Logs.empty(),
     );

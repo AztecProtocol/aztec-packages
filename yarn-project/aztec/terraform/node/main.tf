@@ -54,9 +54,9 @@ data "terraform_remote_state" "l1_contracts" {
 
 # Compute local variables
 locals {
-  publisher_private_keys = [var.SEQ_1_PUBLISHER_PRIVATE_KEY, var.SEQ_2_PUBLISHER_PRIVATE_KEY]
-  node_p2p_private_keys  = [var.NODE_1_PRIVATE_KEY, var.NODE_2_PRIVATE_KEY]
-  node_count             = length(local.publisher_private_keys)
+  sequencer_private_keys = var.SEQUENCER_PRIVATE_KEYS
+  node_p2p_private_keys  = var.NODE_P2P_PRIVATE_KEYS
+  node_count             = length(local.sequencer_private_keys)
   data_dir               = "/usr/src/yarn-project/aztec"
 }
 
@@ -97,15 +97,13 @@ resource "aws_service_discovery_service" "aztec-node" {
   # Terraform just fails if this resource changes and you have registered instances.
   provisioner "local-exec" {
     when    = destroy
-    command = "${path.module}/servicediscovery-drain.sh ${self.id}"
+    command = "${path.module}/../servicediscovery-drain.sh ${self.id}"
   }
 }
 
 # Configure an EFS filesystem.
 resource "aws_efs_file_system" "node_data_store" {
-  creation_token                  = "${var.DEPLOY_TAG}-node-data"
-  throughput_mode                 = "provisioned"
-  provisioned_throughput_in_mibps = 20
+  creation_token = "${var.DEPLOY_TAG}-node-data"
 
   tags = {
     Name = "${var.DEPLOY_TAG}-node-data"
@@ -149,21 +147,9 @@ resource "aws_ecs_task_definition" "aztec-node" {
 
   container_definitions = jsonencode([
     {
-      name      = "init-container"
-      image     = "amazonlinux:latest"
-      essential = false
-      command   = ["sh", "-c", "mkdir -p ${local.data_dir}/node_${count.index + 1}"]
-      mountPoints = [
-        {
-          containerPath = local.data_dir
-          sourceVolume  = "efs-data-store"
-        }
-      ]
-    },
-    {
       name              = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
-      image             = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.DEPLOY_TAG}"
-      command           = ["start", "--node", "--archiver", "--sequencer", "--prover"]
+      image             = "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}"
+      command           = ["start", "--node", "--archiver", "--sequencer"]
       essential         = true
       memoryReservation = 3776
       portMappings = [
@@ -202,11 +188,15 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "ETHEREUM_HOST"
-          value = "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${var.API_KEY}"
+          value = "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/admin-${var.FORK_ADMIN_API_KEY}"
         },
         {
           name  = "DATA_DIRECTORY"
-          value = "${local.data_dir}_${count.index + 1}"
+          value = "${local.data_dir}/node_${count.index + 1}/data"
+        },
+        {
+          name  = "IS_DEV_NET"
+          value = "true"
         },
         {
           name  = "ARCHIVER_POLLING_INTERVAL"
@@ -225,8 +215,20 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = var.SEQ_MIN_TX_PER_BLOCK
         },
         {
+          name  = "SEQ_MAX_SECONDS_BETWEEN_BLOCKS"
+          value = var.SEQ_MAX_SECONDS_BETWEEN_BLOCKS
+        },
+        {
+          name  = "SEQ_MIN_SECONDS_BETWEEN_BLOCKS"
+          value = var.SEQ_MIN_SECONDS_BETWEEN_BLOCKS
+        },
+        {
           name  = "SEQ_PUBLISHER_PRIVATE_KEY"
-          value = local.publisher_private_keys[count.index]
+          value = local.sequencer_private_keys[count.index]
+        },
+        {
+          name  = "VALIDATOR_PRIVATE_KEY"
+          value = local.sequencer_private_keys[count.index]
         },
         {
           name  = "ROLLUP_CONTRACT_ADDRESS"
@@ -249,12 +251,12 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = data.terraform_remote_state.l1_contracts.outputs.availability_oracle_contract_address
         },
         {
-          name  = "GAS_TOKEN_CONTRACT_ADDRESS"
-          value = data.terraform_remote_state.l1_contracts.outputs.gas_token_contract_address
+          name  = "FEE_JUICE_CONTRACT_ADDRESS"
+          value = data.terraform_remote_state.l1_contracts.outputs.fee_juice_contract_address
         },
         {
-          name  = "GAS_PORTAL_CONTRACT_ADDRESS"
-          value = data.terraform_remote_state.l1_contracts.outputs.gas_portal_contract_address
+          name  = "FEE_JUICE_PORTAL_CONTRACT_ADDRESS"
+          value = data.terraform_remote_state.l1_contracts.outputs.FEE_JUICE_PORTAL_CONTRACT_ADDRESS
         },
         {
           name  = "API_KEY"
@@ -286,7 +288,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "BOOTSTRAP_NODES"
-          value = "enr:-JO4QNvVz7yYHQ4nzZQ7JCng9LOQkDnFqeLntDEfrAAGOS_eMFWOE4ZlyjYKb3J-yCGu8xoXXEUnUqI8iTJj1K43KH0EjWF6dGVjX25ldHdvcmsBgmlkgnY0gmlwhA0pYm6Jc2VjcDI1NmsxoQLzGvsxdzM9VhPjrMnxLmMxvrEcvSg-QZq7PWXDnnIy1YN1ZHCCnjQ"
+          value = var.BOOTSTRAP_NODES
         },
         {
           name  = "P2P_ENABLED"
@@ -317,13 +319,53 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "2000"
         },
         {
-          name  = "PROVER_AGENTS"
+          name  = "P2P_TX_POOL_KEEP_PROVEN_FOR",
+          value = tostring(var.P2P_TX_POOL_KEEP_PROVEN_FOR)
+        },
+        {
+          name  = "PROVER_AGENT_ENABLED"
+          value = "false"
+        },
+        {
+          name  = "PROVER_AGENT_CONCURRENCY",
           value = "0"
         },
         {
           name  = "PROVER_REAL_PROOFS"
           value = tostring(var.PROVING_ENABLED)
-        }
+        },
+        {
+          name  = "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT"
+          value = "http://aztec-otel.local:4318/v1/metrics"
+        },
+        {
+          name  = "OTEL_SERVICE_NAME"
+          value = "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"
+        },
+        {
+          name  = "BB_WORKING_DIRECTORY"
+          value = "${local.data_dir}/node_${count.index + 1}/temp"
+        },
+        {
+          name  = "ACVM_WORKING_DIRECTORY"
+          value = "${local.data_dir}/node_${count.index + 1}/temp"
+        },
+        {
+          name  = "LOG_LEVEL"
+          value = "info"
+        },
+        {
+          name  = "LOG_JSON",
+          value = "1"
+        },
+        {
+          name  = "NETWORK_NAME",
+          value = "${var.DEPLOY_TAG}"
+        },
+        {
+          name  = "VALIDATOR_DISABLED",
+          value = "1"
+        },
       ]
       mountPoints = [
         {
@@ -332,10 +374,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
         }
       ]
       dependsOn = [
-        {
-          containerName = "init-container"
-          condition     = "COMPLETE"
-        }
       ]
       logConfiguration = {
         logDriver = "awslogs"
@@ -358,6 +396,7 @@ resource "aws_ecs_service" "aztec-node" {
   deployment_minimum_healthy_percent = 0
   platform_version                   = "1.4.0"
   force_new_deployment               = true
+  enable_execute_command             = true
 
 
   network_configuration {
@@ -410,7 +449,7 @@ resource "aws_alb_target_group" "aztec-node-http" {
 resource "aws_lb_listener_rule" "api" {
   count        = local.node_count
   listener_arn = data.terraform_remote_state.aztec2_iac.outputs.alb_listener_arn
-  priority     = 500 + count.index
+  priority     = var.NODE_LB_RULE_PRIORITY + count.index
 
   action {
     type             = "forward"
@@ -445,18 +484,20 @@ resource "aws_security_group_rule" "allow-node-tcp-out" {
 }
 
 resource "aws_security_group_rule" "allow-node-udp-in" {
+  count             = local.node_count
   type              = "ingress"
   from_port         = var.NODE_P2P_UDP_PORT
-  to_port           = var.NODE_P2P_UDP_PORT + 100
+  to_port           = var.NODE_P2P_UDP_PORT + count.index
   protocol          = "udp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id
 }
 
 resource "aws_security_group_rule" "allow-node-udp-out" {
+  count             = local.node_count
   type              = "egress"
   from_port         = var.NODE_P2P_UDP_PORT
-  to_port           = var.NODE_P2P_UDP_PORT + 100
+  to_port           = var.NODE_P2P_UDP_PORT + count.index
   protocol          = "udp"
   cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = data.terraform_remote_state.aztec-network_iac.outputs.p2p_security_group_id

@@ -18,7 +18,7 @@ describe('UnconstrainedFunctionBroadcastedEvent', () => {
     expect(event).toMatchSnapshot();
   });
 
-  it('filters out zero-elements at the end of the artifcat tree sibling path', () => {
+  it('filters out zero-elements at the end of the artifact tree sibling path', () => {
     const siblingPath: Tuple<Fr, 5> = [Fr.ZERO, new Fr(1), Fr.ZERO, new Fr(2), Fr.ZERO];
     const event = new UnconstrainedFunctionBroadcastedEvent(
       Fr.random(),

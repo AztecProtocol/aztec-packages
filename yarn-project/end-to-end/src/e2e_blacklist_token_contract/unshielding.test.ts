@@ -50,6 +50,9 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
     await wallets[1].addAuthWitness(witness);
 
+    // We give wallets[1] access to wallets[0]'s notes to unshield the note.
+    wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
+
     await action.send().wait();
     tokenSim.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount);
 
@@ -122,6 +125,9 @@ describe('e2e_blacklist_token_contract unshielding', () => {
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
       await wallets[2].addAuthWitness(witness);
 
+      // We give wallets[2] access to wallets[0]'s notes to test the authwit.
+      wallets[2].setScopes([wallets[2].getAddress(), wallets[0].getAddress()]);
+
       await expect(action.prove()).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
       );
@@ -130,13 +136,13 @@ describe('e2e_blacklist_token_contract unshielding', () => {
     it('unshield from blacklisted account', async () => {
       await expect(
         asset.methods.unshield(blacklisted.getAddress(), wallets[0].getAddress(), 1n, 0).prove(),
-      ).rejects.toThrow("Assertion failed: Blacklisted: Sender '!from_roles.is_blacklisted'");
+      ).rejects.toThrow(/Assertion failed: Blacklisted: Sender .*/);
     });
 
     it('unshield to blacklisted account', async () => {
       await expect(
         asset.methods.unshield(wallets[0].getAddress(), blacklisted.getAddress(), 1n, 0).prove(),
-      ).rejects.toThrow("Assertion failed: Blacklisted: Recipient '!to_roles.is_blacklisted'");
+      ).rejects.toThrow(/Assertion failed: Blacklisted: Recipient .*/);
     });
   });
 });

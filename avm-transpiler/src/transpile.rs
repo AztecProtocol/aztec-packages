@@ -1,14 +1,13 @@
+use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
+use fxhash::FxHashMap as HashMap;
 use std::collections::BTreeMap;
 
-use acvm::acir::brillig::Opcode as BrilligOpcode;
-
-use acvm::acir::circuit::OpcodeLocation;
+use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
 };
 use acvm::{AcirField, FieldElement};
 use noirc_errors::debug_info::DebugInfo;
-use noirc_errors::Location;
 
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
@@ -74,7 +73,7 @@ pub fn brillig_to_avm(
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
                     indirect: Some(ALL_DIRECT),
-                    tag: Some(tag_from_bit_size(*bit_size)),
+                    tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
                     operands: vec![
                         AvmOperand::U32 { value: lhs.to_usize() as u32 },
                         AvmOperand::U32 { value: rhs.to_usize() as u32 },
@@ -119,7 +118,10 @@ pub fn brillig_to_avm(
                 });
             }
             BrilligOpcode::Const { destination, value, bit_size } => {
-                handle_const(&mut avm_instrs, destination, value, bit_size);
+                handle_const(&mut avm_instrs, destination, value, bit_size, false);
+            }
+            BrilligOpcode::IndirectConst { destination_pointer, value, bit_size } => {
+                handle_const(&mut avm_instrs, destination_pointer, value, bit_size, true);
             }
             BrilligOpcode::Mov { destination, source } => {
                 avm_instrs.push(generate_mov_instruction(
@@ -359,19 +361,19 @@ fn handle_cast(
     avm_instrs: &mut Vec<AvmInstruction>,
     source: &MemoryAddress,
     destination: &MemoryAddress,
-    bit_size: u32,
+    bit_size: BitSize,
 ) {
     let source_offset = source.to_usize() as u32;
     let dest_offset = destination.to_usize() as u32;
 
-    if bit_size == 1 {
+    if bit_size == BitSize::Integer(IntegerBitSize::U1) {
         assert!(
             matches!(tag_from_bit_size(bit_size), AvmTypeTag::UINT8),
             "If u1 doesn't map to u8 anymore, change this code!"
         );
         avm_instrs.extend([
             // We cast to Field to be able to use toradix.
-            generate_cast_instruction(source_offset, dest_offset, AvmTypeTag::FIELD),
+            generate_cast_instruction(source_offset, false, dest_offset, false, AvmTypeTag::FIELD),
             // Toradix with radix 2 and 1 limb is the same as modulo 2.
             // We need to insert an instruction explicitly because we want to fine-tune 'indirect'.
             AvmInstruction {
@@ -386,11 +388,11 @@ fn handle_cast(
                 ],
             },
             // Then we cast back to u8 (which is what we use for u1).
-            generate_cast_instruction(dest_offset, dest_offset, AvmTypeTag::UINT8),
+            generate_cast_instruction(dest_offset, false, dest_offset, false, AvmTypeTag::UINT8),
         ]);
     } else {
         let tag = tag_from_bit_size(bit_size);
-        avm_instrs.push(generate_cast_instruction(source_offset, dest_offset, tag));
+        avm_instrs.push(generate_cast_instruction(source_offset, false, dest_offset, false, tag));
     }
 }
 
@@ -666,13 +668,14 @@ fn handle_const(
     avm_instrs: &mut Vec<AvmInstruction>,
     destination: &MemoryAddress,
     value: &FieldElement,
-    bit_size: &u32,
+    bit_size: &BitSize,
+    indirect: bool,
 ) {
     let tag = tag_from_bit_size(*bit_size);
     let dest = destination.to_usize() as u32;
 
     if !matches!(tag, AvmTypeTag::FIELD) {
-        avm_instrs.push(generate_set_instruction(tag, dest, value.to_u128()));
+        avm_instrs.push(generate_set_instruction(tag, dest, value.to_u128(), indirect));
     } else {
         // We can't fit a field in an instruction. This should've been handled in Brillig.
         let field = value;
@@ -680,17 +683,22 @@ fn handle_const(
             panic!("SET: Field value doesn't fit in 128 bits, that's not supported!");
         }
         avm_instrs.extend([
-            generate_set_instruction(AvmTypeTag::UINT128, dest, field.to_u128()),
-            generate_cast_instruction(dest, dest, AvmTypeTag::FIELD),
+            generate_set_instruction(AvmTypeTag::UINT128, dest, field.to_u128(), indirect),
+            generate_cast_instruction(dest, indirect, dest, indirect, AvmTypeTag::FIELD),
         ]);
     }
 }
 
 /// Generates an AVM SET instruction.
-fn generate_set_instruction(tag: AvmTypeTag, dest: u32, value: u128) -> AvmInstruction {
+fn generate_set_instruction(
+    tag: AvmTypeTag,
+    dest: u32,
+    value: u128,
+    indirect: bool,
+) -> AvmInstruction {
     AvmInstruction {
         opcode: AvmOpcode::SET,
-        indirect: Some(ALL_DIRECT),
+        indirect: if indirect { Some(ZEROTH_OPERAND_INDIRECT) } else { Some(ALL_DIRECT) },
         tag: Some(tag),
         operands: vec![
             // const
@@ -709,10 +717,23 @@ fn generate_set_instruction(tag: AvmTypeTag, dest: u32, value: u128) -> AvmInstr
 }
 
 /// Generates an AVM CAST instruction.
-fn generate_cast_instruction(source: u32, destination: u32, dst_tag: AvmTypeTag) -> AvmInstruction {
+fn generate_cast_instruction(
+    source: u32,
+    source_indirect: bool,
+    destination: u32,
+    destination_indirect: bool,
+    dst_tag: AvmTypeTag,
+) -> AvmInstruction {
+    let mut indirect_flags = ALL_DIRECT;
+    if source_indirect {
+        indirect_flags |= ZEROTH_OPERAND_INDIRECT;
+    }
+    if destination_indirect {
+        indirect_flags |= FIRST_OPERAND_INDIRECT;
+    }
     AvmInstruction {
         opcode: AvmOpcode::CAST,
-        indirect: Some(ALL_DIRECT),
+        indirect: Some(indirect_flags),
         tag: Some(dst_tag),
         operands: vec![AvmOperand::U32 { value: source }, AvmOperand::U32 { value: destination }],
     }
@@ -810,7 +831,25 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
-        BlackBoxOp::ToRadix { input, radix, output } => {
+        BlackBoxOp::Keccakf1600 { message, output } => {
+            let message_offset = message.pointer.0;
+            let message_size_offset = message.size.0;
+            let dest_offset = output.pointer.0;
+            assert_eq!(output.size, 25, "Keccakf1600 output size must be 25!");
+
+            avm_instrs.push(AvmInstruction {
+                opcode: AvmOpcode::KECCAKF1600,
+                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                operands: vec![
+                    AvmOperand::U32 { value: dest_offset as u32 },
+                    AvmOperand::U32 { value: message_offset as u32 },
+                    AvmOperand::U32 { value: message_size_offset as u32 },
+                ],
+                ..Default::default()
+            });
+        }
+        // We ignore the output bits flag since we represent bits as bytes
+        BlackBoxOp::ToRadix { input, radix, output, output_bits: _ } => {
             let num_limbs = output.size as u32;
             let input_offset = input.0 as u32;
             let output_offset = output.pointer.0 as u32;
@@ -876,6 +915,24 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
+        // Temporary while we dont have efficient noir implementations (again)
+        BlackBoxOp::PedersenCommitment { inputs, domain_separator, output } => {
+            let input_offset = inputs.pointer.0;
+            let input_size_offset = inputs.size.0;
+            let index_offset = domain_separator.0;
+            let output_offset = output.pointer.0;
+            avm_instrs.push(AvmInstruction {
+                opcode: AvmOpcode::PEDERSENCOMMITMENT,
+                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                operands: vec![
+                    AvmOperand::U32 { value: input_offset as u32 },
+                    AvmOperand::U32 { value: output_offset as u32 },
+                    AvmOperand::U32 { value: input_size_offset as u32 },
+                    AvmOperand::U32 { value: index_offset as u32 },
+                ],
+                ..Default::default()
+            });
+        }
         _ => panic!("Transpiler doesn't know how to process {:?}", operation),
     }
 }
@@ -930,7 +987,7 @@ fn handle_storage_write(
     inputs: &Vec<ValueOrArray>,
 ) {
     assert!(inputs.len() == 2);
-    assert!(destinations.len() == 0);
+    assert!(destinations.is_empty());
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
@@ -939,17 +996,16 @@ fn handle_storage_write(
     };
 
     let src_offset_maybe = inputs[1];
-    let (src_offset, size) = match src_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
-        _ => panic!("Storage write address inputs should be an array of values"),
+    let src_offset = match src_offset_maybe {
+        ValueOrArray::MemoryAddress(src_offset) => src_offset.0,
+        _ => panic!("ForeignCall address source should be a single value"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SSTORE,
-        indirect: Some(ZEROTH_OPERAND_INDIRECT),
+        indirect: Some(ALL_DIRECT),
         operands: vec![
             AvmOperand::U32 { value: src_offset as u32 },
-            AvmOperand::U32 { value: size as u32 },
             AvmOperand::U32 { value: slot_offset as u32 },
         ],
         ..Default::default()
@@ -995,28 +1051,26 @@ fn handle_storage_read(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
-    // For the foreign calls we want to handle, we do not want inputs, as they are getters
-    assert!(inputs.len() == 2); // output, len. The latter is not used by the AVM, but required in the oracle call so that TXE knows how many slots to read.
-    assert!(destinations.len() == 1); // return values
+    assert!(inputs.len() == 1); // output
+    assert!(destinations.len() == 1); // return value
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
         ValueOrArray::MemoryAddress(slot_offset) => slot_offset.0,
-        _ => panic!("ForeignCall address destination should be a single value"),
+        _ => panic!("ForeignCall address input should be a single value"),
     };
 
     let dest_offset_maybe = destinations[0];
-    let (dest_offset, size) = match dest_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
-        _ => panic!("Storage write address inputs should be an array of values"),
+    let dest_offset = match dest_offset_maybe {
+        ValueOrArray::MemoryAddress(dest_offset) => dest_offset.0,
+        _ => panic!("ForeignCall address destination should be a single value"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SLOAD,
-        indirect: Some(FIRST_OPERAND_INDIRECT),
+        indirect: Some(ALL_DIRECT),
         operands: vec![
             AvmOperand::U32 { value: slot_offset as u32 },
-            AvmOperand::U32 { value: size as u32 },
             AvmOperand::U32 { value: dest_offset as u32 },
         ],
         ..Default::default()
@@ -1030,25 +1084,37 @@ pub fn patch_debug_info_pcs(
     brillig_pcs_to_avm_pcs: &[usize],
 ) -> Vec<DebugInfo> {
     for patched_debug_info in debug_infos.iter_mut() {
-        // create a new map with all of its keys (OpcodeLocations) patched
-        let mut patched_locations: BTreeMap<OpcodeLocation, Vec<Location>> = BTreeMap::new();
-        for (original_opcode_location, source_locations) in patched_debug_info.locations.iter() {
-            match original_opcode_location {
-                OpcodeLocation::Brillig { acir_index, brillig_index } => {
-                    let avm_opcode_location = OpcodeLocation::Brillig {
-                        acir_index: *acir_index,
-                        // patch the PC
-                        brillig_index: brillig_pcs_to_avm_pcs[*brillig_index],
-                    };
-                    patched_locations.insert(avm_opcode_location, source_locations.clone());
-                }
-                OpcodeLocation::Acir(_) => (),
+        let mut patched_brillig_locations = BTreeMap::new();
+        for (brillig_function_id, opcode_locations_map) in
+            patched_debug_info.brillig_locations.iter()
+        {
+            // create a new map with all of its keys (OpcodeLocations) patched
+            let mut patched_locations = BTreeMap::new();
+            for (original_opcode_location, source_locations) in opcode_locations_map.iter() {
+                let avm_opcode_location =
+                    BrilligOpcodeLocation(brillig_pcs_to_avm_pcs[original_opcode_location.0]);
+                patched_locations.insert(avm_opcode_location, source_locations.clone());
             }
+            // insert the new map as a brillig locations map for the current function id
+            patched_brillig_locations.insert(*brillig_function_id, patched_locations);
         }
-        // patch debug_info entry
-        patched_debug_info.locations = patched_locations;
+
+        // patch the `DebugInfo` entry
+        patched_debug_info.brillig_locations = patched_brillig_locations;
     }
     debug_infos
+}
+
+/// Patch the assert messages with updated PCs since transpilation injects extra
+/// opcodes into the bytecode.
+pub fn patch_assert_message_pcs(
+    assert_messages: HashMap<usize, String>,
+    brillig_pcs_to_avm_pcs: &[usize],
+) -> HashMap<usize, String> {
+    assert_messages
+        .into_iter()
+        .map(|(brillig_pc, message)| (brillig_pcs_to_avm_pcs[brillig_pc], message))
+        .collect()
 }
 
 /// Compute an array that maps each Brillig pc to an AVM pc.
@@ -1067,8 +1133,9 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
     pc_map[0] = 0; // first PC is always 0 as there are no instructions inserted by AVM at start
     for i in 0..brillig_bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
-            BrilligOpcode::Const { bit_size: 254, .. } => 2,
-            BrilligOpcode::Cast { bit_size: 1, .. } => 3,
+            BrilligOpcode::Const { bit_size: BitSize::Field, .. } => 2,
+            BrilligOpcode::IndirectConst { bit_size: BitSize::Field, .. } => 2,
+            BrilligOpcode::Cast { bit_size: BitSize::Integer(IntegerBitSize::U1), .. } => 3,
             _ => 1,
         };
         // next Brillig pc will map to an AVM pc offset by the
@@ -1078,19 +1145,27 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
     pc_map
 }
 
-fn is_integral_bit_size(bit_size: u32) -> bool {
-    matches!(bit_size, 1 | 8 | 16 | 32 | 64 | 128)
+fn is_integral_bit_size(bit_size: IntegerBitSize) -> bool {
+    matches!(
+        bit_size,
+        IntegerBitSize::U1
+            | IntegerBitSize::U8
+            | IntegerBitSize::U16
+            | IntegerBitSize::U32
+            | IntegerBitSize::U64
+            | IntegerBitSize::U128
+    )
 }
 
-fn tag_from_bit_size(bit_size: u32) -> AvmTypeTag {
+fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
     match bit_size {
-        1 => AvmTypeTag::UINT8, // temp workaround
-        8 => AvmTypeTag::UINT8,
-        16 => AvmTypeTag::UINT16,
-        32 => AvmTypeTag::UINT32,
-        64 => AvmTypeTag::UINT64,
-        128 => AvmTypeTag::UINT128,
-        254 => AvmTypeTag::FIELD,
+        BitSize::Integer(IntegerBitSize::U1) => AvmTypeTag::UINT8, // temp workaround
+        BitSize::Integer(IntegerBitSize::U8) => AvmTypeTag::UINT8,
+        BitSize::Integer(IntegerBitSize::U16) => AvmTypeTag::UINT16,
+        BitSize::Integer(IntegerBitSize::U32) => AvmTypeTag::UINT32,
+        BitSize::Integer(IntegerBitSize::U64) => AvmTypeTag::UINT64,
+        BitSize::Integer(IntegerBitSize::U128) => AvmTypeTag::UINT128,
+        BitSize::Field => AvmTypeTag::FIELD,
         _ => panic!("The AVM doesn't support integer bit size {:?}", bit_size),
     }
 }

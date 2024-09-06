@@ -1,9 +1,9 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
 import {
   type BlockProver,
-  type BlockResult,
+  type MerkleTreeAdminOperations,
   type ProcessedTx,
-  type ProvingTicket,
+  type PublicExecutionRequest,
   type ServerCircuitProver,
   type Tx,
   type TxValidator,
@@ -14,7 +14,6 @@ import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import {
   type ContractsDataSourcePublicDB,
-  type PublicExecutionRequest,
   type PublicExecutionResult,
   PublicExecutionResultBuilder,
   type PublicExecutor,
@@ -25,7 +24,7 @@ import {
   type WorldStatePublicDB,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { MerkleTrees } from '@aztec/world-state';
 
 import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -36,27 +35,7 @@ import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
 import { ProverAgent } from '../prover-agent/prover-agent.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
 
-class DummyProverClient implements BlockProver {
-  constructor(private orchestrator: ProvingOrchestrator) {}
-  startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<ProvingTicket> {
-    return this.orchestrator.startNewBlock(numTxs, globalVariables, l1ToL2Messages);
-  }
-  addNewTx(tx: ProcessedTx): Promise<void> {
-    return this.orchestrator.addNewTx(tx);
-  }
-  cancelBlock(): void {
-    return this.orchestrator.cancelBlock();
-  }
-  finaliseBlock(): Promise<BlockResult> {
-    return this.orchestrator.finaliseBlock();
-  }
-  setBlockCompleted(): Promise<void> {
-    return this.orchestrator.setBlockCompleted();
-  }
-}
-
 export class TestContext {
-  public blockProver: BlockProver;
   constructor(
     public publicExecutor: MockProxy<PublicExecutor>,
     public publicContractsDB: MockProxy<ContractsDataSourcePublicDB>,
@@ -64,15 +43,17 @@ export class TestContext {
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
-    public actualDb: MerkleTreeOperations,
+    public actualDb: MerkleTreeAdminOperations,
     public prover: ServerCircuitProver,
     public proverAgent: ProverAgent,
     public orchestrator: ProvingOrchestrator,
     public blockNumber: number,
     public directoriesToCleanup: string[],
     public logger: DebugLogger,
-  ) {
-    this.blockProver = new DummyProverClient(this.orchestrator);
+  ) {}
+
+  public get blockProver() {
+    return this.orchestrator;
   }
 
   static async new(
@@ -88,8 +69,8 @@ export class TestContext {
     const publicContractsDB = mock<ContractsDataSourcePublicDB>();
     const publicWorldStateDB = mock<WorldStatePublicDB>();
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
-    const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     const telemetry = new NoopTelemetryClient();
+    const actualDb = await MerkleTrees.new(openTmpStore(), telemetry).then(t => t.asLatest());
     const processor = new PublicProcessor(
       actualDb,
       publicExecutor,
@@ -119,7 +100,7 @@ export class TestContext {
       localProver = await createProver(bbConfig);
     }
 
-    const queue = new MemoryProvingQueue();
+    const queue = new MemoryProvingQueue(telemetry);
     const orchestrator = new ProvingOrchestrator(actualDb, queue, telemetry);
     const agent = new ProverAgent(localProver, proverCount);
 
@@ -171,7 +152,7 @@ export class TestContext {
           : [...tx.enqueuedPublicFunctionCalls, tx.publicTeardownFunctionCall];
         for (const request of allCalls) {
           if (execution.contractAddress.equals(request.contractAddress)) {
-            const result = PublicExecutionResultBuilder.fromPublicCallRequest({ request }).build({
+            const result = PublicExecutionResultBuilder.fromPublicExecutionRequest({ request }).build({
               startGasLeft: availableGas,
               endGasLeft: availableGas,
               transactionFee,

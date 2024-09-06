@@ -14,6 +14,7 @@ mod combined_constant_data;
 
 mod side_effect;
 mod read_request;
+mod tree_leaf_read_request;
 mod log_hash;
 mod note_hash;
 mod nullifier;
@@ -31,13 +32,12 @@ mod kernel_data;
 mod private_kernel_data;
 mod public_kernel_data;
 
-mod call_request;
 mod private_call_request;
 mod private_call_stack_item;
+mod public_call_request;
 mod public_call_stack_item;
 mod public_call_stack_item_compressed;
 mod call_context;
-mod caller_context;
 
 mod public_call_data;
 

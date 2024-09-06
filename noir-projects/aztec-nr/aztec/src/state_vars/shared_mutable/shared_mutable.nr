@@ -9,7 +9,7 @@ use crate::state_vars::{
     shared_mutable::{scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange}
 };
 use crate::oracle::storage::storage_read;
-use dep::std::unsafe::zeroed;
+use dep::std::mem::zeroed;
 
 mod test;
 
@@ -18,6 +18,11 @@ struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
     storage_slot: Field,
 }
 
+// Separators separating storage slot of different values within the same state variable
+global VALUE_CHANGE_SEPARATOR: u32 = 0;
+global DELAY_CHANGE_SEPARATOR: u32 = 1;
+global HASH_SEPARATOR: u32 = 2;
+
 // This will make the Aztec macros require that T implements the Serialize<N> trait, and allocate N storage slots to
 // this state variable. This is incorrect, since what we actually store is:
 //  - a ScheduledValueChange<T>, which requires 1 + 2 * M storage slots, where M is the serialization length of T
@@ -25,10 +30,10 @@ struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
 //
 // TODO https://github.com/AztecProtocol/aztec-packages/issues/5736: change the storage allocation scheme so that we
 // can actually use it here
-impl<T, INITIAL_DELAY, Context> Storage<T> for SharedMutable<T, INITIAL_DELAY, Context> {}
+impl<T, let INITIAL_DELAY: u32, Context> Storage<T> for SharedMutable<T, INITIAL_DELAY, Context> {}
 
 // TODO: extract into a utils module once  we can do arithmetic on generics, i.e. https://github.com/noir-lang/noir/issues/4784
-fn concat_arrays<N, M, O>(arr_n: [Field; N], arr_m: [Field; M]) -> [Field; O] {
+fn concat_arrays<let N: u32, let M: u32, let O: u32>(arr_n: [Field; N], arr_m: [Field; M]) -> [Field; O] {
     assert_eq(N + M, O);
     let mut out: [Field; O] = [0; O];
     for i in 0..N {
@@ -51,20 +56,10 @@ fn concat_arrays<N, M, O>(arr_n: [Field; N], arr_m: [Field; M]) -> [Field; O] {
 // future, so that they can guarantee the value will not have possibly changed by then (because of the delay).
 // The delay for changing a value is initially equal to INITIAL_DELAY, but can be changed by calling
 // `schedule_delay_change`.
-impl<T, INITIAL_DELAY, Context> SharedMutable<T, INITIAL_DELAY, Context> where T: ToField + FromField + Eq {
+impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context> where T: ToField + FromField + Eq {
     pub fn new(context: Context, storage_slot: Field) -> Self {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         Self { context, storage_slot }
-    }
-
-    fn hash_scheduled_data(
-        value_change: ScheduledValueChange<T>,
-        delay_change: ScheduledDelayChange<INITIAL_DELAY>
-    ) -> Field {
-        // TODO(#5491 and https://github.com/noir-lang/noir/issues/4784): update this so that we don't need to rely on
-        // ScheduledValueChange serializing to 3 and ScheduledDelayChange serializing to 1
-        let concatenated: [Field; 4] = concat_arrays(value_change.serialize(), delay_change.serialize());
-        poseidon2_hash(concatenated)
     }
 
     // Since we can't rely on the native storage allocation scheme, we hash the storage slot to get a unique location in
@@ -76,15 +71,15 @@ impl<T, INITIAL_DELAY, Context> SharedMutable<T, INITIAL_DELAY, Context> where T
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
     fn get_value_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot, 0], 0)
+        pedersen_hash([self.storage_slot], VALUE_CHANGE_SEPARATOR)
     }
 
     fn get_delay_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot, 1], 0)
+        pedersen_hash([self.storage_slot], DELAY_CHANGE_SEPARATOR)
     }
 
     fn get_hash_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot, 2], 0)
+        pedersen_hash([self.storage_slot], HASH_SEPARATOR)
     }
 
     // It may seem odd that we take a header and address instead of reading from e.g. a PrivateContext, but this lets us
@@ -127,7 +122,8 @@ impl<T, INITIAL_DELAY, Context> SharedMutable<T, INITIAL_DELAY, Context> where T
     }
 }
 
-impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PublicContext> where T: ToField + FromField + Eq {
+impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicContext> where T: ToField + FromField + Eq {
+
     pub fn schedule_value_change(self, new_value: T) {
         let mut value_change = self.read_value_change();
         let delay_change = self.read_delay_change();
@@ -199,7 +195,7 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PublicContext> where
     }
 }
 
-impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> where T: ToField + FromField + Eq {
+impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> where T: ToField + FromField + Eq {
     pub fn get_current_value_in_private(self) -> T {
         // When reading the current value in private we construct a historical state proof for the public value.
         // However, since this value might change, we must constrain the maximum transaction block number as this proof
@@ -223,9 +219,19 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, &mut PrivateContext> wher
         self.context.set_tx_max_block_number(block_horizon);
         value_change.get_current_at(historical_block_number)
     }
+
+    fn hash_scheduled_data(
+        value_change: ScheduledValueChange<T>,
+        delay_change: ScheduledDelayChange<INITIAL_DELAY>
+    ) -> Field {
+        // TODO(#5491 and https://github.com/noir-lang/noir/issues/4784): update this so that we don't need to rely on
+        // ScheduledValueChange serializing to 3 and ScheduledDelayChange serializing to 1
+        let concatenated: [Field; 4] = concat_arrays(value_change.serialize(), delay_change.serialize());
+        poseidon2_hash(concatenated)
+    }
 }
 
-impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext> where T: ToField + FromField + Eq {
+impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext> where T: ToField + FromField + Eq {
     unconstrained pub fn get_current_value_in_unconstrained(self) -> T {
         let block_number = self.context.block_number() as u32;
         self.read_value_change().get_current_at(block_number)
@@ -236,7 +242,7 @@ impl<T, INITIAL_DELAY> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext> whe
     }
 }
 
-unconstrained fn get_public_storage_hints<T, INITIAL_DELAY>(
+unconstrained fn get_public_storage_hints<T, let INITIAL_DELAY: u32>(
     address: AztecAddress,
     storage_slot: Field,
     block_number: u32

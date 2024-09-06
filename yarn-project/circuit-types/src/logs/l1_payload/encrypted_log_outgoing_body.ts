@@ -1,10 +1,10 @@
 import { AztecAddress, Fr, GeneratorIndex, GrumpkinScalar, Point, type PublicKey } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 export class EncryptedLogOutgoingBody {
-  constructor(public ephSk: GrumpkinScalar, public recipient: AztecAddress, public recipientIvpkApp: PublicKey) {}
+  constructor(public ephSk: GrumpkinScalar, public recipient: AztecAddress, public recipientIvpk: PublicKey) {}
 
   /**
    * Serializes the log body
@@ -12,9 +12,9 @@ export class EncryptedLogOutgoingBody {
    * @returns The serialized log body
    */
   public toBuffer(): Buffer {
-    // The serialization of Fq is [high, low] check `grumpkin_private_key.nr`
+    // The serialization of Fq is [high, low] check `outgoing_body.nr`
     const ephSkBytes = serializeToBuffer([this.ephSk.hi, this.ephSk.lo]);
-    return serializeToBuffer(ephSkBytes, this.recipient, this.recipientIvpkApp);
+    return serializeToBuffer(ephSkBytes, this.recipient, this.recipientIvpk.toCompressedBuffer());
   }
 
   /**
@@ -29,9 +29,9 @@ export class EncryptedLogOutgoingBody {
     const low = reader.readObject(Fr);
     const ephSk = GrumpkinScalar.fromHighLow(high, low);
     const recipient = reader.readObject(AztecAddress);
-    const recipientIvpkApp = reader.readObject(Point); // PublicKey = Point
+    const recipientIvpk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES)); // PublicKey = Point
 
-    return new EncryptedLogOutgoingBody(ephSk, recipient, recipientIvpkApp);
+    return new EncryptedLogOutgoingBody(ephSk, recipient, recipientIvpk);
   }
 
   /**
@@ -95,6 +95,9 @@ export class EncryptedLogOutgoingBody {
     // For performance reasons, we do NOT use the usual `deriveAESSecret` function here and instead we compute it using
     // poseidon. Note that we can afford to use poseidon here instead of deriving shared secret using Diffie-Hellman
     // because for outgoing we are encrypting for ourselves and hence we don't need to perform a key exchange.
-    return poseidon2Hash([ovskApp.hi, ovskApp.lo, ephPk.x, ephPk.y, GeneratorIndex.SYMMETRIC_KEY]).toBuffer();
+    return poseidon2HashWithSeparator(
+      [ovskApp.hi, ovskApp.lo, ephPk.x, ephPk.y],
+      GeneratorIndex.SYMMETRIC_KEY,
+    ).toBuffer();
   }
 }

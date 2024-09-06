@@ -8,18 +8,19 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 
 namespace bb {
 /**
- * @brief  A ProverInstance is normally constructed from a finalized circuit and it contains all the information
- * required by an Ultra Goblin Honk prover to create a proof. A ProverInstance is also the result of running the
+ * @brief  A DeciderProvingKey is normally constructed from a finalized circuit and it contains all the information
+ * required by an Ultra Goblin Honk prover to create a proof. A DeciderProvingKey is also the result of running the
  * Protogalaxy prover, in which case it becomes a relaxed counterpart with the folding parameters (target sum and gate
  * challenges set to non-zero values).
  *
  * @details This is the equivalent of ω in the paper.
  */
 
-template <class Flavor> class ProverInstance_ {
+template <class Flavor> class DeciderProvingKey_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -34,18 +35,18 @@ template <class Flavor> class ProverInstance_ {
   public:
     ProvingKey proving_key;
 
-    RelationSeparator alphas;
-    bb::RelationParameters<FF> relation_parameters;
-
     bool is_accumulator = false;
-
-    // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
+    RelationSeparator alphas; // a challenge for each subrelation
+    bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
+    // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum;
 
-    ProverInstance_(Circuit& circuit, TraceStructure trace_structure = TraceStructure::NONE)
+    DeciderProvingKey_(Circuit& circuit,
+                       TraceStructure trace_structure = TraceStructure::NONE,
+                       std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
     {
-        BB_OP_COUNT_TIME_NAME("ProverInstance(Circuit&)");
+        BB_OP_COUNT_TIME_NAME("DeciderProvingKey(Circuit&)");
         circuit.add_gates_to_ensure_all_polys_are_non_zero();
         circuit.finalize_circuit();
 
@@ -67,11 +68,14 @@ template <class Flavor> class ProverInstance_ {
         if constexpr (IsGoblinFlavor<Flavor>) {
             circuit.op_queue->append_nonzero_ops();
         }
-
-        proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size());
+        {
+            ZoneScopedN("constructing proving key");
+            proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
+        }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         Trace::populate(circuit, proving_key, is_structured);
+        ZoneScopedN("constructing prover instance after trace populate");
 
         // If Goblin, construct the databus polynomials
         if constexpr (IsGoblinFlavor<Flavor>) {
@@ -96,10 +100,18 @@ template <class Flavor> class ProverInstance_ {
             size_t idx = i + proving_key.pub_inputs_offset;
             proving_key.public_inputs.emplace_back(public_wires_source[idx]);
         }
+
+        // Set the recursive proof indices
+        proving_key.recursive_proof_public_input_indices = circuit.recursive_proof_public_input_indices;
+        proving_key.contains_recursive_proof = circuit.contains_recursive_proof;
+
+        if constexpr (IsGoblinFlavor<Flavor>) { // Set databus commitment propagation data
+            proving_key.databus_propagation_data = circuit.databus_propagation_data;
+        }
     }
 
-    ProverInstance_() = default;
-    ~ProverInstance_() = default;
+    DeciderProvingKey_() = default;
+    ~DeciderProvingKey_() = default;
 
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;

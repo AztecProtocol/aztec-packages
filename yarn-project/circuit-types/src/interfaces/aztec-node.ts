@@ -176,6 +176,13 @@ export interface AztecNode {
    * @returns The block number.
    */
   getBlockNumber(): Promise<number>;
+
+  /**
+   * Fetches the latest proven block number.
+   * @returns The block number.
+   */
+  getProvenBlockNumber(): Promise<number>;
+
   /**
    * Method to determine if the node is ready to accept transactions.
    * @returns - Flag indicating the readiness for tx submission.
@@ -277,11 +284,17 @@ export interface AztecNode {
   getPendingTxs(): Promise<Tx[]>;
 
   /**
+   * Retrieves the number of pending txs
+   * @returns The number of pending txs.
+   */
+  getPendingTxCount(): Promise<number>;
+
+  /**
    * Method to retrieve a single pending tx.
    * @param txHash - The transaction hash to return.
    * @returns The pending tx if it exists.
    */
-  getPendingTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -310,6 +323,15 @@ export interface AztecNode {
   simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput>;
 
   /**
+   * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
+   * made invalid by *other* transactions if e.g. they emit the same nullifiers, or come become invalid
+   * due to e.g. the max_block_number property.
+   * @param tx - The transaction to validate for correctness.
+   * @param isSimulation - True if the transaction is a simulated one without generated proofs. (Optional)
+   */
+  isValidTx(tx: Tx, isSimulation?: boolean): Promise<boolean>;
+
+  /**
    * Updates the configuration of this node.
    * @param config - Updated configuration to be merged with the current one.
    */
@@ -326,4 +348,12 @@ export interface AztecNode {
    * @param address - Address of the deployed contract.
    */
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+
+  /** Forces the next block to be built bypassing all time and pending checks. Useful for testing. */
+  flushTxs(): Promise<void>;
+
+  /**
+   * Returns the ENR of this node for peer discovery, if available.
+   */
+  getEncodedEnr(): Promise<string | undefined>;
 }

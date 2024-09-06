@@ -10,6 +10,7 @@ import {
   type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
+  type SiblingPath,
   type SimulatedTx,
   type SyncStatus,
   type Tx,
@@ -17,6 +18,7 @@ import {
   type TxExecutionRequest,
   type TxHash,
   type TxReceipt,
+  type UniqueNote,
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
@@ -24,6 +26,7 @@ import {
   type CompleteAddress,
   type Fq,
   type Fr,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
@@ -39,7 +42,7 @@ import { type IntentAction, type IntentInnerHash } from '../utils/authwit.js';
  * A base class for Wallet implementations
  */
 export abstract class BaseWallet implements Wallet {
-  constructor(protected readonly pxe: PXE) {}
+  constructor(protected readonly pxe: PXE, private scopes?: AztecAddress[]) {}
 
   abstract getCompleteAddress(): CompleteAddress;
 
@@ -52,6 +55,14 @@ export abstract class BaseWallet implements Wallet {
   abstract createAuthWit(intent: Fr | Buffer | IntentInnerHash | IntentAction): Promise<AuthWitness>;
 
   abstract rotateNullifierKeys(newNskM: Fq): Promise<void>;
+
+  setScopes(scopes: AztecAddress[]) {
+    this.scopes = scopes;
+  }
+
+  getScopes() {
+    return this.scopes;
+  }
 
   getAddress() {
     return this.getCompleteAddress().address;
@@ -102,10 +113,15 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.getContracts();
   }
   proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
-    return this.pxe.proveTx(txRequest, simulatePublic);
+    return this.pxe.proveTx(txRequest, simulatePublic, this.scopes);
   }
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx> {
-    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender);
+  simulateTx(
+    txRequest: TxExecutionRequest,
+    simulatePublic: boolean,
+    msgSender?: AztecAddress,
+    skipTxValidation?: boolean,
+  ): Promise<SimulatedTx> {
+    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, this.scopes);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
@@ -116,21 +132,17 @@ export abstract class BaseWallet implements Wallet {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.pxe.getTxReceipt(txHash);
   }
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]> {
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getIncomingNotes(filter);
   }
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]> {
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getOutgoingNotes(filter);
-  }
-  // TODO(#4956): Un-expose this
-  getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
-    return this.pxe.getNoteNonces(note);
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);
   }
   addNote(note: ExtendedNote): Promise<void> {
-    return this.pxe.addNote(note);
+    return this.pxe.addNote(note, this.getAddress());
   }
   addNullifiedNote(note: ExtendedNote): Promise<void> {
     return this.pxe.addNullifiedNote(note);
@@ -151,6 +163,9 @@ export abstract class BaseWallet implements Wallet {
   }
   getBlockNumber(): Promise<number> {
     return this.pxe.getBlockNumber();
+  }
+  getProvenBlockNumber(): Promise<number> {
+    return this.pxe.getProvenBlockNumber();
   }
   getNodeInfo(): Promise<NodeInfo> {
     return this.pxe.getNodeInfo();
@@ -179,6 +194,9 @@ export abstract class BaseWallet implements Wallet {
   isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
     return this.pxe.isContractPubliclyDeployed(address);
   }
+  isContractInitialized(address: AztecAddress): Promise<boolean> {
+    return this.pxe.isContractInitialized(address);
+  }
   getPXEInfo(): Promise<PXEInfo> {
     return this.pxe.getPXEInfo();
   }
@@ -193,5 +211,12 @@ export abstract class BaseWallet implements Wallet {
     ],
   ) {
     return this.pxe.getEvents(type, eventMetadata, from, limit, vpks);
+  }
+  public getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
+    return this.pxe.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
   }
 }

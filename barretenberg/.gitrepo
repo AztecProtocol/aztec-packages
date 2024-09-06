@@ -4,9 +4,9 @@
 ; git-subrepo command. See https://github.com/ingydotnet/git-subrepo#readme
 ;
 [subrepo]
-	remote = https://github.com/AztecProtocol/barretenberg
+remote = https://github.com/AztecProtocol/barretenberg
 	branch = master
-	commit = 9f6f0294d0b52994c7d2e57ddc1ee91e8cbbbca3
-	parent = c0ff566f5d57f7d4422613d02e6e658b6e8151c5
+	commit = a72b225931d2b2ef93c5de7d04a28b7f4c5f2eb7
+	parent = 05cc59fd28b4d0ee89343106e538c0db0e70f52f
 	method = merge
 	cmdver = 0.4.6

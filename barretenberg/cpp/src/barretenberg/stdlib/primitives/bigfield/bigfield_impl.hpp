@@ -1223,7 +1223,7 @@ void bigfield<Builder, T>::perform_reductions_for_mult_madd(std::vector<bigfield
                 max_values_right[i] = mul_right[i].get_maximum_value();
             }
 
-            // Sort the the vector
+            // Sort the vector
             std::sort(maximum_value_updates.begin(), maximum_value_updates.end(), compare_update_tuples);
         }
         // Now we have reduced everything exactly to the point of no overflow. There is probably a way to use even
@@ -1946,7 +1946,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
             if (remainder_512 != 0) {
                 std::cerr << "bigfield: remainder not zero!" << std::endl;
             }
-            ASSERT(remainder_512 == 0);
             bigfield quotient;
 
             const size_t num_quotient_bits = get_quotient_max_bits({ 0 });
@@ -2700,7 +2699,7 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
                    ctx->decompose_into_default_range(carry_lo.witness_index, static_cast<size_t>(carry_lo_msb));
                    ctx->decompose_into_default_range(carry_hi.witness_index, static_cast<size_t>(carry_hi_msb));
                }
-            was removed from the the `else` block below. See  the conversation at
+            was removed from the `else` block below. See  the conversation at
                https://github.com/AztecProtocol/aztec2-internal/pull/1023
             We should make sure that no constraint like this is needed but missing (e.g., an equivalent constraint
             was just imposed?). */

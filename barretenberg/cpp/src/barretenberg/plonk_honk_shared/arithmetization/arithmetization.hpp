@@ -1,5 +1,7 @@
 #pragma once
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/ref_array.hpp"
+#include "barretenberg/common/slab_allocator.hpp"
 #include <cstddef>
 
 #ifdef CHECK_CIRCUIT_STACKTRACES
@@ -28,7 +30,7 @@ struct StackTraces {
 // A set of fixed block size conigurations to be used with the structured execution trace. The actual block sizes
 // corresponding to these settings are defined in the corresponding arithmetization classes (Ultra/Mega). For efficiency
 // it is best to use the smallest possible block sizes to accommodate a given situation.
-enum class TraceStructure { NONE, SMALL_TEST, CLIENT_IVC_BENCH, E2E_FULL_TEST };
+enum class TraceStructure { NONE, SMALL_TEST, CLIENT_IVC_BENCH, AZTEC_IVC_BENCH, E2E_FULL_TEST };
 
 /**
  * @brief Basic structure for storing gate data in a builder
@@ -39,8 +41,8 @@ enum class TraceStructure { NONE, SMALL_TEST, CLIENT_IVC_BENCH, E2E_FULL_TEST };
  */
 template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTraceBlock {
   public:
-    using SelectorType = std::vector<FF, bb::ContainerSlabAllocator<FF>>;
-    using WireType = std::vector<uint32_t, bb::ContainerSlabAllocator<uint32_t>>;
+    using SelectorType = SlabVector<FF>;
+    using WireType = SlabVector<uint32_t>;
     using Selectors = std::array<SelectorType, NUM_SELECTORS>;
     using Wires = std::array<WireType, NUM_WIRES>;
 
@@ -48,6 +50,18 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
     // If enabled, we keep slow stack traces to be able to correlate gates with code locations where they were added
     StackTraces stack_traces;
 #endif
+#ifdef TRACY_HACK_GATES_AS_MEMORY
+    std::vector<size_t> allocated_gates;
+#endif
+    void tracy_gate()
+    {
+#ifdef TRACY_HACK_GATES_AS_MEMORY
+        std::unique_lock<std::mutex> lock(GLOBAL_GATE_MUTEX);
+        GLOBAL_GATE++;
+        TRACY_GATE_ALLOC(GLOBAL_GATE);
+        allocated_gates.push_back(GLOBAL_GATE);
+#endif
+    }
 
     Wires wires; // vectors of indices into a witness variables array
     Selectors selectors;
@@ -75,12 +89,18 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 
     uint32_t get_fixed_size() const { return fixed_size; }
     void set_fixed_size(uint32_t size_in) { fixed_size = size_in; }
-};
-
-class TranslatorArith {
-  public:
-    static constexpr size_t NUM_WIRES = 81;
-    static constexpr size_t NUM_SELECTORS = 0;
+#ifdef TRACY_HACK_GATES_AS_MEMORY
+    ~ExecutionTraceBlock()
+    {
+        std::unique_lock<std::mutex> lock(GLOBAL_GATE_MUTEX);
+        for ([[maybe_unused]] size_t gate : allocated_gates) {
+            if (!FREED_GATES.contains(gate)) {
+                TRACY_GATE_FREE(gate);
+                FREED_GATES.insert(gate);
+            }
+        }
+    }
+#endif
 };
 
 } // namespace bb

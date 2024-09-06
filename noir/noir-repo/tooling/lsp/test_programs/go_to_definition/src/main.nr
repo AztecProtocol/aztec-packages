@@ -18,3 +18,13 @@ fn main() {
     bar::baz();
     bar::inline::qux();
 }
+
+struct Foo {
+
+}
+
+trait Trait {
+
+}
+
+use dependency::something;

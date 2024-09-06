@@ -1,20 +1,27 @@
-import { type L1ToL2MessageSource, type L2Block, L2BlockDownloader, type L2BlockSource } from '@aztec/circuit-types';
+import {
+  type HandleL2BlockAndMessagesResult,
+  type L1ToL2MessageSource,
+  type L2Block,
+  L2BlockDownloader,
+  type L2BlockSource,
+  type MerkleTreeAdminOperations,
+} from '@aztec/circuit-types';
 import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { elapsed } from '@aztec/foundation/timer';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 
+import { type MerkleTrees } from '../world-state-db/index.js';
 import {
-  type HandleL2BlockAndMessagesResult,
-  type MerkleTreeOperations,
-  type MerkleTrees,
-} from '../world-state-db/index.js';
-import { MerkleTreeOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
+  MerkleTreeAdminOperationsFacade,
+  MerkleTreeOperationsFacade,
+} from '../world-state-db/merkle_tree_operations_facade.js';
 import { MerkleTreeSnapshotOperationsFacade } from '../world-state-db/merkle_tree_snapshot_operations_facade.js';
 import { type WorldStateConfig } from './config.js';
 import {
@@ -31,12 +38,16 @@ import {
 export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   private latestBlockNumberAtStart = 0;
 
+  // TODO(palla/prover-node): JobQueue, stopping, runningPromise, pausedPromise, pausedResolve
+  // should all be hidden under a single abstraction. Also, check if we actually need the jobqueue.
   private l2BlockDownloader: L2BlockDownloader;
   private syncPromise: Promise<void> = Promise.resolve();
   private syncResolve?: () => void = undefined;
   private jobQueue = new SerialQueue();
   private stopping = false;
   private runningPromise: Promise<void> = Promise.resolve();
+  private pausedPromise?: Promise<void> = undefined;
+  private pausedResolve?: () => void = undefined;
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
   private blockNumber: AztecSingleton<number>;
 
@@ -44,7 +55,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     store: AztecKVStore,
     private merkleTreeDb: MerkleTrees,
     private l2BlockSource: L2BlockSource & L1ToL2MessageSource,
-    config: WorldStateConfig,
+    private config: WorldStateConfig,
     private log = createDebugLogger('aztec:world_state'),
   ) {
     this.blockNumber = store.openSingleton('world_state_synch_last_block_number');
@@ -55,16 +66,25 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     });
   }
 
-  public getLatest(): MerkleTreeOperations {
-    return new MerkleTreeOperationsFacade(this.merkleTreeDb, true);
+  public getLatest(): MerkleTreeAdminOperations {
+    return new MerkleTreeAdminOperationsFacade(this.merkleTreeDb, true);
   }
 
-  public getCommitted(): MerkleTreeOperations {
-    return new MerkleTreeOperationsFacade(this.merkleTreeDb, false);
+  public getCommitted(): MerkleTreeAdminOperations {
+    return new MerkleTreeAdminOperationsFacade(this.merkleTreeDb, false);
   }
 
-  public getSnapshot(blockNumber: number): MerkleTreeOperations {
+  public getSnapshot(blockNumber: number): MerkleTreeAdminOperations {
     return new MerkleTreeSnapshotOperationsFacade(this.merkleTreeDb, blockNumber);
+  }
+
+  public async ephemeralFork(): Promise<MerkleTreeOperationsFacade> {
+    return new MerkleTreeOperationsFacade(await this.merkleTreeDb.ephemeralFork(), true);
+  }
+
+  private async getFork(includeUncommitted: boolean): Promise<MerkleTreeAdminOperationsFacade> {
+    this.log.verbose(`Forking world state at ${this.blockNumber.get()}`);
+    return new MerkleTreeAdminOperationsFacade(await this.merkleTreeDb.fork(), includeUncommitted);
   }
 
   public async start() {
@@ -76,7 +96,9 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     }
 
     // get the current latest block number
-    this.latestBlockNumberAtStart = await this.l2BlockSource.getBlockNumber();
+    this.latestBlockNumberAtStart = await (this.config.worldStateProvenBlocksOnly
+      ? this.l2BlockSource.getProvenBlockNumber()
+      : this.l2BlockSource.getBlockNumber());
 
     const blockToDownloadFrom = this.currentL2BlockNum + 1;
 
@@ -100,6 +122,9 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     const blockProcess = async () => {
       while (!this.stopping) {
         await this.jobQueue.put(() => this.collectAndProcessBlocks());
+        if (this.pausedPromise) {
+          await this.pausedPromise;
+        }
       }
     };
     this.jobQueue.start();
@@ -127,6 +152,23 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     return this.blockNumber.get() ?? 0;
   }
 
+  private async pause() {
+    this.log.debug('Pausing world state synchronizer');
+    ({ promise: this.pausedPromise, resolve: this.pausedResolve } = promiseWithResolvers());
+    await this.jobQueue.syncPoint();
+    this.log.debug('Paused world state synchronizer');
+  }
+
+  private resume() {
+    if (this.pausedResolve) {
+      this.log.debug('Resuming world state synchronizer');
+      this.pausedResolve();
+      this.pausedResolve = undefined;
+      this.pausedPromise = undefined;
+      this.log.debug('Resumed world state synchronizer');
+    }
+  }
+
   public status(): Promise<WorldStateStatus> {
     const status = {
       syncedToL2Block: this.currentL2BlockNum,
@@ -136,30 +178,29 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   }
 
   /**
-   * Forces an immediate sync
-   * @param minBlockNumber - The minimum block number that we must sync to
+   * Forces an immediate sync.
+   * @param targetBlockNumber - The target block number that we must sync to. Will download unproven blocks if needed to reach it. Throws if cannot be reached.
    * @returns A promise that resolves with the block number the world state was synced to
    */
-  public async syncImmediate(minBlockNumber?: number): Promise<number> {
+  public async syncImmediate(targetBlockNumber?: number): Promise<number> {
     if (this.currentState !== WorldStateRunningState.RUNNING) {
       throw new Error(`World State is not running, unable to perform sync`);
     }
-    // If we have been given a block number to sync to and we have reached that number
-    // then return.
-    if (minBlockNumber !== undefined && minBlockNumber <= this.currentL2BlockNum) {
+    // If we have been given a block number to sync to and we have reached that number then return.
+    if (targetBlockNumber !== undefined && targetBlockNumber <= this.currentL2BlockNum) {
       return this.currentL2BlockNum;
     }
-    const blockToSyncTo = minBlockNumber === undefined ? 'latest' : `${minBlockNumber}`;
-    this.log.debug(`World State at block ${this.currentL2BlockNum}, told to sync to block ${blockToSyncTo}...`);
-    // ensure any outstanding block updates are completed first.
+    this.log.debug(`World State at ${this.currentL2BlockNum} told to sync to ${targetBlockNumber ?? 'latest'}`);
+    // ensure any outstanding block updates are completed first
     await this.jobQueue.syncPoint();
+
     while (true) {
       // Check the block number again
-      if (minBlockNumber !== undefined && minBlockNumber <= this.currentL2BlockNum) {
+      if (targetBlockNumber !== undefined && targetBlockNumber <= this.currentL2BlockNum) {
         return this.currentL2BlockNum;
       }
-      // Poll for more blocks
-      const numBlocks = await this.l2BlockDownloader.pollImmediate();
+      // Poll for more blocks, requesting even unproven blocks.
+      const numBlocks = await this.l2BlockDownloader.pollImmediate(targetBlockNumber, false);
       this.log.debug(`Block download immediate poll yielded ${numBlocks} blocks`);
       if (numBlocks) {
         // More blocks were received, process them and go round again
@@ -167,12 +208,25 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
         continue;
       }
       // No blocks are available, if we have been given a block number then we can't achieve it
-      if (minBlockNumber !== undefined) {
+      if (targetBlockNumber !== undefined) {
         throw new Error(
-          `Unable to sync to block number ${minBlockNumber}, currently synced to block ${this.currentL2BlockNum}`,
+          `Unable to sync to block number ${targetBlockNumber}, currently synced to block ${this.currentL2BlockNum}`,
         );
       }
       return this.currentL2BlockNum;
+    }
+  }
+
+  public async syncImmediateAndFork(
+    targetBlockNumber: number,
+    forkIncludeUncommitted: boolean,
+  ): Promise<MerkleTreeAdminOperationsFacade> {
+    try {
+      await this.pause();
+      await this.syncImmediate(targetBlockNumber);
+      return await this.getFork(forkIncludeUncommitted);
+    } finally {
+      this.resume();
     }
   }
 

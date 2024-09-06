@@ -1,12 +1,10 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { pedersenHash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { GeneratorIndex, PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH } from '../constants.gen.js';
+import { PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH } from '../constants.gen.js';
 import { CallContext } from './call_context.js';
-import { FunctionData } from './function_data.js';
 import { Gas } from './gas.js';
 import { RevertCode } from './revert_code.js';
 
@@ -17,7 +15,6 @@ export class PublicCallStackItemCompressed {
   constructor(
     public contractAddress: AztecAddress,
     public callContext: CallContext,
-    public functionData: FunctionData,
     public argsHash: Fr,
     public returnsHash: Fr,
     public revertCode: RevertCode,
@@ -31,7 +28,6 @@ export class PublicCallStackItemCompressed {
     return [
       fields.contractAddress,
       fields.callContext,
-      fields.functionData,
       fields.argsHash,
       fields.returnsHash,
       fields.revertCode,
@@ -64,7 +60,6 @@ export class PublicCallStackItemCompressed {
     return new PublicCallStackItemCompressed(
       reader.readObject(AztecAddress),
       reader.readObject(CallContext),
-      reader.readObject(FunctionData),
       reader.readObject(Fr),
       reader.readObject(Fr),
       reader.readObject(RevertCode),
@@ -79,7 +74,6 @@ export class PublicCallStackItemCompressed {
     return new PublicCallStackItemCompressed(
       AztecAddress.fromFields(reader),
       CallContext.fromFields(reader),
-      FunctionData.fromFields(reader),
       reader.readField(),
       reader.readField(),
       RevertCode.fromFields(reader),
@@ -96,7 +90,6 @@ export class PublicCallStackItemCompressed {
     return new PublicCallStackItemCompressed(
       AztecAddress.ZERO,
       CallContext.empty(),
-      FunctionData.empty({ isPrivate: false }),
       Fr.ZERO,
       Fr.ZERO,
       RevertCode.OK,
@@ -109,20 +102,11 @@ export class PublicCallStackItemCompressed {
     return (
       this.contractAddress.isZero() &&
       this.callContext.isEmpty() &&
-      this.functionData.isEmpty() &&
       this.argsHash.isEmpty() &&
       this.returnsHash.isEmpty() &&
-      this.revertCode === RevertCode.OK &&
+      this.revertCode.equals(RevertCode.OK) &&
       this.startGasLeft.isEmpty() &&
       this.endGasLeft.isEmpty()
     );
-  }
-
-  /**
-   * Computes this call stack item hash.
-   * @returns Hash.
-   */
-  public hash() {
-    return pedersenHash(this.toFields(), GeneratorIndex.CALL_STACK_ITEM);
   }
 }

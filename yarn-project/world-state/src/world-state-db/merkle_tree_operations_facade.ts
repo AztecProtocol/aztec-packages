@@ -1,22 +1,22 @@
-import { type L2Block, type MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
-import { type Fr, type Header, type NullifierLeafPreimage, type StateReference } from '@aztec/circuits.js';
-import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
-import { type BatchInsertionResult } from '@aztec/merkle-tree';
-
-import { type MerkleTreeDb } from './merkle_tree_db.js';
+import { type BatchInsertionResult, type L2Block, type MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
 import {
   type HandleL2BlockAndMessagesResult,
   type IndexedTreeId,
+  type MerkleTreeAdminOperations,
   type MerkleTreeLeafType,
   type MerkleTreeOperations,
   type TreeInfo,
-} from './merkle_tree_operations.js';
+} from '@aztec/circuit-types/interfaces';
+import { type Fr, type Header, type NullifierLeafPreimage, type StateReference } from '@aztec/circuits.js';
+import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
+
+import { type MerkleTreeAdminDb, type MerkleTreeDb } from './merkle_tree_db.js';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
  */
 export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
-  constructor(private trees: MerkleTreeDb, private includeUncommitted: boolean) {}
+  constructor(protected trees: MerkleTreeDb, protected includeUncommitted: boolean) {}
 
   /**
    * Returns the tree info for the specified tree id.
@@ -37,11 +37,11 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   }
 
   /**
-   * Builds the initial header.
+   * Returns the initial header for the chain before the first block.
    * @returns The initial header.
    */
-  buildInitialHeader(): Promise<Header> {
-    return this.trees.buildInitialHeader(this.includeUncommitted);
+  getInitialHeader(): Header {
+    return this.trees.getInitialHeader(this.includeUncommitted);
   }
 
   /**
@@ -166,6 +166,27 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   }
 
   /**
+   * Batch insert multiple leaves into the tree.
+   * @param treeId - The ID of the tree.
+   * @param leaves - Leaves to insert into the tree.
+   * @param subtreeHeight - Height of the subtree.
+   * @returns The data for the leaves to be updated when inserting the new ones.
+   */
+  public batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number>(
+    treeId: IndexedTreeId,
+    leaves: Buffer[],
+    subtreeHeight: number,
+  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
+    return this.trees.batchInsert(treeId, leaves, subtreeHeight);
+  }
+}
+
+export class MerkleTreeAdminOperationsFacade extends MerkleTreeOperationsFacade implements MerkleTreeAdminOperations {
+  constructor(protected override trees: MerkleTreeAdminDb, includeUncommitted: boolean) {
+    super(trees, includeUncommitted);
+  }
+
+  /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
@@ -191,18 +212,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
     return await this.trees.rollback();
   }
 
-  /**
-   * Batch insert multiple leaves into the tree.
-   * @param treeId - The ID of the tree.
-   * @param leaves - Leaves to insert into the tree.
-   * @param subtreeHeight - Height of the subtree.
-   * @returns The data for the leaves to be updated when inserting the new ones.
-   */
-  public batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number>(
-    treeId: IndexedTreeId,
-    leaves: Buffer[],
-    subtreeHeight: number,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
-    return this.trees.batchInsert(treeId, leaves, subtreeHeight);
+  public delete(): Promise<void> {
+    return this.trees.delete();
   }
 }

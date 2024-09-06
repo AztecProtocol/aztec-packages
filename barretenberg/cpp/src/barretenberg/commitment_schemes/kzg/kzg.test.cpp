@@ -5,7 +5,6 @@
 
 #include "../commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 
@@ -135,9 +134,9 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
         std::string label = "Gemini:a_" + std::to_string(l);
         const auto& evaluation = gemini_opening_pairs[l + 1].evaluation;
         prover_transcript->send_to_verifier(label, evaluation);
-        opening_claims.emplace_back(gemini_witnesses[l], gemini_opening_pairs[l]);
+        opening_claims.push_back({ gemini_witnesses[l], gemini_opening_pairs[l] });
     }
-    opening_claims.emplace_back(gemini_witnesses[log_n], gemini_opening_pairs[log_n]);
+    opening_claims.push_back({ gemini_witnesses[log_n], gemini_opening_pairs[log_n] });
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
