@@ -1,4 +1,4 @@
-use std::meta::unquote;
+use std::meta::{typ::fresh_type_variable, unquote};
 
 pub(crate) fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
     if f.has_named_attribute(quote { private }) {
@@ -180,4 +180,12 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
         protocol_types::abis::function_selector::FunctionSelector::from_signature($signature_str_quote).to_field()
     };
     unquote!(computation_quote)
+}
+
+pub(crate) comptime fn get_serialized_size(typ: Type) -> u32 {
+    let any = fresh_type_variable();
+    let maybe_serialize_impl = typ.get_trait_impl(quote { Serialize<$any> }.as_trait_constraint());
+    assert(maybe_serialize_impl.is_some(), "Storable items must implement Serialize");
+    let serialize_impl = maybe_serialize_impl.unwrap();
+    serialize_impl.trait_generic_args()[0].as_constant().unwrap()
 }

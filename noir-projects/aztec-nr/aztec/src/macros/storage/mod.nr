@@ -1,19 +1,12 @@
-use std::meta::typ::fresh_type_variable;
+use super::utils::get_serialized_size;
 
 comptime mut global STORAGE_LAYOUT_NAME: Quoted = quote {};
-
-comptime fn any_map() -> Type {
-    let context = fresh_type_variable();
-    let key = fresh_type_variable();
-    let value = fresh_type_variable();
-    quote { crate::storageMap<$context, $key, $value> }.as_type()
-}
 
 pub fn generate_storage_field_constructor(typ: Type, slot: Quoted, parent_is_map: bool) -> (Quoted, u32) {
     assert(
         typ.as_struct().is_some(), "Storage containers must be generic structs of the form `Container<Context, _>`, or Map<Context, Key, _>"
     );
-    let (_, generics) = typ.as_struct().unwrap();
+    let (container_struct, generics) = typ.as_struct().unwrap();
     let maybe_map = if generics.len() == 3 {
         let maybe_context = generics[0];
         let maybe_key = generics[1];
@@ -23,12 +16,12 @@ pub fn generate_storage_field_constructor(typ: Type, slot: Quoted, parent_is_map
         quote {()}.as_type()
     };
 
+    let struct_name_quote = container_struct.name();
+
     if typ == maybe_map {
         let (value_constructor, _) = generate_storage_field_constructor(generics[1], quote { slot }, true);
-
-        let serialized_size = 1;
         (
-            quote { $typ::new(context, $slot, | context, slot | { $value_constructor }) }, serialized_size
+            quote { $struct_name_quote::new(context, $slot, | context, slot | { $value_constructor }) }, 1
         )
     } else {
         let (container_struct, _) = typ.as_struct().unwrap();
@@ -40,13 +33,9 @@ pub fn generate_storage_field_constructor(typ: Type, slot: Quoted, parent_is_map
             );
             let stored_struct = container_struct.generics()[0];
             assert(stored_struct.as_struct().is_some(), "Storable items must be Serializable structs");
-            let any = fresh_type_variable();
-            let maybe_serialize_impl = stored_struct.get_trait_impl(quote { Serialize<$any> }.as_trait_constraint());
-            assert(maybe_serialize_impl.is_some(), "Storable items must implement Serialize");
-            let serialize_impl = maybe_serialize_impl.unwrap();
-            serialize_impl.trait_generic_args()[0].as_constant().unwrap()
+            get_serialized_size(stored_struct)
         };
-        (quote { $typ::new(context, $slot)}, serialized_size)
+        (quote { $struct_name_quote::new(context, $slot)}, serialized_size)
     }
 }
 

@@ -38,21 +38,20 @@ contract Counter {
     // docs:end:increment
 
     // docs:start:get_counter
-    #[un_constrained]
     unconstrained fn get_counter(owner: AztecAddress) -> pub Field {
         let counters = storage.counters;
         balance_utils::get_balance(counters.at(owner).set)
     }
     // docs:end:get_counter
     // docs:start:test_imports
-    use dep::aztec::test::{helpers::{cheatcodes, test_environment::TestEnvironment}};
+    use dep::aztec::test::{helpers::{test_environment::TestEnvironment}};
     use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;
     // docs:end:test_imports
     // docs:start:txe_test_increment
     #[test]
-    fn test_increment() {
+    unconstrained fn test_increment() {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
         let owner = env.create_account();

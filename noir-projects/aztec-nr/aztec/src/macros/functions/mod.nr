@@ -79,6 +79,8 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     let fn_stub = stub_fn(f);
     STUBS = STUBS.push_back(fn_stub);
 
+    let module_has_initializer = f.module().functions().any(|f: FunctionDefinition| f.has_named_attribute(quote { initializer }));
+
     let current_params = f.parameters();
     f.set_parameters(
         &[
@@ -104,7 +106,11 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     );
     let context_creation_quote = quote { let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hasher.hash()); };
     let storage_init_quote = quote { let storage = Storage::init(&mut context); };
-    let init_check = create_init_check(f);
+    let init_check = if module_has_initializer & !f.has_named_attribute(quote { no_init_check }) {
+        create_init_check(f)
+    } else {
+        quote {}
+    }
 
     let return_value_type = f.return_type();
 
@@ -152,7 +158,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     fn_abi
 }
 
-pub fn un_constrained(f: FunctionDefinition) {
+pub fn transform_unconstrained(f: FunctionDefinition) {
     let context_creation_quote = quote { let mut context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new(); };
     let storage_init_quote = quote { let storage = Storage::init(context); };
     let to_prepend = quote {

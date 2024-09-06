@@ -5,6 +5,7 @@ mod storage;
 
 use functions::STUBS;
 use storage::STORAGE_LAYOUT_NAME;
+use functions::transform_unconstrained;
 
 pub comptime fn generate_contract_interface(m: Module) -> Quoted {
     let module_name = m.name();
@@ -54,6 +55,9 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
 
 pub comptime fn aztec_contract(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
-
+    let functions = m.functions();
+    for f in functions.filter(| f | f.) {
+        transform_unconstrained(f);
+    }
     interface
 }
