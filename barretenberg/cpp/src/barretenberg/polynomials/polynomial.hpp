@@ -278,6 +278,8 @@ template <typename Fr> class Polynomial {
     operator PolynomialSpan<const Fr>() const { return { start_index(), coeffs() }; }
 
     auto indices() const { return std::ranges::iota_view(start_index(), end_index()); }
+    auto indexed_values() { return zip_view(indices(), coeffs()); }
+    auto indexed_values() const { return zip_view(indices(), coeffs()); }
 
     /**
      * @brief Copy over values from a vector that is of a convertible type.

@@ -86,16 +86,28 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
         auto proof = prover.construct_proof();
         auto& polynomials = proving_key->proving_key.polynomials;
 
+<<<<<<< Updated upstream
 <<<<<<< HEAD
         test{} = test{};
 =======
-    auto ensure_non_zero = [](auto& polynomial) {
-        bool has_non_zero_coefficient = false;
-        for (auto& coeff : polynomial) {
-            has_non_zero_coefficient |= !coeff.is_zero();
-        }
-        ASSERT_TRUE(has_non_zero_coefficient);
-    };
+        auto ensure_non_zero = [](auto& polynomial) {
+            bool has_non_zero_coefficient = false;
+            for (auto& coeff : polynomial) {
+                has_non_zero_coefficient |= !coeff.is_zero();
+            }
+            ASSERT_TRUE(has_non_zero_coefficient);
+        };
+=======
+        // Erroneously update the read counts/tags at an arbitrary index
+        // Note: updating only one or the other may not cause failure due to the design of the relation algebra. For
+        // example, the inverse is only computed if read tags is non-zero, otherwise the inverse at the row in question
+        // will be zero. So if read counts is incremented at some arbitrary index but read tags is not, the inverse will
+        // be 0 and the erroneous read_counts value will get multiplied by 0 in the relation. This is expected behavior.
+        polynomials.lookup_read_counts = polynomials.lookup_read_counts.full(); // ensure fully mutable
+        polynomials.lookup_read_counts.at(25) = 1;
+        polynomials.lookup_read_tags = polynomials.lookup_read_tags.full(); // ensure fully mutable
+        polynomials.lookup_read_tags.at(25) = 1;
+>>>>>>> Stashed changes
 
 >>>>>>> origin/master
         for (auto& poly : polynomials.get_selectors()) {
@@ -123,6 +135,7 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
         // Add some arbitrary arithmetic gates that utilize public inputs
         MockCircuits::add_arithmetic_gates_with_public_inputs(builder, num_gates);
 
+<<<<<<< Updated upstream
         // Construct an proving_key with a structured execution trace
         TraceStructure trace_structure = TraceStructure::SMALL_TEST;
         auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(builder, trace_structure);
@@ -232,6 +245,14 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
                     accumulator = accumulator.dbl();
                 }
                 expected_scalar >>= table_bits;
+=======
+    polynomials.w_o = polynomials.w_o.full();
+    // Find a lookup gate and alter one of the wire values
+    for (auto [i, q_lookup] : polynomials.q_lookup.indexed_values()) {
+        if (!q_lookup.is_zero()) {
+            polynomials.w_o.at(i) += 1;
+            break;
+>>>>>>> Stashed changes
             }
         }
 

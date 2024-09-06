@@ -84,6 +84,7 @@ template <class Curve> class CommitmentKey {
     Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
         BB_OP_COUNT_TIME();
+        auto srs = crs_factory->get_prover_crs(get_num_needed_srs_points(polynomial.end_index()));
         // See constructor, we must round up the number of used srs points to a power of 2.
         const size_t consumed_srs = numeric::round_up_power_2(polynomial.end_index());
         if (consumed_srs > srs->get_monomial_size()) {
@@ -96,8 +97,8 @@ template <class Curve> class CommitmentKey {
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
         // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
         // with our polynomial span.
-        std::span<G1> point_table =
-            srs->get_monomial_points().subspan(polynomial.start_index * 2) DEBUG_LOG_ALL(polynomial.span);
+        std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
+        DEBUG_LOG_ALL(polynomial.span);
         Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
             polynomial.span, point_table, pippenger_runtime_state);
         DEBUG_LOG(point);
