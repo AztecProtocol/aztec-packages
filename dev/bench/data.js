@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725608438144,
+  "lastUpdate": 1725636247310,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a5cc3bab86711062d180993cf4a7412d1013aa48",
-          "message": "refactor: Deduplication in Protogalaxy (#8067)\n\nShare some code between prover and verifier, and unify some code paths\r\nin the prover where we had duplication between zero-optimized and\r\ngeneral cases.",
-          "timestamp": "2024-08-22T08:19:56-07:00",
-          "tree_id": "669e931ea05b9fbbdf3b56499aca1e97ea81636d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a5cc3bab86711062d180993cf4a7412d1013aa48"
-        },
-        "date": 1724341079951,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13603.056498999991,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10397.184903000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5075.154338000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4730.568903 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40096.241011000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40096241000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14805.693106,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14805693000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3762755888,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3762755888 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208099229,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 208099229 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3097743316,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3097743316 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173073610,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173073610 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 121370720,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 121370720 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "665750a8d7f20ea4e3f7cded052b88eb6bb28600",
+          "message": "feat: update AztecIvc interface to facilitate acir-ivc (#8230)\n\nThis PR completes the acir-ivc interface through which a bberg kernel\r\ncircuit can be properly constructed from a noir program. In particular,\r\nthe interface allows for the proof/verification_key witnesses used in\r\nthe noir program to be communicated to the backend via calls to\r\n`verify_proof()` (with an appropriate `proof_type` indicator). They can\r\nthen be \"linked\" (asserted equal) to the corresponding witnesses used to\r\ncomplete the kernel logic (recursive verifications, databus checks\r\netc.).\r\n\r\nThe main components of the PR are as follows:\r\n- A new DSL test suite which demonstrates the new functionality via IVC\r\naccumulation of mock kernel and app circuits constructed from acir\r\nconstraint systems. (Includes a failure test that demonstrates that the\r\n\"linking\" of the witnesses does indeed result in failure when expected).\r\n- Reorganization of the methods in AztecIvc related to kernel\r\ncompletion. (basically just splitting things into sub-methods to\r\nfacilitate the main goal of the PR)\r\n- Some minor renaming to remove the `_RECURSION` suffix from the\r\n`proof_type` enum entries. (This accounts for most of the changed\r\nfiles).\r\n\r\nNote: In this PR the linking is actually only done on the proof (not yet\r\nthe verification key). I'm leaving this as a TODO (issue tagged in code)\r\nsince it really warrants some long overdue verification key cleanup.",
+          "timestamp": "2024-09-06T08:08:27-07:00",
+          "tree_id": "9230d0d4a2819a32ef050063dc9d3dbd750c63b3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/665750a8d7f20ea4e3f7cded052b88eb6bb28600"
+        },
+        "date": 1725636239506,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13461.70164099999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10232.75645 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5141.049698000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4651.451414 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39353.06004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39353061000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14669.045816,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14669046000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3702296561,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3702296561 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 148923593,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 148923593 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3017908534,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3017908534 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 121334074,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 121334074 ns\nthreads: 1"
           }
         ]
       }
