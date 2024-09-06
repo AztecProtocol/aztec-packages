@@ -5,13 +5,13 @@
 
 namespace bb {
 /**
- * @brief The VerifierInstance encapsulates all the necessary information for a Mega Honk Verifier to verify a
+ * @brief The DeciderVerificationKey encapsulates all the necessary information for a Mega Honk Verifier to verify a
  * proof (sumcheck + Zeromorph). In the context of folding, this is returned by the Protogalaxy verifier with non-zero
  * target sum and gate challenges.
  *
  * @details This is ϕ in the paper.
  */
-template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
+template <class Flavor, size_t NUM_ = 2> class DeciderVerificationKey_ {
   public:
     using FF = typename Flavor::FF;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -21,20 +21,20 @@ template <class Flavor, size_t NUM_ = 2> class VerifierInstance_ {
     using RelationSeparator = typename Flavor::RelationSeparator;
 
     std::shared_ptr<VerificationKey> verification_key;
-    RelationParameters<FF> relation_parameters;
-    RelationSeparator alphas;
+
     bool is_accumulator = false;
     std::vector<FF> public_inputs;
-
-    // The folding parameters (\vec{β}, e) which are set for accumulators (i.e. relaxed instances).
+    RelationSeparator alphas; // a challenge for each subrelation
+    RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
+    // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum{ 0 };
 
     WitnessCommitments witness_commitments;
     CommitmentLabels commitment_labels;
 
-    VerifierInstance_() = default;
-    VerifierInstance_(std::shared_ptr<VerificationKey> vk)
+    DeciderVerificationKey_() = default;
+    DeciderVerificationKey_(std::shared_ptr<VerificationKey> vk)
         : verification_key(std::move(vk))
     {}
 

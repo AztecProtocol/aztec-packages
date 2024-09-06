@@ -20,15 +20,15 @@ class ClientIVCTests : public ::testing::Test {
     using FF = typename Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
     using Builder = ClientIVC::ClientCircuit;
-    using ProverInstance = ClientIVC::ProverInstance;
-    using VerifierInstance = ClientIVC::VerifierInstance;
+    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
+    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
     using FoldProof = ClientIVC::FoldProof;
     using DeciderProver = ClientIVC::DeciderProver;
     using DeciderVerifier = ClientIVC::DeciderVerifier;
-    using ProverInstances = ProverInstances_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<ProverInstances>;
-    using VerifierInstances = VerifierInstances_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstances>;
+    using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
+    using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
+    using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
+    using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
 
     /**
      * @brief Prove and verify the IVC scheme
@@ -41,7 +41,7 @@ class ClientIVCTests : public ::testing::Test {
         ZoneScopedN("ClientIVC::prove_and_verify");
         auto proof = ivc.prove();
 
-        auto verifier_inst = std::make_shared<VerifierInstance>(ivc.instance_vk);
+        auto verifier_inst = std::make_shared<DeciderVerificationKey>(ivc.decider_vk);
         return ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
     }
 

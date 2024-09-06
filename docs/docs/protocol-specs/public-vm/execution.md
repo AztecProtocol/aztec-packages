@@ -235,10 +235,6 @@ The AVM's exceptional halting conditions area listed below:
     // Read L1 to L2 messages
     assert instructions[machineState.pc].opcode != L1TOL2MSGEXISTS
         OR worldStateAccessTrace.l1ToL2MessagesChecks.length < 1024
-
-    // Archive tree & Headers
-    assert instructions[machineState.pc].opcode != HEADERMEMBER
-        OR archiveChecks.length < 1024
     ```
 1. **Maximum accrued substate entries (per-category) exceeded**
     ```

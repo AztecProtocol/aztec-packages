@@ -261,22 +261,22 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     create_some_RAM_gates<Flavor>(builder);
 
     // Create a prover (it will compute proving key and witness)
-    auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
-    auto& proving_key = instance->proving_key;
+    auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto& proving_key = decider_pk->proving_key;
     auto circuit_size = proving_key.circuit_size;
 
     // Generate eta, beta and gamma
-    instance->relation_parameters.eta = FF::random_element();
-    instance->relation_parameters.eta_two = FF::random_element();
-    instance->relation_parameters.eta_three = FF::random_element();
-    instance->relation_parameters.beta = FF::random_element();
-    instance->relation_parameters.gamma = FF::random_element();
+    decider_pk->relation_parameters.eta = FF::random_element();
+    decider_pk->relation_parameters.eta_two = FF::random_element();
+    decider_pk->relation_parameters.eta_three = FF::random_element();
+    decider_pk->relation_parameters.beta = FF::random_element();
+    decider_pk->relation_parameters.gamma = FF::random_element();
 
-    instance->proving_key.add_ram_rom_memory_records_to_wire_4(instance->relation_parameters.eta,
-                                                               instance->relation_parameters.eta_two,
-                                                               instance->relation_parameters.eta_three);
-    instance->proving_key.compute_logderivative_inverses(instance->relation_parameters);
-    instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
+    decider_pk->proving_key.add_ram_rom_memory_records_to_wire_4(decider_pk->relation_parameters.eta,
+                                                                 decider_pk->relation_parameters.eta_two,
+                                                                 decider_pk->relation_parameters.eta_three);
+    decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomials(decider_pk->relation_parameters);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key.polynomials.q_arith);
@@ -285,8 +285,8 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     ensure_non_zero(proving_key.polynomials.q_elliptic);
     ensure_non_zero(proving_key.polynomials.q_aux);
 
-    auto& prover_polynomials = instance->proving_key.polynomials;
-    auto params = instance->relation_parameters;
+    auto& prover_polynomials = decider_pk->proving_key.polynomials;
+    auto params = decider_pk->relation_parameters;
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<UltraArithmeticRelation<FF>>(circuit_size, prover_polynomials, params);
     check_relation<UltraPermutationRelation<FF>>(circuit_size, prover_polynomials, params);
@@ -314,22 +314,22 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     create_some_ecc_op_queue_gates<Flavor>(builder); // Goblin!
 
     // Create a prover (it will compute proving key and witness)
-    auto instance = std::make_shared<ProverInstance_<Flavor>>(builder);
-    auto& proving_key = instance->proving_key;
+    auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto& proving_key = decider_pk->proving_key;
     auto circuit_size = proving_key.circuit_size;
 
     // Generate eta, beta and gamma
-    instance->relation_parameters.eta = FF::random_element();
-    instance->relation_parameters.eta_two = FF::random_element();
-    instance->relation_parameters.eta_three = FF::random_element();
-    instance->relation_parameters.beta = FF::random_element();
-    instance->relation_parameters.gamma = FF::random_element();
+    decider_pk->relation_parameters.eta = FF::random_element();
+    decider_pk->relation_parameters.eta_two = FF::random_element();
+    decider_pk->relation_parameters.eta_three = FF::random_element();
+    decider_pk->relation_parameters.beta = FF::random_element();
+    decider_pk->relation_parameters.gamma = FF::random_element();
 
-    instance->proving_key.add_ram_rom_memory_records_to_wire_4(instance->relation_parameters.eta,
-                                                               instance->relation_parameters.eta_two,
-                                                               instance->relation_parameters.eta_three);
-    instance->proving_key.compute_logderivative_inverses(instance->relation_parameters);
-    instance->proving_key.compute_grand_product_polynomials(instance->relation_parameters);
+    decider_pk->proving_key.add_ram_rom_memory_records_to_wire_4(decider_pk->relation_parameters.eta,
+                                                                 decider_pk->relation_parameters.eta_two,
+                                                                 decider_pk->relation_parameters.eta_three);
+    decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
+    decider_pk->proving_key.compute_grand_product_polynomials(decider_pk->relation_parameters);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
     ensure_non_zero(proving_key.polynomials.q_arith);
@@ -351,8 +351,8 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     ensure_non_zero(proving_key.polynomials.return_data_read_counts);
     ensure_non_zero(proving_key.polynomials.return_data_inverses);
 
-    auto& prover_polynomials = instance->proving_key.polynomials;
-    auto params = instance->relation_parameters;
+    auto& prover_polynomials = decider_pk->proving_key.polynomials;
+    auto params = decider_pk->relation_parameters;
 
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<UltraArithmeticRelation<FF>>(circuit_size, prover_polynomials, params);

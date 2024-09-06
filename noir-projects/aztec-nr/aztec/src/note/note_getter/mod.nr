@@ -2,11 +2,12 @@ use dep::protocol_types::{constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, GET_
 use crate::context::PrivateContext;
 use crate::note::{
     constants::{GET_NOTE_ORACLE_RETURN_LENGTH, MAX_NOTES_PER_PAGE, VIEW_NOTE_ORACLE_RETURN_LENGTH},
-    note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, Comparator, NoteStatus, PropertySelector},
+    note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, NoteStatus, PropertySelector},
     note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_read_request
 };
 use crate::oracle;
+use crate::utils::comparison::compare;
 
 mod test;
 
@@ -17,7 +18,7 @@ fn extract_property_value_from_selector<let N: u32>(
     // Selectors use PropertySelectors in order to locate note properties inside the serialized note.
     // This allows easier packing and custom (de)serialization schemas. A note property is located
     // inside the serialized note using the index inside the array, a byte offset and a length.
-    let value = serialized_note[selector.index].to_be_bytes(32);
+    let value: [u8; 32] = serialized_note[selector.index].to_be_bytes();
     let offset = selector.offset;
     let length = selector.length;
     let mut value_field = 0 as Field;
@@ -50,23 +51,9 @@ fn check_note_fields<let N: u32>(
         let select = selects.get_unchecked(i).unwrap_unchecked();
         let value_field = extract_property_value_from_selector(serialized_note, select.property_selector);
 
-        // Values are computed ahead of time because circuits evaluate all branches
-        let is_equal = value_field == select.value.to_field();
-        let is_lt = value_field.lt(select.value.to_field());
-
-        if (select.comparator == Comparator.EQ) {
-            assert(is_equal, "Mismatch return note field.");
-        } else if (select.comparator == Comparator.NEQ) {
-            assert(!is_equal, "Mismatch return note field.");
-        } else if (select.comparator == Comparator.LT) {
-            assert(is_lt, "Mismatch return note field.");
-        } else if (select.comparator == Comparator.LTE) {
-            assert(is_lt | is_equal, "Mismatch return note field.");
-        } else if (select.comparator == Comparator.GT) {
-            assert(!is_lt & !is_equal, "Mismatch return note field.");
-        } else if (select.comparator == Comparator.GTE) {
-            assert(!is_lt, "Mismatch return note field.");
-        }
+        assert(
+            compare(value_field, select.comparator, select.value.to_field()), "Mismatch return note field."
+        );
     }
 }
 
@@ -135,7 +122,7 @@ fn constrain_get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS,
     let filter_args = options.filter_args;
     let filtered_notes = filter_fn(opt_notes, filter_args);
 
-    let notes = crate::utils::collapse(filtered_notes);
+    let notes = crate::utils::collapse_array(filtered_notes);
     let mut note_hashes: BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL> = BoundedVec::new();
 
     // We have now collapsed the sparse array of Options into a BoundedVec. This is a more ergonomic type and also

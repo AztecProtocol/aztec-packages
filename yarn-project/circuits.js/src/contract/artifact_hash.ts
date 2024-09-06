@@ -72,6 +72,7 @@ export function computeArtifactMetadataHash(artifact: ContractArtifact) {
     'FeeJuice',
     'ContractInstanceDeployer',
     'ContractClassRegisterer',
+    'Router',
   ];
 
   // This is a temporary workaround for the canonical contracts to have deterministic deployments.
