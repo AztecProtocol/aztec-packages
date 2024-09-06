@@ -10,7 +10,7 @@
 #include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 
 #include <cstddef>
 #ifndef DISABLE_AZTEC_VM
@@ -1085,7 +1085,6 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
     auto proof = prover.construct_proof();
-
     if (outputPath == "-") {
         writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to stdout");
