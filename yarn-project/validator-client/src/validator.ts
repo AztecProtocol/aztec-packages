@@ -7,6 +7,7 @@ import { type P2P } from '@aztec/p2p';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
+import { AttestationTimeoutError, TransactionsNotAvailableError } from './errors/validator.error.js';
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 
@@ -18,7 +19,6 @@ export interface Validator {
   createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal>;
   attestToProposal(proposal: BlockProposal): void;
 
-  // TODO(md): possible abstraction leak
   broadcastBlockProposal(proposal: BlockProposal): void;
   collectAttestations(proposal: BlockProposal, numberOfRequiredAttestations: number): Promise<BlockAttestation[]>;
 }
@@ -88,33 +88,20 @@ export class ValidatorClient implements Validator {
    */
   async ensureTransactionsAreAvailable(proposal: BlockProposal) {
     const txHashes: TxHash[] = proposal.txs;
+    const transactionStatuses = await Promise.all(txHashes.map(txHash => this.p2pClient.getTxStatus(txHash)));
 
-    const transactionStatuses = txHashes.map(txHash => this.p2pClient.getTxStatus(txHash));
-    const haveAllTxs = transactionStatuses.every(tx => tx === 'pending' || tx === 'mined');
+    const missingTxs = txHashes.filter((_, index) => !['pending', 'mined'].includes(transactionStatuses[index] ?? ''));
 
-    // Only in an if statement here for logging purposes
-    if (!haveAllTxs) {
-      const missingTxs: TxHash[] = txHashes
-        .map((_, index) => {
-          if (!transactionStatuses[index]) {
-            return txHashes[index];
-          }
-          return undefined;
-        })
-        .filter(tx => tx !== undefined) as TxHash[];
+    if (missingTxs.length === 0) {
+      return; // All transactions are available
+    }
 
-      this.log.verbose(
-        `Missing ${missingTxs.length} attestations transactions in the tx pool, requesting from the network`,
-      );
+    this.log.verbose(`Missing ${missingTxs.length} transactions in the tx pool, requesting from the network`);
 
-      if (missingTxs) {
-        // If transactions are requested successfully, they will be written into the tx pool
-        const requestedTxs = await this.p2pClient.requestTxs(missingTxs);
-        const successfullyRetrievedMissingTxs = requestedTxs.every(tx => tx !== undefined);
-        if (!successfullyRetrievedMissingTxs) {
-          throw new Error('Failed to retrieve missing transactions');
-        }
-      }
+    const requestedTxs = await this.p2pClient.requestTxs(missingTxs);
+    if (requestedTxs.some(tx => tx === undefined)) {
+      this.log.error(`Failed to request transactions from the network: ${missingTxs.join(', ')}`);
+      throw new TransactionsNotAvailableError(missingTxs);
     }
   }
 
@@ -131,38 +118,32 @@ export class ValidatorClient implements Validator {
     proposal: BlockProposal,
     numberOfRequiredAttestations: number,
   ): Promise<BlockAttestation[]> {
-    // Wait and poll the p2pClients attestation pool for this block
-    // until we have enough attestations
+    // Wait and poll the p2pClient's attestation pool for this block until we have enough attestations
+    const slot = proposal.header.globalVariables.slotNumber.toBigInt();
+    this.log.info(`Waiting for ${numberOfRequiredAttestations} attestations for slot: ${slot}`);
+
+    const myAttestation = await this.validationService.attestToProposal(proposal);
 
     const startTime = Date.now();
 
-    const slot = proposal.header.globalVariables.slotNumber.toBigInt();
+    while (true) {
+      const attestations = [myAttestation, ...(await this.p2pClient.getAttestationsForSlot(slot))];
 
-    this.log.info(`Waiting for ${numberOfRequiredAttestations} attestations for slot: ${slot}`);
-
-    const myAttestation = await this.attestToProposal(proposal);
-
-    let attestations: BlockAttestation[] = [];
-    while (attestations.length < numberOfRequiredAttestations) {
-      attestations = [myAttestation, ...(await this.p2pClient.getAttestationsForSlot(slot))];
-
-      // Rememebr we can subtract 1 from this if we self sign
-      if (attestations.length < numberOfRequiredAttestations) {
-        this.log.verbose(
-          `SEAN: collected ${attestations.length} attestations so far ${numberOfRequiredAttestations} required`,
-        );
-        this.log.verbose(`Waiting ${this.attestationPoolingIntervalMs}ms for more attestations...`);
-        await sleep(this.attestationPoolingIntervalMs);
+      if (attestations.length >= numberOfRequiredAttestations) {
+        this.log.info(`Collected all ${numberOfRequiredAttestations} attestations for slot, ${slot}`);
+        return attestations;
       }
 
-      // FIX(md): kinna sad looking code
-      if (Date.now() - startTime > this.attestationWaitTimeoutMs) {
+      const elapsedTime = Date.now() - startTime;
+      if (elapsedTime > this.attestationWaitTimeoutMs) {
         this.log.error(`Timeout waiting for ${numberOfRequiredAttestations} attestations for slot, ${slot}`);
-        throw new Error(`Timeout waiting for ${numberOfRequiredAttestations} attestations for slot, ${slot}`);
+        throw new AttestationTimeoutError(numberOfRequiredAttestations, slot);
       }
-    }
-    this.log.info(`Collected all attestations for slot, ${slot}`);
 
-    return attestations;
+      this.log.verbose(
+        `Collected ${attestations.length} attestations so far, waiting ${this.attestationPoolingIntervalMs}ms for more...`,
+      );
+      await sleep(this.attestationPoolingIntervalMs);
+    }
   }
 }

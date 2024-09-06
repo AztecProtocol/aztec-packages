@@ -172,10 +172,10 @@ describe('e2e_p2p_network', () => {
     /**
      * Birds eye overview of the test
      * 1. We spin up x nodes
-     * 2. We turn off receiving a tx via gossip from one of the nodes
-     * 3. We send a transaction and gossip it to other nodes
-     * 4. This node will receive an attestation that it does not have the data for
-     * 5. It will request this data over the p2p layer
+     * 2. We turn off receiving a tx via gossip from two of the nodes
+     * 3. We send a transactions and gossip it to other nodes
+     * 4. The disabled nodes will receive an attestation that it does not have the data for
+     * 5. They will request this data over the p2p layer
      * 6. We receive all of the attestations that we need and we produce the block
      *
      * Note: we do not attempt to let this node produce a block, as it will not have received any transactions
@@ -197,14 +197,17 @@ describe('e2e_p2p_network', () => {
     // wait a bit for peers to discover each other
     await sleep(4000);
 
-    // Replace the p2p node implementation of one of the nodes with a spy such that it does not store transactions that are gossiped to it
+    // Replace the p2p node implementation of some of the nodes with a spy such that it does not store transactions that are gossiped to it
     // Original implementation of `processTxFromPeer` will store received transactions in the tx pool.
-    const nodeToTurnOffTxGossip = 0;
-    jest
-      .spyOn((nodes[nodeToTurnOffTxGossip] as any).p2pClient.p2pService, 'processTxFromPeer')
-      .mockImplementation((): Promise<void> => {
-        return Promise.resolve();
-      });
+    // We have chosen nodes 0,2 as they do not get chosen to be the sequencer in this test ( node 1 does ).
+    const nodeToTurnOffTxGossip = [0, 2];
+    for (const nodeIndex of nodeToTurnOffTxGossip) {
+      jest
+        .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'processTxFromPeer')
+        .mockImplementation((): Promise<void> => {
+          return Promise.resolve();
+        });
+    }
 
     // Only submit transactions to the first two nodes, so that we avoid our sequencer with a mocked p2p layer being picked to produce a block.
     // If the shuffling algorithm changes, then this will need to be updated.
