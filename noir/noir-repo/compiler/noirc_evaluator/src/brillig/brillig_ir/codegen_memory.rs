@@ -274,7 +274,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
 
         // Write size
         let len_write_pointer = self.allocate_register();
-        self.codegen_usize_op(len_write_pointer, vector.pointer, BrilligBinaryOp::Add, 1);
+        self.codegen_usize_op(vector.pointer, len_write_pointer, BrilligBinaryOp::Add, 1);
         self.store_instruction(len_write_pointer, size.address);
         self.deallocate_register(len_write_pointer);
     }

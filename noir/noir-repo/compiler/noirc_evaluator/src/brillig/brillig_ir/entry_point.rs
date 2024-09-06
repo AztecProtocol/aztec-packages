@@ -18,10 +18,12 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
         arguments: Vec<BrilligParameter>,
         return_parameters: Vec<BrilligParameter>,
         target_function: FunctionId,
+        disable_procedures: bool,
     ) -> BrilligArtifact<F> {
         let mut context = BrilligContext::new(false);
-        context.disable_procedures();
-
+        if disable_procedures {
+            context.disable_procedures();
+        }
         context.codegen_entry_point(&arguments, &return_parameters);
 
         context.add_external_call_instruction(target_function);
@@ -116,16 +118,17 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
                     BrilligParameter::Array(item_type, item_count),
                 ) => {
                     let deflattened_address =
-                        self.deflatten_array(item_type, array.size, array.pointer, false);
+                        self.deflatten_array(item_type, *item_count, array.pointer, false);
                     self.mov_instruction(array.pointer, deflattened_address);
                     array.size = item_type.len() * item_count;
                     self.deallocate_register(deflattened_address);
                 }
-                (BrilligVariable::BrilligVector(vector), BrilligParameter::Slice(item_type, _)) => {
-                    let flattened_size = Self::flattened_size(argument);
-
+                (
+                    BrilligVariable::BrilligVector(vector),
+                    BrilligParameter::Slice(item_type, item_count),
+                ) => {
                     let deflattened_address =
-                        self.deflatten_array(item_type, flattened_size, vector.pointer, true);
+                        self.deflatten_array(item_type, *item_count, vector.pointer, true);
                     self.mov_instruction(vector.pointer, deflattened_address);
 
                     self.deallocate_register(deflattened_address);
@@ -177,16 +180,20 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
         is_vector: bool,
     ) -> MemoryAddress {
         let deflattened_array_pointer = self.allocate_register();
-        let item_count_variable = self.make_usize_constant_instruction(item_count.into());
+        let deflattened_size_variable =
+            self.make_usize_constant_instruction((item_count * item_type.len()).into());
 
         let deflattened_items_pointer = if is_vector {
             let vector = BrilligVector { pointer: deflattened_array_pointer };
 
-            self.codegen_initialize_vector(vector, item_count_variable);
+            self.codegen_initialize_vector(vector, deflattened_size_variable);
 
             self.codegen_make_vector_items_pointer(vector)
         } else {
-            let arr = BrilligArray { pointer: deflattened_array_pointer, size: item_count };
+            let arr = BrilligArray {
+                pointer: deflattened_array_pointer,
+                size: item_count * item_type.len(),
+            };
             self.codegen_initialize_array(arr);
             self.codegen_make_array_items_pointer(arr)
         };
@@ -266,11 +273,11 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
             self.codegen_mem_copy(
                 flattened_array_pointer,
                 deflattened_items_pointer,
-                item_count_variable,
+                deflattened_size_variable,
             );
         }
 
-        self.deallocate_single_addr(item_count_variable);
+        self.deallocate_single_addr(deflattened_size_variable);
         self.deallocate_register(deflattened_items_pointer);
         deflattened_array_pointer
     }
@@ -323,7 +330,8 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
                     return_data_index += 1;
                 }
                 BrilligParameter::Array(item_type, item_count) => {
-                    let returned_pointer = returned_variable.extract_array().pointer;
+                    let deflattened_items_pointer =
+                        self.codegen_make_array_items_pointer(returned_variable.extract_array());
                     let pointer_to_return_data =
                         self.make_usize_constant_instruction(return_data_index.into());
 
@@ -331,10 +339,12 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
                         item_type,
                         *item_count,
                         pointer_to_return_data.address,
-                        returned_pointer,
+                        deflattened_items_pointer,
                     );
 
                     self.deallocate_single_addr(pointer_to_return_data);
+                    self.deallocate_register(deflattened_items_pointer);
+
                     return_data_index += Self::flattened_size(return_param);
                 }
                 BrilligParameter::Slice(..) => {
@@ -347,101 +357,103 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
+#[cfg(test)]
+mod tests {
 
-//     use acvm::FieldElement;
+    use acvm::FieldElement;
 
-//     use crate::{
-//         brillig::brillig_ir::{
-//             brillig_variable::BrilligArray,
-//             entry_point::BrilligParameter,
-//             tests::{create_and_run_vm, create_context, create_entry_point_bytecode},
-//         },
-//         ssa::ir::function::FunctionId,
-//     };
+    use crate::{
+        brillig::brillig_ir::{
+            brillig_variable::BrilligArray,
+            entry_point::BrilligParameter,
+            tests::{create_and_run_vm, create_context, create_entry_point_bytecode},
+        },
+        ssa::ir::function::FunctionId,
+    };
 
-//     #[test]
-//     fn entry_point_with_nested_array_parameter() {
-//         let calldata = vec![
-//             FieldElement::from(1_usize),
-//             FieldElement::from(2_usize),
-//             FieldElement::from(3_usize),
-//             FieldElement::from(4_usize),
-//             FieldElement::from(5_usize),
-//             FieldElement::from(6_usize),
-//         ];
-//         let arguments = vec![BrilligParameter::Array(
-//             vec![
-//                 BrilligParameter::Array(vec![BrilligParameter::SingleAddr(8)], 2),
-//                 BrilligParameter::SingleAddr(8),
-//             ],
-//             2,
-//         )];
-//         let returns = vec![BrilligParameter::SingleAddr(8)];
+    #[test]
+    fn entry_point_with_nested_array_parameter() {
+        let calldata = vec![
+            FieldElement::from(1_usize),
+            FieldElement::from(2_usize),
+            FieldElement::from(3_usize),
+            FieldElement::from(4_usize),
+            FieldElement::from(5_usize),
+            FieldElement::from(6_usize),
+        ];
+        let arguments = vec![BrilligParameter::Array(
+            vec![
+                BrilligParameter::Array(vec![BrilligParameter::SingleAddr(8)], 2),
+                BrilligParameter::SingleAddr(8),
+            ],
+            2,
+        )];
+        let returns = vec![BrilligParameter::SingleAddr(8)];
 
-//         let mut context = create_context(FunctionId::test_new(0));
+        let mut context = create_context(FunctionId::test_new(0));
 
-//         // Allocate the parameter
-//         let array_pointer = context.allocate_register();
-//         let array_value = context.allocate_register();
+        // Allocate the parameter
+        let array_pointer = context.allocate_register();
+        let array_value = context.allocate_register();
 
-//         context.load_instruction(array_pointer, array_pointer);
-//         context.load_instruction(array_pointer, array_pointer);
-//         context.load_instruction(array_value, array_pointer);
+        let items_pointer = context
+            .codegen_make_array_items_pointer(BrilligArray { pointer: array_pointer, size: 2 });
 
-//         context.codegen_return(&[array_value]);
+        // Load the nested array
+        context.load_instruction(array_pointer, items_pointer);
+        let items_pointer = context
+            .codegen_make_array_items_pointer(BrilligArray { pointer: array_pointer, size: 2 });
+        // Load the first item of the nested array.
+        context.load_instruction(array_value, items_pointer);
 
-//         let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
-//         let (vm, return_data_offset, return_data_size) =
-//             create_and_run_vm(calldata.clone(), &bytecode);
-//         assert_eq!(return_data_size, 1, "Return data size is incorrect");
-//         assert_eq!(vm.get_memory()[return_data_offset].to_field(), FieldElement::from(1_usize));
-//     }
+        context.codegen_return(&[array_value]);
 
-//     #[test]
-//     fn entry_point_with_nested_array_return() {
-//         let flattened_array = vec![
-//             FieldElement::from(1_usize),
-//             FieldElement::from(2_usize),
-//             FieldElement::from(3_usize),
-//             FieldElement::from(4_usize),
-//             FieldElement::from(5_usize),
-//             FieldElement::from(6_usize),
-//         ];
-//         let array_param = BrilligParameter::Array(
-//             vec![
-//                 BrilligParameter::Array(vec![BrilligParameter::SingleAddr(8)], 2),
-//                 BrilligParameter::SingleAddr(8),
-//             ],
-//             2,
-//         );
-//         let arguments = vec![array_param.clone()];
-//         let returns = vec![array_param];
+        let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
+        let (vm, return_data_offset, return_data_size) =
+            create_and_run_vm(calldata.clone(), &bytecode);
+        assert_eq!(return_data_size, 1, "Return data size is incorrect");
+        assert_eq!(vm.get_memory()[return_data_offset].to_field(), FieldElement::from(1_usize));
+    }
 
-//         let mut context = create_context(FunctionId::test_new(0));
+    #[test]
+    fn entry_point_with_nested_array_return() {
+        let flattened_array = vec![
+            FieldElement::from(1_usize),
+            FieldElement::from(2_usize),
+            FieldElement::from(3_usize),
+            FieldElement::from(4_usize),
+            FieldElement::from(5_usize),
+            FieldElement::from(6_usize),
+        ];
+        let array_param = BrilligParameter::Array(
+            vec![
+                BrilligParameter::Array(vec![BrilligParameter::SingleAddr(8)], 2),
+                BrilligParameter::SingleAddr(8),
+            ],
+            2,
+        );
+        let arguments = vec![array_param.clone()];
+        let returns = vec![array_param];
 
-//         // Allocate the parameter
-//         let brillig_array = BrilligArray {
-//             pointer: context.allocate_register(),
-//             size: 2,
-//             rc: context.allocate_register(),
-//         };
+        let mut context = create_context(FunctionId::test_new(0));
 
-//         context.codegen_return(&brillig_array.extract_registers());
+        // Allocate the parameter
+        let brillig_array = BrilligArray { pointer: context.allocate_register(), size: 2 };
 
-//         let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
-//         let (vm, return_data_pointer, return_data_size) =
-//             create_and_run_vm(flattened_array.clone(), &bytecode);
-//         let memory = vm.get_memory();
+        context.codegen_return(&[brillig_array.pointer]);
 
-//         assert_eq!(
-//             memory[return_data_pointer..(return_data_pointer + flattened_array.len())]
-//                 .iter()
-//                 .map(|mem_val| mem_val.to_field())
-//                 .collect::<Vec<_>>(),
-//             flattened_array
-//         );
-//         assert_eq!(return_data_size, flattened_array.len());
-//     }
-// }
+        let bytecode = create_entry_point_bytecode(context, arguments, returns).byte_code;
+        let (vm, return_data_pointer, return_data_size) =
+            create_and_run_vm(flattened_array.clone(), &bytecode);
+        let memory = vm.get_memory();
+
+        assert_eq!(
+            memory[return_data_pointer..(return_data_pointer + flattened_array.len())]
+                .iter()
+                .map(|mem_val| mem_val.to_field())
+                .collect::<Vec<_>>(),
+            flattened_array
+        );
+        assert_eq!(return_data_size, flattened_array.len());
+    }
+}

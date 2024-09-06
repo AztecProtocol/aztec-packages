@@ -1,6 +1,6 @@
 use crate::brillig::brillig_ir::artifact::Label;
 use crate::brillig::brillig_ir::brillig_variable::{
-    type_to_heap_value_type, BrilligArray, BrilligVariable, BrilligVector, SingleAddrVariable,
+    type_to_heap_value_type, BrilligArray, BrilligVariable, SingleAddrVariable,
 };
 use crate::brillig::brillig_ir::registers::Stack;
 use crate::brillig::brillig_ir::{
@@ -246,19 +246,20 @@ impl<'block> BrilligBlock<'block> {
             }
             Instruction::Allocate => {
                 let result_value = dfg.instruction_results(instruction_id)[0];
-                self.variables.define_single_addr_variable(
+                let pointer = self.variables.define_single_addr_variable(
                     self.function_context,
                     self.brillig_context,
                     result_value,
                     dfg,
                 );
+                self.brillig_context.codegen_allocate_immediate_mem(pointer.address, 1);
             }
             Instruction::Store { address, value } => {
                 let address_var = self.convert_ssa_single_addr_value(*address, dfg);
                 let source_variable = self.convert_ssa_value(*value, dfg);
 
                 self.brillig_context
-                    .mov_instruction(address_var.address, source_variable.extract_register());
+                    .store_instruction(address_var.address, source_variable.extract_register());
             }
             Instruction::Load { address } => {
                 let target_variable = self.variables.define_variable(
@@ -271,7 +272,7 @@ impl<'block> BrilligBlock<'block> {
                 let address_variable = self.convert_ssa_single_addr_value(*address, dfg);
 
                 self.brillig_context
-                    .mov_instruction(target_variable.extract_register(), address_variable.address);
+                    .load_instruction(target_variable.extract_register(), address_variable.address);
             }
             Instruction::Not(value) => {
                 let condition_register = self.convert_ssa_single_addr_value(*value, dfg);
@@ -424,7 +425,6 @@ impl<'block> BrilligBlock<'block> {
                         result_ids[0],
                         dfg,
                     );
-                    dbg!(destination_len_variable.bit_size);
                     let destination_variable = self.variables.define_variable(
                         self.function_context,
                         self.brillig_context,
@@ -829,7 +829,7 @@ impl<'block> BrilligBlock<'block> {
                 BrilligVariable::BrilligVector(source_vector),
                 BrilligVariable::BrilligVector(destination_vector),
             ) => {
-                unimplemented!("ICE: vector set not implemented");
+                self.brillig_context.call_vector_copy_procedure(source_vector, destination_vector);
             }
             _ => unreachable!("ICE: array set on non-array"),
         }
@@ -1511,8 +1511,8 @@ impl<'block> BrilligBlock<'block> {
                             );
 
                             self.brillig_context.codegen_usize_op(
-                                items_pointer,
                                 brillig_array.pointer,
+                                items_pointer,
                                 BrilligBinaryOp::Add,
                                 1,
                             );
@@ -1530,8 +1530,8 @@ impl<'block> BrilligBlock<'block> {
 
                             // Write size
                             self.brillig_context.codegen_usize_op(
-                                items_pointer,
                                 vector.pointer,
+                                items_pointer,
                                 BrilligBinaryOp::Add,
                                 1,
                             );
@@ -1827,7 +1827,7 @@ impl<'block> BrilligBlock<'block> {
                         self.allocate_foreign_call_result_array(element_type, inner_array);
 
                         let idx =
-                            self.brillig_context.make_usize_constant_instruction((index+1).into()  );
+                            self.brillig_context.make_usize_constant_instruction((index + 1).into()  );
                         self.brillig_context.codegen_array_set(array.pointer, idx, inner_array.pointer);
 
                         self.brillig_context.deallocate_single_addr(idx);

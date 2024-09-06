@@ -185,14 +185,17 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
                         );
                     }
                     BrilligParameter::Array(item_type, item_count) => {
-                        let variable_pointer = revert_variable.extract_array().pointer;
+                        let deflattened_items_pointer =
+                            ctx.codegen_make_array_items_pointer(revert_variable.extract_array());
 
                         ctx.flatten_array(
                             &item_type,
                             item_count,
                             current_revert_data_pointer,
-                            variable_pointer,
+                            deflattened_items_pointer,
                         );
+
+                        ctx.deallocate_register(deflattened_items_pointer);
                     }
                     BrilligParameter::Slice(_, _) => {
                         unimplemented!("Slices are not supported as revert data")

@@ -644,8 +644,8 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                                 current_pointer = MemoryAddress(current_pointer.to_usize() + 1);
                             }
                             HeapValueType::Array { .. } => {
-                                let destination = self.memory.read_ref(current_pointer);
-                                let destination = self.memory.read_ref(destination);
+                                let destination =
+                                    MemoryAddress(self.memory.read_ref(current_pointer).0 + 1);
                                 self.write_slice_of_values_to_memory(
                                     destination,
                                     values,
