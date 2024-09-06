@@ -73,7 +73,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
-    const auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
+    auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
     auto poly1 = Polynomial::random(n);
     auto poly2 = Polynomial::random(n, 1); // make 'shiftable'
 

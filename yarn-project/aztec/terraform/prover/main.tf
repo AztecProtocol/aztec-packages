@@ -238,7 +238,7 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
     "command": ["start", "--prover"],
     "essential": true,
     "cpu": 16384,
-    "memoryReservation": 122880,
+    "memoryReservation": 127800,
     "portMappings": [
       {
         "containerPort": 80

@@ -103,7 +103,7 @@ resource "aws_service_discovery_service" "aztec-prover-node" {
 
 # Configure an EFS filesystem.
 resource "aws_efs_file_system" "prover_node_data_store" {
-  creation_token                  = "${var.DEPLOY_TAG}-prover-node-data"
+  creation_token = "${var.DEPLOY_TAG}-prover-node-data"
 
   tags = {
     Name = "${var.DEPLOY_TAG}-prover-node-data"

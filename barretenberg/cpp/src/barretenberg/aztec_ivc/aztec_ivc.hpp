@@ -135,7 +135,7 @@ class AztecIVC {
                        const std::shared_ptr<AztecIVC::ECCVMVerificationKey>& eccvm_vk,
                        const std::shared_ptr<AztecIVC::TranslatorVerificationKey>& translator_vk);
 
-    bool verify(Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack);
+    bool verify(const Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack);
 
     bool prove_and_verify();
 

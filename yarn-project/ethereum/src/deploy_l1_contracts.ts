@@ -261,7 +261,7 @@ export const deployL1Contracts = async (
     `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
-  if (chain.id == foundry.id) {
+  if (isAnvilTestChain(chain.id)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
     //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
     try {

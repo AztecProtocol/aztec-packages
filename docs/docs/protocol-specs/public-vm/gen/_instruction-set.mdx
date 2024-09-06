@@ -373,7 +373,7 @@ M[existsOffset] = exists`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x2e</td>
+	<td style={{'text-align': 'center'}}>0x2b</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-getcontractinstance'/><Markdown>\[\`GETCONTRACTINSTANCE\`\](#isa-section-getcontractinstance)</Markdown></td>
 	<td><Markdown>Copies contract instance data to memory</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -389,7 +389,7 @@ M[existsOffset] = exists`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x2f</td>
+	<td style={{'text-align': 'center'}}>0x2c</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-emitunencryptedlog'/><Markdown>\[\`EMITUNENCRYPTEDLOG\`\](#isa-section-emitunencryptedlog)</Markdown></td>
 	<td><Markdown>Emit an unencrypted log</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -402,7 +402,7 @@ M[existsOffset] = exists`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x30</td>
+	<td style={{'text-align': 'center'}}>0x2d</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-sendl2tol1msg'/><Markdown>\[\`SENDL2TOL1MSG\`\](#isa-section-sendl2tol1msg)</Markdown></td>
 	<td><Markdown>Send an L2-to-L1 message</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -416,7 +416,7 @@ M[existsOffset] = exists`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x31</td>
+	<td style={{'text-align': 'center'}}>0x2e</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-call'/><Markdown>\[\`CALL\`\](#isa-section-call)</Markdown></td>
 	<td><Markdown>Call into another contract</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -431,7 +431,7 @@ updateContextAfterNestedCall(context, instr.args, nestedContext)`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x32</td>
+	<td style={{'text-align': 'center'}}>0x2f</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-staticcall'/><Markdown>\[\`STATICCALL\`\](#isa-section-staticcall)</Markdown></td>
 	<td><Markdown>Call into another contract, disallowing World State and Accrued Substate modifications</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -446,7 +446,7 @@ updateContextAfterNestedCall(context, instr.args, nestedContext)`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x33</td>
+	<td style={{'text-align': 'center'}}>0x30</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-delegatecall'/><Markdown>\[\`DELEGATECALL\`\](#isa-section-delegatecall)</Markdown></td>
 	<td><Markdown>(UNIMPLEMENTED) Call into another contract, but keep the caller's `sender` and `storageAddress`</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -461,7 +461,7 @@ updateContextAfterNestedCall(context, instr.args, nestedContext)`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x34</td>
+	<td style={{'text-align': 'center'}}>0x31</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-return'/><Markdown>\[\`RETURN\`\](#isa-section-return)</Markdown></td>
 	<td><Markdown>Halt execution within this context (without revert), optionally returning some data</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -470,7 +470,7 @@ halt`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x35</td>
+	<td style={{'text-align': 'center'}}>0x32</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-revert'/><Markdown>\[\`REVERT\`\](#isa-section-revert)</Markdown></td>
 	<td><Markdown>Halt execution within this context as `reverted`, optionally returning some data</Markdown></td>
 	<td><CodeBlock language="jsx">
@@ -480,7 +480,7 @@ halt`}
 	</CodeBlock></td>
 </tr>
 <tr>
-	<td style={{'text-align': 'center'}}>0x36</td>
+	<td style={{'text-align': 'center'}}>0x33</td>
 	<td style={{'text-align': 'center'}}><a id='isa-table-to_radix_le'/><Markdown>\[\`TORADIXLE\`\](#isa-section-to_radix_le)</Markdown></td>
 	<td><Markdown>Convert a word to an array of limbs in little-endian radix form</Markdown></td>
 	<td><Markdown>TBD: Storage of limbs and if T[dstOffset] is constrained to U8</Markdown></td>
@@ -1435,7 +1435,7 @@ Copies contract instance data to memory
 
 [See in table.](#isa-table-getcontractinstance)
 
-- **Opcode**: 0x2e
+- **Opcode**: 0x2b
 - **Category**: Other
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1465,7 +1465,7 @@ Emit an unencrypted log
 
 [See in table.](#isa-table-emitunencryptedlog)
 
-- **Opcode**: 0x2f
+- **Opcode**: 0x2c
 - **Category**: Accrued Substate - Logging
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1490,7 +1490,7 @@ Send an L2-to-L1 message
 
 [See in table.](#isa-table-sendl2tol1msg)
 
-- **Opcode**: 0x30
+- **Opcode**: 0x2d
 - **Category**: Accrued Substate - Messaging
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1516,7 +1516,7 @@ Call into another contract
 
 [See in table.](#isa-table-call)
 
-- **Opcode**: 0x31
+- **Opcode**: 0x2e
 - **Category**: Control Flow - Contract Calls
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1563,7 +1563,7 @@ Call into another contract, disallowing World State and Accrued Substate modific
 
 [See in table.](#isa-table-staticcall)
 
-- **Opcode**: 0x32
+- **Opcode**: 0x2f
 - **Category**: Control Flow - Contract Calls
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1607,7 +1607,7 @@ T[retOffset:retOffset+retSize] = field`}
 
 [See in table.](#isa-table-delegatecall)
 
-- **Opcode**: 0x33
+- **Opcode**: 0x30
 - **Category**: Control Flow - Contract Calls
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1651,7 +1651,7 @@ Halt execution within this context (without revert), optionally returning some d
 
 [See in table.](#isa-table-return)
 
-- **Opcode**: 0x34
+- **Opcode**: 0x31
 - **Category**: Control Flow - Contract Calls
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1673,7 +1673,7 @@ Halt execution within this context as `reverted`, optionally returning some data
 
 [See in table.](#isa-table-revert)
 
-- **Opcode**: 0x35
+- **Opcode**: 0x32
 - **Category**: Control Flow - Contract Calls
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.
@@ -1696,7 +1696,7 @@ Convert a word to an array of limbs in little-endian radix form
 
 [See in table.](#isa-table-to_radix_le)
 
-- **Opcode**: 0x36
+- **Opcode**: 0x33
 - **Category**: Conversions
 - **Flags**: 
 	- **indirect**: Toggles whether each memory-offset argument is an indirect offset. Rightmost bit corresponds to 0th offset arg, etc. Indirect offsets result in memory accesses like `M[M[offset]]` instead of the more standard `M[offset]`.

@@ -177,39 +177,6 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
         constraint_system.honk_recursion_constraints = honk_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
 
-        AcirFormat constraint_system{
-            .varnum = static_cast<uint32_t>(witness.size()),
-            .recursive = false,
-            .num_acir_opcodes = static_cast<uint32_t>(honk_recursion_constraints.size()),
-            .public_inputs = {},
-            .logic_constraints = {},
-            .range_constraints = {},
-            .aes128_constraints = {},
-            .sha256_constraints = {},
-            .sha256_compression = {},
-            .schnorr_constraints = {},
-            .ecdsa_k1_constraints = {},
-            .ecdsa_r1_constraints = {},
-            .blake2s_constraints = {},
-            .blake3_constraints = {},
-            .keccak_constraints = {},
-            .keccak_permutations = {},
-            .pedersen_constraints = {},
-            .pedersen_hash_constraints = {},
-            .poseidon2_constraints = {},
-            .multi_scalar_mul_constraints = {},
-            .ec_add_constraints = {},
-            .recursion_constraints = {},
-            .honk_recursion_constraints = honk_recursion_constraints,
-            .bigint_from_le_bytes_constraints = {},
-            .bigint_to_le_bytes_constraints = {},
-            .bigint_operations = {},
-            .assert_equalities = {},
-            .poly_triple_constraints = {},
-            .quad_constraints = {},
-            .block_constraints = {},
-            .original_opcode_indices = create_empty_original_opcode_indices(),
-        };
         mock_opcode_indices(constraint_system);
         auto outer_circuit = create_circuit(constraint_system, /*size_hint*/ 0, witness, /*honk recursion*/ true);
 
