@@ -432,14 +432,14 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         CalldataCopy.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // cdOffset
-        ...Buffer.from('23456789', 'hex'), // copysize
+        ...Buffer.from('12345678', 'hex'), // cdOffsetAddress
+        ...Buffer.from('23456789', 'hex'), // copysizeOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       const inst = new CalldataCopy(
         /*indirect=*/ 0x01,
-        /*cdOffset=*/ 0x12345678,
-        /*copysize=*/ 0x23456789,
+        /*cdOffsetAddress=*/ 0x12345678,
+        /*copysizeOffset=*/ 0x23456789,
         /*dstOffset=*/ 0x3456789a,
       );
 

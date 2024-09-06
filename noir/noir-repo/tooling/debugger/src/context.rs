@@ -1046,7 +1046,7 @@ mod tests {
             })
         );
 
-        // Execute the first Brillig opcode (calldata copy)
+        // Const
         let result = context.step_into_opcode();
         assert!(matches!(result, DebugCommandResult::Ok));
         assert_eq!(
@@ -1058,7 +1058,7 @@ mod tests {
             })
         );
 
-        // execute the second Brillig opcode (const)
+        // Const
         let result = context.step_into_opcode();
         assert!(matches!(result, DebugCommandResult::Ok));
         assert_eq!(
@@ -1070,19 +1070,7 @@ mod tests {
             })
         );
 
-        // try to execute the third Brillig opcode (and resolve the foreign call)
-        let result = context.step_into_opcode();
-        assert!(matches!(result, DebugCommandResult::Ok));
-        assert_eq!(
-            context.get_current_debug_location(),
-            Some(DebugLocation {
-                circuit_id: 0,
-                opcode_location: OpcodeLocation::Brillig { acir_index: 0, brillig_index: 2 },
-                brillig_function_id: Some(BrilligFunctionId(0)),
-            })
-        );
-
-        // retry the third Brillig opcode (foreign call should be finished)
+        // Calldatacopy
         let result = context.step_into_opcode();
         assert!(matches!(result, DebugCommandResult::Ok));
         assert_eq!(
@@ -1090,6 +1078,42 @@ mod tests {
             Some(DebugLocation {
                 circuit_id: 0,
                 opcode_location: OpcodeLocation::Brillig { acir_index: 0, brillig_index: 3 },
+                brillig_function_id: Some(BrilligFunctionId(0)),
+            })
+        );
+
+        // Const
+        let result = context.step_into_opcode();
+        assert!(matches!(result, DebugCommandResult::Ok));
+        assert_eq!(
+            context.get_current_debug_location(),
+            Some(DebugLocation {
+                circuit_id: 0,
+                opcode_location: OpcodeLocation::Brillig { acir_index: 0, brillig_index: 4 },
+                brillig_function_id: Some(BrilligFunctionId(0)),
+            })
+        );
+
+        // try to execute the Brillig opcode (and resolve the foreign call)
+        let result = context.step_into_opcode();
+        assert!(matches!(result, DebugCommandResult::Ok));
+        assert_eq!(
+            context.get_current_debug_location(),
+            Some(DebugLocation {
+                circuit_id: 0,
+                opcode_location: OpcodeLocation::Brillig { acir_index: 0, brillig_index: 4 },
+                brillig_function_id: Some(BrilligFunctionId(0)),
+            })
+        );
+
+        // retry the Brillig opcode (foreign call should be finished)
+        let result = context.step_into_opcode();
+        assert!(matches!(result, DebugCommandResult::Ok));
+        assert_eq!(
+            context.get_current_debug_location(),
+            Some(DebugLocation {
+                circuit_id: 0,
+                opcode_location: OpcodeLocation::Brillig { acir_index: 0, brillig_index: 5 },
                 brillig_function_id: Some(BrilligFunctionId(0)),
             })
         );
