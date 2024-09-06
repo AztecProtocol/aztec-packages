@@ -137,12 +137,12 @@ EOF
 }
 
 # Launch template for our prover agents
-# 4 cores and 16 GB memory
+# 4 cores and 8 GB memory
 resource "aws_launch_template" "aztec-node-launch-template" {
   count                  = local.node_count
   name                   = "${var.DEPLOY_TAG}-aztec-node-launch-template-${count.index + 1}"
   image_id               = "ami-0cd4858f2b923aa6b"
-  instance_type          = "m6a.xlarge"
+  instance_type          = "c6a.xlarge"
   vpc_security_group_ids = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
 
   iam_instance_profile {
@@ -216,7 +216,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
       command           = ["start", "--node", "--archiver", "--sequencer"]
       essential         = true
       cpu               = 4096
-      memoryReservation = 16384
+      memoryReservation = 8192
       portMappings = [
         {
           containerPort = 80
