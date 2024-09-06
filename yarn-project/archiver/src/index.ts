@@ -6,14 +6,16 @@ import { createPublicClient, http } from 'viem';
 import { localhost } from 'viem/chains';
 
 import { Archiver, getArchiverConfigFromEnv } from './archiver/index.js';
+import { ArchiverInstrumentation } from './archiver/instrumentation.js';
 import { MemoryArchiverStore } from './archiver/memory_archiver_store/memory_archiver_store.js';
 
 export * from './archiver/index.js';
 export * from './rpc/index.js';
 export * from './factory.js';
 
-// We are not storing the info from these events in the archiver for now (and we don't really need to), so we expose this query directly
-export { retrieveL2ProofVerifiedEvents } from './archiver/data_retrieval.js';
+export { retrieveL2ProofVerifiedEvents, retrieveBlockMetadataFromRollup } from './archiver/data_retrieval.js';
+
+export { getL2BlockProposedLogs } from './archiver/eth_log_handlers.js';
 
 const log = createDebugLogger('aztec:archiver');
 
@@ -40,7 +42,7 @@ async function main() {
     l1Contracts.registryAddress,
     archiverStore,
     1000,
-    new NoopTelemetryClient(),
+    new ArchiverInstrumentation(new NoopTelemetryClient()),
   );
 
   const shutdown = async () => {

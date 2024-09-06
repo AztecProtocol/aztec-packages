@@ -109,9 +109,11 @@ Builder create_inner_circuit()
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
+        .assert_equalities = {},
         .poly_triple_constraints = { expr_a, expr_b, expr_c, expr_d },
         .quad_constraints = {},
         .block_constraints = {},
@@ -209,7 +211,7 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
             .proof = proof_indices,
             .public_inputs = inner_public_inputs,
             .key_hash = key_hash_start_idx,
-            .proof_type = PLONK_RECURSION,
+            .proof_type = PLONK,
         };
         recursion_constraints.push_back(recursion_constraint);
 
@@ -270,9 +272,11 @@ Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
         .ec_add_constraints = {},
         .recursion_constraints = recursion_constraints,
         .honk_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
+        .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},

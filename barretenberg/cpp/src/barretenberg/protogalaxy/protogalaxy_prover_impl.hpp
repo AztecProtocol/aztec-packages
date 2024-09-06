@@ -7,183 +7,184 @@
 #include "protogalaxy_prover.hpp"
 
 namespace bb {
-template <class ProverInstances>
-void ProtoGalaxyProver_<ProverInstances>::finalise_and_send_instance(std::shared_ptr<Instance> instance,
-                                                                     const std::string& domain_separator)
+template <class DeciderProvingKeys>
+void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_one_incomplete_key(std::shared_ptr<DeciderPK> keys,
+                                                                                   const std::string& domain_separator)
 {
-    ZoneScopedN("ProtoGalaxyProver::finalise_and_send_instance");
-    OinkProver<Flavor> oink_prover(instance, transcript, domain_separator + '_');
-
+    ZoneScopedN("ProtogalaxyProver::run_oink_prover_on_one_incomplete_key");
+    OinkProver<Flavor> oink_prover(keys, transcript, domain_separator + '_');
     oink_prover.prove();
 }
 
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::prepare_for_folding()
+template <class DeciderProvingKeys>
+void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_each_incomplete_key()
 {
-    auto idx = 0;
-    auto instance = instances[0];
+    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key");
+    size_t idx = 0;
+    auto& key = keys_to_fold[0];
     auto domain_separator = std::to_string(idx);
-    if (!instance->is_accumulator) {
-        finalise_and_send_instance(instance, domain_separator);
-        instance->target_sum = 0;
-        instance->gate_challenges = std::vector<FF>(instance->proving_key.log_circuit_size, 0);
+
+    if (!key->is_accumulator) {
+        run_oink_prover_on_one_incomplete_key(key, domain_separator);
+        key->target_sum = 0;
+        key->gate_challenges = std::vector<FF>(key->proving_key.log_circuit_size, 0);
     }
 
     idx++;
 
-    for (auto it = instances.begin() + 1; it != instances.end(); it++, idx++) {
-        auto instance = *it;
+    for (auto it = keys_to_fold.begin() + 1; it != keys_to_fold.end(); it++, idx++) {
+        auto key = *it;
         auto domain_separator = std::to_string(idx);
-        finalise_and_send_instance(instance, domain_separator);
+        run_oink_prover_on_one_incomplete_key(key, domain_separator);
     }
+
+    accumulator = keys_to_fold[0];
+};
+
+template <class DeciderProvingKeys>
+std::tuple<std::vector<typename DeciderProvingKeys::Flavor::FF>, Polynomial<typename DeciderProvingKeys::Flavor::FF>>
+ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
+    const std::shared_ptr<const typename DeciderProvingKeys::DeciderPK>& accumulator)
+{
+    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::perturbator_round");
+
+    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
+
+    const FF delta = transcript->template get_challenge<FF>("delta");
+    const std::vector<FF> deltas = compute_round_challenge_pows(accumulator->proving_key.log_circuit_size, delta);
+    // An honest prover with valid initial key computes that the perturbator is 0 in the first round
+    const Polynomial<FF> perturbator = accumulator->is_accumulator
+                                           ? Fun::compute_perturbator(accumulator, deltas)
+                                           : Polynomial<FF>(accumulator->proving_key.log_circuit_size + 1);
+    // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
+    // the accumulator which the folding verifier has from the previous iteration.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
+    // different
+    if (accumulator->is_accumulator) {
+        for (size_t idx = 1; idx <= accumulator->proving_key.log_circuit_size; idx++) {
+            transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
+        }
+    }
+
+    return std::make_tuple(deltas, perturbator);
+};
+
+template <class DeciderProvingKeys>
+std::tuple<std::vector<typename DeciderProvingKeys::Flavor::FF>,
+           typename ProtogalaxyProver_<DeciderProvingKeys>::UnivariateRelationSeparator,
+           typename ProtogalaxyProver_<DeciderProvingKeys>::UnivariateRelationParameters,
+           typename DeciderProvingKeys::Flavor::FF,
+           typename ProtogalaxyProver_<DeciderProvingKeys>::CombinerQuotient>
+ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vector<FF>& gate_challenges,
+                                                                const std::vector<FF>& deltas,
+                                                                const DeciderProvingKeys& keys)
+{
+    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::combiner_quotient_round");
+
+    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
+
+    const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
+
+    const std::vector<FF> updated_gate_challenges =
+        update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
+    const UnivariateRelationSeparator alphas = Fun::compute_and_extend_alphas(keys);
+    const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges, keys[0]->proving_key.log_circuit_size };
+    const UnivariateRelationParameters relation_parameters =
+        Fun::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
+
+    TupleOfTuplesOfUnivariates accumulators;
+    auto combiner = Fun::compute_combiner(keys, gate_separators, relation_parameters, alphas, accumulators);
+
+    const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
+    const CombinerQuotient combiner_quotient = Fun::compute_combiner_quotient(perturbator_evaluation, combiner);
+
+    for (size_t idx = DeciderProvingKeys::NUM; idx < DeciderProvingKeys::BATCHED_EXTENDED_LENGTH; idx++) {
+        transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), combiner_quotient.value_at(idx));
+    }
+
+    return std::make_tuple(
+        updated_gate_challenges, alphas, relation_parameters, perturbator_evaluation, combiner_quotient);
 }
 
 /**
  * @brief Given the challenge \gamma, compute Z(\gamma) and {L_0(\gamma),L_1(\gamma)}
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/764): Generalize the vanishing polynomial formula
- * and the computation of Lagrange basis for k instances
+ * and the computation of Lagrange basis for k decider proving keys.
  */
-template <class ProverInstances>
-std::shared_ptr<typename ProverInstances::Instance> ProtoGalaxyProver_<ProverInstances>::compute_next_accumulator(
-    ProverInstances& instances,
-    State::CombinerQuotient& combiner_quotient,
-    State::OptimisedRelationParameters& univariate_relation_parameters,
-    FF& challenge,
-    const FF& compressed_perturbator)
+template <class DeciderProvingKeys>
+FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderProvingKeys>::update_target_sum_and_fold(
+    const DeciderProvingKeys& keys,
+    const CombinerQuotient& combiner_quotient,
+    const UnivariateRelationSeparator& alphas,
+    const UnivariateRelationParameters& univariate_relation_parameters,
+    const FF& perturbator_evaluation)
 {
-    using Fun = ProtogalaxyProverInternal<ProverInstances>;
+    BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::update_target_sum_and_fold");
+    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
-    auto combiner_quotient_at_challenge = combiner_quotient.evaluate(challenge);
-    auto [vanishing_polynomial_at_challenge, lagranges] = Fun::compute_vanishing_polynomial_and_lagranges(challenge);
+    const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
+
+    FoldingResult<Flavor> result{ .accumulator = keys[0], .proof = std::move(transcript->proof_data) };
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
-    auto next_accumulator = std::move(instances[0]);
-    next_accumulator->is_accumulator = true;
+    result.accumulator->is_accumulator = true;
 
-    // Compute the next target sum and send the next folding parameters to the verifier
-    FF next_target_sum =
-        compressed_perturbator * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
-
-    next_accumulator->target_sum = next_target_sum;
-    next_accumulator->gate_challenges = state.gate_challenges;
-
-    // Initialize accumulator proving key polynomials
-    auto accumulator_polys = next_accumulator->proving_key.polynomials.get_all();
-    for (size_t poly_idx = 0; poly_idx < Flavor::NUM_FOLDED_ENTITIES; poly_idx++) {
-        accumulator_polys[poly_idx] *= lagranges[0];
-    }
+    // Compute the next target sum
+    auto [vanishing_polynomial_at_challenge, lagranges] =
+        Fun::compute_vanishing_polynomial_and_lagranges(combiner_challenge);
+    result.accumulator->target_sum = perturbator_evaluation * lagranges[0] +
+                                     vanishing_polynomial_at_challenge * combiner_quotient.evaluate(combiner_challenge);
 
     // Fold the proving key polynomials
-    for (size_t inst_idx = 1; inst_idx < ProverInstances::NUM; inst_idx++) {
-        auto input_polys = instances[inst_idx]->proving_key.polynomials.get_all();
-        for (size_t poly_idx = 0; poly_idx < Flavor::NUM_FOLDED_ENTITIES; poly_idx++) {
-            accumulator_polys[poly_idx].add_scaled(input_polys[poly_idx], lagranges[inst_idx]);
+    for (auto& poly : result.accumulator->proving_key.polynomials.get_unshifted()) {
+        poly *= lagranges[0];
+    }
+    for (size_t key_idx = 1; key_idx < DeciderProvingKeys::NUM; key_idx++) {
+        for (auto [acc_poly, key_poly] : zip_view(result.accumulator->proving_key.polynomials.get_unshifted(),
+                                                  keys[key_idx]->proving_key.polynomials.get_unshifted())) {
+            acc_poly.add_scaled(key_poly, lagranges[key_idx]);
         }
     }
 
     // Evaluate the combined batching  α_i univariate at challenge to obtain next α_i and send it to the
     // verifier, where i ∈ {0,...,NUM_SUBRELATIONS - 1}
-    auto& folded_alphas = next_accumulator->alphas;
-    for (size_t idx = 0; idx < NUM_SUBRELATIONS - 1; idx++) {
-        folded_alphas[idx] = state.alphas[idx].evaluate(challenge);
+    for (auto [folded_alpha, key_alpha] : zip_view(result.accumulator->alphas, alphas)) {
+        folded_alpha = key_alpha.evaluate(combiner_challenge);
     }
 
-    // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters and send to
-    // the verifier. We could reuse the univariate relation parameters comuted before, but the computation is tiny and
-    // we do this now to avoid passing that state through the ProverInstances.
-    for (auto [univariate, value] :
-         zip_view(univariate_relation_parameters.get_to_fold(), next_accumulator->relation_parameters.get_to_fold())) {
-        value = univariate.evaluate(challenge);
+    // Evaluate each relation parameter univariate at challenge to obtain the folded relation parameters.
+    for (auto [univariate, value] : zip_view(univariate_relation_parameters.get_to_fold(),
+                                             result.accumulator->relation_parameters.get_to_fold())) {
+        value = univariate.evaluate(combiner_challenge);
     }
-    next_accumulator->proving_key = std::move(instances[0]->proving_key);
-    return next_accumulator;
+
+    return result;
 }
 
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::preparation_round()
-{
-    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::preparation_round");
-    prepare_for_folding();
-};
-
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::perturbator_round()
-{
-    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::perturbator_round");
-
-    using Fun = ProtogalaxyProverInternal<ProverInstances>;
-    state.accumulator = get_accumulator();
-    FF delta = transcript->template get_challenge<FF>("delta");
-    state.deltas = compute_round_challenge_pows(state.accumulator->proving_key.log_circuit_size, delta);
-    state.perturbator =
-        LegacyPolynomial<FF>(state.accumulator->proving_key.log_circuit_size + 1); // initialize to all zeros
-    // compute perturbator only if this is not the first round and has an accumulator
-    if (state.accumulator->is_accumulator) {
-        state.perturbator = Fun::compute_perturbator(state.accumulator, state.deltas);
-        // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
-        // the accumulator which the folding verifier has from the previous iteration.
-        for (size_t idx = 1; idx <= state.accumulator->proving_key.log_circuit_size; idx++) {
-            transcript->send_to_verifier("perturbator_" + std::to_string(idx), state.perturbator[idx]);
-        }
-    }
-};
-
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::combiner_quotient_round()
-{
-    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::combiner_quotient_round");
-
-    using Fun = ProtogalaxyProverInternal<ProverInstances>;
-
-    auto perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
-    state.gate_challenges =
-        update_gate_challenges(perturbator_challenge, state.accumulator->gate_challenges, state.deltas);
-    state.alphas = Fun::compute_and_extend_alphas(instances);
-    PowPolynomial<FF> pow_polynomial{ state.gate_challenges, instances[0]->proving_key.log_circuit_size };
-    state.optimised_relation_parameters =
-        Fun::template compute_extended_relation_parameters<typename State::OptimisedRelationParameters>(instances);
-    auto combiner = Fun::compute_combiner(instances,
-                                          pow_polynomial,
-                                          state.optimised_relation_parameters,
-                                          state.alphas,
-                                          state.optimised_univariate_accumulators);
-
-    state.compressed_perturbator = state.perturbator.evaluate(perturbator_challenge);
-    state.combiner_quotient = Fun::compute_combiner_quotient(state.compressed_perturbator, combiner);
-
-    for (size_t idx = ProverInstances::NUM; idx < ProverInstances::BATCHED_EXTENDED_LENGTH; idx++) {
-        transcript->send_to_verifier("combiner_quotient_" + std::to_string(idx), state.combiner_quotient.value_at(idx));
-    }
-};
-
-template <class ProverInstances> void ProtoGalaxyProver_<ProverInstances>::accumulator_update_round()
-{
-    BB_OP_COUNT_TIME_NAME("ProtoGalaxyProver_::accumulator_update_round");
-    FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
-    std::shared_ptr<Instance> next_accumulator = compute_next_accumulator(instances,
-                                                                          state.combiner_quotient,
-                                                                          state.optimised_relation_parameters,
-                                                                          combiner_challenge,
-                                                                          state.compressed_perturbator);
-    state.result.proof = transcript->proof_data;
-    state.result.accumulator = next_accumulator;
-};
-
-template <class ProverInstances>
-FoldingResult<typename ProverInstances::Flavor> ProtoGalaxyProver_<ProverInstances>::prove()
+template <class DeciderProvingKeys>
+FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderProvingKeys>::prove()
 {
     ZoneScopedN("ProtogalaxyProver::prove");
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver::prove");
-    // Ensure instances are all of the same size
-    for (size_t idx = 0; idx < ProverInstances::NUM - 1; ++idx) {
-        if (instances[idx]->proving_key.circuit_size != instances[idx + 1]->proving_key.circuit_size) {
+    // Ensure keys are all of the same size
+    for (size_t idx = 0; idx < DeciderProvingKeys::NUM - 1; ++idx) {
+        if (keys_to_fold[idx]->proving_key.circuit_size != keys_to_fold[idx + 1]->proving_key.circuit_size) {
             info("ProtogalaxyProver: circuit size mismatch!");
-            info("Instance ", idx, " size = ", instances[idx]->proving_key.circuit_size);
-            info("Instance ", idx + 1, " size = ", instances[idx + 1]->proving_key.circuit_size);
+            info("DeciderPK ", idx, " size = ", keys_to_fold[idx]->proving_key.circuit_size);
+            info("DeciderPK ", idx + 1, " size = ", keys_to_fold[idx + 1]->proving_key.circuit_size);
             ASSERT(false);
         }
     }
-    preparation_round();
-    perturbator_round();
-    combiner_quotient_round();
-    accumulator_update_round();
+    run_oink_prover_on_each_incomplete_key();
 
-    return state.result;
+    std::tie(deltas, perturbator) = perturbator_round(accumulator);
+
+    std::tie(accumulator->gate_challenges, alphas, relation_parameters, perturbator_evaluation, combiner_quotient) =
+        combiner_quotient_round(accumulator->gate_challenges, deltas, keys_to_fold);
+
+    const FoldingResult<Flavor> result = update_target_sum_and_fold(
+        keys_to_fold, combiner_quotient, alphas, relation_parameters, perturbator_evaluation);
+
+    return result;
 }
 } // namespace bb

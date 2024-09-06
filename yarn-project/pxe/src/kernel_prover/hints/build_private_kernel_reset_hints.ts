@@ -46,11 +46,7 @@ function getNullifierReadRequestHints<PENDING extends number, SETTLED extends nu
 
     const { index, siblingPath, leafPreimage } = res;
     return {
-      membershipWitness: new MembershipWitness(
-        NULLIFIER_TREE_HEIGHT,
-        index,
-        siblingPath.toTuple<typeof NULLIFIER_TREE_HEIGHT>(),
-      ),
+      membershipWitness: new MembershipWitness(NULLIFIER_TREE_HEIGHT, index, siblingPath.toTuple()),
       leafPreimage,
     };
   };

@@ -1,6 +1,6 @@
-use std::collections::BTreeMap;
-
 use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
+use fxhash::FxHashMap as HashMap;
+use std::collections::BTreeMap;
 
 use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
@@ -982,7 +982,7 @@ fn handle_storage_write(
     inputs: &Vec<ValueOrArray>,
 ) {
     assert!(inputs.len() == 2);
-    assert!(destinations.len() == 0);
+    assert!(destinations.is_empty());
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
@@ -991,17 +991,16 @@ fn handle_storage_write(
     };
 
     let src_offset_maybe = inputs[1];
-    let (src_offset, size) = match src_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
-        _ => panic!("Storage write address inputs should be an array of values"),
+    let src_offset = match src_offset_maybe {
+        ValueOrArray::MemoryAddress(src_offset) => src_offset.0,
+        _ => panic!("ForeignCall address source should be a single value"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SSTORE,
-        indirect: Some(ZEROTH_OPERAND_INDIRECT),
+        indirect: Some(ALL_DIRECT),
         operands: vec![
             AvmOperand::U32 { value: src_offset as u32 },
-            AvmOperand::U32 { value: size as u32 },
             AvmOperand::U32 { value: slot_offset as u32 },
         ],
         ..Default::default()
@@ -1047,28 +1046,26 @@ fn handle_storage_read(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
-    // For the foreign calls we want to handle, we do not want inputs, as they are getters
-    assert!(inputs.len() == 2); // output, len. The latter is not used by the AVM, but required in the oracle call so that TXE knows how many slots to read.
-    assert!(destinations.len() == 1); // return values
+    assert!(inputs.len() == 1); // output
+    assert!(destinations.len() == 1); // return value
 
     let slot_offset_maybe = inputs[0];
     let slot_offset = match slot_offset_maybe {
         ValueOrArray::MemoryAddress(slot_offset) => slot_offset.0,
-        _ => panic!("ForeignCall address destination should be a single value"),
+        _ => panic!("ForeignCall address input should be a single value"),
     };
 
     let dest_offset_maybe = destinations[0];
-    let (dest_offset, size) = match dest_offset_maybe {
-        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0, size),
-        _ => panic!("Storage write address inputs should be an array of values"),
+    let dest_offset = match dest_offset_maybe {
+        ValueOrArray::MemoryAddress(dest_offset) => dest_offset.0,
+        _ => panic!("ForeignCall address destination should be a single value"),
     };
 
     avm_instrs.push(AvmInstruction {
         opcode: AvmOpcode::SLOAD,
-        indirect: Some(FIRST_OPERAND_INDIRECT),
+        indirect: Some(ALL_DIRECT),
         operands: vec![
             AvmOperand::U32 { value: slot_offset as u32 },
-            AvmOperand::U32 { value: size as u32 },
             AvmOperand::U32 { value: dest_offset as u32 },
         ],
         ..Default::default()
@@ -1101,6 +1098,18 @@ pub fn patch_debug_info_pcs(
         patched_debug_info.brillig_locations = patched_brillig_locations;
     }
     debug_infos
+}
+
+/// Patch the assert messages with updated PCs since transpilation injects extra
+/// opcodes into the bytecode.
+pub fn patch_assert_message_pcs(
+    assert_messages: HashMap<usize, String>,
+    brillig_pcs_to_avm_pcs: &[usize],
+) -> HashMap<usize, String> {
+    assert_messages
+        .into_iter()
+        .map(|(brillig_pc, message)| (brillig_pcs_to_avm_pcs[brillig_pc], message))
+        .collect()
 }
 
 /// Compute an array that maps each Brillig pc to an AVM pc.
