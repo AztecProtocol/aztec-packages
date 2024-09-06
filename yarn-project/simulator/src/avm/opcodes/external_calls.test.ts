@@ -10,6 +10,7 @@ import { adjustCalldataIndex, initContext, initHostStorage, initPersistableState
 import { type HostStorage } from '../journal/host_storage.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
+import { Opcode } from '../serialization/instruction_serialization.js';
 import { mockGetBytecode, mockTraceFork } from '../test_utils.js';
 import { L2GasLeft } from './context_getters.js';
 import { Call, Return, Revert, StaticCall } from './external_calls.js';
@@ -83,8 +84,11 @@ describe('External Calls', () => {
       // const otherContextInstructionsL2GasCost = 780; // Includes the cost of the call itself
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
         encodeToBytecode([
-          new Set(/*indirect=*/ 0, TypeTag.UINT32, adjustCalldataIndex(0), /*dstOffset=*/ 0),
-          new Set(/*indirect=*/ 0, TypeTag.UINT32, argsSize, /*dstOffset=*/ 1),
+          new Set(/*indirect=*/ 0, TypeTag.UINT32, adjustCalldataIndex(0), /*dstOffset=*/ 0).as(
+            Opcode.SET_8,
+            Set.wireFormat8,
+          ),
+          new Set(/*indirect=*/ 0, TypeTag.UINT32, argsSize, /*dstOffset=*/ 1).as(Opcode.SET_8, Set.wireFormat8),
           new CalldataCopy(/*indirect=*/ 0, /*csOffsetAddress=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 0),
           new SStore(/*indirect=*/ 0, /*srcOffset=*/ valueOffset, /*slotOffset=*/ slotOffset),
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 2),

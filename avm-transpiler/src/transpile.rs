@@ -6,7 +6,7 @@ use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
 };
-use acvm::{AcirField, FieldElement};
+use acvm::FieldElement;
 use noirc_errors::debug_info::DebugInfo;
 
 use crate::bit_traits::bits_needed_for;
@@ -674,45 +674,38 @@ fn handle_const(
 ) {
     let tag = tag_from_bit_size(*bit_size);
     let dest = destination.to_usize() as u32;
-
-    if !matches!(tag, AvmTypeTag::FIELD) {
-        avm_instrs.push(generate_set_instruction(tag, dest, value.to_u128(), indirect));
-    } else {
-        // We can't fit a field in an instruction. This should've been handled in Brillig.
-        let field = value;
-        if field.num_bits() > 128 {
-            panic!("SET: Field value doesn't fit in 128 bits, that's not supported!");
-        }
-        avm_instrs.extend([
-            generate_set_instruction(AvmTypeTag::UINT128, dest, field.to_u128(), indirect),
-            generate_cast_instruction(dest, indirect, dest, indirect, AvmTypeTag::FIELD),
-        ]);
-    }
+    avm_instrs.push(generate_set_instruction(tag, dest, value, indirect));
 }
 
 /// Generates an AVM SET instruction.
 fn generate_set_instruction(
     tag: AvmTypeTag,
     dest: u32,
-    value: u128,
+    value: &FieldElement,
     indirect: bool,
 ) -> AvmInstruction {
+    let bits_needed_val = bits_needed_for(value);
+    let bits_needed_mem = if bits_needed_val >= 16 { 16 } else { bits_needed_for(&dest) };
+    assert!(bits_needed_mem <= 16);
+    let bits_needed_opcode = bits_needed_val.max(bits_needed_mem);
+
+    let set_opcode = match bits_needed_opcode {
+        8 => AvmOpcode::SET_8,
+        16 => AvmOpcode::SET_16,
+        32 => AvmOpcode::SET_32,
+        64 => AvmOpcode::SET_64,
+        128 => AvmOpcode::SET_128,
+        254 => AvmOpcode::SET_FF,
+        _ => panic!("Invalid bits needed for opcode: {}", bits_needed_opcode),
+    };
+
     AvmInstruction {
-        opcode: AvmOpcode::SET,
+        opcode: set_opcode,
         indirect: if indirect { Some(ZEROTH_OPERAND_INDIRECT) } else { Some(ALL_DIRECT) },
         tag: Some(tag),
         operands: vec![
-            // const
-            match tag {
-                AvmTypeTag::UINT8 => AvmOperand::U8 { value: value as u8 },
-                AvmTypeTag::UINT16 => AvmOperand::U16 { value: value as u16 },
-                AvmTypeTag::UINT32 => AvmOperand::U32 { value: value as u32 },
-                AvmTypeTag::UINT64 => AvmOperand::U64 { value: value as u64 },
-                AvmTypeTag::UINT128 => AvmOperand::U128 { value },
-                _ => panic!("Invalid type tag {:?} for set", tag),
-            },
-            // dest offset
-            AvmOperand::U32 { value: dest },
+            make_operand(bits_needed_opcode, value),
+            make_operand(bits_needed_mem, &dest),
         ],
     }
 }
@@ -1137,8 +1130,6 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
     pc_map[0] = 0; // first PC is always 0 as there are no instructions inserted by AVM at start
     for i in 0..brillig_bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
-            BrilligOpcode::Const { bit_size: BitSize::Field, .. } => 2,
-            BrilligOpcode::IndirectConst { bit_size: BitSize::Field, .. } => 2,
             BrilligOpcode::Cast { bit_size: BitSize::Integer(IntegerBitSize::U1), .. } => 3,
             _ => 1,
         };

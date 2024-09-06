@@ -221,8 +221,8 @@ class AvmArithmeticTests : public ::testing::Test {
     }
 
     // Generate a trace with an EQ opcode operation.
-    std::vector<Row> gen_trace_eq(uint128_t const& a,
-                                  uint128_t const& b,
+    std::vector<Row> gen_trace_eq(uint256_t const& a,
+                                  uint256_t const& b,
                                   uint32_t const& addr_a,
                                   uint32_t const& addr_b,
                                   uint32_t const& addr_c,
@@ -240,8 +240,8 @@ class AvmArithmeticTests : public ::testing::Test {
     // and the memory and alu trace are created consistently with the wrong value c_mutated.
     std::vector<Row> gen_mutated_trace_add(FF const& a, FF const& b, FF const& c_mutated, avm_trace::AvmMemoryTag tag)
     {
-        trace_builder.op_set(0, uint128_t{ a }, 0, tag);
-        trace_builder.op_set(0, uint128_t{ b }, 1, tag);
+        trace_builder.op_set(0, a, 0, tag);
+        trace_builder.op_set(0, b, 1, tag);
         trace_builder.op_add(0, 0, 1, 2, tag);
         trace_builder.op_return(0, 0, 0);
         auto trace = trace_builder.finalize();
@@ -257,8 +257,8 @@ class AvmArithmeticTests : public ::testing::Test {
     // and the memory and alu trace are created consistently with the wrong value c_mutated.
     std::vector<Row> gen_mutated_trace_sub(FF const& a, FF const& b, FF const& c_mutated, avm_trace::AvmMemoryTag tag)
     {
-        trace_builder.op_set(0, uint128_t{ a }, 0, tag);
-        trace_builder.op_set(0, uint128_t{ b }, 1, tag);
+        trace_builder.op_set(0, a, 0, tag);
+        trace_builder.op_set(0, b, 1, tag);
         trace_builder.op_sub(0, 0, 1, 2, tag);
         trace_builder.op_return(0, 0, 0);
         auto trace = trace_builder.finalize();
@@ -274,8 +274,8 @@ class AvmArithmeticTests : public ::testing::Test {
     // and the memory and alu trace are created consistently with the wrong value c_mutated.
     std::vector<Row> gen_mutated_trace_mul(FF const& a, FF const& b, FF const& c_mutated, avm_trace::AvmMemoryTag tag)
     {
-        trace_builder.op_set(0, uint128_t{ a }, 0, tag);
-        trace_builder.op_set(0, uint128_t{ b }, 1, tag);
+        trace_builder.op_set(0, a, 0, tag);
+        trace_builder.op_set(0, b, 1, tag);
         trace_builder.op_mul(0, 0, 1, 2, tag);
         trace_builder.op_return(0, 0, 0);
         auto trace = trace_builder.finalize();
@@ -294,8 +294,8 @@ class AvmArithmeticTests : public ::testing::Test {
     std::vector<Row> gen_mutated_trace_eq(
         FF const& a, FF const& b, FF const& c_mutated, FF const& mutated_inv_diff, avm_trace::AvmMemoryTag tag)
     {
-        trace_builder.op_set(0, uint128_t{ a }, 0, tag);
-        trace_builder.op_set(0, uint128_t{ b }, 1, tag);
+        trace_builder.op_set(0, a, 0, tag);
+        trace_builder.op_set(0, b, 1, tag);
         trace_builder.op_eq(0, 0, 1, 2, tag);
         trace_builder.op_return(0, 0, 0);
         auto trace = trace_builder.finalize();
@@ -671,8 +671,8 @@ TEST_P(AvmArithmeticTestsDiv, division)
 {
     const auto [operands, mem_tag] = GetParam();
     const auto [a, b, output] = operands;
-    trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
-    trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
+    trace_builder.op_set(0, a, 0, mem_tag);
+    trace_builder.op_set(0, b, 1, mem_tag);
     trace_builder.op_div(0, 0, 1, 2, mem_tag);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
@@ -1077,7 +1077,7 @@ TEST_F(AvmArithmeticTestsU32, subtractionCarry)
 {
     // trace_builder
     trace_builder.op_set(0, UINT32_MAX - 99, 8, AvmMemoryTag::U32);
-    trace_builder.op_set(0, 3210987654, 9, AvmMemoryTag::U32);
+    trace_builder.op_set(0, uint256_t(3210987654), 9, AvmMemoryTag::U32);
 
     trace_builder.op_sub(0, 9, 8, 0, AvmMemoryTag::U32);
     trace_builder.op_return(0, 0, 0);
@@ -1335,9 +1335,9 @@ TEST_F(AvmArithmeticTestsU64, nonEquality)
 // Test on basic addition over u128 type.
 TEST_F(AvmArithmeticTestsU128, addition)
 {
-    uint128_t const a = (uint128_t{ 0x5555222233334444LLU } << 64) + uint128_t{ 0x88889999AAAABBBBLLU };
-    uint128_t const b = (uint128_t{ 0x3333222233331111LLU } << 64) + uint128_t{ 0x5555111155553333LLU };
-    uint128_t const c = (uint128_t{ 0x8888444466665555LLU } << 64) + uint128_t{ 0xDDDDAAAAFFFFEEEELLU };
+    const FF a = (uint256_t{ 0x5555222233334444LLU } << 64) + uint256_t{ 0x88889999AAAABBBBLLU };
+    const FF b = (uint256_t{ 0x3333222233331111LLU } << 64) + uint256_t{ 0x5555111155553333LLU };
+    const FF c = (uint256_t{ 0x8888444466665555LLU } << 64) + uint256_t{ 0xDDDDAAAAFFFFEEEELLU };
 
     // trace_builder
     trace_builder.op_set(0, a, 8, AvmMemoryTag::U128);
@@ -1347,14 +1347,7 @@ TEST_F(AvmArithmeticTestsU128, addition)
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_add(trace,
-                                       FF(uint256_t::from_uint128(a)),
-                                       FF(uint256_t::from_uint128(b)),
-                                       FF(uint256_t::from_uint128(c)),
-                                       FF(8),
-                                       FF(9),
-                                       FF(9),
-                                       AvmMemoryTag::U128);
+    auto alu_row = common_validate_add(trace, a, b, c, FF(8), FF(9), FF(9), AvmMemoryTag::U128);
 
     EXPECT_EQ(alu_row.alu_u128_tag, FF(1));
     EXPECT_EQ(alu_row.alu_cf, FF(0));
@@ -1365,10 +1358,10 @@ TEST_F(AvmArithmeticTestsU128, addition)
 // Test on basic addition over u128 type with carry.
 TEST_F(AvmArithmeticTestsU128, additionCarry)
 {
-    uint128_t const a = (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX } - uint128_t{ 72948899 };
-    uint128_t const b = (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX } - uint128_t{ 36177344 };
-    uint128_t const c =
-        (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX } - uint128_t{ 36177345 } - uint128_t{ 72948899 };
+    const FF a = (uint256_t{ UINT64_MAX } << 64) + uint256_t{ UINT64_MAX } - uint256_t{ 72948899 };
+    const FF b = (uint256_t{ UINT64_MAX } << 64) + uint256_t{ UINT64_MAX } - uint256_t{ 36177344 };
+    const FF c =
+        (uint256_t{ UINT64_MAX } << 64) + uint256_t{ UINT64_MAX } - uint256_t{ 36177345 } - uint256_t{ 72948899 };
 
     // trace_builder
     trace_builder.op_set(0, a, 8, AvmMemoryTag::U128);
@@ -1378,14 +1371,7 @@ TEST_F(AvmArithmeticTestsU128, additionCarry)
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_add(trace,
-                                       FF(uint256_t::from_uint128(a)),
-                                       FF(uint256_t::from_uint128(b)),
-                                       FF(uint256_t::from_uint128(c)),
-                                       FF(8),
-                                       FF(9),
-                                       FF(9),
-                                       AvmMemoryTag::U128);
+    auto alu_row = common_validate_add(trace, a, b, c, FF(8), FF(9), FF(9), AvmMemoryTag::U128);
 
     EXPECT_EQ(alu_row.alu_u128_tag, FF(1));
     EXPECT_EQ(alu_row.alu_cf, FF(1));
@@ -1396,9 +1382,9 @@ TEST_F(AvmArithmeticTestsU128, additionCarry)
 // Test on basic subtraction over u128 type.
 TEST_F(AvmArithmeticTestsU128, subtraction)
 {
-    uint128_t const a = (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX } - uint128_t{ 36177344 };
-    uint128_t const b = (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX } - uint128_t{ 72948899 };
-    uint128_t const c = 36771555; // 72948899 - 36177344
+    const FF a = (uint256_t{ UINT64_MAX } << 64) + uint256_t{ UINT64_MAX } - uint256_t{ 36177344 };
+    const FF b = (uint256_t{ UINT64_MAX } << 64) + uint256_t{ UINT64_MAX } - uint256_t{ 72948899 };
+    const FF c = 36771555; // 72948899 - 36177344
 
     // trace_builder
     trace_builder.op_set(0, a, 8, AvmMemoryTag::U128);
@@ -1408,14 +1394,7 @@ TEST_F(AvmArithmeticTestsU128, subtraction)
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_sub(trace,
-                                       FF(uint256_t::from_uint128(a)),
-                                       FF(uint256_t::from_uint128(b)),
-                                       FF(uint256_t::from_uint128(c)),
-                                       FF(8),
-                                       FF(9),
-                                       FF(9),
-                                       AvmMemoryTag::U128);
+    auto alu_row = common_validate_sub(trace, a, b, c, FF(8), FF(9), FF(9), AvmMemoryTag::U128);
 
     EXPECT_EQ(alu_row.alu_u128_tag, FF(1));
     EXPECT_EQ(alu_row.alu_cf, FF(0));
@@ -1426,9 +1405,9 @@ TEST_F(AvmArithmeticTestsU128, subtraction)
 // Test on basic subtraction over u128 type with carry.
 TEST_F(AvmArithmeticTestsU128, subtractionCarry)
 {
-    uint128_t const a = (uint128_t{ 0x5555222233334444LLU } << 64) + uint128_t{ 0x88889999AAAABBBBLLU };
-    uint128_t const b = (uint128_t{ 0x3333222233331111LLU } << 64) + uint128_t{ 0x5555111155553333LLU };
-    uint128_t const c = (uint128_t{ 0x2222000000003333LLU } << 64) + uint128_t{ 0x3333888855558888LLU };
+    const FF a = (uint256_t{ 0x5555222233334444LLU } << 64) + uint256_t{ 0x88889999AAAABBBBLLU };
+    const FF b = (uint256_t{ 0x3333222233331111LLU } << 64) + uint256_t{ 0x5555111155553333LLU };
+    const FF c = (uint256_t{ 0x2222000000003333LLU } << 64) + uint256_t{ 0x3333888855558888LLU };
 
     // trace_builder
     trace_builder.op_set(0, a, 8, AvmMemoryTag::U128);
@@ -1438,14 +1417,7 @@ TEST_F(AvmArithmeticTestsU128, subtractionCarry)
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
-    auto alu_row = common_validate_sub(trace,
-                                       FF(uint256_t::from_uint128(a)),
-                                       FF(uint256_t::from_uint128(b)),
-                                       FF(uint256_t::from_uint128(c)),
-                                       FF(8),
-                                       FF(9),
-                                       FF(9),
-                                       AvmMemoryTag::U128);
+    auto alu_row = common_validate_sub(trace, a, b, c, FF(8), FF(9), FF(9), AvmMemoryTag::U128);
 
     EXPECT_EQ(alu_row.alu_u128_tag, FF(1));
     EXPECT_EQ(alu_row.alu_cf, FF(0));
@@ -1480,8 +1452,8 @@ TEST_F(AvmArithmeticTestsU128, multiplicationOverflow)
 {
     // (2^128 - 2) * (2^128 - 4) = 2^256 - 2^130 - 2^129 + 2^3
     // The above modulo 2^128 = 8
-    uint128_t const a = (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX - 1 };
-    uint128_t const b = (uint128_t{ UINT64_MAX } << 64) + uint128_t{ UINT64_MAX - 3 };
+    const FF a = (uint256_t{ UINT64_MAX } << 64) + uint256_t{ UINT64_MAX - 1 };
+    const FF b = (uint256_t{ UINT64_MAX } << 64) + uint256_t{ UINT64_MAX - 3 };
 
     // trace_builder
     trace_builder.op_set(0, a, 0, AvmMemoryTag::U128);
@@ -1491,14 +1463,7 @@ TEST_F(AvmArithmeticTestsU128, multiplicationOverflow)
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
-    auto alu_row_index = common_validate_mul(trace,
-                                             FF{ uint256_t::from_uint128(a) },
-                                             FF{ uint256_t::from_uint128(b) },
-                                             FF{ 8 },
-                                             FF(0),
-                                             FF(1),
-                                             FF(2),
-                                             AvmMemoryTag::U128);
+    auto alu_row_index = common_validate_mul(trace, a, b, FF{ 8 }, FF(0), FF(1), FF(2), AvmMemoryTag::U128);
     auto alu_row_first = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row_first.alu_u128_tag, FF(1));
@@ -1508,17 +1473,10 @@ TEST_F(AvmArithmeticTestsU128, multiplicationOverflow)
 
 TEST_F(AvmArithmeticTestsU128, equality)
 {
-    uint128_t const elem = (uint128_t{ 0x5555222233334444LLU } << 64) + uint128_t{ 0x88889999AAAABBBBLLU };
+    const FF elem = (uint256_t{ 0x5555222233334444LLU } << 64) + uint256_t{ 0x88889999AAAABBBBLLU };
     auto trace = gen_trace_eq(elem, elem, 0, 1, 2, AvmMemoryTag::U128);
 
-    auto alu_row_index = common_validate_eq(trace,
-                                            FF(uint256_t::from_uint128(elem)),
-                                            FF(uint256_t::from_uint128(elem)),
-                                            FF(1),
-                                            FF(0),
-                                            FF(1),
-                                            FF(2),
-                                            AvmMemoryTag::U128);
+    auto alu_row_index = common_validate_eq(trace, elem, elem, FF(1), FF(0), FF(1), FF(2), AvmMemoryTag::U128);
     auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.alu_u128_tag, FF(1));
@@ -1529,18 +1487,11 @@ TEST_F(AvmArithmeticTestsU128, equality)
 // Test correct non-equality of U128 elements
 TEST_F(AvmArithmeticTestsU128, nonEquality)
 {
-    uint128_t const a = (uint128_t{ 0x5555222233334444LLU } << 64) + uint128_t{ 0x88889999AAAABBBBLLU };
-    uint128_t const b = a - (0xdeadbeefLLU << 32);
+    const FF a = (uint256_t{ 0x5555222233334444LLU } << 64) + uint256_t{ 0x88889999AAAABBBBLLU };
+    const FF b = a - (0xdeadbeefLLU << 32);
     auto trace = gen_trace_eq(a, b, 0, 1, 2, AvmMemoryTag::U128);
 
-    auto alu_row_index = common_validate_eq(trace,
-                                            FF(uint256_t::from_uint128(a)),
-                                            FF(uint256_t::from_uint128(b)),
-                                            FF(0),
-                                            FF(0),
-                                            FF(1),
-                                            FF(2),
-                                            AvmMemoryTag::U128);
+    auto alu_row_index = common_validate_eq(trace, a, b, FF(0), FF(0), FF(1), FF(2), AvmMemoryTag::U128);
     auto alu_row = trace.at(alu_row_index);
 
     EXPECT_EQ(alu_row.alu_u128_tag, FF(1));

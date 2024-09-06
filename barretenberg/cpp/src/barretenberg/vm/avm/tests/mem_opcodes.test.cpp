@@ -48,9 +48,9 @@ class AvmMemOpcodeTests : public ::testing::Test {
         if (indirect) {
             trace_builder.op_set(0, dir_src_offset, src_offset, AvmMemoryTag::U32);
             trace_builder.op_set(0, dir_dst_offset, dst_offset, AvmMemoryTag::U32);
-            trace_builder.op_set(0, val, dir_src_offset, tag);
+            trace_builder.op_set(0, uint256_t::from_uint128(val), dir_src_offset, tag);
         } else {
-            trace_builder.op_set(0, val, src_offset, tag);
+            trace_builder.op_set(0, uint256_t::from_uint128(val), src_offset, tag);
         }
 
         trace_builder.op_mov(indirect ? 3 : 0, src_offset, dst_offset);

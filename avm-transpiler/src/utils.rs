@@ -1,7 +1,7 @@
 use fxhash::FxHashMap as HashMap;
 
 use acvm::acir::circuit::brillig::BrilligFunctionId;
-use acvm::FieldElement;
+use acvm::{AcirField, FieldElement};
 use log::{debug, info, trace};
 
 use acvm::acir::brillig::Opcode as BrilligOpcode;
@@ -91,13 +91,15 @@ pub fn dbg_print_avm_program(avm_program: &[AvmInstruction]) {
     }
 }
 
-pub fn make_operand<T: Into<u128> + Copy>(bits: usize, value: &T) -> AvmOperand {
+pub fn make_operand<T: Into<FieldElement> + Clone>(bits: usize, value: &T) -> AvmOperand {
+    let field: FieldElement = value.clone().into();
     match bits {
-        8 => AvmOperand::U8 { value: Into::<u128>::into(*value) as u8 },
-        16 => AvmOperand::U16 { value: Into::<u128>::into(*value) as u16 },
-        32 => AvmOperand::U32 { value: Into::<u128>::into(*value) as u32 },
-        64 => AvmOperand::U64 { value: Into::<u128>::into(*value) as u64 },
-        128 => AvmOperand::U128 { value: Into::<u128>::into(*value) },
+        8 => AvmOperand::U8 { value: field.try_to_u32().unwrap() as u8 },
+        16 => AvmOperand::U16 { value: field.try_to_u32().unwrap() as u16 },
+        32 => AvmOperand::U32 { value: field.try_to_u32().unwrap() },
+        64 => AvmOperand::U64 { value: field.try_to_u64().unwrap() },
+        128 => AvmOperand::U128 { value: field.try_into_u128().unwrap() },
+        254 => AvmOperand::FF { value: field },
         _ => panic!("Invalid operand size for bits: {}", bits),
     }
 }

@@ -112,9 +112,7 @@ class AvmTraceBuilder {
     void op_internal_return();
 
     // Machine State - Memory
-    void op_set(uint8_t indirect, uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
-    // TODO: only used for write_slice_to_memory. Remove.
-    void op_set_internal(uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag);
+    void op_set(uint8_t indirect, FF val, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset);
     void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
 
