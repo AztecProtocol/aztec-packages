@@ -4,6 +4,7 @@ mod note;
 mod storage;
 
 use functions::STUBS;
+use storage::STORAGE_LAYOUT_NAME;
 
 pub comptime fn generate_contract_interface(m: Module) -> Quoted {
     let module_name = m.name();
@@ -26,6 +27,10 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
             pub fn interface() -> Self {
                 Self { target_contract: aztec::protocol_types::address::AztecAddress::zero() }
             }
+
+            pub fn storage_layout() -> StorageLayout {
+                $STORAGE_LAYOUT_NAME
+            }
         }
 
         #[contract_library_method]
@@ -38,6 +43,11 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
         #[contract_library_method]
         pub fn interface() -> $module_name {
             $module_name { target_contract: aztec::protocol_types::address::AztecAddress::zero() }
+        }
+
+        #[contract_library_method]
+        pub fn storage_layout() -> StorageLayout {
+            $STORAGE_LAYOUT_NAME
         }
     }
 }

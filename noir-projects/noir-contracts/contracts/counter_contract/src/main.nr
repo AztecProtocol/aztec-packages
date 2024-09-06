@@ -6,13 +6,13 @@ contract Counter {
     use dep::aztec::prelude::{AztecAddress, Map};
     use dep::value_note::{balance_utils, value_note::ValueNote};
     use dep::easy_private_state::EasyPrivateUint;
-    use dep::aztec::macros::{functions::{initializer, private, un_constrained}};
+    use dep::aztec::macros::{storage::storage, functions::{initializer, private, un_constrained}};
     // docs:end:imports
 
     // docs:start:storage_struct
-    #[aztec(storage)]
-    struct Storage {
-        counters: Map<AztecAddress, EasyPrivateUint>,
+    #[storage]
+    struct Storage<Context> {
+        counters: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
     }
     // docs:end:storage_struct
 
@@ -66,7 +66,7 @@ contract Counter {
         // docs:start:txe_test_read_notes
         // Read the stored value in the note
         env.impersonate(contract_address);
-        let counter_slot = Counter::storage().counters.slot;
+        let counter_slot = Counter::storage_layout().counters.slot;
         let owner_slot = derive_storage_slot_in_map(counter_slot, owner);
         let mut options = NoteViewerOptions::new();
         let notes: BoundedVec<ValueNote, MAX_NOTES_PER_PAGE> = view_notes(owner_slot, options);
