@@ -70,7 +70,7 @@ template <class Flavor> class DeciderProvingKey_ {
         }
         {
             ZoneScopedN("constructing proving key");
-            proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
+            proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), circuit.blocks, commitment_key);
         }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials

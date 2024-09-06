@@ -282,21 +282,13 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
 
             // Erroneously update the read counts/tags at an arbitrary index
             // Note: updating only one or the other may not cause failure due to the design of the relation algebra. For
-<<<<<<< HEAD
+
             // example, the inverse is only computed if read tags is non-zero, otherwise the inverse at the row in
             // question will be zero. So if read counts is incremented at some arbitrary index but read tags is not, the
             // inverse will be 0 and the erroneous read_counts value will get multiplied by 0 in the relation. This is
             // expected behavior.
             polynomials.lookup_read_counts.at(25) = 1;
             polynomials.lookup_read_tags.at(25) = 1;
-=======
-        // example, the inverse is only computed if read tags is non-zero, otherwise the inverse at the row in
-        // question will be zero. So if read counts is incremented at some arbitrary index but read tags is not, the
-        // inverse will be 0 and the erroneous read_counts value will get multiplied by 0 in the relation. This is
-        // expected behavior.
-        polynomials.lookup_read_counts[25] = 1;
-        polynomials.lookup_read_tags[25] = 1;
->>>>>>> origin/master
 
             EXPECT_FALSE(prove_and_verify(proving_key));
         }
