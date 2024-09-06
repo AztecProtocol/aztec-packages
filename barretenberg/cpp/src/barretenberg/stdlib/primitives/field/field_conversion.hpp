@@ -161,4 +161,13 @@ template <typename Builder, typename T> std::vector<fr<Builder>> convert_to_bn25
     }
 }
 
+template <typename TargetType, typename Builder>
+TargetType deserialize_from_frs(Builder& builder, std::span<fr<Builder>> elements, size_t& num_frs_read)
+{
+    size_t num_frs = calc_num_bn254_frs<Builder, TargetType>();
+    TargetType result = convert_from_bn254_frs<Builder, TargetType>(builder, elements.subspan(num_frs_read, num_frs));
+    num_frs_read += num_frs;
+    return result;
+}
+
 } // namespace bb::stdlib::field_conversion

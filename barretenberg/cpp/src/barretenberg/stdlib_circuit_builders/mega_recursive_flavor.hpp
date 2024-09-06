@@ -171,7 +171,30 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
                         .get_value());
                 num_frs_read += num_frs_FF;
             }
-            // WORKTODO: missing databus_propagation_data
+
+            // // DatabusPropagationData
+            // this->contains_app_return_data_commitment =
+            //     bool(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
+            //              .get_value());
+            // num_frs_read += num_frs_FF;
+            // this->contains_kernel_return_data_commitment =
+            //     bool(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
+            //              .get_value());
+            // num_frs_read += num_frs_FF;
+            // this->is_kernel =
+            //     bool(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
+            //              .get_value());
+            // num_frs_read += num_frs_FF;
+            // this->app_return_data_public_input_idx =
+            //     uint32_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read,
+            //     num_frs_FF))
+            //                  .get_value());
+            // num_frs_read += num_frs_FF;
+            // this->kernel_return_data_public_input_idx =
+            //     uint32_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read,
+            //     num_frs_FF))
+            //                  .get_value());
+            // num_frs_read += num_frs_FF;
 
             for (Commitment& comm : this->get_all()) {
                 comm = convert_from_bn254_frs<CircuitBuilder, Commitment>(builder,

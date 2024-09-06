@@ -142,41 +142,20 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
         {
             using namespace bb::stdlib::field_conversion;
 
-            // deserialize circuit size
             size_t num_frs_read = 0;
-            size_t num_frs_FF = calc_num_bn254_frs<CircuitBuilder, FF>();
-            size_t num_frs_Comm = calc_num_bn254_frs<CircuitBuilder, Commitment>();
 
-            this->circuit_size =
-                uint64_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-                             .get_value());
-            num_frs_read += num_frs_FF;
-            this->num_public_inputs =
-                uint64_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-                             .get_value());
-            num_frs_read += num_frs_FF;
-
-            this->pub_inputs_offset =
-                uint64_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-                             .get_value());
-            num_frs_read += num_frs_FF;
-
+            this->circuit_size = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->num_public_inputs = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->pub_inputs_offset = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->contains_recursive_proof =
-                bool(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-                         .get_value());
-            num_frs_read += num_frs_FF;
+                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
-            for (uint32_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
-                this->recursive_proof_public_input_indices[i] = uint32_t(
-                    convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-                        .get_value());
-                num_frs_read += num_frs_FF;
+            for (uint32_t& idx : this->recursive_proof_public_input_indices) {
+                idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
 
-            for (Commitment& comm : this->get_all()) {
-                comm = convert_from_bn254_frs<CircuitBuilder, Commitment>(builder,
-                                                                          elements.subspan(num_frs_read, num_frs_Comm));
-                num_frs_read += num_frs_Comm;
+            for (Commitment& commitment : this->get_all()) {
+                commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
             }
         }
     };
