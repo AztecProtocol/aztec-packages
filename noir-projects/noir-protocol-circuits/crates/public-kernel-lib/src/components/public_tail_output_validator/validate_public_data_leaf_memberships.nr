@@ -5,7 +5,7 @@ use dep::types::{
 
 // Perform membership check for all non-zero leaf slots, ensuring that the values being read are correct and the public data tree is updated with the correct low leaves.
 // TODO: Update public data tree in the tail circuit. Otherwise, change this to just check the leaves for public data reads.
-fn validate_public_data_leaf_memberships<let N: u32>(
+pub fn validate_public_data_leaf_memberships<let N: u32>(
     leaves: [OverridablePublicDataTreeLeaf; N],
     leaf_hints: [PublicDataLeafHint; N],
     tree_root: Field

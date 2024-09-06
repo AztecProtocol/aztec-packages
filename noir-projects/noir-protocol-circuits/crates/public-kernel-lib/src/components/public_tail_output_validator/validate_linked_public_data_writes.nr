@@ -4,7 +4,7 @@ use dep::types::{abis::public_data_write::OverridablePublicDataWrite, data::Over
 // Check that each non-empty write is correctly linked to either a leaf or another write.
 // All the writes with the same leaf slot will form a single linked list.
 // Note that public_data_leaves must be verified to contain unique slots before passing to this function.
-fn validate_linked_public_data_writes<let NUM_WRITES: u32, let NUM_LEAVES: u32>(
+pub fn validate_linked_public_data_writes<let NUM_WRITES: u32, let NUM_LEAVES: u32>(
     public_data_writes: [OverridablePublicDataWrite; NUM_WRITES],
     public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_LEAVES],
     hints: [LinkedIndexHint; NUM_WRITES]

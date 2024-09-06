@@ -30,7 +30,7 @@ unconstrained pub fn count_private_items<T, let N: u32>(array: [T; N]) -> u32 wh
     length
 }
 
-pub fn get_combined_order_hints_asc<T, let N: u32>(
+unconstrained pub fn get_combined_order_hints_asc<T, let N: u32>(
     array_lt: [T; N],
     array_gte: [T; N]
 ) -> [CombinedOrderHint; N] where T: Ordered + Eq + Empty {
@@ -64,6 +64,17 @@ mod tests {
         utils::arrays::assert_combined_sorted_transformed_value_array::get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc}
     };
 
+    fn asc_to_equal<let N: u32>(
+        array_lt: [TestValue; N],
+        array_gte: [TestValue; N],
+        expected: [CombinedOrderHint; N]
+    ) {
+        let hints = unsafe {
+            get_combined_order_hints_asc(array_lt, array_gte)
+        };
+        assert_eq(hints, expected);
+    }
+
     #[test]
     fn get_combined_order_hints_asc_full_non_empty() {
         let array_lt = pad_end(
@@ -90,7 +101,7 @@ mod tests {
             CombinedOrderHint { counter: 16, original_index: 2 },
             CombinedOrderHint { counter: 19, original_index: 1 }
         ];
-        assert_eq(get_combined_order_hints_asc(array_lt, array_gte), expected_hints);
+        asc_to_equal(array_lt, array_gte, expected_hints);
     }
 
     #[test]
@@ -110,7 +121,7 @@ mod tests {
             CombinedOrderHint { counter: 0, original_index: 1 },
             CombinedOrderHint { counter: 0, original_index: 2 }
         ];
-        assert_eq(get_combined_order_hints_asc(array_lt, array_gte), expected_hints);
+        asc_to_equal(array_lt, array_gte, expected_hints);
     }
 
     #[test]
@@ -129,7 +140,7 @@ mod tests {
             CombinedOrderHint { counter: 0, original_index: 2 },
             CombinedOrderHint { counter: 0, original_index: 3 }
         ];
-        assert_eq(get_combined_order_hints_asc(array_lt, array_gte), expected_hints);
+        asc_to_equal(array_lt, array_gte, expected_hints);
     }
 
     #[test]
@@ -148,7 +159,7 @@ mod tests {
             CombinedOrderHint { counter: 0, original_index: 0 },
             CombinedOrderHint { counter: 0, original_index: 1 }
         ];
-        assert_eq(get_combined_order_hints_asc(array_lt, array_gte), expected_hints);
+        asc_to_equal(array_lt, array_gte, expected_hints);
     }
 
     #[test]
@@ -160,7 +171,7 @@ mod tests {
             CombinedOrderHint { counter: 0, original_index: 1 },
             CombinedOrderHint { counter: 0, original_index: 2 }
         ];
-        assert_eq(get_combined_order_hints_asc(array_lt, array_gte), expected_hints);
+        asc_to_equal(array_lt, array_gte, expected_hints);
     }
 
     #[test]
@@ -194,7 +205,7 @@ mod tests {
             CombinedOrderHint { counter: 0, original_index: 4 },
             CombinedOrderHint { counter: 0, original_index: 5 }
         ];
-        assert_eq(get_combined_order_hints_asc(array_lt, array_gte), expected_hints);
+        asc_to_equal(array_lt, array_gte, expected_hints);
     }
 
     #[test]
@@ -217,7 +228,7 @@ mod tests {
             CombinedOrderHint { counter: 0, original_index: 4 },
             CombinedOrderHint { counter: 0, original_index: 5 }
         ];
-        assert_eq(get_combined_order_hints_asc(array_lt, array_gte), expected_hints);
+        asc_to_equal(array_lt, array_gte, expected_hints);
     }
 
     #[test]
@@ -240,7 +251,7 @@ mod tests {
             CombinedOrderHint { counter: 0, original_index: 0 },
             CombinedOrderHint { counter: 0, original_index: 1 }
         ];
-        assert_eq(get_combined_order_hints_asc(array_lt, array_gte), expected_hints);
+        asc_to_equal(array_lt, array_gte, expected_hints);
     }
 }
 

@@ -39,15 +39,14 @@ use crate::{
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     hash::{
-    compute_l2_to_l1_hash, compute_tx_logs_hash, compute_tx_note_logs_hash, compute_siloed_nullifier,
-    silo_encrypted_log_hash, silo_note_hash, silo_unencrypted_log_hash, mask_encrypted_log_hash
+    compute_l2_to_l1_hash, compute_tx_logs_hash, compute_siloed_nullifier, silo_note_hash,
+    silo_unencrypted_log_hash, mask_encrypted_log_hash
 },
     header::Header, merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference, tests::fixtures,
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
-    recursion::{verification_key::VerificationKey, proof::{NestedRecursiveProof, RecursiveProof}},
-    point::Point
+    recursion::{verification_key::VerificationKey, proof::NestedRecursiveProof}, point::Point
 };
 
 fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {

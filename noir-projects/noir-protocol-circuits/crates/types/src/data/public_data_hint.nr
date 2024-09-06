@@ -1,5 +1,4 @@
 use crate::{
-    abis::public_data_read::PublicDataRead,
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::Empty,
     merkle_tree::{MembershipWitness, conditionally_assert_check_membership},
     constants::PUBLIC_DATA_TREE_HEIGHT

@@ -1,9 +1,12 @@
 use crate::{
     abis::{
     append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
-    global_variables::{GlobalVariables, GLOBAL_VARIABLES_LENGTH}
+    global_variables::GlobalVariables
 },
-    constants::{GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, STATE_REFERENCE_LENGTH, CONTENT_COMMITMENT_LENGTH},
+    constants::{
+    GENERATOR_INDEX__BLOCK_HASH, GLOBAL_VARIABLES_LENGTH, HEADER_LENGTH, STATE_REFERENCE_LENGTH,
+    CONTENT_COMMITMENT_LENGTH
+},
     hash::poseidon2_hash_with_separator, state_reference::StateReference,
     traits::{Deserialize, Empty, Hash, Serialize}, utils::arr_copy_slice,
     content_commitment::ContentCommitment

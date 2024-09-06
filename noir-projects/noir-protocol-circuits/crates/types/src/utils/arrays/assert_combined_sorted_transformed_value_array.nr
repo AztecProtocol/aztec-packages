@@ -228,32 +228,32 @@ mod tests {
                 self.hints
             );
         }
+
+        pub fn check_and_execute(self) {
+            let hints = unsafe {
+                get_combined_order_hints_asc(self.original_array_lt, self.original_array_gte)
+            };
+            assert_eq(hints, self.hints);
+
+            let sorted = unsafe {
+                sort_by_counter_asc(array_merge(self.original_array_lt, self.original_array_gte)).map(combine_two_values)
+            };
+            assert_eq(sorted, self.sorted_transformed_value_array);
+
+            self.execute();
+        }
     }
 
     #[test]
     fn assert_combined_sorted_transformed_value_array_asc_succeeds() {
         let builder = TestDataBuilder::new();
-
-        let hints = get_combined_order_hints_asc(builder.original_array_lt, builder.original_array_gte);
-        assert_eq(hints, builder.hints);
-
-        let sorted = sort_by_counter_asc(array_merge(builder.original_array_lt, builder.original_array_gte)).map(combine_two_values);
-        assert_eq(sorted, builder.sorted_transformed_value_array);
-
-        builder.execute();
+        builder.check_and_execute();
     }
 
     #[test]
     fn assert_combined_sorted_transformed_value_array_asc_without_prepended_counter_zeros_succeeds() {
         let builder = TestDataBuilder::new_without_prepended();
-
-        let hints = get_combined_order_hints_asc(builder.original_array_lt, builder.original_array_gte);
-        assert_eq(hints, builder.hints);
-
-        let sorted = sort_by_counter_asc(array_merge(builder.original_array_lt, builder.original_array_gte)).map(combine_two_values);
-        assert_eq(sorted, builder.sorted_transformed_value_array);
-
-        builder.execute();
+        builder.check_and_execute();
     }
 
     #[test(should_fail_with="incorrect transformed value")]

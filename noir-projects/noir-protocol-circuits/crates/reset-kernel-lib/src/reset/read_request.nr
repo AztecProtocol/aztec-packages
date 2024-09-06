@@ -358,7 +358,7 @@ mod tests {
             TestSettledReadHint::nada(self.read_requests.len())
         }
 
-        pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
+        unconstrained pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
             get_unverified_read_requests(self.read_requests, self.read_request_statuses)
         }
 
@@ -385,6 +385,9 @@ mod tests {
 
         pub fn verify_with_settled_hints(self, settled_hints: [TestSettledReadHint; 2]) {
             let tree = self.build_tree();
+            let unverified = unsafe {
+                self.get_unverified_read_requests()
+            };
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
@@ -392,12 +395,15 @@ mod tests {
                 self.pending_read_hints,
                 settled_hints,
                 tree.get_root(),
-                self.get_unverified_read_requests()
+                unverified
             );
         }
 
         pub fn verify(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
+            let unverified = unsafe {
+                self.get_unverified_read_requests()
+            };
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
@@ -405,7 +411,7 @@ mod tests {
                 self.pending_read_hints,
                 settled_hints,
                 tree_root,
-                self.get_unverified_read_requests()
+                unverified
             );
         }
     }
@@ -507,7 +513,9 @@ mod tests {
     fn verify_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
 
-        let unverified_read_requests = builder.get_unverified_read_requests();
+        let unverified_read_requests = unsafe {
+            builder.get_unverified_read_requests()
+        };
         assert(is_empty_array(unverified_read_requests));
 
         builder.verify();
@@ -525,7 +533,9 @@ mod tests {
         settled_hints[0] = builder.get_nada_settled_read_hint();
 
         let read_requests = builder.read_requests;
-        let unverified_read_requests = builder.get_unverified_read_requests();
+        let unverified_read_requests = unsafe {
+            builder.get_unverified_read_requests()
+        };
         assert_array_eq(
             unverified_read_requests,
             [read_requests[0], read_requests[2]]

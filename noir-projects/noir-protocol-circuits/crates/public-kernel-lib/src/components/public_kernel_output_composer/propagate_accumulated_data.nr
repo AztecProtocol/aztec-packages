@@ -1,6 +1,6 @@
 use dep::types::{
     abis::{
-    accumulated_data::PublicAccumulatedDataBuilder, log_hash::LogHash, nullifier::Nullifier,
+    accumulated_data::PublicAccumulatedDataBuilder, nullifier::Nullifier,
     public_circuit_public_inputs::PublicCircuitPublicInputs,
     public_data_update_request::PublicDataUpdateRequest
 },

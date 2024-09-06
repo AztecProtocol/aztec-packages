@@ -42,13 +42,6 @@ pub fn assert_split_transformed_value_arrays_with_hint<T, S, let N: u32, Env>(
     }
 }
 
-unconstrained fn get_num_non_revertibles<T, let N: u32>(
-    sorted_array: [T; N],
-    split_counter: u32
-) -> u32 where T: Ordered {
-    find_index_hint(sorted_array, |n: T| n.counter() >= split_counter)
-}
-
 pub fn assert_split_transformed_value_arrays<T, S, let N: u32, Env>(
     sorted_array: [T; N],
     transformed_value_array_lt: [S; N], // Values whose counters are less than the split counter.
@@ -56,7 +49,9 @@ pub fn assert_split_transformed_value_arrays<T, S, let N: u32, Env>(
     is_transformed: fn[Env](T, S) -> bool,
     split_counter: u32
 ) where T: Ordered + Empty + Eq, S: Empty + Eq {
-    let num_non_revertibles = get_num_non_revertibles(sorted_array, split_counter);
+    let num_non_revertibles = unsafe {
+        find_index_hint(sorted_array, |n: T| n.counter() >= split_counter)
+    };
 
     assert_split_transformed_value_arrays_with_hint(
         sorted_array,

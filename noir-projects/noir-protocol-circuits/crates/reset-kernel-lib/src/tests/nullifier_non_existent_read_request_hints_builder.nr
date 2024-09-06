@@ -49,7 +49,7 @@ impl NullifierNonExistentReadRequestHintsBuilder {
         self.non_membership_hints.push(hint);
     }
 
-    pub fn to_hints(self) -> NullifierNonExistentReadRequestHints {
+    unconstrained pub fn to_hints(self) -> NullifierNonExistentReadRequestHints {
         let sorted_result = get_sorted_result(
             self.pending_nullifiers,
             |a: Nullifier, b: Nullifier| (b.value == 0) | ((a.value != 0) & a.value.lt(b.value))
