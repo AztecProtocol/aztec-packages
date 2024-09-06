@@ -38,6 +38,7 @@ import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
+import { prettyLogVeimError } from '../publisher/utils.js';
 
 export type ShouldProposeArgs = {
   pendingTxsCount?: number;
@@ -311,17 +312,7 @@ export class Sequencer {
       this.log.debug(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
-      if (err instanceof BaseError) {
-        const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
-        if (revertError instanceof ContractFunctionRevertedError) {
-          const errorName = revertError.data?.errorName ?? '';
-          const args =
-            revertError.metaMessages && revertError.metaMessages?.length > 1
-              ? revertError.metaMessages[1].trimStart()
-              : '';
-          this.log.debug(`canProposeAtTime failed with "${errorName}${args}"`);
-        }
-      }
+      prettyLogVeimError(err, this.log);
       throw err;
     }
   }

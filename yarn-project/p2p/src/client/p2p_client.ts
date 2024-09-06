@@ -291,12 +291,29 @@ export class P2PClient implements P2P {
     this.p2pService.registerBlockReceivedCallback(handler);
   }
 
-  // TODO: this will need a timeout + retry mechanism to make sure that we can retreive things on time
+  /**
+   * Requests the transactions with the given hashes from the network.
+   *
+   * If a transaction can be retrieved, it will be returned, if not an undefined
+   * will be returned. In place.
+   *
+   * @param txHashes - The hashes of the transactions to request.
+   * @returns A promise that resolves to an array of transactions or undefined.
+   */
   public requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
     const requestPromises = txHashes.map(txHash => this.requestTxByHash(txHash));
     return Promise.all(requestPromises);
   }
 
+  /**
+   * Uses the Request Response protocol to request a transaction from the network.
+   *
+   * If the underlying request response protocol fails, then we return undefined.
+   * If it succeeds then we add the transaction to our transaction pool and return.
+   *
+   * @param txHash - The hash of the transaction to request.
+   * @returns A promise that resolves to a transaction or undefined.
+   */
   public async requestTxByHash(txHash: TxHash): Promise<Tx | undefined> {
     const tx = await this.p2pService.sendRequest(TX_REQ_PROTOCOL, txHash);
 

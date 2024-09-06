@@ -184,7 +184,6 @@ contract SpartaTest is DecoderBase {
 
     rollup.setupEpoch();
 
-    // TODO: include these in the base block and include in the load function
     bytes32[] memory txHashes = new bytes32[](0);
 
     if (_signatureCount > 0 && ree.proposer != address(0)) {

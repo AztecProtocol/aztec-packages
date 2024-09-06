@@ -57,8 +57,6 @@ export class BlockProposal extends Gossipable {
       // performance note(): this signature method requires another hash behind the scenes
       const hashed = keccak256(this.getPayload());
       const address = await recoverMessageAddress({
-        // TODO(md): fix this up
-        // message: { raw: this.p2pMessageIdentifier().to0xString() },
         message: { raw: hashed },
         signature: this.signature.to0xString(),
       });

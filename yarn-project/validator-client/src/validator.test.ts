@@ -49,7 +49,6 @@ describe('ValidationService', () => {
     expect(await blockProposal.getSender()).toEqual(validatorAddress);
   });
 
-  // TODO: add a test on the sequencer that it can recover in case that this timeout is hit
   it('Should a timeout if we do not collect enough attestations in time', async () => {
     const proposal = await makeBlockProposal();
 
