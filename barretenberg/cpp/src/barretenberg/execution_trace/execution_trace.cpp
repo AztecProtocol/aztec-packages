@@ -91,7 +91,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
             auto selector = block.selectors[selector_idx];
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                 size_t trace_row_idx = row_idx + offset;
-                trace_data.selectors[selector_idx].at(trace_row_idx) = selector[row_idx];
+                trace_data.selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
             }
         }
 
@@ -105,11 +105,8 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         }
 
         // If the trace is structured, we populate the data from the next block at a fixed block size offset
-        if (is_structured) {
-            offset += block.get_fixed_size();
-        } else { // otherwise, the next block starts immediately following the previous one
-            offset += block_size;
-        }
+        // otherwise, the next block starts immediately following the previous one
+        offset += block.get_fixed_size(is_structured);
     }
     return trace_data;
 }

@@ -281,6 +281,14 @@ template <typename Fr> class Polynomial {
     auto indexed_values() { return zip_view(indices(), coeffs()); }
     auto indexed_values() const { return zip_view(indices(), coeffs()); }
 
+    void set_if_valid_index(size_t index, const Fr& value)
+    {
+        ASSERT(value.is_zero() || (index >= start_index() && index < end_index()));
+        if (index >= start_index() && index < end_index()) {
+            at(index) = value;
+        }
+    }
+
     /**
      * @brief Copy over values from a vector that is of a convertible type.
      *

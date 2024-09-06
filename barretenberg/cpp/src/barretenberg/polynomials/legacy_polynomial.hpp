@@ -107,17 +107,22 @@ template <typename Fr> class LegacyPolynomial {
 
     Fr& operator[](const size_t i) { return coefficients_[i]; }
 
+    // For compatibility with Polynomial (which needs a special mutable accessor)
     Fr const& at(const size_t i) const
     {
         ASSERT(i < capacity());
         return coefficients_[i];
-    };
+    }
 
+    // For compatibility with Polynomial (which needs a special mutable accessor)
     Fr& at(const size_t i)
     {
         ASSERT(i < capacity());
         return coefficients_[i];
-    };
+    }
+
+    // For compatibility with Polynomial (which needs a special safe mutation function)
+    void set_if_valid_index(size_t index, const Fr& value) { at(index) = value; }
 
     Fr evaluate(const Fr& z, size_t target_size) const;
     Fr evaluate(const Fr& z) const;

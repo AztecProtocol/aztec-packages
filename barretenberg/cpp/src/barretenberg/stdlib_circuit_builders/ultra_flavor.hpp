@@ -296,7 +296,9 @@ class UltraFlavor {
         {
             ZoneScopedN("creating empty prover polys");
             for (auto& poly : get_to_be_shifted()) {
-                poly = Polynomial{ /*memory size*/ circuit_size - 1, /*degree + 1*/ circuit_size, /* offset */ 1 };
+                poly = Polynomial{ /*memory size*/ circuit_size - 1,
+                                   /*largest possible index*/ circuit_size,
+                                   /* offset */ 1 };
             }
             for (auto& poly : get_unshifted()) {
                 if (poly.is_empty()) {

@@ -73,8 +73,8 @@ template <class Flavor> class DeciderProvingKey_ {
 
             // WORKTODO(sparse) consider a better paradigm
             if constexpr (IsMegaBuilder<Circuit>) {
-                proving_key =
-                    ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), circuit.blocks, commitment_key);
+                proving_key = ProvingKey(
+                    dyadic_circuit_size, circuit.public_inputs.size(), circuit.blocks, is_structured, commitment_key);
             } else {
                 proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
             }

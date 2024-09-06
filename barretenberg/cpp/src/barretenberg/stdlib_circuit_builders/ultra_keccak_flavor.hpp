@@ -263,12 +263,14 @@ class UltraKeccakFlavor {
           // shifted polys
 
             for (auto& poly : get_to_be_shifted()) {
-                poly = Polynomial{ /*memory size*/ circuit_size - 1, /*degree + 1*/ circuit_size, /* offset */ 1 };
+                poly = Polynomial{ /*memory size*/ circuit_size - 1,
+                                   /*largest possible index*/ circuit_size,
+                                   /* offset */ 1 };
             }
             for (auto& poly : get_unshifted()) {
                 if (poly.is_empty()) {
                     // Not set above
-                    poly = Polynomial{ /*memory size*/ circuit_size, /*degree + 1*/ circuit_size };
+                    poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
                 }
             }
             set_shifted();
