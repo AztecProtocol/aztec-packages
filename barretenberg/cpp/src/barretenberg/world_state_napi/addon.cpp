@@ -48,6 +48,10 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_state_reference(obj, buffer); });
 
     _dispatcher.registerTarget(
+        WorldStateMessageType::GET_INITIAL_STATE_REFERENCE,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_initial_state_reference(obj, buffer); });
+
+    _dispatcher.registerTarget(
         WorldStateMessageType::GET_LEAF_VALUE,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return get_leaf_value(obj, buffer); });
 
@@ -148,6 +152,21 @@ bool WorldStateAddon::get_state_reference(msgpack::object& obj, msgpack::sbuffer
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<GetStateReferenceResponse> resp_msg(
         WorldStateMessageType::GET_STATE_REFERENCE, header, { state });
+
+    msgpack::pack(buffer, resp_msg);
+
+    return true;
+}
+
+bool WorldStateAddon::get_initial_state_reference(msgpack::object& obj, msgpack::sbuffer& buffer) const
+{
+    TypedMessage<GetInitialStateReferenceRequest> request;
+    obj.convert(request);
+    auto state = _ws->get_initial_state_reference();
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<GetInitialStateReferenceResponse> resp_msg(
+        WorldStateMessageType::GET_INITIAL_STATE_REFERENCE, header, { state });
 
     msgpack::pack(buffer, resp_msg);
 

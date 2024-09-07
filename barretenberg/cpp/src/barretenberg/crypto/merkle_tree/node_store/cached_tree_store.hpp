@@ -1,6 +1,7 @@
 #pragma once
 #include "./tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -94,9 +95,19 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
     void put_meta(const index_t& size, const bb::fr& root);
 
     /**
+     * @brief Writes the provided initial meta data to uncommitted state
+     */
+    void put_initial_meta(const index_t& size, const bb::fr& root);
+
+    /**
      * @brief Reads the tree meta data, including uncommitted data if requested
      */
     void get_meta(index_t& size, bb::fr& root, ReadTransaction& tx, bool includeUncommitted) const;
+
+    /**
+     * @brief Reads the tree meta data, including uncommitted data if requested
+     */
+    void get_initial_meta(index_t& size, bb::fr& root, ReadTransaction& tx) const;
 
     /**
      * @brief Reads the extended tree meta data, including uncommitted data if requested
@@ -160,9 +171,9 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
 
     void initialise();
 
-    bool read_persisted_meta(TreeMeta& m, ReadTransaction& tx) const;
+    bool read_persisted_meta(TreeMeta& m, ReadTransaction& tx, bool initial = false) const;
 
-    void persist_meta(TreeMeta& m, WriteTransaction& tx);
+    void persist_meta(TreeMeta& m, WriteTransaction& tx, bool initial = false);
 
     WriteTransactionPtr create_write_transaction() const { return dataStore.create_write_transaction(); }
 };
@@ -351,6 +362,22 @@ void CachedTreeStore<PersistedStore, LeafValueType>::put_meta(const index_t& siz
 }
 
 template <typename PersistedStore, typename LeafValueType>
+void CachedTreeStore<PersistedStore, LeafValueType>::put_initial_meta(const index_t& size, const bb::fr& root)
+{
+    TreeMeta m;
+    m.root = root;
+    m.size = size;
+    WriteTransactionPtr tx = create_write_transaction();
+    try {
+        persist_meta(m, *tx, true);
+        tx->commit();
+    } catch (std::exception& e) {
+        tx->try_abort();
+        throw;
+    }
+}
+
+template <typename PersistedStore, typename LeafValueType>
 void CachedTreeStore<PersistedStore, LeafValueType>::get_meta(index_t& size,
                                                               bb::fr& root,
                                                               ReadTransaction& tx,
@@ -363,6 +390,17 @@ void CachedTreeStore<PersistedStore, LeafValueType>::get_meta(index_t& size,
     }
     TreeMeta m;
     read_persisted_meta(m, tx);
+    size = m.size;
+    root = m.root;
+}
+
+template <typename PersistedStore, typename LeafValueType>
+void CachedTreeStore<PersistedStore, LeafValueType>::get_initial_meta(index_t& size,
+                                                                      bb::fr& root,
+                                                                      ReadTransaction& tx) const
+{
+    TreeMeta m;
+    read_persisted_meta(m, tx, true);
     size = m.size;
     root = m.root;
 }
@@ -452,10 +490,18 @@ void CachedTreeStore<PersistedStore, LeafValueType>::rollback()
 }
 
 template <typename PersistedStore, typename LeafValueType>
-bool CachedTreeStore<PersistedStore, LeafValueType>::read_persisted_meta(TreeMeta& m, ReadTransaction& tx) const
+bool CachedTreeStore<PersistedStore, LeafValueType>::read_persisted_meta(TreeMeta& m,
+                                                                         ReadTransaction& tx,
+                                                                         bool initial) const
 {
     std::vector<uint8_t> data;
-    bool success = tx.get_node(0, 0, data);
+    bool success = false;
+    if (!initial) {
+        success = tx.get_node(0, 0, data);
+    } else {
+        MetaKeyType key = 0;
+        success = tx.get_value(key, data);
+    }
     if (success) {
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(m);
     }
@@ -463,11 +509,16 @@ bool CachedTreeStore<PersistedStore, LeafValueType>::read_persisted_meta(TreeMet
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::persist_meta(TreeMeta& m, WriteTransaction& tx)
+void CachedTreeStore<PersistedStore, LeafValueType>::persist_meta(TreeMeta& m, WriteTransaction& tx, bool initial)
 {
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, m);
     std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
+    if (initial) {
+        MetaKeyType key = 0;
+        tx.put_value(key, encoded);
+        return;
+    }
     tx.put_node(0, 0, encoded);
 }
 

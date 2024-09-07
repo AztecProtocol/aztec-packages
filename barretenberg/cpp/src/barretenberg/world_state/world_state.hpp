@@ -80,6 +80,13 @@ class WorldState {
     StateReference get_state_reference(WorldStateRevision revision) const;
 
     /**
+     * @brief Gets the initial state reference for all the trees in the world state
+     *
+     * @return StateReference
+     */
+    StateReference get_initial_state_reference() const;
+
+    /**
      * @brief Get the sibling path object for a leaf in a tree
      *
      * @param revision The revision to query

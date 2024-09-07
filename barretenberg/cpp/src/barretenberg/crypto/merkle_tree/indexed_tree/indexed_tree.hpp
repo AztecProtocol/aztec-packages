@@ -220,6 +220,8 @@ IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers
         throw std::runtime_error("Failed to initialise tree: " + result.message);
     }
     store_.commit();
+    // this commits directly
+    store_.put_initial_meta(result.inner.size, result.inner.root);
 }
 
 template <typename Store, typename HashingPolicy>

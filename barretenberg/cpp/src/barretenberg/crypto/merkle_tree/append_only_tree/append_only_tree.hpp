@@ -100,6 +100,12 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
     void get_meta_data(bool includeUncommitted, const MetaDataCallback& on_completion) const;
 
     /**
+     * @brief Returns the tree meta data
+     * @param on_completion Callback to be called on completion
+     */
+    void get_initial_meta_data(const MetaDataCallback& on_completion) const;
+
+    /**
      * @brief Returns the leaf value at the provided index
      * @param index The index of the leaf to be retrieved
      * @param includeUncommitted Whether to include uncommitted changes
@@ -194,6 +200,8 @@ AppendOnlyTree<Store, HashingPolicy>::AppendOnlyTree(Store& store, ThreadPool& w
         // if the tree is empty then we want to write the initial root
         store_.put_meta(0, current);
         store_.commit();
+        // we also need to store the initial meta, this commits directly
+        store_.put_initial_meta(0, current);
     }
     max_size_ = numeric::pow64(2, depth_);
 }
@@ -207,6 +215,21 @@ void AppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted
             [=, this](TypedResponse<TreeMetaResponse>& response) {
                 ReadTransactionPtr tx = store_.create_read_transaction();
                 store_.get_meta(response.inner.size, response.inner.root, *tx, includeUncommitted);
+                response.inner.depth = depth_;
+            },
+            on_completion);
+    };
+    workers_.enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void AppendOnlyTree<Store, HashingPolicy>::get_initial_meta_data(const MetaDataCallback& on_completion) const
+{
+    auto job = [=, this]() {
+        execute_and_report<TreeMetaResponse>(
+            [=, this](TypedResponse<TreeMetaResponse>& response) {
+                ReadTransactionPtr tx = store_.create_read_transaction();
+                store_.get_initial_meta(response.inner.size, response.inner.root, *tx);
                 response.inner.depth = depth_;
             },
             on_completion);

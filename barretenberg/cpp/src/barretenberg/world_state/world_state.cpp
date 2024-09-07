@@ -114,6 +114,27 @@ StateReference WorldState::get_state_reference(WorldStateRevision revision) cons
     return state_reference;
 }
 
+StateReference WorldState::get_initial_state_reference() const
+{
+    Signal signal(static_cast<uint32_t>(_trees.size()));
+    StateReference state_reference;
+
+    for (const auto& [id, tree] : _trees) {
+        std::visit(
+            [&signal, &state_reference, id](auto&& wrapper) {
+                auto callback = [&signal, &state_reference, id](const TypedResponse<TreeMetaResponse>& meta) {
+                    state_reference.insert({ id, { meta.inner.root, meta.inner.size } });
+                    signal.signal_decrement();
+                };
+                wrapper.tree->get_initial_meta_data(callback);
+            },
+            tree);
+    }
+
+    signal.wait_for_level(0);
+    return state_reference;
+}
+
 fr_sibling_path WorldState::get_sibling_path(WorldStateRevision revision,
                                              MerkleTreeId tree_id,
                                              index_t leaf_index) const

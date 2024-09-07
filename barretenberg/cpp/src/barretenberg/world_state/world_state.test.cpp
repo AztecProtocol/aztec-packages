@@ -2,8 +2,6 @@
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/world_state/history.hpp"
-#include "barretenberg/world_state/struct.hpp"
 #include <filesystem>
 #include <gtest/gtest.h>
 
@@ -15,7 +13,7 @@ class WorldStateTest : public testing::Test {
     void SetUp() override
     {
         // setup with 1MB max db size, 1 max database and 2 maximum concurrent readers
-        _directory = randomTempDirectory();
+        _directory = random_temp_directory();
         std::filesystem::create_directories(_directory);
     }
 

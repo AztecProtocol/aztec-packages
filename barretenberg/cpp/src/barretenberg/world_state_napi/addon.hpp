@@ -33,6 +33,7 @@ class WorldStateAddon : public Napi::ObjectWrap<WorldStateAddon> {
 
     bool get_tree_info(msgpack::object& obj, msgpack::sbuffer& buffer) const;
     bool get_state_reference(msgpack::object& obj, msgpack::sbuffer& buffer) const;
+    bool get_initial_state_reference(msgpack::object& obj, msgpack::sbuffer& buffer) const;
 
     bool get_leaf_value(msgpack::object& obj, msgpack::sbuffer& buffer) const;
     bool get_leaf_preimage(msgpack::object& obj, msgpack::sbuffer& buffer) const;

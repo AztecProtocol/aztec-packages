@@ -15,6 +15,7 @@ using namespace bb::messaging;
 enum WorldStateMessageType {
     GET_TREE_INFO = FIRST_APP_MSG_TYPE,
     GET_STATE_REFERENCE,
+    GET_INITIAL_STATE_REFERENCE,
 
     GET_LEAF_VALUE,
     GET_LEAF_PREIMAGE,
@@ -73,6 +74,16 @@ struct GetStateReferenceRequest {
 };
 
 struct GetStateReferenceResponse {
+    StateReference state;
+    MSGPACK_FIELDS(state);
+};
+
+struct GetInitialStateReferenceRequest {
+    int revision;
+    MSGPACK_FIELDS(revision);
+};
+
+struct GetInitialStateReferenceResponse {
     StateReference state;
     MSGPACK_FIELDS(state);
 };
