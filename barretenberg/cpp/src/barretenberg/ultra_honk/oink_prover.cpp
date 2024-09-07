@@ -203,9 +203,11 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
 template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas_round()
 {
     RelationSeparator alphas;
-    for (size_t idx = 0; idx < alphas.size(); idx++) {
-        alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "alpha_" + std::to_string(idx));
+    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> args;
+    for (size_t idx = 0; idx < alphas.size(); ++idx) {
+        args[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
+    alphas = transcript->template get_challenges_arr<FF>(args);
     return alphas;
 }
 
