@@ -10,7 +10,12 @@ export class TimeoutTask<T> {
   private interrupt = () => {};
   private totalTime = 0;
 
-  constructor(private fn: () => Promise<T>, private timeout = 0, fnName = '', error = () => new Error(`Timeout${fnName ? ` running ${fnName}` : ''} after ${timeout}ms.`)) {
+  constructor(
+    private fn: () => Promise<T>,
+    private timeout = 0,
+    fnName = '',
+    error = () => new Error(`Timeout${fnName ? ` running ${fnName}` : ''} after ${timeout}ms.`),
+  ) {
     this.interruptPromise = new Promise<T>((_, reject) => {
       this.interrupt = () => reject(error());
     });
@@ -63,7 +68,12 @@ export const executeTimeout = async <T>(fn: () => Promise<T>, timeout = 0, fnNam
   return await task.exec();
 };
 
-export const executeTimeoutWithCustomError = async <T>(fn: () => Promise<T>, timeout = 0, error = () => new Error("No custom error provided"), fnName = '') => {
+export const executeTimeoutWithCustomError = async <T>(
+  fn: () => Promise<T>,
+  timeout = 0,
+  error = () => new Error('No custom error provided'),
+  fnName = '',
+) => {
   const task = new TimeoutTask(fn, timeout, fnName, error);
   return await task.exec();
 };
