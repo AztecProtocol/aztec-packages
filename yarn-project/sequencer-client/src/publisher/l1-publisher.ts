@@ -13,7 +13,6 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
 import {
-  BaseError,
   ContractFunctionRevertedError,
   type GetContractReturnType,
   type Hex,
@@ -33,6 +32,7 @@ import type * as chains from 'viem/chains';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
+import { prettyLogVeimError } from './utils.js';
 
 /**
  * Stats for a sent transaction.
@@ -255,8 +255,7 @@ export class L1Publisher {
       blockHash: block.hash().toString(),
     };
 
-    // TODO: move this to take in the proposal to get the digest - rather than manually
-    const tempDigest = keccak256(serializeToBuffer(block.archive.root, txHashes ?? []));
+    const digest = keccak256(serializeToBuffer(block.archive.root, txHashes ?? []));
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
@@ -278,8 +277,7 @@ export class L1Publisher {
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
       await this.validateBlockForSubmission(block.header, {
-        // digest: block.archive.root.toBuffer(), // THIS IS NOT THE DIGEST ANYMORE!!!!!
-        digest: tempDigest,
+        digest,
         signatures: attestations ?? [],
       });
 
@@ -504,7 +502,7 @@ export class L1Publisher {
           // We almost always want to skip simulation here if we are not already within the slot, else we will be one slot ahead
           // See comment attached to static SKIP_SIMULATION definition
           if (!L1Publisher.SKIP_SIMULATION) {
-            const simulationResult = await this.rollupContract.simulate.proposeWithBody(args, {
+            await this.rollupContract.simulate.proposeWithBody(args, {
               account: this.account,
             });
           }
@@ -533,19 +531,7 @@ export class L1Publisher {
           });
         }
       } catch (err) {
-        if (err instanceof BaseError) {
-          const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
-          if (revertError instanceof ContractFunctionRevertedError) {
-            // TODO: turn this into a function
-            const errorName = revertError.data?.errorName ?? '';
-            const args =
-              revertError.metaMessages && revertError.metaMessages?.length > 1
-                ? revertError.metaMessages[1].trimStart()
-                : '';
-            this.log.error(`propose failed with "${errorName}${args}"`);
-            return undefined;
-          }
-        }
+        prettyLogVeimError(err, this.log);
         this.log.error(`Rollup publish failed`, err);
         return undefined;
       }

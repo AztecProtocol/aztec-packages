@@ -64,6 +64,7 @@ describe(`deploys and transfers a private only token`, () => {
       interval: 0.1,
       proven: true,
       provenTimeout: 600,
+      timeout: 300,
     });
 
     logger.info(`Accounts deployed, deploying token.`);
@@ -86,6 +87,7 @@ describe(`deploys and transfers a private only token`, () => {
       .deployed({
         proven: true,
         provenTimeout: 600,
+        timeout: 300,
       });
 
     logger.info(`Performing transfer.`);
@@ -93,7 +95,7 @@ describe(`deploys and transfers a private only token`, () => {
     await token.methods
       .transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress(), deployerWallet.getAddress())
       .send()
-      .wait({ proven: true, provenTimeout: 600 });
+      .wait({ proven: true, provenTimeout: 600, timeout: 300 });
 
     logger.info(`Transfer completed`);
 

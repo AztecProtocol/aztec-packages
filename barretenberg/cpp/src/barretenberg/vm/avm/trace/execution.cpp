@@ -214,7 +214,6 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     kernel_inputs[VERSION_SELECTOR] = public_inputs_vec[VERSION_OFFSET];           // Version
     kernel_inputs[BLOCK_NUMBER_SELECTOR] = public_inputs_vec[BLOCK_NUMBER_OFFSET]; // Block Number
     kernel_inputs[TIMESTAMP_SELECTOR] = public_inputs_vec[TIMESTAMP_OFFSET];       // Timestamp
-    kernel_inputs[COINBASE_SELECTOR] = public_inputs_vec[COINBASE_OFFSET];         // Coinbase
     // PublicCircuitPublicInputs - GlobalVariables - GasFees
     kernel_inputs[FEE_PER_DA_GAS_SELECTOR] = public_inputs_vec[FEE_PER_DA_GAS_OFFSET];
     kernel_inputs[FEE_PER_L2_GAS_SELECTOR] = public_inputs_vec[FEE_PER_L2_GAS_OFFSET];
@@ -547,9 +546,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::TIMESTAMP:
             trace_builder.op_timestamp(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::COINBASE:
-            trace_builder.op_coinbase(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
         case OpCode::FEEPERL2GAS:
             trace_builder.op_fee_per_l2_gas(std::get<uint8_t>(inst.operands.at(0)),

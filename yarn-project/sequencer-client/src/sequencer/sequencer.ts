@@ -30,11 +30,10 @@ import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec
 import { type ValidatorClient } from '@aztec/validator-client';
 import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
-import { BaseError, ContractFunctionRevertedError } from 'viem';
-
 import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { prettyLogVeimError } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -311,17 +310,7 @@ export class Sequencer {
       this.log.debug(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
-      if (err instanceof BaseError) {
-        const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
-        if (revertError instanceof ContractFunctionRevertedError) {
-          const errorName = revertError.data?.errorName ?? '';
-          const args =
-            revertError.metaMessages && revertError.metaMessages?.length > 1
-              ? revertError.metaMessages[1].trimStart()
-              : '';
-          this.log.debug(`canProposeAtTime failed with "${errorName}${args}"`);
-        }
-      }
+      prettyLogVeimError(err, this.log);
       throw err;
     }
   }

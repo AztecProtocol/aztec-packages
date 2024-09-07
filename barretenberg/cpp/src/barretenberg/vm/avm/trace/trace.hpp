@@ -94,7 +94,6 @@ class AvmTraceBuilder {
     void op_version(uint8_t indirect, uint32_t dst_offset);
     void op_block_number(uint8_t indirect, uint32_t dst_offset);
     void op_timestamp(uint8_t indirect, uint32_t dst_offset);
-    void op_coinbase(uint8_t indirect, uint32_t dst_offset);
     void op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset);
     void op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset);
 

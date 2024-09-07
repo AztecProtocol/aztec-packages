@@ -34,8 +34,6 @@ interface IRollup {
 
   function OUTBOX() external view returns (IOutbox);
 
-  // Temp: turns out there is a viem bug where it cannot differentiate between the two
-  // different types
   function proposeWithBody(
     bytes calldata _header,
     bytes32 _archive,

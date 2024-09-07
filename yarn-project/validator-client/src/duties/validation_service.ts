@@ -19,9 +19,8 @@ export class ValidationService {
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
   async createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
-    // Note: just signing the archive for now
+    // NOTE: just signing the archive and txs for now
     const payload = serializeToBuffer([archive, txs]);
-    // TODO(temp hash it together before signing)
     const hashed = keccak256(payload);
     const sig = await this.keyStore.sign(hashed);
 
@@ -31,13 +30,14 @@ export class ValidationService {
   /**
    * Attest to the given block proposal constructed by the current sequencer
    *
+   * NOTE: This is just a blind signing.
+   *       We assume that the proposal is valid and DA guarantees have been checked previously.
+   *
    * @param proposal - The proposal to attest to
    * @returns attestation
    */
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7961): check that the current validator is correct
-
-    // TODO: in the function before this, check that all of the txns exist in the payload
 
     const buf = keccak256(proposal.getPayload());
     const sig = await this.keyStore.sign(buf);

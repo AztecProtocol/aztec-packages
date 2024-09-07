@@ -8,6 +8,7 @@ use crate::{
         BlockExpression, ExpressionKind, IntegerBitSize, LValue, Signedness, StatementKind,
         UnresolvedTypeData,
     },
+    elaborator::Elaborator,
     hir::{
         comptime::{
             errors::IResult,
@@ -87,6 +88,13 @@ pub(crate) fn get_array(
             let expected = Type::Array(type_var.clone(), type_var);
             type_mismatch(value, expected, location)
         }
+    }
+}
+
+pub(crate) fn get_bool((value, location): (Value, Location)) -> IResult<bool> {
+    match value {
+        Value::Bool(value) => Ok(value),
+        value => type_mismatch(value, Type::Bool, location),
     }
 }
 
@@ -186,6 +194,20 @@ pub(crate) fn get_expr(
             _ => Ok(expr),
         },
         value => type_mismatch(value, Type::Quoted(QuotedType::Expr), location),
+    }
+}
+
+pub(crate) fn get_format_string(
+    interner: &NodeInterner,
+    (value, location): (Value, Location),
+) -> IResult<(Rc<String>, Type)> {
+    match value {
+        Value::FormatString(value, typ) => Ok((value, typ)),
+        value => {
+            let n = Box::new(interner.next_type_variable());
+            let e = Box::new(interner.next_type_variable());
+            type_mismatch(value, Type::FmtString(n, e), location)
+        }
     }
 }
 
@@ -422,4 +444,27 @@ pub(super) fn block_expression_to_value(block_expr: BlockExpression) -> Value {
     let statements = statements.map(|statement| Value::statement(statement.kind)).collect();
 
     Value::Slice(statements, typ)
+}
+
+pub(super) fn has_named_attribute<'a>(
+    name: &'a str,
+    attributes: impl Iterator<Item = &'a String>,
+    location: Location,
+) -> bool {
+    for attribute in attributes {
+        let parse_result = Elaborator::parse_attribute(attribute, location);
+        let Ok(Some((function, _arguments))) = parse_result else {
+            continue;
+        };
+
+        let ExpressionKind::Variable(path) = function.kind else {
+            continue;
+        };
+
+        if path.last_name() == name {
+            return true;
+        }
+    }
+
+    false
 }

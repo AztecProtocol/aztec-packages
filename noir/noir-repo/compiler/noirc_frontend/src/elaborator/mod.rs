@@ -26,8 +26,10 @@ use crate::{
         SecondaryAttribute, StructId,
     },
     node_interner::{
-        DefinitionKind, DependencyId, ExprId, FuncId, GlobalId, ReferenceId, TraitId, TypeAliasId,
+        DefinitionKind, DependencyId, ExprId, FuncId, FunctionModifiers, GlobalId, ReferenceId,
+        TraitId, TypeAliasId,
     },
+    token::CustomAtrribute,
     Shared, Type, TypeVariable,
 };
 use crate::{
@@ -320,7 +322,12 @@ impl<'context> Elaborator<'context> {
 
         // We have to run any comptime attributes on functions before the function is elaborated
         // since the generated items are checked beforehand as well.
-        let generated_items = self.run_attributes(&items.traits, &items.types, &items.functions);
+        let generated_items = self.run_attributes(
+            &items.traits,
+            &items.types,
+            &items.functions,
+            &items.module_attributes,
+        );
 
         // After everything is collected, we can elaborate our generated items.
         // It may be better to inline these within `items` entirely since elaborating them
@@ -410,6 +417,10 @@ impl<'context> Elaborator<'context> {
 
         self.trait_bounds = func_meta.trait_constraints.clone();
         self.function_context.push(FunctionContext::default());
+
+        let modifiers = self.interner.function_modifiers(&id).clone();
+
+        self.run_function_lints(&func_meta, &modifiers);
 
         self.introduce_generics_into_scope(func_meta.all_generics.clone());
 
@@ -725,20 +736,6 @@ impl<'context> Elaborator<'context> {
 
         let is_entry_point = self.is_entry_point_function(func, in_contract);
 
-        self.run_lint(|_| lints::inlining_attributes(func).map(Into::into));
-        self.run_lint(|_| lints::missing_pub(func, is_entry_point).map(Into::into));
-        self.run_lint(|elaborator| {
-            lints::unnecessary_pub_return(func, elaborator.pub_allowed(func, in_contract))
-                .map(Into::into)
-        });
-        self.run_lint(|_| lints::oracle_not_marked_unconstrained(func).map(Into::into));
-        self.run_lint(|elaborator| {
-            lints::low_level_function_outside_stdlib(func, elaborator.crate_id).map(Into::into)
-        });
-        self.run_lint(|_| {
-            lints::recursive_non_entrypoint_function(func, is_entry_point).map(Into::into)
-        });
-
         // Both the #[fold] and #[no_predicates] alter a function's inline type and code generation in similar ways.
         // In certain cases such as type checking (for which the following flag will be used) both attributes
         // indicate we should code generate in the same way. Thus, we unify the attributes into one flag here.
@@ -819,7 +816,7 @@ impl<'context> Elaborator<'context> {
         let attributes = func.secondary_attributes().iter();
         let attributes =
             attributes.filter_map(|secondary_attribute| secondary_attribute.as_custom());
-        let attributes = attributes.map(|str| str.to_string()).collect();
+        let attributes: Vec<CustomAtrribute> = attributes.cloned().collect();
 
         let meta = FuncMeta {
             name: name_ident,
@@ -850,6 +847,23 @@ impl<'context> Elaborator<'context> {
         self.interner.push_fn_meta(meta, func_id);
         self.scopes.end_function();
         self.current_item = None;
+    }
+
+    fn run_function_lints(&mut self, func: &FuncMeta, modifiers: &FunctionModifiers) {
+        self.run_lint(|_| lints::inlining_attributes(func, modifiers).map(Into::into));
+        self.run_lint(|_| lints::missing_pub(func, modifiers).map(Into::into));
+        self.run_lint(|_| {
+            let pub_allowed = func.is_entry_point || modifiers.attributes.is_foldable();
+            lints::unnecessary_pub_return(func, modifiers, pub_allowed).map(Into::into)
+        });
+        self.run_lint(|_| lints::oracle_not_marked_unconstrained(func, modifiers).map(Into::into));
+        self.run_lint(|elaborator| {
+            lints::low_level_function_outside_stdlib(func, modifiers, elaborator.crate_id)
+                .map(Into::into)
+        });
+        self.run_lint(|_| {
+            lints::recursive_non_entrypoint_function(func, modifiers).map(Into::into)
+        });
     }
 
     /// Only sized types are valid to be used as main's parameters or the parameters to a contract

@@ -238,7 +238,7 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
     "command": ["start", "--prover"],
     "essential": true,
     "cpu": 16384,
-    "memoryReservation": 122880,
+    "memoryReservation": 127800,
     "portMappings": [
       {
         "containerPort": 80
@@ -285,9 +285,9 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
         "name": "NETWORK_NAME",
         "value": "${var.DEPLOY_TAG}"
       },
-      { 
-        "name": "LOG_JSON", 
-        "value": "1" 
+      {
+        "name": "LOG_JSON",
+        "value": "1"
       }
     ],
     "logConfiguration": {
