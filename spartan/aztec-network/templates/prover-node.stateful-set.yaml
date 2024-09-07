@@ -59,6 +59,8 @@ spec:
               value: "{{ .Values.proverNode.service.nodePort }}"
             - name: LOG_LEVEL
               value: "{{ .Values.proverNode.logLevel }}"
+            - name: LOG_JSON
+              value: "1"
             - name: DEBUG
               value: "{{ .Values.proverNode.debug }}"
             - name: ETHEREUM_HOST

@@ -29,6 +29,8 @@ spec:
               value: {{ include "aztec-network.ethereumHost" . | quote }}
             - name: AZTEC_NODE_URL
               value: {{ include "aztec-network.bootNodeUrl" . | quote }}
+            - name: LOG_JSON
+              value: "1"
           ports:
             - name: http
               containerPort: {{ .Values.pxe.service.port }}
