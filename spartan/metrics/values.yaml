@@ -38,6 +38,22 @@ opentelemetry-collector:
         endpoint: ${env:MY_POD_IP}:13133
     processors:
       batch: {}
+      transform:
+        error_mode: ignore
+        log_statements:
+          - context: log
+            statements:
+              - merge_maps(attributes, ParseJSON(body), "upsert") where IsMatch(body, "^\\{")
+              # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/pkg/ottl/contexts/ottllog
+              - set(severity_number, 1) where attributes["level"] == "trace"
+              - set(severity_number, 5) where attributes["level"] == "debug"
+              - set(severity_number, 9) where attributes["level"] == "info"
+              - set(severity_number, 13) where attributes["level"] == "warn"
+              - set(severity_number, 17) where attributes["level"] == "error"
+              - set(severity_number, 21) where attributes["level"] == "fatal"
+              - set(body, attributes["message"])
+              - set(attributes["level"], nil)
+              - set(attributes["message"], nil)
     receivers:
       otlp:
         protocols:
@@ -54,6 +70,7 @@ opentelemetry-collector:
             - elasticsearch
             - debug
           processors:
+            - transform
             - batch
           receivers:
             - otlp
