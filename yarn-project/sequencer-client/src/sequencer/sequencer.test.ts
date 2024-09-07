@@ -367,7 +367,8 @@ describe('sequencer', () => {
 
     // We make txs[1] too big to fit
     (txs[invalidTransactionIndex] as Writeable<Tx>).unencryptedLogs = UnencryptedTxL2Logs.random(2, 4);
-    (txs[invalidTransactionIndex].unencryptedLogs.functionLogs[0].logs[0] as Writeable<UnencryptedL2Log>).data = randomBytes(1024 * 1022);
+    (txs[invalidTransactionIndex].unencryptedLogs.functionLogs[0].logs[0] as Writeable<UnencryptedL2Log>).data =
+      randomBytes(1024 * 1022);
 
     await sequencer.initialSync();
     await sequencer.work();
