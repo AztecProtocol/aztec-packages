@@ -166,8 +166,6 @@ contract SpartaTest is DecoderBase {
     DecoderBase.Full memory full = load(_name);
     bytes memory header = full.block.header;
     bytes32 archive = full.block.archive;
-    // TODO(md): get the tx hashes from the block - but we do not have them now
-    // Come back to this
     bytes memory body = full.block.body;
 
     StructToAvoidDeepStacks memory ree;
