@@ -41,5 +41,7 @@ async function main() {
 main().catch(err => {
   debugLogger.error(`Error in command execution`);
   debugLogger.error(err + '\n' + err.stack);
-  process.exit(1);
+  // See https://nodejs.org/api/process.html#processexitcode
+  process.exitCode = 1;
+  throw err;
 });
