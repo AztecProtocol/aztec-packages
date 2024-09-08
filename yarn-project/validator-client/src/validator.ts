@@ -122,12 +122,13 @@ export class ValidatorClient implements Validator {
     const slot = proposal.header.globalVariables.slotNumber.toBigInt();
     this.log.info(`Waiting for ${numberOfRequiredAttestations} attestations for slot: ${slot}`);
 
+    const proposalId = proposal.p2pMessageIdentifier.toString();
     const myAttestation = await this.validationService.attestToProposal(proposal);
 
     const startTime = Date.now();
 
     while (true) {
-      const attestations = [myAttestation, ...(await this.p2pClient.getAttestationsForSlot(slot))];
+      const attestations = [myAttestation, ...(await this.p2pClient.getAttestationsForSlot(slot, proposalId))];
 
       if (attestations.length >= numberOfRequiredAttestations) {
         this.log.info(`Collected all ${numberOfRequiredAttestations} attestations for slot, ${slot}`);

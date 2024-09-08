@@ -58,9 +58,10 @@ export interface P2P {
    * Queries the Attestation pool for attestations for the given slot
    *
    * @param slot - the slot to query
+   * @param proposalId - the proposal id to query
    * @returns BlockAttestations
    */
-  getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]>;
+  getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
 
   /**
    * Registers a callback from the validator client that determines how to behave when
@@ -281,8 +282,8 @@ export class P2PClient implements P2P {
     return this.p2pService.propagate(proposal);
   }
 
-  public getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
-    return Promise.resolve(this.attestationPool.getAttestationsForSlot(slot));
+  public getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
+    return Promise.resolve(this.attestationPool.getAttestationsForSlot(slot, proposalId));
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
