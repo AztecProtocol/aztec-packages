@@ -8,6 +8,7 @@ import { type Libp2p } from 'libp2p';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
 import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { type P2PReqRespConfig } from './config.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   type ReqRespSubProtocol,
@@ -30,14 +31,16 @@ export class ReqResp {
 
   private abortController: AbortController = new AbortController();
 
-  // TODO: change defaults and add to configuration
-  private overallRequestTimeoutMs: number = 4000;
-  private individualRequestTimeoutMs: number = 2000;
+  private overallRequestTimeoutMs: number;
+  private individualRequestTimeoutMs: number;
 
   private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
 
-  constructor(protected readonly libp2p: Libp2p) {
+  constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p) {
     this.logger = createDebugLogger('aztec:p2p:reqresp');
+
+    this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
+    this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
   }
 
   /**
