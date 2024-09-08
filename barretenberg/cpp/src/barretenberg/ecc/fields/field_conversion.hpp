@@ -93,7 +93,7 @@ std::vector<bb::fr> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& val);
  */
 template <typename T> std::vector<bb::fr> convert_to_bn254_frs(const T& val)
 {
-    if constexpr (IsAnyOf<T, bool, uint32_t, uint64_t, bb::fr>) {
+    if constexpr (IsAnyOf<T, bool, uint32_t, uint64_t, size_t, bb::fr>) {
         std::vector<bb::fr> fr_vec{ val };
         return fr_vec;
     } else if constexpr (IsAnyOf<T, grumpkin::fr>) {
