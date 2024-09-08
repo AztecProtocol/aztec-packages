@@ -142,7 +142,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         {
             using namespace bb::stdlib::field_conversion;
 
-            // deserialize circuit size
             size_t num_frs_read = 0;
 
             this->circuit_size = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
@@ -155,7 +154,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
                 idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
 
-            // // DatabusPropagationData
             this->databus_propagation_data.contains_app_return_data_commitment =
                 bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->databus_propagation_data.contains_kernel_return_data_commitment =
@@ -169,6 +167,11 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
             for (Commitment& commitment : this->get_all()) {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
+            }
+
+            if (num_frs_read != elements.size()) {
+                info("Warning: Invalid buffer length in VerificationKey constuctor from fields!");
+                ASSERT(false);
             }
         }
     };

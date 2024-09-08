@@ -471,7 +471,7 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
         ASSERT(complete_proof_indices.size() == queue_entry.proof.size());
 
         // Assert equality between the proof indices from the constraint data and those of the internal proof
-        for (auto [proof_idx, proof_value] : zip_view(complete_proof_indices, queue_entry.proof)) {
+        for (auto [proof_value, proof_idx] : zip_view(queue_entry.proof, complete_proof_indices)) {
             circuit.assert_equal(proof_value.get_witness_index(), proof_idx);
         }
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1090): assert equality between the internal vkey
