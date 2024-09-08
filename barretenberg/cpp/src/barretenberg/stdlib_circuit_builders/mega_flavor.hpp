@@ -545,6 +545,40 @@ class MegaFlavor {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }
+
+        /**
+         * @brief Serialize verification key to field elements
+         */
+        std::vector<FF> to_field_elements()
+        {
+            using namespace bb::field_conversion;
+
+            auto serialize_to_field_buffer = [](auto& input, std::vector<FF> buffer) {
+                std::vector<FF> input_fields = convert_to_bn254_frs(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<FF> elements;
+
+            serialize_to_field_buffer(this->circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+            serialize_to_field_buffer(this->pub_inputs_offset, elements);
+            serialize_to_field_buffer(this->contains_recursive_proof, elements);
+            serialize_to_field_buffer(this->recursive_proof_public_input_indices, elements);
+
+            serialize_to_field_buffer(this->databus_propagation_data.contains_app_return_data_commitment, elements);
+            serialize_to_field_buffer(this->databus_propagation_data.contains_kernel_return_data_commitment, elements);
+            serialize_to_field_buffer(this->databus_propagation_data.app_return_data_public_input_idx, elements);
+            serialize_to_field_buffer(this->databus_propagation_data.kernel_return_data_public_input_idx, elements);
+            serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
+
+            for (Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            return elements;
+        }
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
