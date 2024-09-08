@@ -176,7 +176,7 @@ class VerificationKey_ : public PrecomputedCommitments {
     {
         using namespace bb::field_conversion;
 
-        auto serialize_to_field_buffer = [](auto& input, std::vector<FF> buffer) {
+        auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
             std::vector<FF> input_fields = convert_to_bn254_frs(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
