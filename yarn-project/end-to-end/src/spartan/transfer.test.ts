@@ -34,7 +34,7 @@ const toString = ({ value }: { value: bigint }) => {
 };
 
 describe('token transfer test', () => {
-  jest.setTimeout(10 * 60 * 1000); // 10 minutes
+  jest.setTimeout(10 * 60 * 2000); // 20 minutes
 
   const logger = createDebugLogger(`aztec:spartan-test:transfer`);
   const TOKEN_NAME = 'USDC';
@@ -42,7 +42,7 @@ describe('token transfer test', () => {
   const TOKEN_DECIMALS = 18n;
   const MINT_AMOUNT = 20n;
 
-  const WALLET_COUNT = 1;
+  const WALLET_COUNT = 16;
   const ROUNDS = 5n;
 
   let pxe: PXE;
@@ -101,28 +101,40 @@ describe('token transfer test', () => {
 
     logger.verbose(`Minting ${MINT_AMOUNT} private assets to the ${wallets.length} wallets...`);
 
-    for (const wallet of wallets) {
-      const walletAddress = wallet.getAddress();
-      const mintSecret = Fr.random();
-      const mintSecretHash = computeSecretHash(mintSecret);
+    const mintSecrets = Array.from({ length: WALLET_COUNT })
+      .map(() => Fr.random())
+      .map(secret => ({
+        secret,
+        hash: computeSecretHash(secret),
+      }));
 
-      const tx = await tokenAdminWallet.methods.mint_private(MINT_AMOUNT, mintSecretHash).send().wait({ timeout: 600 });
+    const txs = await Promise.all(
+      mintSecrets.map(({ hash }) =>
+        tokenAdminWallet.methods.mint_private(MINT_AMOUNT, hash).send().wait({ timeout: 600 }),
+      ),
+    );
 
-      const note = new Note([new Fr(MINT_AMOUNT), mintSecretHash]);
-      const extendedNote = new ExtendedNote(
-        note,
-        walletAddress,
-        tokenAddress,
-        TokenContract.storage.pending_shields.slot,
-        TokenContract.notes.TransparentNote.id,
-        tx.txHash,
-      );
-      await pxe.addNote(extendedNote, walletAddress);
+    logger.verbose(`Redeeming private assets...`);
 
-      const token = await TokenContract.at(tokenAddress, wallet);
+    await Promise.all(
+      mintSecrets.map(async ({ secret, hash }, i) => {
+        const wallet = wallets[i];
+        const walletAddress = wallet.getAddress();
+        const note = new Note([new Fr(MINT_AMOUNT), hash]);
+        const extendedNote = new ExtendedNote(
+          note,
+          walletAddress,
+          tokenAddress,
+          TokenContract.storage.pending_shields.slot,
+          TokenContract.notes.TransparentNote.id,
+          txs[i].txHash,
+        );
 
-      await token.methods.redeem_shield(walletAddress, MINT_AMOUNT, mintSecret).send().wait({ timeout: 600 });
-    }
+        await pxe.addNote(extendedNote, walletAddress);
+        const token = await TokenContract.at(tokenAddress, wallet);
+        await token.methods.redeem_shield(walletAddress, MINT_AMOUNT, secret).send().wait({ timeout: 600 });
+      }),
+    );
 
     logger.verbose(`Minting complete.`);
   });
