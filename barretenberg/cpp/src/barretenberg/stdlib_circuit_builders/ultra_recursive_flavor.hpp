@@ -148,7 +148,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->num_public_inputs = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->pub_inputs_offset = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->contains_recursive_proof =
-                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
             for (uint32_t& idx : this->recursive_proof_public_input_indices) {
                 idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());

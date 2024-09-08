@@ -144,62 +144,31 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
             // deserialize circuit size
             size_t num_frs_read = 0;
-            size_t num_frs_FF = calc_num_bn254_frs<CircuitBuilder, FF>();
-            size_t num_frs_Comm = calc_num_bn254_frs<CircuitBuilder, Commitment>();
 
-            this->circuit_size =
-                uint64_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-                             .get_value());
-            num_frs_read += num_frs_FF;
-            this->num_public_inputs =
-                uint64_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-                             .get_value());
-            num_frs_read += num_frs_FF;
-
-            this->pub_inputs_offset =
-                uint64_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-                             .get_value());
-            num_frs_read += num_frs_FF;
+            this->circuit_size = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->num_public_inputs = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->pub_inputs_offset = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->contains_recursive_proof =
-                bool(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-                         .get_value());
-            num_frs_read += num_frs_FF;
+                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
-            for (uint32_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
-                this->recursive_proof_public_input_indices[i] = uint32_t(
-                    convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-                        .get_value());
-                num_frs_read += num_frs_FF;
+            for (uint32_t& idx : this->recursive_proof_public_input_indices) {
+                idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
 
             // // DatabusPropagationData
-            // this->contains_app_return_data_commitment =
-            //     bool(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-            //              .get_value());
-            // num_frs_read += num_frs_FF;
-            // this->contains_kernel_return_data_commitment =
-            //     bool(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-            //              .get_value());
-            // num_frs_read += num_frs_FF;
-            // this->is_kernel =
-            //     bool(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read, num_frs_FF))
-            //              .get_value());
-            // num_frs_read += num_frs_FF;
-            // this->app_return_data_public_input_idx =
-            //     uint32_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read,
-            //     num_frs_FF))
-            //                  .get_value());
-            // num_frs_read += num_frs_FF;
-            // this->kernel_return_data_public_input_idx =
-            //     uint32_t(convert_from_bn254_frs<CircuitBuilder, FF>(builder, elements.subspan(num_frs_read,
-            //     num_frs_FF))
-            //                  .get_value());
-            // num_frs_read += num_frs_FF;
+            this->databus_propagation_data.contains_app_return_data_commitment =
+                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->databus_propagation_data.contains_kernel_return_data_commitment =
+                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->databus_propagation_data.is_kernel =
+                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->databus_propagation_data.app_return_data_public_input_idx =
+                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->databus_propagation_data.kernel_return_data_public_input_idx =
+                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
-            for (Commitment& comm : this->get_all()) {
-                comm = convert_from_bn254_frs<CircuitBuilder, Commitment>(builder,
-                                                                          elements.subspan(num_frs_read, num_frs_Comm));
-                num_frs_read += num_frs_Comm;
+            for (Commitment& commitment : this->get_all()) {
+                commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
             }
         }
     };
