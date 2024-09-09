@@ -217,10 +217,10 @@ FF AvmTraceBuilder::unconstrained_read_from_memory(AddressWithMode addr)
 
 void AvmTraceBuilder::write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag)
 {
-    // op_set_internal increments the pc, so we need to store the current pc and then jump back to it
+    // op_set increments the pc, so we need to store the current pc and then jump back to it
     // to legaly reset the pc.
     auto current_pc = pc;
-    op_set_internal(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag);
+    op_set(static_cast<uint8_t>(addr.mode), val, addr.offset, w_tag);
     op_jump(current_pc);
 }
 
@@ -1744,13 +1744,7 @@ void AvmTraceBuilder::op_internal_return()
  * @param dst_offset Memory destination offset where val is written to
  * @param in_tag The instruction memory tag
  */
-void AvmTraceBuilder::op_set(uint8_t indirect, uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag)
-{
-    auto const val_ff = FF{ uint256_t::from_uint128(val) };
-    op_set_internal(indirect, val_ff, dst_offset, in_tag);
-}
-
-void AvmTraceBuilder::op_set_internal(uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_set(uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
     auto [resolved_c] = unpack_indirects<1>(indirect, { dst_offset });
@@ -1759,7 +1753,8 @@ void AvmTraceBuilder::op_set_internal(uint8_t indirect, FF val_ff, uint32_t dst_
         constrained_write_to_memory(call_ptr, clk, resolved_c, val_ff, AvmMemoryTag::U0, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SET);
+    // FIXME: not great that we are having to choose one specific opcode here!
+    gas_trace_builder.constrain_gas(clk, OpCode::SET_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,

@@ -102,8 +102,18 @@ std::string to_string(OpCode opcode)
     case OpCode::INTERNALRETURN:
         return "INTERNALRETURN";
     // Machine State - Memory
-    case OpCode::SET:
-        return "SET";
+    case OpCode::SET_8:
+        return "SET_8";
+    case OpCode::SET_16:
+        return "SET_16";
+    case OpCode::SET_32:
+        return "SET_32";
+    case OpCode::SET_64:
+        return "SET_64";
+    case OpCode::SET_128:
+        return "SET_128";
+    case OpCode::SET_FF:
+        return "SET_FF";
     case OpCode::MOV_8:
         return "MOV_8";
     case OpCode::MOV_16:

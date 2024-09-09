@@ -45,7 +45,12 @@ export enum Opcode {
   INTERNALCALL,
   INTERNALRETURN,
   // Memory
-  SET,
+  SET_8,
+  SET_16,
+  SET_32,
+  SET_64,
+  SET_128,
+  SET_FF,
   MOV_8,
   MOV_16,
   CMOV,
@@ -93,6 +98,7 @@ export enum OperandType {
   UINT32,
   UINT64,
   UINT128,
+  FF,
 }
 
 type OperandNativeType = number | bigint;
@@ -105,7 +111,26 @@ const OPERAND_SPEC = new Map<OperandType, [number, () => OperandNativeType, Oper
   [OperandType.UINT32, [4, Buffer.prototype.readUint32BE, Buffer.prototype.writeUint32BE]],
   [OperandType.UINT64, [8, Buffer.prototype.readBigInt64BE, Buffer.prototype.writeBigInt64BE]],
   [OperandType.UINT128, [16, readBigInt128BE, writeBigInt128BE]],
+  [OperandType.FF, [32, readBigInt254BE, writeBigInt254BE]],
 ]);
+
+function readBigInt254BE(this: Buffer): bigint {
+  const totalBytes = 32;
+  let ret: bigint = 0n;
+  for (let i = 0; i < totalBytes; ++i) {
+    ret <<= 8n;
+    ret |= BigInt(this.readUint8(i));
+  }
+  return ret;
+}
+
+function writeBigInt254BE(this: Buffer, value: bigint): void {
+  const totalBytes = 32;
+  for (let offset = totalBytes - 1; offset >= 0; --offset) {
+    this.writeUint8(Number(value & 0xffn), offset);
+    value >>= 8n;
+  }
+}
 
 function readBigInt128BE(this: Buffer): bigint {
   const totalBytes = 16;

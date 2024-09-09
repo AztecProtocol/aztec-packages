@@ -588,32 +588,46 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
 
             // Machine State - Memory
-        case OpCode::SET: {
-            uint128_t val = 0;
-            AvmMemoryTag in_tag = std::get<AvmMemoryTag>(inst.operands.at(1));
-
-            switch (in_tag) {
-            case AvmMemoryTag::U8:
-                val = std::get<uint8_t>(inst.operands.at(2));
-                break;
-            case AvmMemoryTag::U16:
-                val = std::get<uint16_t>(inst.operands.at(2));
-                break;
-            case AvmMemoryTag::U32:
-                val = std::get<uint32_t>(inst.operands.at(2));
-                break;
-            case AvmMemoryTag::U64:
-                val = std::get<uint64_t>(inst.operands.at(2));
-                break;
-            case AvmMemoryTag::U128:
-                val = std::get<uint128_t>(inst.operands.at(2));
-                break;
-            default:
-                break;
-            }
-
-            trace_builder.op_set(
-                std::get<uint8_t>(inst.operands.at(0)), val, std::get<uint32_t>(inst.operands.at(3)), in_tag);
+        case OpCode::SET_8: {
+            trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint8_t>(inst.operands.at(2)),
+                                 std::get<uint8_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        }
+        case OpCode::SET_16: {
+            trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(2)),
+                                 std::get<uint16_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        }
+        case OpCode::SET_32: {
+            trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint16_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        }
+        case OpCode::SET_64: {
+            trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint64_t>(inst.operands.at(2)),
+                                 std::get<uint16_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        }
+        case OpCode::SET_128: {
+            trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                 uint256_t::from_uint128(std::get<uint128_t>(inst.operands.at(2))),
+                                 std::get<uint16_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        }
+        case OpCode::SET_FF: {
+            trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<FF>(inst.operands.at(2)),
+                                 std::get<uint16_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
         }
         case OpCode::MOV_8:
