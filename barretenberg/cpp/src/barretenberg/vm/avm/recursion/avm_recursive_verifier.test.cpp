@@ -35,8 +35,8 @@ class AvmRecursiveTests : public ::testing::Test {
     using RecursiveVerifier = AvmRecursiveVerifier_<RecursiveFlavor>;
 
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    using OuterProver = UltraProver_<UltraFlavor>;
-    using OuterVerifier = UltraVerifier_<UltraFlavor>;
+    using OuterProver = UltraProver;
+    using OuterVerifier = UltraVerifier;
     using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
@@ -65,8 +65,8 @@ TEST_F(AvmRecursiveTests, recursion)
 {
     AvmCircuitBuilder circuit_builder = generate_avm_circuit();
     AvmComposer composer = AvmComposer();
-    AvmProver prover = composer.create_prover(circuit_builder);
-    AvmVerifier verifier = composer.create_verifier(circuit_builder);
+    InnerProver prover = composer.create_prover(circuit_builder);
+    InnerVerifier verifier = composer.create_verifier(circuit_builder);
 
     HonkProof proof = prover.construct_proof();
 
