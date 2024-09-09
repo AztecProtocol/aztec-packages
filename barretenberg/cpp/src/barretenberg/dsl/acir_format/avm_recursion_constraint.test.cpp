@@ -4,7 +4,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
+#include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm/avm/generated/circuit_builder.hpp"
