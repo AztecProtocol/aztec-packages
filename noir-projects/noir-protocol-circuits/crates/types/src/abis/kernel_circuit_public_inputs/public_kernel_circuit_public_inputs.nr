@@ -1,12 +1,12 @@
-use crate::abis::{
+use crate::{
+    abis::{
     accumulated_data::PublicAccumulatedData, combined_constant_data::CombinedConstantData,
-    public_call_request::PublicCallRequest,
-    validation_requests::{RollupValidationRequests, PublicValidationRequests}
+    public_call_request::PublicCallRequest, validation_requests::PublicValidationRequests
+},
+    address::AztecAddress,
+    constants::{MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH},
+    traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
 };
-use crate::constants::{MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH};
-use crate::traits::{Empty, Serialize, Deserialize, Eq};
-use crate::utils::reader::Reader;
-use crate::address::AztecAddress;
 
 struct PublicKernelCircuitPublicInputs {
     validation_requests: PublicValidationRequests,
@@ -47,7 +47,6 @@ impl Serialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCircu
     }
 
     fields.extend_from_array(self.fee_payer.serialize());
-    
 
     assert_eq(fields.len(), PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 

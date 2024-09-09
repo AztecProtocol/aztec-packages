@@ -67,8 +67,14 @@ enum class OpCode : uint8_t {
     INTERNALCALL,
     INTERNALRETURN,
     // Machine State - Memory
-    SET,
-    MOV,
+    SET_8,
+    SET_16,
+    SET_32,
+    SET_64,
+    SET_128,
+    SET_FF,
+    MOV_8,
+    MOV_16,
     CMOV,
 
     // World State

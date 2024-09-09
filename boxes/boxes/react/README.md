@@ -22,13 +22,7 @@ The above method just uses the `npx` command, AKA "unboxing the box". This is a 
 Just open a terminal and write:
 
 ```bash
-npx create-aztec-app
-```
-
-It should ask you some questions about your project, install and run the Sandbox (local developer network). You can also start, stop, update, and do other things on the sandbox through this script. Just run:
-
-```bash
-npx create-aztec-app sandbox --help
+npx aztec-app
 ```
 
 ## More information

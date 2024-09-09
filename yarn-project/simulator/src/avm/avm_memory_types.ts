@@ -350,7 +350,7 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   // Truncates the value to fit the type.
-  public static integralFromTag(v: bigint | number, tag: TypeTag): IntegralValue {
+  public static buildFromTagTruncating(v: bigint | number, tag: TypeTag): MemoryValue {
     v = BigInt(v);
     switch (tag) {
       case TypeTag.UINT8:
@@ -363,8 +363,10 @@ export class TaggedMemory implements TaggedMemoryInterface {
         return new Uint64(v & ((1n << 64n) - 1n));
       case TypeTag.UINT128:
         return new Uint128(v & ((1n << 128n) - 1n));
+      case TypeTag.FIELD:
+        return new Field(v);
       default:
-        throw new Error(`${TypeTag[tag]} is not a valid integral type.`);
+        throw new Error(`${TypeTag[tag]} is not a valid tag.`);
     }
   }
 
