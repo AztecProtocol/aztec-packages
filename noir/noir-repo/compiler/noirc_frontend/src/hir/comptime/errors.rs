@@ -292,7 +292,6 @@ impl InterpreterError {
             | InterpreterError::GenericNameShouldBeAnIdent { location, .. }
             | InterpreterError::DuplicateGeneric { duplicate_location: location, .. }
             | InterpreterError::TypeAnnotationsNeededForMethodCall { location } => *location,
-            InterpreterError::InvalidAttribute { location, .. } => *location,
 
             InterpreterError::FailedToParseMacro { error, file, .. } => {
                 Location::new(error.span(), *file)
