@@ -51,7 +51,11 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
     const maxBlockNumber = target.maxBlockNumber;
 
     if (maxBlockNumber.isSome && maxBlockNumber.value < this.#globalVariables.blockNumber) {
-      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for low max block number`);
+      this.#log.warn(
+        `Rejecting tx ${Tx.getHash(tx)} for low max block number. Tx max block number: ${
+          maxBlockNumber.value
+        }, current block number: ${this.#globalVariables.blockNumber}.`,
+      );
       return false;
     } else {
       return true;
