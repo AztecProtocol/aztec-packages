@@ -6,7 +6,6 @@
 #include "barretenberg/stdlib/encryption/aes128/aes128.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
-#include "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 #include <gtest/gtest.h>

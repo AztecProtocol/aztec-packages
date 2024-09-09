@@ -4,6 +4,7 @@
 #include <list>
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -25,8 +26,8 @@ template <typename FF> class Graph_ {
                                                                 size_t index);
     std::vector<uint32_t> get_plookup_gate_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
                                                                size_t index);
-    std::pair<bool, std::vector<uint32_t>> get_sort_constraint_connected_component(
-        bb::UltraCircuitBuilder& ultra_circuit_builder, size_t index);
+    std::vector<uint32_t> get_sort_constraint_connected_component(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                                  size_t index);
 
     void add_new_edge(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
     std::vector<uint32_t> get_variable_adjacency_list(const uint32_t& variable_index);
@@ -35,7 +36,14 @@ template <typename FF> class Graph_ {
                             std::unordered_set<uint32_t>& is_used,
                             std::vector<uint32_t>& connected_component);
     std::vector<std::vector<uint32_t>> find_connected_components();
-    std::vector<uint32_t> find_dangerous_variables();
+
+    std::vector<uint32_t> find_variables_with_degree_one();
+    std::unordered_set<uint32_t> get_variables_in_one_gate();
+
+    bool find_arithmetic_gate_for_variable(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                           const uint32_t& variable_idx);
+    bool find_elliptic_gate_for_variable(bb::UltraCircuitBuilder& ultra_circuit_builder, const uint32_t& variable_idx);
+    bool find_lookup_gate_for_variable(bb::UltraCircuitBuilder& ultra_circuit_builder, const uint32_t& variable_idx);
 
     size_t get_distance_between_variables(const uint32_t& first_variable_index, const uint32_t& second_variable_index);
     bool check_vertex_in_connected_component(const std::vector<uint32_t>& connected_component,
@@ -46,10 +54,28 @@ template <typename FF> class Graph_ {
                                          bool is_sorted_variables);
     bool check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_circuit_builder, const uint32_t& variable_index);
 
+    std::pair<std::vector<uint32_t>, size_t> get_connected_component_with_index(
+        const std::vector<std::vector<uint32_t>>& connected_components, size_t index);
+
+    std::unordered_set<uint32_t> get_variables_in_one_gate_without_range_constraints(
+        bb::UltraCircuitBuilder& ultra_circuit_builder);
+
+    size_t process_current_decompose_chain(bb::UltraCircuitBuilder& ultra_circuit_constructor,
+                                           std::unordered_set<uint32_t>& variables_in_one_gate,
+                                           size_t index);
+    void process_current_plookup_gate(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                      std::unordered_set<uint32_t>& variables_in_one_gate,
+                                      size_t gate_index);
+    void remove_unnecessary_decompose_variables(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                                std::unordered_set<uint32_t>& variables_in_on_gate,
+                                                const std::unordered_set<uint32_t>& decompose_variables);
+    void remove_unnecessary_plookup_variables(bb::UltraCircuitBuilder& ultra_circuit_builder,
+                                              std::unordered_set<uint32_t>& variables_in_on_gate);
+    std::unordered_set<uint32_t> show_variables_in_one_gate(bb::UltraCircuitBuilder& ultra_circuit_builder);
+
     void print_graph();
     void print_connected_components();
     void print_variables_gate_counts();
-    void print_dangerous_variables(const bb::StandardCircuitBuilder_<FF>& circuit_constructor);
     void print_variables_edge_counts();
     ~Graph_() = default;
 
