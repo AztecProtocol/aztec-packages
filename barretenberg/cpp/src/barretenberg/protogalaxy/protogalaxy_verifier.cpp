@@ -41,23 +41,24 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
 {
     run_oink_verifier_on_each_incomplete_key(proof);
 
-    auto delta = transcript->template get_challenge<FF>("delta");
+    const FF delta = transcript->template get_challenge<FF>("delta");
     const std::shared_ptr<const DeciderVK>& accumulator = keys_to_fold[0]; // WORKTODO: move
-    auto deltas =
-        compute_round_challenge_pows(static_cast<size_t>(accumulator->verification_key->log_circuit_size), delta);
 
-    std::vector<FF> perturbator_coeffs(static_cast<size_t>(accumulator->verification_key->log_circuit_size) + 1, 0);
+    const size_t log_circuit_size = static_cast<size_t>(accumulator->verification_key->log_circuit_size);
+    const std::vector<FF> deltas = compute_round_challenge_pows(log_circuit_size, delta);
+
+    std::vector<FF> perturbator_coeffs(log_circuit_size + 1, 0);
     if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= static_cast<size_t>(accumulator->verification_key->log_circuit_size); idx++) {
+        for (size_t idx = 1; idx <= log_circuit_size; idx++) {
             perturbator_coeffs[idx] =
                 transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
         }
     }
 
     perturbator_coeffs[0] = accumulator->target_sum;
-    Polynomial<FF> perturbator(perturbator_coeffs);
-    FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
-    auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
+    const Polynomial<FF> perturbator(perturbator_coeffs);
+    const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
+    const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
 
     // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
     std::array<FF, DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH - DeciderVerificationKeys::NUM>
@@ -66,10 +67,10 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
         combiner_quotient_evals[idx] = transcript->template receive_from_prover<FF>(
             "combiner_quotient_" + std::to_string(idx + DeciderVerificationKeys::NUM));
     }
-    Univariate<FF, DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH, DeciderVerificationKeys::NUM> combiner_quotient(
-        combiner_quotient_evals);
-    FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
-    auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
+    const Univariate<FF, DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH, DeciderVerificationKeys::NUM>
+        combiner_quotient(combiner_quotient_evals);
+    const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
+    const FF combiner_quotient_evaluation = combiner_quotient.evaluate(combiner_challenge);
 
     constexpr FF inverse_two = FF(2).invert();
     FF vanishing_polynomial_at_challenge;
@@ -129,7 +130,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
 
     // Compute next folding parameters
     next_accumulator->target_sum =
-        perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
+        perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_evaluation;
     next_accumulator->gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
