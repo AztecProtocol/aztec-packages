@@ -442,6 +442,8 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
                                          const WitnessVector& witness,
                                          const size_t size_hint)
 {
+    using StdlibVerificationKey = AztecIVC::RecursiveVerificationKey;
+
     // Construct the main kernel circuit logic excluding recursive verifiers
     auto circuit = create_circuit<MegaCircuitBuilder>(constraint_system,
                                                       size_hint,
@@ -450,11 +452,20 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
                                                       ivc.goblin.op_queue,
                                                       /*collect_gates_per_opcode=*/false);
 
-    // We expect the length of the internal verification queue to matche the number of ivc recursion constraints
+    // We expect the length of the internal verification queue to match the number of ivc recursion constraints
     if (constraint_system.ivc_recursion_constraints.size() != ivc.verification_queue.size()) {
         info("WARNING: Mismatch in number of recursive verifications during kernel creation!");
         ASSERT(false);
     }
+
+    // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
+    std::vector<StdlibVerificationKey> stdlib_verification_keys;
+    stdlib_verification_keys.reserve(constraint_system.ivc_recursion_constraints.size());
+    for (const auto& constraint : constraint_system.ivc_recursion_constraints) {
+        stdlib_verification_keys.push_back(StdlibVerificationKey::from_witness_indices(circuit, constraint.key));
+    }
+
+    // WORKTODO: allow for instantiate_stdlib_verification_queue to optionally take a vector of keys
 
     // Create stdlib representations of each {proof, vkey} pair in the queue based on their native counterparts
     ivc.instantiate_stdlib_verification_queue(circuit);
