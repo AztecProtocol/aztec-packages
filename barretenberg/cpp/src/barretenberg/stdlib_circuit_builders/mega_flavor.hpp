@@ -373,7 +373,12 @@ class MegaFlavor {
       public:
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
+        // for now just calls fully-formed constructor
         ProverPolynomials(size_t circuit_size, BB_UNUSED bool is_structured, BB_UNUSED const TraceBlocks& block_data)
+            : ProverPolynomials(circuit_size)
+        {}
+        // fully-formed constructor
+        ProverPolynomials(size_t circuit_size)
         {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
             // of these polys (in aztec_ivc_bench only).
@@ -401,11 +406,10 @@ class MegaFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
-            BB_OP_COUNT_TIME();
+            BB_OP_COUNT_TIME_NAME("MegaFlavor::get_row");
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                // NOTE: .at() here is important for performance
-                result_field = polynomial.at(row_idx);
+                result_field = polynomial.const_at(row_idx);
             }
             return result;
         }

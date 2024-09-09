@@ -814,8 +814,7 @@ class TranslatorFlavor {
             BB_OP_COUNT_TIME();
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                // NOTE: .at() here is important for performance
-                result_field = polynomial.at(row_idx);
+                result_field = polynomial.const_at(row_idx);
             }
             return result;
         }

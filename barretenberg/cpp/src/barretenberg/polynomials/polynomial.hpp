@@ -226,12 +226,14 @@ template <typename Fr> class Polynomial {
      * @return Fr& a mutable reference.
      */
     Fr& at(size_t index) { return coefficients_[index]; }
-    const Fr& at(size_t index) const
+    const Fr& at(size_t index) const { return coefficients_[index]; }
+
+    const Fr& const_at(size_t index) const
     {
-        // HACK: get_row() in flavor constructs rows with const refs.
-        // Using operator[] version is significantly (x1000) slower.
-        // Diverging with a more lenient at() that doesn't check bounds is convenient here.
-        // We tolerate this discrepancy but should revisit. A row-reference class is ideal.
+        // get_row() in flavor constructs rows with const refs.
+        // Somewhat more efficient + above operator[] and at() simply does not work in AVM which wants a const ref&.
+        // We create a kludgey variant that always returns a const reference.
+        // TODO(AD): consider a row-reference class to get around this
         if (!is_valid_set_index(index)) {
             static const Fr zero{};
             return zero;

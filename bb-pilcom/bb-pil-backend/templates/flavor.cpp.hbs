@@ -27,7 +27,7 @@ namespace bb {
     RefArray all_cols = get_all();
     std::array<const FF*, {{len all_cols_and_shifts}}> refs;
     for (size_t i = 0; i < refs.size(); ++i) {
-        refs[i] = &all_cols[i].at(row_idx);
+        refs[i] = &all_cols[i].const_at(row_idx);
     }
     // Note: the order of the constructor must match the order of the columns in `get_all()`!
     return AllConstRefValues(refs);
