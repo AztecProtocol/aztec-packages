@@ -52,6 +52,11 @@ impl<'block> BrilligBlock<'block> {
             );
             self.brillig_context.deallocate_single_addr(target_index);
         }
+
+        self.brillig_context.deallocate_single_addr(source_size);
+        self.brillig_context.deallocate_single_addr(target_size);
+        self.brillig_context.deallocate_register(source_vector_items_pointer);
+        self.brillig_context.deallocate_register(target_vector_items_pointer);
     }
 
     pub(crate) fn slice_push_front_operation(
@@ -106,6 +111,10 @@ impl<'block> BrilligBlock<'block> {
         }
 
         self.brillig_context.deallocate_register(destination_copy_pointer);
+        self.brillig_context.deallocate_single_addr(source_size);
+        self.brillig_context.deallocate_single_addr(target_size);
+        self.brillig_context.deallocate_register(source_vector_items_pointer);
+        self.brillig_context.deallocate_register(target_vector_items_pointer);
     }
 
     pub(crate) fn slice_pop_front_operation(
@@ -159,6 +168,10 @@ impl<'block> BrilligBlock<'block> {
         }
 
         self.brillig_context.deallocate_register(source_copy_pointer);
+        self.brillig_context.deallocate_single_addr(source_size);
+        self.brillig_context.deallocate_single_addr(target_size);
+        self.brillig_context.deallocate_register(source_vector_items_pointer);
+        self.brillig_context.deallocate_register(target_vector_items_pointer);
     }
 
     pub(crate) fn slice_pop_back_operation(
@@ -207,6 +220,10 @@ impl<'block> BrilligBlock<'block> {
             );
             self.brillig_context.deallocate_single_addr(target_index);
         }
+        self.brillig_context.deallocate_single_addr(source_size);
+        self.brillig_context.deallocate_single_addr(target_size);
+        self.brillig_context.deallocate_register(source_vector_items_pointer);
+        self.brillig_context.deallocate_register(target_vector_items_pointer);
     }
 
     pub(crate) fn slice_insert_operation(
@@ -301,6 +318,10 @@ impl<'block> BrilligBlock<'block> {
         self.brillig_context.deallocate_register(source_pointer_at_index);
         self.brillig_context.deallocate_register(target_pointer_after_index);
         self.brillig_context.deallocate_register(item_count);
+        self.brillig_context.deallocate_single_addr(source_size);
+        self.brillig_context.deallocate_single_addr(target_size);
+        self.brillig_context.deallocate_register(source_vector_items_pointer);
+        self.brillig_context.deallocate_register(target_vector_items_pointer);
     }
 
     pub(crate) fn slice_remove_operation(
@@ -400,6 +421,10 @@ impl<'block> BrilligBlock<'block> {
         self.brillig_context.deallocate_register(source_pointer_after_index);
         self.brillig_context.deallocate_register(target_pointer_at_index);
         self.brillig_context.deallocate_register(item_count);
+        self.brillig_context.deallocate_single_addr(source_size);
+        self.brillig_context.deallocate_single_addr(target_size);
+        self.brillig_context.deallocate_register(source_vector_items_pointer);
+        self.brillig_context.deallocate_register(target_vector_items_pointer);
     }
 }
 

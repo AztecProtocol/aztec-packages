@@ -895,6 +895,8 @@ impl<'block> BrilligBlock<'block> {
             index_register,
             value_variable.extract_register(),
         );
+
+        self.brillig_context.deallocate_register(items_pointer);
     }
 
     /// Convert the SSA slice operations to brillig slice operations
