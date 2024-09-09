@@ -21,8 +21,7 @@ unconstrained pub fn get_nsk_app(npk_m_hash: Field) -> Field {
     get_key_validation_request(npk_m_hash, NULLIFIER_INDEX).sk_app
 }
 
-// TODO(#6543)
-pub fn get_ovsk_app(ovpk_m_hash: Field) -> Field {
+unconstrained pub fn get_ovsk_app(ovpk_m_hash: Field) -> Field {
     get_key_validation_request(ovpk_m_hash, OUTGOING_INDEX).sk_app
 }
 
