@@ -833,27 +833,14 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
                              to_hex<uint32_t>(i) +    // val i
                              to_hex<uint32_t>(i + 8); // val i
     }
-    std::string bytecode_hex = bytecode_preamble       // Initial SET operations to store state and input
-                               + to_hex(OpCode::SET) + // opcode SET for indirect dst (output)
-                               "00"                    // Indirect flag
-                               "03"                    // U32
-                               "00000100"              // value 256 (i.e. where the dst will be written to)
-                               "00000024"              // dst_offset 36
-                               + to_hex(OpCode::SET) + // opcode SET for indirect state
-                               "00"                    // Indirect flag
-                               "03"                    // U32
-                               "00000001"              // value 1 (i.e. where the state will be read from)
-                               "00000022"              // dst_offset 34
-                               + to_hex(OpCode::SET) + // opcode SET for indirect input
-                               "00"                    // Indirect flag
-                               "03"                    // U32
-                               "00000009"              // value 9 (i.e. where the input will be read from)
-                               "00000023"              // dst_offset 35
+    std::string bytecode_hex = bytecode_preamble                     // Initial SET operations to store state and input
                                + to_hex(OpCode::SHA256COMPRESSION) + // opcode SHA256COMPRESSION
-                               "07"                                  // Indirect flag (first 3 operands indirect)
-                               "00000024"                            // output offset (indirect 36)
-                               "00000022"                            // state offset (indirect 34)
-                               "00000023"                            // input offset (indirect 35)
+                               "00"                                  // Indirect flag
+                               "00000100"                            // output offset
+                               "00000001"                            // state offset
+                               "0000000F"                            // state size
+                               "00000009"                            // input offset
+                               "00000008"                            // input size
                                + to_hex(OpCode::RETURN) +            // opcode RETURN
                                "00"                                  // Indirect flag
                                "00000100"                            // ret offset 256
