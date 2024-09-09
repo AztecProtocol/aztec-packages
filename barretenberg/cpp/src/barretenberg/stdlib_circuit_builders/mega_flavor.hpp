@@ -373,11 +373,6 @@ class MegaFlavor {
       public:
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
-        // for now just calls fully-formed constructor
-        // WORKTODO(issue pending): this should init subsets of the polys
-        ProverPolynomials(size_t circuit_size, BB_UNUSED bool is_structured, BB_UNUSED const TraceBlocks& block_data)
-            : ProverPolynomials(circuit_size)
-        {}
         // fully-formed constructor
         ProverPolynomials(size_t circuit_size)
         {
@@ -434,11 +429,9 @@ class MegaFlavor {
         ProvingKey() = default;
         ProvingKey(const size_t circuit_size,
                    const size_t num_public_inputs,
-                   const TraceBlocks& blocks,
-                   bool is_structured,
                    std::shared_ptr<CommitmentKey> commitment_key = nullptr)
             : Base(circuit_size, num_public_inputs, commitment_key)
-            , polynomials(circuit_size, is_structured, blocks){};
+            , polynomials(circuit_size){};
 
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;

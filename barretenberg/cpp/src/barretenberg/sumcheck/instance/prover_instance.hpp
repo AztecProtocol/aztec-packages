@@ -71,13 +71,7 @@ template <class Flavor> class DeciderProvingKey_ {
         {
             ZoneScopedN("constructing proving key");
 
-            // WORKTODO(sparse) consider a better paradigm
-            if constexpr (IsMegaBuilder<Circuit>) {
-                proving_key = ProvingKey(
-                    dyadic_circuit_size, circuit.public_inputs.size(), circuit.blocks, is_structured, commitment_key);
-            } else {
-                proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
-            }
+            proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
         }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials

@@ -101,7 +101,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         ++poly_idx;
     }
 
-    Polynomial batched_poly_to_be_shifted(N); // batched to-be-shifted polynomials
+    Polynomial batched_poly_to_be_shifted = Polynomial::shiftable(N); // batched to-be-shifted polynomials
     for (auto& to_be_shifted_poly : g_polynomials) {
         batched_poly_to_be_shifted.add_scaled(to_be_shifted_poly, rhos[poly_idx]);
         ++poly_idx;

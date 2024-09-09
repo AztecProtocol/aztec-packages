@@ -206,7 +206,7 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
     size_t n_l = 1 << (m - 1);
 
     // temporary buffer of half the size of the Polynomial
-    // TODO(AD): Make this a Polynomial with DontZeroMemory::FLAG
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with DontZeroMemory::FLAG
     auto tmp_ptr = _allocate_aligned_memory<Fr>(sizeof(Fr) * n_l);
     auto tmp = tmp_ptr.get();
 
