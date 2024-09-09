@@ -4,10 +4,15 @@ use dep::protocol_types::{
     GENERATOR_INDEX__SECRET_HASH, GENERATOR_INDEX__MESSAGE_NULLIFIER, ARGS_HASH_CHUNK_COUNT,
     GENERATOR_INDEX__FUNCTION_ARGS, ARGS_HASH_CHUNK_LENGTH, MAX_ARGS_LENGTH
 },
-    traits::Hash, hash::{sha256_to_field, poseidon2_hash_with_separator}
+    point::Point, traits::Hash, hash::{sha256_to_field, poseidon2_hash_with_separator}
 };
-// Note: pedersen_commitment is used only as a re-export here
 use crate::oracle::logs_traits::ToBytesForUnencryptedLog;
+
+pub use dep::protocol_types::hash::{compute_siloed_nullifier, pedersen_hash};
+
+pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
+    std::hash::pedersen_commitment_with_separator(inputs, hash_index)
+}
 
 pub fn compute_secret_hash(secret: Field) -> Field {
     poseidon2_hash_with_separator([secret], GENERATOR_INDEX__SECRET_HASH)
