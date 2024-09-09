@@ -71,15 +71,13 @@ export enum Opcode {
   KECCAK,
   POSEIDON2,
   SHA256COMPRESSION,
+  KECCAKF1600,
   PEDERSEN, // temp - may be removed, but alot of contracts rely on it
   ECADD,
   MSM,
   PEDERSENCOMMITMENT,
   // Conversion
   TORADIXLE,
-  // Future Gadgets -- pending changes in noir
-  SHA256COMPRESSION,
-  KECCAKF1600, // Here for when we eventually support this
 }
 
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.

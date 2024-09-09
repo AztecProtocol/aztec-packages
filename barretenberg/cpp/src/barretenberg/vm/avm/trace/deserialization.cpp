@@ -148,7 +148,9 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     // Gadgets - Hashing
     { OpCode::KECCAK, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::POSEIDON2, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::SHA256, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SHA256COMPRESSION,
+      { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::KECCAKF1600, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::PEDERSEN,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // TEMP ECADD without relative memory
@@ -168,10 +170,6 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     // Gadget - Conversion
     { OpCode::TORADIXLE,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
-    // Gadgets - Unused for now
-    { OpCode::SHA256COMPRESSION,
-      { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::KECCAKF1600, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
 };
 
 const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {

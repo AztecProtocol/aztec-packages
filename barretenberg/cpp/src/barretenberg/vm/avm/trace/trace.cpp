@@ -2898,61 +2898,6 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
 }
 
 /**
- * @brief SHA256 Hash with direct or indirect memory access.
- * This function is temporary until we have transitioned to sha256Compression
- * @param indirect byte encoding information about indirect/direct memory access.
- * @param output_offset An index in memory pointing to where the first U32 value of the output array should be
- * stored.
- * @param input_offset An index in memory pointing to the first U8 value of the state array to be used in the next
- * instance of sha256.
- * @param input_size_offset An index in memory pointing to the U32 value of the input size.
- */
-void AvmTraceBuilder::op_sha256(uint8_t indirect,
-                                uint32_t output_offset,
-                                uint32_t input_offset,
-                                uint32_t input_size_offset)
-{
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_output_offset, resolved_input_offset, resolved_input_size_offset] =
-        unpack_indirects<3>(indirect, { output_offset, input_offset, input_size_offset });
-
-    gas_trace_builder.constrain_gas(clk, OpCode::SHA256);
-
-    auto input_length_read = constrained_read_from_memory(
-        call_ptr, clk, resolved_input_size_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
-
-    // Store the clock time that we will use to line up the gadget later
-    auto sha256_op_clk = clk;
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_ib = input_length_read.val, // Message Length
-        .main_ind_addr_b = FF(input_length_read.indirect_address),
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_b = FF(input_length_read.direct_address),
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
-        .main_sel_mem_op_b = FF(1),
-        .main_sel_op_sha256 = FF(1),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(input_length_read.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!input_length_read.tag_match)),
-    });
-    clk++;
-
-    std::vector<uint8_t> input;
-    input.reserve(uint32_t(input_length_read.val));
-    read_slice_from_memory<uint8_t>(resolved_input_offset, uint32_t(input_length_read.val), input);
-
-    std::array<uint8_t, 32> result = sha256_trace_builder.sha256(input, sha256_op_clk);
-
-    std::vector<FF> ff_result;
-    for (uint32_t i = 0; i < 32; i++) {
-        ff_result.emplace_back(result[i]);
-    }
-    // Write the result to memory after
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U8, ff_result);
-}
-
-/**
  * @brief Pedersen Hash with direct or indirect memory access.
  * @param indirect byte encoding information about indirect/direct memory access.
  * @param gen_ctx_offset An index in memory pointing to where the u32 offset for the pedersen hash generators.
