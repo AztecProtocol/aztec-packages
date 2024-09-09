@@ -38,10 +38,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         }
 
         Polynomial batched_unshifted(1 << log_n);
-        Polynomial batched_to_be_shifted(
-            /*One less because shftable*/ (1 << log_n) - 1,
-            /*maximum index*/ 1 << log_n,
-            /*offset 1 because shiftable*/ 1);
+        Polynomial batched_to_be_shifted = Polynomial::shiftable(1 << log_n);
         GroupElement batched_commitment_unshifted = GroupElement::zero();
         GroupElement batched_commitment_to_be_shifted = GroupElement::zero();
         const size_t num_unshifted = multilinear_polynomials.size();

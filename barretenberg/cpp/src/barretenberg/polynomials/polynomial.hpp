@@ -69,6 +69,10 @@ template <typename Fr> class Polynomial {
         : Polynomial(coefficients, coefficients.size())
     {}
 
+    static Polynomial shiftable(size_t virtual_size)
+    {
+        return Polynomial(/*actual size*/ virtual_size - 1, virtual_size, /*shiftable offset*/ 1);
+    }
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
 

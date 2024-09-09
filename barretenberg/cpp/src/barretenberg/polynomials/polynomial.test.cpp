@@ -58,34 +58,6 @@ TEST(Polynomial, Share)
 }
 
 // Simple test/demonstration of various edge conditions
-TEST(Polynomial, EdgeConditions)
-{
-    using FF = bb::fr;
-    using Polynomial = bb::Polynomial<FF>;
-    const size_t SIZE = 10;
-    auto poly = Polynomial::random(SIZE);
-
-    // "clone" the poly via the share method
-    auto poly_clone = poly.share();
-
-    // The two are indeed equal
-    EXPECT_EQ(poly_clone, poly);
-
-    // Changing one changes the other
-    poly.at(3) = 25;
-    EXPECT_EQ(poly_clone, poly);
-
-    poly_clone.at(2) = 13;
-    EXPECT_EQ(poly_clone, poly);
-
-    // If reset the original poly, it will no longer be equal to the clone made earlier
-    // Note: if we had not made a clone, the memory from the original poly would be leaked
-    auto poly2 = Polynomial::random(SIZE);
-    poly = poly2.share();
-
-    EXPECT_NE(poly_clone, poly);
-}
-
 TEST(Polynomial, Indices)
 {
     auto poly = bb::Polynomial<bb::fr>::random(100, /*offset*/ 1);
