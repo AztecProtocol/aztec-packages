@@ -293,7 +293,10 @@ struct Transcript {
 }
 
 library TranscriptLib {
-    function generateTranscript(Honk.Proof memory proof, Honk.VerificationKey memory vk, bytes32[] calldata publicInputs) internal view returns (Transcript memory t)
+    function generateTranscript(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
+        internal
+        view
+        returns (Transcript memory t)
     {
         Fr previousChallenge;
         (t.eta, t.etaTwo, t.etaThree, previousChallenge) = generateEtaChallenge(proof, publicInputs, publicInputsSize);
