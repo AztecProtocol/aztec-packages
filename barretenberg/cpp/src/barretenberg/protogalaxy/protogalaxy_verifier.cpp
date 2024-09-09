@@ -99,6 +99,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::make_shared<DeciderVK>();
     next_accumulator->verification_key = std::make_shared<VerificationKey>(*accumulator->verification_key);
+    next_accumulator->is_accumulator = true;
 
     size_t commitment_idx = 0;
     for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
@@ -110,11 +111,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
         }
         commitment_idx++;
     }
-    next_accumulator->verification_key->num_public_inputs = accumulator->verification_key->num_public_inputs;
-    next_accumulator->public_inputs =
-        std::vector<FF>(static_cast<size_t>(next_accumulator->verification_key->num_public_inputs), 0);
-
-    next_accumulator->is_accumulator = true;
 
     // Compute next folding parameters
     next_accumulator->target_sum =
