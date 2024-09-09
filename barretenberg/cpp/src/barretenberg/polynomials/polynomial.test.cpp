@@ -95,7 +95,6 @@ TEST(Polynomial, Indices)
     EXPECT_EQ(std::get<1>(*poly.indexed_values().begin()), poly[poly.start_index()]);
 }
 
-#undef NDEBUG
 #ifndef NDEBUG
 // Only run in an assert-enabled test suite.
 TEST(Polynomial, AddScaledEdgeConditions)

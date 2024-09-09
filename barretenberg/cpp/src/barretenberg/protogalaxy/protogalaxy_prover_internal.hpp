@@ -66,9 +66,9 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * representing the sum f_0(ω) + α_j*g(ω) where f_0 represents the full honk evaluation at row 0, g(ω) is the
      * linearly dependent subrelation and α_j is its corresponding batching challenge.
      */
-    static std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
-                                                   const RelationSeparator& alpha,
-                                                   const RelationParameters<FF>& relation_parameters)
+    static std::vector<FF> compute_row_evaluations(BB_UNUSED const ProverPolynomials& polynomials,
+                                                   BB_UNUSED const RelationSeparator& alpha,
+                                                   BB_UNUSED const RelationParameters<FF>& relation_parameters)
 
     {
         BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::compute_row_evaluations");

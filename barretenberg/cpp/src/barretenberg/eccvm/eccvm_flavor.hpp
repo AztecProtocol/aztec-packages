@@ -383,11 +383,11 @@ class ECCVMFlavor {
          * @brief Returns the evaluations of all prover polynomials at one point on the boolean hypercube, which
          * represents one row in the execution trace.
          */
-        AllValues get_row(const size_t row_idx)
+        AllValues get_row(const size_t row_idx) const
         {
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                result_field = polynomial[row_idx];
+                result_field = polynomial.at(row_idx);
             }
             return result;
         }

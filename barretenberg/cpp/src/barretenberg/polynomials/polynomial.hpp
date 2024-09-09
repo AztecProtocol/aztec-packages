@@ -226,7 +226,17 @@ template <typename Fr> class Polynomial {
      * @return Fr& a mutable reference.
      */
     Fr& at(size_t index) { return coefficients_[index]; }
-    const Fr& at(size_t index) const { return coefficients_[index]; }
+    const Fr& at(size_t index) const
+    {
+        // HACK: The AVM uses row references with const refs,
+        // Diverging with a more lenient at() that doesn't check bounds is convenient here.
+        // We tolerate this discrepancy but should revisit.
+        if (!is_valid_set_index(index)) {
+            static const Fr zero{};
+            return zero;
+        }
+        return coefficients_[index];
+    }
 
     Fr operator[](size_t i) { return get(i); }
     Fr operator[](size_t i) const { return get(i); }
