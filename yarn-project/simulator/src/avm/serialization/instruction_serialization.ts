@@ -46,7 +46,8 @@ export enum Opcode {
   INTERNALRETURN,
   // Memory
   SET,
-  MOV,
+  MOV_8,
+  MOV_16,
   CMOV,
   // World state
   SLOAD,
@@ -156,12 +157,10 @@ export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType
  * @param cls The class to be serialized.
  * @returns
  */
-export function serialize(operands: OperandType[], cls: any): Buffer {
+export function serializeAs(operands: OperandType[], opcode: Opcode, cls: any): Buffer {
   const chunks: Buffer[] = [];
 
-  // TODO: infer opcode not in this loop
-  assert(cls.constructor.opcode !== undefined && cls.constructor.opcode !== null);
-  const rawClassValues: any[] = [cls.constructor.opcode, ...Object.values(cls)];
+  const rawClassValues: any[] = [opcode, ...Object.values(cls)];
   assert(
     rawClassValues.length === operands.length,
     `Got ${rawClassValues.length} values but only ${operands.length} serialization operands are specified!`,

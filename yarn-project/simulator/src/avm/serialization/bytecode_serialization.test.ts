@@ -48,8 +48,8 @@ class InstB {
 describe('Bytecode Serialization', () => {
   it('Should deserialize using instruction set', () => {
     const instructionSet: InstructionSet = new Map<Opcode, any>([
-      [InstA.opcode, InstA],
-      [InstB.opcode, InstB],
+      [InstA.opcode, InstA.deserialize],
+      [InstB.opcode, InstB.deserialize],
     ]);
     const a = new InstA(0x1234);
     const b = new InstB(0x5678n);

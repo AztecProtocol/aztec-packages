@@ -1,6 +1,6 @@
 /// All AVM opcodes
 /// Keep updated with TS, cpp, and docs protocol specs!
-#[allow(clippy::upper_case_acronyms, dead_code)]
+#[allow(clippy::upper_case_acronyms, dead_code, non_camel_case_types)]
 #[derive(PartialEq, Copy, Clone, Debug, Eq, Hash)]
 pub enum AvmOpcode {
     // Compute
@@ -42,7 +42,8 @@ pub enum AvmOpcode {
     INTERNALRETURN,
     // Memory
     SET,
-    MOV,
+    MOV_8,
+    MOV_16,
     CMOV,
     // World state
     SLOAD,
@@ -129,7 +130,8 @@ impl AvmOpcode {
             AvmOpcode::INTERNALRETURN => "INTERNALRETURN",
             // Machine State - Memory
             AvmOpcode::SET => "SET",
-            AvmOpcode::MOV => "MOV",
+            AvmOpcode::MOV_8 => "MOV_8",
+            AvmOpcode::MOV_16 => "MOV_16",
             AvmOpcode::CMOV => "CMOV",
 
             // World State

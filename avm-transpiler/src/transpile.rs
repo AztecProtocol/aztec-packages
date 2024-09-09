@@ -9,12 +9,13 @@ use acvm::brillig_vm::brillig::{
 use acvm::{AcirField, FieldElement};
 use noirc_errors::debug_info::DebugInfo;
 
+use crate::bit_traits::bits_needed_for;
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
     SECOND_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
 };
 use crate::opcodes::AvmOpcode;
-use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program};
+use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
 
 /// Transpile a Brillig program to AVM bytecode
 pub fn brillig_to_avm(
@@ -216,7 +217,7 @@ pub fn brillig_to_avm(
     // We are adding a MOV instruction that moves a value to itself.
     // This should therefore not affect the program's execution.
     avm_instrs.push(AvmInstruction {
-        opcode: AvmOpcode::MOV,
+        opcode: AvmOpcode::MOV_8,
         indirect: Some(ALL_DIRECT),
         operands: vec![AvmOperand::U32 { value: 0x18ca }, AvmOperand::U32 { value: 0x18ca }],
         ..Default::default()
@@ -741,10 +742,18 @@ fn generate_cast_instruction(
 
 /// Generates an AVM MOV instruction.
 fn generate_mov_instruction(indirect: Option<u8>, source: u32, dest: u32) -> AvmInstruction {
+    let bits_needed = [source, dest].iter().map(bits_needed_for).max().unwrap();
+
+    let mov_opcode = match bits_needed {
+        8 => AvmOpcode::MOV_8,
+        16 => AvmOpcode::MOV_16,
+        _ => panic!("MOV operands must fit in 16 bits but needed {}", bits_needed),
+    };
+
     AvmInstruction {
-        opcode: AvmOpcode::MOV,
+        opcode: mov_opcode,
         indirect,
-        operands: vec![AvmOperand::U32 { value: source }, AvmOperand::U32 { value: dest }],
+        operands: vec![make_operand(bits_needed, &source), make_operand(bits_needed, &dest)],
         ..Default::default()
     }
 }
