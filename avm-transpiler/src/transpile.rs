@@ -81,15 +81,15 @@ pub fn brillig_to_avm(
                     ],
                 });
             }
-            BrilligOpcode::CalldataCopy { destination_address, size, offset } => {
+            BrilligOpcode::CalldataCopy { destination_address, size_address, offset_address } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::CALLDATACOPY,
                     indirect: Some(ALL_DIRECT),
                     operands: vec![
                         AvmOperand::U32 {
-                            value: *offset as u32, // cdOffset (calldata offset)
+                            value: offset_address.to_usize() as u32, // cdOffset (calldata offset)
                         },
-                        AvmOperand::U32 { value: *size as u32 },
+                        AvmOperand::U32 { value: size_address.to_usize() as u32 }, // sizeOffset
                         AvmOperand::U32 {
                             value: destination_address.to_usize() as u32, // dstOffset
                         },

@@ -1425,13 +1425,19 @@ void AvmTraceBuilder::op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset)
  *              than call_data_mem.size()
  *
  * @param indirect A byte encoding information about indirect/direct memory access.
- * @param cd_offset The starting index of the region in calldata to be copied.
- * @param copy_size The number of finite field elements to be copied into memory.
+ * @param cd_offset_address The starting index of the region in calldata to be copied.
+ * @param copy_size_offset The number of finite field elements to be copied into memory.
  * @param dst_offset The starting index of memory where calldata will be copied to.
  */
-void AvmTraceBuilder::op_calldata_copy(uint8_t indirect, uint32_t cd_offset, uint32_t copy_size, uint32_t dst_offset)
+void AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
+                                       uint32_t cd_offset_address,
+                                       uint32_t copy_size_address,
+                                       uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+
+    auto [cd_offset_address_r, copy_size_address_r, _] =
+        unpack_indirects<3>(indirect, { cd_offset_address, copy_size_address, dst_offset });
 
     uint32_t direct_dst_offset = dst_offset; // Will be overwritten in indirect mode.
 
@@ -1442,13 +1448,17 @@ void AvmTraceBuilder::op_calldata_copy(uint8_t indirect, uint32_t cd_offset, uin
     // direct destination offset stored in main_mem_addr_c.
     // All the other memory operations are triggered by the slice gadget.
 
-    if (is_operand_indirect(indirect, 0)) {
+    if (is_operand_indirect(indirect, 2)) {
         indirect_flag = true;
         auto ind_read =
             mem_trace_builder.indirect_read_and_load_from_memory(call_ptr, clk, IndirectRegister::IND_C, dst_offset);
         direct_dst_offset = uint32_t(ind_read.val);
         tag_match = ind_read.tag_match;
     }
+
+    // TODO: constrain these.
+    const uint32_t cd_offset = static_cast<uint32_t>(unconstrained_read_from_memory(cd_offset_address_r));
+    const uint32_t copy_size = static_cast<uint32_t>(unconstrained_read_from_memory(copy_size_address_r));
 
     if (tag_match) {
         slice_trace_builder.create_calldata_copy_slice(
