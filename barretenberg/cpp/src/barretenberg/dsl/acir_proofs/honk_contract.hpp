@@ -1279,7 +1279,7 @@ contract HonkVerifier is IVerifier
         }
 
         // Generate the fiat shamir challenges for the whole protocol
-        Transcript memory t = TranscriptLib.generateTranscript(p, vk, publicInputs);
+        Transcript memory t = TranscriptLib.generateTranscript(p, publicInputs, vk.publicInputsSize);
 
         // Compute the public input delta
         t.publicInputsDelta =
