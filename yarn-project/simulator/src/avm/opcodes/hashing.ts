@@ -145,66 +145,67 @@ export class KeccakF1600 extends Instruction {
   }
 }
 
-export class Sha256Compression extends Instruction {
-  static type: string = 'SHA256COMPRESSION';
-  static readonly opcode: Opcode = Opcode.SHA256COMPRESSION;
+// TODO: add it back
+// export class Sha256Compression extends Instruction {
+//   static type: string = 'SHA256COMPRESSION';
+//   static readonly opcode: Opcode = Opcode.SHA256COMPRESSION;
 
-  // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-    OperandType.UINT32,
-  ];
+//   // Informs (de)serialization. See Instruction.deserialize.
+//   static readonly wireFormat: OperandType[] = [
+//     OperandType.UINT8,
+//     OperandType.UINT8,
+//     OperandType.UINT32,
+//     OperandType.UINT32,
+//     OperandType.UINT32,
+//     OperandType.UINT32,
+//     OperandType.UINT32,
+//   ];
 
-  constructor(
-    private indirect: number,
-    private outputOffset: number,
-    private stateOffset: number,
-    private stateSizeOffset: number,
-    private inputsOffset: number,
-    private inputsSizeOffset: number,
-  ) {
-    super();
-  }
+//   constructor(
+//     private indirect: number,
+//     private outputOffset: number,
+//     private stateOffset: number,
+//     private stateSizeOffset: number,
+//     private inputsOffset: number,
+//     private inputsSizeOffset: number,
+//   ) {
+//     super();
+//   }
 
-  public async execute(context: AvmContext): Promise<void> {
-    const memory = context.machineState.memory.track(this.type);
-    const [outputOffset, stateOffset, stateSizeOffset, inputsOffset, inputsSizeOffset] = Addressing.fromWire(
-      this.indirect,
-    ).resolve(
-      [this.outputOffset, this.stateOffset, this.stateSizeOffset, this.inputsOffset, this.inputsSizeOffset],
-      memory,
-    );
-    const stateSize = memory.get(stateSizeOffset).toNumber();
-    const inputsSize = memory.get(inputsSizeOffset).toNumber();
-    if (stateSize !== 8) {
-      throw new InstructionExecutionError('`state` argument to SHA256 compression must be of length 8');
-    }
-    if (inputsSize !== 16) {
-      throw new InstructionExecutionError('`inputs` argument to SHA256 compression must be of length 16');
-    }
-    // +2 to account for both size offsets (stateSizeOffset and inputsSizeOffset)
-    // Note: size of output is same as size of state
-    const memoryOperations = { reads: stateSize + inputsSize + 2, writes: stateSize, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
-    memory.checkTagsRange(TypeTag.UINT8, messageOffset, messageSize);
+//   public async execute(context: AvmContext): Promise<void> {
+//     const memory = context.machineState.memory.track(this.type);
+//     const [outputOffset, stateOffset, stateSizeOffset, inputsOffset, inputsSizeOffset] = Addressing.fromWire(
+//       this.indirect,
+//     ).resolve(
+//       [this.outputOffset, this.stateOffset, this.stateSizeOffset, this.inputsOffset, this.inputsSizeOffset],
+//       memory,
+//     );
+//     const stateSize = memory.get(stateSizeOffset).toNumber();
+//     const inputsSize = memory.get(inputsSizeOffset).toNumber();
+//     if (stateSize !== 8) {
+//       throw new InstructionExecutionError('`state` argument to SHA256 compression must be of length 8');
+//     }
+//     if (inputsSize !== 16) {
+//       throw new InstructionExecutionError('`inputs` argument to SHA256 compression must be of length 16');
+//     }
+//     // +2 to account for both size offsets (stateSizeOffset and inputsSizeOffset)
+//     // Note: size of output is same as size of state
+//     const memoryOperations = { reads: stateSize + inputsSize + 2, writes: stateSize, indirect: this.indirect };
+//     context.machineState.consumeGas(this.gasCost(memoryOperations));
+//     memory.checkTagsRange(TypeTag.UINT8, messageOffset, messageSize);
 
-    const state = Uint32Array.from(memory.getSlice(stateOffset, stateSize).map(word => word.toNumber()));
-    const inputs = Uint32Array.from(memory.getSlice(inputsOffset, inputsSize).map(word => word.toNumber()));
-    const output = sha256Compression(state, inputs);
+//     const state = Uint32Array.from(memory.getSlice(stateOffset, stateSize).map(word => word.toNumber()));
+//     const inputs = Uint32Array.from(memory.getSlice(inputsOffset, inputsSize).map(word => word.toNumber()));
+//     const output = sha256Compression(state, inputs);
 
-    // Conversion required from Uint32Array to Uint32[] (can't map directly, need `...`)
-    const res = [...output].map(word => new Uint32(word));
-    memory.setSlice(outputOffset, res);
+//     // Conversion required from Uint32Array to Uint32[] (can't map directly, need `...`)
+//     const res = [...output].map(word => new Uint32(word));
+//     memory.setSlice(outputOffset, res);
 
-    memory.assert(memoryOperations);
-    context.machineState.incrementPc();
-  }
-}
+//     memory.assert(memoryOperations);
+//     context.machineState.incrementPc();
+//   }
+// }
 
 export class Pedersen extends Instruction {
   static type: string = 'PEDERSEN';
