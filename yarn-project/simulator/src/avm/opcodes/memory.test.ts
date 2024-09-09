@@ -4,6 +4,7 @@ import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
 import { InstructionExecutionError } from '../errors.js';
 import { adjustCalldataIndex, initContext, initExecutionEnvironment } from '../fixtures/index.js';
+import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
 
@@ -302,12 +303,15 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         Mov.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // srcOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('12', 'hex'), // srcOffset
+        ...Buffer.from('34', 'hex'), // dstOffset
       ]);
-      const inst = new Mov(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12345678, /*dstOffset=*/ 0x3456789a);
+      const inst = new Mov(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12, /*dstOffset=*/ 0x34).as(
+        Opcode.MOV_8,
+        Mov.wireFormat8,
+      );
 
-      expect(Mov.deserialize(buf)).toEqual(inst);
+      expect(Mov.as(Mov.wireFormat8).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
@@ -432,14 +436,14 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         CalldataCopy.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // cdOffset
-        ...Buffer.from('23456789', 'hex'), // copysize
+        ...Buffer.from('12345678', 'hex'), // cdOffsetAddress
+        ...Buffer.from('23456789', 'hex'), // copysizeOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       const inst = new CalldataCopy(
         /*indirect=*/ 0x01,
-        /*cdOffset=*/ 0x12345678,
-        /*copysize=*/ 0x23456789,
+        /*cdOffsetAddress=*/ 0x12345678,
+        /*copysizeOffset=*/ 0x23456789,
         /*dstOffset=*/ 0x3456789a,
       );
 
@@ -450,30 +454,23 @@ describe('Memory instructions', () => {
     it('Writes nothing if size is 0', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      context.machineState.memory.set(0, new Uint16(12)); // Some previous data to be overwritten
+      context.machineState.memory.set(0, new Uint32(adjustCalldataIndex(0))); // cdoffset
+      context.machineState.memory.set(1, new Uint32(0)); // size
+      context.machineState.memory.set(3, new Uint16(12)); // not overwritten
 
-      await new CalldataCopy(
-        /*indirect=*/ 0,
-        /*cdOffset=*/ adjustCalldataIndex(0),
-        /*copySize=*/ 0,
-        /*dstOffset=*/ 0,
-      ).execute(context);
+      await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
 
-      const actual = context.machineState.memory.get(0);
+      const actual = context.machineState.memory.get(3);
       expect(actual).toEqual(new Uint16(12));
     });
 
     it('Copies all calldata', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      context.machineState.memory.set(0, new Uint16(12)); // Some previous data to be overwritten
+      context.machineState.memory.set(0, new Uint32(adjustCalldataIndex(0))); // cdoffset
+      context.machineState.memory.set(1, new Uint32(3)); // size
 
-      await new CalldataCopy(
-        /*indirect=*/ 0,
-        /*cdOffset=*/ adjustCalldataIndex(0),
-        /*copySize=*/ 3,
-        /*dstOffset=*/ 0,
-      ).execute(context);
+      await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 3);
       expect(actual).toEqual([new Field(1), new Field(2), new Field(3)]);
@@ -482,14 +479,10 @@ describe('Memory instructions', () => {
     it('Copies slice of calldata', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      context.machineState.memory.set(0, new Uint16(12)); // Some previous data to be overwritten
+      context.machineState.memory.set(0, new Uint32(adjustCalldataIndex(1))); // cdoffset
+      context.machineState.memory.set(1, new Uint32(2)); // size
 
-      await new CalldataCopy(
-        /*indirect=*/ 0,
-        /*cdOffset=*/ adjustCalldataIndex(1),
-        /*copySize=*/ 2,
-        /*dstOffset=*/ 0,
-      ).execute(context);
+      await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 2);
       expect(actual).toEqual([new Field(2), new Field(3)]);

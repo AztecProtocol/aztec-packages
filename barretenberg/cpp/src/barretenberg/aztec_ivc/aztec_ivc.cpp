@@ -31,7 +31,7 @@ void AztecIVC::instantiate_stdlib_verification_queue(
         auto stdlib_vkey =
             vkeys_provided ? input_keys[key_idx++] : std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
 
-        stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vkey, type);
+        stdlib_verification_queue.push_back({ stdlib_proof, stdlib_vkey, type });
     }
     verification_queue.clear(); // the native data is not needed beyond this point
 }

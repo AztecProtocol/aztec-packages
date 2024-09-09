@@ -1,5 +1,5 @@
 use crate::{
-    abis::side_effect::Ordered, traits::{Empty, is_empty},
+    abis::side_effect::Ordered, traits::Empty,
     utils::arrays::{
     sort_by_counter::{compare_by_counter_empty_padded_asc, compare_by_counter_empty_padded_desc},
     get_sorted_tuple::get_sorted_tuple
@@ -23,90 +23,96 @@ impl Eq for OrderHint {
     }
 }
 
-pub fn get_order_hints<T, let N: u32>(
+unconstrained pub fn get_order_hints<T, let N: u32>(
     array: [T; N],
     ordering: fn(T, T) -> bool
-) -> [OrderHint; N] where T: Ordered + Eq + Empty {
+) -> [OrderHint; N] where T: Ordered {
     let sorted_tuples = get_sorted_tuple(array, ordering);
 
     let mut hints = [OrderHint::empty(); N];
     for i in 0..N {
         let elem = sorted_tuples[i].elem;
         hints[i].counter = elem.counter();
-        if !is_empty(elem) {
-            let original_index = sorted_tuples[i].original_index;
-            hints[original_index].sorted_index = i;
-        } else {
-            hints[i].sorted_index = i;
-        }
+        let original_index = sorted_tuples[i].original_index;
+        hints[original_index].sorted_index = i;
     }
 
     hints
 }
 
-pub fn get_order_hints_asc<T, let N: u32>(array: [T; N]) -> [OrderHint; N] where T: Ordered + Eq + Empty {
+unconstrained pub fn get_order_hints_asc<T, let N: u32>(array: [T; N]) -> [OrderHint; N] where T: Ordered + Eq + Empty {
     get_order_hints(array, compare_by_counter_empty_padded_asc)
 }
 
-pub fn get_order_hints_desc<T, let N: u32>(array: [T; N]) -> [OrderHint; N] where T: Ordered + Eq + Empty {
+unconstrained pub fn get_order_hints_desc<T, let N: u32>(array: [T; N]) -> [OrderHint; N] where T: Ordered + Eq + Empty {
     get_order_hints(array, compare_by_counter_empty_padded_desc)
 }
 
 mod tests {
     use crate::{
-        abis::side_effect::Ordered, traits::Empty,
+        tests::{types::TestValue, utils::pad_end},
         utils::arrays::assert_exposed_sorted_transformed_value_array::get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint}
     };
 
-    struct TestItem {
-        value: Field,
-        counter: u32,
+    struct TestBuilder<let N: u32> {
+        array: [TestValue; N],
     }
 
-    impl Ordered for TestItem {
-        fn counter(self) -> u32 {
-            self.counter
+    impl TestBuilder<3> {
+        pub fn new() -> Self {
+            let array = [
+                TestValue { value: 100, counter: 9 },
+                TestValue { value: 200, counter: 3 },
+                TestValue { value: 300, counter: 6 }
+            ];
+            TestBuilder { array }
         }
     }
 
-    impl Eq for TestItem {
-        fn eq(self, other: Self) -> bool {
-            (self.value == other.value) & (self.counter == other.counter)
+    impl TestBuilder<5> {
+        pub fn new_padded() -> Self {
+            let array = pad_end(
+                [
+                TestValue { value: 100, counter: 9 },
+                TestValue { value: 200, counter: 3 },
+                TestValue { value: 300, counter: 6 }
+            ],
+                TestValue::empty()
+            );
+            TestBuilder { array }
         }
     }
 
-    impl Empty for TestItem {
-        fn empty() -> Self {
-            TestItem { value: 0, counter: 0 }
+    impl<let N: u32> TestBuilder<N> {
+        pub fn asc_to_equal(self, expected: [OrderHint; N]) {
+            let hints = unsafe {
+                get_order_hints_asc(self.array)
+            };
+            assert_eq(hints, expected);
+        }
+
+        pub fn desc_to_equal(self, expected: [OrderHint; N]) {
+            let hints = unsafe {
+                get_order_hints_desc(self.array)
+            };
+            assert_eq(hints, expected);
         }
     }
 
     #[test]
     fn get_order_hints_asc_full_non_empty() {
-        let array = [
-            TestItem { value: 100, counter: 9 },
-            TestItem { value: 200, counter: 3 },
-            TestItem { value: 300, counter: 6 }
-        ];
-        let hints = get_order_hints_asc(array);
+        let builder = TestBuilder::new();
         let expected_hints = [
             OrderHint { counter: 3, sorted_index: 2 },
             OrderHint { counter: 6, sorted_index: 0 },
             OrderHint { counter: 9, sorted_index: 1 }
         ];
-        assert_eq(hints, expected_hints);
+        builder.asc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_order_hints_asc_padded_empty() {
-        let array = [
-            TestItem { value: 100, counter: 9 },
-            TestItem { value: 200, counter: 3 },
-            TestItem { value: 300, counter: 6 },
-            TestItem::empty(),
-            TestItem::empty()
-        ];
-        let hints = get_order_hints_asc(array);
+        let builder = TestBuilder::new_padded();
         let expected_hints = [
             OrderHint { counter: 3, sorted_index: 2 },
             OrderHint { counter: 6, sorted_index: 0 },
@@ -114,35 +120,23 @@ mod tests {
             OrderHint { counter: 0, sorted_index: 3 },
             OrderHint { counter: 0, sorted_index: 4 }
         ];
-        assert_eq(hints, expected_hints);
+        builder.asc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_order_hints_desc_full_non_empty() {
-        let array = [
-            TestItem { value: 100, counter: 9 },
-            TestItem { value: 200, counter: 3 },
-            TestItem { value: 300, counter: 6 }
-        ];
-        let hints = get_order_hints_desc(array);
+        let builder = TestBuilder::new();
         let expected_hints = [
             OrderHint { counter: 9, sorted_index: 0 },
             OrderHint { counter: 6, sorted_index: 2 },
             OrderHint { counter: 3, sorted_index: 1 }
         ];
-        assert_eq(hints, expected_hints);
+        builder.desc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_order_hints_desc_padded_empty() {
-        let array = [
-            TestItem { value: 100, counter: 9 },
-            TestItem { value: 200, counter: 3 },
-            TestItem { value: 300, counter: 6 },
-            TestItem::empty(),
-            TestItem::empty()
-        ];
-        let hints = get_order_hints_desc(array);
+        let builder = TestBuilder::new_padded();
         let expected_hints = [
             OrderHint { counter: 9, sorted_index: 0 },
             OrderHint { counter: 6, sorted_index: 2 },
@@ -150,7 +144,7 @@ mod tests {
             OrderHint { counter: 0, sorted_index: 3 },
             OrderHint { counter: 0, sorted_index: 4 }
         ];
-        assert_eq(hints, expected_hints);
+        builder.desc_to_equal(expected_hints);
     }
 }
 

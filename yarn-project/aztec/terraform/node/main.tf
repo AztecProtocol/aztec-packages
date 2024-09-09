@@ -268,6 +268,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "10000"
         },
         {
+          name = "ARCHIVER_L1_START_BLOCK",
+          value = "15918000"
+        },
+        {
           name  = "SEQ_RETRY_INTERVAL"
           value = "10000"
         },

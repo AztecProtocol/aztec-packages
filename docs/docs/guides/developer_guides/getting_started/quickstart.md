@@ -20,7 +20,7 @@ You need two global dependencies in your machine:
 Run:
 
 ```bash
-bash -i <(curl -s install.aztec.network)
+bash -i <(curl -s https://install.aztec.network)
 ```
 
 This will install the following tools:
@@ -73,6 +73,13 @@ To update the sandbox, you can just run:
 aztec-up
 ```
 
+## Clone a Box (optional)
+
+You can use the `npx aztec-app` command to clone a ready-to-go "aztec box" with a sample contract or frontend. Assuming you have [node](https://nodejs.org/en/) installed, run:
+
+```bash
+npx aztec-app
+```
 
 ## Install Noir LSP (recommended)
 

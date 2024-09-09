@@ -98,7 +98,7 @@ class AvmTraceBuilder {
     void op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset);
 
     // Execution Environment - Calldata
-    void op_calldata_copy(uint8_t indirect, uint32_t cd_offset, uint32_t copy_size, uint32_t dst_offset);
+    void op_calldata_copy(uint8_t indirect, uint32_t cd_offset_address, uint32_t copy_size_offset, uint32_t dst_offset);
 
     // Machine State - Gas
     void op_l2gasleft(uint8_t indirect, uint32_t dst_offset);

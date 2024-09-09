@@ -194,7 +194,6 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_cast{};
     FF main_sel_op_chain_id{};
     FF main_sel_op_cmov{};
-    FF main_sel_op_coinbase{};
     FF main_sel_op_dagasleft{};
     FF main_sel_op_div{};
     FF main_sel_op_ecadd{};
@@ -710,7 +709,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 696;
+    static constexpr size_t SIZE = 695;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

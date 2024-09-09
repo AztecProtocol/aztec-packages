@@ -1,7 +1,6 @@
 use crate::{
     abis::{
-    accumulated_data::{CombinedAccumulatedData, PublicAccumulatedDataBuilder},
-    combined_constant_data::CombinedConstantData,
+    accumulated_data::PublicAccumulatedDataBuilder, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{public_kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs},
     public_call_request::PublicCallRequest, validation_requests::PublicValidationRequestsBuilder
 },
