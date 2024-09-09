@@ -124,7 +124,7 @@ template <typename Fr> class Polynomial {
      * @param virtual_padding For the rare case where we explicitly want the 0-returning behavior beyond our usual
      * virtual_size.
      */
-    Fr get(size_t i, size_t virtual_padding = 0) const { return coefficients_.get(i, virtual_padding); };
+    const Fr& get(size_t i, size_t virtual_padding = 0) const { return coefficients_.get(i, virtual_padding); };
 
     bool is_empty() const { return coefficients_.size() == 0; }
 
@@ -183,11 +183,7 @@ template <typename Fr> class Polynomial {
     //  * @param roots list of roots (r₁,…,rₘ)
     //  */
     // void factor_roots(std::span<const Fr> roots) { polynomial_arithmetic::factor_roots(std::span{ *this }, roots); };
-    void factor_roots(const Fr& root)
-    {
-        // WORKTODO(sparse) we can optimize the case root = 0 with just a simple shift (start_index +=1 , size -= 1)
-        polynomial_arithmetic::factor_roots(coeffs(), root);
-    };
+    void factor_roots(const Fr& root) { polynomial_arithmetic::factor_roots(coeffs(), root); };
 
     Fr evaluate(const Fr& z, size_t target_size) const;
     Fr evaluate(const Fr& z) const;
@@ -238,21 +234,8 @@ template <typename Fr> class Polynomial {
     Fr& at(size_t index) { return coefficients_[index]; }
     const Fr& at(size_t index) const { return coefficients_[index]; }
 
-    const Fr& const_at(size_t index) const
-    {
-        // get_row() in flavor constructs rows with const refs.
-        // Somewhat more efficient + above operator[] and at() simply does not work in AVM which wants a const ref&.
-        // We create a kludgey variant that always returns a const reference.
-        // TODO(AD): consider a row-reference class to get around this
-        if (!is_valid_set_index(index)) {
-            static const Fr zero{};
-            return zero;
-        }
-        return coefficients_[index];
-    }
-
-    Fr operator[](size_t i) { return get(i); }
-    Fr operator[](size_t i) const { return get(i); }
+    const Fr& operator[](size_t i) { return get(i); }
+    const Fr& operator[](size_t i) const { return get(i); }
 
     static Polynomial random(size_t size, size_t start_index = 0)
     {

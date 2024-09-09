@@ -405,7 +405,7 @@ class MegaFlavor {
             BB_OP_COUNT_TIME_NAME("MegaFlavor::get_row");
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
-                result_field = polynomial.const_at(row_idx);
+                result_field = polynomial[row_idx];
             }
             return result;
         }
@@ -678,8 +678,7 @@ class MegaFlavor {
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
             for (auto& poly : this->get_all()) {
-                // WORKTODO(sparse) what should this be?
-                poly = Polynomial(circuit_size / 2, circuit_size / 2);
+                poly = Polynomial(circuit_size / 2);
             }
         }
     };

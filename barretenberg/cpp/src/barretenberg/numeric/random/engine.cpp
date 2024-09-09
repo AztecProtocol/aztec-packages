@@ -10,15 +10,8 @@ namespace {
 auto generate_random_data()
 {
     std::array<unsigned int, 32> random_data;
-#ifdef BBERG_DEBUG_LOG
-    // if we are debug logging, don't actually use randomness, defeats the intended use-case of comparing runs
-    for (size_t i = 0; i < 32; i++) {
-        random_data[i] = static_cast<unsigned int>(i + 1);
-    }
-#else
     std::random_device source;
     std::generate(std::begin(random_data), std::end(random_data), std::ref(source));
-#endif
     return random_data;
 }
 } // namespace
@@ -138,9 +131,13 @@ RNG& get_debug_randomness(bool reset, std::uint_fast64_t seed)
  */
 RNG& get_randomness()
 {
-    // return get_debug_randomness();
+#ifdef BBERG_DEBUG_LOG
+    // Use determinism for logging
+    return get_debug_randomness();
+#else
     static RandomEngine engine;
     return engine;
+#endif
 }
 
 } // namespace bb::numeric

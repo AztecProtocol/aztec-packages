@@ -84,7 +84,6 @@ template <class Curve> class CommitmentKey {
     Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
         BB_OP_COUNT_TIME();
-        // WORKTODO(sparse) rework this - should we always inform how much SRS we need on-demand?
         // We must have a power-of-2 SRS points *after* subtracting by start_index.
         const size_t consumed_srs = numeric::round_up_power_2(polynomial.size()) + polynomial.start_index;
         auto srs = crs_factory->get_prover_crs(consumed_srs);

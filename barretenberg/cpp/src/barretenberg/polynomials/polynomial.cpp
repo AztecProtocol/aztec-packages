@@ -51,17 +51,8 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
         start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
         size + start_index, /* end index, actual memory used is (end - start) */
         virtual_size,       /* virtual size, i.e. until what size do we conceptually have zeroes */
-        _allocate_aligned_memory<Fr>(size + MAXIMUM_COEFFICIENT_SHIFT)
-        /* Our backing memory, since shift is 0 it is equal to our memory size.
-         * We add one to the size here to allow for an efficient shift by 1 that retains size. */
+        _allocate_aligned_memory<Fr>(size)
     };
-    // WORKTODO(sparse) remove padding
-    // We need to zero the extra padding memory that we reserve for shifts.
-    // We do this here as generally code that does not zero memory and then
-    // later initializes it won't generally also initialize the padding.
-    for (size_t i = 0; i < MAXIMUM_COEFFICIENT_SHIFT; i++) {
-        coefficients_.backing_memory_.get()[size + i] = Fr{};
-    }
 }
 
 /**
