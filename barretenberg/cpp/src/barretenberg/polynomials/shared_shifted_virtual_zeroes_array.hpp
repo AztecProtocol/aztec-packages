@@ -37,13 +37,15 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      * @brief Retrieves the value at the specified index.
      *
      * @param index The index from which to retrieve the value.
+     * @param virtual_padding For the rare case where we explicitly want the 0-returning behavior beyond our usual
+     * virtual_size.
      * @return The value at the specified index, or a default value (e.g. a field zero) of T if the index is outside the
      * memory-backed range.
      * @throws Fails in assert mode if the index is greater than or equal to `virtual_size_`.
      */
-    T get(size_t index) const
+    T get(size_t index, size_t virtual_padding = 0) const
     {
-        ASSERT(index < virtual_size_);
+        ASSERT(index < virtual_size_ + virtual_padding);
         if (index >= start_ && index < end_) {
             return data()[index - start_];
         }

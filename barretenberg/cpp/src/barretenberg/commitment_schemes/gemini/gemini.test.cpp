@@ -14,14 +14,13 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
-    using Polynomial = typename bb::Polynomial<Fr>;
 
   public:
     void execute_gemini_and_verify_claims(size_t log_n,
                                           std::vector<Fr> multilinear_evaluation_point,
                                           std::vector<Fr> multilinear_evaluations,
-                                          std::vector<std::span<Fr>> multilinear_polynomials,
-                                          std::vector<std::span<Fr>> multilinear_polynomials_to_be_shifted,
+                                          std::vector<Polynomial<Fr>> multilinear_polynomials,
+                                          std::vector<Polynomial<Fr>> multilinear_polynomials_to_be_shifted,
                                           std::vector<GroupElement> multilinear_commitments,
                                           std::vector<GroupElement> multilinear_commitments_to_be_shifted)
     {
@@ -37,20 +36,19 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
             batched_evaluation += multilinear_evaluations[i] * rhos[i];
         }
 
-        Polynomial batched_unshifted(1 << log_n);
-        Polynomial batched_to_be_shifted = Polynomial::shiftable(1 << log_n);
+        Polynomial<Fr> batched_unshifted(1 << log_n);
+        Polynomial<Fr> batched_to_be_shifted = Polynomial<Fr>::shiftable(1 << log_n);
         GroupElement batched_commitment_unshifted = GroupElement::zero();
         GroupElement batched_commitment_to_be_shifted = GroupElement::zero();
         const size_t num_unshifted = multilinear_polynomials.size();
         const size_t num_shifted = multilinear_polynomials_to_be_shifted.size();
         for (size_t i = 0; i < num_unshifted; ++i) {
-            batched_unshifted.add_scaled({ /*start index*/ 0, multilinear_polynomials[i] }, rhos[i]);
+            batched_unshifted.add_scaled(multilinear_polynomials[i], rhos[i]);
             batched_commitment_unshifted += multilinear_commitments[i] * rhos[i];
         }
         for (size_t i = 0; i < num_shifted; ++i) {
             size_t rho_idx = num_unshifted + i;
-            batched_to_be_shifted.add_scaled({ /*start index*/ 1, multilinear_polynomials_to_be_shifted[i] },
-                                             rhos[rho_idx]);
+            batched_to_be_shifted.add_scaled(multilinear_polynomials_to_be_shifted[i], rhos[rho_idx]);
             batched_commitment_to_be_shifted += multilinear_commitments_to_be_shifted[i] * rhos[rho_idx];
         }
 
@@ -120,8 +118,8 @@ TYPED_TEST(GeminiTest, Single)
 
     // Collect multilinear polynomials evaluations, and commitments for input to prover/verifier
     std::vector<Fr> multilinear_evaluations = { eval };
-    std::vector<std::span<Fr>> multilinear_polynomials = { poly.coeffs() };
-    std::vector<std::span<Fr>> multilinear_polynomials_to_be_shifted = {};
+    std::vector<Polynomial<Fr>> multilinear_polynomials = { poly.share() };
+    std::vector<Polynomial<Fr>> multilinear_polynomials_to_be_shifted = {};
     std::vector<GroupElement> multilinear_commitments = { commitment };
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = {};
 
@@ -145,16 +143,15 @@ TYPED_TEST(GeminiTest, SingleShift)
     auto u = this->random_evaluation_point(log_n);
 
     // shiftable polynomial must have 0 as last coefficient
-    auto poly = Polynomial<Fr>::random(n);
-    poly.at(0) = Fr::zero();
+    auto poly = Polynomial<Fr>::random(n, /*shiftable*/ 1);
 
     auto commitment = this->commit(poly);
     auto eval_shift = poly.evaluate_mle(u, true);
 
     // Collect multilinear polynomials evaluations, and commitments for input to prover/verifier
     std::vector<Fr> multilinear_evaluations = { eval_shift };
-    std::vector<std::span<Fr>> multilinear_polynomials = {};
-    std::vector<std::span<Fr>> multilinear_polynomials_to_be_shifted = { poly.coeffs() };
+    std::vector<Polynomial<Fr>> multilinear_polynomials = {};
+    std::vector<Polynomial<Fr>> multilinear_polynomials_to_be_shifted = { poly.share() };
     std::vector<GroupElement> multilinear_commitments = {};
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = { commitment };
 
@@ -188,8 +185,8 @@ TYPED_TEST(GeminiTest, Double)
 
     // Collect multilinear polynomials evaluations, and commitments for input to prover/verifier
     std::vector<Fr> multilinear_evaluations = { eval1, eval2 };
-    std::vector<std::span<Fr>> multilinear_polynomials = { poly1.coeffs(), poly2.coeffs() };
-    std::vector<std::span<Fr>> multilinear_polynomials_to_be_shifted = {};
+    std::vector<Polynomial<Fr>> multilinear_polynomials = { poly1.share(), poly2.share() };
+    std::vector<Polynomial<Fr>> multilinear_polynomials_to_be_shifted = {};
     std::vector<GroupElement> multilinear_commitments = { commitment1, commitment2 };
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = {};
 
@@ -205,7 +202,6 @@ TYPED_TEST(GeminiTest, Double)
 TYPED_TEST(GeminiTest, DoubleWithShift)
 {
     using Fr = typename TypeParam::ScalarField;
-    using Polynomial = typename bb::Polynomial<Fr>;
     using GroupElement = typename TypeParam::Element;
 
     const size_t n = 16;
@@ -213,8 +209,8 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
 
     auto u = this->random_evaluation_point(log_n);
 
-    auto poly1 = Polynomial::random(n);
-    auto poly2 = Polynomial::random(n, 1); // make 'shiftable'
+    auto poly1 = Polynomial<Fr>::random(n);
+    auto poly2 = Polynomial<Fr>::random(n, 1); // make 'shiftable'
 
     auto commitment1 = this->commit(poly1);
     auto commitment2 = this->commit(poly2);
@@ -225,8 +221,8 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
 
     // Collect multilinear polynomials evaluations, and commitments for input to prover/verifier
     std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval2_shift };
-    std::vector<std::span<Fr>> multilinear_polynomials = { poly1.coeffs(), poly2.coeffs() };
-    std::vector<std::span<Fr>> multilinear_polynomials_to_be_shifted = { poly2.coeffs() };
+    std::vector<Polynomial<Fr>> multilinear_polynomials = { poly1.share(), poly2.share() };
+    std::vector<Polynomial<Fr>> multilinear_polynomials_to_be_shifted = { poly2.share() };
     std::vector<GroupElement> multilinear_commitments = { commitment1, commitment2 };
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = { commitment2 };
 

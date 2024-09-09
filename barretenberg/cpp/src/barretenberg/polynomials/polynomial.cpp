@@ -196,8 +196,8 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
 {
     const size_t m = evaluation_points.size();
 
-    // To simplify handling of edge cases, we assume that size_ is always a power of 2
-    ASSERT(size() == static_cast<size_t>(1 << m));
+    // To simplify handling of edge cases, we assume that the index space is always a power of 2
+    ASSERT(virtual_size() == static_cast<size_t>(1 << m));
 
     // we do m rounds l = 0,...,m-1.
     // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
@@ -210,23 +210,26 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
     auto tmp_ptr = _allocate_aligned_memory<Fr>(sizeof(Fr) * n_l);
     auto tmp = tmp_ptr.get();
 
-    const Fr* prev = data();
+    size_t offset = 0;
     if (shift) {
-        ASSERT(prev[0] == Fr::zero());
-        prev++;
+        ASSERT((*this)[0] == Fr::zero());
+        offset++;
     }
 
     Fr u_l = evaluation_points[0];
     for (size_t i = 0; i < n_l; ++i) {
-        // curr[i] = (Fr(1) - u_l) * prev[i << 1] + u_l * prev[(i << 1) + 1];
-        tmp[i] = prev[i << 1] + u_l * (prev[(i << 1) + 1] - prev[i << 1]);
+        // curr[i] = (Fr(1) - u_l) * prev[i * 2] + u_l * prev[(i * 2) + 1];
+        // Note: i * 2 + 1 + offset might equal virtual_size. This used to subtlely be handled by extra capacity padding
+        // (and there used to be no assert time checks, which this constant helps with).
+        const size_t ALLOW_ONE_PAST_READ = 1;
+        tmp[i] = get(i * 2 + offset) + u_l * (get(i * 2 + 1 + offset, ALLOW_ONE_PAST_READ) - get(i * 2 + offset));
     }
     // partially evaluate the m-1 remaining points
     for (size_t l = 1; l < m; ++l) {
         n_l = 1 << (m - l - 1);
         u_l = evaluation_points[l];
         for (size_t i = 0; i < n_l; ++i) {
-            tmp[i] = tmp[i << 1] + u_l * (tmp[(i << 1) + 1] - tmp[i << 1]);
+            tmp[i] = tmp[i * 2] + u_l * (tmp[(i * 2) + 1] - tmp[i * 2]);
         }
     }
     Fr result = tmp[0];

@@ -97,7 +97,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 
     // Compute batched polynomials
     Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted(n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
     batched_unshifted.add_scaled(poly1, rhos[0]);
     batched_unshifted.add_scaled(poly2, rhos[1]);
     batched_to_be_shifted.add_scaled(poly2, rhos[2]);
@@ -215,7 +215,7 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
 
     // Compute batched polynomials
     Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted(n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
     batched_unshifted.add_scaled(poly1, rhos[0]);
     batched_unshifted.add_scaled(poly2, rhos[1]);
     batched_to_be_shifted.add_scaled(poly2, rhos[2]);

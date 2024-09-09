@@ -535,7 +535,8 @@ TYPED_TEST(ZeroMorphTest, PartiallyEvaluatedQuotientZ)
         f_batched, g_batched, quotients, v_batched, u_challenge, x_challenge);
 
     // Compute Z_x directly
-    auto Z_x_expected = g_batched;
+    // Expand g_batched as it has a virtual 0
+    auto Z_x_expected = g_batched.full();
     Z_x_expected.add_scaled(f_batched, x_challenge);
     Z_x_expected.at(0) -= v_batched * x_challenge * this->Phi(x_challenge, log_N);
     for (size_t k = 0; k < log_N; ++k) {

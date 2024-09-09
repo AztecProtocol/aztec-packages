@@ -117,8 +117,14 @@ template <typename Fr> class Polynomial {
 
     bool operator==(Polynomial const& rhs) const;
 
-    // void set(size_t i, const Fr& value) { coefficients_.at(i) = value; };
-    Fr get(size_t i) const { return coefficients_.get(i); };
+    /**
+     * @brief Retrieves the value at the specified index.
+     *
+     * @param index The index from which to retrieve the value.
+     * @param virtual_padding For the rare case where we explicitly want the 0-returning behavior beyond our usual
+     * virtual_size.
+     */
+    Fr get(size_t i, size_t virtual_padding = 0) const { return coefficients_.get(i, virtual_padding); };
 
     bool is_empty() const { return coefficients_.size() == 0; }
 

@@ -250,8 +250,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     // point.
     auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
     auto poly1 = Polynomial::random(n);
-    auto poly2 = Polynomial::random(n);
-    poly2.at(0) = Fr::zero(); // this property is required of polynomials whose shift is used
+    auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
 
     GroupElement commitment1 = this->commit(poly1);
     GroupElement commitment2 = this->commit(poly2);
@@ -270,7 +269,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     }
 
     Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted(n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
     batched_unshifted.add_scaled(poly1, rhos[0]);
     batched_unshifted.add_scaled(poly2, rhos[1]);
     batched_to_be_shifted.add_scaled(poly2, rhos[2]);
@@ -358,7 +357,7 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     }
 
     Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted(n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
     batched_unshifted.add_scaled(poly1, rhos[0]);
     batched_unshifted.add_scaled(poly2, rhos[1]);
     batched_to_be_shifted.add_scaled(poly2, rhos[2]);
