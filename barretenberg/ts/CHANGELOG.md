@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.53.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.52.0...barretenberg.js-v0.53.0) (2024-09-09)
+
+
+### Bug Fixes
+
+* HonkRecursion serde for cpp bindings ([#8387](https://github.com/AztecProtocol/aztec-packages/issues/8387)) ([6162179](https://github.com/AztecProtocol/aztec-packages/commit/6162179ffc9b04213ef600e1733d2ac696c1dbe6))
+
 ## [0.52.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.51.1...barretenberg.js-v0.52.0) (2024-09-01)
 
 
