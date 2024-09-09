@@ -80,6 +80,16 @@ struct DatabusPropagationData {
 
     // Is this a kernel circuit (used to determine when databus consistency checks can be appended to a circuit in IVC)
     bool is_kernel = false;
+
+    friend std::ostream& operator<<(std::ostream& os, DatabusPropagationData const& data)
+    {
+        os << data.contains_app_return_data_commitment << ",\n"
+           << data.contains_kernel_return_data_commitment << ",\n"
+           << data.app_return_data_public_input_idx << ",\n"
+           << data.kernel_return_data_public_input_idx << ",\n"
+           << data.is_kernel << "\n";
+        return os;
+    };
 };
 
 } // namespace bb
