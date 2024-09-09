@@ -22,6 +22,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
     using DeciderVerificationKey = bb::DeciderVerificationKey_<NativeFlavor>;
+    using VerifierCommitmentKey = typename NativeFlavor::VerifierCommitmentKey;
 
     Builder* builder;
 
@@ -101,7 +102,9 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     {
         auto native_honk_vk = std::make_shared<NativeVerificationKey>(verification_key->circuit_size,
                                                                       verification_key->num_public_inputs);
-        native_honk_vk->pcs_verification_key = verification_key->pcs_verification_key;
+        native_honk_vk->pcs_verification_key = verification_key->pcs_verification_key == nullptr
+                                                   ? std::make_shared<VerifierCommitmentKey>()
+                                                   : verification_key->pcs_verification_key;
         native_honk_vk->pub_inputs_offset = verification_key->pub_inputs_offset;
         native_honk_vk->contains_recursive_proof = verification_key->contains_recursive_proof;
         native_honk_vk->recursive_proof_public_input_indices = verification_key->recursive_proof_public_input_indices;

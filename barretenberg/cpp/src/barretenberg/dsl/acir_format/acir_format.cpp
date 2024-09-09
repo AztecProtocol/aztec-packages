@@ -459,16 +459,15 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
     }
 
     // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
-    std::vector<StdlibVerificationKey> stdlib_verification_keys;
+    std::vector<std::shared_ptr<StdlibVerificationKey>> stdlib_verification_keys;
     stdlib_verification_keys.reserve(constraint_system.ivc_recursion_constraints.size());
     for (const auto& constraint : constraint_system.ivc_recursion_constraints) {
-        stdlib_verification_keys.push_back(StdlibVerificationKey::from_witness_indices(circuit, constraint.key));
+        stdlib_verification_keys.push_back(std::make_shared<StdlibVerificationKey>(
+            StdlibVerificationKey::from_witness_indices(circuit, constraint.key)));
     }
 
-    // WORKTODO: allow for instantiate_stdlib_verification_queue to optionally take a vector of keys
-
-    // Create stdlib representations of each {proof, vkey} pair in the queue based on their native counterparts
-    ivc.instantiate_stdlib_verification_queue(circuit);
+    // Create stdlib representations of each {proof, vkey} pair to be recursively verified
+    ivc.instantiate_stdlib_verification_queue(circuit, stdlib_verification_keys);
 
     // Connect each {proof, vkey} pair from the constraint to the corresponding entry in the internal verification
     // queue. This ensures that the witnesses utlized in constraints generated based on acir are properly connected to
