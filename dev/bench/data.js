@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725897857164,
+  "lastUpdate": 1725902180876,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6e46b459e67c090a4ffe496880e47c05855f9df4",
-          "message": "chore: Oink takes directly populates an instance (#8170)\n\nOink can be thought of as an \"instance completer\", i.e. when it is done\r\nrunning all of the data that comprises an instance has been created. Up\r\nuntil now the model was to pass oink a reference to a proving key. It\r\nwould \"complete\" the proving key in place by populating some witness\r\npolynomials then explicitly return the rest of the data comprising an\r\ninstance (relation_parameters etc.) in a custom struct like\r\n`OinkOutput`. The data from this output would then be std::move'd into\r\nan instance existing in the external scope.\r\n\r\nThis PR simplifies this model by simply passing oink an instance\r\n(ProverInstance or VerifierInstance) which is \"completed\" in place\r\nthroughout oink. IMO this is cleaner and clearer than the half-and-half\r\napproach of completing the proving key in place and explicitly returning\r\nother data. It also removes a ton of boilerplate for moving data in and\r\nout of an instance. I don't love the \"input parameter treated as output\r\nparameter approach\" but unless we refactor Honk/PG to construct\r\nproving_key instead of an instance, I think this is preferred. (In that\r\ncase oink could take a proving_key and return a completed instance).",
-          "timestamp": "2024-08-23T15:39:16-07:00",
-          "tree_id": "d26f784a89925ecf358f10a5535d1dd2a3cdcfc6",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6e46b459e67c090a4ffe496880e47c05855f9df4"
-        },
-        "date": 1724453612798,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13531.287574000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10354.083299999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5086.065730000016,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4695.957214 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39769.02871200001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39769029000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14631.225642000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14631226000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3767305192,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3767305192 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 210633197,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 210633197 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3078762684,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3078762684 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173344248,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173344248 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 121484568,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 121484568 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "467120e5a95de267910c2f95b65dcb62c60f995d",
+          "message": "feat(avm): DSL integration of AVM recursive verifier (#8405)\n\nResolves #8285",
+          "timestamp": "2024-09-09T19:03:37+02:00",
+          "tree_id": "b9af75709e5690e3d74a33e0d9b5603342a2b84d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/467120e5a95de267910c2f95b65dcb62c60f995d"
+        },
+        "date": 1725902173776,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13380.17177200001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10213.702244000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5095.9106950000005,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4662.402388 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39324.350061,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39324350000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14666.023042,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14666023000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3668106100,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3668106100 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146826377,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146826377 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2998743767,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2998743767 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 120817087,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 120817087 ns\nthreads: 1"
           }
         ]
       }
