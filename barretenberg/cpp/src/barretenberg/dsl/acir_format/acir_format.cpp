@@ -400,8 +400,11 @@ void process_avm_recursion_constraints(Builder& builder,
                                 constraint_system.original_opcode_indices.avm_recursion_constraints.at(idx++));
     }
 
-    // Now that the circuit has been completely built, we add the output aggregation as public
-    // inputs.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1095): The following code will have to be adapted to
+    // support a circuit with both honk and avm recursion constraints.
+
+    // Now that the circuit has been completely built, we add
+    // the output aggregation as public inputs.
     if (!constraint_system.avm_recursion_constraints.empty()) {
 
         // First add the output aggregation object as public inputs

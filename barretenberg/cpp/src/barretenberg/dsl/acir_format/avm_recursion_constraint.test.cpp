@@ -79,7 +79,6 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
             std::vector<fr> key_witnesses = verifier.key->to_field_elements();
             std::vector<fr> proof_witnesses = prover.construct_proof();
-            // const size_t num_public_inputs = verifier.key->num_public_inputs;
 
             // Helper to append some values to the witness vector and return their corresponding indices
             auto add_to_witness_and_track_indices =
