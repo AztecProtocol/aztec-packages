@@ -705,9 +705,23 @@ jobs:
       - boxes
       - boxes-test
       # - protocol-circuits-gates-report # non-blocking
-    if: github.event.pull_request.draft == false && always()
+    if: always()
     steps:
-      - name: Report overall success
+      - name: Report overall success (non-draft)
+        if: github.event.pull_request.draft == false
+        env:
+          # We treat any skipped or failing jobs as a failure for the workflow as a whole.
+          FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          if [[ $FAIL == true ]]; then
+              echo "At least one job failed (or cancelled), merging not allowed."
+              exit 1
+          else
+              echo "All jobs succeeded, merge allowed."
+              exit 0
+          fi
+      - name: Block merge (draft)
+        if: github.event.pull_request.draft
         env:
           # We treat any skipped or failing jobs as a failure for the workflow as a whole.
           FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
