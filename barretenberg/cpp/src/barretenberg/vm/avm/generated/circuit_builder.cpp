@@ -208,7 +208,6 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
         polys.main_sel_op_cast[i] = rows[i].main_sel_op_cast;
         polys.main_sel_op_chain_id[i] = rows[i].main_sel_op_chain_id;
         polys.main_sel_op_cmov[i] = rows[i].main_sel_op_cmov;
-        polys.main_sel_op_coinbase[i] = rows[i].main_sel_op_coinbase;
         polys.main_sel_op_dagasleft[i] = rows[i].main_sel_op_dagasleft;
         polys.main_sel_op_div[i] = rows[i].main_sel_op_div;
         polys.main_sel_op_ecadd[i] = rows[i].main_sel_op_ecadd;

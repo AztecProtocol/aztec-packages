@@ -16,14 +16,11 @@ template <class Flavor> class ExecutionTrace_ {
   public:
     static constexpr size_t NUM_WIRES = Builder::NUM_WIRES;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1078): Since Keccak doesn't have knowledge of Poseidon2
-    // gate yet, we ignore the two related selectors
-    static constexpr size_t NUM_USED_SELECTORS =
-        !HasKeccak<Flavor> ? Builder::Arithmetization::NUM_SELECTORS : Builder::Arithmetization::NUM_SELECTORS - 2;
+    static constexpr size_t NUM_SELECTORS = Builder::Arithmetization::NUM_SELECTORS;
 
     struct TraceData {
         std::array<Polynomial, NUM_WIRES> wires;
-        std::array<Polynomial, NUM_USED_SELECTORS> selectors;
+        std::array<Polynomial, NUM_SELECTORS> selectors;
         // A vector of sets (vectors) of addresses into the wire polynomials whose values are copy constrained
         std::vector<CyclicPermutation> copy_cycles;
         uint32_t ram_rom_offset = 0;    // offset of the RAM/ROM block in the execution trace
@@ -48,10 +45,13 @@ template <class Flavor> class ExecutionTrace_ {
                     std::string wire_tag = "w_" + std::to_string(idx + 1) + "_lagrange";
                     proving_key.polynomial_store.put(wire_tag, wires[idx].share());
                 }
-                for (size_t idx = 0; idx < Builder::Arithmetization::NUM_SELECTORS; ++idx) {
-                    selectors[idx] = Polynomial(proving_key.circuit_size);
-                    std::string selector_tag = builder.selector_names[idx] + "_lagrange";
-                    proving_key.polynomial_store.put(selector_tag, selectors[idx].share());
+                {
+                    ZoneScopedN("selector initialization");
+                    for (size_t idx = 0; idx < Builder::Arithmetization::NUM_SELECTORS; ++idx) {
+                        selectors[idx] = Polynomial(proving_key.circuit_size);
+                        std::string selector_tag = builder.selector_names[idx] + "_lagrange";
+                        proving_key.polynomial_store.put(selector_tag, selectors[idx].share());
+                    }
                 }
             }
             {

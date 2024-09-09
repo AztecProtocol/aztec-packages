@@ -73,6 +73,14 @@ To update the sandbox, you can just run:
 aztec-up
 ```
 
+## Clone a Box (optional)
+
+You can use the `npx aztec-app` command to clone a ready-to-go "aztec box" with a sample contract or frontend. Assuming you have [node](https://nodejs.org/en/) installed, run:
+
+```bash
+npx aztec-app
+```
+
 ## Install Noir LSP (recommended)
 
 Install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) to get syntax highlighting, syntax error detection and go-to definitions for your Aztec contracts.

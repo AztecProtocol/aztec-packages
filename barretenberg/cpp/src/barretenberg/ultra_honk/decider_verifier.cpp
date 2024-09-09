@@ -1,8 +1,8 @@
 #include "decider_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/decider_verification_key.hpp"
 
 namespace bb {
 

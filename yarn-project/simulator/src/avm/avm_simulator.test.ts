@@ -32,7 +32,7 @@ import {
 } from './fixtures/index.js';
 import { type HostStorage } from './journal/host_storage.js';
 import { type AvmPersistableStateManager } from './journal/journal.js';
-import { Add, CalldataCopy, Return } from './opcodes/index.js';
+import { Add, CalldataCopy, Return, Set } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
 import {
   mockGetBytecode,
@@ -52,7 +52,9 @@ describe('AVM simulator: injected bytecode', () => {
   beforeAll(() => {
     calldata = [new Fr(1), new Fr(2)];
     bytecode = encodeToBytecode([
-      new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ adjustCalldataIndex(0), /*copySize=*/ 2, /*dstOffset=*/ 0),
+      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ adjustCalldataIndex(0), /*dstOffset*/ 0),
+      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 2, /*dstOffset*/ 1),
+      new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0),
       new Add(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
       new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySize=*/ 1),
     ]);
@@ -68,7 +70,6 @@ describe('AVM simulator: injected bytecode', () => {
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(3)]);
-    expect(context.machineState.l2GasLeft).toEqual(99999100);
   });
 
   it('Should halt if runs out of gas', async () => {

@@ -393,7 +393,9 @@ TEST_F(AvmArithmeticTestsFF, addition)
 {
     std::vector<FF> const calldata = { 37, 4, 11 };
     gen_trace_builder(calldata);
-    trace_builder.op_calldata_copy(0, 0, 3, 0);
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 3, 1, AvmMemoryTag::U32);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
 
     //                                   Memory layout:    [37,4,11,0,0,0,....]
     trace_builder.op_add(0, 0, 1, 4, AvmMemoryTag::FF); // [37,4,11,0,41,0,....]
@@ -415,7 +417,9 @@ TEST_F(AvmArithmeticTestsFF, subtraction)
 {
     std::vector<FF> const calldata = { 8, 4, 17 };
     gen_trace_builder(calldata);
-    trace_builder.op_calldata_copy(0, 0, 3, 0);
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 3, 1, AvmMemoryTag::U32);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
 
     //                             Memory layout:    [8,4,17,0,0,0,....]
     trace_builder.op_sub(0, 2, 0, 1, AvmMemoryTag::FF); // [8,9,17,0,0,0....]
@@ -436,7 +440,9 @@ TEST_F(AvmArithmeticTestsFF, multiplication)
 {
     std::vector<FF> const calldata = { 5, 0, 20 };
     gen_trace_builder(calldata);
-    trace_builder.op_calldata_copy(0, 0, 3, 0);
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 3, 1, AvmMemoryTag::U32);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
 
     //                             Memory layout:    [5,0,20,0,0,0,....]
     trace_builder.op_mul(0, 2, 0, 1, AvmMemoryTag::FF); // [5,100,20,0,0,0....]
@@ -456,8 +462,10 @@ TEST_F(AvmArithmeticTestsFF, multiplication)
 // Test on multiplication by zero over finite field type.
 TEST_F(AvmArithmeticTestsFF, multiplicationByZero)
 {
-    std::vector<FF> const calldata = { 127 };
+    std::vector<FF> const calldata = { 127, 0, 0 };
     gen_trace_builder(calldata);
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 3, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
 
     //                             Memory layout:    [127,0,0,0,0,0,....]
@@ -480,7 +488,9 @@ TEST_F(AvmArithmeticTestsFF, fDivision)
 {
     std::vector<FF> const calldata = { 15, 315 };
     gen_trace_builder(calldata);
-    trace_builder.op_calldata_copy(0, 0, 2, 0);
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
 
     //                  Memory layout:    [15,315,0,0,0,0,....]
     trace_builder.op_fdiv(0, 1, 0, 2); // [15,315,21,0,0,0....]
@@ -504,8 +514,10 @@ TEST_F(AvmArithmeticTestsFF, fDivision)
 // Test on division with zero numerator over finite field type.
 TEST_F(AvmArithmeticTestsFF, fDivisionNumeratorZero)
 {
-    std::vector<FF> const calldata = { 15 };
+    std::vector<FF> const calldata = { 15, 0, 0 };
     gen_trace_builder(calldata);
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 3, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
 
     //                  Memory layout:    [15,0,0,0,0,0,....]
@@ -531,8 +543,10 @@ TEST_F(AvmArithmeticTestsFF, fDivisionNumeratorZero)
 // We check that the operator error flag is raised.
 TEST_F(AvmArithmeticTestsFF, fDivisionByZeroError)
 {
-    std::vector<FF> const calldata = { 15 };
+    std::vector<FF> const calldata = { 15, 0, 0 };
     gen_trace_builder(calldata);
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 3, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
 
     //                  Memory layout:    [15,0,0,0,0,0,....]
@@ -585,7 +599,9 @@ TEST_F(AvmArithmeticTestsFF, mixedOperationsWithError)
 {
     std::vector<FF> const calldata = { 45, 23, 12 };
     gen_trace_builder(calldata);
-    trace_builder.op_calldata_copy(0, 0, 3, 2);
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 3, 1, AvmMemoryTag::U32);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
 
     //                             Memory layout:    [0,0,45,23,12,0,0,0,....]
     trace_builder.op_add(0, 2, 3, 4, AvmMemoryTag::FF); // [0,0,45,23,68,0,0,0,....]
@@ -610,7 +626,9 @@ TEST_F(AvmArithmeticTestsFF, equality)
     FF elem = FF::modulus - FF(1);
     std::vector<FF> const calldata = { elem, elem };
     gen_trace_builder(calldata);
-    trace_builder.op_calldata_copy(0, 0, 2, 0);
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_eq(0, 0, 1, 2, AvmMemoryTag::FF); // Memory Layout [q - 1, q - 1, 1, 0..]
     trace_builder.op_return(0, 0, 3);
     auto trace = trace_builder.finalize();
@@ -631,7 +649,10 @@ TEST_F(AvmArithmeticTestsFF, nonEquality)
     FF elem = FF::modulus - FF(1);
     std::vector<FF> const calldata = { elem, elem + FF(1) };
     gen_trace_builder(calldata);
-    trace_builder.op_calldata_copy(0, 0, 2, 0);
+    trace_builder.op_set(0, 0, 0, AvmMemoryTag::U32);
+    trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
+
     trace_builder.op_eq(0, 0, 1, 2, AvmMemoryTag::FF); // Memory Layout [q - 1, q, 0, 0..]
     trace_builder.op_return(0, 0, 3);
     auto trace = trace_builder.finalize();

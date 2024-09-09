@@ -22,7 +22,7 @@ impl<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> NoteHashReadRequest
         }
     }
 
-    pub fn to_hints(self) -> NoteHashReadRequestHints<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
+    unconstrained pub fn to_hints(self) -> NoteHashReadRequestHints<NUM_PENDING_HINTS, NUM_SETTLED_HINTS> {
         NoteHashReadRequestHints {
             read_request_statuses: self.read_request_statuses,
             pending_read_hints: self.pending_read_hints.storage,

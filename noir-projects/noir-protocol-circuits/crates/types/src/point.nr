@@ -1,4 +1,4 @@
-use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+pub use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 use crate::{traits::{Empty, Hash, Serialize}, hash::poseidon2_hash};
 
 global POINT_LENGTH: Field = 3;

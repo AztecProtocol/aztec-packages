@@ -26,6 +26,7 @@ import {
 import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { isAnvilTestChain } from './ethereum_chain.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 
 /**
@@ -167,7 +168,7 @@ export const deployL1Contracts = async (
     };
     return await (await fetch(rpcUrl, content)).json();
   };
-  if (chain.id == foundry.id) {
+  if (isAnvilTestChain(chain.id)) {
     const interval = 12;
     const res = await rpcCall('anvil_setBlockTimestampInterval', [interval]);
     if (res.error) {
@@ -260,7 +261,7 @@ export const deployL1Contracts = async (
     `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
-  if (chain.id == foundry.id) {
+  if (isAnvilTestChain(chain.id)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
     //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
     try {
