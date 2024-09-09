@@ -73,6 +73,13 @@ To update the sandbox, you can just run:
 aztec-up
 ```
 
+## Clone a Box (optional)
+
+You can use the `npx aztec-app` command to clone a ready-to-go "aztec box" with a sample contract or frontend. Assuming you have [node](https://nodejs.org/en/) installed, run:
+
+```bash
+npx aztec-app
+```
 
 ## Install Noir LSP (recommended)
 
