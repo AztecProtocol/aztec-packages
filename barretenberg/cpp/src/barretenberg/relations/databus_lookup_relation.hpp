@@ -48,7 +48,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static constexpr size_t LENGTH = 5;          // 1 + polynomial degree of this relation
     static constexpr size_t NUM_BUS_COLUMNS = 3; // calldata, return data
 
-    static constexpr size_t INVERSE_SUBREL_LENGTH = 4; // deg + 1 of inverse correctness subrelation
+    static constexpr size_t INVERSE_SUBREL_LENGTH = 5; // deg + 1 of inverse correctness subrelation
     static constexpr size_t LOOKUP_SUBREL_LENGTH = 5;  // deg + 1 of log-deriv lookup subrelation
 
     // Note: Inverse correctness subrelations are actually LENGTH-1; taking advantage would require additional work

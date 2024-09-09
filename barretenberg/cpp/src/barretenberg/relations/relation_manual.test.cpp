@@ -16,6 +16,7 @@ TEST_F(RelationManual, Poseidon2ExternalRelationZeros)
 
     Accumulator acc{ 0, 0, 0, 0 };
     struct AllPoseidonValues {
+        FF q_poseidon2_internal;
         FF q_poseidon2_external;
         FF w_l;
         FF w_r;
@@ -30,7 +31,7 @@ TEST_F(RelationManual, Poseidon2ExternalRelationZeros)
         FF q_o;
         FF q_4;
     };
-    AllPoseidonValues all_poseidon_values{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    AllPoseidonValues all_poseidon_values{ 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
     const auto parameters = RelationParameters<FF>::get_random();
     Relation::accumulate(acc, all_poseidon_values, parameters, 1);
@@ -133,6 +134,9 @@ TEST_F(RelationManual, Poseidon2InternalRelationRandom)
         FF w_o;
         FF w_4;
         FF q_l;
+        FF q_r;
+        FF q_o;
+        FF q_4;
 
         FF w_l_shift;
         FF w_r_shift;
@@ -156,6 +160,9 @@ TEST_F(RelationManual, Poseidon2InternalRelationRandom)
         3,
         4,
         5,
+        0,
+        0,
+        0,
         FF(std::string("0x122d9ce41e83c533318954d77a4ebc40eb729f6543ebd5f2e4ecb175ced3bc74")),
         FF(std::string("0x185028b6d489be7c029367a14616776b33bf2eada9bb370950d6719f68b5067f")),
         FF(std::string("0x00fce289a96b3f4a18562d0ef0ab76ca165e613222aa0c24501377003c5622a8")),
