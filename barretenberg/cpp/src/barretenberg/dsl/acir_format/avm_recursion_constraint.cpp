@@ -1,13 +1,14 @@
-#include "honk_recursion_constraint.hpp"
+#ifndef DISABLE_AZTEC_VM
+
+#include "avm_recursion_constraint.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
-#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/vm/avm/recursion/avm_recursive_flavor.hpp"
+#include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
 #include "proof_surgeon.hpp"
-#include "recursion_constraint.hpp"
+#include <cstddef>
 
 namespace acir_format {
 
@@ -19,9 +20,9 @@ using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
 namespace {
 /**
  * @brief Creates a dummy vkey and proof object.
- * @details Populates the key and proof vectors with dummy values in the write_vk case when we don't have a valid
- * witness. The bulk of the logic is setting up certain values correctly like the circuit size, number of public inputs,
- * aggregation object, and commitments.
+ * @details Populates the key and proof vectors with dummy values in the write_vk case when we do not have a valid
+ * witness. The bulk of the logic is setting up certain values correctly like the circuit size, aggregation object, and
+ * commitments.
  *
  * @param builder
  * @param proof_size Size of proof with NO public inputs
@@ -35,37 +36,36 @@ void create_dummy_vkey_and_proof(Builder& builder,
                                  const std::vector<field_ct>& key_fields,
                                  const std::vector<field_ct>& proof_fields)
 {
-    using Flavor = UltraFlavor;
+    using Flavor = AvmFlavor;
 
-    // Set vkey->circuit_size correctly based on the proof size
     size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Flavor::Commitment>();
     size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<Flavor::FF>();
-    assert((proof_size - HONK_RECURSION_PUBLIC_INPUT_OFFSET - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
-            Flavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) %
+
+    // Relevant source for proof layout: AvmFlavor::Transcript::serialize_full_transcript()
+    assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm - Flavor::NUM_ALL_ENTITIES * num_frs_fr -
+            2 * num_frs_comm) %
                (num_frs_comm + num_frs_fr * Flavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
            0);
-    // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
-    auto log_circuit_size =
-        (proof_size - HONK_RECURSION_PUBLIC_INPUT_OFFSET - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
-         Flavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
-        (num_frs_comm + num_frs_fr * Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
+
+    // Derivation of circuit size based on the proof
+    // Here, we should always get CONST_PROOF_SIZE_LOG_N which is not what is
+    // usually set for the AVM proof. As it is a dummy key/proof, it should not matter.
+    auto log_circuit_size = (proof_size - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
+                             Flavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
+                            (num_frs_comm + num_frs_fr * Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
+
+    /***************************************************************************
+     *                  Construct Dummy Verification Key
+     ***************************************************************************/
+
+    // Relevant source for key layout: AvmFlavor::VerificationKey::to_field_elements()
+
     // First key field is circuit size
     builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[0].witness_index);
     // Second key field is number of public inputs
     builder.assert_equal(builder.add_variable(public_inputs_size), key_fields[1].witness_index);
-    // Third key field is the pub inputs offset
-    builder.assert_equal(builder.add_variable(Flavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
-    // Fourth key field is the whether the proof contains an aggregation object.
-    builder.assert_equal(builder.add_variable(1), key_fields[3].witness_index);
-    uint32_t offset = 4;
-    size_t num_inner_public_inputs = public_inputs_size - bb::AGGREGATION_OBJECT_SIZE;
 
-    // We are making the assumption that the aggregation object are behind all the inner public inputs
-    for (size_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; i++) {
-        builder.assert_equal(builder.add_variable(num_inner_public_inputs + i), key_fields[offset].witness_index);
-        offset++;
-    }
-
+    size_t offset = 2;
     for (size_t i = 0; i < Flavor::NUM_PRECOMPUTED_ENTITIES; ++i) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
@@ -76,25 +76,14 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
-    offset = HONK_RECURSION_PUBLIC_INPUT_OFFSET;
-    // first 3 things
+    /***************************************************************************
+     *                  Construct Dummy Proof
+     ***************************************************************************/
+
     builder.assert_equal(builder.add_variable(1 << log_circuit_size), proof_fields[0].witness_index);
-    builder.assert_equal(builder.add_variable(public_inputs_size), proof_fields[1].witness_index);
-    builder.assert_equal(builder.add_variable(Flavor::has_zero_row ? 1 : 0), proof_fields[2].witness_index);
+    offset = 1;
 
-    // the inner public inputs
-    for (size_t i = 0; i < num_inner_public_inputs; i++) {
-        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
-        offset++;
-    }
-    // The aggregation object
-    AggregationObjectIndices agg_obj = stdlib::recursion::init_default_agg_obj_indices(builder);
-    for (auto idx : agg_obj) {
-        builder.assert_equal(idx, proof_fields[offset].witness_index);
-        offset++;
-    }
-
-    // first 7 commitments
+    // Witness Commitments
     for (size_t i = 0; i < Flavor::NUM_WITNESS_ENTITIES; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
@@ -105,19 +94,19 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
-    // now the univariates, which can just be 0s (7*CONST_PROOF_SIZE_LOG_N Frs)
+    // now the univariates
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N * Flavor::BATCHED_RELATION_PARTIAL_LENGTH; i++) {
         builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
         offset++;
     }
 
-    // now the sumcheck evaluations, which is just 43 0s
+    // now the sumcheck evaluations
     for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
         builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
         offset++;
     }
 
-    // now the zeromorph commitments, which are CONST_PROOF_SIZE_LOG_N comms
+    // now the zeromorph commitments
     for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = field_conversion::convert_to_bn254_frs(comm);
@@ -138,36 +127,32 @@ void create_dummy_vkey_and_proof(Builder& builder,
         builder.assert_equal(builder.add_variable(frs[3]), proof_fields[offset + 3].witness_index);
         offset += 4;
     }
-    ASSERT(offset == proof_size + public_inputs_size);
+
+    ASSERT(offset == proof_size);
 }
+
 } // namespace
 
 /**
- * @brief Add constraints required to recursively verify an UltraHonk proof
+ * @brief Add constraints required to recursively verify an AVM proof
  *
  * @param builder
  * @param input
- * @param input_aggregation_object_indices. The aggregation object coming from previous Honk recursion constraints.
+ * @param input_aggregation_object_indices. The aggregation object coming from previous Honk/Avm recursion constraints.
  * @param has_valid_witness_assignment. Do we have witnesses or are we just generating keys?
- *
- * @note We currently only support HonkRecursionConstraint where inner_proof_contains_recursive_proof = false.
- *       We would either need a separate ACIR opcode where inner_proof_contains_recursive_proof = true,
- *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
-AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
-                                                           const RecursionConstraint& input,
-                                                           AggregationObjectIndices input_aggregation_object_indices,
-                                                           bool has_valid_witness_assignments)
+AggregationObjectIndices create_avm_recursion_constraints(Builder& builder,
+                                                          const RecursionConstraint& input,
+                                                          AggregationObjectIndices input_aggregation_object_indices,
+                                                          bool has_valid_witness_assignments)
 {
-    using Flavor = UltraRecursiveFlavor_<Builder>;
+    using Flavor = AvmRecursiveFlavor_<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
-    using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
+    using RecursiveVerifier = AvmRecursiveVerifier_<Flavor>;
 
-    ASSERT(input.proof_type == HONK);
+    ASSERT(input.proof_type == AVM);
 
     // Construct an in-circuit representation of the verification key.
-    // For now, the v-key is a circuit constant and is fixed for the circuit.
-    // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
     std::vector<field_ct> key_fields;
     key_fields.reserve(input.key.size());
     for (const auto& idx : input.key) {
@@ -175,25 +160,25 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
         key_fields.emplace_back(field);
     }
 
-    std::vector<field_ct> proof_fields;
+    // TODO(JEANMON): Once we integrate with public inputs, we will have to decide whether we inject (see
+    // ProofSurgeon::create_indices_for_reconstructed_proof) them as part of proof_fields or through some separate
+    // argument like in the native verifier. The latter will be favored because the public inputs are not part of the
+    // transcript and the verifier code passes the proof to initialize the transcript.
+    // Create witness indices for the
+    // proof with public inputs reinserted std::vector<uint32_t> proof_indices =
+    //     ProofSurgeon::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
 
-    // Create witness indices for the proof with public inputs reinserted
-    std::vector<uint32_t> proof_indices =
-        ProofSurgeon::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
-    proof_fields.reserve(proof_indices.size());
-    for (const auto& idx : proof_indices) {
+    std::vector<field_ct> proof_fields;
+    proof_fields.reserve(input.proof.size());
+
+    for (const auto& idx : input.proof) {
         auto field = field_ct::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);
     }
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (!has_valid_witness_assignments) {
-        // In the constraint, the agg object public inputs are still contained in the proof. To get the 'raw' size of
-        // the proof and public_inputs we subtract and add the corresponding amount from the respective sizes.
-        size_t size_of_proof_with_no_pub_inputs = input.proof.size() - bb::AGGREGATION_OBJECT_SIZE;
-        size_t total_num_public_inputs = input.public_inputs.size() + bb::AGGREGATION_OBJECT_SIZE;
-        create_dummy_vkey_and_proof(
-            builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
+        create_dummy_vkey_and_proof(builder, input.proof.size(), input.public_inputs.size(), key_fields, proof_fields);
     }
 
     // Recursively verify the proof
@@ -202,10 +187,11 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
     aggregation_state_ct input_agg_obj = bb::stdlib::recursion::convert_witness_indices_to_agg_obj<Builder, bn254>(
         builder, input_aggregation_object_indices);
     aggregation_state_ct output_agg_object = verifier.verify_proof(proof_fields, input_agg_obj);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
-    // is important, like what the plonk recursion constraint does.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public
+    // inputs is important, like what the plonk recursion constraint does.
 
     return output_agg_object.get_witness_indices();
 }
 
 } // namespace acir_format
+#endif // DISABLE_AZTEC_VM

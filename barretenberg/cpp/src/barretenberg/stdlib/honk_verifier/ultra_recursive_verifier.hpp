@@ -27,9 +27,8 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
     explicit UltraRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
 
-    AggregationObject verify_proof(const HonkProof& proof, aggregation_state<typename Flavor::Curve> agg_obj);
-    AggregationObject verify_proof(const StdlibProof<Builder>& proof,
-                                   aggregation_state<typename Flavor::Curve> agg_obj);
+    AggregationObject verify_proof(const HonkProof& proof, AggregationObject agg_obj);
+    AggregationObject verify_proof(const StdlibProof<Builder>& proof, AggregationObject agg_obj);
 
     std::shared_ptr<VerificationKey> key;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
