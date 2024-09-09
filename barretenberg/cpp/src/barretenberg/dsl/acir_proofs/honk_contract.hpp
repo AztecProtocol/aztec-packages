@@ -293,10 +293,7 @@ struct Transcript {
 }
 
 library TranscriptLib {
-    function generateTranscript(Honk.Proof memory proof, Honk.VerificationKey memory vk, bytes32[] calldata publicInputs, uint256 publicInputsSize)
-        internal
-        view
-        returns (Transcript memory t)
+    function generateTranscript(Honk.Proof memory proof, Honk.VerificationKey memory vk, bytes32[] calldata publicInputs, uint256 publicInputsSize) internal view returns (Transcript memory t)
     {
         Fr previousChallenge;
         (t.eta, t.etaTwo, t.etaThree, previousChallenge) = generateEtaChallenge(proof, publicInputs, publicInputsSize);
@@ -325,10 +322,7 @@ library TranscriptLib {
         second = FrLib.fromBytes32(bytes32(hi));
     }
 
-    function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs)
-        internal
-        view
-        returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge)
+    function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs) internal view returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge)
     {
         bytes32[] memory round0 = new bytes32[](3 + NUMBER_OF_PUBLIC_INPUTS + 12);
         round0[0] = bytes32(proof.circuitSize);
@@ -363,10 +357,7 @@ library TranscriptLib {
         // etaThree = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(etaTwo))));
     }
 
-    function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.Proof memory proof)
-        internal
-        view
-        returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
+    function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.Proof memory proof) internal view returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
     {
         bytes32[13] memory round1;
         round1[0] = FrLib.toBytes32(previousChallenge);
@@ -390,10 +381,7 @@ library TranscriptLib {
     }
 
     // Alpha challenges non-linearise the gate contributions
-    function generateAlphaChallenges(Fr previousChallenge, Honk.Proof memory proof)
-        internal
-        view
-        returns (Fr[NUMBER_OF_ALPHAS] memory alphas, Fr nextPreviousChallenge)
+    function generateAlphaChallenges(Fr previousChallenge, Honk.Proof memory proof) internal view returns (Fr[NUMBER_OF_ALPHAS] memory alphas, Fr nextPreviousChallenge)
     {
         // Generate the original sumcheck alpha 0 by hashing zPerm and zLookup
         uint256[9] memory alpha0;
@@ -428,10 +416,7 @@ library TranscriptLib {
         // }
     }
 
-    function generateGateChallenges(Fr previousChallenge)
-        internal
-        view
-        returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges, Fr nextPreviousChallenge)
+    function generateGateChallenges(Fr previousChallenge) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges, Fr nextPreviousChallenge)
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
@@ -441,10 +426,7 @@ library TranscriptLib {
         nextPreviousChallenge = previousChallenge;
     }
 
-    function generateSumcheckChallenges(Honk.Proof memory proof, Fr prevChallenge)
-        internal
-        view
-        returns (Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckChallenges, Fr nextPreviousChallenge)
+    function generateSumcheckChallenges(Honk.Proof memory proof, Fr prevChallenge) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckChallenges, Fr nextPreviousChallenge)
     {
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             Fr[BATCHED_RELATION_PARTIAL_LENGTH + 1] memory univariateChal;
@@ -463,10 +445,7 @@ library TranscriptLib {
         nextPreviousChallenge = prevChallenge;
     }
 
-    function generateRhoChallenge(Honk.Proof memory proof, Fr prevChallenge)
-        internal
-        view
-        returns (Fr rho, Fr nextPreviousChallenge)
+    function generateRhoChallenge(Honk.Proof memory proof, Fr prevChallenge) internal view returns (Fr rho, Fr nextPreviousChallenge)
     {
         Fr[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
         rhoChallengeElements[0] = prevChallenge;
@@ -482,10 +461,7 @@ library TranscriptLib {
         // rho = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
     }
 
-    function generateZMYChallenge(Fr previousChallenge, Honk.Proof memory proof)
-        internal
-        view
-        returns (Fr zeromorphY, Fr nextPreviousChallenge)
+    function generateZMYChallenge(Fr previousChallenge, Honk.Proof memory proof) internal view returns (Fr zeromorphY, Fr nextPreviousChallenge)
     {
         uint256[CONST_PROOF_SIZE_LOG_N * 4 + 1] memory zmY;
         zmY[0] = Fr.unwrap(previousChallenge);
@@ -504,10 +480,7 @@ library TranscriptLib {
         // zeromorphY = FrLib.fromBytes32(keccak256(abi.encodePacked(zmY)));
     }
 
-    function generateZMXZChallenges(Fr previousChallenge, Honk.Proof memory proof)
-        internal
-        pure
-        returns (Fr zeromorphX, Fr zeromorphZ, Fr nextPreviousChallenge)
+    function generateZMXZChallenges(Fr previousChallenge, Honk.Proof memory proof) internal pure returns (Fr zeromorphX, Fr zeromorphZ, Fr nextPreviousChallenge)
     {
         uint256[4 + 1] memory buf;
         buf[0] = Fr.unwrap(previousChallenge);
