@@ -41,7 +41,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     prepare_for_folding(fold_data);
 
     auto delta = transcript->template get_challenge<FF>("delta");
-    auto accumulator = get_accumulator();
+    const std::shared_ptr<const DeciderVK>& accumulator = keys_to_fold[0]; // WORKTODO: move
     auto deltas =
         compute_round_challenge_pows(static_cast<size_t>(accumulator->verification_key->log_circuit_size), delta);
 

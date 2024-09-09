@@ -31,8 +31,6 @@ template <class DeciderVerificationKeys> class ProtogalaxyVerifier_ {
         : keys_to_fold(DeciderVerificationKeys(keys)){};
     ~ProtogalaxyVerifier_() = default;
 
-    std::shared_ptr<DeciderVK> get_accumulator() { return keys_to_fold[0]; }
-
     /**
      * @brief Instatiate the vks and the transcript.
      *
