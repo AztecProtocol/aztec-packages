@@ -479,6 +479,12 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
 
 /**
  * @brief Create a kernel circuit from a constraint system and an IVC instance
+ * @details This method processes ivc_recursion_constraints using the kernel completion logic contained in AztecIvc.
+ * Since verification keys are known at the time of acir generation, the verification key witnesses contained in the
+ * constraints are used directly to instantiate the recursive verifiers. On the other hand, the proof witnesses
+ * contained in the constraints are generally 'dummy' values since proofs are not known during acir generation (with the
+ * exception of public inputs). This is remedied by connecting the dummy proof witnesses to the genuine proof witnesses,
+ * known internally to the IVC class, via copy constraints.
  *
  * @param constraint_system AcirFormat constraint system possibly containing IVC recursion constraints
  * @param ivc An IVC instance containing internal data about proofs to be verified
@@ -518,9 +524,9 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
     // Create stdlib representations of each {proof, vkey} pair to be recursively verified
     ivc.instantiate_stdlib_verification_queue(circuit, stdlib_verification_keys);
 
-    // Connect each {proof, vkey} pair from the constraint to the corresponding entry in the internal verification
-    // queue. This ensures that the witnesses utlized in constraints generated based on acir are properly connected to
-    // the constraints generated herein via the ivc scheme (e.g. recursive verifications).
+    // Connect the proof/public_input witness indices from each constraint to the corresponding proof witnesses in the
+    // internal verification queue. This ensures that the witnesses utlized in constraints generated based on acir are
+    // properly connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
     for (auto [constraint, queue_entry] :
          zip_view(constraint_system.ivc_recursion_constraints, ivc.stdlib_verification_queue)) {
 
@@ -533,8 +539,6 @@ MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
         for (auto [proof_value, proof_idx] : zip_view(queue_entry.proof, complete_proof_indices)) {
             circuit.assert_equal(proof_value.get_witness_index(), proof_idx);
         }
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1090): assert equality between the internal vkey
-        // and the constaint vkey, or simply use the constraint vkey directly to construct the stdlib vkey used in IVC.
     }
 
     // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
