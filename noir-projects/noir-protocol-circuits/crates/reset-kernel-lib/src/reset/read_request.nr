@@ -27,6 +27,16 @@ impl Empty for ReadRequestStatus {
     }
 }
 
+impl ReadRequestStatus {
+    pub fn pending(hint_index: u32) -> Self {
+        ReadRequestStatus { state: ReadRequestState.PENDING, hint_index }
+    }
+
+    pub fn settled(hint_index: u32) -> Self {
+        ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index }
+    }
+}
+
 trait ReadValueHint {
     fn read_request_index(self) -> u32;
 }
@@ -62,7 +72,7 @@ fn validate_pending_read_requests<let READ_REQUEST_LEN: u32, T, let PENDING_VALU
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
     pending_values: [T; PENDING_VALUE_LEN],
     hints: [PendingReadHint; NUM_PENDING_READS]
-) where T: Readable {
+) where T: Readable<ScopedReadRequest> {
     for i in 0..NUM_PENDING_READS {
         let hint = hints[i];
         let read_request_index = hint.read_request_index;
@@ -82,7 +92,7 @@ fn validate_settled_read_requests<let READ_REQUEST_LEN: u32, let NUM_SETTLED_REA
     tree_root: Field
 ) where
     H: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE> + ReadValueHint,
-    LEAF_PREIMAGE: LeafPreimage + Readable {
+    LEAF_PREIMAGE: LeafPreimage + Readable<ScopedReadRequest> {
     for i in 0..NUM_SETTLED_READS {
         let hint = hints[i];
         let read_request_index = hint.read_request_index();
@@ -144,9 +154,9 @@ pub fn verify_reset_read_requests<
     tree_root: Field,
     propagated_read_requests: [ScopedReadRequest; READ_REQUEST_LEN]
 ) where
-    P: Readable,
+    P: Readable<ScopedReadRequest>,
     H: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE> + ReadValueHint,
-    LEAF_PREIMAGE: LeafPreimage + Readable {
+    LEAF_PREIMAGE: LeafPreimage + Readable<ScopedReadRequest> {
     validate_pending_read_requests(read_requests, pending_values, pending_read_hints);
 
     validate_settled_read_requests(read_requests, settled_read_hints, tree_root);
@@ -197,7 +207,7 @@ mod tests {
         counter: u32,
     }
 
-    impl Readable for TestValue {
+    impl Readable<ScopedReadRequest> for TestValue {
         fn assert_match_read_request(self, read_request: ScopedReadRequest) {
             let siloed_value = silo_test_value(read_request.value());
             assert_eq(self.value, siloed_value, "Hinted test value does not match");
@@ -226,7 +236,7 @@ mod tests {
         }
     }
 
-    impl Readable for TestLeafPreimage {
+    impl Readable<ScopedReadRequest> for TestLeafPreimage {
         fn assert_match_read_request(self, read_request: ScopedReadRequest) {
             let siloed_value = silo_test_value(read_request.value());
             assert_eq(siloed_value, self.value, "Provided leaf preimage is not for target value");

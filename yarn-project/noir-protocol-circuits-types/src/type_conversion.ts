@@ -34,7 +34,6 @@ import {
   KeyValidationRequestAndGenerator,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   L2ToL1Message,
-  type LeafDataReadHint,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
@@ -98,8 +97,8 @@ import {
   PublicCallStackItemCompressed,
   type PublicCircuitPublicInputs,
   type PublicDataHint,
+  type PublicDataLeafHint,
   PublicDataRead,
-  type PublicDataReadRequestHints,
   type PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
@@ -171,7 +170,6 @@ import type {
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
   L2ToL1Message as L2ToL1MessageNoir,
-  LeafDataReadHint as LeafDataReadHintNoir,
   LogHash as LogHashNoir,
   MaxBlockNumber as MaxBlockNumberNoir,
   MembershipWitness as MembershipWitnessNoir,
@@ -220,8 +218,8 @@ import type {
   PublicCallStackItem as PublicCallStackItemNoir,
   PublicCircuitPublicInputs as PublicCircuitPublicInputsNoir,
   PublicDataHint as PublicDataHintNoir,
+  PublicDataLeafHint as PublicDataLeafHintNoir,
   PublicDataRead as PublicDataReadNoir,
-  PublicDataReadRequestHints as PublicDataReadRequestHintsNoir,
   PublicDataTreeLeaf as PublicDataTreeLeafNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
@@ -1071,7 +1069,11 @@ export function mapPublicDataUpdateRequestToNoir(
  * @returns The parsed public data read.
  */
 export function mapPublicDataReadFromNoir(publicDataRead: PublicDataReadNoir): PublicDataRead {
-  return new PublicDataRead(mapFieldFromNoir(publicDataRead.leaf_slot), mapFieldFromNoir(publicDataRead.value));
+  return new PublicDataRead(
+    mapFieldFromNoir(publicDataRead.leaf_slot),
+    mapFieldFromNoir(publicDataRead.value),
+    mapNumberFromNoir(publicDataRead.counter),
+  );
 }
 
 /**
@@ -1083,6 +1085,7 @@ export function mapPublicDataReadToNoir(publicDataRead: PublicDataRead): PublicD
   return {
     leaf_slot: mapFieldToNoir(publicDataRead.leafSlot),
     value: mapFieldToNoir(publicDataRead.value),
+    counter: mapNumberToNoir(publicDataRead.counter),
   };
 }
 
@@ -1097,13 +1100,6 @@ function mapPendingReadHintToNoir(hint: PendingReadHint): PendingReadHintNoir {
   return {
     read_request_index: mapNumberToNoir(hint.readRequestIndex),
     pending_value_index: mapNumberToNoir(hint.pendingValueIndex),
-  };
-}
-
-function mapLeafDataReadHintToNoir(hint: LeafDataReadHint): LeafDataReadHintNoir {
-  return {
-    read_request_index: mapNumberToNoir(hint.readRequestIndex),
-    data_hint_index: mapNumberToNoir(hint.dataHintIndex),
   };
 }
 
@@ -1198,11 +1194,10 @@ function mapPublicDataHintToNoir(hint: PublicDataHint): PublicDataHintNoir {
   };
 }
 
-function mapPublicDataReadRequestHintsToNoir(hints: PublicDataReadRequestHints): PublicDataReadRequestHintsNoir {
+function mapPublicDataLeafHintToNoir(hint: PublicDataLeafHint): PublicDataLeafHintNoir {
   return {
-    read_request_statuses: mapTuple(hints.readRequestStatuses, mapReadRequestStatusToNoir),
-    pending_read_hints: mapTuple(hints.pendingReadHints, mapPendingReadHintToNoir),
-    leaf_data_read_hints: mapTuple(hints.leafDataReadHints, mapLeafDataReadHintToNoir),
+    preimage: mapPublicDataTreePreimageToNoir(hint.preimage),
+    membership_witness: mapMembershipWitnessToNoir(hint.membershipWitness),
   };
 }
 
@@ -1804,8 +1799,7 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
       inputs.l1ToL2MsgReadRequestHints,
       (hint: TreeLeafReadRequestHint<typeof L1_TO_L2_MSG_TREE_HEIGHT>) => mapTreeLeafReadRequestHintToNoir(hint),
     ),
-    public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataHintToNoir),
-    public_data_read_request_hints: mapPublicDataReadRequestHintsToNoir(inputs.publicDataReadRequestHints),
+    public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataLeafHintToNoir),
     start_state: mapPartialStateReferenceToNoir(inputs.startState),
   };
 }

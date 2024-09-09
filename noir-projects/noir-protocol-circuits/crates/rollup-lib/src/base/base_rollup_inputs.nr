@@ -15,8 +15,7 @@ use dep::types::{
     storage::map::derive_storage_slot_in_map, address::AztecAddress,
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, nullifier_leaf_preimage::NullifierLeafPreimage,
-    public_data_update_request::PublicDataUpdateRequest, public_data_read::PublicDataRead,
-    kernel_data::KernelData
+    public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
@@ -33,8 +32,8 @@ use dep::types::{
     append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
     indexed_tree, MembershipWitness
 },
-    partial_state_reference::PartialStateReference, public_data_tree_leaf::PublicDataTreeLeaf,
-    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::is_empty,
+    partial_state_reference::PartialStateReference,
+    data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage}, traits::is_empty,
     utils::{field::{full_field_less_than, full_field_greater_than}, uint256::U256}
 };
 
@@ -467,7 +466,7 @@ mod tests {
     use dep::types::{
         abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_read::PublicDataRead,
+        nullifier_leaf_preimage::NullifierLeafPreimage,
         public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
         accumulated_data::CombinedAccumulatedData, gas::Gas
     },
@@ -485,8 +484,7 @@ mod tests {
         PUBLIC_KERNEL_TAIL_INDEX
     },
         contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
-        public_data_tree_leaf::PublicDataTreeLeaf,
-        public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
+        data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         tests::{
         fixtures, fixture_builder::FixtureBuilder,
         merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}

@@ -1,29 +1,29 @@
-mod assert_combined_deduped_array;
+mod assert_combined_array;
 mod assert_combined_sorted_transformed_value_array;
+mod assert_combined_transformed_array;
+mod assert_deduped_array;
 mod assert_exposed_sorted_transformed_value_array;
 mod assert_sorted_array;
 mod assert_sorted_transformed_value_array;
 mod assert_split_sorted_transformed_value_arrays;
 mod assert_split_transformed_value_arrays;
-mod get_sorted_hints;
+mod get_sorted_result;
 mod get_sorted_tuple;
 mod sort_by;
 mod sort_by_counter;
 
 // Re-exports.
-use assert_combined_deduped_array::{
-    assert_combined_deduped_array, dedupe_array::dedupe_array,
-    get_deduped_hints::{DedupedHints, get_deduped_hints},
-    sort_by_position_then_counter::sort_by_position_then_counter
-};
+use assert_combined_array::{assert_combined_array, combine_arrays};
 use assert_combined_sorted_transformed_value_array::{
     assert_combined_sorted_transformed_value_array_asc,
     get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc}
 };
+use assert_combined_transformed_array::{assert_combined_transformed_array, combine_and_transform_arrays};
 use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
     get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint}
 };
+use assert_deduped_array::{assert_deduped_array, dedupe_array};
 use assert_sorted_array::assert_sorted_array;
 use assert_split_sorted_transformed_value_arrays::{
     assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc,
@@ -31,7 +31,7 @@ use assert_split_sorted_transformed_value_arrays::{
 };
 use assert_sorted_transformed_value_array::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size};
 use assert_split_transformed_value_arrays::assert_split_transformed_value_arrays;
-use get_sorted_hints::get_sorted_hints;
+use get_sorted_result::{get_sorted_result, SortedResult};
 use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
 
 use crate::traits::{Empty, is_empty};
@@ -74,23 +74,10 @@ pub fn validate_array<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
     length
 }
 
-unconstrained fn count_non_empty_elements<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
-    let mut length = 0;
-    let mut seen_empty = false;
-    for elem in array {
-        if is_empty(elem) {
-            seen_empty = true;
-        } else if !seen_empty {
-            length += 1;
-        }
-    }
-    length
-}
-
 // Helper function to count the number of non-empty elements in a validated array.
 // Important: Only use it for validated arrays: validate_array(array) should be true.
 pub fn array_length<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
-    let length = count_non_empty_elements(array);
+    let length = find_index_hint(array, |elem: T| is_empty(elem));
     if length != 0 {
         assert(!is_empty(array[length - 1]));
     }
@@ -130,7 +117,11 @@ pub fn array_merge<T, let N: u32>(array1: [T; N], array2: [T; N]) -> [T; N] wher
     result
 }
 
-pub fn check_permutation<T, let N: u32>(original_array: [T; N], permuted_array: [T; N], original_indexes: [u32; N]) where T: Eq + Empty {
+pub fn check_permutation<T, let N: u32>(
+    original_array: [T; N],
+    permuted_array: [T; N],
+    original_indexes: [u32; N]
+) where T: Eq + Empty {
     let mut seen_value = [false; N];
     for i in 0..N {
         let index = original_indexes[i];

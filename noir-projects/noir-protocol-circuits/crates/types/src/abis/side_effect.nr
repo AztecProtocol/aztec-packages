@@ -19,12 +19,15 @@ trait Scoped<T> where T: Eq {
     fn inner(self) -> T;
 }
 
-trait Positioned {
-    // Like a storage slot
-    fn position(self) -> Field;
+trait Readable<T> {
+    fn assert_match_read_request(self, read_request: T);
 }
 
-trait Readable {
-    fn assert_match_read_request(self, read_request: ScopedReadRequest);
+trait Overridable {
+    // The counter of the next side effect that's overriding the current side effect.
+    fn override_counter(self) -> u32;
 }
 
+trait Inner<T> {
+    fn inner(self) -> T;
+}

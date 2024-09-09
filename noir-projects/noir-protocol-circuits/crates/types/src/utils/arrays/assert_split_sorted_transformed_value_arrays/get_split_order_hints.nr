@@ -83,49 +83,26 @@ pub fn get_split_order_hints_desc<T, let N: u32>(
 
 mod tests {
     use crate::{
-        abis::side_effect::Ordered, traits::Empty,
+        tests::types::TestValue,
         utils::arrays::assert_split_sorted_transformed_value_arrays::get_split_order_hints::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints}
     };
 
-    struct TestItem {
-        value: Field,
-        counter: u32,
-    }
-
-    impl Ordered for TestItem {
-        fn counter(self) -> u32 {
-            self.counter
-        }
-    }
-
-    impl Eq for TestItem {
-        fn eq(self, other: Self) -> bool {
-            (self.value == other.value) & (self.counter == other.counter)
-        }
-    }
-
-    impl Empty for TestItem {
-        fn empty() -> Self {
-            TestItem { value: 0, counter: 0 }
-        }
-    }
-
     global full_array = [
-        TestItem { value: 100, counter: 11 },
-        TestItem { value: 200, counter: 17 },
-        TestItem { value: 300, counter: 7 },
-        TestItem { value: 400, counter: 5 },
-        TestItem { value: 500, counter: 13 }
+        TestValue { value: 100, counter: 11 },
+        TestValue { value: 200, counter: 17 },
+        TestValue { value: 300, counter: 7 },
+        TestValue { value: 400, counter: 5 },
+        TestValue { value: 500, counter: 13 }
     ];
 
     global padded_array = [
-        TestItem { value: 100, counter: 11 },
-        TestItem { value: 200, counter: 17 },
-        TestItem { value: 300, counter: 7 },
-        TestItem { value: 400, counter: 5 },
-        TestItem { value: 500, counter: 13 },
-        TestItem::empty(),
-        TestItem::empty()
+        TestValue { value: 100, counter: 11 },
+        TestValue { value: 200, counter: 17 },
+        TestValue { value: 300, counter: 7 },
+        TestValue { value: 400, counter: 5 },
+        TestValue { value: 500, counter: 13 },
+        TestValue::empty(),
+        TestValue::empty()
     ];
 
     // asc
