@@ -202,21 +202,29 @@ export class CalldataCopy extends Instruction {
     OperandType.UINT32,
   ];
 
-  constructor(private indirect: number, private cdOffset: number, private copySize: number, private dstOffset: number) {
+  constructor(
+    private indirect: number,
+    private cdStartOffset: number,
+    private copySizeOffset: number,
+    private dstOffset: number,
+  ) {
     super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
-    const memoryOperations = { writes: this.copySize, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
-    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: this.copySize }));
-
     // We don't need to check tags here because: (1) the calldata is NOT in memory, and (2) we are the ones writing to destination.
-    const [cdOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.cdOffset, this.dstOffset], memory);
+    const [cdStartOffset, copySizeOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
+      [this.cdStartOffset, this.copySizeOffset, this.dstOffset],
+      memory,
+    );
 
-    const transformedData = context.environment.calldata
-      .slice(cdOffset, cdOffset + this.copySize)
-      .map(f => new Field(f));
+    const cdStart = memory.get(cdStartOffset).toNumber();
+    const copySize = memory.get(copySizeOffset).toNumber();
+    const memoryOperations = { reads: 2, writes: copySize, indirect: this.indirect };
+    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: copySize }));
+
+    const transformedData = context.environment.calldata.slice(cdStart, cdStart + copySize).map(f => new Field(f));
 
     memory.setSlice(dstOffset, transformedData);
 
