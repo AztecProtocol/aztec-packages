@@ -45,7 +45,7 @@ impl<'block> BrilligBlock<'block> {
                 target_index.address,
                 BrilligBinaryOp::Add,
             );
-            self.brillig_context.codegen_array_set(
+            self.brillig_context.codegen_store_with_offset(
                 target_vector_items_pointer,
                 target_index,
                 variable.extract_register(),
@@ -97,7 +97,7 @@ impl<'block> BrilligBlock<'block> {
         // Then we write the items to insert at the start
         for (index, variable) in variables_to_insert.iter().enumerate() {
             let target_index = self.brillig_context.make_usize_constant_instruction(index.into());
-            self.brillig_context.codegen_array_set(
+            self.brillig_context.codegen_store_with_offset(
                 target_vector_items_pointer,
                 target_index,
                 variable.extract_register(),
@@ -150,7 +150,7 @@ impl<'block> BrilligBlock<'block> {
 
         for (index, variable) in removed_items.iter().enumerate() {
             let target_index = self.brillig_context.make_usize_constant_instruction(index.into());
-            self.brillig_context.codegen_array_get(
+            self.brillig_context.codegen_load_with_offset(
                 source_vector_items_pointer,
                 target_index,
                 variable.extract_register(),
@@ -200,7 +200,7 @@ impl<'block> BrilligBlock<'block> {
                 target_index.address,
                 BrilligBinaryOp::Add,
             );
-            self.brillig_context.codegen_array_get(
+            self.brillig_context.codegen_load_with_offset(
                 source_vector_items_pointer,
                 target_index,
                 variable.extract_register(),
@@ -290,7 +290,7 @@ impl<'block> BrilligBlock<'block> {
                 target_index.address,
                 BrilligBinaryOp::Add,
             );
-            self.brillig_context.codegen_array_set(
+            self.brillig_context.codegen_store_with_offset(
                 target_vector_items_pointer,
                 target_index,
                 variable.extract_register(),
@@ -389,7 +389,7 @@ impl<'block> BrilligBlock<'block> {
                 target_index.address,
                 BrilligBinaryOp::Add,
             );
-            self.brillig_context.codegen_array_get(
+            self.brillig_context.codegen_load_with_offset(
                 source_vector_items_pointer,
                 target_index,
                 variable.extract_register(),

@@ -225,12 +225,12 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
 
                     match subitem {
                         BrilligParameter::SingleAddr(_) => {
-                            self.codegen_array_get(
+                            self.codegen_load_with_offset(
                                 flattened_array_pointer,
                                 source_index,
                                 movement_register,
                             );
-                            self.codegen_array_set(
+                            self.codegen_store_with_offset(
                                 deflattened_items_pointer,
                                 target_index,
                                 movement_register,
@@ -254,7 +254,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
                                 nested_array_pointer,
                                 false,
                             );
-                            self.codegen_array_set(
+                            self.codegen_store_with_offset(
                                 deflattened_items_pointer,
                                 target_index,
                                 deflattened_nested_array_pointer,

@@ -3,7 +3,7 @@ use acvm::acir::{
     AcirField,
 };
 
-use crate::brillig::brillig_ir::{BrilligBinaryOp, BRILLIG_MEMORY_ADDRESSING_BIT_SIZE};
+use crate::brillig::brillig_ir::BrilligBinaryOp;
 
 use super::{
     brillig_variable::{BrilligArray, SingleAddrVariable},
@@ -74,12 +74,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
     ) {
         assert!(source_field.bit_size == F::max_num_bits());
 
-        self.codegen_allocate_immediate_mem(target_array.pointer, target_array.size + 1);
-        self.indirect_const_instruction(
-            target_array.pointer,
-            BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
-            1_usize.into(),
-        );
+        self.codegen_initialize_array(target_array);
 
         let heap_array = self.codegen_brillig_array_to_heap_array(target_array);
 

@@ -354,6 +354,7 @@ impl<'block> BrilligBlock<'block> {
                         &output_value_types,
                     );
 
+                    // Deallocate the temporary heap arrays and vectors of the inputs
                     for input_value in input_values {
                         match input_value {
                             ValueOrArray::HeapArray(array) => {
@@ -366,10 +367,12 @@ impl<'block> BrilligBlock<'block> {
                         }
                     }
 
+                    // Deallocate the temporary heap arrays and vectors of the outputs
                     for (i, (output_register, output_variable)) in
                         output_values.iter().zip(output_variables).enumerate()
                     {
                         match output_register {
+                            // Returned vectors need to emit some bytecode to format the result as a BrilligVector
                             ValueOrArray::HeapVector(heap_vector) => {
                                 // Update the stack pointer so that we do not overwrite
                                 // dynamic memory returned from other external calls
@@ -392,7 +395,7 @@ impl<'block> BrilligBlock<'block> {
                                     brillig_vector.pointer,
                                     size_pointer,
                                     BrilligBinaryOp::Add,
-                                    1_usize,
+                                    1_usize, // Slices are [RC, Size, ...items]
                                 );
                                 self.brillig_context
                                     .store_instruction(size_pointer, heap_vector.size);
@@ -498,57 +501,37 @@ impl<'block> BrilligBlock<'block> {
                     );
                     let destination_vector = destination_variable.extract_vector();
                     let source_array = source_variable.extract_array();
+                    let element_size = dfg.type_of_value(arguments[0]).element_size();
+
+                    let source_size_register = self
+                        .brillig_context
+                        .make_usize_constant_instruction(source_array.size.into());
 
                     // we need to explicitly set the destination_len_variable
-                    self.brillig_context.usize_const_instruction(
+                    self.brillig_context.codegen_usize_op(
+                        source_size_register.address,
                         destination_len_variable.address,
-                        source_array.size.into(),
+                        BrilligBinaryOp::UnsignedDiv,
+                        element_size,
                     );
 
-                    self.brillig_context.codegen_allocate_immediate_mem(
-                        destination_vector.pointer,
-                        source_array.size + 2,
-                    );
-                    let write_pointer = self.brillig_context.allocate_register();
-                    self.brillig_context.mov_instruction(write_pointer, destination_vector.pointer);
-                    // RC
-                    self.brillig_context.indirect_const_instruction(
-                        write_pointer,
-                        BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
-                        1_usize.into(),
-                    );
-                    // Size
-                    self.brillig_context.codegen_usize_op_in_place(
-                        write_pointer,
-                        BrilligBinaryOp::Add,
-                        1,
-                    );
-                    self.brillig_context.indirect_const_instruction(
-                        write_pointer,
-                        BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
-                        source_array.size.into(),
-                    );
+                    self.brillig_context
+                        .codegen_initialize_vector(destination_vector, source_size_register);
+
                     // Items
-                    self.brillig_context.codegen_usize_op_in_place(
-                        write_pointer,
-                        BrilligBinaryOp::Add,
-                        1,
-                    );
-                    let array_items_pointer = self.brillig_context.allocate_register();
-                    self.brillig_context.codegen_usize_op(
-                        source_array.pointer,
-                        array_items_pointer,
-                        BrilligBinaryOp::Add,
-                        1,
-                    );
+                    let vector_items_pointer =
+                        self.brillig_context.codegen_make_vector_items_pointer(destination_vector);
+                    let array_items_pointer =
+                        self.brillig_context.codegen_make_array_items_pointer(source_array);
 
                     self.brillig_context.codegen_mem_copy(
                         array_items_pointer,
-                        write_pointer,
-                        destination_len_variable,
+                        vector_items_pointer,
+                        source_size_register,
                     );
 
-                    self.brillig_context.deallocate_register(write_pointer);
+                    self.brillig_context.deallocate_single_addr(source_size_register);
+                    self.brillig_context.deallocate_register(vector_items_pointer);
                     self.brillig_context.deallocate_register(array_items_pointer);
                 }
                 Value::Intrinsic(
@@ -675,7 +658,7 @@ impl<'block> BrilligBlock<'block> {
                 let items_pointer =
                     self.brillig_context.codegen_make_array_or_vector_items_pointer(array_variable);
 
-                self.brillig_context.codegen_array_get(
+                self.brillig_context.codegen_load_with_offset(
                     items_pointer,
                     index_variable,
                     destination_variable.extract_register(),
@@ -745,6 +728,7 @@ impl<'block> BrilligBlock<'block> {
                 let array_or_vector = self.convert_ssa_value(*value, dfg);
                 let rc_register = self.brillig_context.allocate_register();
 
+                // RC is always directly pointed by the array/vector pointer
                 self.brillig_context
                     .load_instruction(rc_register, array_or_vector.extract_register());
                 self.brillig_context.codegen_usize_op_in_place(
@@ -906,7 +890,7 @@ impl<'block> BrilligBlock<'block> {
         let items_pointer =
             self.brillig_context.codegen_make_array_or_vector_items_pointer(destination_variable);
 
-        self.brillig_context.codegen_array_set(
+        self.brillig_context.codegen_store_with_offset(
             items_pointer,
             index_register,
             value_variable.extract_register(),
@@ -1579,58 +1563,16 @@ impl<'block> BrilligBlock<'block> {
                     );
 
                     // Initialize the variable
-                    let items_pointer = self.brillig_context.allocate_register();
                     match new_variable {
                         BrilligVariable::BrilligArray(brillig_array) => {
-                            self.brillig_context.codegen_allocate_immediate_mem(
-                                brillig_array.pointer,
-                                array.len() + 1,
-                            );
-                            self.brillig_context.indirect_const_instruction(
-                                brillig_array.pointer,
-                                BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
-                                1_usize.into(),
-                            );
-
-                            self.brillig_context.codegen_usize_op(
-                                brillig_array.pointer,
-                                items_pointer,
-                                BrilligBinaryOp::Add,
-                                1,
-                            );
+                            self.brillig_context.codegen_initialize_array(brillig_array);
                         }
                         BrilligVariable::BrilligVector(vector) => {
-                            self.brillig_context
-                                .codegen_allocate_immediate_mem(vector.pointer, array.len() + 2);
-
-                            // Write RC
-                            self.brillig_context.indirect_const_instruction(
-                                vector.pointer,
-                                BRILLIG_MEMORY_ADDRESSING_BIT_SIZE,
-                                1_usize.into(),
-                            );
-
-                            // Write size
-                            self.brillig_context.codegen_usize_op(
-                                vector.pointer,
-                                items_pointer,
-                                BrilligBinaryOp::Add,
-                                1,
-                            );
-
-                            let vector_size = self
+                            let size = self
                                 .brillig_context
                                 .make_usize_constant_instruction(array.len().into());
-                            self.brillig_context
-                                .store_instruction(items_pointer, vector_size.address);
-                            self.brillig_context.deallocate_single_addr(vector_size);
-
-                            // Move the pointer to the first item
-                            self.brillig_context.codegen_usize_op_in_place(
-                                items_pointer,
-                                BrilligBinaryOp::Add,
-                                1,
-                            );
+                            self.brillig_context.codegen_initialize_vector(vector, size);
+                            self.brillig_context.deallocate_single_addr(size);
                         }
                         _ => unreachable!(
                             "ICE: Cannot initialize array value created as {new_variable:?}"
@@ -1638,6 +1580,9 @@ impl<'block> BrilligBlock<'block> {
                     };
 
                     // Write the items
+                    let items_pointer = self
+                        .brillig_context
+                        .codegen_make_array_or_vector_items_pointer(new_variable);
 
                     self.initialize_constant_array(array, typ, dfg, items_pointer);
 
@@ -1904,9 +1849,10 @@ impl<'block> BrilligBlock<'block> {
                         };
                         self.allocate_foreign_call_result_array(element_type, inner_array);
 
+                        // We add one since array.pointer points to [RC, ...items]
                         let idx =
                             self.brillig_context.make_usize_constant_instruction((index + 1).into()  );
-                        self.brillig_context.codegen_array_set(array.pointer, idx, inner_array.pointer);
+                        self.brillig_context.codegen_store_with_offset(array.pointer, idx, inner_array.pointer);
 
                         self.brillig_context.deallocate_single_addr(idx);
                         self.brillig_context.deallocate_register(inner_array.pointer);

@@ -37,7 +37,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
     }
 
     /// Gets the value in the array at index `index` and stores it in `result`
-    pub(crate) fn codegen_array_get(
+    pub(crate) fn codegen_load_with_offset(
         &mut self,
         array_ptr: MemoryAddress,
         index: SingleAddrVariable,
@@ -58,7 +58,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
     }
 
     /// Sets the item in the array at index `index` to `value`
-    pub(crate) fn codegen_array_set(
+    pub(crate) fn codegen_store_with_offset(
         &mut self,
         array_ptr: MemoryAddress,
         index: SingleAddrVariable,
@@ -99,8 +99,8 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
             let value_register = self.allocate_register();
 
             self.codegen_loop(num_elements_variable.address, |ctx, iterator| {
-                ctx.codegen_array_get(source_pointer, iterator, value_register);
-                ctx.codegen_array_set(destination_pointer, iterator, value_register);
+                ctx.codegen_load_with_offset(source_pointer, iterator, value_register);
+                ctx.codegen_store_with_offset(destination_pointer, iterator, value_register);
             });
 
             self.deallocate_register(value_register);
@@ -133,12 +133,20 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
             let index_at_end_of_array_var = SingleAddrVariable::new_usize(index_at_end_of_array);
 
             // Load both values
-            ctx.codegen_array_get(items_pointer, iterator_register, start_value_register);
-            ctx.codegen_array_get(items_pointer, index_at_end_of_array_var, end_value_register);
+            ctx.codegen_load_with_offset(items_pointer, iterator_register, start_value_register);
+            ctx.codegen_load_with_offset(
+                items_pointer,
+                index_at_end_of_array_var,
+                end_value_register,
+            );
 
             // Write both values
-            ctx.codegen_array_set(items_pointer, iterator_register, end_value_register);
-            ctx.codegen_array_set(items_pointer, index_at_end_of_array_var, start_value_register);
+            ctx.codegen_store_with_offset(items_pointer, iterator_register, end_value_register);
+            ctx.codegen_store_with_offset(
+                items_pointer,
+                index_at_end_of_array_var,
+                start_value_register,
+            );
         });
 
         self.deallocate_register(iteration_count);
