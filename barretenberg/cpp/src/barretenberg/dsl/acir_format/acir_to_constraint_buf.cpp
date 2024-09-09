@@ -1,6 +1,9 @@
 #include "acir_to_constraint_buf.hpp"
 #include "barretenberg/common/container.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <tuple>
 #include <utility>
 #ifndef __wasm__
@@ -167,10 +170,50 @@ mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
     return quad;
 }
 
+void constrain_witnesses(Program::Opcode::AssertZero const& arg, AcirFormat& af)
+{
+    for (const auto& linear_term : arg.value.linear_combinations) {
+        uint32_t witness_idx = std::get<1>(linear_term).value;
+        af.constrained_witness.insert(witness_idx);
+    }
+    for (const auto& linear_term : arg.value.mul_terms) {
+        uint32_t witness_idx = std::get<1>(linear_term).value;
+        af.constrained_witness.insert(witness_idx);
+        witness_idx = std::get<2>(linear_term).value;
+        af.constrained_witness.insert(witness_idx);
+    }
+}
+
+std::pair<uint32_t, uint32_t> is_assert_equal(Program::Opcode::AssertZero const& arg,
+                                              poly_triple const& pt,
+                                              AcirFormat const& af)
+{
+    if (!arg.value.mul_terms.empty() || arg.value.linear_combinations.size() != 2) {
+        return { 0, 0 };
+    }
+    if (pt.q_l == -pt.q_r && pt.q_l != bb::fr::zero() && pt.q_c == bb::fr::zero()) {
+        if (af.constrained_witness.contains(pt.a) && af.constrained_witness.contains(pt.b)) {
+            return { pt.a, pt.b };
+        }
+    }
+    return { 0, 0 };
+}
+
 void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
 {
     if (arg.value.linear_combinations.size() <= 3) {
         poly_triple pt = serialize_arithmetic_gate(arg.value);
+
+        auto assert_equal = is_assert_equal(arg, pt, af);
+        uint32_t w1 = std::get<0>(assert_equal);
+        uint32_t w2 = std::get<1>(assert_equal);
+        if (w1 != 0) {
+            if (w1 != w2) {
+                af.assert_equalities.push_back(pt);
+                af.original_opcode_indices.assert_equalities.push_back(opcode_index);
+            }
+            return;
+        }
         // Even if the number of linear terms is less than 3, we might not be able to fit it into a width-3 arithmetic
         // gate. This is the case if the linear terms are all disctinct witness from the multiplication term. In that
         // case, the serialize_arithmetic_gate() function will return a poly_triple with all 0's, and we use a width-4
@@ -187,6 +230,7 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, s
         af.quad_constraints.push_back(serialize_mul_quad_gate(arg.value));
         af.original_opcode_indices.quad_constraints.push_back(opcode_index);
     }
+    constrain_witnesses(arg, af);
 }
 
 uint32_t get_witness_from_function_input(Program::FunctionInput input)
@@ -422,8 +466,8 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Eventually arg.proof_type will be
                 // the only means for setting the proof type. use of honk_recursion flag in this context can go away
                 // once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
-                if (honk_recursion && proof_type_in != HONK_RECURSION) {
-                    proof_type_in = HONK_RECURSION;
+                if (honk_recursion && proof_type_in != HONK) {
+                    proof_type_in = HONK;
                 }
 
                 auto c = RecursionConstraint{
@@ -434,10 +478,10 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .proof_type = proof_type_in,
                 };
                 // Add the recursion constraint to the appropriate container based on proof type
-                if (c.proof_type == PLONK_RECURSION) {
+                if (c.proof_type == PLONK) {
                     af.recursion_constraints.push_back(c);
                     af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
-                } else if (c.proof_type == HONK_RECURSION) {
+                } else if (c.proof_type == HONK) {
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
                 } else {

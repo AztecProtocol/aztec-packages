@@ -52,11 +52,8 @@ enum class OpCode : uint8_t {
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
-    COINBASE,
     FEEPERL2GAS,
     FEEPERDAGAS,
-    BLOCKL2GASLIMIT,
-    BLOCKDAGASLIMIT,
     // Execution Environment - Calldata
     CALLDATACOPY,
 
@@ -82,7 +79,6 @@ enum class OpCode : uint8_t {
     NULLIFIEREXISTS, // Notes & Nullifiers
     EMITNULLIFIER,   // Notes & Nullifiers
     L1TOL2MSGEXISTS, // Messages
-    HEADERMEMBER,    // Archive tree & Headers
     GETCONTRACTINSTANCE,
 
     // Accrued Substate

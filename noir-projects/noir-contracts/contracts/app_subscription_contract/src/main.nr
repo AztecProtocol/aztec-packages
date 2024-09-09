@@ -2,18 +2,17 @@ mod subscription_note;
 mod dapp_payload;
 
 contract AppSubscription {
-    use crate::{dapp_payload::DAppPayload, subscription_note::{SubscriptionNote, SUBSCRIPTION_NOTE_LEN}};
+    use crate::{dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
     use aztec::{
-        prelude::{
-        AztecAddress, FunctionSelector, PrivateContext, NoteHeader, Map, PrivateMutable, PublicMutable,
-        SharedImmutable
-    },
+        prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
         encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys},
-        keys::getters::get_current_public_keys, protocol_types::constants::MAX_FIELD_VALUE
+        keys::getters::get_current_public_keys, protocol_types::constants::MAX_FIELD_VALUE,
+        utils::comparison::Comparator
     };
-    use authwit::{auth_witness::get_auth_witness, auth::assert_current_call_valid_authwit};
+    use authwit::auth::assert_current_call_valid_authwit;
     use token::Token;
+    use router::utils::privately_check_block_number;
 
     #[aztec(storage)]
     struct Storage {
@@ -53,7 +52,9 @@ contract AppSubscription {
 
         context.end_setup();
 
-        AppSubscription::at(context.this_address()).assert_not_expired(note.expiry_block_number).enqueue_view(&mut context);
+        // We check that the note is not expired. We do that via the router contract to conceal which contract
+        // is performing the check.
+        privately_check_block_number(Comparator.LT, note.expiry_block_number, &mut context);
 
         payload.execute_calls(&mut context, storage.target_address.read_private());
     }
@@ -74,23 +75,6 @@ contract AppSubscription {
         storage.fee_juice_limit_per_tx.initialize(fee_juice_limit_per_tx);
     }
 
-    #[aztec(public)]
-    #[aztec(internal)]
-    #[aztec(view)]
-    fn assert_not_expired(expiry_block_number: Field) {
-        assert((context.block_number()) as u64 < expiry_block_number as u64);
-    }
-
-    #[aztec(public)]
-    #[aztec(internal)]
-    #[aztec(view)]
-    fn assert_block_number(expiry_block_number: Field) {
-        assert(
-            (context.block_number() + SUBSCRIPTION_DURATION_IN_BLOCKS) as u64
-            >= expiry_block_number as u64
-        );
-    }
-
     #[aztec(private)]
     fn subscribe(subscriber: AztecAddress, nonce: Field, expiry_block_number: Field, tx_count: Field) {
         assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
@@ -102,8 +86,14 @@ contract AppSubscription {
             nonce
         ).call(&mut context);
 
-        // Assert that the given expiry_block_number < current_block_number + SUBSCRIPTION_DURATION_IN_BLOCKS.
-        AppSubscription::at(context.this_address()).assert_block_number(expiry_block_number).enqueue_view(&mut context);
+        // Assert that the `current_block_number > expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS`.
+        // --> We do that via the router contract to conceal which contract is performing the check.
+        privately_check_block_number(
+            Comparator.GT,
+            expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,
+            &mut context
+        );
+
         let subscriber_keys = get_current_public_keys(&mut context, subscriber);
         let msg_sender_ovpk_m = get_current_public_keys(&mut context, context.msg_sender()).ovpk_m;
 

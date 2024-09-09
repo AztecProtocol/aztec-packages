@@ -10,7 +10,7 @@ namespace bb {
  * @tparam Flavor
  * @param circuit
  */
-template <class Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circuit& circuit)
+template <class Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
     // for the lookup argument the circuit size must be at least as large as the sum of all tables used
     const size_t min_size_due_to_lookups = circuit.get_tables_size();
@@ -38,7 +38,7 @@ template <class Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circ
  * @param circuit
  */
 template <class Flavor>
-void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
+void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires IsGoblinFlavor<Flavor>
 {
     auto& public_calldata = proving_key.polynomials.calldata;
@@ -79,8 +79,8 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     }
 }
 
-template class ProverInstance_<UltraFlavor>;
-template class ProverInstance_<UltraKeccakFlavor>;
-template class ProverInstance_<MegaFlavor>;
+template class DeciderProvingKey_<UltraFlavor>;
+template class DeciderProvingKey_<UltraKeccakFlavor>;
+template class DeciderProvingKey_<MegaFlavor>;
 
 } // namespace bb
