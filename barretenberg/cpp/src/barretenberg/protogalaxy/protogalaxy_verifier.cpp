@@ -6,22 +6,23 @@
 namespace bb {
 
 template <class DeciderVerificationKeys>
-void ProtogalaxyVerifier_<DeciderVerificationKeys>::receive_and_finalise_key(const std::shared_ptr<DeciderVK>& keys,
-                                                                             const std::string& domain_separator)
+void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_one_incomplete_key(
+    const std::shared_ptr<DeciderVK>& keys, const std::string& domain_separator)
 {
     OinkVerifier<Flavor> oink_verifier{ keys, transcript, domain_separator + '_' };
     oink_verifier.verify();
 }
 
 template <class DeciderVerificationKeys>
-void ProtogalaxyVerifier_<DeciderVerificationKeys>::prepare_for_folding(const std::vector<FF>& fold_data)
+void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_incomplete_key(
+    const std::vector<FF>& proof)
 {
-    transcript = std::make_shared<Transcript>(fold_data);
+    transcript = std::make_shared<Transcript>(proof);
     size_t index = 0;
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(index);
     if (!key->is_accumulator) {
-        receive_and_finalise_key(key, domain_separator);
+        run_oink_verifier_on_one_incomplete_key(key, domain_separator);
         key->target_sum = 0;
         key->gate_challenges = std::vector<FF>(static_cast<size_t>(key->verification_key->log_circuit_size), 0);
     }
@@ -30,15 +31,15 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::prepare_for_folding(const st
     for (auto it = keys_to_fold.begin() + 1; it != keys_to_fold.end(); it++, index++) {
         auto key = *it;
         auto domain_separator = std::to_string(index);
-        receive_and_finalise_key(key, domain_separator);
+        run_oink_verifier_on_one_incomplete_key(key, domain_separator);
     }
 }
 
 template <class DeciderVerificationKeys>
 std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier_<
-    DeciderVerificationKeys>::verify_folding_proof(const std::vector<FF>& fold_data)
+    DeciderVerificationKeys>::verify_folding_proof(const std::vector<FF>& proof)
 {
-    prepare_for_folding(fold_data);
+    run_oink_verifier_on_each_incomplete_key(proof);
 
     auto delta = transcript->template get_challenge<FF>("delta");
     const std::shared_ptr<const DeciderVK>& accumulator = keys_to_fold[0]; // WORKTODO: move
