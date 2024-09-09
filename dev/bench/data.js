@@ -1,76 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725894817342,
+  "lastUpdate": 1725897857164,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "committer": {
-            "name": "AztecProtocol",
-            "username": "AztecProtocol"
-          },
-          "id": "ed96de375d3ceaf9aa8f031608b00d6987cae6cb",
-          "message": "feat(avm): integrate new range and cmp gadgets",
-          "timestamp": "2024-08-23T14:49:14Z",
-          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8165/commits/ed96de375d3ceaf9aa8f031608b00d6987cae6cb"
-        },
-        "date": 1724429458952,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13309.832764999981,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10129.886821 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4915.805544999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4492.878343 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39853.879596000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39853880000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14473.728753,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14473729000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3763474729,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3763474729 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 209883959,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 209883959 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3186759814,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3186759814 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173108272,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173108272 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 121663637,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 121663637 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a934e85b416a029ae057e0e70277401fb7cfe4b9",
+          "message": "chore: Rename files relating to what were \"instances\" (#8383)\n\nFollow-up to https://github.com/AztecProtocol/aztec-packages/pull/8362\r\nwhere I rename files according to the new class names therein. Instances\r\nhad been with sumcheck, but they don't really belong there, so I move\r\nthem to ultra_honk. I also rename the recursive versions of things and\r\nthe instance inspector in place.",
+          "timestamp": "2024-09-09T11:40:21-04:00",
+          "tree_id": "c66786cd1e33a0c797f720dfa468458b476349a1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a934e85b416a029ae057e0e70277401fb7cfe4b9"
+        },
+        "date": 1725897849580,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13329.313974,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10019.541385999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5071.91733900001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4708.613809999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39336.643107,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39336643000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14616.012972000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14616014000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3668617479,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3668617479 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 145928775,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 145928775 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2997146219,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2997146219 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 121484568,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 121484568 ns\nthreads: 1"
           }
         ]
       }
