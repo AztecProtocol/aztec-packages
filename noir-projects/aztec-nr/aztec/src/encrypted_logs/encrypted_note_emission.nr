@@ -1,6 +1,6 @@
 use crate::{
     context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteInterface},
-    keys::getters::{get_current_public_keys, get_ovsk_app},
+    keys::{getters::{get_current_public_keys, get_ovsk_app}, public_keys::{OvpkM, IvpkM}},
     encrypted_logs::payload::compute_encrypted_note_log, oracle::logs_traits::LensForEncryptedLog
 };
 use dep::protocol_types::{hash::sha256_to_field, address::AztecAddress, abis::note_hash::NoteHash};
@@ -39,8 +39,8 @@ fn compute_raw_note_log<Note, let N: u32, let NB: u32, let M: u32>(
 unconstrained fn compute_raw_note_log_unconstrained<Note, let N: u32, let NB: u32, let M: u32>(
     context: PrivateContext,
     note: Note,
-    ovpk: Point,
-    ivpk: Point,
+    ovpk: OvpkM,
+    ivpk: IvpkM,
     recipient: AztecAddress
 ) -> (u32, [u8; M], Field) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
     let ovsk_app = get_ovsk_app(ovpk.hash());
@@ -73,7 +73,9 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32, let NB: u32, let 
         let ovpk = get_current_public_keys(context, ov).ovpk_m;
         let ivpk = get_current_public_keys(context, iv).ivpk_m;
 
-        let (note_hash_counter, encrypted_log, log_hash) = compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, iv);
+        let (note_hash_counter, encrypted_log, log_hash) = unsafe {
+            compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, iv)
+        };
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
 }
@@ -99,7 +101,9 @@ pub fn encode_and_encrypt_note_with_keys_unconstrained<Note, let N: u32, let NB:
     recipient: AztecAddress
 ) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](NoteEmission<Note>) -> () where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
     | e: NoteEmission<Note> | {
-        let (note_hash_counter, encrypted_log, log_hash) = compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, recipient);
+        let (note_hash_counter, encrypted_log, log_hash) = unsafe {
+            compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, recipient)
+        };
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
 }
