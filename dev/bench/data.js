@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725921711141,
+  "lastUpdate": 1725925549280,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7395b95672e94318de695dc0fc71863ef31b2e30",
-          "message": "refactor(Protogalaxy): Isolate some state and clarify skipped zero computation (#8173)\n\nSome steps toward clarifying state during Protogalaxy proof\r\nconstruction:\r\n - Move accumulators into the class that contains state.\r\n- Reduce size of Prover header. Move internal functions into a purely\r\nstatic class. This accounts for most of the diff.\r\n- Clarify the known-zero-value while removing loose coupling of template\r\nparameters.\r\n\r\nThe next step will be to reduce the amount of state in ProverInstances.",
-          "timestamp": "2024-08-26T13:35:00-04:00",
-          "tree_id": "549b36c902a1ff256f4020e710e3c9981483d2fb",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7395b95672e94318de695dc0fc71863ef31b2e30"
-        },
-        "date": 1724694846213,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13583.453192000008,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10239.822048999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5104.207797000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4723.826975 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39787.214678000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39787215000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14751.218413,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14751218000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3766951787,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3766951787 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208054914,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 208054914 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3069267900,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3069267900 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173003019,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173003019 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 123703531,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 123703531 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5bb38b1692469520f29a1c85bc381c1ca9eb4032",
+          "message": "feat(avm)!: make JUMP(I) 16-bit (#8443)\n\nEarns ~2-5%.\n\nI did not add an 8bit version because the jump currently rarely fits, and once we move to byte-indexed PC, it will almost never fit.",
+          "timestamp": "2024-09-10T00:34:34+01:00",
+          "tree_id": "cf0ce767531f7509a45c9b8b0c74e597f8e02d9d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5bb38b1692469520f29a1c85bc381c1ca9eb4032"
+        },
+        "date": 1725925542070,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13267.099801,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9819.104691 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5075.574892000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4647.567982 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 38884.403515,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 38884403000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14598.554981,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14598555000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3730534331,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3730534331 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 147625867,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 147625867 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3031593919,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3031593919 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 120792195,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 120792195 ns\nthreads: 1"
           }
         ]
       }
