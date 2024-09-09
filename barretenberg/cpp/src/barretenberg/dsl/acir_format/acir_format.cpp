@@ -28,6 +28,15 @@ void build_constraints(Builder& builder,
 
     GateCounter gate_counter{ &builder, collect_gates_per_opcode };
 
+    // assert equals
+    for (size_t i = 0; i < constraint_system.assert_equalities.size(); ++i) {
+        const auto& constraint = constraint_system.assert_equalities.at(i);
+
+        builder.assert_equal(constraint.a, constraint.b);
+        gate_counter.track_diff(constraint_system.gates_per_opcode,
+                                constraint_system.original_opcode_indices.assert_equalities.at(i));
+    }
+
     // Add arithmetic gates
     for (size_t i = 0; i < constraint_system.poly_triple_constraints.size(); ++i) {
         const auto& constraint = constraint_system.poly_triple_constraints.at(i);
@@ -211,14 +220,6 @@ void build_constraints(Builder& builder,
         create_bigint_to_le_bytes_constraint(builder, constraint, dsl_bigints);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.bigint_to_le_bytes_constraints.at(i));
-    }
-    // assert equals
-    for (size_t i = 0; i < constraint_system.assert_equalities.size(); ++i) {
-        const auto& constraint = constraint_system.assert_equalities.at(i);
-
-        builder.assert_equal(constraint.a, constraint.b);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.assert_equalities.at(i));
     }
 
     // RecursionConstraints
