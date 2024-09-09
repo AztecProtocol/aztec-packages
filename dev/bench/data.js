@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725902180876,
+  "lastUpdate": 1725915216013,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8baeffd1239a20ca3cbc4071f7d7da974eff709d",
-          "message": "feat: optimize to_radix (#8073)\n\n- Change the ToRadix gadget/blackbox to emit u8 limbs instead of\r\nfields\r\n- Modify the toradix blackbox in brillig with an output_bits flag, to\r\nemit u1 limbs\r\n- No casting is needed in either case (u8 or u1) saving some emitted\r\nbrillig opcodes\r\n- The AVM transpiler, then ignores the output_bits flag, since it'll\r\noutput u8s which is what the AVM expects for bits",
-          "timestamp": "2024-08-26T12:21:37+02:00",
-          "tree_id": "75f08440826564eaf86af17f2e7ca85c2c5bd032",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8baeffd1239a20ca3cbc4071f7d7da974eff709d"
-        },
-        "date": 1724668610820,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13596.35513699999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10504.463456 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5137.794686999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4715.277559999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39870.96331399999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39870964000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15067.200397,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15067199000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3781615339,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3781615339 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 209733474,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 209733474 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3101053176,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3101053176 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173367340,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173367340 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 120817087,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 120817087 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5b27fbca982442251a350d6571bdd007b715d575",
+          "message": "feat(avm)!: variants for MOV opcode (#8440)\n\nYields an 11% to 21% reduction in bytecode size:\n```\navm_simulation_bytecode_size_in_bytes (Token:constructor): 10,658 (-18%)\navm_simulation_bytecode_size_in_bytes (FPC:constructor): 6,144 (-21%)\navm_simulation_bytecode_size_in_bytes (FPC:prepare_fee): 3,089 (-21%)\navm_simulation_bytecode_size_in_bytes (Token:transfer_public): 7,401 (-17%)\navm_simulation_bytecode_size_in_bytes (FPC:pay_refund): 3,911 (-19%)\navm_simulation_bytecode_size_in_bytes (Benchmarking:increment_balance): 2,620 (-16%)\navm_simulation_bytecode_size_in_bytes (FPC:pay_refund_with_shielded_rebate): 3,911 (-19%)\n```\n\nThere are some gas-related things to cleanup later.",
+          "timestamp": "2024-09-09T21:34:39+01:00",
+          "tree_id": "19a7437dc11e70d9420782cb37a832b143408aed",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5b27fbca982442251a350d6571bdd007b715d575"
+        },
+        "date": 1725915208242,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13275.568164999982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10180.456505000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5080.736568000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4680.4629970000005 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39212.790968999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39212791000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14685.400835999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14685400000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3691965298,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3691965298 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146259561,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146259561 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3000622747,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3000622747 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 120731099,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 120731099 ns\nthreads: 1"
           }
         ]
       }
