@@ -1,5 +1,5 @@
 import { type Body, type InboxLeaf } from '@aztec/circuit-types';
-import { type AppendOnlyTreeSnapshot, Fr, type Header } from '@aztec/circuits.js';
+import { type AppendOnlyTreeSnapshot, Fr, type Header, type Proof } from '@aztec/circuits.js';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -7,6 +7,7 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { type Hex, type PublicClient, getAbiItem } from 'viem';
 
 import {
+  getBlockProofFromSubmitProofTx,
   getL2BlockProposedLogs,
   getMessageSentLogs,
   getTxsPublishedLogs,
@@ -162,4 +163,25 @@ export async function retrieveL2ProofVerifiedEvents(
     proverId: Fr.fromString(log.args.proverId),
     txHash: log.transactionHash,
   }));
+}
+
+/** Retrieve submitted proofs from the rollup contract */
+export async function retrieveL2ProofsFromRollup(
+  publicClient: PublicClient,
+  rollupAddress: EthAddress,
+  searchStartBlock: bigint,
+  searchEndBlock?: bigint,
+): Promise<DataRetrieval<{ proof: Proof; proverId: Fr; l2BlockNumber: bigint; txHash: `0x${string}` }>> {
+  const logs = await retrieveL2ProofVerifiedEvents(publicClient, rollupAddress, searchStartBlock, searchEndBlock);
+  const retrievedData: { proof: Proof; proverId: Fr; l2BlockNumber: bigint; txHash: `0x${string}` }[] = [];
+  const lastProcessedL1BlockNumber = logs.length > 0 ? logs.at(-1)!.l1BlockNumber : searchStartBlock - 1n;
+
+  for (const { txHash, proverId, l2BlockNumber } of logs) {
+    const proofData = await getBlockProofFromSubmitProofTx(publicClient, txHash, l2BlockNumber, proverId);
+    retrievedData.push({ proof: proofData.proof, proverId: proofData.proverId, l2BlockNumber, txHash });
+  }
+  return {
+    retrievedData,
+    lastProcessedL1BlockNumber,
+  };
 }

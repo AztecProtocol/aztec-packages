@@ -8,14 +8,14 @@ import {Fr} from "./Fr.sol";
 
 uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
 
-uint256 constant NUMBER_OF_SUBRELATIONS = 18;
-uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 7;
-uint256 constant NUMBER_OF_ENTITIES = 42;
-uint256 constant NUMBER_OF_ALPHAS = 17;
+uint256 constant NUMBER_OF_SUBRELATIONS = 26;
+uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 8;
+uint256 constant NUMBER_OF_ENTITIES = 44;
+uint256 constant NUMBER_UNSHIFTED = 35;
+uint256 constant NUMBER_TO_BE_SHIFTED = 9;
 
-// Prime field order
-uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order
-uint256 constant P = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
+// Alphas are used as relation separators so there should be NUMBER_OF_SUBRELATIONS - 1
+uint256 constant NUMBER_OF_ALPHAS = 25;
 
 // ENUM FOR WIRES
 enum WIRE {
@@ -30,6 +30,8 @@ enum WIRE {
     Q_ELLIPTIC,
     Q_AUX,
     Q_LOOKUP,
+    Q_POSEIDON2_EXTERNAL,
+    Q_POSEIDON2_INTERNAL,
     SIGMA_1,
     SIGMA_2,
     SIGMA_3,
@@ -94,6 +96,8 @@ library Honk {
         G1Point qAux; // Auxillary
         G1Point qElliptic; // Auxillary
         G1Point qLookup; // Lookup
+        G1Point qPoseidon2External;
+        G1Point qPoseidon2Internal;
         // Copy cnstraints
         G1Point s1;
         G1Point s2;

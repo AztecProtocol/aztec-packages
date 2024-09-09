@@ -270,16 +270,40 @@ impl<'block> BrilligBlock<'block> {
                 self.convert_ssa_binary(binary, dfg, result_var);
             }
             Instruction::Constrain(lhs, rhs, assert_message) => {
-                let condition = SingleAddrVariable {
-                    address: self.brillig_context.allocate_register(),
-                    bit_size: 1,
+                let (condition, deallocate) = match (
+                    dfg.get_numeric_constant_with_type(*lhs),
+                    dfg.get_numeric_constant_with_type(*rhs),
+                ) {
+                    // If the constraint is of the form `x == u1 1` then we can simply constrain `x` directly
+                    (
+                        Some((constant, Type::Numeric(NumericType::Unsigned { bit_size: 1 }))),
+                        None,
+                    ) if constant == FieldElement::one() => {
+                        (self.convert_ssa_single_addr_value(*rhs, dfg), false)
+                    }
+                    (
+                        None,
+                        Some((constant, Type::Numeric(NumericType::Unsigned { bit_size: 1 }))),
+                    ) if constant == FieldElement::one() => {
+                        (self.convert_ssa_single_addr_value(*lhs, dfg), false)
+                    }
+
+                    // Otherwise we need to perform the equality explicitly.
+                    _ => {
+                        let condition = SingleAddrVariable {
+                            address: self.brillig_context.allocate_register(),
+                            bit_size: 1,
+                        };
+                        self.convert_ssa_binary(
+                            &Binary { lhs: *lhs, rhs: *rhs, operator: BinaryOp::Eq },
+                            dfg,
+                            condition,
+                        );
+
+                        (condition, true)
+                    }
                 };
 
-                self.convert_ssa_binary(
-                    &Binary { lhs: *lhs, rhs: *rhs, operator: BinaryOp::Eq },
-                    dfg,
-                    condition,
-                );
                 match assert_message {
                     Some(ConstrainError::Dynamic(selector, values)) => {
                         let payload_values =
@@ -302,7 +326,9 @@ impl<'block> BrilligBlock<'block> {
                         self.brillig_context.codegen_constrain(condition, None);
                     }
                 }
-                self.brillig_context.deallocate_single_addr(condition);
+                if deallocate {
+                    self.brillig_context.deallocate_single_addr(condition);
+                }
             }
             Instruction::Allocate => {
                 let result_value = dfg.instruction_results(instruction_id)[0];
@@ -622,7 +648,11 @@ impl<'block> BrilligBlock<'block> {
                 };
 
                 let index_variable = self.convert_ssa_single_addr_value(*index, dfg);
-                self.validate_array_index(array_variable, index_variable);
+
+                if !dfg.is_safe_index(*index, *array) {
+                    self.validate_array_index(array_variable, index_variable);
+                }
+
                 self.retrieve_variable_from_array(
                     array_pointer,
                     index_variable,
@@ -641,7 +671,11 @@ impl<'block> BrilligBlock<'block> {
                     result_ids[0],
                     dfg,
                 );
-                self.validate_array_index(source_variable, index_register);
+
+                if !dfg.is_safe_index(*index, *array) {
+                    self.validate_array_index(source_variable, index_register);
+                }
+
                 self.convert_ssa_array_set(
                     source_variable,
                     destination_variable,

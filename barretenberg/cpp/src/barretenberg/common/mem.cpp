@@ -1,5 +1,6 @@
 #include "barretenberg/common/mem.hpp"
 
+#ifdef TRACY_ENABLE
 void* operator new(std::size_t count)
 {
     // NOLINTBEGIN(cppcoreguidelines-no-malloc)
@@ -25,3 +26,5 @@ void operator delete(void* ptr, std::size_t size) noexcept
     free(ptr);
     // NOLINTEND(cppcoreguidelines-no-malloc)
 }
+
+#endif

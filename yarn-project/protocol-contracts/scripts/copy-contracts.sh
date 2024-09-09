@@ -9,6 +9,7 @@ contracts=(
   key_registry_contract-KeyRegistry
   auth_registry_contract-AuthRegistry
   multi_call_entrypoint_contract-MultiCallEntrypoint
+  router_contract-Router
 )
 
 

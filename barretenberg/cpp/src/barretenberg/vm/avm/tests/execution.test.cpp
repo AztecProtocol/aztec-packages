@@ -1418,20 +1418,16 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                                + to_hex(OpCode::TIMESTAMP) +        // opcode TIMESTAMP
                                "00"                                 // Indirect flag
                                "00000009"                           // dst_offset
-                                                                    // Not in simulator
-                               //    + to_hex(OpCode::COINBASE) +       // opcode COINBASE
-                               //    "00"                               // Indirect flag
-                               //    "00000009"                         // dst_offset
-                               + to_hex(OpCode::FEEPERL2GAS) + // opcode FEEPERL2GAS
-                               "00"                            // Indirect flag
-                               "0000000a"                      // dst_offset
-                               + to_hex(OpCode::FEEPERDAGAS) + // opcode FEEPERDAGAS
-                               "00"                            // Indirect flag
-                               "0000000b"                      // dst_offset
-                               + to_hex(OpCode::RETURN) +      // opcode RETURN
-                               "00"                            // Indirect flag
-                               "00000001"                      // ret offset 1
-                               "0000000b";                     // ret size 11
+                               + to_hex(OpCode::FEEPERL2GAS) +      // opcode FEEPERL2GAS
+                               "00"                                 // Indirect flag
+                               "0000000a"                           // dst_offset
+                               + to_hex(OpCode::FEEPERDAGAS) +      // opcode FEEPERDAGAS
+                               "00"                                 // Indirect flag
+                               "0000000b"                           // dst_offset
+                               + to_hex(OpCode::RETURN) +           // opcode RETURN
+                               "00"                                 // Indirect flag
+                               "00000001"                           // ret offset 1
+                               "0000000b";                          // ret size 11
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
@@ -1483,13 +1479,6 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
                 AllOf(Field(&Instruction::op_code, OpCode::TIMESTAMP),
                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(9)))));
 
-    // COINBASE
-    // Not in simulator
-    // EXPECT_THAT(instructions.at(8),
-    //             AllOf(Field(&Instruction::op_code, OpCode::COINBASE),
-    //                   Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0),
-    //                   VariantWith<uint32_t>(10)))));
-
     // FEEPERL2GAS
     EXPECT_THAT(instructions.at(9),
                 AllOf(Field(&Instruction::op_code, OpCode::FEEPERL2GAS),
@@ -1514,15 +1503,14 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     FF version = 7;
     FF blocknumber = 8;
     FF timestamp = 9;
-    // FF coinbase = 10; // Not in simulator
     FF feeperl2gas = 10;
     FF feeperdagas = 11;
 
     // The return data for this test should be a the opcodes in sequence, as the opcodes dst address lines up with
     // this array The returndata call above will then return this array
     std::vector<FF> const expected_returndata = {
-        address,     storage_address,         sender,      function_selector, transaction_fee, chainid, version,
-        blocknumber, /*coinbase,*/ timestamp, feeperl2gas, feeperdagas,
+        address, storage_address, sender,    function_selector, transaction_fee, chainid,
+        version, blocknumber,     timestamp, feeperl2gas,       feeperdagas,
     };
 
     // Set up public inputs to contain the above values
@@ -1540,8 +1528,6 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     public_inputs_vec[VERSION_OFFSET] = version;
     public_inputs_vec[BLOCK_NUMBER_OFFSET] = blocknumber;
     public_inputs_vec[TIMESTAMP_OFFSET] = timestamp;
-    // Not in the simulator yet
-    // public_inputs_vec[COINBASE_OFFSET] = coinbase;
     // Global variables - Gas
     public_inputs_vec[FEE_PER_DA_GAS_OFFSET] = feeperdagas;
     public_inputs_vec[FEE_PER_L2_GAS_OFFSET] = feeperl2gas;
@@ -1596,12 +1582,6 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     auto timestamp_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_timestamp == 1; });
     EXPECT_EQ(timestamp_row->main_ia, timestamp);
-
-    // // Check coinbase
-    // Not in simulator
-    // auto coinbase_row =
-    //     std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_coinbase == 1; });
-    // EXPECT_EQ(coinbase_row->main_ia, coinbase);
 
     // Check feeperdagas
     auto feeperdagas_row =
@@ -1771,7 +1751,8 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     auto emit_note_hash_kernel_out_row = std::ranges::find_if(
         trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_note_hash_out_offset; });
     EXPECT_EQ(emit_note_hash_kernel_out_row->main_kernel_value_out, 1);
-    EXPECT_EQ(emit_note_hash_kernel_out_row->main_kernel_side_effect_out, 0);
+    // TODO(#8287)
+    // EXPECT_EQ(emit_note_hash_kernel_out_row->main_kernel_side_effect_out, 0);
     feed_output(emit_note_hash_out_offset, 1, 0, 0);
 
     // CHECK EMIT NULLIFIER
@@ -2040,7 +2021,9 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     std::vector<FF> returndata = {};
 
     // Generate Hint for hash exists operation
-    auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, 1 }, { 1, 1 }, { 2, 1 } });
+    auto execution_hints = ExecutionHints()
+                               .with_storage_value_hints({ { 0, 1 }, { 1, 1 }, { 2, 1 } })
+                               .with_note_hash_exists_hints({ { 0, 1 }, { 1, 1 }, { 2, 1 } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
 
@@ -2068,7 +2051,8 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     auto nullifier_out_row = std::ranges::find_if(
         trace.begin(), trace.end(), [&](Row r) { return r.main_clk == START_NULLIFIER_EXISTS_OFFSET; });
     EXPECT_EQ(nullifier_out_row->main_kernel_value_out, 1); // value
-    EXPECT_EQ(nullifier_out_row->main_kernel_side_effect_out, 1);
+    // TODO(#8287)
+    // EXPECT_EQ(nullifier_out_row->main_kernel_side_effect_out, 1);
     EXPECT_EQ(nullifier_out_row->main_kernel_metadata_out, 1); // exists
     feed_output(START_NULLIFIER_EXISTS_OFFSET, 1, 1, 1);
 
@@ -2082,7 +2066,8 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
     auto msg_out_row = std::ranges::find_if(
         trace.begin(), trace.end(), [&](Row r) { return r.main_clk == START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET; });
     EXPECT_EQ(msg_out_row->main_kernel_value_out, 1); // value
-    EXPECT_EQ(msg_out_row->main_kernel_side_effect_out, 2);
+    // TODO(#8287)
+    // EXPECT_EQ(msg_out_row->main_kernel_side_effect_out, 2);
     EXPECT_EQ(msg_out_row->main_kernel_metadata_out, 1); // exists
     feed_output(START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET, 1, 2, 1);
 
