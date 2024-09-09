@@ -19,7 +19,6 @@ use crate::ssa::ir::{
     value::{Value, ValueId},
 };
 use acvm::acir::brillig::{MemoryAddress, ValueOrArray};
-use acvm::brillig_vm::brillig::HeapVector;
 use acvm::{acir::AcirField, FieldElement};
 use fxhash::{FxHashMap as HashMap, FxHashSet as HashSet};
 use iter_extended::vecmap;
