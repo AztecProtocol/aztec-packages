@@ -2,6 +2,12 @@
 #include "log.hpp"
 #include <string>
 
+inline void abort_with_message [[noreturn]] (std::string const& err)
+{
+    info("abort: ", err);
+    std::abort();
+}
+
 inline void throw_or_abort [[noreturn]] (std::string const& err)
 {
 #ifndef __wasm__
@@ -9,10 +15,4 @@ inline void throw_or_abort [[noreturn]] (std::string const& err)
 #else
     abort_with_message(err);
 #endif
-}
-
-inline void abort_with_message [[noreturn]] (std::string const& err)
-{
-    info("abort: ", err);
-    std::abort();
 }
