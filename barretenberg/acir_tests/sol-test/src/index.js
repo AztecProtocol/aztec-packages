@@ -7,7 +7,7 @@ import linker from "solc/linker.js";
 
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
 // This excludes the public inputs which are sent separately to the Solidity verifier
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 423;
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 424;
 
 // We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
 // it simplifies of parallelising the test suite
@@ -204,7 +204,6 @@ try {
   const [numPublicInputs, publicInputs] = readPublicInputs(
     JSON.parse(proofAsFields.toString())
   );
-
   const proofPath = getEnvVar("PROOF");
   const proof = readFileSync(proofPath);
 
