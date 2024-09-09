@@ -101,20 +101,17 @@ pub fn brillig_to_avm(
             BrilligOpcode::Jump { location } => {
                 let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
-                    opcode: AvmOpcode::JUMP,
-                    operands: vec![AvmOperand::U32 { value: avm_loc as u32 }],
+                    opcode: AvmOpcode::JUMP_16,
+                    operands: vec![make_operand(16, &avm_loc)],
                     ..Default::default()
                 });
             }
             BrilligOpcode::JumpIf { condition, location } => {
                 let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
-                    opcode: AvmOpcode::JUMPI,
+                    opcode: AvmOpcode::JUMPI_16,
                     indirect: Some(ALL_DIRECT),
-                    operands: vec![
-                        AvmOperand::U32 { value: avm_loc as u32 },
-                        AvmOperand::U32 { value: condition.to_usize() as u32 },
-                    ],
+                    operands: vec![make_operand(16, &avm_loc), make_operand(16, &condition.0)],
                     ..Default::default()
                 });
             }

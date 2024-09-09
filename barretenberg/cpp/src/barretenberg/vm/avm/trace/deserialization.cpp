@@ -81,8 +81,8 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::DAGASLEFT, getter_format },
 
     // Machine State - Internal Control Flow
-    { OpCode::JUMP, { OperandType::UINT32 } },
-    { OpCode::JUMPI, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::JUMP_16, { OperandType::UINT16 } },
+    { OpCode::JUMPI_16, { OperandType::INDIRECT, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::INTERNALCALL, { OperandType::UINT32 } },
     { OpCode::INTERNALRETURN, {} },
 

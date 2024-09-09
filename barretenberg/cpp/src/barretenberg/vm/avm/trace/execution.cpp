@@ -572,13 +572,13 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
 
             // Machine State - Internal Control Flow
-        case OpCode::JUMP:
-            trace_builder.op_jump(std::get<uint32_t>(inst.operands.at(0)));
+        case OpCode::JUMP_16:
+            trace_builder.op_jump(std::get<uint16_t>(inst.operands.at(0)));
             break;
-        case OpCode::JUMPI:
+        case OpCode::JUMPI_16:
             trace_builder.op_jumpi(std::get<uint8_t>(inst.operands.at(0)),
-                                   std::get<uint32_t>(inst.operands.at(1)),
-                                   std::get<uint32_t>(inst.operands.at(2)));
+                                   std::get<uint16_t>(inst.operands.at(1)),
+                                   std::get<uint16_t>(inst.operands.at(2)));
             break;
         case OpCode::INTERNALCALL:
             trace_builder.op_internal_call(std::get<uint32_t>(inst.operands.at(0)));
