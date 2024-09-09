@@ -2,7 +2,7 @@
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/sumcheck/instance/instances.hpp"
+#include "barretenberg/ultra_honk/decider_keys.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;

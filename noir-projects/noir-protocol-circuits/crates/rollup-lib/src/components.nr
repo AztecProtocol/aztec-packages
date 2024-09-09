@@ -11,13 +11,12 @@ use dep::types::{
     merkle_tree::VariableMerkleTree,
     constants::{
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    utils::{uint256::U256, arrays::{array_length, array_merge}},
+    utils::{arrays::{array_length, array_merge}},
     abis::{
-    append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData,
-    public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash}
+    accumulated_data::CombinedAccumulatedData, public_data_update_request::PublicDataUpdateRequest,
+    log_hash::{LogHash, ScopedLogHash}
 }
 };
 

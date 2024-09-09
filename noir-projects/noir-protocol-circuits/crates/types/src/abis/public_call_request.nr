@@ -1,7 +1,7 @@
 use crate::{
     abis::{public_call_stack_item_compressed::PublicCallStackItemCompressed, side_effect::Ordered},
-    address::AztecAddress, constants::PUBLIC_CALL_REQUEST_LENGTH,
-    traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
+    constants::PUBLIC_CALL_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize},
+    utils::reader::Reader
 };
 
 struct PublicCallRequest {

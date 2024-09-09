@@ -50,6 +50,14 @@ boxes:
     RUN yarn install-browsers
     ENTRYPOINT ["/bin/sh", "-c"]
 
+npx:
+    FROM ../build-images/+base-slim-node
+    COPY --dir +build/usr/src /usr
+    WORKDIR /usr/src/boxes
+
+    RUN yarn
+    RUN yarn test:ci
+
 BOX_TEST_LOCAL:
   FUNCTION
   ARG box

@@ -1,10 +1,7 @@
 use crate::{
-    address::{
-    eth_address::EthAddress, salted_initialization_hash::SaltedInitializationHash,
-    aztec_address::AztecAddress
-},
+    address::{salted_initialization_hash::SaltedInitializationHash, aztec_address::AztecAddress},
     constants::GENERATOR_INDEX__PARTIAL_ADDRESS, contract_class_id::ContractClassId,
-    hash::poseidon2_hash_with_separator, traits::{ToField, FromField, Serialize, Deserialize}
+    hash::poseidon2_hash_with_separator, traits::{ToField, Serialize, Deserialize}
 };
 
 global PARTIAL_ADDRESS_LENGTH = 1;

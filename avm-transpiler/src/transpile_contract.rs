@@ -100,6 +100,7 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
                 let acir_program = function.bytecode;
                 let brillig_bytecode = extract_brillig_from_acir_program(&acir_program);
                 let assert_messages = extract_static_assert_messages(&acir_program);
+                info!("Extracted Brillig program has {} instructions", brillig_bytecode.len());
 
                 // Map Brillig pcs to AVM pcs (index is Brillig PC, value is AVM PC)
                 let brillig_pcs_to_avm_pcs = map_brillig_pcs_to_avm_pcs(brillig_bytecode);
@@ -118,7 +119,7 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
                 let _ = encoder.read_to_end(&mut compressed_avm_bytecode);
 
                 log::info!(
-                    "{}::{}: compressed {} to {} bytes ({}% reduction)",
+                    "{}::{}: bytecode size of {} was compressed to {} ({}% reduction)",
                     contract.name,
                     function.name,
                     avm_bytecode.len(),
