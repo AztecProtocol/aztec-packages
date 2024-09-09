@@ -685,16 +685,16 @@ library RelationsLib {
         ip.q_pos_by_scaling = wire(p, WIRE.Q_POSEIDON2_INTERNAL) * domainSep;
 
         ip.v1 = ip.u1 * INTERNAL_MATRIX_DIAGONAL[0] + ip.u_sum;
-        evals[22] = evals[22] + ip.q_pos_by_scaling * (ip.v1 - wire(p, WIRE.W_L_SHIFT));
+        evals[18] = evals[18] + ip.q_pos_by_scaling * (ip.v1 - wire(p, WIRE.W_L_SHIFT));
 
         ip.v2 = ip.u2 * INTERNAL_MATRIX_DIAGONAL[1] + ip.u_sum;
-        evals[23] = evals[23] + ip.q_pos_by_scaling * (ip.v2 - wire(p, WIRE.W_R_SHIFT));
+        evals[19] = evals[19] + ip.q_pos_by_scaling * (ip.v2 - wire(p, WIRE.W_R_SHIFT));
 
         ip.v3 = ip.u3 * INTERNAL_MATRIX_DIAGONAL[2] + ip.u_sum;
-        evals[24] = evals[24] + ip.q_pos_by_scaling * (ip.v3 - wire(p, WIRE.W_O_SHIFT));
+        evals[20] = evals[20] + ip.q_pos_by_scaling * (ip.v3 - wire(p, WIRE.W_O_SHIFT));
 
         ip.v4 = ip.u4 * INTERNAL_MATRIX_DIAGONAL[3] + ip.u_sum;
-        evals[25] = evals[25] + ip.q_pos_by_scaling * (ip.v4 - wire(p, WIRE.W_4_SHIFT));
+        evals[21] = evals[21] + ip.q_pos_by_scaling * (ip.v4 - wire(p, WIRE.W_4_SHIFT));
     }
 
     function scaleAndBatchSubrelations(

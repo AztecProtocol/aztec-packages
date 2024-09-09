@@ -72,8 +72,7 @@ BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, UltraPermutationRelat
 // Goblin-Ultra only relations (PG prover combiner work)
 BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, EccOpQueueRelation<Fr>>);
 BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, DatabusLookupRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, Poseidon2InternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, Poseidon2Relation<Fr>>);
 
 // Ultra relations (Sumcheck prover work)
 BENCHMARK(execute_relation_for_univariates<UltraFlavor, UltraArithmeticRelation<Fr>>);
@@ -86,8 +85,7 @@ BENCHMARK(execute_relation_for_univariates<UltraFlavor, UltraPermutationRelation
 // Goblin-Ultra only relations (Sumcheck prover work)
 BENCHMARK(execute_relation_for_univariates<MegaFlavor, EccOpQueueRelation<Fr>>);
 BENCHMARK(execute_relation_for_univariates<MegaFlavor, DatabusLookupRelation<Fr>>);
-BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
-BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2InternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_univariates<MegaFlavor, Poseidon2Relation<Fr>>);
 
 // Ultra relations (verifier work)
 BENCHMARK(execute_relation_for_values<UltraFlavor, UltraArithmeticRelation<Fr>>);
@@ -100,8 +98,7 @@ BENCHMARK(execute_relation_for_values<UltraFlavor, UltraPermutationRelation<Fr>>
 // Goblin-Ultra only relations (verifier work)
 BENCHMARK(execute_relation_for_values<MegaFlavor, EccOpQueueRelation<Fr>>);
 BENCHMARK(execute_relation_for_values<MegaFlavor, DatabusLookupRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
-BENCHMARK(execute_relation_for_values<MegaFlavor, Poseidon2InternalRelation<Fr>>);
+BENCHMARK(execute_relation_for_values<MegaFlavor, Poseidon2Relation<Fr>>);
 
 // Translator VM
 BENCHMARK(execute_relation_for_values<TranslatorFlavor, TranslatorDecompositionRelation<Fr>>);

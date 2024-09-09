@@ -14,8 +14,7 @@
 #include "barretenberg/relations/elliptic_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
-#include "barretenberg/relations/poseidon2_external_relation.hpp"
-#include "barretenberg/relations/poseidon2_internal_relation.hpp"
+#include "barretenberg/relations/poseidon2_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -61,8 +60,7 @@ class UltraKeccakFlavor {
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
                                   bb::AuxiliaryRelation<FF>,
-                                  bb::Poseidon2ExternalRelation<FF>,
-                                  bb::Poseidon2InternalRelation<FF>>;
+                                  bb::Poseidon2Relation<FF>>;
 
     using Relations = Relations_<FF>;
 
