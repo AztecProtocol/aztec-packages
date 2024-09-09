@@ -296,9 +296,11 @@ impl<'block> BrilligBlock<'block> {
                         let value_type = dfg.type_of_value(*value_id);
                         type_to_heap_value_type(&value_type)
                     });
-                    let output_values = vecmap(result_ids, |value_id| {
-                        let variable = self.allocate_external_call_result(*value_id, dfg);
-                        self.brillig_context.variable_to_value_or_array(variable)
+                    let output_variables = vecmap(result_ids, |value_id| {
+                        self.allocate_external_call_result(*value_id, dfg)
+                    });
+                    let output_values = vecmap(&output_variables, |variable| {
+                        self.brillig_context.variable_to_value_or_array(*variable)
                     });
                     let output_value_types = vecmap(result_ids, |value_id| {
                         let value_type = dfg.type_of_value(*value_id);
@@ -324,37 +326,60 @@ impl<'block> BrilligBlock<'block> {
                         }
                     }
 
-                    for (i, output_register) in output_values.iter().enumerate() {
-                        if let ValueOrArray::HeapVector(HeapVector { size, .. }) = output_register {
-                            // Update the stack pointer so that we do not overwrite
-                            // dynamic memory returned from other external calls
-                            let total_size = self.brillig_context.allocate_register();
-                            self.brillig_context.codegen_usize_op(
-                                *size,
-                                total_size,
-                                BrilligBinaryOp::Add,
-                                2, // RC and Length
-                            );
-
-                            self.brillig_context
-                                .increase_free_memory_pointer_instruction(total_size);
-                            self.brillig_context.deallocate_register(total_size);
-
-                            // Update the dynamic slice length maintained in SSA
-                            if let ValueOrArray::MemoryAddress(len_index) = output_values[i - 1] {
-                                let element_size = dfg[result_ids[i]].get_type().element_size();
-                                self.brillig_context.mov_instruction(len_index, *size);
-                                self.brillig_context.codegen_usize_op_in_place(
-                                    len_index,
-                                    BrilligBinaryOp::UnsignedDiv,
-                                    element_size,
+                    for (i, (output_register, output_variable)) in
+                        output_values.iter().zip(output_variables).enumerate()
+                    {
+                        match output_register {
+                            ValueOrArray::HeapVector(heap_vector) => {
+                                // Update the stack pointer so that we do not overwrite
+                                // dynamic memory returned from other external calls
+                                // Single values and allocation of fixed sized arrays has already been handled
+                                // inside of `allocate_external_call_result`
+                                let total_size = self.brillig_context.allocate_register();
+                                self.brillig_context.codegen_usize_op(
+                                    heap_vector.size,
+                                    total_size,
+                                    BrilligBinaryOp::Add,
+                                    2, // RC and Length
                                 );
-                            } else {
-                                unreachable!("ICE: a vector must be preceded by a register containing its length");
+
+                                self.brillig_context
+                                    .increase_free_memory_pointer_instruction(total_size);
+                                let brillig_vector = output_variable.extract_vector();
+                                let size_pointer = self.brillig_context.allocate_register();
+
+                                self.brillig_context.codegen_usize_op(
+                                    brillig_vector.pointer,
+                                    size_pointer,
+                                    BrilligBinaryOp::Add,
+                                    1_usize,
+                                );
+                                self.brillig_context
+                                    .store_instruction(size_pointer, heap_vector.size);
+                                self.brillig_context.deallocate_register(size_pointer);
+                                self.brillig_context.deallocate_register(total_size);
+
+                                // Update the dynamic slice length maintained in SSA
+                                if let ValueOrArray::MemoryAddress(len_index) = output_values[i - 1]
+                                {
+                                    let element_size = dfg[result_ids[i]].get_type().element_size();
+                                    self.brillig_context
+                                        .mov_instruction(len_index, heap_vector.size);
+                                    self.brillig_context.codegen_usize_op_in_place(
+                                        len_index,
+                                        BrilligBinaryOp::UnsignedDiv,
+                                        element_size,
+                                    );
+                                } else {
+                                    unreachable!("ICE: a vector must be preceded by a register containing its length");
+                                }
+                                self.brillig_context.deallocate_heap_vector(*heap_vector);
                             }
+                            ValueOrArray::HeapArray(array) => {
+                                self.brillig_context.deallocate_heap_array(*array);
+                            }
+                            ValueOrArray::MemoryAddress(_) => {}
                         }
-                        // Single values and allocation of fixed sized arrays has already been handled
-                        // inside of `allocate_external_call_result`
                     }
                 }
                 Value::Function(func_id) => {

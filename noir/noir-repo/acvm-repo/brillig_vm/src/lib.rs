@@ -447,17 +447,16 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                         }
                         HeapValueType::Array { value_types, size } => {
                             let array_address = self.memory.read_ref(value_address);
-                            let array_start = self.memory.read_ref(array_address);
-                            self.read_slice_of_values_from_memory(array_start, *size, value_types)
+                            let items_start = MemoryAddress(array_address.to_usize() + 1);
+                            self.read_slice_of_values_from_memory(items_start, *size, value_types)
                         }
                         HeapValueType::Vector { value_types } => {
                             let vector_address = self.memory.read_ref(value_address);
-                            let vector_start = self.memory.read_ref(vector_address);
-                            let size_address: MemoryAddress =
-                                (vector_address.to_usize() + 1).into();
+                            let size_address = MemoryAddress(vector_address.to_usize() + 1);
+                            let items_start = MemoryAddress(vector_address.to_usize() + 2);
                             let vector_size = self.memory.read(size_address).to_usize();
                             self.read_slice_of_values_from_memory(
-                                vector_start,
+                                items_start,
                                 vector_size,
                                 value_types,
                             )
@@ -1901,33 +1900,36 @@ mod tests {
             vec![MemoryValue::new_field(FieldElement::from(9u128))];
 
         // construct memory by declaring all inner arrays/vectors first
+        // Declare v2
         let v2_ptr: usize = 0usize;
-        let mut memory = v2.clone();
+        let mut memory = vec![MemoryValue::from(1_u32), v2.len().into()];
         let v2_start = memory.len();
-        memory.extend(vec![MemoryValue::from(v2_ptr), v2.len().into(), MemoryValue::from(1_u32)]);
+        memory.extend(v2.clone());
         let a4_ptr = memory.len();
-        memory.extend(a4.clone());
+        memory.extend(vec![MemoryValue::from(1_u32)]);
         let a4_start = memory.len();
-        memory.extend(vec![MemoryValue::from(a4_ptr), MemoryValue::from(1_u32)]);
+        memory.extend(a4.clone());
         let v6_ptr = memory.len();
-        memory.extend(v6.clone());
+        memory.extend(vec![MemoryValue::from(1_u32), v6.len().into()]);
         let v6_start = memory.len();
-        memory.extend(vec![MemoryValue::from(v6_ptr), v6.len().into(), MemoryValue::from(1_u32)]);
+        memory.extend(v6.clone());
         let a9_ptr = memory.len();
-        memory.extend(a9.clone());
+        memory.extend(vec![MemoryValue::from(1_u32)]);
         let a9_start = memory.len();
-        memory.extend(vec![MemoryValue::from(a9_ptr), MemoryValue::from(1_u32)]);
+        memory.extend(a9.clone());
         // finally we add the contents of the outer array
         let outer_ptr = memory.len();
+        memory.extend(vec![MemoryValue::from(1_u32)]);
+        let outer_start = memory.len();
         let outer_array = vec![
             MemoryValue::new_field(FieldElement::from(1u128)),
             MemoryValue::from(v2.len() as u32),
-            MemoryValue::from(v2_start),
-            MemoryValue::from(a4_start),
+            MemoryValue::from(v2_ptr),
+            MemoryValue::from(a4_ptr),
             MemoryValue::new_field(FieldElement::from(5u128)),
             MemoryValue::from(v6.len() as u32),
-            MemoryValue::from(v6_start),
-            MemoryValue::from(a9_start),
+            MemoryValue::from(v6_ptr),
+            MemoryValue::from(a9_ptr),
         ];
         memory.extend(outer_array.clone());
 
@@ -1958,7 +1960,7 @@ mod tests {
             // input = 0
             Opcode::Const {
                 destination: r_input,
-                value: (outer_ptr).into(),
+                value: (outer_start).into(),
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
             },
             // some_function(input)
