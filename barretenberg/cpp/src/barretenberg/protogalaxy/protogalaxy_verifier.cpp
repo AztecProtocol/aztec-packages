@@ -97,20 +97,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     static_assert(DeciderVerificationKeys::NUM < 5);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
-    auto next_accumulator = std::make_shared<DeciderVK>(accumulator->verification_key);
-    next_accumulator->verification_key = std::make_shared<VerificationKey>(
-        accumulator->verification_key->circuit_size, accumulator->verification_key->num_public_inputs);
-    next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
-    next_accumulator->verification_key->pub_inputs_offset = accumulator->verification_key->pub_inputs_offset;
-    next_accumulator->verification_key->contains_recursive_proof =
-        accumulator->verification_key->contains_recursive_proof;
-    next_accumulator->verification_key->recursive_proof_public_input_indices =
-        accumulator->verification_key->recursive_proof_public_input_indices;
-
-    if constexpr (IsGoblinFlavor<Flavor>) { // Databus commitment propagation data
-        next_accumulator->verification_key->databus_propagation_data =
-            accumulator->verification_key->databus_propagation_data;
-    }
+    auto next_accumulator = std::make_shared<DeciderVK>();
+    next_accumulator->verification_key = std::make_shared<VerificationKey>(*accumulator->verification_key);
 
     size_t commitment_idx = 0;
     for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
