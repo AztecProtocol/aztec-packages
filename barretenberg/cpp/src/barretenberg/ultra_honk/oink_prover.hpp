@@ -21,7 +21,7 @@
 
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 #include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 

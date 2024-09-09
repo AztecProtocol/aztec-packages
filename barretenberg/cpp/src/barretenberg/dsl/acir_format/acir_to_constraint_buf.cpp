@@ -466,8 +466,8 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Eventually arg.proof_type will be
                 // the only means for setting the proof type. use of honk_recursion flag in this context can go away
                 // once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
-                if (honk_recursion && proof_type_in != HONK_RECURSION) {
-                    proof_type_in = HONK_RECURSION;
+                if (honk_recursion && proof_type_in != HONK) {
+                    proof_type_in = HONK;
                 }
 
                 auto c = RecursionConstraint{
@@ -478,10 +478,10 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .proof_type = proof_type_in,
                 };
                 // Add the recursion constraint to the appropriate container based on proof type
-                if (c.proof_type == PLONK_RECURSION) {
+                if (c.proof_type == PLONK) {
                     af.recursion_constraints.push_back(c);
                     af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
-                } else if (c.proof_type == HONK_RECURSION) {
+                } else if (c.proof_type == HONK) {
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
                 } else {

@@ -6,6 +6,11 @@ use dep::protocol_types::traits::Eq;
 // this returns
 //   collapsed: [3, 1]
 pub fn collapse_array<T, let N: u32>(input: [Option<T>; N]) -> BoundedVec<T, N> where T: Eq {
+    // Computing the collpased BoundedVec would result in a very large number of constraints, since we'd need to loop
+    // over the input array and conditionally write to a dynamic vec index, which is a very unfriendly pattern to the
+    // proving backend.
+    // Instead, we use an unconstrained function to produce the final collapsed array, along with some hints, and then
+    // verify that the input and collapsed arrays are equivalent.
     let (collapsed, collapsed_to_input_index_mapping) = unsafe {
         get_collapse_hints(input)
     };
@@ -13,7 +18,7 @@ pub fn collapse_array<T, let N: u32>(input: [Option<T>; N]) -> BoundedVec<T, N> 
     collapsed
 }
 
-pub fn verify_collapse_hints<T, let N: u32>(
+fn verify_collapse_hints<T, let N: u32>(
     input: [Option<T>; N],
     collapsed: BoundedVec<T, N>,
     collapsed_to_input_index_mapping: BoundedVec<u32, N>

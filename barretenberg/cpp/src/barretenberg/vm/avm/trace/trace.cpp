@@ -1381,19 +1381,6 @@ void AvmTraceBuilder::op_timestamp(uint8_t indirect, uint32_t dst_offset)
     main_trace.push_back(row);
 }
 
-void AvmTraceBuilder::op_coinbase(uint8_t indirect, uint32_t dst_offset)
-{
-    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    FF ia_value = kernel_trace_builder.op_coinbase(clk);
-    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
-    row.main_sel_op_coinbase = FF(1);
-
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::COINBASE);
-
-    main_trace.push_back(row);
-}
-
 void AvmTraceBuilder::op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;

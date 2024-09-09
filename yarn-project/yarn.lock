@@ -186,6 +186,7 @@ __metadata:
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
@@ -204,6 +205,7 @@ __metadata:
     tslib: ^2.4.0
     typescript: ^5.0.4
     util: ^0.12.5
+    viem: ^2.7.15
     webpack: ^5.88.2
     webpack-cli: ^5.1.4
   languageName: unknown
