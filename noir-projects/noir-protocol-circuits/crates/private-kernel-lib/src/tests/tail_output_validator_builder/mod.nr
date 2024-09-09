@@ -8,10 +8,7 @@ use crate::components::{
     tail_output_validator::{tail_output_hints::{generate_tail_output_hints, TailOutputHints}, TailOutputValidator}
 };
 use dep::types::{
-    abis::{
-    gas_settings::GasSettings,
-    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs}
-},
+    abis::{gas_settings::GasSettings, kernel_circuit_public_inputs::KernelCircuitPublicInputs},
     tests::fixture_builder::FixtureBuilder
 };
 
@@ -33,7 +30,9 @@ impl TailOutputValidatorBuilder {
 
     pub fn get_hints(self) -> TailOutputHints {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        generate_tail_output_hints(previous_kernel)
+        unsafe {
+            generate_tail_output_hints(previous_kernel)
+        }
     }
 
     pub fn export_output(self) -> KernelCircuitPublicInputs {

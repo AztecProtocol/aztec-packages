@@ -190,7 +190,7 @@ export async function gateCount(bytecodePath: string, honkRecursion: boolean) {
   const api = await Barretenberg.new({ threads: 1 });
   try {
     const numberOfGates = await getGates(bytecodePath, honkRecursion, api);
-
+    debug(`number of gates: : ${numberOfGates}`);
     // Create an 8-byte buffer and write the number into it.
     // Writing number directly to stdout will result in a variable sized
     // input depending on the size.
@@ -326,7 +326,7 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
 }
 
 export async function proveUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
-  const { api } = await init(bytecodePath, crsPath, -1, true);
+  const { api } = await init(bytecodePath, crsPath, -1, /* honkRecursion= */ true);
   try {
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
@@ -489,7 +489,7 @@ program
   .command('gates')
   .description('Print gate count to standard output.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
-  .option('-hr, --honk-recursion <bool>', 'Specify whether to use UltraHonk recursion', 'false')
+  .option('-hr, --honk-recursion', 'Specify whether to use UltraHonk recursion', false)
   .action(async ({ bytecodePath: bytecodePath, honkRecursion: honkRecursion }) => {
     handleGlobalOptions();
     await gateCount(bytecodePath, honkRecursion);

@@ -102,7 +102,7 @@ library Constants {
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
   uint256 internal constant ETHEREUM_SLOT_DURATION = 12;
-  uint256 internal constant AZTEC_SLOT_DURATION = 12;
+  uint256 internal constant AZTEC_SLOT_DURATION = 36;
   uint256 internal constant AZTEC_EPOCH_DURATION = 48;
   uint256 internal constant AZTEC_TARGET_COMMITTEE_SIZE = 48;
   uint256 internal constant GENESIS_ARCHIVE_ROOT =

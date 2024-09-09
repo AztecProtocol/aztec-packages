@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 namespace bb {
 /**
  * @brief The result of running the Protogalaxy prover containing a new accumulator as well as the proof data to

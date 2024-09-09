@@ -1,7 +1,6 @@
 use crate::{
-    address::{AztecAddress, EthAddress}, abis::gas_fees::GasFees,
-    constants::{GENERATOR_INDEX__GLOBAL_VARIABLES, GLOBAL_VARIABLES_LENGTH},
-    traits::{Deserialize, Empty, Hash, Serialize}, utils::reader::Reader
+    address::{AztecAddress, EthAddress}, abis::gas_fees::GasFees, constants::GLOBAL_VARIABLES_LENGTH,
+    traits::{Deserialize, Empty, Serialize}, utils::reader::Reader
 };
 
 // docs:start:global-variables
@@ -72,7 +71,7 @@ impl Eq for GlobalVariables {
         (self.timestamp == other.timestamp) &
         (self.coinbase == other.coinbase) &
         (self.fee_recipient == other.fee_recipient) &
-        (self.gas_fees == other.gas_fees) 
+        (self.gas_fees == other.gas_fees)
     }
 }
 

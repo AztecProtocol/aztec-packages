@@ -3,8 +3,8 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/sumcheck/instance//verifier_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/ultra_honk/decider_verification_key.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
 
 namespace bb {

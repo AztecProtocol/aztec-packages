@@ -396,13 +396,11 @@ describe('public_processor', () => {
           computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
           fr(0x101),
         ),
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotE), fr(0x301)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotF), fr(0x351)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotD), fr(0x251)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotE), fr(0x301)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotF), fr(0x351)),
       ];
-      // sort increasing by leafIndex
-      expectedWrites.sort((a, b) => (a.leafIndex.lt(b.leafIndex) ? -1 : 1));
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual(expectedWrites);
 
       // we keep the non-revertible logs
@@ -559,7 +557,7 @@ describe('public_processor', () => {
             PublicExecutionResultBuilder.fromFunctionCall({
               from: teardownRequest.callContext.storageContractAddress,
               tx: makeFunctionCall('', nestedContractAddress, makeSelector(5)),
-              contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 16)],
+              contractStorageUpdateRequests: [new ContractStorageUpdateRequest(contractSlotC, fr(0x202), 17)],
               revertReason: new SimulationError('Simulation Failed', []),
             }).build(teardownResultSettings),
           ],
@@ -598,12 +596,12 @@ describe('public_processor', () => {
       const numPublicDataWrites = 3;
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x151)),
         new PublicDataWrite(
           computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
           fr(0x101),
         ),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x102)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x151)),
       ]);
 
       // we keep the non-revertible logs
@@ -714,12 +712,12 @@ describe('public_processor', () => {
       const numPublicDataWrites = 3;
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toBe(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x151)),
         new PublicDataWrite(
           computePublicDataTreeLeafSlot(nonRevertibleRequests[0].callContext.storageContractAddress, contractSlotA),
           fr(0x101),
         ),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x102)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x151)),
       ]);
 
       // we keep the non-revertible logs
@@ -892,8 +890,8 @@ describe('public_processor', () => {
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x152)),
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x103)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
       ]);
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(0);
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);

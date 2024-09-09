@@ -26,7 +26,6 @@ inline const uint32_t CHAIN_ID_OFFSET = PCPI_GLOBALS_START;
 inline const uint32_t VERSION_OFFSET = PCPI_GLOBALS_START + 1;
 inline const uint32_t BLOCK_NUMBER_OFFSET = PCPI_GLOBALS_START + 2;
 inline const uint32_t TIMESTAMP_OFFSET = PCPI_GLOBALS_START + 3;
-inline const uint32_t COINBASE_OFFSET = PCPI_GLOBALS_START + 4;
 // Global Variables - fees
 inline const uint32_t FEE_PER_DA_GAS_OFFSET = PCPI_GLOBALS_START + 6;
 inline const uint32_t FEE_PER_L2_GAS_OFFSET = PCPI_GLOBALS_START + 7;

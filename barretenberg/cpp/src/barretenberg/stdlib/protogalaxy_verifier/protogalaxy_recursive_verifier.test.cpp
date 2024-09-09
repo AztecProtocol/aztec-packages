@@ -8,7 +8,7 @@
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
-#include "barretenberg/sumcheck/instance/instances.hpp"
+#include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"

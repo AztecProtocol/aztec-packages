@@ -111,7 +111,7 @@ jobs:
         run: |
           earthly-ci ./yarn-project+export-e2e-test-images
 
-  network-e2e:
+  test:
     needs: [build, changes]
     if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
     runs-on: ubuntu-20.04
@@ -145,7 +145,7 @@ jobs:
   success-check:
     runs-on: ubuntu-20.04
     needs:
-      - build-and-test
+      - test
     if: always()
     steps:
       - name: Report overall success

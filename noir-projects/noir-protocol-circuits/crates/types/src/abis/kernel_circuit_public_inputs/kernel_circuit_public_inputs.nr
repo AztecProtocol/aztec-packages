@@ -1,10 +1,10 @@
 use crate::{
     abis::{
     accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
-    validation_requests::RollupValidationRequests, gas::Gas, gas_fees::GasFees
+    validation_requests::RollupValidationRequests, gas_fees::GasFees
 },
     address::AztecAddress, partial_state_reference::PartialStateReference,
-    traits::{Empty, Eq, Serialize, Deserialize}, constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    traits::{Empty, Serialize, Deserialize}, constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     utils::reader::Reader
 };
 
