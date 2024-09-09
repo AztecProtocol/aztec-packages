@@ -773,12 +773,12 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                          std::get<uint32_t>(inst.operands.at(4)));
             break;
 
-            // Future Gadgets -- pending changes in noir
         case OpCode::SHA256COMPRESSION:
+            // TODO: sizes in wire format are ignored.
             trace_builder.op_sha256_compression(std::get<uint8_t>(inst.operands.at(0)),
                                                 std::get<uint32_t>(inst.operands.at(1)),
                                                 std::get<uint32_t>(inst.operands.at(2)),
-                                                std::get<uint32_t>(inst.operands.at(3)));
+                                                std::get<uint32_t>(inst.operands.at(4)));
             break;
 
         case OpCode::KECCAKF1600:
