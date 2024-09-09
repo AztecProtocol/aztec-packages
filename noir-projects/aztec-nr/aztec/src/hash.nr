@@ -4,14 +4,10 @@ use dep::protocol_types::{
     GENERATOR_INDEX__SECRET_HASH, GENERATOR_INDEX__MESSAGE_NULLIFIER, ARGS_HASH_CHUNK_COUNT,
     GENERATOR_INDEX__FUNCTION_ARGS, ARGS_HASH_CHUNK_LENGTH, MAX_ARGS_LENGTH
 },
-    traits::Hash,
-    hash::{
-    pedersen_hash, compute_siloed_nullifier, sha256_to_field, pedersen_commitment,
-    poseidon2_hash_with_separator
-}
+    traits::Hash, hash::{sha256_to_field, poseidon2_hash_with_separator}
 };
 // Note: pedersen_commitment is used only as a re-export here
-use crate::oracle::logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog};
+use crate::oracle::logs_traits::ToBytesForUnencryptedLog;
 
 pub fn compute_secret_hash(secret: Field) -> Field {
     poseidon2_hash_with_separator([secret], GENERATOR_INDEX__SECRET_HASH)

@@ -1,5 +1,5 @@
 use crate::{
-    address::AztecAddress, abis::function_data::FunctionData, abis::gas_settings::GasSettings,
+    address::AztecAddress, abis::function_data::FunctionData,
     constants::{GENERATOR_INDEX__TX_REQUEST, TX_REQUEST_LENGTH}, hash::poseidon2_hash_with_separator,
     traits::{Hash, Serialize, Deserialize, Empty}, transaction::tx_context::TxContext,
     utils::reader::Reader
@@ -76,8 +76,7 @@ mod tests {
         function_selector::FunctionSelector, function_data::FunctionData, gas_settings::GasSettings,
         gas::Gas, gas_fees::GasFees
     },
-        address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        transaction::{tx_request::TxRequest, tx_context::TxContext}
+        address::AztecAddress, transaction::{tx_request::TxRequest, tx_context::TxContext}
     };
 
     #[test]

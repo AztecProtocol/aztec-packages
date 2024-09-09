@@ -1,10 +1,8 @@
 use dep::types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
-    constants::BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH,
-    partial_state_reference::PartialStateReference, traits::{Empty, Serialize, Deserialize},
+    constants::BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH, traits::{Empty, Serialize, Deserialize},
     utils::reader::Reader, address::EthAddress
 };
-use crate::abis::constant_rollup_data::ConstantRollupData;
 
 struct FeeRecipient {
   recipient: EthAddress,

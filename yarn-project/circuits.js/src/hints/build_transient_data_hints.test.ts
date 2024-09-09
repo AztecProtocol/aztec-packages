@@ -1,6 +1,7 @@
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
+
 import {
-  AztecAddress,
-  Fr,
   NoteHash,
   Nullifier,
   ReadRequest,
@@ -8,8 +9,7 @@ import {
   type ScopedNullifier,
   ScopedReadRequest,
   TransientDataIndexHint,
-} from '@aztec/circuits.js';
-
+} from '../structs/index.js';
 import { buildTransientDataHints } from './build_transient_data_hints.js';
 
 describe('buildTransientDataHints', () => {

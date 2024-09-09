@@ -13,7 +13,9 @@ struct PreviousKernelValidator {
 
 impl PreviousKernelValidator {
     pub fn new(previous_kernel: PrivateKernelCircuitPublicInputs) -> Self {
-        let hints = generate_previous_kernel_validator_hints(previous_kernel);
+        let hints = unsafe {
+            generate_previous_kernel_validator_hints(previous_kernel)
+        };
         PreviousKernelValidator { previous_kernel, hints }
     }
 
