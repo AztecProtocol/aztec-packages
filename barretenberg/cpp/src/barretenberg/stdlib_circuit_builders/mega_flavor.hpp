@@ -374,6 +374,7 @@ class MegaFlavor {
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
         // for now just calls fully-formed constructor
+        // WORKTODO(issue pending): this should init subsets of the polys
         ProverPolynomials(size_t circuit_size, BB_UNUSED bool is_structured, BB_UNUSED const TraceBlocks& block_data)
             : ProverPolynomials(circuit_size)
         {}
