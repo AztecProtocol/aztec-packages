@@ -13,26 +13,26 @@ mod sort_by;
 mod sort_by_counter;
 
 // Re-exports.
-use assert_combined_array::{assert_combined_array, combine_arrays};
-use assert_combined_sorted_transformed_value_array::{
+pub use assert_combined_array::{assert_combined_array, combine_arrays};
+pub use assert_combined_sorted_transformed_value_array::{
     assert_combined_sorted_transformed_value_array_asc,
     get_combined_order_hints::{CombinedOrderHint, get_combined_order_hints_asc}
 };
-use assert_combined_transformed_array::{assert_combined_transformed_array, combine_and_transform_arrays};
-use assert_exposed_sorted_transformed_value_array::{
+pub use assert_combined_transformed_array::{assert_combined_transformed_array, combine_and_transform_arrays};
+pub use assert_exposed_sorted_transformed_value_array::{
     assert_exposed_sorted_transformed_value_array,
     get_order_hints::{get_order_hints_asc, get_order_hints_desc, OrderHint}
 };
-use assert_deduped_array::{assert_deduped_array, dedupe_array};
-use assert_sorted_array::assert_sorted_array;
-use assert_split_sorted_transformed_value_arrays::{
+pub use assert_deduped_array::{assert_deduped_array, dedupe_array};
+pub use assert_sorted_array::assert_sorted_array;
+pub use assert_split_sorted_transformed_value_arrays::{
     assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc,
     get_split_order_hints::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints}
 };
-use assert_sorted_transformed_value_array::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size};
-use assert_split_transformed_value_arrays::assert_split_transformed_value_arrays;
-use get_sorted_result::{get_sorted_result, SortedResult};
-use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
+pub use assert_sorted_transformed_value_array::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size};
+pub use assert_split_transformed_value_arrays::assert_split_transformed_value_arrays;
+pub use get_sorted_result::{get_sorted_result, SortedResult};
+pub use sort_by_counter::{sort_by_counter_asc, sort_by_counter_desc};
 
 use crate::traits::{Empty, is_empty};
 
@@ -77,7 +77,9 @@ pub fn validate_array<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
 // Helper function to count the number of non-empty elements in a validated array.
 // Important: Only use it for validated arrays: validate_array(array) should be true.
 pub fn array_length<T, let N: u32>(array: [T; N]) -> u32 where T: Empty + Eq {
-    let length = find_index_hint(array, |elem: T| is_empty(elem));
+    let length = unsafe {
+        find_index_hint(array, |elem: T| is_empty(elem))
+    };
     if length != 0 {
         assert(!is_empty(array[length - 1]));
     }
@@ -198,7 +200,9 @@ fn test_array_length_invalid_arrays() {
 fn find_index_greater_than_min() {
     let values = [10, 20, 30, 40];
     let min = 22;
-    let index = find_index_hint(values, |v: Field| min.lt(v));
+    let index = unsafe {
+        find_index_hint(values, |v: Field| min.lt(v))
+    };
     assert_eq(index, 2);
 }
 
@@ -206,7 +210,9 @@ fn find_index_greater_than_min() {
 fn find_index_not_found() {
     let values = [10, 20, 30, 40];
     let min = 100;
-    let index = find_index_hint(values, |v: Field| min.lt(v));
+    let index = unsafe {
+        find_index_hint(values, |v: Field| min.lt(v))
+    };
     assert_eq(index, 4);
 }
 

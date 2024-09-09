@@ -25,9 +25,9 @@ mod tests;
 mod state_reference;
 mod partial_state_reference;
 
-use abis::kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs};
-
 mod recursion;
 mod data;
 mod storage;
 mod validate;
+
+pub use abis::kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs};

@@ -1,7 +1,7 @@
 use dep::types::{data::OverridablePublicDataTreeLeaf, utils::arrays::SortedResult};
 
 // Validate that every non-zero slot in leaves is unique.
-fn validate_unique_leaf_slots<let N: u32>(
+pub fn validate_unique_leaf_slots<let N: u32>(
     leaves: [OverridablePublicDataTreeLeaf; N],
     unique_slot_index_hints: SortedResult<Field, N>
 ) {

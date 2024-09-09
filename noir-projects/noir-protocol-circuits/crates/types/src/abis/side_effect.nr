@@ -1,4 +1,4 @@
-use crate::{abis::read_request::ScopedReadRequest, address::AztecAddress};
+use crate::{address::AztecAddress};
 
 trait Ordered {
     fn counter(self) -> u32;

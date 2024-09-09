@@ -4,7 +4,7 @@ use dep::types::{
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths},
     max_block_number::MaxBlockNumber,
     private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths},
-    private_kernel::private_call_data::PrivateCallData, side_effect::Scoped
+    side_effect::Scoped
 },
     address::AztecAddress, traits::{Empty, is_empty}, transaction::tx_request::TxRequest
 };

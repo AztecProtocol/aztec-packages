@@ -1,7 +1,7 @@
 use crate::{
     abis::{side_effect::{Ordered, OrderedValue, Readable, Scoped}, read_request::ScopedReadRequest},
     address::AztecAddress, constants::{NULLIFIER_LENGTH, SCOPED_NULLIFIER_LENGTH},
-    hash::compute_siloed_nullifier, traits::{Empty, Hash, Serialize, Deserialize},
+    hash::compute_siloed_nullifier, traits::{Empty, Serialize, Deserialize},
     utils::{arrays::array_concat, reader::Reader}
 };
 

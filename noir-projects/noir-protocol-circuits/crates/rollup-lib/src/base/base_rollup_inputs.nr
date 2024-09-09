@@ -7,7 +7,7 @@ use crate::{
     components::{compute_tx_effects_hash, compute_kernel_out_hash}
 };
 use dep::types::{
-    hash::{sha256_to_field, silo_l2_to_l1_message},
+    hash::silo_l2_to_l1_message,
     data::{
     public_data_hint::PublicDataHint,
     hash::{compute_public_data_tree_index, compute_public_data_tree_value}
@@ -19,14 +19,11 @@ use dep::types::{
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
-    NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
     PUBLIC_DATA_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, MAX_NOTE_HASHES_PER_TX,
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, MAX_NULLIFIERS_PER_TX,
-    MAX_L2_TO_L1_MSGS_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
-    PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
-    PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ARCHIVE_HEIGHT, FEE_JUICE_ADDRESS,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_KERNEL_TAIL_INDEX, PRIVATE_KERNEL_EMPTY_INDEX,
-    PRIVATE_KERNEL_TAIL_INDEX
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
+    PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT, ARCHIVE_HEIGHT,
+    FEE_JUICE_ADDRESS, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_KERNEL_TAIL_INDEX,
+    PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX
 },
     merkle_tree::{
     append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
@@ -34,7 +31,7 @@ use dep::types::{
 },
     partial_state_reference::PartialStateReference,
     data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage}, traits::is_empty,
-    utils::{field::{full_field_less_than, full_field_greater_than}, uint256::U256}
+    utils::{field::{full_field_less_than, full_field_greater_than}}
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
@@ -279,7 +276,9 @@ impl BaseRollupInputs {
 
             if read_hint.leaf_slot == 0 {
                 // Is there a balance update already in this tx? If so, update it and return its index.
-                let existing_update_index = self.find_fee_payer_fee_juice_update_index(leaf_slot);
+                let existing_update_index = unsafe {
+                    self.find_fee_payer_fee_juice_update_index(leaf_slot)
+                };
                 let existing_update = self.kernel_data.public_inputs.end.public_data_update_requests[existing_update_index];
                 assert(
                     existing_update.leaf_slot == leaf_slot, "Wrong leaf slot for Fee Juice balance update request"
@@ -459,40 +458,35 @@ mod tests {
     },
         base::{
         state_diff_hints::StateDiffHints,
-        base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_fee_juice_balance_leaf_slot, ALLOWED_PREVIOUS_CIRCUITS}
+        base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_fee_juice_balance_leaf_slot}
     },
-        components::{TX_EFFECTS_HASH_INPUT_FIELDS, compute_kernel_out_hash}
+        components::TX_EFFECTS_HASH_INPUT_FIELDS
     };
     use dep::types::{
         abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         nullifier_leaf_preimage::NullifierLeafPreimage,
-        public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
-        accumulated_data::CombinedAccumulatedData, gas::Gas
+        public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData
     },
         messaging::l2_to_l1_message::ScopedL2ToL1Message, merkle_tree::MembershipWitness,
         hash::silo_l2_to_l1_message, data::public_data_hint::PublicDataHint,
         address::{AztecAddress, EthAddress},
         constants::{
-        ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_READS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
-        NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-        NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
-        PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, MAX_L2_TO_L1_MSGS_PER_TX,
+        ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
+        NOTE_HASH_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
+        NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT,
+        PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, MAX_L2_TO_L1_MSGS_PER_TX,
         PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        BASE_ROLLUP_INDEX, PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
-        PUBLIC_KERNEL_TAIL_INDEX
+        PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX, PUBLIC_KERNEL_TAIL_INDEX
     },
-        contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
+        partial_state_reference::PartialStateReference,
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
         tests::{
         fixtures, fixture_builder::FixtureBuilder,
         merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}
     },
-        utils::{
-        arrays::get_sorted_tuple::get_sorted_tuple,
-        field::{full_field_less_than, field_from_bytes_32_trunc, field_from_bytes}, uint256::U256
-    },
+        utils::{arrays::get_sorted_tuple::get_sorted_tuple, field::{full_field_less_than, field_from_bytes_32_trunc}},
         traits::Empty
     };
 
@@ -538,10 +532,12 @@ mod tests {
             final_public_data_writes.extend_from_array(protocol_public_data_writes.storage);
         }
 
-        let mut sorted_write_tuples = get_sorted_tuple(
-            final_public_data_writes.storage,
-            |(_, leaf_a): (u32, PublicDataTreeLeaf), (_, leaf_b): (u32, PublicDataTreeLeaf)| full_field_less_than(leaf_b.slot, leaf_a.slot)
-        );
+        let mut sorted_write_tuples = unsafe {
+            get_sorted_tuple(
+                final_public_data_writes.storage,
+                |(_, leaf_a): (u32, PublicDataTreeLeaf), (_, leaf_b): (u32, PublicDataTreeLeaf)| full_field_less_than(leaf_b.slot, leaf_a.slot)
+            )
+        };
 
         for i in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             if i < final_public_data_writes.len() {
@@ -671,10 +667,12 @@ mod tests {
             let mut nullifier_predecessor_preimages = [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX];
             let mut low_nullifier_membership_witness = [MembershipWitness::empty(); MAX_NULLIFIERS_PER_TX];
 
-            let sorted_new_nullifier_tuples = get_sorted_tuple(
-                self.nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value),
-                |a, b| full_field_less_than(b, a)
-            );
+            let sorted_new_nullifier_tuples = unsafe {
+                get_sorted_tuple(
+                    self.nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value),
+                    |a, b| full_field_less_than(b, a)
+                )
+            };
 
             let mut sorted_nullifiers = [0; MAX_NULLIFIERS_PER_TX];
             let mut sorted_nullifiers_indexes = [0; MAX_NULLIFIERS_PER_TX];

@@ -89,7 +89,7 @@ impl PublicKernelTailCircuitPrivateInputs {
 }
 
 mod tests {
-    use crate::{public_kernel_tail::{ALLOWED_PREVIOUS_CIRCUITS, PublicKernelTailCircuitPrivateInputs}};
+    use crate::{public_kernel_tail::PublicKernelTailCircuitPrivateInputs};
     use dep::reset_kernel_lib::{
         tests::{
         nullifier_non_existent_read_request_hints_builder::NullifierNonExistentReadRequestHintsBuilder,
@@ -112,8 +112,7 @@ mod tests {
         NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
         MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT,
-        PUBLIC_KERNEL_APP_LOGIC_INDEX, BASE_ROLLUP_INDEX, PUBLIC_KERNEL_SETUP_INDEX,
-        PUBLIC_KERNEL_TEARDOWN_INDEX
+        PUBLIC_KERNEL_APP_LOGIC_INDEX, PUBLIC_KERNEL_SETUP_INDEX, PUBLIC_KERNEL_TEARDOWN_INDEX
     },
         data::{PublicDataLeafHint, PublicDataTreeLeafPreimage},
         hash::{compute_siloed_nullifier, silo_note_hash},
@@ -287,10 +286,12 @@ mod tests {
         }
 
         fn create_public_data_leaf_hint(&mut self, leaf_slot: Field) -> PublicDataLeafHint {
-            let low_leaf_index = find_index_hint(
-                self.public_data_leaf_preimages,
-                |p: PublicDataTreeLeafPreimage| !leaf_slot.lt(p.slot) & (p.next_slot.eq(0) | leaf_slot.lt(p.next_slot))
-            );
+            let low_leaf_index = unsafe {
+                find_index_hint(
+                    self.public_data_leaf_preimages,
+                    |p: PublicDataTreeLeafPreimage| !leaf_slot.lt(p.slot) & (p.next_slot.eq(0) | leaf_slot.lt(p.next_slot))
+                )
+            };
 
             let preimage = self.public_data_leaf_preimages[low_leaf_index];
             let membership_witness = MembershipWitness {
@@ -341,11 +342,19 @@ mod tests {
             self.set_nullifiers_for_non_existent_read_request_hints();
             let public_data_hints = self.generate_public_data_leaf_hints();
 
+            let nullifier_read_request_hints = unsafe {
+                self.nullifier_read_request_hints_builder.to_hints()
+            };
+
+            let nullifier_non_existent_read_request_hints = unsafe {
+                self.nullifier_non_existent_read_request_hints_builder.to_hints()
+            };
+
             let kernel = PublicKernelTailCircuitPrivateInputs {
                 previous_kernel,
                 note_hash_read_request_hints: self.note_hash_read_request_hints.storage,
-                nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
-                nullifier_non_existent_read_request_hints: self.nullifier_non_existent_read_request_hints_builder.to_hints(),
+                nullifier_read_request_hints,
+                nullifier_non_existent_read_request_hints,
                 l1_to_l2_msg_read_request_hints: self.l1_to_l2_msg_read_request_hints.storage,
                 public_data_hints,
                 start_state: self.start_state

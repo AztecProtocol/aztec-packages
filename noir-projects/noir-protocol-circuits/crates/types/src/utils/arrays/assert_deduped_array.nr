@@ -22,7 +22,7 @@ pub fn assert_deduped_array<S, T, let N: u32>(
     }
 }
 
-pub fn dedupe_array<S, T, let N: u32>(original_array: [S; N]) -> [T; N] where S: Overridable + Inner<T> {
+unconstrained pub fn dedupe_array<S, T, let N: u32>(original_array: [S; N]) -> [T; N] where S: Overridable + Inner<T> {
     let mut deduped = BoundedVec::new();
     for i in 0..original_array.len() {
         let original = original_array[i];
@@ -116,7 +116,11 @@ mod tests {
         }
 
         pub fn check_and_execute(self) {
-            assert_eq(self.deduped_array, dedupe_array(self.original_array));
+            let deduped = unsafe {
+                dedupe_array(self.original_array)
+            };
+            assert_eq(self.deduped_array, deduped);
+
             self.execute();
         }
     }
