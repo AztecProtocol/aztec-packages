@@ -387,6 +387,7 @@ class ECCVMFlavor {
         {
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
+                // NOTE: .at() here is important for performance
                 result_field = polynomial.at(row_idx);
             }
             return result;
