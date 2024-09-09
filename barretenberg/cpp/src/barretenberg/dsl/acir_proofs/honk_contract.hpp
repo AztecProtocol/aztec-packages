@@ -325,7 +325,10 @@ library TranscriptLib {
         second = FrLib.fromBytes32(bytes32(hi));
     }
 
-    function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs) internal view returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge)
+    function generateEtaChallenge(Honk.Proof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
+        internal
+        view
+        returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge)
     {
         bytes32[] memory round0 = new bytes32[](3 + NUMBER_OF_PUBLIC_INPUTS + 12);
         round0[0] = bytes32(proof.circuitSize);
