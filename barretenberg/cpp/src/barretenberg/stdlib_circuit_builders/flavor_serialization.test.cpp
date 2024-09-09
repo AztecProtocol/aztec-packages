@@ -29,7 +29,7 @@ template <typename Flavor> class FlavorSerializationTests : public ::testing::Te
 using FlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
 TYPED_TEST_SUITE(FlavorSerializationTests, FlavorTypes);
 
-// Test serialization of vk
+// Test msgpack serialization/deserialization of verification keys
 TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
 {
     using Builder = typename TestFixture::Builder;
