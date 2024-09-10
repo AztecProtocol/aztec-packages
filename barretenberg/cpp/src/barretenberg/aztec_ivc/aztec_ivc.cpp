@@ -4,16 +4,32 @@
 namespace bb {
 
 /**
- * @brief Instantiate a stdlib verification queue corresponding to the native counterpart
+ * @brief Instantiate a stdlib verification queue for use in the kernel completion logic
+ * @details Construct a stdlib proof/verification_key for each entry in the native verification queue. By default, both
+ * are constructed from their counterpart in the native queue. Alternatively, Stdlib verification keys can be provided
+ * directly as input to this method. (The later option is used, for example, when constructing recursive verifiers based
+ * on the verification key witnesses from an acir recursion constraint. This option is not provided for proofs since
+ * valid proof witnesses are in general not known at the time of acir constraint generation).
  *
  * @param circuit
  */
-void AztecIVC::instantiate_stdlib_verification_queue(ClientCircuit& circuit)
+void AztecIVC::instantiate_stdlib_verification_queue(
+    ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys)
 {
+    bool vkeys_provided = !input_keys.empty();
+    if (vkeys_provided && verification_queue.size() != input_keys.size()) {
+        info("Warning: Incorrect number of verification keys provided in stdlib verification queue instantiation.");
+        ASSERT(false);
+    }
+
+    size_t key_idx = 0;
     for (auto& [proof, vkey, type] : verification_queue) {
-        // Construct stdlib verification key and proof
+        // Construct stdlib proof directly from the internal native queue data
         auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
-        auto stdlib_vkey = std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
+
+        // Use the provided stdlib vkey if present, otherwise construct one from the internal native queue
+        auto stdlib_vkey =
+            vkeys_provided ? input_keys[key_idx++] : std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
 
         stdlib_verification_queue.push_back({ stdlib_proof, stdlib_vkey, type });
     }

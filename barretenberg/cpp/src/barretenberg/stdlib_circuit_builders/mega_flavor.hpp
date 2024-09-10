@@ -105,6 +105,7 @@ class MegaFlavor {
      */
     template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:
+        bool operator==(const PrecomputedEntities&) const = default;
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               q_m,                  // column 0
@@ -532,6 +533,7 @@ class MegaFlavor {
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
         DatabusPropagationData databus_propagation_data;
 
+        bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
@@ -556,12 +558,47 @@ class MegaFlavor {
                 commitment = proving_key.commitment_key->commit(polynomial);
             }
         }
+
+        /**
+         * @brief Serialize verification key to field elements
+         */
+        std::vector<FF> to_field_elements()
+        {
+            using namespace bb::field_conversion;
+
+            auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
+                std::vector<FF> input_fields = convert_to_bn254_frs(input);
+                buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+            };
+
+            std::vector<FF> elements;
+
+            serialize_to_field_buffer(this->circuit_size, elements);
+            serialize_to_field_buffer(this->num_public_inputs, elements);
+            serialize_to_field_buffer(this->pub_inputs_offset, elements);
+            serialize_to_field_buffer(this->contains_recursive_proof, elements);
+            serialize_to_field_buffer(this->recursive_proof_public_input_indices, elements);
+
+            serialize_to_field_buffer(this->databus_propagation_data.contains_app_return_data_commitment, elements);
+            serialize_to_field_buffer(this->databus_propagation_data.contains_kernel_return_data_commitment, elements);
+            serialize_to_field_buffer(this->databus_propagation_data.app_return_data_public_input_idx, elements);
+            serialize_to_field_buffer(this->databus_propagation_data.kernel_return_data_public_input_idx, elements);
+            serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
+
+            for (Commitment& commitment : this->get_all()) {
+                serialize_to_field_buffer(commitment, elements);
+            }
+
+            return elements;
+        }
+
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/964): Clean the boilerplate up.
         VerificationKey(const size_t circuit_size,
                         const size_t num_public_inputs,
                         const size_t pub_inputs_offset,
                         const bool contains_recursive_proof,
                         const AggregationObjectPubInputIndices& recursive_proof_public_input_indices,
+                        const DatabusPropagationData& databus_propagation_data,
                         const Commitment& q_m,
                         const Commitment& q_c,
                         const Commitment& q_l,
@@ -599,6 +636,7 @@ class MegaFlavor {
             this->pub_inputs_offset = pub_inputs_offset;
             this->contains_recursive_proof = contains_recursive_proof;
             this->recursive_proof_public_input_indices = recursive_proof_public_input_indices;
+            this->databus_propagation_data = databus_propagation_data;
             this->q_m = q_m;
             this->q_c = q_c;
             this->q_l = q_l;
@@ -636,6 +674,7 @@ class MegaFlavor {
                        pub_inputs_offset,
                        contains_recursive_proof,
                        recursive_proof_public_input_indices,
+                       databus_propagation_data,
                        q_m,
                        q_c,
                        q_l,
