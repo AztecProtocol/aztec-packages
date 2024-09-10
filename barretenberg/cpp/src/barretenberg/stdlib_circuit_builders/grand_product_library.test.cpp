@@ -13,20 +13,6 @@ template <class FF> class GrandProductTests : public testing::Test {
 
   public:
     void SetUp() { srs::init_crs_factory("../srs_db/ignition"); }
-    /**
-     * @brief Get a random polynomial
-     *
-     * @param size
-     * @return Polynomial
-     */
-    static constexpr Polynomial get_random_polynomial(size_t size)
-    {
-        Polynomial random_polynomial{ size };
-        for (auto& coeff : random_polynomial.coeffs()) {
-            coeff = FF::random_element();
-        }
-        return random_polynomial;
-    }
 
     static void populate_span(auto& polynomial_view, const auto& polynomial)
     {
@@ -53,8 +39,13 @@ template <class FF> class GrandProductTests : public testing::Test {
 
         // Construct a ProverPolynomials object with completely random polynomials
         ProverPolynomials prover_polynomials;
+        for (auto& poly : prover_polynomials.get_to_be_shifted()) {
+            poly = Polynomial::random(circuit_size, /*shiftable*/ 1);
+        }
         for (auto& poly : prover_polynomials.get_all()) {
-            poly = get_random_polynomial(circuit_size);
+            if (poly.is_empty()) {
+                poly = Polynomial::random(circuit_size);
+            }
         }
 
         // Get random challenges
