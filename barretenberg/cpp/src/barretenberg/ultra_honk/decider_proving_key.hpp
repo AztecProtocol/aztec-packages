@@ -70,6 +70,7 @@ template <class Flavor> class DeciderProvingKey_ {
         }
         {
             ZoneScopedN("constructing proving key");
+
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
         }
 
@@ -83,8 +84,8 @@ template <class Flavor> class DeciderProvingKey_ {
         }
 
         // First and last lagrange polynomials (in the full circuit size)
-        proving_key.polynomials.lagrange_first[0] = 1;
-        proving_key.polynomials.lagrange_last[dyadic_circuit_size - 1] = 1;
+        proving_key.polynomials.lagrange_first.at(0) = 1;
+        proving_key.polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
 
         construct_lookup_table_polynomials<Flavor>(proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size);
 
@@ -93,12 +94,10 @@ template <class Flavor> class DeciderProvingKey_ {
                                              circuit,
                                              dyadic_circuit_size);
 
-        std::span<FF> public_wires_source = proving_key.polynomials.w_r;
-
         // Construct the public inputs array
         for (size_t i = 0; i < proving_key.num_public_inputs; ++i) {
             size_t idx = i + proving_key.pub_inputs_offset;
-            proving_key.public_inputs.emplace_back(public_wires_source[idx]);
+            proving_key.public_inputs.emplace_back(proving_key.polynomials.w_r[idx]);
         }
 
         // Set the recursive proof indices

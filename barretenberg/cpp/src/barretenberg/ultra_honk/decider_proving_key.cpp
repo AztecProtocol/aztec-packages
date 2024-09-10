@@ -57,25 +57,26 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
 
     // Note: We do not utilize a zero row for databus columns
     for (size_t idx = 0; idx < calldata.size(); ++idx) {
-        public_calldata[idx] = circuit.get_variable(calldata[idx]);      // calldata values
-        calldata_read_counts[idx] = calldata.get_read_count(idx);        // read counts
-        calldata_read_tags[idx] = calldata_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
+        public_calldata.at(idx) = circuit.get_variable(calldata[idx]);      // calldata values
+        calldata_read_counts.at(idx) = calldata.get_read_count(idx);        // read counts
+        calldata_read_tags.at(idx) = calldata_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
     }
     for (size_t idx = 0; idx < secondary_calldata.size(); ++idx) {
-        public_secondary_calldata[idx] = circuit.get_variable(secondary_calldata[idx]); // secondary_calldata values
-        secondary_calldata_read_counts[idx] = secondary_calldata.get_read_count(idx);   // read counts
-        secondary_calldata_read_tags[idx] = secondary_calldata_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
+        public_secondary_calldata.at(idx) = circuit.get_variable(secondary_calldata[idx]); // secondary_calldata values
+        secondary_calldata_read_counts.at(idx) = secondary_calldata.get_read_count(idx);   // read counts
+        secondary_calldata_read_tags.at(idx) =
+            secondary_calldata_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
     }
     for (size_t idx = 0; idx < return_data.size(); ++idx) {
-        public_return_data[idx] = circuit.get_variable(return_data[idx]);      // return data values
-        return_data_read_counts[idx] = return_data.get_read_count(idx);        // read counts
-        return_data_read_tags[idx] = return_data_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
+        public_return_data.at(idx) = circuit.get_variable(return_data[idx]);      // return data values
+        return_data_read_counts.at(idx) = return_data.get_read_count(idx);        // read counts
+        return_data_read_tags.at(idx) = return_data_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
     }
 
     auto& databus_id = proving_key.polynomials.databus_id;
     // Compute a simple identity polynomial for use in the databus lookup argument
     for (size_t i = 0; i < databus_id.size(); ++i) {
-        databus_id[i] = i;
+        databus_id.at(i) = i;
     }
 }
 

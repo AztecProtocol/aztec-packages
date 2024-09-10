@@ -25,7 +25,7 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder, const
  */
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavor>::verify_proof(
-    const HonkProof& proof, aggregation_state<typename Flavor::Curve> agg_obj)
+    const HonkProof& proof, AggregationObject agg_obj)
 {
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
     return verify_proof(stdlib_proof, agg_obj);
@@ -37,7 +37,7 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
  */
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof<Builder>& proof, aggregation_state<typename Flavor::Curve> agg_obj)
+    const StdlibProof<Builder>& proof, AggregationObject agg_obj)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
@@ -59,7 +59,7 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     }
 
     // Parse out the aggregation object using the key->recursive_proof_public_inputs_indices
-    aggregation_state<typename Flavor::Curve> nested_agg_obj;
+    AggregationObject nested_agg_obj;
     size_t idx = 0;
     std::array<typename Curve::Group, 2> nested_pairing_points;
     for (size_t i = 0; i < 2; i++) {

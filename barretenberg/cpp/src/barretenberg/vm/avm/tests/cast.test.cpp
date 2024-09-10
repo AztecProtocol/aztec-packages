@@ -1,3 +1,4 @@
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "common.test.hpp"
@@ -33,7 +34,7 @@ class AvmCastTests : public ::testing::Test {
     void gen_trace(
         uint128_t const& a, uint32_t src_address, uint32_t dst_address, AvmMemoryTag src_tag, AvmMemoryTag dst_tag)
     {
-        trace_builder.op_set(0, a, src_address, src_tag);
+        trace_builder.op_set(0, uint256_t::from_uint128(a), src_address, src_tag);
         trace_builder.op_cast(0, src_address, dst_address, dst_tag);
         trace_builder.op_return(0, 0, 0);
         trace = trace_builder.finalize();

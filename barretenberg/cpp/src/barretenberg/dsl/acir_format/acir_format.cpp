@@ -231,9 +231,16 @@ void build_constraints(Builder& builder,
         if (!constraint_system.honk_recursion_constraints.empty()) {
             info("WARNING: this circuit contains unhandled honk_recursion_constraints!");
         }
+        if (!constraint_system.avm_recursion_constraints.empty()) {
+            info("WARNING: this circuit contains unhandled avm_recursion_constraints!");
+        }
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
         process_honk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
+
+#ifndef DISABLE_AZTEC_VM
+        process_avm_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
+#endif
 
         // If the circuit does not itself contain honk recursion constraints but is going to be
         // proven with honk then recursively verified, add a default aggregation object
@@ -335,7 +342,7 @@ void process_plonk_recursion_constraints(Builder& builder,
         // final recursion output.
         builder.set_recursive_proof(current_output_aggregation_object);
     }
-};
+}
 
 void process_honk_recursion_constraints(Builder& builder,
                                         AcirFormat& constraint_system,
@@ -370,7 +377,49 @@ void process_honk_recursion_constraints(Builder& builder,
         // final recursion output.
         builder.set_recursive_proof(current_aggregation_object);
     }
-};
+}
+
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1095): Probably makes sense to aggregate Honk and AVM
+// proofs together.
+#ifndef DISABLE_AZTEC_VM
+void process_avm_recursion_constraints(Builder& builder,
+                                       AcirFormat& constraint_system,
+                                       bool has_valid_witness_assignments,
+                                       GateCounter<Builder>& gate_counter)
+{
+    AggregationObjectIndices current_aggregation_object =
+        stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
+
+    // Add recursion constraints
+    size_t idx = 0;
+    for (auto& constraint : constraint_system.avm_recursion_constraints) {
+        current_aggregation_object = create_avm_recursion_constraints(
+            builder, constraint, current_aggregation_object, has_valid_witness_assignments);
+
+        gate_counter.track_diff(constraint_system.gates_per_opcode,
+                                constraint_system.original_opcode_indices.avm_recursion_constraints.at(idx++));
+    }
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1095): The following code will have to be adapted to
+    // support a circuit with both honk and avm recursion constraints.
+
+    // Now that the circuit has been completely built, we add
+    // the output aggregation as public inputs.
+    if (!constraint_system.avm_recursion_constraints.empty()) {
+
+        // First add the output aggregation object as public inputs
+        // Set the indices as public inputs because they are no longer being
+        // created in ACIR
+        for (const auto& idx : current_aggregation_object) {
+            builder.set_public_input(idx);
+        }
+
+        // Make sure the verification key records the public input indices of the
+        // final recursion output.
+        builder.set_recursive_proof(current_aggregation_object);
+    }
+}
+#endif // DISABLE_AZTEC_VM
 
 /**
  * @brief Specialization for creating Ultra circuit from acir constraints and optionally a witness
