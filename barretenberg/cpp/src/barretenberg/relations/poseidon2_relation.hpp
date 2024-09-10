@@ -119,7 +119,7 @@ template <typename FF_> class Poseidon2RelationImpl {
         auto u2_internal = w_r;
         auto u3_internal = w_o;
         auto u4_internal = w_4;
-        auto sum_internal = u1 + u2 + u3 + u4;
+        auto sum_internal = u1_internal + u2_internal + u3_internal + u4_internal;
 
         auto v1_internal =
             u1_internal * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0] + sum_internal;
