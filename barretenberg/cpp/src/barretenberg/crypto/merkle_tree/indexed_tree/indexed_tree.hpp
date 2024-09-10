@@ -1,10 +1,11 @@
 #pragma once
-#include "../append_only_tree/append_only_tree.hpp"
 #include "../hash.hpp"
 #include "../hash_path.hpp"
 #include "../signal.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/thread_pool.hpp"
+#include "barretenberg/crypto/merkle_tree/append_only_tree/index_addressed_append_only_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
@@ -29,7 +30,8 @@ namespace bb::crypto::merkle_tree {
  * hashing policy
  * All public methods are asynchronous unless marked otherwise
  */
-template <typename Store, typename HashingPolicy> class IndexedTree : public AppendOnlyTree<Store, HashingPolicy> {
+template <typename Store, typename HashingPolicy>
+class IndexedTree : public IndexAddressedAppendOnlyTree<Store, HashingPolicy> {
   public:
     using StoreType = Store;
 
@@ -74,27 +76,29 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
     /**
      * @brief Find the index of the provided leaf value if it exists
      */
-    void find_leaf_index(const LeafValueType& leaf,
-                         bool includeUncommitted,
-                         const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
+    void find_leaf_index(
+        const LeafValueType& leaf,
+        bool includeUncommitted,
+        const IndexAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
 
     /**
      * @brief Find the index of the provided leaf value if it exists, only considers indexed beyond the value provided
      */
-    void find_leaf_index_from(const LeafValueType& leaf,
-                              index_t start_index,
-                              bool includeUncommitted,
-                              const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
+    void find_leaf_index_from(
+        const LeafValueType& leaf,
+        index_t start_index,
+        bool includeUncommitted,
+        const IndexAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
 
     /**
      * @brief Find the leaf with the value immediately lower then the value provided
      */
     void find_low_leaf(const fr& leaf_key, bool includeUncommitted, const FindLowLeafCallback& on_completion) const;
 
-    using AppendOnlyTree<Store, HashingPolicy>::get_sibling_path;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path;
 
   private:
-    using typename AppendOnlyTree<Store, HashingPolicy>::AppendCompletionCallback;
+    using typename IndexAddressedAppendOnlyTree<Store, HashingPolicy>::AppendCompletionCallback;
     using ReadTransaction = typename Store::ReadTransaction;
     using ReadTransactionPtr = typename Store::ReadTransactionPtr;
 
@@ -148,25 +152,25 @@ template <typename Store, typename HashingPolicy> class IndexedTree : public App
     void generate_hashes_for_appending(std::shared_ptr<std::vector<IndexedLeafValueType>> leaves_to_hash,
                                        const HashGenerationCallback& completion);
 
-    using AppendOnlyTree<Store, HashingPolicy>::get_element_or_zero;
-    using AppendOnlyTree<Store, HashingPolicy>::write_node;
-    using AppendOnlyTree<Store, HashingPolicy>::read_node;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::get_element_or_zero;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::write_node;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::read_node;
 
-    using AppendOnlyTree<Store, HashingPolicy>::add_value;
-    using AppendOnlyTree<Store, HashingPolicy>::add_values;
-    using AppendOnlyTree<Store, HashingPolicy>::add_values_internal;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::add_value;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::add_values;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal;
 
-    using AppendOnlyTree<Store, HashingPolicy>::store_;
-    using AppendOnlyTree<Store, HashingPolicy>::zero_hashes_;
-    using AppendOnlyTree<Store, HashingPolicy>::depth_;
-    using AppendOnlyTree<Store, HashingPolicy>::name_;
-    using AppendOnlyTree<Store, HashingPolicy>::workers_;
-    using AppendOnlyTree<Store, HashingPolicy>::max_size_;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::store_;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::zero_hashes_;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::depth_;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::name_;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::workers_;
+    using IndexAddressedAppendOnlyTree<Store, HashingPolicy>::max_size_;
 };
 
 template <typename Store, typename HashingPolicy>
 IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers, index_t initial_size)
-    : AppendOnlyTree<Store, HashingPolicy>(store, workers)
+    : IndexAddressedAppendOnlyTree<Store, HashingPolicy>(store, workers)
 {
     if (initial_size < 2) {
         throw std::runtime_error("Indexed trees must have initial size > 1");
@@ -182,16 +186,14 @@ IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers
     }
     zero_hashes_[0] = current;
 
-    index_t stored_size = 0;
-    bb::fr stored_root = fr::zero();
+    TreeMeta meta;
     {
         ReadTransactionPtr tx = store_.create_read_transaction();
-        std::string name;
-        uint32_t depth = 0;
-        store_.get_full_meta(stored_size, stored_root, name, depth, *tx, false);
+
+        store_.get_full_meta(meta, *tx, false);
     }
 
-    if (stored_size > 0) {
+    if (meta.size > 0) {
         return;
     }
 
@@ -214,14 +216,16 @@ IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers
         result = _result;
         signal.signal_level(0);
     };
-    AppendOnlyTree<Store, HashingPolicy>::add_values_internal(appended_hashes, completion, false);
+    IndexAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(appended_hashes, completion, false);
     signal.wait_for_level(0);
     if (!result.success) {
         throw std::runtime_error("Failed to initialise tree: " + result.message);
     }
     store_.commit();
     // this commits directly
-    store_.put_initial_meta(result.inner.size, result.inner.root);
+    meta.size = result.inner.size;
+    meta.root = result.inner.root;
+    store_.put_initial_meta(meta);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -244,7 +248,7 @@ template <typename Store, typename HashingPolicy>
 void IndexedTree<Store, HashingPolicy>::find_leaf_index(
     const LeafValueType& leaf,
     bool includeUncommitted,
-    const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
+    const IndexAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
 {
     find_leaf_index_from(leaf, 0, includeUncommitted, on_completion);
 }
@@ -254,7 +258,7 @@ void IndexedTree<Store, HashingPolicy>::find_leaf_index_from(
     const LeafValueType& leaf,
     index_t start_index,
     bool includeUncommitted,
-    const AppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
+    const IndexAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
 {
     auto job = [=, this]() -> void {
         execute_and_report<FindLeafIndexResponse>(
@@ -366,7 +370,7 @@ void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<L
             results->status.set_failure(response.message);
         } else {
             results->subtree_path = response.inner.path;
-            AppendOnlyTree<Store, HashingPolicy>::add_values_internal(
+            IndexAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
                 (*results->hashes_to_append), final_completion, false);
         }
     };
@@ -385,7 +389,7 @@ void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<L
                 on_error(results->status.message);
                 return;
             }
-            AppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(
+            IndexAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(
                 subtree_depth, sibling_path_completion, true);
         }
     };
@@ -405,7 +409,7 @@ void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<L
                     on_error(results->status.message);
                     return;
                 }
-                AppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(
+                IndexAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(
                     subtree_depth, sibling_path_completion, true);
             }
         };
@@ -537,22 +541,21 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
             response.inner.insertions->reserve(values.size());
             response.inner.indexed_leaves =
                 std::make_shared<std::vector<IndexedLeafValueType>>(values.size(), IndexedLeafValueType::empty());
-            index_t old_size = 0;
             index_t num_leaves_to_be_inserted = values.size();
             std::set<uint256_t> unique_values;
             {
                 ReadTransactionPtr tx = store_.create_read_transaction();
-                bb::fr old_root = fr::zero();
-                store_.get_meta(old_size, old_root, *tx, true);
+                TreeMeta meta;
+                store_.get_meta(meta, *tx, true);
                 // Ensure that the tree is not going to be overfilled
-                index_t new_total_size = num_leaves_to_be_inserted + old_size;
+                index_t new_total_size = num_leaves_to_be_inserted + meta.size;
                 if (new_total_size > max_size_) {
                     throw std::runtime_error("Tree is full");
                 }
                 for (size_t i = 0; i < values.size(); ++i) {
                     std::pair<LeafValueType, size_t>& value_pair = values[i];
                     size_t index_into_appended_leaves = value_pair.second;
-                    index_t index_of_new_leaf = static_cast<index_t>(index_into_appended_leaves) + old_size;
+                    index_t index_of_new_leaf = static_cast<index_t>(index_into_appended_leaves) + meta.size;
                     if (value_pair.first.is_empty()) {
                         continue;
                     }

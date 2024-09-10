@@ -2,6 +2,7 @@
 
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -13,10 +14,7 @@
 
 namespace bb::crypto::merkle_tree {
 struct TreeMetaResponse {
-    std::string name;
-    uint32_t depth;
-    index_t size;
-    fr root;
+    TreeMeta meta;
 };
 
 struct AddDataResponse {

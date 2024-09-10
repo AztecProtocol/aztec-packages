@@ -25,7 +25,7 @@ using namespace bb;
  * Asynchronous methods are exeucted on the provided thread pool
  *
  */
-template <typename Store, typename HashingPolicy> class AppendOnlyTree {
+template <typename Store, typename HashingPolicy> class IndexAddressedAppendOnlyTree {
   public:
     using StoreType = Store;
 
@@ -39,12 +39,12 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
     using RollbackCallback = std::function<void(const Response&)>;
 
     // Only construct from provided store and thread pool, no copies or moves
-    AppendOnlyTree(Store& store, ThreadPool& workers);
-    AppendOnlyTree(AppendOnlyTree const& other) = delete;
-    AppendOnlyTree(AppendOnlyTree&& other) = delete;
-    AppendOnlyTree& operator=(AppendOnlyTree const& other) = delete;
-    AppendOnlyTree& operator=(AppendOnlyTree const&& other) = delete;
-    virtual ~AppendOnlyTree() = default;
+    IndexAddressedAppendOnlyTree(Store& store, ThreadPool& workers);
+    IndexAddressedAppendOnlyTree(IndexAddressedAppendOnlyTree const& other) = delete;
+    IndexAddressedAppendOnlyTree(IndexAddressedAppendOnlyTree&& other) = delete;
+    IndexAddressedAppendOnlyTree& operator=(IndexAddressedAppendOnlyTree const& other) = delete;
+    IndexAddressedAppendOnlyTree& operator=(IndexAddressedAppendOnlyTree const&& other) = delete;
+    virtual ~IndexAddressedAppendOnlyTree() = default;
 
     /**
      * @brief Adds a single value to the end of the tree
@@ -103,7 +103,7 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
      * @brief Returns the tree meta data
      * @param on_completion Callback to be called on completion
      */
-    void get_initial_meta_data(const MetaDataCallback& on_completion) const;
+    // void get_initial_meta_data(const MetaDataCallback& on_completion) const;
 
     /**
      * @brief Returns the leaf value at the provided index
@@ -175,16 +175,17 @@ template <typename Store, typename HashingPolicy> class AppendOnlyTree {
 };
 
 template <typename Store, typename HashingPolicy>
-AppendOnlyTree<Store, HashingPolicy>::AppendOnlyTree(Store& store, ThreadPool& workers)
+IndexAddressedAppendOnlyTree<Store, HashingPolicy>::IndexAddressedAppendOnlyTree(Store& store, ThreadPool& workers)
     : store_(store)
     , workers_(workers)
 {
-    index_t stored_size = 0;
-    bb::fr stored_root = fr::zero();
+    TreeMeta meta;
     {
         // start by reading the meta data from the backing store
         ReadTransactionPtr tx = store_.create_read_transaction();
-        store_.get_full_meta(stored_size, stored_root, name_, depth_, *tx, false);
+        store_.get_full_meta(meta, *tx, false);
+        name_ = meta.name;
+        depth_ = meta.depth;
     }
     zero_hashes_.resize(depth_ + 1);
 
@@ -196,51 +197,51 @@ AppendOnlyTree<Store, HashingPolicy>::AppendOnlyTree(Store& store, ThreadPool& w
     }
     zero_hashes_[0] = current;
 
-    if (stored_size == 0) {
+    if (meta.size == 0) {
         // if the tree is empty then we want to write the initial root
-        store_.put_meta(0, current);
+        meta.root = current;
+        store_.put_meta(meta);
         store_.commit();
         // we also need to store the initial meta, this commits directly
-        store_.put_initial_meta(0, current);
+        store_.put_initial_meta(meta);
     }
     max_size_ = numeric::pow64(2, depth_);
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted,
-                                                         const MetaDataCallback& on_completion) const
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool includeUncommitted,
+                                                                       const MetaDataCallback& on_completion) const
 {
     auto job = [=, this]() {
         execute_and_report<TreeMetaResponse>(
             [=, this](TypedResponse<TreeMetaResponse>& response) {
                 ReadTransactionPtr tx = store_.create_read_transaction();
-                store_.get_meta(response.inner.size, response.inner.root, *tx, includeUncommitted);
-                response.inner.depth = depth_;
+                store_.get_meta(response.inner.meta, *tx, includeUncommitted);
             },
             on_completion);
     };
     workers_.enqueue(job);
 }
 
-template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::get_initial_meta_data(const MetaDataCallback& on_completion) const
-{
-    auto job = [=, this]() {
-        execute_and_report<TreeMetaResponse>(
-            [=, this](TypedResponse<TreeMetaResponse>& response) {
-                ReadTransactionPtr tx = store_.create_read_transaction();
-                store_.get_initial_meta(response.inner.size, response.inner.root, *tx);
-                response.inner.depth = depth_;
-            },
-            on_completion);
-    };
-    workers_.enqueue(job);
-}
+// template <typename Store, typename HashingPolicy>
+// void AppendOnlyTree<Store, HashingPolicy>::get_initial_meta_data(const MetaDataCallback& on_completion) const
+// {
+//     auto job = [=, this]() {
+//         execute_and_report<TreeMetaResponse>(
+//             [=, this](TypedResponse<TreeMetaResponse>& response) {
+//                 ReadTransactionPtr tx = store_.create_read_transaction();
+//                 store_.get_initial_meta(response.inner.size, response.inner.root, *tx);
+//                 response.inner.depth = depth_;
+//             },
+//             on_completion);
+//     };
+//     workers_.enqueue(job);
+// }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t& index,
-                                                            const HashPathCallback& on_completion,
-                                                            bool includeUncommitted) const
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t& index,
+                                                                          const HashPathCallback& on_completion,
+                                                                          bool includeUncommitted) const
 {
     auto job = [=, this]() {
         execute_and_report<GetSiblingPathResponse>(
@@ -261,19 +262,17 @@ void AppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t& index
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(const uint32_t subtree_depth,
-                                                                    const HashPathCallback& on_completion,
-                                                                    bool includeUncommitted) const
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(const uint32_t subtree_depth,
+                                                                                  const HashPathCallback& on_completion,
+                                                                                  bool includeUncommitted) const
 {
     auto job = [=, this]() {
         execute_and_report<GetSiblingPathResponse>(
             [=, this](TypedResponse<GetSiblingPathResponse>& response) {
                 ReadTransactionPtr tx = store_.create_read_transaction();
-                index_t index_of_next_leaf = 0;
-                bb::fr root;
-                store_.get_meta(index_of_next_leaf, root, *tx, includeUncommitted);
-                response.inner.path =
-                    get_subtree_sibling_path_internal(index_of_next_leaf, subtree_depth, *tx, includeUncommitted);
+                TreeMeta m;
+                store_.get_meta(m, *tx, includeUncommitted);
+                response.inner.path = get_subtree_sibling_path_internal(m.size, subtree_depth, *tx, includeUncommitted);
             },
             on_completion);
     };
@@ -281,10 +280,10 @@ void AppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(const uint32
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(const index_t leaf_index,
-                                                                    const uint32_t subtree_depth,
-                                                                    const HashPathCallback& on_completion,
-                                                                    bool includeUncommitted) const
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(const index_t leaf_index,
+                                                                                  const uint32_t subtree_depth,
+                                                                                  const HashPathCallback& on_completion,
+                                                                                  bool includeUncommitted) const
 {
     auto job = [=, this]() {
         execute_and_report<GetSiblingPathResponse>(
@@ -299,10 +298,8 @@ void AppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path(const index_
 }
 
 template <typename Store, typename HashingPolicy>
-fr_sibling_path AppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path_internal(const index_t leaf_index,
-                                                                                        const uint32_t subtree_depth,
-                                                                                        ReadTransaction& tx,
-                                                                                        bool includeUncommitted) const
+fr_sibling_path IndexAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path_internal(
+    const index_t leaf_index, const uint32_t subtree_depth, ReadTransaction& tx, bool includeUncommitted) const
 {
     // skip the first levels, all the way to the subtree_root
     index_t current_index = leaf_index >> subtree_depth;
@@ -321,9 +318,9 @@ fr_sibling_path AppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_path_i
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_t& index,
-                                                    bool includeUncommitted,
-                                                    const GetLeafCallback& on_completion) const
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_t& index,
+                                                                  bool includeUncommitted,
+                                                                  const GetLeafCallback& on_completion) const
 {
     auto job = [=, this]() {
         execute_and_report<GetLeafResponse>(
@@ -341,18 +338,16 @@ void AppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_t& index,
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::find_leaf_index(const fr& leaf,
-                                                           bool includeUncommitted,
-                                                           const FindLeafCallback& on_completion) const
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index(const fr& leaf,
+                                                                         bool includeUncommitted,
+                                                                         const FindLeafCallback& on_completion) const
 {
     find_leaf_index_from(leaf, 0, includeUncommitted, on_completion);
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(const fr& leaf,
-                                                                index_t start_index,
-                                                                bool includeUncommitted,
-                                                                const FindLeafCallback& on_completion) const
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
+    const fr& leaf, index_t start_index, bool includeUncommitted, const FindLeafCallback& on_completion) const
 {
     auto job = [=, this]() -> void {
         execute_and_report<FindLeafIndexResponse>(
@@ -371,22 +366,22 @@ void AppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(const fr& leaf,
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::add_value(const fr& value, const AppendCompletionCallback& on_completion)
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::add_value(const fr& value,
+                                                                   const AppendCompletionCallback& on_completion)
 {
     add_values(std::vector<fr>{ value }, on_completion);
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::add_values(const std::vector<fr>& values,
-                                                      const AppendCompletionCallback& on_completion)
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::add_values(const std::vector<fr>& values,
+                                                                    const AppendCompletionCallback& on_completion)
 {
     add_values_internal(values, on_completion, true);
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::add_values_internal(const std::vector<fr>& values,
-                                                               const AppendCompletionCallback& on_completion,
-                                                               bool update_index)
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
+    const std::vector<fr>& values, const AppendCompletionCallback& on_completion, bool update_index)
 {
     std::shared_ptr<std::vector<fr>> hashes = std::make_shared<std::vector<fr>>(values);
     auto append_op = [=, this]() -> void {
@@ -400,37 +395,36 @@ void AppendOnlyTree<Store, HashingPolicy>::add_values_internal(const std::vector
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::commit(const CommitCallback& on_completion)
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::commit(const CommitCallback& on_completion)
 {
     auto job = [=, this]() { execute_and_report([=, this]() { store_.commit(); }, on_completion); };
     workers_.enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::rollback(const RollbackCallback& on_completion)
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::rollback(const RollbackCallback& on_completion)
 {
     auto job = [=, this]() { execute_and_report([=, this]() { store_.rollback(); }, on_completion); };
     workers_.enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::add_values_internal(std::shared_ptr<std::vector<fr>> values,
-                                                               fr& new_root,
-                                                               index_t& new_size,
-                                                               bool update_index)
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(std::shared_ptr<std::vector<fr>> values,
+                                                                             fr& new_root,
+                                                                             index_t& new_size,
+                                                                             bool update_index)
 {
 
     uint32_t start_level = depth_;
     uint32_t level = start_level;
     std::vector<fr>& hashes_local = *values;
     auto number_to_insert = static_cast<uint32_t>(hashes_local.size());
-    index_t start_size = 0;
-    bb::fr root;
 
     typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
-    store_.get_meta(start_size, root, *tx, true);
-    index_t index = start_size;
-    new_size = start_size + number_to_insert;
+    TreeMeta m;
+    store_.get_meta(m, *tx, true);
+    index_t index = m.size;
+    new_size = m.size + number_to_insert;
 
     if (values->empty()) {
         return;
@@ -477,16 +471,18 @@ void AppendOnlyTree<Store, HashingPolicy>::add_values_internal(std::shared_ptr<s
             write_node(level, index, new_hash);
         }
     }
+    m.root = new_hash;
+    m.size = new_size;
     new_root = new_hash;
-    store_.put_meta(new_size, new_root);
+    store_.put_meta(m);
 }
 
 // Retrieves the value at the given level and index or the 'zero' tree hash if not present
 template <typename Store, typename HashingPolicy>
-fr AppendOnlyTree<Store, HashingPolicy>::get_element_or_zero(uint32_t level,
-                                                             const index_t& index,
-                                                             ReadTransaction& tx,
-                                                             bool includeUncommitted) const
+fr IndexAddressedAppendOnlyTree<Store, HashingPolicy>::get_element_or_zero(uint32_t level,
+                                                                           const index_t& index,
+                                                                           ReadTransaction& tx,
+                                                                           bool includeUncommitted) const
 {
     const std::pair<bool, fr> read_data = read_node(level, index, tx, includeUncommitted);
     if (read_data.first) {
@@ -496,7 +492,9 @@ fr AppendOnlyTree<Store, HashingPolicy>::get_element_or_zero(uint32_t level,
 }
 
 template <typename Store, typename HashingPolicy>
-void AppendOnlyTree<Store, HashingPolicy>::write_node(uint32_t level, const index_t& index, const fr& value)
+void IndexAddressedAppendOnlyTree<Store, HashingPolicy>::write_node(uint32_t level,
+                                                                    const index_t& index,
+                                                                    const fr& value)
 {
     std::vector<uint8_t> buf;
     write(buf, value);
@@ -504,10 +502,10 @@ void AppendOnlyTree<Store, HashingPolicy>::write_node(uint32_t level, const inde
 }
 
 template <typename Store, typename HashingPolicy>
-std::pair<bool, fr> AppendOnlyTree<Store, HashingPolicy>::read_node(uint32_t level,
-                                                                    const index_t& index,
-                                                                    ReadTransaction& tx,
-                                                                    bool includeUncommitted) const
+std::pair<bool, fr> IndexAddressedAppendOnlyTree<Store, HashingPolicy>::read_node(uint32_t level,
+                                                                                  const index_t& index,
+                                                                                  ReadTransaction& tx,
+                                                                                  bool includeUncommitted) const
 {
     std::vector<uint8_t> buf;
     bool available = store_.get_node(level, index, buf, tx, includeUncommitted);

@@ -21,7 +21,6 @@ LMDBDatabase::LMDBDatabase(const LMDBEnvironment& env,
     if (cmp != nullptr) {
         call_lmdb_func("mdb_set_compare", mdb_set_compare, transaction.underlying(), _dbi, cmp);
     }
-    transaction.commit();
 }
 
 LMDBDatabase::~LMDBDatabase()

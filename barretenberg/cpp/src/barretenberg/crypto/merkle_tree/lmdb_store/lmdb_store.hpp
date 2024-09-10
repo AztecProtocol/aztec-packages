@@ -32,6 +32,6 @@ class LMDBStore {
   private:
     LMDBEnvironment& _environment;
     const std::string _name;
-    LMDBDatabase _database;
+    LMDBDatabase::Ptr _database;
 };
 } // namespace bb::crypto::merkle_tree

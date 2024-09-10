@@ -20,8 +20,8 @@ using namespace bb::crypto::merkle_tree;
 namespace {
 using StoreType = CachedTreeStore<LMDBStore, fr>;
 
-using Pedersen = AppendOnlyTree<StoreType, PedersenHashPolicy>;
-using Poseidon2 = AppendOnlyTree<StoreType, Poseidon2HashPolicy>;
+using Pedersen = IndexAddressedAppendOnlyTree<StoreType, PedersenHashPolicy>;
+using Poseidon2 = IndexAddressedAppendOnlyTree<StoreType, Poseidon2HashPolicy>;
 
 const size_t TREE_DEPTH = 32;
 const size_t MAX_BATCH_SIZE = 128;

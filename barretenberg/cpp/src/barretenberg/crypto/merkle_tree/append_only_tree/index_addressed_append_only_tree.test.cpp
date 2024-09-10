@@ -1,12 +1,12 @@
-#include "append_only_tree.hpp"
+#include "index_addressed_append_only_tree.hpp"
 #include "../fixtures.hpp"
 #include "../memory_tree.hpp"
+#include "../signal.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/array_store.hpp"
@@ -23,9 +23,9 @@ using namespace bb;
 using namespace bb::crypto::merkle_tree;
 
 using Store = CachedTreeStore<LMDBStore, bb::fr>;
-using TreeType = AppendOnlyTree<Store, Poseidon2HashPolicy>;
+using TreeType = IndexAddressedAppendOnlyTree<Store, Poseidon2HashPolicy>;
 
-class PersistedAppendOnlyTreeTest : public testing::Test {
+class PersistedIndexAddressedAppendOnlyTreeTest : public testing::Test {
   protected:
     void SetUp() override
     {
@@ -42,14 +42,14 @@ class PersistedAppendOnlyTreeTest : public testing::Test {
     std::unique_ptr<LMDBEnvironment> _environment;
 };
 
-std::string PersistedAppendOnlyTreeTest::_directory;
+std::string PersistedIndexAddressedAppendOnlyTreeTest::_directory;
 
 void check_size(TreeType& tree, index_t expected_size, bool includeUncommitted = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.size, expected_size);
+        EXPECT_EQ(response.inner.meta.size, expected_size);
         signal.signal_level();
     };
     tree.get_meta_data(includeUncommitted, completion);
@@ -61,7 +61,7 @@ void check_root(TreeType& tree, fr expected_root, bool includeUncommitted = true
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.root, expected_root);
+        EXPECT_EQ(response.inner.meta.root, expected_root);
         signal.signal_level();
     };
     tree.get_meta_data(includeUncommitted, completion);
@@ -179,7 +179,7 @@ void check_leaf(
     signal.wait_for_level();
 }
 
-void check_sibling_path(fr expected_root, fr node, index_t index, fr_sibling_path sibling_path)
+void check_sibling_path_index_addressed(fr expected_root, fr node, index_t index, fr_sibling_path sibling_path)
 {
     fr left, right, hash = node;
     for (size_t i = 0; i < sibling_path.size(); ++i) {
@@ -198,7 +198,7 @@ void check_sibling_path(fr expected_root, fr node, index_t index, fr_sibling_pat
     EXPECT_EQ(hash, expected_root);
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, can_create)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, can_create)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
@@ -214,7 +214,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_create)
     check_root(tree, memdb.root());
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, can_only_recreate_with_same_name_and_depth)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, can_only_recreate_with_same_name_and_depth)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
@@ -225,7 +225,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_only_recreate_with_same_name_and_depth)
     EXPECT_ANY_THROW(Store store_wrong_depth(name, depth + 1, db));
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, can_add_value_and_get_sibling_path)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, can_add_value_and_get_sibling_path)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
@@ -247,7 +247,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_value_and_get_sibling_path)
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, reports_an_error_if_tree_is_overfilled)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_overfilled)
 {
     constexpr size_t depth = 4;
     std::string name = random_string();
@@ -277,7 +277,7 @@ TEST_F(PersistedAppendOnlyTreeTest, reports_an_error_if_tree_is_overfilled)
     std::filesystem::remove_all(directory);
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, errors_are_caught_and_handled)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, errors_are_caught_and_handled)
 {
     // We use a deep tree with a small amount of storage (20 * 1024) bytes
     constexpr size_t depth = 16;
@@ -358,7 +358,7 @@ TEST_F(PersistedAppendOnlyTreeTest, errors_are_caught_and_handled)
     check_root(tree, memdb2.root(), false);
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, can_commit_and_restore)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, can_commit_and_restore)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
@@ -424,7 +424,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_commit_and_restore)
     }
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, test_size)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, test_size)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
@@ -452,7 +452,7 @@ TEST_F(PersistedAppendOnlyTreeTest, test_size)
     check_size(tree, 4);
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, test_find_leaf_index)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, test_find_leaf_index)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
@@ -538,7 +538,7 @@ TEST_F(PersistedAppendOnlyTreeTest, test_find_leaf_index)
     check_find_leaf_index_from(tree, 18, 14, 0, false, false);
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, can_add_multiple_values)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, can_add_multiple_values)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
@@ -558,7 +558,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_multiple_values)
     }
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, can_add_multiple_values_in_a_batch)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, can_add_multiple_values_in_a_batch)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
@@ -578,7 +578,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_multiple_values_in_a_batch)
     check_sibling_path(tree, NUM_VALUES - 1, memdb.get_sibling_path(NUM_VALUES - 1));
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, can_be_filled)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, can_be_filled)
 {
     constexpr size_t depth = 3;
     std::string name = random_string();
@@ -601,7 +601,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_be_filled)
     check_sibling_path(tree, 7, memdb.get_sibling_path(7));
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, can_add_single_whilst_reading)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, can_add_single_whilst_reading)
 {
     constexpr size_t depth = 10;
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
@@ -644,7 +644,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_add_single_whilst_reading)
     }
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, can_get_inserted_leaves)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, can_get_inserted_leaves)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
@@ -663,7 +663,7 @@ TEST_F(PersistedAppendOnlyTreeTest, can_get_inserted_leaves)
     check_leaf(tree, 0, 4, false);
 }
 
-TEST_F(PersistedAppendOnlyTreeTest, returns_sibling_path)
+TEST_F(PersistedIndexAddressedAppendOnlyTreeTest, returns_sibling_path)
 {
     constexpr size_t depth = 4;
     std::string name = random_string();

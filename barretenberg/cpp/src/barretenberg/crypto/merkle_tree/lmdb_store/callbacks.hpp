@@ -10,6 +10,7 @@
 namespace bb::crypto::merkle_tree {
 using NodeKeyType = uint128_t;
 using LeafIndexKeyType = uint64_t;
+using BlockMetaKeyType = uint64_t;
 using FrKeyType = uint256_t;
 using MetaKeyType = uint8_t;
 

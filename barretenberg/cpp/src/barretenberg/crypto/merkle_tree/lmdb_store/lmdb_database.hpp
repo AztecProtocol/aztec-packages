@@ -10,6 +10,8 @@ namespace bb::crypto::merkle_tree {
  */
 class LMDBDatabase {
   public:
+    using Ptr = std::unique_ptr<LMDBDatabase>;
+
     LMDBDatabase(const LMDBEnvironment& env,
                  const LMDBDatabaseCreationTransaction& transaction,
                  const std::string& name,

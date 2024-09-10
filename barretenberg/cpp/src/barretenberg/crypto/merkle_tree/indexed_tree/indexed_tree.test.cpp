@@ -60,7 +60,7 @@ void check_size(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.size, expected_size);
+        EXPECT_EQ(response.inner.meta.size, expected_size);
         signal.signal_level();
     };
     tree.get_meta_data(includeUncommitted, completion);
@@ -74,7 +74,7 @@ fr get_root(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2Hash
     fr r;
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
-        r = response.inner.root;
+        r = response.inner.meta.root;
         signal.signal_level();
     };
     tree.get_meta_data(includeUncommitted, completion);

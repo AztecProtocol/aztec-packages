@@ -12,8 +12,12 @@ struct TreeMeta {
     uint32_t depth;
     index_t size;
     bb::fr root;
+    index_t initialSize;
+    bb::fr initialRoot;
+    uint64_t finalisedBlockHeight;
+    uint64_t unfinalisedBlockHeight;
 
-    MSGPACK_FIELDS(name, depth, size, root)
+    MSGPACK_FIELDS(name, depth, size, root, initialSize, initialRoot, finalisedBlockHeight, unfinalisedBlockHeight)
 };
 
 struct LeavesMeta {

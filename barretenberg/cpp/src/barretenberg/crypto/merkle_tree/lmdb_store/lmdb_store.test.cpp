@@ -35,7 +35,7 @@ class LMDBStoreTest : public testing::Test {
         // setup with 1MB max db size, 1 max database and 2 maximum concurrent readers
         _directory = random_temp_directory();
         std::filesystem::create_directories(_directory);
-        _environment = std::make_unique<LMDBEnvironment>(_directory, 1024, 2, 2);
+        _environment = std::make_unique<LMDBEnvironment>(_directory, 1024, 3, 2);
     }
 
     void TearDown() override { std::filesystem::remove_all(_directory); }
