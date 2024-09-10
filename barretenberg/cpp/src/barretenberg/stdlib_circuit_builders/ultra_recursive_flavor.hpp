@@ -158,6 +158,24 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
                 commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
             }
         }
+
+        /**
+         * @brief Construct a VerificationKey from a set of corresponding witness indices
+         *
+         * @param builder
+         * @param witness_indices
+         * @return VerificationKey
+         */
+        static VerificationKey from_witness_indices(CircuitBuilder& builder,
+                                                    const std::span<const uint32_t>& witness_indices)
+        {
+            std::vector<FF> vkey_fields;
+            vkey_fields.reserve(witness_indices.size());
+            for (const auto& idx : witness_indices) {
+                vkey_fields.emplace_back(FF::from_witness_index(&builder, idx));
+            }
+            return VerificationKey(builder, vkey_fields);
+        }
     };
 
     /**
