@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725994480662,
+  "lastUpdate": 1725996452324,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "55b6ba28938a8d89a4255607a61243cf13391665",
-          "message": "fix(bb-prover): create structure for AVM vk (#8233)\n\nApologies for duplicating code! I tried putting a generic on the \"base\"\nclasses, but (1) generics don't play well with static methods (e.g.,\nfromBuffer) and (2) you still need to pass the value for the VK size (on\ntop of the type). I think most of this duplication can be avoided if you\njust accept some type unsafety and save things as `Fr[]` instead of\ntuples with size.\n\nPS: There might be still work to do to align the \"num public inputs\" etc\nindices, and the vk hash.",
-          "timestamp": "2024-08-28T15:56:51+01:00",
-          "tree_id": "afac2b8273e0318a5a2142c575f8d5111494a7f4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/55b6ba28938a8d89a4255607a61243cf13391665"
-        },
-        "date": 1724857892865,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13644.821774000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10694.891794 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5233.974395000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4814.628248 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39821.008731,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39821009000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14779.256242000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14779256000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3807274593,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3807274593 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 210597651,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 210597651 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3112539309,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3112539309 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 174149039,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 174149039 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 122746452,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 122746452 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "blorktronics@gmail.com",
+            "name": "Zachary James Williamson",
+            "username": "zac-williamson"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d5b239745178d1ce4eb8b8d32fa4b366c13c3c94",
+          "message": "feat: (bb) 128-bit challenges (#8406)\n\nThis PR modifies our Transcript class to achieve the following:\r\n\r\nevery time a hash function is used to generate challenges, the output is\r\nsplit into two 128-bit field elements to generate 2 challenges per hash\r\n\r\nThis change gives us the following benefits:\r\n\r\n1. the amount of hashing required to fold/verifier proofs is reduced\r\n2. where challenges map to Verifier scalar multiplications, those scalar\r\nmuls are now half-width and can be more efficiently evaluated (requires\r\nadditional code to support)\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/741.\r\n\r\n---------\r\n\r\nCo-authored-by: lucasxia01 <lucasxia01@gmail.com>\r\nCo-authored-by: Maxim Vezenov <mvezenov@gmail.com>",
+          "timestamp": "2024-09-10T19:10:30Z",
+          "tree_id": "6b7977d741e52bd5d82a58985d61e262cfdab95a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d5b239745178d1ce4eb8b8d32fa4b366c13c3c94"
+        },
+        "date": 1725996445068,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13127.101986999975,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10069.191004 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5076.867936999989,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4691.005517 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39334.764146,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39334764000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14744.864604000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14744865000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3624839788,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3624839788 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 145737530,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 145737530 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2958358087,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2958358087 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 122646242,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 122646242 ns\nthreads: 1"
           }
         ]
       }
