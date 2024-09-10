@@ -54,7 +54,7 @@ template <typename Curve> class ShplonkProver_ {
 
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
-            tmp[0] -= claim.opening_pair.evaluation;
+            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             tmp.factor_roots(claim.opening_pair.challenge);
 
             // Add the claim quotient to the batched quotient polynomial
@@ -103,7 +103,7 @@ template <typename Curve> class ShplonkProver_ {
         for (const auto& claim : opening_claims) {
             // tmp = ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )
             tmp = claim.polynomial;
-            tmp[0] -= claim.opening_pair.evaluation;
+            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = ρʲ / ( r − xⱼ )
 
             // G -= ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )

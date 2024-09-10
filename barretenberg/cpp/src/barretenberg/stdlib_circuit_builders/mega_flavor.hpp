@@ -35,6 +35,7 @@ class MegaFlavor {
     using Polynomial = bb::Polynomial<FF>;
     using CommitmentKey = bb::CommitmentKey<Curve>;
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
+    using TraceBlocks = CircuitBuilder::Arithmetization::TraceBlocks;
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
@@ -372,13 +373,24 @@ class MegaFlavor {
       public:
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
+        // fully-formed constructor
         ProverPolynomials(size_t circuit_size)
-        { // Initialize all unshifted polynomials to the zero polynomial and initialize the shifted polys
+        {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
             // of these polys (in aztec_ivc_bench only).
             BB_OP_COUNT_TIME_NAME("ProverPolynomials(size_t)");
+
+            for (auto& poly : get_to_be_shifted()) {
+                poly = Polynomial{ /*memory size*/ circuit_size - 1,
+                                   /*largest possible index*/ circuit_size,
+                                   /* offset */ 1 };
+            }
+            // catch-all with fully formed polynomials
             for (auto& poly : get_unshifted()) {
-                poly = Polynomial{ circuit_size };
+                if (poly.is_empty()) {
+                    // Not set above
+                    poly = Polynomial{ /*memory size*/ circuit_size, /*largest possible index*/ circuit_size };
+                }
             }
             set_shifted();
         }
@@ -390,6 +402,7 @@ class MegaFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(size_t row_idx) const
         {
+            BB_OP_COUNT_TIME_NAME("MegaFlavor::get_row");
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), this->get_all())) {
                 result_field = polynomial[row_idx];
@@ -445,17 +458,17 @@ class MegaFlavor {
 
             // Compute read record values
             for (const auto& gate_idx : memory_read_records) {
-                wires[3][gate_idx] += wires[2][gate_idx] * eta_three;
-                wires[3][gate_idx] += wires[1][gate_idx] * eta_two;
-                wires[3][gate_idx] += wires[0][gate_idx] * eta;
+                wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
+                wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
+                wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
             }
 
             // Compute write record values
             for (const auto& gate_idx : memory_write_records) {
-                wires[3][gate_idx] += wires[2][gate_idx] * eta_three;
-                wires[3][gate_idx] += wires[1][gate_idx] * eta_two;
-                wires[3][gate_idx] += wires[0][gate_idx] * eta;
-                wires[3][gate_idx] += 1;
+                wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
+                wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
+                wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
+                wires[3].at(gate_idx) += 1;
             }
         }
 

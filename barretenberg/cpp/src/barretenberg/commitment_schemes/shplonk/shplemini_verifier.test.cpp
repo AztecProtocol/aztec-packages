@@ -46,11 +46,9 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
 
     // Generate multilinear polynomials and compute their commitments
     auto mle_opening_point = this->random_evaluation_point(log_n);
-    auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n);
+    auto poly1 = Polynomial::random(n);
+    auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
     Polynomial poly3(n);
-
-    poly2[0] = Fr::zero(); // Necessary for polynomials whose shift is used
 
     Commitment commitment1 = this->commit(poly1);
     Commitment commitment2 = this->commit(poly2);
@@ -142,11 +140,9 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 
     // Generate multilinear polynomials and compute their commitments
     auto mle_opening_point = this->random_evaluation_point(log_n);
-    auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n);
-    Polynomial poly3(n);
-
-    poly2[0] = Fr::zero(); // Necessary for polynomials whose shift is used
+    auto poly1 = Polynomial::random(n);
+    auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
+    Polynomial poly3 = Polynomial::shiftable(n);
 
     // Evaluate the polynomials at the multivariate challenge, poly3 is not evaluated, because it is 0.
     auto eval1 = poly1.evaluate_mle(mle_opening_point);
@@ -160,7 +156,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
 
     Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted(n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
     batched_unshifted.add_scaled(poly1, rhos[0]);
     batched_unshifted.add_scaled(poly2, rhos[1]);
     batched_unshifted.add_scaled(poly3, rhos[2]);

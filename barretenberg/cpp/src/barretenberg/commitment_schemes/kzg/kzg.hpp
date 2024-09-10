@@ -37,7 +37,7 @@ template <typename Curve_> class KZG {
     {
         Polynomial quotient = opening_claim.polynomial;
         OpeningPair<Curve> pair = opening_claim.opening_pair;
-        quotient[0] -= pair.evaluation;
+        quotient.at(0) = quotient[0] - pair.evaluation;
         // Computes the coefficients for the quotient polynomial q(X) = (p(X) - v) / (X - r) through an FFT
         quotient.factor_roots(pair.challenge);
         auto quotient_commitment = ck->commit(quotient);

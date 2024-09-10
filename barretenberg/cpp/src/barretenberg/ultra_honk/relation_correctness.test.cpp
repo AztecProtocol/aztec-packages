@@ -19,7 +19,7 @@ using namespace bb;
 void ensure_non_zero(auto& polynomial)
 {
     bool has_non_zero_coefficient = false;
-    for (auto& coeff : polynomial) {
+    for (auto& coeff : polynomial.coeffs()) {
         has_non_zero_coefficient |= !coeff.is_zero();
     }
     ASSERT_TRUE(has_non_zero_coefficient);

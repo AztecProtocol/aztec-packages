@@ -1,4 +1,5 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 
@@ -50,6 +51,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::prove()
  */
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
+    BB_OP_COUNT_TIME_NAME("OinkProver::execute_preamble_round");
     const auto circuit_size = static_cast<uint32_t>(proving_key->proving_key.circuit_size);
     const auto num_public_inputs = static_cast<uint32_t>(proving_key->proving_key.num_public_inputs);
     transcript->send_to_verifier(domain_separator + "circuit_size", circuit_size);
@@ -72,6 +74,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round(
  */
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitments_round()
 {
+    BB_OP_COUNT_TIME_NAME("OinkProver::execute_wire_commitments_round");
     // Commit to the first three wire polynomials
     // We only commit to the fourth wire polynomial after adding memory recordss
     {
@@ -120,6 +123,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
  */
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_accumulator_round()
 {
+    BB_OP_COUNT_TIME_NAME("OinkProver::execute_sorted_list_accumulator_round");
     // Get eta challenges
     auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
         domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
@@ -155,6 +159,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_sorted_list_acc
  */
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_inverse_round()
 {
+    BB_OP_COUNT_TIME_NAME("OinkProver::execute_log_derivative_inverse_round");
     auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
     proving_key->relation_parameters.beta = beta;
     proving_key->relation_parameters.gamma = gamma;
@@ -191,6 +196,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
  */
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
+    BB_OP_COUNT_TIME_NAME("OinkProver::execute_grand_product_computation_round");
     proving_key->proving_key.compute_grand_product_polynomials(proving_key->relation_parameters);
 
     {
@@ -202,6 +208,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_c
 
 template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Flavor>::generate_alphas_round()
 {
+    BB_OP_COUNT_TIME_NAME("OinkProver::generate_alphas_round");
     RelationSeparator alphas;
     for (size_t idx = 0; idx < alphas.size(); idx++) {
         alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "alpha_" + std::to_string(idx));

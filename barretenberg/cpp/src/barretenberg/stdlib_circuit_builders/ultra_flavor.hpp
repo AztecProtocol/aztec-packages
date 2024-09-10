@@ -293,11 +293,18 @@ class UltraFlavor {
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
         ProverPolynomials(size_t circuit_size)
-        { // Initialize all unshifted polynomials to the zero polynomial and initialize the
-          // shifted polys
+        {
             ZoneScopedN("creating empty prover polys");
+            for (auto& poly : get_to_be_shifted()) {
+                poly = Polynomial{ /*memory size*/ circuit_size - 1,
+                                   /*largest possible index*/ circuit_size,
+                                   /* offset */ 1 };
+            }
             for (auto& poly : get_unshifted()) {
-                poly = Polynomial{ circuit_size };
+                if (poly.is_empty()) {
+                    // Not set above
+                    poly = Polynomial{ /*fully formed*/ circuit_size };
+                }
             }
             set_shifted();
         }
@@ -309,6 +316,7 @@ class UltraFlavor {
         [[nodiscard]] size_t get_polynomial_size() const { return q_c.size(); }
         [[nodiscard]] AllValues get_row(const size_t row_idx) const
         {
+            BB_OP_COUNT_TIME();
             AllValues result;
             for (auto [result_field, polynomial] : zip_view(result.get_all(), get_all())) {
                 result_field = polynomial[row_idx];
@@ -361,17 +369,17 @@ class UltraFlavor {
 
             // Compute read record values
             for (const auto& gate_idx : memory_read_records) {
-                wires[3][gate_idx] += wires[2][gate_idx] * eta_three;
-                wires[3][gate_idx] += wires[1][gate_idx] * eta_two;
-                wires[3][gate_idx] += wires[0][gate_idx] * eta;
+                wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
+                wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
+                wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
             }
 
             // Compute write record values
             for (const auto& gate_idx : memory_write_records) {
-                wires[3][gate_idx] += wires[2][gate_idx] * eta_three;
-                wires[3][gate_idx] += wires[1][gate_idx] * eta_two;
-                wires[3][gate_idx] += wires[0][gate_idx] * eta;
-                wires[3][gate_idx] += 1;
+                wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
+                wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
+                wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
+                wires[3].at(gate_idx) += 1;
             }
         }
 
@@ -555,7 +563,7 @@ class UltraFlavor {
             // Storage is only needed after the first partial evaluation, hence polynomials of
             // size (n / 2)
             for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
+                poly = Polynomial(circuit_size / 2, circuit_size / 2);
             }
         }
     };
