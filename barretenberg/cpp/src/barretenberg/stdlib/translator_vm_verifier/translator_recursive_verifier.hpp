@@ -13,7 +13,6 @@ template <typename Flavor> class TranslatorRecursiveVerifier_ {
     using NativeBF = typename Flavor::Curve::BaseFieldNative;
     using Builder = typename Flavor::CircuitBuilder;
     using BF = typename stdlib::bigfield<Builder, typename NativeBF::Params>;
-
     using Commitment = typename Flavor::Commitment;
     using GroupElement = typename Flavor::GroupElement;
     using VerificationKey = typename Flavor::VerificationKey;

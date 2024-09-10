@@ -239,6 +239,8 @@ template <class Builder> class DataBusDepot {
     std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT> get_witness_indices_for_commitment(const Commitment& point)
         requires(IsMegaBuilder<Builder>)
     {
+        // If using a goblin-plonk compatible builder, goblin element coordinates are stored as 2 field elements not 4.
+        // We convert to stdlib::bigfield elements so data is stored in the databus uniformly regardless of flavor
         using BigFq = stdlib::bigfield<Builder, typename Curve::BaseFieldNative::Params>;
         const auto to_bigfield = [](Fr lo, Fr hi) {
             BigFq r(lo, hi);
