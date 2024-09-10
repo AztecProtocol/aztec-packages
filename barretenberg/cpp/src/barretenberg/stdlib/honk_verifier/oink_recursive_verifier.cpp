@@ -117,7 +117,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     for (size_t idx = 0; idx < alphas.size(); ++idx) {
         args[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
-    alphas = transcript->template get_challenges_arr<FF>(args);
+    alphas = transcript->template get_challenges<FF>(args);
 
     verification_key->relation_parameters =
         RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };

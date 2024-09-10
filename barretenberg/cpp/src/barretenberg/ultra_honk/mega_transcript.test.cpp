@@ -86,7 +86,7 @@ class MegaTranscriptTests : public ::testing::Test {
             alpha_labels[i] = label;
         }
 
-        manifest_expected.add_challenge_arr(round, alpha_labels);
+        manifest_expected.add_challenge(round, alpha_labels);
         round++;
 
         for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {

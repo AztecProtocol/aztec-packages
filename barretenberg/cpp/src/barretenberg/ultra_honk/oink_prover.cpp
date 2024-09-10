@@ -207,7 +207,7 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Fl
     for (size_t idx = 0; idx < alphas.size(); ++idx) {
         args[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
-    alphas = transcript->template get_challenges_arr<FF>(args);
+    alphas = transcript->template get_challenges<FF>(args);
     return alphas;
 }
 

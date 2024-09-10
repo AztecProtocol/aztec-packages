@@ -51,13 +51,19 @@ class TranscriptManifest {
     {
         manifest[round].challenge_label = { labels... };
     }
-    template <typename String, size_t NumStrings>
-    void add_challenge_arr(size_t round, const std::array<String, NumStrings>& labels)
+    template <typename String, size_t NumChallenges>
+    void add_challenge(size_t round, std::array<String, NumChallenges> labels)
     {
-        for (size_t i = 0; i < NumStrings; ++i) {
-            manifest[round].challenge_label.emplace_back(labels[i]);
-        }
+        auto call_add_challenge = [&] {
+            auto call_fn_with_expanded_parameters =
+                [&]<size_t... Indices>([[maybe_unused]] std::index_sequence<Indices...>) {
+                    return add_challenge(round, std::get<Indices>(labels)...);
+                };
+            return call_fn_with_expanded_parameters(std::make_index_sequence<NumChallenges>());
+        };
+        call_add_challenge();
     }
+
     void add_entry(size_t round, const std::string& element_label, size_t element_size)
     {
         manifest[round].entries.emplace_back(element_label, element_size);
@@ -334,45 +340,16 @@ template <typename TranscriptParams> class BaseTranscript {
      * @return std::array<Fr, num_challenges> challenges for this round.
      */
     template <typename ChallengeType, typename String, size_t NumChallenges>
-    std::array<ChallengeType, NumChallenges> get_challenges_arr(const std::array<String, NumChallenges> labels)
+    std::array<ChallengeType, NumChallenges> get_challenges(const std::array<String, NumChallenges> labels)
     {
-        constexpr size_t num_challenges = NumChallenges;
-
-        // Add challenge labels for current round to the manifest
-        manifest.add_challenge_arr(round_number, labels);
-
-        // Compute the new challenge buffer from which we derive the challenges.
-
-        // Create challenges from Frs.
-        std::array<ChallengeType, num_challenges> challenges{};
-
-        // Generate the challenges by iteratively hashing over the previous challenge.
-        for (size_t i = 0; i < num_challenges / 2; i += 1) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/741): Optimize this by truncating hash to 128
-            // bits or by splitting hash into 2 challenges.
-            /*
-            auto next_challenge_buffer = get_next_challenge_buffer(); // get next challenge buffer
-            Fr field_element_buffer = next_challenge_buffer;
-            // copy half of the hash to lower 128 bits of challenge Note: because of how read() from buffers to fields
-            works (in field_declarations.hpp), we use the later half of the buffer
-            // std::copy_n(next_challenge_buffer.begin(),
-            //             HASH_OUTPUT_SIZE / 2,
-            //             field_element_buffer.begin() + HASH_OUTPUT_SIZE / 2);
-            */
-            auto challenge_buffer = get_next_duplex_challenge_buffer(2);
-            challenges[2 * i] = TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[0]);
-            challenges[2 * i + 1] = TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[1]);
-        }
-        if ((num_challenges & 1) == 1) {
-            auto challenge_buffer = get_next_duplex_challenge_buffer(1);
-            challenges[num_challenges - 1] =
-                TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[0]);
-        }
-
-        // Prepare for next round.
-        ++round_number;
-
-        return challenges;
+        auto call_get_challenges = [&] {
+            auto call_fn_with_expanded_parameters =
+                [&]<size_t... Indices>([[maybe_unused]] std::index_sequence<Indices...>) {
+                    return get_challenges<Fr>(std::get<Indices>(labels)...);
+                };
+            return call_fn_with_expanded_parameters(std::make_index_sequence<NumChallenges>());
+        };
+        return call_get_challenges();
     }
 
     /**
