@@ -322,7 +322,7 @@ void AvmTraceBuilder::op_add(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::ADD);
+    gas_trace_builder.constrain_gas(clk, OpCode::ADD_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -389,7 +389,7 @@ void AvmTraceBuilder::op_sub(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SUB);
+    gas_trace_builder.constrain_gas(clk, OpCode::SUB_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -456,7 +456,7 @@ void AvmTraceBuilder::op_mul(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::MUL);
+    gas_trace_builder.constrain_gas(clk, OpCode::MUL_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -534,7 +534,7 @@ void AvmTraceBuilder::op_div(
     auto write_dst = constrained_write_to_memory(call_ptr, clk, resolved_dst, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::DIV);
+    gas_trace_builder.constrain_gas(clk, OpCode::DIV_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -576,7 +576,8 @@ void AvmTraceBuilder::op_div(
  * @param dst_offset An index in memory pointing to the output of the division.
  * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset)
+void AvmTraceBuilder::op_fdiv(
+    uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, [[maybe_unused]] AvmMemoryTag in_tag)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
@@ -614,7 +615,7 @@ void AvmTraceBuilder::op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_of
         call_ptr, clk, resolved_c, c, AvmMemoryTag::FF, AvmMemoryTag::FF, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::FDIV);
+    gas_trace_builder.constrain_gas(clk, OpCode::FDIV_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -684,7 +685,7 @@ void AvmTraceBuilder::op_eq(
         constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, AvmMemoryTag::U8, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::EQ);
+    gas_trace_builder.constrain_gas(clk, OpCode::EQ_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -736,7 +737,7 @@ void AvmTraceBuilder::op_lt(
         constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, AvmMemoryTag::U8, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::LT);
+    gas_trace_builder.constrain_gas(clk, OpCode::LT_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -789,7 +790,7 @@ void AvmTraceBuilder::op_lte(
         constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, AvmMemoryTag::U8, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::LTE);
+    gas_trace_builder.constrain_gas(clk, OpCode::LTE_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -845,7 +846,7 @@ void AvmTraceBuilder::op_and(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::AND);
+    gas_trace_builder.constrain_gas(clk, OpCode::AND_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -897,7 +898,7 @@ void AvmTraceBuilder::op_or(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::OR);
+    gas_trace_builder.constrain_gas(clk, OpCode::OR_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -950,7 +951,7 @@ void AvmTraceBuilder::op_xor(
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::XOR);
+    gas_trace_builder.constrain_gas(clk, OpCode::XOR_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1059,7 +1060,7 @@ void AvmTraceBuilder::op_shl(
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SHL);
+    gas_trace_builder.constrain_gas(clk, OpCode::SHL_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,
@@ -1111,7 +1112,7 @@ void AvmTraceBuilder::op_shr(
     // Write into memory value c from intermediate register ic.
     auto write_c = constrained_write_to_memory(call_ptr, clk, resolved_c, c, in_tag, in_tag, IntermRegister::IC);
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::SHR);
+    gas_trace_builder.constrain_gas(clk, OpCode::SHR_8);
 
     main_trace.push_back(Row{
         .main_clk = clk,

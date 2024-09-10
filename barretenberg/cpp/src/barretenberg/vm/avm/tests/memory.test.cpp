@@ -270,7 +270,7 @@ TEST_F(AvmMemoryTests, consistentTagNoErrorViolation)
     trace_builder = AvmTraceBuilder(public_inputs, {}, 0, std::vector<FF>{ 84, 7 });
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
-    trace_builder.op_fdiv(0, 0, 1, 4);
+    trace_builder.op_fdiv(0, 0, 1, 4, AvmMemoryTag::FF);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
@@ -297,7 +297,7 @@ TEST_F(AvmMemoryTests, noErrorTagWriteViolation)
     trace_builder = AvmTraceBuilder(public_inputs, {}, 0, { 84, 7 });
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
-    trace_builder.op_fdiv(0, 0, 1, 4);
+    trace_builder.op_fdiv(0, 0, 1, 4, AvmMemoryTag::FF);
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
