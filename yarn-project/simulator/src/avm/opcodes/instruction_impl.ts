@@ -14,13 +14,21 @@ export const TwoOperandWireFormat = [
 ];
 
 /** Wire format that informs deserialization for instructions with three operands. */
-export const ThreeOperandWireFormat = [
+export const ThreeOperandWireFormat8 = [
   OperandType.UINT8,
   OperandType.UINT8,
   OperandType.UINT8,
-  OperandType.UINT32,
-  OperandType.UINT32,
-  OperandType.UINT32,
+  OperandType.UINT16,
+  OperandType.UINT16,
+  OperandType.UINT16,
+];
+export const ThreeOperandWireFormat16 = [
+  OperandType.UINT8,
+  OperandType.UINT8,
+  OperandType.UINT8,
+  OperandType.UINT16,
+  OperandType.UINT16,
+  OperandType.UINT16,
 ];
 
 /**
@@ -46,8 +54,8 @@ export abstract class TwoOperandInstruction extends Instruction {
  * indirect, inTag, and three UINT32s.
  */
 export abstract class ThreeOperandInstruction extends Instruction {
-  // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = ThreeOperandWireFormat;
+  static readonly wireFormat8: OperandType[] = ThreeOperandWireFormat8;
+  static readonly wireFormat16: OperandType[] = ThreeOperandWireFormat16;
 
   constructor(
     protected indirect: number,

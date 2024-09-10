@@ -84,11 +84,7 @@ pub fn brillig_to_avm(
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
                     indirect: Some(ALL_DIRECT),
-                    tag: if avm_opcode == AvmOpcode::FDIV_8 || avm_opcode == AvmOpcode::FDIV_16 {
-                        None
-                    } else {
-                        Some(AvmTypeTag::FIELD)
-                    },
+                    tag: Some(AvmTypeTag::FIELD),
                     operands: vec![
                         make_operand(bits_needed, &lhs.0),
                         make_operand(bits_needed, &rhs.0),
