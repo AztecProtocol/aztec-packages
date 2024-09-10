@@ -68,12 +68,12 @@ class AvmExecutionTests : public ::testing::Test {
 // Parsing, trace generation and proving is verified.
 TEST_F(AvmExecutionTests, basicAddReturn)
 {
-    std::string bytecode_hex = to_hex(OpCode::ADD) +      // opcode ADD
+    std::string bytecode_hex = to_hex(OpCode::ADD_16) +   // opcode ADD
                                "00"                       // Indirect flag
                                "01"                       // U8
-                               "00000007"                 // addr a 7
-                               "00000009"                 // addr b 9
-                               "00000001"                 // addr c 1
+                               "0007"                     // addr a 7
+                               "0009"                     // addr b 9
+                               "0001"                     // addr c 1
                                + to_hex(OpCode::RETURN) + // opcode RETURN
                                "00"                       // Indirect flag
                                "00000000"                 // ret offset 0
@@ -87,13 +87,13 @@ TEST_F(AvmExecutionTests, basicAddReturn)
 
     // ADD
     EXPECT_THAT(instructions.at(0),
-                AllOf(Field(&Instruction::op_code, OpCode::ADD),
+                AllOf(Field(&Instruction::op_code, OpCode::ADD_16),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<AvmMemoryTag>(AvmMemoryTag::U8),
-                                        VariantWith<uint32_t>(7),
-                                        VariantWith<uint32_t>(9),
-                                        VariantWith<uint32_t>(1)))));
+                                        VariantWith<uint16_t>(7),
+                                        VariantWith<uint16_t>(9),
+                                        VariantWith<uint16_t>(1)))));
 
     // RETURN
     EXPECT_THAT(instructions.at(1),
@@ -118,12 +118,12 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
                                "02"                       // U16
                                "9103"                     // val 37123
                                "0033"                     // dst_offset 51
-                               + to_hex(OpCode::SUB) +    // opcode SUB
+                               + to_hex(OpCode::SUB_8) +  // opcode SUB
                                "00"                       // Indirect flag
                                "02"                       // U16
-                               "000000AA"                 // addr a
-                               "00000033"                 // addr b
-                               "00000001"                 // addr c 1
+                               "AA"                       // addr a
+                               "33"                       // addr b
+                               "01"                       // addr c 1
                                + to_hex(OpCode::RETURN) + // opcode RETURN
                                "00"                       // Indirect flag
                                "00000000"                 // ret offset 0
@@ -154,13 +154,13 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
 
     // SUB
     EXPECT_THAT(instructions.at(2),
-                AllOf(Field(&Instruction::op_code, OpCode::SUB),
+                AllOf(Field(&Instruction::op_code, OpCode::SUB_8),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<AvmMemoryTag>(AvmMemoryTag::U16),
-                                        VariantWith<uint32_t>(170),
-                                        VariantWith<uint32_t>(51),
-                                        VariantWith<uint32_t>(1)))));
+                                        VariantWith<uint8_t>(170),
+                                        VariantWith<uint8_t>(51),
+                                        VariantWith<uint8_t>(1)))));
 
     auto trace = gen_trace_from_instr(instructions);
 
@@ -189,12 +189,12 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
                                "01"                      // val
                                "01";                     // dst_offset 1
 
-    std::string const mul_hex = to_hex(OpCode::MUL) + // opcode MUL
-                                "00"                  // Indirect flag
-                                "04"                  // U64
-                                "00000000"            // addr a
-                                "00000001"            // addr b
-                                "00000001";           // addr c 1
+    std::string const mul_hex = to_hex(OpCode::MUL_8) + // opcode MUL
+                                "00"                    // Indirect flag
+                                "04"                    // U64
+                                "00"                    // addr a
+                                "01"                    // addr b
+                                "01";                   // addr c 1
 
     std::string const ret_hex = to_hex(OpCode::RETURN) + // opcode RETURN
                                 "00"                     // Indirect flag
@@ -214,23 +214,23 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
 
     // MUL first pos
     EXPECT_THAT(instructions.at(2),
-                AllOf(Field(&Instruction::op_code, OpCode::MUL),
+                AllOf(Field(&Instruction::op_code, OpCode::MUL_8),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<AvmMemoryTag>(AvmMemoryTag::U64),
-                                        VariantWith<uint32_t>(0),
-                                        VariantWith<uint32_t>(1),
-                                        VariantWith<uint32_t>(1)))));
+                                        VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(1),
+                                        VariantWith<uint8_t>(1)))));
 
     // MUL last pos
     EXPECT_THAT(instructions.at(13),
-                AllOf(Field(&Instruction::op_code, OpCode::MUL),
+                AllOf(Field(&Instruction::op_code, OpCode::MUL_8),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<AvmMemoryTag>(AvmMemoryTag::U64),
-                                        VariantWith<uint32_t>(0),
-                                        VariantWith<uint32_t>(1),
-                                        VariantWith<uint32_t>(1)))));
+                                        VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(1),
+                                        VariantWith<uint8_t>(1)))));
 
     // RETURN
     EXPECT_THAT(instructions.at(14),
@@ -266,12 +266,12 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
                                "0004"                           // dst_offset 4
                                + to_hex(OpCode::INTERNALCALL) + // opcode INTERNALCALL
                                "00000004"                       // jmp_dest
-                               + to_hex(OpCode::ADD) +          // opcode ADD
+                               + to_hex(OpCode::ADD_16) +       // opcode ADD
                                "00"                             // Indirect flag
                                "03"                             // U32
-                               "00000004"                       // addr a 4
-                               "00000007"                       // addr b 7
-                               "00000009"                       // addr c9
+                               "0004"                           // addr a 4
+                               "0007"                           // addr b 7
+                               "0009"                           // addr c9
                                + to_hex(OpCode::RETURN) +       // opcode RETURN
                                "00"                             // Indirect flag
                                "00000000"                       // ret offset 0
@@ -342,22 +342,21 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
                + "000000" + val + "00" + dst_offset;
     };
 
-    const std::string tag_address_arguments = "00"        // Indirect Flag
-                                              "01"        // U8
-                                              "00000002"  // addr a 2
-                                              "00000003"  // addr b 3
-                                              "00000002"; // addr c 2
+    const std::string tag_address_arguments = "00"  // Indirect Flag
+                                              "01"  // U8
+                                              "02"  // addr a 2
+                                              "03"  // addr b 3
+                                              "02"; // addr c 2
 
     const std::string return_instruction_hex = to_hex(OpCode::RETURN) // opcode RETURN
                                                + "00"                 // Indirect flag
                                                  "00000000"           // ret offset 0
                                                  "00000000";          // ret size 0
 
-    const std::string bytecode_f1 = to_hex(OpCode::ADD) + tag_address_arguments + to_hex(OpCode::INTERNALRETURN);
-    const std::string bytecode_f2 = to_hex(OpCode::MUL) + tag_address_arguments + to_hex(OpCode::INTERNALRETURN);
+    const std::string bytecode_f1 = to_hex(OpCode::ADD_8) + tag_address_arguments + to_hex(OpCode::INTERNALRETURN);
+    const std::string bytecode_f2 = to_hex(OpCode::MUL_8) + tag_address_arguments + to_hex(OpCode::INTERNALRETURN);
     const std::string bytecode_g = internalCallInstructionHex("06") + setInstructionHex("11", "03") +
                                    internalCallInstructionHex("04") + to_hex(OpCode::INTERNALRETURN);
-
     std::string bytecode_hex = setInstructionHex("04", "02") + setInstructionHex("07", "03") +
                                internalCallInstructionHex("08") + return_instruction_hex + bytecode_f2 + bytecode_f1 +
                                bytecode_g;
@@ -368,11 +367,10 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
     ASSERT_THAT(instructions, SizeIs(12));
 
     // Expected sequence of opcodes
-    std::vector<OpCode> const opcode_sequence{
-        OpCode::SET_32,       OpCode::SET_32,         OpCode::INTERNALCALL, OpCode::RETURN,
-        OpCode::MUL,          OpCode::INTERNALRETURN, OpCode::ADD,          OpCode::INTERNALRETURN,
-        OpCode::INTERNALCALL, OpCode::SET_32,         OpCode::INTERNALCALL, OpCode::INTERNALRETURN
-    };
+    std::vector<OpCode> const opcode_sequence{ OpCode::SET_32, OpCode::SET_32,         OpCode::INTERNALCALL,
+                                               OpCode::RETURN, OpCode::MUL_8,          OpCode::INTERNALRETURN,
+                                               OpCode::ADD_8,  OpCode::INTERNALRETURN, OpCode::INTERNALCALL,
+                                               OpCode::SET_32, OpCode::INTERNALCALL,   OpCode::INTERNALRETURN };
 
     for (size_t i = 0; i < 12; i++) {
         EXPECT_EQ(instructions.at(i).op_code, opcode_sequence.at(i));
@@ -420,17 +418,18 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
                                "0000000A"                       // dst_offset // M[10] = 13, M[11] = 156
                                + to_hex(OpCode::JUMP_16) +      // opcode JUMP
                                "0005"                           // jmp_dest (FDIV located at 3)
-                               + to_hex(OpCode::SUB) +          // opcode SUB
+                               + to_hex(OpCode::SUB_8) +        // opcode SUB
                                "00"                             // Indirect flag
                                "06"                             // FF
-                               "0000000B"                       // addr 11
-                               "0000000A"                       // addr 10
-                               "00000001"                       // addr c 1 (If executed would be 156 - 13 = 143)
-                               + to_hex(OpCode::FDIV) +         // opcode FDIV
+                               "0B"                             // addr 11
+                               "0A"                             // addr 10
+                               "01"                             // addr c 1 (If executed would be 156 - 13 = 143)
+                               + to_hex(OpCode::FDIV_8) +       // opcode FDIV
                                "00"                             // Indirect flag
-                               "0000000B"                       // addr 11
-                               "0000000A"                       // addr 10
-                               "00000001"                       // addr c 1 (156 / 13 = 12)
+                               "06"                             // tag
+                               "0B"                             // addr 11
+                               "0A"                             // addr 10
+                               "01"                             // addr c 1 (156 / 13 = 12)
                                + to_hex(OpCode::RETURN) +       // opcode RETURN
                                "00"                             // Indirect flag
                                "00000000"                       // ret offset 0
@@ -517,18 +516,18 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
                                "00"                             // Indirect flag
                                "0006"                           // jmp_dest (MUL located at 6)
                                "000A"                           // cond_offset 10
-                               + to_hex(OpCode::ADD) +          // opcode ADD
+                               + to_hex(OpCode::ADD_16) +       // opcode ADD
                                "00"                             // Indirect flag
                                "02"                             // U16
-                               "00000065"                       // addr 101
-                               "00000065"                       // addr 101
-                               "00000065"                       // output addr 101
-                               + to_hex(OpCode::MUL) +          // opcode MUL
+                               "0065"                           // addr 101
+                               "0065"                           // addr 101
+                               "0065"                           // output addr 101
+                               + to_hex(OpCode::MUL_8) +        // opcode MUL
                                "00"                             // Indirect flag
                                "02"                             // U16
-                               "00000065"                       // addr 101
-                               "00000065"                       // addr 101
-                               "00000066"                       // output of MUL addr 102
+                               "65"                             // addr 101
+                               "65"                             // addr 101
+                               "66"                             // output of MUL addr 102
                                + to_hex(OpCode::RETURN) +       // opcode RETURN
                                "00"                             // Indirect flag
                                "00000000"                       // ret offset 0
@@ -1693,12 +1692,12 @@ TEST_F(AvmExecutionTests, l2GasLeft)
 // Positive test for DAGASLEFT opcode
 TEST_F(AvmExecutionTests, daGasLeft)
 {
-    std::string bytecode_hex = to_hex(OpCode::ADD) +         // opcode ADD
+    std::string bytecode_hex = to_hex(OpCode::ADD_16) +      // opcode ADD
                                "00"                          // Indirect flag
                                "03"                          // U32
-                               "00000007"                    // addr a 7
-                               "00000009"                    // addr b 9
-                               "00000001"                    // addr c 1
+                               "0007"                        // addr a 7
+                               "0009"                        // addr b 9
+                               "0001"                        // addr c 1
                                + to_hex(OpCode::DAGASLEFT) + // opcode DAGASLEFT
                                "00"                          // Indirect flag
                                "00000027"                    // dst_offset 39
@@ -1723,7 +1722,7 @@ TEST_F(AvmExecutionTests, daGasLeft)
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_dagasleft == 1; });
 
     uint32_t expected_rem_gas = DEFAULT_INITIAL_DA_GAS -
-                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::ADD).base_da_gas_fixed_table) -
+                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::ADD_8).base_da_gas_fixed_table) -
                                 static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::DAGASLEFT).base_da_gas_fixed_table);
 
     EXPECT_EQ(row->main_ia, expected_rem_gas);
@@ -2279,15 +2278,15 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
 // Negative test detecting an invalid opcode byte.
 TEST_F(AvmExecutionTests, invalidOpcode)
 {
-    std::string bytecode_hex = to_hex(OpCode::ADD) + // opcode ADD
-                               "00"                  // Indirect flag
-                               "02"                  // U16
-                               "00000007"            // addr a 7
-                               "00000009"            // addr b 9
-                               "00000001"            // addr c 1
-                               "AB"                  // Invalid opcode byte
-                               "00000000"            // ret offset 0
-                               "00000000";           // ret size 0
+    std::string bytecode_hex = to_hex(OpCode::ADD_16) + // opcode ADD
+                               "00"                     // Indirect flag
+                               "02"                     // U16
+                               "0007"                   // addr a 7
+                               "0009"                   // addr b 9
+                               "0001"                   // addr c 1
+                               "AB"                     // Invalid opcode byte
+                               "00000000"               // ret offset 0
+                               "00000000";              // ret size 0
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     EXPECT_THROW_WITH_MESSAGE(Deserialization::parse(bytecode), "Invalid opcode");
@@ -2296,12 +2295,12 @@ TEST_F(AvmExecutionTests, invalidOpcode)
 // Negative test detecting an invalid memmory instruction tag.
 TEST_F(AvmExecutionTests, invalidInstructionTag)
 {
-    std::string bytecode_hex = to_hex(OpCode::ADD) +      // opcode ADD
+    std::string bytecode_hex = to_hex(OpCode::ADD_16) +   // opcode ADD
                                "00"                       // Indirect flag
                                "00"                       // Wrong type
-                               "00000007"                 // addr a 7
-                               "00000009"                 // addr b 9
-                               "00000001"                 // addr c 1
+                               "0007"                     // addr a 7
+                               "0009"                     // addr b 9
+                               "0001"                     // addr c 1
                                + to_hex(OpCode::RETURN) + // opcode RETURN
                                "00"                       // Indirect flag
                                "00000000"                 // ret offset 0
@@ -2314,13 +2313,13 @@ TEST_F(AvmExecutionTests, invalidInstructionTag)
 // Negative test detecting an incomplete instruction: missing instruction tag
 TEST_F(AvmExecutionTests, truncatedInstructionNoTag)
 {
-    std::string bytecode_hex = to_hex(OpCode::ADD) +  // opcode ADD
-                               "00"                   // Indirect flag
-                               "02"                   // U16
-                               "00000007"             // addr a 7
-                               "00000009"             // addr b 9
-                               "00000001"             // addr c 1
-                               + to_hex(OpCode::SUB); // opcode SUB
+    std::string bytecode_hex = to_hex(OpCode::ADD_16) + // opcode ADD
+                               "00"                     // Indirect flag
+                               "02"                     // U16
+                               "0007"                   // addr a 7
+                               "0009"                   // addr b 9
+                               "0001"                   // addr c 1
+                               + to_hex(OpCode::SUB_8); // opcode SUB
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     EXPECT_THROW_WITH_MESSAGE(Deserialization::parse(bytecode), "Operand is missing");
@@ -2329,17 +2328,17 @@ TEST_F(AvmExecutionTests, truncatedInstructionNoTag)
 // Negative test detecting an incomplete instruction: instruction tag present but an operand is missing
 TEST_F(AvmExecutionTests, truncatedInstructionNoOperand)
 {
-    std::string bytecode_hex = to_hex(OpCode::ADD) +   // opcode ADD
-                               "00"                    // Indirect flag
-                               "02"                    // U16
-                               "00000007"              // addr a 7
-                               "00000009"              // addr b 9
-                               "00000001"              // addr c 1
-                               + to_hex(OpCode::SUB) + // opcode SUB
-                               "00"                    // Indirect flag
-                               "04"                    // U64
-                               "AB2373E7"              // addr a
-                               "FFFFFFBB";             // addr b and missing address for c = a-b
+    std::string bytecode_hex = to_hex(OpCode::ADD_16) +  // opcode ADD
+                               "00"                      // Indirect flag
+                               "02"                      // U16
+                               "0007"                    // addr a 7
+                               "0009"                    // addr b 9
+                               "0001"                    // addr c 1
+                               + to_hex(OpCode::SUB_8) + // opcode SUB
+                               "00"                      // Indirect flag
+                               "04"                      // U64
+                               "AB"                      // addr a
+                               "FF";                     // addr b and missing address for c = a-b
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     EXPECT_THROW_WITH_MESSAGE(Deserialization::parse(bytecode), "Operand is missing");

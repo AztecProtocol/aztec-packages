@@ -14,8 +14,11 @@ namespace bb::avm_trace {
 
 namespace {
 
-const std::vector<OperandType> three_operand_format = {
-    OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32,
+const std::vector<OperandType> three_operand_format8 = {
+    OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT8, OperandType::UINT8,
+};
+const std::vector<OperandType> three_operand_format16 = {
+    OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16,
 };
 const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT, OperandType::UINT32 };
 
@@ -39,22 +42,35 @@ const std::vector<OperandType> external_call_format = { OperandType::INDIRECT,
 const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = {
     // Compute
     // Compute - Arithmetic
-    { OpCode::ADD, three_operand_format },
-    { OpCode::SUB, three_operand_format },
-    { OpCode::MUL, three_operand_format },
-    { OpCode::DIV, three_operand_format },
-    { OpCode::FDIV, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
-    // Compute - Comparators
-    { OpCode::EQ, three_operand_format },
-    { OpCode::LT, three_operand_format },
-    { OpCode::LTE, three_operand_format },
+    { OpCode::ADD_8, three_operand_format8 },
+    { OpCode::ADD_16, three_operand_format16 },
+    { OpCode::SUB_8, three_operand_format8 },
+    { OpCode::SUB_16, three_operand_format16 },
+    { OpCode::MUL_8, three_operand_format8 },
+    { OpCode::MUL_16, three_operand_format16 },
+    { OpCode::DIV_8, three_operand_format8 },
+    { OpCode::DIV_16, three_operand_format16 },
+    { OpCode::FDIV_8, three_operand_format8 },
+    { OpCode::FDIV_16, three_operand_format16 },
+    // Compute - Comparison
+    { OpCode::EQ_8, three_operand_format8 },
+    { OpCode::EQ_16, three_operand_format16 },
+    { OpCode::LT_8, three_operand_format8 },
+    { OpCode::LT_16, three_operand_format16 },
+    { OpCode::LTE_8, three_operand_format8 },
+    { OpCode::LTE_16, three_operand_format16 },
     // Compute - Bitwise
-    { OpCode::AND, three_operand_format },
-    { OpCode::OR, three_operand_format },
-    { OpCode::XOR, three_operand_format },
-    { OpCode::NOT, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::SHL, three_operand_format },
-    { OpCode::SHR, three_operand_format },
+    { OpCode::AND_8, three_operand_format8 },
+    { OpCode::AND_16, three_operand_format16 },
+    { OpCode::OR_8, three_operand_format8 },
+    { OpCode::OR_16, three_operand_format16 },
+    { OpCode::XOR_8, three_operand_format8 },
+    { OpCode::XOR_16, three_operand_format16 },
+    { OpCode::NOT, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT8 } },
+    { OpCode::SHL_8, three_operand_format8 },
+    { OpCode::SHL_16, three_operand_format16 },
+    { OpCode::SHR_8, three_operand_format8 },
+    { OpCode::SHR_16, three_operand_format16 },
     // Compute - Type Conversions
     { OpCode::CAST, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32 } },
 
