@@ -316,10 +316,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = data.terraform_remote_state.l1_contracts.outputs.registry_contract_address
         },
         {
-          name  = "AVAILABILITY_ORACLE_CONTRACT_ADDRESS"
-          value = data.terraform_remote_state.l1_contracts.outputs.availability_oracle_contract_address
-        },
-        {
           name  = "FEE_JUICE_CONTRACT_ADDRESS"
           value = data.terraform_remote_state.l1_contracts.outputs.fee_juice_contract_address
         },
