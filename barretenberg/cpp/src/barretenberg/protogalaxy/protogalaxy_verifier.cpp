@@ -1,4 +1,5 @@
 #include "protogalaxy_verifier.hpp"
+#include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
@@ -36,12 +37,12 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
 }
 
 template <typename FF, size_t NUM>
-std::tuple<FF, std::array<FF, NUM>> compute_lagrange_vanishing_polynomial_evaluations(const FF& combiner_challenge)
+std::tuple<FF, std::vector<FF>> compute_lagrange_vanishing_polynomial_evaluations(const FF& combiner_challenge)
 {
     static_assert(NUM < 5);
     static constexpr FF inverse_two = FF(2).invert();
 
-    std::array<FF, NUM> lagranges;
+    std::vector<FF> lagranges(NUM);
     FF vanishing_polynomial_at_challenge;
     if constexpr (NUM == 2) {
         vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
@@ -112,13 +113,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     next_accumulator->is_accumulator = true;
 
     size_t commitment_idx = 0;
-    for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
-        size_t vk_idx = 0;
-        expected_vk = Commitment::infinity();
-        for (auto& key : keys_to_fold) {
-            expected_vk = expected_vk + key->verification_key->get_all()[commitment_idx] * lagranges[vk_idx];
-            vk_idx++;
-        }
+    for (auto& folded_commitment : next_accumulator->verification_key->get_all()) {
+        folded_commitment = batch_mul_native(keys_to_fold.get_commitments_at_index(commitment_idx), lagranges);
         commitment_idx++;
     }
 

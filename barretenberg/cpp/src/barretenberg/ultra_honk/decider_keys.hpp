@@ -86,6 +86,7 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
 template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     static_assert(NUM_ > 1, "Must have at least two decider verification keys.");
     using Flavor = Flavor_;
+    using Commitment = typename Flavor_::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
     using DeciderVK = DeciderVerificationKey_<Flavor>;
     using ArrayType = std::array<std::shared_ptr<DeciderVK>, NUM_>;
@@ -106,5 +107,15 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
             _data[idx] = std::move(data[idx]);
         }
     };
+
+    std::vector<Commitment> get_commitments_at_index(const size_t idx) const
+    {
+        std::vector<Commitment> result(NUM);
+        for (auto [elt, key] : zip_view(result, _data)) {
+            elt = key->verification_key->get_all()[idx];
+        }
+
+        return result;
+    }
 };
 } // namespace bb
