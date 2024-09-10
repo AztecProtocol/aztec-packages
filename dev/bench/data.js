@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725964959837,
+  "lastUpdate": 1725985973308,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3540f8ea961b0001ec9f497e2ff4d00c894ce6e4",
-          "message": "feat: Use oink in IVC (#8161)\n\nPrior to this work the first call to IVC accumulate initialized an\r\nincomplete (un-oinked) instance for the circuit. The second round then\r\nexecuted folding on two incomplete instances, requiring a call to oink\r\nfor each. Subsequent folding rounds only required a single oink since\r\nthe instance being folded into is a \"complete\" accumulator. This pattern\r\ncreates additional special case handling in IVC/databus. It also results\r\nin the first folding proof having a complicated structure (two internal\r\noink proofs) which makes acir constraint construction and the\r\ncorresponding proof surgery quite complicated. (The current noir\r\nframework can't even support this since recursive verification of the\r\nfirst fold proof involves a single proof but two verification keys).\r\n\r\nWith the present work, the first round of accumulation now uses oink to\r\ncomplete the instance and create an oink proof. The first kernel\r\n(instead of doing no recursive work) now does a single recursive oink\r\nverification. This allows for all subsequent rounds to have identical\r\nstructure - they fold two instances where only the new one is incomplete\r\nand thus only one oink proof is contained in the fold proof. It also\r\nallows every recursive verification (there are now two types: oink and\r\nPG) to be associated with a single proof and a single verification key,\r\nin line with how recursion is currently specified from noir.\r\n\r\nNote: This change also simplifies the databus consistency checks since\r\nthere is no longer any need to treat the first round of folding as a\r\nspecial case.",
-          "timestamp": "2024-08-26T21:37:36Z",
-          "tree_id": "fe463b80bac30dd5010ce94058bf174ae9c80a8a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3540f8ea961b0001ec9f497e2ff4d00c894ce6e4"
-        },
-        "date": 1724709236121,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13514.988920000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10372.168873999997 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5141.761798000019,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4738.8083910000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39562.933271,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39562933000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14761.700784999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14761701000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3773080067,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3773080067 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208777462,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 208777462 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3053206641,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3053206641 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173073875,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173073875 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 120728963,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 120728963 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8de1f2a942024aad955ea0f318cb044e3692b7fc",
+          "message": "feat(avm)!: variants for binary operations (#8473)\n\nGets us another ~30% bytecode size gain.\n\nI still have to remove tags.",
+          "timestamp": "2024-09-10T17:22:04+01:00",
+          "tree_id": "31da4d3576d7643b021f13930a50b8f8e69e1950",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8de1f2a942024aad955ea0f318cb044e3692b7fc"
+        },
+        "date": 1725985966098,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13362.828094000008,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10258.320415000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5094.068345999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4664.127823000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39233.803472,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39233803000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14682.040589999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14682041000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3661581634,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3661581634 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146749294,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146749294 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2993717784,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2993717784 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 119752968,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 119752968 ns\nthreads: 1"
           }
         ]
       }
