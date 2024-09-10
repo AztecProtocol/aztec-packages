@@ -32,6 +32,11 @@ export type ProvingBlockResult = SimulationBlockResult & {
   aggregationObject: Fr[];
 };
 
+export type ProvingEpochResult = {
+  proof: Proof;
+  aggregationObject: Fr[];
+};
+
 /** Receives processed txs as part of block simulation or proving. */
 export interface ProcessedTxHandler {
   /**
@@ -71,4 +76,16 @@ export interface BlockProver extends BlockSimulator {
 
   /** Performs the final archive tree insertion for this block and returns the L2Block. */
   finaliseBlock(): Promise<ProvingBlockResult>;
+}
+
+export interface EpochProver extends ProcessedTxHandler {
+  startNewEpoch(numBlocks: number): Promise<ProvingTicket>; // TODO: add start blocknum
+
+  startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void>;
+
+  finaliseBlock(): Promise<void>;
+
+  finaliseEpoch(): Promise<ProvingEpochResult>;
+
+  cancel(): void;
 }

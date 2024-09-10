@@ -64,5 +64,5 @@
       "path": "../kv-store"
     }
   ],
-  "include": ["src"]
+  "include": ["src", "../prover-client/src/block_builder"]
 }

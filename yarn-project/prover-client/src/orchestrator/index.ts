@@ -1,1 +1,1 @@
-export { ProvingOrchestrator } from './orchestrator.js';
+export { BlockProvingOrchestrator as ProvingOrchestrator } from './orchestrator.js';

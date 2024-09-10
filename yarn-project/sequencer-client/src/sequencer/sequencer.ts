@@ -31,7 +31,7 @@ import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world
 
 import { BaseError, ContractFunctionRevertedError } from 'viem';
 
-import { type BlockBuilderFactory } from '../block_builder/index.js';
+import { type BlockBuilderFactory } from '../../../prover-client/src/block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';

@@ -16,7 +16,8 @@ import {
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 
-import { type TxProvingState } from './tx-proving-state.js';
+import { findMergeLevel } from '../orchestrator/proving-helpers.js';
+import { type TxProvingState } from '../orchestrator/tx-proving-state.js';
 
 export type MergeRollupInputData = {
   inputs: [BaseOrMergeRollupPublicInputs | undefined, BaseOrMergeRollupPublicInputs | undefined];
@@ -37,24 +38,21 @@ enum PROVING_STATE_LIFECYCLE {
 }
 
 /**
- * The current state of the proving schedule. Contains the raw inputs (txs) and intermediate state to generate every constituent proof in the tree.
- * Carries an identifier so we can identify if the proving state is discarded and a new one started.
- * Captures resolve and reject callbacks to provide a promise base interface to the consumer of our proving.
+ * The current state of the proving schedule for a given block.
  */
 export class BlockProvingState {
   private provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
   private mergeRollupInputs: MergeRollupInputData[] = [];
   private rootParityInputs: Array<RootParityInput<typeof RECURSIVE_PROOF_LENGTH> | undefined> = [];
-  private finalRootParityInputs: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
+  // private finalRootParityInputs: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
   public blockRootRollupPublicInputs: BlockRootOrBlockMergePublicInputs | undefined;
   public finalAggregationObject: Fr[] | undefined;
   public finalProof: Proof | undefined;
   public block: L2Block | undefined;
   private txs: TxProvingState[] = [];
+
   constructor(
     public readonly totalNumTxs: number,
-    private completionCallback: (result: ProvingResult) => void,
-    private rejectionCallback: (reason: string) => void,
     public readonly globalVariables: GlobalVariables,
     public readonly newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
     numRootParityInputs: number,
@@ -72,27 +70,7 @@ export class BlockProvingState {
   // Calculates the index and level of the parent rollup circuit
   // Based on tree implementation in unbalanced_tree.ts -> batchInsert()
   public findMergeLevel(currentLevel: bigint, currentIndex: bigint) {
-    const moveUpMergeLevel = (levelSize: number, index: bigint, nodeToShift: boolean) => {
-      levelSize /= 2;
-      if (levelSize & 1) {
-        [levelSize, nodeToShift] = nodeToShift ? [levelSize + 1, false] : [levelSize - 1, true];
-      }
-      index >>= 1n;
-      return { thisLevelSize: levelSize, thisIndex: index, shiftUp: nodeToShift };
-    };
-    let [thisLevelSize, shiftUp] = this.totalNumTxs & 1 ? [this.totalNumTxs - 1, true] : [this.totalNumTxs, false];
-    const maxLevel = this.numMergeLevels + 1n;
-    let placeholder = currentIndex;
-    for (let i = 0; i < maxLevel - currentLevel; i++) {
-      ({ thisLevelSize, thisIndex: placeholder, shiftUp } = moveUpMergeLevel(thisLevelSize, placeholder, shiftUp));
-    }
-    let thisIndex = currentIndex;
-    let mergeLevel = currentLevel;
-    while (thisIndex >= thisLevelSize && mergeLevel != 0n) {
-      mergeLevel -= 1n;
-      ({ thisLevelSize, thisIndex, shiftUp } = moveUpMergeLevel(thisLevelSize, thisIndex, shiftUp));
-    }
-    return [mergeLevel - 1n, thisIndex >> 1n, thisIndex & 1n];
+    return findMergeLevel(currentLevel, currentIndex, BigInt(this.totalNumTxs));
   }
 
   // Adds a transaction to the proving state, returns it's index
@@ -108,16 +86,6 @@ export class BlockProvingState {
   // Returns the number of received transactions
   public get transactionsReceived() {
     return this.txs.length;
-  }
-
-  // Returns the final set of root parity inputs
-  public get finalRootParityInput() {
-    return this.finalRootParityInputs;
-  }
-
-  // Sets the final set of root parity inputs
-  public set finalRootParityInput(input: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined) {
-    this.finalRootParityInputs = input;
   }
 
   // Returns the set of root parity inputs
@@ -143,8 +111,8 @@ export class BlockProvingState {
     return this.txs;
   }
 
-  /** Returns the block number as an epoch number. Used for prioritizing proof requests. */
-  public get epochNumber(): number {
+  /** Returns the block number */
+  public get blockNumber(): number {
     return this.globalVariables.blockNumber.toNumber();
   }
 
@@ -197,7 +165,7 @@ export class BlockProvingState {
   public isReadyForBlockRootRollup() {
     return !(
       this.mergeRollupInputs[0] === undefined ||
-      this.finalRootParityInput === undefined ||
+      // this.finalRootParityInput === undefined ||
       this.mergeRollupInputs[0].inputs.findIndex(p => !p) !== -1
     );
   }

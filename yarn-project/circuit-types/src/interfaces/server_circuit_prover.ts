@@ -40,7 +40,7 @@ export interface ServerCircuitProver {
   getBaseParityProof(
     inputs: BaseParityInputs,
     signal?: AbortSignal,
-    epochNumber?: number,
+    epochNumber?: number, // TODO: Change to priority!
   ): Promise<RootParityInput<typeof RECURSIVE_PROOF_LENGTH>>;
 
   /**

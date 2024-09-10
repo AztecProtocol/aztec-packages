@@ -29,7 +29,7 @@ import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
-import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import { BlockProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
 import { ProverAgent } from '../prover-agent/prover-agent.js';
 import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixtures.js';
@@ -45,7 +45,7 @@ export class TestContext {
     public actualDb: MerkleTreeOperations,
     public prover: ServerCircuitProver,
     public proverAgent: ProverAgent,
-    public orchestrator: ProvingOrchestrator,
+    public orchestrator: BlockProvingOrchestrator,
     public blockNumber: number,
     public directoriesToCleanup: string[],
     public logger: DebugLogger,
@@ -100,7 +100,7 @@ export class TestContext {
     }
 
     const queue = new MemoryProvingQueue(telemetry);
-    const orchestrator = new ProvingOrchestrator(actualDb, queue, telemetry);
+    const orchestrator = new BlockProvingOrchestrator(actualDb, queue, telemetry);
     const agent = new ProverAgent(localProver, proverCount);
 
     queue.start();

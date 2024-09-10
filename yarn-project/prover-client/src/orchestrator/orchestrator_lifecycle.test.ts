@@ -16,7 +16,7 @@ import { jest } from '@jest/globals';
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { makeBloatedProcessedTx, makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
-import { ProvingOrchestrator } from './orchestrator.js';
+import { BlockProvingOrchestrator } from './orchestrator.js';
 
 const logger = createDebugLogger('aztec:orchestrator-lifecycle');
 
@@ -105,7 +105,7 @@ describe('prover/orchestrator/lifecycle', () => {
 
     it('cancels proving requests', async () => {
       const prover: ServerCircuitProver = new TestCircuitProver(new NoopTelemetryClient());
-      const orchestrator = new ProvingOrchestrator(context.actualDb, prover, new NoopTelemetryClient());
+      const orchestrator = new BlockProvingOrchestrator(context.actualDb, prover, new NoopTelemetryClient());
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];

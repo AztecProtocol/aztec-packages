@@ -8,13 +8,13 @@ import { jest } from '@jest/globals';
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { makeBloatedProcessedTx } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
-import { ProvingOrchestrator } from './orchestrator.js';
+import { BlockProvingOrchestrator } from './orchestrator.js';
 
 const logger = createDebugLogger('aztec:orchestrator-failures');
 
 describe('prover/orchestrator/failures', () => {
   let context: TestContext;
-  let orchestrator: ProvingOrchestrator;
+  let orchestrator: BlockProvingOrchestrator;
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
@@ -29,7 +29,7 @@ describe('prover/orchestrator/failures', () => {
 
     beforeEach(() => {
       mockProver = new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator());
-      orchestrator = new ProvingOrchestrator(context.actualDb, mockProver, new NoopTelemetryClient());
+      orchestrator = new BlockProvingOrchestrator(context.actualDb, mockProver, new NoopTelemetryClient());
     });
 
     it.each([

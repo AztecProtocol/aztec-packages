@@ -15,18 +15,18 @@ import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { ProvingOrchestrator } from './orchestrator.js';
+import { BlockProvingOrchestrator } from './orchestrator.js';
 
 describe('prover/orchestrator', () => {
   describe('workflow', () => {
-    let orchestrator: ProvingOrchestrator;
+    let orchestrator: BlockProvingOrchestrator;
     let mockProver: MockProxy<ServerCircuitProver>;
     let actualDb: MerkleTreeOperations;
     beforeEach(async () => {
       const telemetryClient = new NoopTelemetryClient();
       actualDb = await MerkleTrees.new(openTmpStore(), telemetryClient).then(t => t.asLatest());
       mockProver = mock<ServerCircuitProver>();
-      orchestrator = new ProvingOrchestrator(actualDb, mockProver, telemetryClient);
+      orchestrator = new BlockProvingOrchestrator(actualDb, mockProver, telemetryClient);
     });
 
     it('calls root parity circuit only when ready', async () => {

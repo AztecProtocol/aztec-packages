@@ -11,7 +11,7 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { type ProverClientConfig } from '../config.js';
-import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import { BlockProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { MemoryProvingQueue } from '../prover-agent/memory-proving-queue.js';
 import { ProverAgent } from '../prover-agent/prover-agent.js';
 
@@ -34,7 +34,7 @@ export class TxProver implements ProverClient {
   }
 
   public createBlockProver(db: MerkleTreeOperations): BlockProver {
-    return new ProvingOrchestrator(db, this.queue, this.telemetry, this.config.proverId);
+    return new BlockProvingOrchestrator(db, this.queue, this.telemetry, this.config.proverId);
   }
 
   public getProverId(): Fr {

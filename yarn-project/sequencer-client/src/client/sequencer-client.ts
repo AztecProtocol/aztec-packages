@@ -6,7 +6,7 @@ import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
 
-import { BlockBuilderFactory } from '../block_builder/index.js';
+import { BlockBuilderFactory } from '../../../prover-client/src/block_builder/index.js';
 import { type SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { L1Publisher } from '../publisher/index.js';

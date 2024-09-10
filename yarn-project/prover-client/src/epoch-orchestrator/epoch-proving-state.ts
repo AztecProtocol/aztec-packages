@@ -12,11 +12,15 @@ import {
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
+  RootRollupPublicInputs,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { BlockMergeRollupInputs } from '@aztec/noir-protocol-circuits-types/types';
 
-import { type TxProvingState } from './tx-proving-state.js';
+import { findMergeLevel } from '../orchestrator/proving-helpers.js';
+import { type TxProvingState } from '../orchestrator/tx-proving-state.js';
+import { BlockProvingState } from './block-proving-state.js';
 
 export type MergeRollupInputData = {
   inputs: [BaseOrMergeRollupPublicInputs | undefined, BaseOrMergeRollupPublicInputs | undefined];
@@ -41,65 +45,56 @@ enum PROVING_STATE_LIFECYCLE {
  * Carries an identifier so we can identify if the proving state is discarded and a new one started.
  * Captures resolve and reject callbacks to provide a promise base interface to the consumer of our proving.
  */
-export class BlockProvingState {
+export class EpochProvingState {
   private provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_CREATED;
-  private mergeRollupInputs: MergeRollupInputData[] = [];
-  private rootParityInputs: Array<RootParityInput<typeof RECURSIVE_PROOF_LENGTH> | undefined> = [];
+  private blockMergeRollupInputs: BlockRootOrBlockMergePublicInputs[] = [];
   private finalRootParityInputs: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
-  public blockRootRollupPublicInputs: BlockRootOrBlockMergePublicInputs | undefined;
+  public rootRollupPublicInputs: RootRollupPublicInputs | undefined;
   public finalAggregationObject: Fr[] | undefined;
   public finalProof: Proof | undefined;
-  public block: L2Block | undefined;
-  private txs: TxProvingState[] = [];
+  // public blocks: L2Block[] | undefined;
+  private blocks: BlockProvingState[] = [];
+
   constructor(
-    public readonly totalNumTxs: number,
+    public readonly totalNumBlocks: number,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
-    public readonly globalVariables: GlobalVariables,
-    public readonly newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
-    numRootParityInputs: number,
+    // public readonly globalVariables: GlobalVariables,
+    // public readonly newL1ToL2Messages: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
+    // numRootParityInputs: number,
     public readonly messageTreeSnapshot: AppendOnlyTreeSnapshot,
     public readonly messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
   ) {
-    this.rootParityInputs = Array.from({ length: numRootParityInputs }).map(_ => undefined);
+    // this.rootParityInputs = Array.from({ length: numRootParityInputs }).map(_ => undefined);
   }
 
   // Returns the number of levels of merge rollups
   public get numMergeLevels() {
-    return BigInt(Math.ceil(Math.log2(this.totalNumTxs)) - 1);
+    return BigInt(Math.ceil(Math.log2(this.totalNumBlocks)) - 1);
   }
 
   // Calculates the index and level of the parent rollup circuit
-  // Based on tree implementation in unbalanced_tree.ts -> batchInsert()
   public findMergeLevel(currentLevel: bigint, currentIndex: bigint) {
-    const moveUpMergeLevel = (levelSize: number, index: bigint, nodeToShift: boolean) => {
-      levelSize /= 2;
-      if (levelSize & 1) {
-        [levelSize, nodeToShift] = nodeToShift ? [levelSize + 1, false] : [levelSize - 1, true];
-      }
-      index >>= 1n;
-      return { thisLevelSize: levelSize, thisIndex: index, shiftUp: nodeToShift };
-    };
-    let [thisLevelSize, shiftUp] = this.totalNumTxs & 1 ? [this.totalNumTxs - 1, true] : [this.totalNumTxs, false];
-    const maxLevel = this.numMergeLevels + 1n;
-    let placeholder = currentIndex;
-    for (let i = 0; i < maxLevel - currentLevel; i++) {
-      ({ thisLevelSize, thisIndex: placeholder, shiftUp } = moveUpMergeLevel(thisLevelSize, placeholder, shiftUp));
+    return findMergeLevel(currentLevel, currentIndex, BigInt(this.totalNumBlocks));
+  }
+
+  public addNewBlock(block: BlockProvingState) {
+    this.blocks.push(block);
+    if (this.blocks.length === this.totalNumBlocks) {
+      this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
     }
-    let thisIndex = currentIndex;
-    let mergeLevel = currentLevel;
-    while (thisIndex >= thisLevelSize && mergeLevel != 0n) {
-      mergeLevel -= 1n;
-      ({ thisLevelSize, thisIndex, shiftUp } = moveUpMergeLevel(thisLevelSize, thisIndex, shiftUp));
-    }
-    return [mergeLevel - 1n, thisIndex >> 1n, thisIndex & 1n];
+    return this.blocks.length - 1;
+  }
+
+  public getCurrentBlock() {
+    return this.blocks[this.blocks.length - 1];
   }
 
   // Adds a transaction to the proving state, returns it's index
   // Will update the proving life cycle if this is the last transaction
   public addNewTx(tx: TxProvingState) {
     this.txs.push(tx);
-    if (this.txs.length === this.totalNumTxs) {
+    if (this.txs.length === this.totalNumBlocks) {
       this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_FULL;
     }
     return this.txs.length - 1;
@@ -157,14 +152,14 @@ export class BlockProvingState {
    */
   public storeMergeInputs(
     mergeInputs: [
-      BaseOrMergeRollupPublicInputs,
+      BlockRootOrBlockMergePublicInputs,
       RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
       VerificationKeyAsFields,
     ],
     indexWithinMerge: number,
     indexOfMerge: number,
   ) {
-    if (!this.mergeRollupInputs[indexOfMerge]) {
+    if (!this.blockMergeRollupInputs[indexOfMerge]) {
       const mergeInputData: MergeRollupInputData = {
         inputs: [undefined, undefined],
         proofs: [undefined, undefined],
@@ -173,10 +168,10 @@ export class BlockProvingState {
       mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
       mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
       mergeInputData.verificationKeys[indexWithinMerge] = mergeInputs[2];
-      this.mergeRollupInputs[indexOfMerge] = mergeInputData;
+      this.blockMergeRollupInputs[indexOfMerge] = mergeInputData;
       return false;
     }
-    const mergeInputData = this.mergeRollupInputs[indexOfMerge];
+    const mergeInputData = this.blockMergeRollupInputs[indexOfMerge];
     mergeInputData.inputs[indexWithinMerge] = mergeInputs[0];
     mergeInputData.proofs[indexWithinMerge] = mergeInputs[1];
     mergeInputData.verificationKeys[indexWithinMerge] = mergeInputs[2];
@@ -190,15 +185,15 @@ export class BlockProvingState {
 
   // Returns a set of merge rollup inputs
   public getMergeInputs(indexOfMerge: number) {
-    return this.mergeRollupInputs[indexOfMerge];
+    return this.blockMergeRollupInputs[indexOfMerge];
   }
 
   // Returns true if we have sufficient inputs to execute the block root rollup
   public isReadyForBlockRootRollup() {
     return !(
-      this.mergeRollupInputs[0] === undefined ||
+      this.blockMergeRollupInputs[0] === undefined ||
       this.finalRootParityInput === undefined ||
-      this.mergeRollupInputs[0].inputs.findIndex(p => !p) !== -1
+      this.blockMergeRollupInputs[0].inputs.findIndex(p => !p) !== -1
     );
   }
 
