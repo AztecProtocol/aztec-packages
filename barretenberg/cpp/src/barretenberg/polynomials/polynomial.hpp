@@ -367,7 +367,7 @@ template <typename Poly, typename... Polys> auto zip_polys(Poly&& poly, Polys&&.
     // Ensure all polys have the same start_index() and end_index() as poly
     // Use fold expression to check all polys exactly match our size
     ASSERT((poly.start_index() == polys.start_index() && poly.end_index() == polys.end_index()) && ...);
-    return zip_view(poly.coeffs(), polys.coeffs()...);
+    return zip_view(poly.indices(), poly.coeffs(), polys.coeffs()...);
 }
 
 } // namespace bb
