@@ -114,7 +114,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
 
     size_t commitment_idx = 0;
     for (auto& folded_commitment : next_accumulator->verification_key->get_all()) {
-        folded_commitment = batch_mul_native(keys_to_fold.get_commitments_at_index(commitment_idx), lagranges);
+        folded_commitment =
+            batch_mul_native(keys_to_fold.get_precomputed_commitments_at_index(commitment_idx), lagranges);
         commitment_idx++;
     }
 
@@ -125,15 +126,10 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // Compute ϕ
-    auto& acc_witness_commitments = next_accumulator->witness_commitments;
+
     commitment_idx = 0;
-    for (auto& comm : acc_witness_commitments.get_all()) {
-        comm = Commitment::infinity();
-        size_t vk_idx = 0;
-        for (auto& key : keys_to_fold) {
-            comm = comm + key->witness_commitments.get_all()[commitment_idx] * lagranges[vk_idx];
-            vk_idx++;
-        }
+    for (auto& folded_commitment : next_accumulator->witness_commitments.get_all()) {
+        folded_commitment = batch_mul_native(keys_to_fold.get_witness_commitments_at_index(commitment_idx), lagranges);
         commitment_idx++;
     }
 

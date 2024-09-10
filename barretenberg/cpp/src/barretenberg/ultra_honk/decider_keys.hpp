@@ -98,8 +98,8 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     std::shared_ptr<DeciderVK> const& operator[](size_t idx) const { return _data[idx]; }
     typename ArrayType::iterator begin() { return _data.begin(); };
     typename ArrayType::iterator end() { return _data.end(); };
-    DeciderVerificationKeys_() = default;
 
+    DeciderVerificationKeys_() = default;
     DeciderVerificationKeys_(const std::vector<std::shared_ptr<DeciderVK>>& data)
     {
         ASSERT(data.size() == NUM);
@@ -108,11 +108,21 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
         }
     };
 
-    std::vector<Commitment> get_commitments_at_index(const size_t idx) const
+    std::vector<Commitment> get_precomputed_commitments_at_index(const size_t idx) const
     {
         std::vector<Commitment> result(NUM);
         for (auto [elt, key] : zip_view(result, _data)) {
             elt = key->verification_key->get_all()[idx];
+        }
+
+        return result;
+    }
+
+    std::vector<Commitment> get_witness_commitments_at_index(const size_t idx) const
+    {
+        std::vector<Commitment> result(NUM);
+        for (auto [elt, key] : zip_view(result, _data)) {
+            elt = key->witness_commitments->get_all()[idx];
         }
 
         return result;
