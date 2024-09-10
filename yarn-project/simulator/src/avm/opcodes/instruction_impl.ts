@@ -18,9 +18,9 @@ export const ThreeOperandWireFormat8 = [
   OperandType.UINT8,
   OperandType.UINT8,
   OperandType.UINT8,
-  OperandType.UINT16,
-  OperandType.UINT16,
-  OperandType.UINT16,
+  OperandType.UINT8,
+  OperandType.UINT8,
+  OperandType.UINT8,
 ];
 export const ThreeOperandWireFormat16 = [
   OperandType.UINT8,

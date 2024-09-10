@@ -311,9 +311,9 @@ pub fn brillig_to_avm(
     // We are adding a MOV instruction that moves a value to itself.
     // This should therefore not affect the program's execution.
     avm_instrs.push(AvmInstruction {
-        opcode: AvmOpcode::MOV_8,
+        opcode: AvmOpcode::MOV_16,
         indirect: Some(ALL_DIRECT),
-        operands: vec![AvmOperand::U32 { value: 0x18ca }, AvmOperand::U32 { value: 0x18ca }],
+        operands: vec![AvmOperand::U16 { value: 0x18ca }, AvmOperand::U16 { value: 0x18ca }],
         ..Default::default()
     });
 
