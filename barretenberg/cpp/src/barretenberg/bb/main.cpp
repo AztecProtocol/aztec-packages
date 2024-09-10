@@ -643,7 +643,7 @@ void prove(const std::string& bytecodePath, const std::string& witnessPath, cons
 
     acir_proofs::AcirComposer acir_composer{ 0, verbose_logging };
     acir_composer.create_circuit(constraint_system, witness);
-    init_bn254_crs(acir_composer.get_dyadic_circuit_size() * 2);
+    init_bn254_crs(acir_composer.get_dyadic_circuit_size());
     acir_composer.init_proving_key();
     auto proof = acir_composer.create_proof();
 

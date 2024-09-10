@@ -172,17 +172,16 @@ template <typename Fr> class Polynomial {
     Fr compute_kate_opening_coefficients(const Fr& z)
         requires polynomial_arithmetic::SupportsFFT<Fr>;
 
-    // /**
-    //  * @brief Divides p(X) by (X-r₁)⋯(X−rₘ) in-place.
-    //  * Assumes that p(rⱼ)=0 for all j
-    //  *
-    //  * @details we specialize the method when only a single root is given.
-    //  * if one of the roots is 0, then we first factor all other roots.
-    //  * dividing by X requires only a left shift of all coefficient.
-    //  *
-    //  * @param roots list of roots (r₁,…,rₘ)
-    //  */
-    // void factor_roots(std::span<const Fr> roots) { polynomial_arithmetic::factor_roots(std::span{ *this }, roots); };
+    /**
+     * @brief Divides p(X) by (X-r) in-place.
+     * Assumes that p(rⱼ)=0 for all j
+     *
+     * @details we specialize the method when only a single root is given.
+     * if one of the roots is 0, then we first factor all other roots.
+     * dividing by X requires only a left shift of all coefficient.
+     *
+     * @param root a single root r
+     */
     void factor_roots(const Fr& root) { polynomial_arithmetic::factor_roots(coeffs(), root); };
 
     Fr evaluate(const Fr& z, size_t target_size) const;
