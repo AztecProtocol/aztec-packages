@@ -122,7 +122,7 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     {
         std::vector<Commitment> result(NUM);
         for (auto [elt, key] : zip_view(result, _data)) {
-            elt = key->witness_commitments->get_all()[idx];
+            elt = key->witness_commitments.get_all()[idx];
         }
 
         return result;
