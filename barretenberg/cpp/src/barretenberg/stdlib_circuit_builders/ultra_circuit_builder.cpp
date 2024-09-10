@@ -47,7 +47,6 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
         process_range_lists();
         circuit_finalized = true;
     } else {
-        ASSERT(false);
         // Gates added after first call to finalize will not be processed since finalization is only performed once
         info("WARNING: Redundant call to finalize_circuit(). Is this intentional?");
     }
