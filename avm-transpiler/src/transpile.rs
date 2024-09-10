@@ -30,24 +30,69 @@ pub fn brillig_to_avm(
     for brillig_instr in brillig_bytecode {
         match brillig_instr {
             BrilligOpcode::BinaryFieldOp { destination, op, lhs, rhs } => {
+                let bits_needed =
+                    [lhs.0, rhs.0, destination.0].iter().map(bits_needed_for).max().unwrap();
+
+                assert!(
+                    bits_needed == 8 || bits_needed == 16,
+                    "BinaryFieldOp only support 8 or 16 bit encodings, got: {}",
+                    bits_needed
+                );
+
                 let avm_opcode = match op {
-                    BinaryFieldOp::Add => AvmOpcode::ADD,
-                    BinaryFieldOp::Sub => AvmOpcode::SUB,
-                    BinaryFieldOp::Mul => AvmOpcode::MUL,
-                    BinaryFieldOp::Div => AvmOpcode::FDIV,
-                    BinaryFieldOp::IntegerDiv => AvmOpcode::DIV,
-                    BinaryFieldOp::Equals => AvmOpcode::EQ,
-                    BinaryFieldOp::LessThan => AvmOpcode::LT,
-                    BinaryFieldOp::LessThanEquals => AvmOpcode::LTE,
+                    BinaryFieldOp::Add => match bits_needed {
+                        8 => AvmOpcode::ADD_8,
+                        16 => AvmOpcode::ADD_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryFieldOp::Sub => match bits_needed {
+                        8 => AvmOpcode::SUB_8,
+                        16 => AvmOpcode::SUB_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryFieldOp::Mul => match bits_needed {
+                        8 => AvmOpcode::MUL_8,
+                        16 => AvmOpcode::MUL_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryFieldOp::Div => match bits_needed {
+                        8 => AvmOpcode::FDIV_8,
+                        16 => AvmOpcode::FDIV_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryFieldOp::IntegerDiv => match bits_needed {
+                        8 => AvmOpcode::DIV_8,
+                        16 => AvmOpcode::DIV_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryFieldOp::Equals => match bits_needed {
+                        8 => AvmOpcode::EQ_8,
+                        16 => AvmOpcode::EQ_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryFieldOp::LessThan => match bits_needed {
+                        8 => AvmOpcode::LT_8,
+                        16 => AvmOpcode::LT_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryFieldOp::LessThanEquals => match bits_needed {
+                        8 => AvmOpcode::LTE_8,
+                        16 => AvmOpcode::LTE_16,
+                        _ => unreachable!(),
+                    },
                 };
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
                     indirect: Some(ALL_DIRECT),
-                    tag: if avm_opcode == AvmOpcode::FDIV { None } else { Some(AvmTypeTag::FIELD) },
+                    tag: if avm_opcode == AvmOpcode::FDIV_8 || avm_opcode == AvmOpcode::FDIV_16 {
+                        None
+                    } else {
+                        Some(AvmTypeTag::FIELD)
+                    },
                     operands: vec![
-                        AvmOperand::U32 { value: lhs.to_usize() as u32 },
-                        AvmOperand::U32 { value: rhs.to_usize() as u32 },
-                        AvmOperand::U32 { value: destination.to_usize() as u32 },
+                        make_operand(bits_needed, &lhs.0),
+                        make_operand(bits_needed, &rhs.0),
+                        make_operand(bits_needed, &destination.0),
                     ],
                 });
             }
@@ -57,28 +102,84 @@ pub fn brillig_to_avm(
                     "BinaryIntOp bit size should be integral: {:?}",
                     brillig_instr
                 );
+                let bits_needed =
+                    [lhs.0, rhs.0, destination.0].iter().map(bits_needed_for).max().unwrap();
+                assert!(
+                    bits_needed == 8 || bits_needed == 16,
+                    "BinaryIntOp only support 8 or 16 bit encodings, got: {}",
+                    bits_needed
+                );
+
                 let avm_opcode = match op {
-                    BinaryIntOp::Add => AvmOpcode::ADD,
-                    BinaryIntOp::Sub => AvmOpcode::SUB,
-                    BinaryIntOp::Mul => AvmOpcode::MUL,
-                    BinaryIntOp::Div => AvmOpcode::DIV,
-                    BinaryIntOp::Equals => AvmOpcode::EQ,
-                    BinaryIntOp::LessThan => AvmOpcode::LT,
-                    BinaryIntOp::LessThanEquals => AvmOpcode::LTE,
-                    BinaryIntOp::And => AvmOpcode::AND,
-                    BinaryIntOp::Or => AvmOpcode::OR,
-                    BinaryIntOp::Xor => AvmOpcode::XOR,
-                    BinaryIntOp::Shl => AvmOpcode::SHL,
-                    BinaryIntOp::Shr => AvmOpcode::SHR,
+                    BinaryIntOp::Add => match bits_needed {
+                        8 => AvmOpcode::ADD_8,
+                        16 => AvmOpcode::ADD_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryIntOp::Sub => match bits_needed {
+                        8 => AvmOpcode::SUB_8,
+                        16 => AvmOpcode::SUB_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryIntOp::Mul => match bits_needed {
+                        8 => AvmOpcode::MUL_8,
+                        16 => AvmOpcode::MUL_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryIntOp::Div => match bits_needed {
+                        8 => AvmOpcode::DIV_8,
+                        16 => AvmOpcode::DIV_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryIntOp::And => match bits_needed {
+                        8 => AvmOpcode::AND_8,
+                        16 => AvmOpcode::AND_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryIntOp::Or => match bits_needed {
+                        8 => AvmOpcode::OR_8,
+                        16 => AvmOpcode::OR_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryIntOp::Xor => match bits_needed {
+                        8 => AvmOpcode::XOR_8,
+                        16 => AvmOpcode::XOR_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryIntOp::Shl => match bits_needed {
+                        8 => AvmOpcode::SHL_8,
+                        16 => AvmOpcode::SHL_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryIntOp::Shr => match bits_needed {
+                        8 => AvmOpcode::SHR_8,
+                        16 => AvmOpcode::SHR_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryIntOp::Equals => match bits_needed {
+                        8 => AvmOpcode::EQ_8,
+                        16 => AvmOpcode::EQ_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryIntOp::LessThan => match bits_needed {
+                        8 => AvmOpcode::LT_8,
+                        16 => AvmOpcode::LT_16,
+                        _ => unreachable!(),
+                    },
+                    BinaryIntOp::LessThanEquals => match bits_needed {
+                        8 => AvmOpcode::LTE_8,
+                        16 => AvmOpcode::LTE_16,
+                        _ => unreachable!(),
+                    },
                 };
                 avm_instrs.push(AvmInstruction {
                     opcode: avm_opcode,
                     indirect: Some(ALL_DIRECT),
                     tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
                     operands: vec![
-                        AvmOperand::U32 { value: lhs.to_usize() as u32 },
-                        AvmOperand::U32 { value: rhs.to_usize() as u32 },
-                        AvmOperand::U32 { value: destination.to_usize() as u32 },
+                        make_operand(bits_needed, &lhs.0),
+                        make_operand(bits_needed, &rhs.0),
+                        make_operand(bits_needed, &destination.0),
                     ],
                 });
             }

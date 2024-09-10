@@ -80,7 +80,7 @@ impl Debug for AvmInstruction {
 impl Default for AvmInstruction {
     fn default() -> Self {
         AvmInstruction {
-            opcode: AvmOpcode::ADD,
+            opcode: AvmOpcode::ADD_8,
             // TODO(4266): default to Some(0), since all instructions have indirect flag except jumps
             indirect: None,
             tag: None,
