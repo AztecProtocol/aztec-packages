@@ -358,9 +358,6 @@ library TranscriptLib {
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
         Fr unused;
         (etaThree, unused) = splitChallenge(previousChallenge);
-        // eta = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
-        // etaTwo = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(eta))));
-        // etaThree = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(etaTwo))));
     }
 
     function generateBetaAndGammaChallenges(Fr previousChallenge, Honk.Proof memory proof) internal view returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
@@ -382,8 +379,6 @@ library TranscriptLib {
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round1)));
         (beta, gamma) = splitChallenge(nextPreviousChallenge);
-        // beta = FrLib.fromBytes32(keccak256(abi.encodePacked(round1)));
-        // gamma = FrLib.fromBytes32(keccak256(abi.encodePacked(beta)));
     }
 
     // Alpha challenges non-linearise the gate contributions
@@ -413,13 +408,6 @@ library TranscriptLib {
             Fr unused;
             (alphas[NUMBER_OF_ALPHAS - 1], unused) = splitChallenge(nextPreviousChallenge);
         }
-        // alphas[0] = FrLib.fromBytes32(keccak256(abi.encodePacked(alpha0)));
-
-        // Fr prevChallenge = alphas[0];
-        // for (uint256 i = 1; i < NUMBER_OF_ALPHAS; i++) {
-        //     prevChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(prevChallenge))));
-        //     alphas[i] = prevChallenge;
-        // }
     }
 
     function generateGateChallenges(Fr previousChallenge) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges, Fr nextPreviousChallenge)
@@ -438,15 +426,13 @@ library TranscriptLib {
             Fr[BATCHED_RELATION_PARTIAL_LENGTH + 1] memory univariateChal;
             univariateChal[0] = prevChallenge;
 
-            // TODO(opt): memcpy
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1098): memcpy
             for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
                 univariateChal[j + 1] = proof.sumcheckUnivariates[i][j];
             }
             prevChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(univariateChal)));
             Fr unused;
             (sumcheckChallenges[i], unused) = splitChallenge(prevChallenge);
-            // sumcheckChallenges[i] = FrLib.fromBytes32(keccak256(abi.encodePacked(univariateChal)));
-            // prevChallenge = sumcheckChallenges[i];
         }
         nextPreviousChallenge = prevChallenge;
     }
@@ -456,7 +442,7 @@ library TranscriptLib {
         Fr[NUMBER_OF_ENTITIES + 1] memory rhoChallengeElements;
         rhoChallengeElements[0] = prevChallenge;
 
-        // TODO: memcpy
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1098): memcpy
         for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
             rhoChallengeElements[i + 1] = proof.sumcheckEvaluations[i];
         }
@@ -464,7 +450,6 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
         Fr unused;
         (rho, unused) = splitChallenge(nextPreviousChallenge);
-        // rho = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
     }
 
     function generateZMYChallenge(Fr previousChallenge, Honk.Proof memory proof) internal view returns (Fr zeromorphY, Fr nextPreviousChallenge)
@@ -482,8 +467,6 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(zmY)));
         Fr unused;
         (zeromorphY, unused) = splitChallenge(nextPreviousChallenge);
-
-        // zeromorphY = FrLib.fromBytes32(keccak256(abi.encodePacked(zmY)));
     }
 
     function generateZMXZChallenges(Fr previousChallenge, Honk.Proof memory proof) internal pure returns (Fr zeromorphX, Fr zeromorphZ, Fr nextPreviousChallenge)
@@ -498,9 +481,6 @@ library TranscriptLib {
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(buf)));
         (zeromorphX, zeromorphZ) = splitChallenge(nextPreviousChallenge);
-
-        // zeromorphX = FrLib.fromBytes32(keccak256(abi.encodePacked(buf)));
-        // zeromorphZ = FrLib.fromBytes32(keccak256(abi.encodePacked(zeromorphX)));
     }
 }
 

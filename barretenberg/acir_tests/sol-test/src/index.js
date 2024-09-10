@@ -204,6 +204,7 @@ try {
   const [numPublicInputs, publicInputs] = readPublicInputs(
     JSON.parse(proofAsFields.toString())
   );
+  
   const proofPath = getEnvVar("PROOF");
   const proof = readFileSync(proofPath);
 
