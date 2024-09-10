@@ -2113,9 +2113,9 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
         trace.begin(), trace.end(), [&](Row r) { return r.main_clk == START_NULLIFIER_EXISTS_OFFSET; });
     EXPECT_EQ(nullifier_out_row->main_kernel_value_out, 1); // value
     // TODO(#8287)
-    // EXPECT_EQ(nullifier_out_row->main_kernel_side_effect_out, 1);
+    EXPECT_EQ(nullifier_out_row->main_kernel_side_effect_out, 0);
     EXPECT_EQ(nullifier_out_row->main_kernel_metadata_out, 1); // exists
-    feed_output(START_NULLIFIER_EXISTS_OFFSET, 1, 1, 1);
+    feed_output(START_NULLIFIER_EXISTS_OFFSET, 1, 0, 1);
 
     // CHECK L1TOL2MSGEXISTS
     auto l1_to_l2_row =
@@ -2128,9 +2128,9 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
         trace.begin(), trace.end(), [&](Row r) { return r.main_clk == START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET; });
     EXPECT_EQ(msg_out_row->main_kernel_value_out, 1); // value
     // TODO(#8287)
-    // EXPECT_EQ(msg_out_row->main_kernel_side_effect_out, 2);
+    EXPECT_EQ(msg_out_row->main_kernel_side_effect_out, 0);
     EXPECT_EQ(msg_out_row->main_kernel_metadata_out, 1); // exists
-    feed_output(START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET, 1, 2, 1);
+    feed_output(START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET, 1, 0, 1);
 
     validate_trace(std::move(trace), public_inputs);
 }
