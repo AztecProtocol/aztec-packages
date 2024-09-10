@@ -210,9 +210,11 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkProver<Fl
 {
     BB_OP_COUNT_TIME_NAME("OinkProver::generate_alphas_round");
     RelationSeparator alphas;
-    for (size_t idx = 0; idx < alphas.size(); idx++) {
-        alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "alpha_" + std::to_string(idx));
+    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> args;
+    for (size_t idx = 0; idx < alphas.size(); ++idx) {
+        args[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
+    alphas = transcript->template get_challenges<FF>(args);
     return alphas;
 }
 
