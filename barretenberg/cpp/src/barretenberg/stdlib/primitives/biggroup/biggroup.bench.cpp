@@ -136,6 +136,6 @@ BENCHMARK(add_bench)->Iterations(1)->Arg(1)->Arg(2)->Arg(3)->Arg(10)->Arg(50);
 BENCHMARK(mul_add_bench)->Iterations(1)->Arg(1)->Arg(2)->Arg(3)->Arg(10)->Arg(50);
 BENCHMARK(batch_mul_bench)->Iterations(1)->Arg(1)->Arg(2)->Arg(3)->Arg(10)->Arg(50);
 BENCHMARK(wnaf_batch_mul_bench)->Iterations(1)->Arg(1)->Arg(2)->Arg(3)->Arg(10)->Arg(50);
-BENCHMARK(bn254_endo_batch_mul_bench)->Iterations(1)->Arg(1)->Arg(2)->Arg(3)->Arg(10)->Arg(50);
+BENCHMARK(bn254_endo_batch_mul_bench)->Iterations(1)->Arg(1)->Arg(2)->Arg(3)->Arg(10)->Arg(38)->Arg(50);
 
 BENCHMARK_MAIN();
