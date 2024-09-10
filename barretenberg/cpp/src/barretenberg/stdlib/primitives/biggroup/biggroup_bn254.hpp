@@ -120,8 +120,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
         };
 
         // Perform multiple rounds of the montgomery ladder algoritm per "iteration" of our main loop.
-        // This is in order to reduce the number of field reductions required when calling
-        // `multiple_montgomery_ladder`
+        // This is in order to reduce the number of field reductions required when calling `multiple_montgomery_ladder`
         constexpr size_t num_rounds_per_iteration = 4;
 
         // we require that we perform max of one generator per iteration
@@ -214,8 +213,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul_with_generator
  * small_points : group elements we will multiply by short scalar mutipliers whose max value will be (1 <<
  *max_num_small_bits) small_scalars : short scalar mutipliers whose max value will be (1 << max_num_small_bits)
  * max_num_small_bits : MINIMUM value must be 128 bits
- * (we will be splitting `big_scalars` into two 128-bit scalars, we assume all scalars after this transformation are
- *128 bits)
+ * (we will be splitting `big_scalars` into two 128-bit scalars, we assume all scalars after this transformation are 128
+ *bits)
  **/
 template <typename C, class Fq, class Fr, class G>
 template <typename, typename>
@@ -351,11 +350,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
      * 3. Repeat the above 2 steps but for bit `2 * i` (`add_2`)
      * 4. Compute `accumulator = 4 * accumulator + 2 * add_1 + add_2` using `multiple_montgomery_ladder` method
      *
-     * The purpose of the above is to minimize the number of required range checks (vs a simple double and add
-     *algo).
+     * The purpose of the above is to minimize the number of required range checks (vs a simple double and add algo).
      *
-     * When computing repeated iterations of the montgomery ladder algorithm, we can neglect computing the
-     *y-coordinate of each ladder output. See `multiple_montgomery_ladder` for more details.
+     * When computing repeated iterations of the montgomery ladder algorithm, we can neglect computing the y-coordinate
+     *of each ladder output. See `multiple_montgomery_ladder` for more details.
      **/
     for (size_t i = 1; i < num_rounds / 2; ++i) {
         // `nafs` tracks the naf value for each point for the current round
@@ -373,8 +371,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::bn254_endo_batch_mul(const std::vec
          *
          * This is represented using the `chain_add_accumulator` type. See the type declaration for more details
          *
-         * (this is cheaper than regular additions iff point_table.get_accumulator require 2 or more point
-         *additions. Cost is the same as `point_table.get_accumulator` if 1 or 0 point additions are required)
+         * (this is cheaper than regular additions iff point_table.get_accumulator require 2 or more point additions.
+         *  Cost is the same as `point_table.get_accumulator` if 1 or 0 point additions are required)
          **/
         element::chain_add_accumulator add_1 = point_table.get_chain_add_accumulator(nafs);
         for (size_t j = 0; j < points.size(); ++j) {

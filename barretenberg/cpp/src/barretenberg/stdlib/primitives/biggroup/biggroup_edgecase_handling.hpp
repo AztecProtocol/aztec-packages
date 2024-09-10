@@ -7,8 +7,8 @@ namespace bb::stdlib::element_default {
  * @brief Compute an offset generator for use in biggroup tables
  *
  *@details Sometimes the points from which we construct the tables are going to be dependent in such a way that
- *combining them for constructing the table is not possible without handling the edgecases such as the point at
- *infinity and doubling. To avoid handling those we add multiples of this offset generator to the points.
+ *combining them for constructing the table is not possible without handling the edgecases such as the point at infinity
+ *and doubling. To avoid handling those we add multiples of this offset generator to the points.
  *
  * @param num_rounds
  */
@@ -22,11 +22,11 @@ typename G::affine_element element<C, Fq, Fr, G>::compute_table_offset_generator
 }
 
 /**
- * @brief Given two lists of points that need to be multiplied by scalars, create a new list of length +1 with
- * original points masked, but the same scalar product sum
+ * @brief Given two lists of points that need to be multiplied by scalars, create a new list of length +1 with original
+ * points masked, but the same scalar product sum
  * @details Add +1G, +2G, +4G etc to the original points and adds a new point 2ⁿ⋅G and scalar x to the lists. By
- * doubling the point every time, we ensure that no +-1 combination of 6 sequential elements run into edgecases,
- * unless the points are deliberately constructed to trigger it.
+ * doubling the point every time, we ensure that no +-1 combination of 6 sequential elements run into edgecases, unless
+ * the points are deliberately constructed to trigger it.
  */
 template <typename C, class Fq, class Fr, class G>
 std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr, G>::mask_points(

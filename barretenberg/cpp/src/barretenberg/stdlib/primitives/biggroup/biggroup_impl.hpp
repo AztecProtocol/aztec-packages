@@ -122,9 +122,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
 /**
  * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
  *
- * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random
- * coefficients when we get it as output from our optimised algorithms. This function returns a (0,0) point, if it
- * is a point at infinity
+ * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random coefficients
+ * when we get it as output from our optimised algorithms. This function returns a (0,0) point, if it is a point at
+ * infinity
  */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::get_standard_form() const
@@ -629,8 +629,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
 
         // We can avoid computing y_4, instead substituting the expression `minus_lambda_2 * (x_4 - x) - y` where
         // needed. This is cheaper, because we can evaluate two field multiplications (or a field multiplication + a
-        // field division) with only one non-native field reduction. E.g. evaluating (a * b) + (c * d) = e mod p
-        // only requires 1 quotient and remainder, which is the major cost of a non-native field multiplication
+        // field division) with only one non-native field reduction. E.g. evaluating (a * b) + (c * d) = e mod p only
+        // requires 1 quotient and remainder, which is the major cost of a non-native field multiplication
         Fq lambda2;
         if (i == 0) {
             lambda2 = Fq::div_without_denominator_check({ y + y }, (previous_x - x_3)) - lambda1;
@@ -657,8 +657,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
             y_4.is_negative = !previous_y.is_negative;
             y_4.mul_left.emplace_back(lambda2);
             y_4.mul_right.emplace_back(previous_y.is_negative ? previous_x - x_4 : x_4 - previous_x);
-            // append terms in previous_y to y_4. We want to make sure the terms above are added into the start of
-            // y_4. This is to ensure they are cached correctly when
+            // append terms in previous_y to y_4. We want to make sure the terms above are added into the start of y_4.
+            // This is to ensure they are cached correctly when
             // `builder::evaluate_partial_non_native_field_multiplication` is called.
             // (the 1st mul_left, mul_right elements will trigger builder::evaluate_non_native_field_multiplication
             //  when Fq::mult_madd is called - this term cannot be cached so we want to make sure it is unique)
@@ -697,15 +697,15 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
  * Instead of handling the edge case (which is expensive!) we instead FORBID it from happening by
  * requiring x2 != x1 (other.x.assert_is_not_equal(x) will be present in all group operation methods)
  *
- * This means it is essential we ensure an honest prover will NEVER run into this edge case, or our circuit will
- * lack completeness!
+ * This means it is essential we ensure an honest prover will NEVER run into this edge case, or our circuit will lack
+ * completeness!
  *
  * To ensure an honest prover will not fall foul of this edge case when performing a SCALAR MULTIPLICATION,
  * we init the accumulator with an `offset_generator` point.
  * This point is a generator point that is not equal to the regular generator point for this curve.
  *
- * When adding points into the accumulator, the probability that an honest prover will find a collision is now ~ 1
- * in 2^128
+ * When adding points into the accumulator, the probability that an honest prover will find a collision is now ~ 1 in
+ * 2^128
  *
  * We init `accumulator = generator` and then perform an n-bit scalar mul.
  * The output accumulator will contain a term `2^{n-1} * generator` that we need to subtract off.
@@ -729,8 +729,8 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
 /**
  * @brief Generic batch multiplication that works for all elliptic curve types.
  *
- * @details Implementation is identical to `bn254_endo_batch_mul` but WITHOUT the endomorphism transforms OR support
- * for short scalars See `bn254_endo_batch_mul` for description of algorithm.
+ * @details Implementation is identical to `bn254_endo_batch_mul` but WITHOUT the endomorphism transforms OR support for
+ * short scalars See `bn254_endo_batch_mul` for description of algorithm.
  *
  * @tparam C The circuit builder type.
  * @tparam Fq The field of definition of the points in `_points`.

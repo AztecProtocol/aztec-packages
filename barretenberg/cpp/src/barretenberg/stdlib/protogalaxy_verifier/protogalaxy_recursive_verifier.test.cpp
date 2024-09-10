@@ -205,7 +205,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto verifier =
             FoldingRecursiveVerifier{ &folding_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };
         verifier.verify_folding_proof(stdlib_proof);
-        info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
+        info("Folding Recursive Verifier: num gates = ", folding_circuit.get_num_gates());
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
@@ -276,7 +276,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
         auto native_verifier_acc =
             std::make_shared<InnerDeciderVerificationKey>(recursive_verifier_accumulator->get_value());
-        info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
+        info("Folding Recursive Verifier: num gates = ", folding_circuit.get_num_gates());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();

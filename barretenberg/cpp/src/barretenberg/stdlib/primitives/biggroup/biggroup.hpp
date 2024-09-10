@@ -39,13 +39,6 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     element(const element& other);
     element(element&& other) noexcept;
 
-    // static element from_witness_unsafe(Builder* ctx, const typename NativeGroup::affine_element& input)
-    // {
-    //     // only valid usecase of this method is with a goblin builder
-    //     ASSERT(IsMegaBuilder<Builder>);
-    //     element out;
-    //     if (in)
-    // }
     static element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
         element out;
@@ -61,11 +54,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
             out.y = y;
         }
         out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
-        // info("    Num gates before validating on curve: ", ctx->num_gates);
-        if constexpr (!IsMegaBuilder<Builder>) {
-            out.validate_on_curve();
-        }
-        // info("    Num gates after validating on curve: ", ctx->num_gates);
+        out.validate_on_curve();
         return out;
     }
 
