@@ -2,8 +2,8 @@
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp" // just for an alias; should perhaps move to prover
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/sumcheck/instance/instances.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
+#include "barretenberg/ultra_honk/decider_keys.hpp"
 #include <benchmark/benchmark.h>
 
 namespace {

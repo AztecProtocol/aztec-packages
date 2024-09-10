@@ -1,4 +1,4 @@
-#include "prover_instance.hpp"
+#include "decider_proving_key.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/plonk_honk_shared/composer/permutation_lib.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"

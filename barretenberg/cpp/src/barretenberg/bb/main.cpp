@@ -951,12 +951,7 @@ void avm_prove(const std::filesystem::path& bytecode_path,
     auto const [verification_key, proof] =
         AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(bytecode, calldata, public_inputs_vec, avm_hints));
 
-    std::vector<fr> vk_as_fields = { fr(verification_key.circuit_size), fr(verification_key.num_public_inputs) };
-
-    for (auto const& comm : verification_key.get_all()) {
-        std::vector<fr> comm_as_fields = field_conversion::convert_to_bn254_frs(comm);
-        vk_as_fields.insert(vk_as_fields.end(), comm_as_fields.begin(), comm_as_fields.end());
-    }
+    std::vector<fr> vk_as_fields = verification_key.to_field_elements();
 
     vinfo("vk fields size: ", vk_as_fields.size());
     vinfo("circuit size: ", vk_as_fields[0]);

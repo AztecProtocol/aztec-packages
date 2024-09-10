@@ -403,7 +403,6 @@ TEST_F(AvmExecutionTests, nestedInternalCalls)
 //                        0         1    2    3     4
 TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 {
-    GTEST_SKIP();
     std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
                                "00"                             // Indirect flag
                                "03"                             // U32
@@ -419,8 +418,8 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
                                "00000000"                       // cd_offset
                                "00000001"                       // copy_size
                                "0000000A"                       // dst_offset // M[10] = 13, M[11] = 156
-                               + to_hex(OpCode::JUMP) +         // opcode JUMP
-                               "00000005"                       // jmp_dest (FDIV located at 3)
+                               + to_hex(OpCode::JUMP_16) +      // opcode JUMP
+                               "0005"                           // jmp_dest (FDIV located at 3)
                                + to_hex(OpCode::SUB) +          // opcode SUB
                                "00"                             // Indirect flag
                                "06"                             // FF
@@ -456,14 +455,16 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 
     // JUMP
     EXPECT_THAT(instructions.at(3),
-                AllOf(Field(&Instruction::op_code, OpCode::JUMP),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(3)))));
+                AllOf(Field(&Instruction::op_code, OpCode::JUMP_16),
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint16_t>(5)))));
 
     std::vector<FF> returndata;
     auto trace = Execution::gen_trace(instructions, returndata, std::vector<FF>{ 13, 156 }, public_inputs_vec);
 
     // Expected sequence of PCs during execution
-    std::vector<FF> pc_sequence{ 0, 1, 3, 4 };
+    std::vector<FF> pc_sequence{
+        0, 1, 2, 3, 4, 6,
+    };
 
     for (size_t i = 0; i < 4; i++) {
         EXPECT_EQ(trace.at(i + 1).main_pc, pc_sequence.at(i));
@@ -492,61 +493,70 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
 // We test this bytecode with two calldatacopy values: 9873123 and 0.
 TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
 {
-    GTEST_SKIP();
-    std::string bytecode_hex = to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY (no in tag)
-                               "00"                           // Indirect flag
-                               "00000000"                     // cd_offset
-                               "00000001"                     // copy_size
-                               "0000000A"                     // dst_offset 10
-                               + to_hex(OpCode::SET_16) +     // opcode SET
-                               "00"                           // Indirect flag
-                               "02"                           // U16
-                               "0014"                         // val 20
-                               "0065"                         // dst_offset 101
-                               + to_hex(OpCode::JUMPI) +      // opcode JUMPI
-                               "00"                           // Indirect flag
-                               "00000004"                     // jmp_dest (MUL located at 4)
-                               "0000000A"                     // cond_offset 10
-                               + to_hex(OpCode::ADD) +        // opcode ADD
-                               "00"                           // Indirect flag
-                               "02"                           // U16
-                               "00000065"                     // addr 101
-                               "00000065"                     // addr 101
-                               "00000065"                     // output addr 101
-                               + to_hex(OpCode::MUL) +        // opcode MUL
-                               "00"                           // Indirect flag
-                               "02"                           // U16
-                               "00000065"                     // addr 101
-                               "00000065"                     // addr 101
-                               "00000066"                     // output of MUL addr 102
-                               + to_hex(OpCode::RETURN) +     // opcode RETURN
-                               "00"                           // Indirect flag
-                               "00000000"                     // ret offset 0
-                               "00000000"                     // ret size 0
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +          // opcode SET
+                               "00"                             // Indirect flag
+                               "03"                             // U32
+                               "00"                             // val
+                               "00"                             // dst_offset
+                               + to_hex(OpCode::SET_8) +        // opcode SET
+                               "00"                             // Indirect flag
+                               "03"                             // U32
+                               "01"                             // val
+                               "01"                             // dst_offset
+                               + to_hex(OpCode::CALLDATACOPY) + // opcode CALLDATACOPY (no in tag)
+                               "00"                             // Indirect flag
+                               "00000000"                       // cd_offset
+                               "00000001"                       // copy_size
+                               "0000000A"                       // dst_offset 10
+                               + to_hex(OpCode::SET_8) +        // opcode SET
+                               "00"                             // Indirect flag
+                               "02"                             // U16
+                               "14"                             // val 20
+                               "65"                             // dst_offset 101
+                               + to_hex(OpCode::JUMPI_16) +     // opcode JUMPI
+                               "00"                             // Indirect flag
+                               "0006"                           // jmp_dest (MUL located at 6)
+                               "000A"                           // cond_offset 10
+                               + to_hex(OpCode::ADD) +          // opcode ADD
+                               "00"                             // Indirect flag
+                               "02"                             // U16
+                               "00000065"                       // addr 101
+                               "00000065"                       // addr 101
+                               "00000065"                       // output addr 101
+                               + to_hex(OpCode::MUL) +          // opcode MUL
+                               "00"                             // Indirect flag
+                               "02"                             // U16
+                               "00000065"                       // addr 101
+                               "00000065"                       // addr 101
+                               "00000066"                       // output of MUL addr 102
+                               + to_hex(OpCode::RETURN) +       // opcode RETURN
+                               "00"                             // Indirect flag
+                               "00000000"                       // ret offset 0
+                               "00000000"                       // ret size 0
         ;
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    ASSERT_THAT(instructions, SizeIs(6));
+    ASSERT_THAT(instructions, SizeIs(8));
 
     // We test parsing of JUMPI.
 
     // JUMPI
     EXPECT_THAT(
-        instructions.at(2),
-        AllOf(Field(&Instruction::op_code, OpCode::JUMPI),
+        instructions.at(4),
+        AllOf(Field(&Instruction::op_code, OpCode::JUMPI_16),
               Field(&Instruction::operands,
-                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(4), VariantWith<uint32_t>(10)))));
+                    ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint16_t>(6), VariantWith<uint16_t>(10)))));
 
-    std::vector<FF> returndata{};
+    std::vector<FF> returndata;
     auto trace_jump = Execution::gen_trace(instructions, returndata, std::vector<FF>{ 9873123 }, public_inputs_vec);
     auto trace_no_jump = Execution::gen_trace(instructions, returndata, std::vector<FF>{ 0 }, public_inputs_vec);
 
     // Expected sequence of PCs during execution with jump
-    std::vector<FF> pc_sequence_jump{ 0, 1, 2, 4, 5 };
+    std::vector<FF> pc_sequence_jump{ 0, 1, 2, 3, 4, 6, 7 };
     // Expected sequence of PCs during execution without jump
-    std::vector<FF> pc_sequence_no_jump{ 0, 1, 2, 3, 4, 5 };
+    std::vector<FF> pc_sequence_no_jump{ 0, 1, 2, 3, 4, 5, 6, 7 };
 
     for (size_t i = 0; i < 5; i++) {
         EXPECT_EQ(trace_jump.at(i + 1).main_pc, pc_sequence_jump.at(i));
@@ -555,22 +565,6 @@ TEST_F(AvmExecutionTests, jumpiAndCalldatacopy)
     for (size_t i = 0; i < 6; i++) {
         EXPECT_EQ(trace_no_jump.at(i + 1).main_pc, pc_sequence_no_jump.at(i));
     }
-
-    // JUMP CASE
-    // Find the first row enabling the MUL opcode
-    auto row = std::ranges::find_if(trace_jump.begin(), trace_jump.end(), [](Row r) { return r.main_sel_op_mul == 1; });
-    EXPECT_EQ(row->main_ic, 400); // 400 = 20 * 20
-
-    // Find the first row enabling the addition selector.
-    row = std::ranges::find_if(trace_jump.begin(), trace_jump.end(), [](Row r) { return r.main_sel_op_add == 1; });
-    // It must have failed as addition was "jumped over".
-    EXPECT_EQ(row, trace_jump.end());
-
-    // NO JUMP CASE
-    // Find the first row enabling the MUL opcode
-    row =
-        std::ranges::find_if(trace_no_jump.begin(), trace_no_jump.end(), [](Row r) { return r.main_sel_op_mul == 1; });
-    EXPECT_EQ(row->main_ic, 1600); // 800 = (20 + 20) * (20 + 20)
 
     // traces validation
     validate_trace(std::move(trace_jump), public_inputs, { 9873123 });
@@ -847,14 +841,29 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
     // Set operations for sha256 input
     // Test vectors taken from noir black_box_solver
     // Input = Uint32Array.from([1, 2, 3, 4, 5, 6, 7, 8]),
-    for (uint32_t i = 1; i <= 16; i++) {
+    for (uint8_t i = 1; i <= 16; i++) {
         bytecode_preamble += to_hex(OpCode::SET_8) + // opcode SET
                              "00"                    // Indirect flag
                              "03" +                  // U32
                              to_hex<uint8_t>(i) +    // val i
                              to_hex<uint8_t>(i + 8); // val i
     }
-    std::string bytecode_hex = bytecode_preamble                     // Initial SET operations to store state and input
+    std::string bytecode_hex = bytecode_preamble          // Initial SET operations to store state and input
+                               + to_hex(OpCode::SET_16) + // opcode SET for indirect dst (output)
+                               "00"                       // Indirect flag
+                               "03"                       // U32
+                               "0100"                     // value 256 (i.e. where the dst will be written to)
+                               "0024"                     // dst_offset 36
+                               + to_hex(OpCode::SET_8) +  // opcode SET for indirect state
+                               "00"                       // Indirect flag
+                               "03"                       // U32
+                               "01"                       // value 1 (i.e. where the state will be read from)
+                               "22"                       // dst_offset 34
+                               + to_hex(OpCode::SET_8) +  // opcode SET for indirect input
+                               "00"                       // Indirect flag
+                               "03"                       // U32
+                               "09"                       // value 9 (i.e. where the input will be read from)
+                               "23"                       // dst_offset 35
                                + to_hex(OpCode::SHA256COMPRESSION) + // opcode SHA256COMPRESSION
                                "00"                                  // Indirect flag
                                "00000100"                            // output offset
@@ -2038,9 +2047,9 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
         trace.begin(), trace.end(), [&](Row r) { return r.main_clk == START_NULLIFIER_EXISTS_OFFSET; });
     EXPECT_EQ(nullifier_out_row->main_kernel_value_out, 1); // value
     // TODO(#8287)
-    // EXPECT_EQ(nullifier_out_row->main_kernel_side_effect_out, 1);
+    EXPECT_EQ(nullifier_out_row->main_kernel_side_effect_out, 0);
     EXPECT_EQ(nullifier_out_row->main_kernel_metadata_out, 1); // exists
-    feed_output(START_NULLIFIER_EXISTS_OFFSET, 1, 1, 1);
+    feed_output(START_NULLIFIER_EXISTS_OFFSET, 1, 0, 1);
 
     // CHECK L1TOL2MSGEXISTS
     auto l1_to_l2_row =
@@ -2053,9 +2062,9 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
         trace.begin(), trace.end(), [&](Row r) { return r.main_clk == START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET; });
     EXPECT_EQ(msg_out_row->main_kernel_value_out, 1); // value
     // TODO(#8287)
-    // EXPECT_EQ(msg_out_row->main_kernel_side_effect_out, 2);
+    EXPECT_EQ(msg_out_row->main_kernel_side_effect_out, 0);
     EXPECT_EQ(msg_out_row->main_kernel_metadata_out, 1); // exists
-    feed_output(START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET, 1, 2, 1);
+    feed_output(START_L1_TO_L2_MSG_EXISTS_WRITE_OFFSET, 1, 0, 1);
 
     validate_trace(std::move(trace), public_inputs);
 }

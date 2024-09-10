@@ -62,8 +62,8 @@ enum class OpCode : uint8_t {
     L2GASLEFT,
     DAGASLEFT,
     // Machine State - Internal Control Flow
-    JUMP,
-    JUMPI,
+    JUMP_16,
+    JUMPI_16,
     INTERNALCALL,
     INTERNALRETURN,
     // Machine State - Memory

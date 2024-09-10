@@ -93,10 +93,10 @@ std::string to_string(OpCode opcode)
     case OpCode::DAGASLEFT:
         return "DAGASLEFT";
     // Machine State - Internal Control Flow
-    case OpCode::JUMP:
-        return "JUMP";
-    case OpCode::JUMPI:
-        return "JUMPI";
+    case OpCode::JUMP_16:
+        return "JUMP_16";
+    case OpCode::JUMPI_16:
+        return "JUMPI_16";
     case OpCode::INTERNALCALL:
         return "INTERNALCALL";
     case OpCode::INTERNALRETURN:

@@ -1,7 +1,7 @@
 #include "honk_recursion_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "proof_surgeon.hpp"
@@ -111,6 +111,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             .ec_add_constraints = {},
             .recursion_constraints = {},
             .honk_recursion_constraints = {},
+            .avm_recursion_constraints = {},
             .ivc_recursion_constraints = {},
             .bigint_from_le_bytes_constraints = {},
             .bigint_to_le_bytes_constraints = {},
