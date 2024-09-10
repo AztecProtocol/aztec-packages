@@ -210,8 +210,8 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
                              const bool with_edgecases = false);
 
     // we want to conditionally compile this method iff our curve params are the BN254 curve.
-    // This is a bit tricky to do with `std::enable_if`, because `bn254_endo_batch_mul` is a member function of a
-    // class template
+    // This is a bit tricky to do with `std::enable_if`, because `bn254_endo_batch_mul` is a member function of a class
+    // template
     // && the compiler can't perform partial template specialization on member functions of class templates
     // => our template parameter cannot be a value but must instead by a type
     // Our input to `std::enable_if` is a comparison between two types (NativeGroup and bb::g1), which
