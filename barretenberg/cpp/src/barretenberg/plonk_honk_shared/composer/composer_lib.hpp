@@ -53,9 +53,6 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     size_t offset = dyadic_circuit_size - circuit.get_tables_size();
-    read_counts = typename Flavor::Polynomial(circuit.get_tables_size(), dyadic_circuit_size, /*start index*/ offset);
-    // TODO(AD) we dont need to initialize read_tags
-    read_tags = typename Flavor::Polynomial(circuit.get_tables_size(), dyadic_circuit_size, /*start index*/ offset);
 
     size_t table_offset = offset; // offset of the present table in the table polynomials
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
@@ -71,7 +68,7 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
 
             // increment the read count at the corresponding index in the full polynomial
             size_t index_in_poly = table_offset + index_in_table;
-            read_counts.at(index_in_poly) = read_counts[index_in_poly] + 1;
+            read_counts.at(index_in_poly)++;
             read_tags.at(index_in_poly) = 1; // tag is 1 if entry has been read 1 or more times
         }
         table_offset += table.size(); // set the offset of the next table within the polynomials

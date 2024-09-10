@@ -350,7 +350,7 @@ class ECCVMFlavor {
         {
             // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
             for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2, circuit_size / 2);
+                poly = Polynomial(circuit_size / 2);
             }
         }
     };

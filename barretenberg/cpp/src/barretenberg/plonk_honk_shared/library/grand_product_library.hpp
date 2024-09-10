@@ -73,7 +73,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         // calling get_row which creates full copies. avoid?
         for (size_t i = start; i < end; ++i) {
             for (auto [eval, full_poly] : zip_view(evaluations.get_all(), full_polynomials.get_all())) {
-                eval = full_poly.size() > i ? full_poly.get(i) : 0;
+                eval = full_poly.size() > i ? full_poly[i] : 0;
             }
             numerator.at(i) = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
                 evaluations, relation_parameters);
