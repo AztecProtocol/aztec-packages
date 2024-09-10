@@ -43,8 +43,8 @@ template <class Builder> class goblin_field {
     goblin_field(bb::fq input)
     {
         uint256_t converted(input);
-        uint256_t lo_v = converted.slice(0, NUM_LIMBS * 2);
-        uint256_t hi_v = converted.slice(NUM_LIMBS * 2, NUM_LIMBS * 3 + NUM_LAST_LIMB_BITS);
+        uint256_t lo_v = converted.slice(0, NUM_LIMB_BITS * 2);
+        uint256_t hi_v = converted.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS);
         limbs = { bb::fr(lo_v), bb::fr(hi_v) };
     }
     goblin_field(field_ct lo, field_ct hi)
@@ -54,7 +54,7 @@ template <class Builder> class goblin_field {
     // N.B. this method is because AggregationState expects group element coordinates to be split into 4 slices
     // (we could update to only use 2 for Mega but that feels complex)
     goblin_field(field_ct lolo, field_ct lohi, field_ct hilo, field_ct hihi, [[maybe_unused]] bool can_overflow = false)
-        : limbs{ lolo + lohi * (uint256_t(1) << NUM_LIMBS), hilo + hihi * (uint256_t(1) << NUM_LIMB_BITS) }
+        : limbs{ lolo + lohi * (uint256_t(1) << NUM_LIMB_BITS), hilo + hihi * (uint256_t(1) << NUM_LIMB_BITS) }
     {}
 
     void assert_equal(const goblin_field& other) const
@@ -67,8 +67,8 @@ template <class Builder> class goblin_field {
     static goblin_field from_witness(Builder* ctx, bb::fq input)
     {
         uint256_t converted(input);
-        uint256_t lo_v = converted.slice(0, NUM_LIMBS * 2);
-        uint256_t hi_v = converted.slice(NUM_LIMBS * 2, NUM_LIMBS * 3 + NUM_LAST_LIMB_BITS);
+        uint256_t lo_v = converted.slice(0, NUM_LIMB_BITS * 2);
+        uint256_t hi_v = converted.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS);
         field_ct lo = field_ct::from_witness(ctx, lo_v);
         field_ct hi = field_ct::from_witness(ctx, hi_v);
         return goblin_field(lo, hi);
