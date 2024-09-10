@@ -75,6 +75,7 @@ export class AvmKeyValueHint {
 
 export class AvmExternalCallHint {
   public readonly returnData: Vector<Fr>;
+  public readonly packedBytecode: Vector<Fr>;
 
   /**
    * Creates a new instance.
@@ -88,8 +89,10 @@ export class AvmExternalCallHint {
     returnData: Fr[],
     public readonly gasUsed: Gas,
     public readonly endSideEffectCounter: Fr,
+    packedBytecode: Fr[], // This might be easier to work with
   ) {
     this.returnData = new Vector(returnData);
+    this.packedBytecode = new Vector(packedBytecode);
   }
 
   /**
@@ -132,6 +135,7 @@ export class AvmExternalCallHint {
       fields.returnData.items,
       fields.gasUsed,
       fields.endSideEffectCounter,
+      fields.packedBytecode.items,
     );
   }
 
@@ -141,7 +145,13 @@ export class AvmExternalCallHint {
    * @returns An array of fields.
    */
   static getFields(fields: FieldsOf<AvmExternalCallHint>) {
-    return [fields.success, fields.returnData, fields.gasUsed, fields.endSideEffectCounter] as const;
+    return [
+      fields.success,
+      fields.returnData,
+      fields.gasUsed,
+      fields.endSideEffectCounter,
+      fields.packedBytecode,
+    ] as const;
   }
 
   /**
@@ -156,6 +166,7 @@ export class AvmExternalCallHint {
       reader.readVector(Fr),
       reader.readObject<Gas>(Gas),
       Fr.fromBuffer(reader),
+      reader.readVector(Fr),
     );
   }
 

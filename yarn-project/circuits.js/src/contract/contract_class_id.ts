@@ -1,7 +1,8 @@
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { bufferAsFields } from '@aztec/foundation/abi';
+import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import { GeneratorIndex } from '../constants.gen.js';
+import { GeneratorIndex, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS } from '../constants.gen.js';
 import { type ContractClass } from './interfaces/contract_class.js';
 import { computePrivateFunctionsRoot } from './private_function.js';
 
@@ -35,6 +36,7 @@ export function computeContractClassIdWithPreimage(
     'publicBytecodeCommitment' in contractClass
       ? contractClass.publicBytecodeCommitment
       : computePublicBytecodeCommitment(contractClass.packedBytecode);
+  console.log('PUBLIC BYTECODE COMMITMENT: ', publicBytecodeCommitment.toString());
   const id = poseidon2HashWithSeparator(
     [artifactHash, privateFunctionsRoot, publicBytecodeCommitment],
     GeneratorIndex.CONTRACT_LEAF, // TODO(@spalladino): Review all generator indices in this file
@@ -58,6 +60,14 @@ export type ContractClassIdPreimage = {
 
 // TODO(#5860): Replace with actual implementation
 // Changed to work with canonical contracts that may have non-deterministic noir compiles and we want to keep the address constant
-export function computePublicBytecodeCommitment(_bytecode: Buffer) {
-  return new Fr(5);
+export function computePublicBytecodeCommitment(packedBytecode: Buffer) {
+  // Convert Buffer into chunks of field elements
+  const encodedBytecode: Fr[] = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+  // Hash it
+  let bytecodeCommitment = poseidon2Hash([encodedBytecode[0]]);
+  for (let i = 1; i < encodedBytecode.length; i++) {
+    bytecodeCommitment = poseidon2Hash([bytecodeCommitment, encodedBytecode[i]]);
+  }
+  return bytecodeCommitment;
+  // return new Fr(5);
 }

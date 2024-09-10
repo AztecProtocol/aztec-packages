@@ -2047,6 +2047,7 @@ TEST_F(AvmExecutionTests, opCallOpcodes)
         .l2_gas_used = 0,
         .da_gas_used = 0,
         .end_side_effect_counter = 0,
+        .packed_bytecode = {},
     } });
 
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);

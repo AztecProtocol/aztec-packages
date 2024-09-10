@@ -48,6 +48,13 @@ contract ContractClassRegisterer {
         let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] =
             pop_capsule();
         // docs:end:pop_capsule
+
+        let mut computed_public_bytecode_commitment = std::hash::poseidon2::Poseidon2::hash([packed_public_bytecode[0],0],2);
+        for i in 1..MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS {
+            computed_public_bytecode_commitment = std::hash::poseidon2::Poseidon2::hash([computed_public_bytecode_commitment, packed_public_bytecode[i]],2);
+        }
+        assert_eq(computed_public_bytecode_commitment, public_bytecode_commitment);
+
         // Compute contract class id from preimage
         let contract_class_id = ContractClassId::compute(
             artifact_hash,

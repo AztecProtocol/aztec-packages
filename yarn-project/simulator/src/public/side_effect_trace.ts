@@ -20,6 +20,7 @@ import {
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -29,6 +30,7 @@ import {
   ReadRequest,
   TreeLeafReadRequest,
 } from '@aztec/circuits.js';
+import { bufferAsFields } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -282,12 +284,15 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
 
     this.publicCallRequests.push(resultToPublicCallRequest(result));
 
+    // TODO: Check this is packed in the same way as during deployment
+    const encodedBytecode: Fr[] = bufferAsFields(bytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
     this.avmCircuitHints.externalCalls.items.push(
       new AvmExternalCallHint(
         /*success=*/ new Fr(result.reverted ? 0 : 1),
         result.returnValues,
         gasUsed,
         result.endSideEffectCounter,
+        encodedBytecode,
       ),
     );
   }
