@@ -35,7 +35,7 @@ template <class Flavor, size_t NUM_ = 2> class DeciderVerificationKey_ {
 
     DeciderVerificationKey_() = default;
     DeciderVerificationKey_(std::shared_ptr<VerificationKey> vk)
-        : verification_key(vk)
+        : verification_key(std::move(vk))
     {}
 
     MSGPACK_FIELDS(verification_key,
