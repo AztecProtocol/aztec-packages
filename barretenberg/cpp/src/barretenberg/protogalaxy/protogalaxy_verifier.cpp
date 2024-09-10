@@ -121,28 +121,22 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // // Fold the commitments
-    size_t commitment_idx = 0;
+    idx = 0;
     for (auto& folded_commitment : next_accumulator->verification_key->get_all()) {
-        folded_commitment =
-            batch_mul_native(keys_to_fold.get_precomputed_commitments_at_index(commitment_idx), lagranges);
-        commitment_idx++;
+        folded_commitment = batch_mul_native(keys_to_fold.get_precomputed_commitments_at_index(idx), lagranges);
+        idx++;
     }
-    commitment_idx = 0;
+    idx = 0;
     for (auto& folded_commitment : next_accumulator->witness_commitments.get_all()) {
-        folded_commitment = batch_mul_native(keys_to_fold.get_witness_commitments_at_index(commitment_idx), lagranges);
-        commitment_idx++;
+        folded_commitment = batch_mul_native(keys_to_fold.get_witness_commitments_at_index(idx), lagranges);
+        idx++;
     }
 
     // Fold the relation parameters
-    size_t alpha_idx = 0;
+    idx = 0;
     for (auto& alpha : next_accumulator->alphas) {
-        alpha = FF(0);
-        size_t vk_idx = 0;
-        for (auto& key : keys_to_fold) {
-            alpha += key->alphas[alpha_idx] * lagranges[vk_idx];
-            vk_idx++;
-        }
-        alpha_idx++;
+        alpha = linear_combination(keys_to_fold.get_alphas_at_index(idx), lagranges);
+        idx++;
     }
     auto& expected_parameters = next_accumulator->relation_parameters;
     for (size_t vk_idx = 0; vk_idx < NUM_KEYS; vk_idx++) {
