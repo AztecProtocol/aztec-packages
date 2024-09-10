@@ -24,7 +24,10 @@ use dep::types::{
  * Asserts that the tree formed by rollup circuits is filled greedily from L to R
  *
  */
-pub fn assert_txs_filled_from_left(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) {
+pub fn assert_txs_filled_from_left(
+    left: BaseOrMergeRollupPublicInputs,
+    right: BaseOrMergeRollupPublicInputs
+) {
     // assert that the left rollup is either a base (1 tx) or a balanced tree (num txs = power of 2)
     if (left.rollup_type == 1) {
         let left_txs = left.num_txs;
@@ -47,7 +50,10 @@ pub fn assert_txs_filled_from_left(left: BaseOrMergeRollupPublicInputs, right: B
  * Asserts that the constants used in the left and right child are identical
  *
  */
-pub fn assert_equal_constants(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) {
+pub fn assert_equal_constants(
+    left: BaseOrMergeRollupPublicInputs,
+    right: BaseOrMergeRollupPublicInputs
+) {
     assert(left.constants.eq(right.constants), "input proofs have different constants");
 }
 

@@ -900,10 +900,6 @@ mod tests {
 
     #[test]
     unconstrained fn new_nullifier_tree_empty() {
-        /**
-        * DESCRIPTION
-        */
-
         // This test checks for insertions of all 0 values
         // In this special case we will not need to provide sibling paths to check insertion of the nullifier values
         // This is because 0 values are not actually inserted into the tree, rather the inserted subtree is left
