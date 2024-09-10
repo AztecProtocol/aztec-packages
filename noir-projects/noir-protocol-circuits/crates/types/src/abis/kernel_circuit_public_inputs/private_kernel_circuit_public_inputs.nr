@@ -1,11 +1,11 @@
-use crate::abis::{
+use crate::{
+    abis::{
     accumulated_data::PrivateAccumulatedData, combined_constant_data::CombinedConstantData,
     public_call_request::PublicCallRequest, validation_requests::PrivateValidationRequests
+},
+    address::AztecAddress, constants::PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    traits::{Serialize, Deserialize, Empty}, utils::{arrays::array_length, reader::Reader}
 };
-use crate::constants::PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH;
-use crate::traits::{Serialize, Deserialize, Eq, Empty};
-use crate::utils::{arrays::array_length, reader::Reader};
-use crate::address::AztecAddress;
 
 struct PrivateKernelCircuitPublicInputsArrayLengths {
     note_hash_read_requests: u32,

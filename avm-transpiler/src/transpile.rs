@@ -6,15 +6,16 @@ use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
 };
-use acvm::{AcirField, FieldElement};
+use acvm::FieldElement;
 use noirc_errors::debug_info::DebugInfo;
 
+use crate::bit_traits::bits_needed_for;
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
     SECOND_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
 };
 use crate::opcodes::AvmOpcode;
-use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program};
+use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
 
 /// Transpile a Brillig program to AVM bytecode
 pub fn brillig_to_avm(
@@ -81,15 +82,15 @@ pub fn brillig_to_avm(
                     ],
                 });
             }
-            BrilligOpcode::CalldataCopy { destination_address, size, offset } => {
+            BrilligOpcode::CalldataCopy { destination_address, size_address, offset_address } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::CALLDATACOPY,
                     indirect: Some(ALL_DIRECT),
                     operands: vec![
                         AvmOperand::U32 {
-                            value: *offset as u32, // cdOffset (calldata offset)
+                            value: offset_address.to_usize() as u32, // cdOffset (calldata offset)
                         },
-                        AvmOperand::U32 { value: *size as u32 },
+                        AvmOperand::U32 { value: size_address.to_usize() as u32 }, // sizeOffset
                         AvmOperand::U32 {
                             value: destination_address.to_usize() as u32, // dstOffset
                         },
@@ -100,20 +101,17 @@ pub fn brillig_to_avm(
             BrilligOpcode::Jump { location } => {
                 let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
-                    opcode: AvmOpcode::JUMP,
-                    operands: vec![AvmOperand::U32 { value: avm_loc as u32 }],
+                    opcode: AvmOpcode::JUMP_16,
+                    operands: vec![make_operand(16, &avm_loc)],
                     ..Default::default()
                 });
             }
             BrilligOpcode::JumpIf { condition, location } => {
                 let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
-                    opcode: AvmOpcode::JUMPI,
+                    opcode: AvmOpcode::JUMPI_16,
                     indirect: Some(ALL_DIRECT),
-                    operands: vec![
-                        AvmOperand::U32 { value: avm_loc as u32 },
-                        AvmOperand::U32 { value: condition.to_usize() as u32 },
-                    ],
+                    operands: vec![make_operand(16, &avm_loc), make_operand(16, &condition.0)],
                     ..Default::default()
                 });
             }
@@ -216,7 +214,7 @@ pub fn brillig_to_avm(
     // We are adding a MOV instruction that moves a value to itself.
     // This should therefore not affect the program's execution.
     avm_instrs.push(AvmInstruction {
-        opcode: AvmOpcode::MOV,
+        opcode: AvmOpcode::MOV_8,
         indirect: Some(ALL_DIRECT),
         operands: vec![AvmOperand::U32 { value: 0x18ca }, AvmOperand::U32 { value: 0x18ca }],
         ..Default::default()
@@ -673,45 +671,38 @@ fn handle_const(
 ) {
     let tag = tag_from_bit_size(*bit_size);
     let dest = destination.to_usize() as u32;
-
-    if !matches!(tag, AvmTypeTag::FIELD) {
-        avm_instrs.push(generate_set_instruction(tag, dest, value.to_u128(), indirect));
-    } else {
-        // We can't fit a field in an instruction. This should've been handled in Brillig.
-        let field = value;
-        if field.num_bits() > 128 {
-            panic!("SET: Field value doesn't fit in 128 bits, that's not supported!");
-        }
-        avm_instrs.extend([
-            generate_set_instruction(AvmTypeTag::UINT128, dest, field.to_u128(), indirect),
-            generate_cast_instruction(dest, indirect, dest, indirect, AvmTypeTag::FIELD),
-        ]);
-    }
+    avm_instrs.push(generate_set_instruction(tag, dest, value, indirect));
 }
 
 /// Generates an AVM SET instruction.
 fn generate_set_instruction(
     tag: AvmTypeTag,
     dest: u32,
-    value: u128,
+    value: &FieldElement,
     indirect: bool,
 ) -> AvmInstruction {
+    let bits_needed_val = bits_needed_for(value);
+    let bits_needed_mem = if bits_needed_val >= 16 { 16 } else { bits_needed_for(&dest) };
+    assert!(bits_needed_mem <= 16);
+    let bits_needed_opcode = bits_needed_val.max(bits_needed_mem);
+
+    let set_opcode = match bits_needed_opcode {
+        8 => AvmOpcode::SET_8,
+        16 => AvmOpcode::SET_16,
+        32 => AvmOpcode::SET_32,
+        64 => AvmOpcode::SET_64,
+        128 => AvmOpcode::SET_128,
+        254 => AvmOpcode::SET_FF,
+        _ => panic!("Invalid bits needed for opcode: {}", bits_needed_opcode),
+    };
+
     AvmInstruction {
-        opcode: AvmOpcode::SET,
+        opcode: set_opcode,
         indirect: if indirect { Some(ZEROTH_OPERAND_INDIRECT) } else { Some(ALL_DIRECT) },
         tag: Some(tag),
         operands: vec![
-            // const
-            match tag {
-                AvmTypeTag::UINT8 => AvmOperand::U8 { value: value as u8 },
-                AvmTypeTag::UINT16 => AvmOperand::U16 { value: value as u16 },
-                AvmTypeTag::UINT32 => AvmOperand::U32 { value: value as u32 },
-                AvmTypeTag::UINT64 => AvmOperand::U64 { value: value as u64 },
-                AvmTypeTag::UINT128 => AvmOperand::U128 { value },
-                _ => panic!("Invalid type tag {:?} for set", tag),
-            },
-            // dest offset
-            AvmOperand::U32 { value: dest },
+            make_operand(bits_needed_opcode, value),
+            make_operand(bits_needed_mem, &dest),
         ],
     }
 }
@@ -741,10 +732,18 @@ fn generate_cast_instruction(
 
 /// Generates an AVM MOV instruction.
 fn generate_mov_instruction(indirect: Option<u8>, source: u32, dest: u32) -> AvmInstruction {
+    let bits_needed = [source, dest].iter().map(bits_needed_for).max().unwrap();
+
+    let mov_opcode = match bits_needed {
+        8 => AvmOpcode::MOV_8,
+        16 => AvmOpcode::MOV_16,
+        _ => panic!("MOV operands must fit in 16 bits but needed {}", bits_needed),
+    };
+
     AvmInstruction {
-        opcode: AvmOpcode::MOV,
+        opcode: mov_opcode,
         indirect,
-        operands: vec![AvmOperand::U32 { value: source }, AvmOperand::U32 { value: dest }],
+        operands: vec![make_operand(bits_needed, &source), make_operand(bits_needed, &dest)],
         ..Default::default()
     }
 }
@@ -1128,8 +1127,6 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
     pc_map[0] = 0; // first PC is always 0 as there are no instructions inserted by AVM at start
     for i in 0..brillig_bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
-            BrilligOpcode::Const { bit_size: BitSize::Field, .. } => 2,
-            BrilligOpcode::IndirectConst { bit_size: BitSize::Field, .. } => 2,
             BrilligOpcode::Cast { bit_size: BitSize::Integer(IntegerBitSize::U1), .. } => 3,
             _ => 1,
         };

@@ -79,16 +79,10 @@ std::string to_string(OpCode opcode)
         return "BLOCKNUMBER";
     case OpCode::TIMESTAMP:
         return "TIMESTAMP";
-    case OpCode::COINBASE:
-        return "COINBASE";
     case OpCode::FEEPERL2GAS:
         return "FEEPERL2GAS";
     case OpCode::FEEPERDAGAS:
         return "FEEPERDAGAS";
-    case OpCode::BLOCKL2GASLIMIT:
-        return "BLOCKL2GASLIMIT";
-    case OpCode::BLOCKDAGASLIMIT:
-        return "BLOCKDAGASLIMIT";
     // Execution Environment - Calldata
     case OpCode::CALLDATACOPY:
         return "CALLDATACOPY";
@@ -99,19 +93,31 @@ std::string to_string(OpCode opcode)
     case OpCode::DAGASLEFT:
         return "DAGASLEFT";
     // Machine State - Internal Control Flow
-    case OpCode::JUMP:
-        return "JUMP";
-    case OpCode::JUMPI:
-        return "JUMPI";
+    case OpCode::JUMP_16:
+        return "JUMP_16";
+    case OpCode::JUMPI_16:
+        return "JUMPI_16";
     case OpCode::INTERNALCALL:
         return "INTERNALCALL";
     case OpCode::INTERNALRETURN:
         return "INTERNALRETURN";
     // Machine State - Memory
-    case OpCode::SET:
-        return "SET";
-    case OpCode::MOV:
-        return "MOV";
+    case OpCode::SET_8:
+        return "SET_8";
+    case OpCode::SET_16:
+        return "SET_16";
+    case OpCode::SET_32:
+        return "SET_32";
+    case OpCode::SET_64:
+        return "SET_64";
+    case OpCode::SET_128:
+        return "SET_128";
+    case OpCode::SET_FF:
+        return "SET_FF";
+    case OpCode::MOV_8:
+        return "MOV_8";
+    case OpCode::MOV_16:
+        return "MOV_16";
     case OpCode::CMOV:
         return "CMOV";
     // World State

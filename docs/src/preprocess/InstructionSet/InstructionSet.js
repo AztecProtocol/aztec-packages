@@ -659,24 +659,6 @@ const INSTRUCTION_SET_RAW = [
     "Tag updates": "`T[dstOffset] = u64`",
   },
   {
-    id: "coinbase",
-    Name: "`COINBASE`",
-    Category: "Execution Environment - Globals",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.globals.coinbase`",
-    Summary: "(UNIMPLEMENTED) Get the block's beneficiary address",
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
     id: "feeperl2gas",
     Name: "`FEEPERL2GAS`",
     Category: "Execution Environment - Globals - Gas",
@@ -710,42 +692,6 @@ const INSTRUCTION_SET_RAW = [
     Expression: "`M[dstOffset] = context.environment.globals.feePerDaGas`",
     Summary:
       'Get the fee to be paid per "DA gas" - constant for entire transaction',
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
-    id: "blockl2gaslimit",
-    Name: "`BLOCKL2GASLIMIT`",
-    Category: "Execution Environment - Globals",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.globals.l2GasLimit`",
-    Summary: '(UNIMPLEMENTED) Total amount of "L2 gas" that a block can consume',
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
-    id: "blockdagaslimit",
-    Name: "`BLOCKDAGASLIMIT`",
-    Category: "Execution Environment - Globals",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.globals.daGasLimit`",
-    Summary: '(UNIMPLEMENTED) Total amount of "DA gas" that a block can consume',
     Details: "",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = field`",

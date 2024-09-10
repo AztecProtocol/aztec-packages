@@ -153,7 +153,6 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
     proof.insert(proof.end(), returndata.begin(), returndata.end());
     auto raw_proof = prover.construct_proof();
     proof.insert(proof.end(), raw_proof.begin(), raw_proof.end());
-    // TODO(#4887): Might need to return PCS vk when full verify is supported
     return std::make_tuple(*verifier.key, proof);
 }
 
@@ -214,7 +213,6 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     kernel_inputs[VERSION_SELECTOR] = public_inputs_vec[VERSION_OFFSET];           // Version
     kernel_inputs[BLOCK_NUMBER_SELECTOR] = public_inputs_vec[BLOCK_NUMBER_OFFSET]; // Block Number
     kernel_inputs[TIMESTAMP_SELECTOR] = public_inputs_vec[TIMESTAMP_OFFSET];       // Timestamp
-    kernel_inputs[COINBASE_SELECTOR] = public_inputs_vec[COINBASE_OFFSET];         // Coinbase
     // PublicCircuitPublicInputs - GlobalVariables - GasFees
     kernel_inputs[FEE_PER_DA_GAS_SELECTOR] = public_inputs_vec[FEE_PER_DA_GAS_OFFSET];
     kernel_inputs[FEE_PER_L2_GAS_SELECTOR] = public_inputs_vec[FEE_PER_L2_GAS_OFFSET];
@@ -548,9 +546,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         case OpCode::TIMESTAMP:
             trace_builder.op_timestamp(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
-        case OpCode::COINBASE:
-            trace_builder.op_coinbase(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
         case OpCode::FEEPERL2GAS:
             trace_builder.op_fee_per_l2_gas(std::get<uint8_t>(inst.operands.at(0)),
                                             std::get<uint32_t>(inst.operands.at(1)));
@@ -577,13 +572,13 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
 
             // Machine State - Internal Control Flow
-        case OpCode::JUMP:
-            trace_builder.op_jump(std::get<uint32_t>(inst.operands.at(0)));
+        case OpCode::JUMP_16:
+            trace_builder.op_jump(std::get<uint16_t>(inst.operands.at(0)));
             break;
-        case OpCode::JUMPI:
+        case OpCode::JUMPI_16:
             trace_builder.op_jumpi(std::get<uint8_t>(inst.operands.at(0)),
-                                   std::get<uint32_t>(inst.operands.at(1)),
-                                   std::get<uint32_t>(inst.operands.at(2)));
+                                   std::get<uint16_t>(inst.operands.at(1)),
+                                   std::get<uint16_t>(inst.operands.at(2)));
             break;
         case OpCode::INTERNALCALL:
             trace_builder.op_internal_call(std::get<uint32_t>(inst.operands.at(0)));
@@ -593,38 +588,57 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
 
             // Machine State - Memory
-        case OpCode::SET: {
-            uint128_t val = 0;
-            AvmMemoryTag in_tag = std::get<AvmMemoryTag>(inst.operands.at(1));
-
-            switch (in_tag) {
-            case AvmMemoryTag::U8:
-                val = std::get<uint8_t>(inst.operands.at(2));
-                break;
-            case AvmMemoryTag::U16:
-                val = std::get<uint16_t>(inst.operands.at(2));
-                break;
-            case AvmMemoryTag::U32:
-                val = std::get<uint32_t>(inst.operands.at(2));
-                break;
-            case AvmMemoryTag::U64:
-                val = std::get<uint64_t>(inst.operands.at(2));
-                break;
-            case AvmMemoryTag::U128:
-                val = std::get<uint128_t>(inst.operands.at(2));
-                break;
-            default:
-                break;
-            }
-
-            trace_builder.op_set(
-                std::get<uint8_t>(inst.operands.at(0)), val, std::get<uint32_t>(inst.operands.at(3)), in_tag);
+        case OpCode::SET_8: {
+            trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint8_t>(inst.operands.at(2)),
+                                 std::get<uint8_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
         }
-        case OpCode::MOV:
+        case OpCode::SET_16: {
+            trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(2)),
+                                 std::get<uint16_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        }
+        case OpCode::SET_32: {
+            trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint32_t>(inst.operands.at(2)),
+                                 std::get<uint16_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        }
+        case OpCode::SET_64: {
+            trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint64_t>(inst.operands.at(2)),
+                                 std::get<uint16_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        }
+        case OpCode::SET_128: {
+            trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                 uint256_t::from_uint128(std::get<uint128_t>(inst.operands.at(2))),
+                                 std::get<uint16_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        }
+        case OpCode::SET_FF: {
+            trace_builder.op_set(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<FF>(inst.operands.at(2)),
+                                 std::get<uint16_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        }
+        case OpCode::MOV_8:
             trace_builder.op_mov(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint32_t>(inst.operands.at(1)),
-                                 std::get<uint32_t>(inst.operands.at(2)));
+                                 std::get<uint8_t>(inst.operands.at(1)),
+                                 std::get<uint8_t>(inst.operands.at(2)));
+            break;
+        case OpCode::MOV_16:
+            trace_builder.op_mov(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(1)),
+                                 std::get<uint16_t>(inst.operands.at(2)));
             break;
         case OpCode::CMOV:
             trace_builder.op_cmov(std::get<uint8_t>(inst.operands.at(0)),

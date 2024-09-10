@@ -5,12 +5,7 @@ use dep::types::{
     max_block_number::MaxBlockNumber, nullifier::{Nullifier, ScopedNullifier},
     private_circuit_public_inputs::PrivateCircuitPublicInputs
 },
-    address::AztecAddress,
-    constants::{
-    MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_TX,
-    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
-},
-    traits::is_empty, transaction::tx_request::TxRequest,
+    address::AztecAddress, traits::is_empty, transaction::tx_request::TxRequest,
     utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc, sort_by_counter_desc}
 };
 
@@ -99,7 +94,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         *self
     }
 
-    pub fn sort_ordered_values(&mut self) {
+    unconstrained pub fn sort_ordered_values(&mut self) {
         // Note hashes, nullifiers, note_encrypted_logs_hashes, and encrypted_logs_hashes are sorted in the reset circuit.
         self.public_inputs.end.l2_to_l1_msgs.storage = sort_by_counter_asc(self.public_inputs.end.l2_to_l1_msgs.storage);
         self.public_inputs.end.unencrypted_logs_hashes.storage = sort_by_counter_asc(self.public_inputs.end.unencrypted_logs_hashes.storage);

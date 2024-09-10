@@ -1,7 +1,7 @@
 /// All AVM opcodes
 /// Keep updated with TS, cpp, and docs protocol specs!
-#[allow(clippy::upper_case_acronyms, dead_code)]
-#[derive(PartialEq, Copy, Clone, Debug)]
+#[allow(clippy::upper_case_acronyms, dead_code, non_camel_case_types)]
+#[derive(PartialEq, Copy, Clone, Debug, Eq, Hash)]
 pub enum AvmOpcode {
     // Compute
     ADD,
@@ -29,23 +29,26 @@ pub enum AvmOpcode {
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
-    COINBASE,
     FEEPERL2GAS,
     FEEPERDAGAS,
-    BLOCKL2GASLIMIT,
-    BLOCKDAGASLIMIT,
     CALLDATACOPY,
     // Gas
     L2GASLEFT,
     DAGASLEFT,
     // Control flow
-    JUMP,
-    JUMPI,
+    JUMP_16,
+    JUMPI_16,
     INTERNALCALL,
     INTERNALRETURN,
     // Memory
-    SET,
-    MOV,
+    SET_8,
+    SET_16,
+    SET_32,
+    SET_64,
+    SET_128,
+    SET_FF,
+    MOV_8,
+    MOV_16,
     CMOV,
     // World state
     SLOAD,
@@ -116,11 +119,8 @@ impl AvmOpcode {
             AvmOpcode::VERSION => "VERSION",
             AvmOpcode::BLOCKNUMBER => "BLOCKNUMBER",
             AvmOpcode::TIMESTAMP => "TIMESTAMP",
-            AvmOpcode::COINBASE => "COINBASE",
             AvmOpcode::FEEPERL2GAS => "FEEPERL2GAS",
             AvmOpcode::FEEPERDAGAS => "FEEPERDAGAS",
-            AvmOpcode::BLOCKL2GASLIMIT => "BLOCKL2GASLIMIT",
-            AvmOpcode::BLOCKDAGASLIMIT => "BLOCKDAGASLIMIT",
             // Execution Environment - Calldata
             AvmOpcode::CALLDATACOPY => "CALLDATACOPY",
 
@@ -129,13 +129,19 @@ impl AvmOpcode {
             AvmOpcode::L2GASLEFT => "L2GASLEFT",
             AvmOpcode::DAGASLEFT => "DAGASLEFT",
             // Machine State - Internal Control Flow
-            AvmOpcode::JUMP => "JUMP",
-            AvmOpcode::JUMPI => "JUMPI",
+            AvmOpcode::JUMP_16 => "JUMP_16",
+            AvmOpcode::JUMPI_16 => "JUMPI_16",
             AvmOpcode::INTERNALCALL => "INTERNALCALL",
             AvmOpcode::INTERNALRETURN => "INTERNALRETURN",
             // Machine State - Memory
-            AvmOpcode::SET => "SET",
-            AvmOpcode::MOV => "MOV",
+            AvmOpcode::SET_8 => "SET_8",
+            AvmOpcode::SET_16 => "SET_16",
+            AvmOpcode::SET_32 => "SET_32",
+            AvmOpcode::SET_64 => "SET_64",
+            AvmOpcode::SET_128 => "SET_128",
+            AvmOpcode::SET_FF => "SET_FF",
+            AvmOpcode::MOV_8 => "MOV_8",
+            AvmOpcode::MOV_16 => "MOV_16",
             AvmOpcode::CMOV => "CMOV",
 
             // World State

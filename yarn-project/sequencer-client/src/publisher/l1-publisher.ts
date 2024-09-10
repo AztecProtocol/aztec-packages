@@ -97,15 +97,6 @@ export type L1SubmitProofArgs = {
  * Adapted from https://github.com/AztecProtocol/aztec2-internal/blob/master/falafel/src/rollup_publisher.ts.
  */
 export class L1Publisher {
-  // @note  If we want to simulate in the future, we have to skip the viem simulations and use `reads` instead
-  //        This is because the viem simulations are not able to simulate the future, only the current state.
-  //        This means that we will be simulating as if `block.timestamp` is the same for the next block
-  //        as for the last block.
-  //        Nevertheless, it can be quite useful for figuring out why exactly the transaction is failing
-  //        as a middle ground right now, we will be skipping the simulation and just sending the transaction
-  //        but only after we have done a successful run of the `validateHeader` for the timestamp in the future.
-  public static SKIP_SIMULATION = true;
-
   private interruptibleSleep = new InterruptibleSleep();
   private sleepTimeMs: number;
   private interrupted = false;
@@ -122,6 +113,8 @@ export class L1Publisher {
   >;
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
   private account: PrivateKeyAccount;
+
+  public static PROPOSE_GAS_GUESS: bigint = 500_000n;
 
   constructor(config: TxSenderConfig & PublisherConfig, client: TelemetryClient) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
@@ -332,7 +325,7 @@ export class L1Publisher {
       archive: archiveRoot.toBuffer(),
       proverId: proverId.toBuffer(),
       aggregationObject: serializeToBuffer(aggregationObject),
-      proof: proof.toBuffer(),
+      proof: proof.withoutPublicInputs(),
     };
 
     // Process block
@@ -400,11 +393,9 @@ export class L1Publisher {
         `0x${proof.toString('hex')}`,
       ] as const;
 
-      if (!L1Publisher.SKIP_SIMULATION) {
-        await this.rollupContract.simulate.submitBlockRootProof(args, {
-          account: this.account,
-        });
-      }
+      await this.rollupContract.simulate.submitBlockRootProof(args, {
+        account: this.account,
+      });
 
       return await this.rollupContract.write.submitBlockRootProof(args, {
         account: this.account,
@@ -439,36 +430,20 @@ export class L1Publisher {
   private async sendProposeWithoutBodyTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
     if (!this.interrupted) {
       try {
-        if (encodedData.attestations) {
-          const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
-          const args = [
-            `0x${encodedData.header.toString('hex')}`,
-            `0x${encodedData.archive.toString('hex')}`,
-            `0x${encodedData.blockHash.toString('hex')}`,
-            attestations,
-          ] as const;
+        const attestations = encodedData.attestations
+          ? encodedData.attestations.map(attest => attest.toViemSignature())
+          : [];
+        const args = [
+          `0x${encodedData.header.toString('hex')}`,
+          `0x${encodedData.archive.toString('hex')}`,
+          `0x${encodedData.blockHash.toString('hex')}`,
+          attestations,
+        ] as const;
 
-          if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.propose(args, { account: this.account });
-          }
-
-          return await this.rollupContract.write.propose(args, {
-            account: this.account,
-          });
-        } else {
-          const args = [
-            `0x${encodedData.header.toString('hex')}`,
-            `0x${encodedData.archive.toString('hex')}`,
-            `0x${encodedData.blockHash.toString('hex')}`,
-          ] as const;
-
-          if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.propose(args, { account: this.account });
-          }
-          return await this.rollupContract.write.propose(args, {
-            account: this.account,
-          });
-        }
+        return await this.rollupContract.write.propose(args, {
+          account: this.account,
+          gas: L1Publisher.PROPOSE_GAS_GUESS,
+        });
       } catch (err) {
         this.log.error(`Rollup publish failed`, err);
         return undefined;
@@ -479,43 +454,33 @@ export class L1Publisher {
   private async sendProposeTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
     if (!this.interrupted) {
       try {
-        if (encodedData.attestations) {
-          const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
-          const args = [
-            `0x${encodedData.header.toString('hex')}`,
-            `0x${encodedData.archive.toString('hex')}`,
-            `0x${encodedData.blockHash.toString('hex')}`,
-            attestations,
-            `0x${encodedData.body.toString('hex')}`,
-          ] as const;
+        const publishGas = await this.availabilityOracleContract.estimateGas.publish([
+          `0x${encodedData.body.toString('hex')}`,
+        ]);
+        const min = (a: bigint, b: bigint) => (a > b ? b : a);
 
-          if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.propose(args, {
-              account: this.account,
-            });
-          }
+        // @note  We perform this guesstimate instead of the usual `gasEstimate` since
+        //        viem will use the current state to simulate against, which means that
+        //        we will fail estimation in the case where we are simulating for the
+        //        first ethereum block within our slot (as current time is not in the
+        //        slot yet).
+        const gasGuesstimate = min(publishGas * 2n + L1Publisher.PROPOSE_GAS_GUESS, 15_000_000n);
 
-          return await this.rollupContract.write.propose(args, {
-            account: this.account,
-          });
-        } else {
-          const args = [
-            `0x${encodedData.header.toString('hex')}`,
-            `0x${encodedData.archive.toString('hex')}`,
-            `0x${encodedData.blockHash.toString('hex')}`,
-            `0x${encodedData.body.toString('hex')}`,
-          ] as const;
+        const attestations = encodedData.attestations
+          ? encodedData.attestations.map(attest => attest.toViemSignature())
+          : [];
+        const args = [
+          `0x${encodedData.header.toString('hex')}`,
+          `0x${encodedData.archive.toString('hex')}`,
+          `0x${encodedData.blockHash.toString('hex')}`,
+          attestations,
+          `0x${encodedData.body.toString('hex')}`,
+        ] as const;
 
-          if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.propose(args, {
-              account: this.account,
-            });
-          }
-
-          return await this.rollupContract.write.propose(args, {
-            account: this.account,
-          });
-        }
+        return await this.rollupContract.write.propose(args, {
+          account: this.account,
+          gas: gasGuesstimate,
+        });
       } catch (err) {
         this.log.error(`Rollup publish failed`, err);
         return undefined;

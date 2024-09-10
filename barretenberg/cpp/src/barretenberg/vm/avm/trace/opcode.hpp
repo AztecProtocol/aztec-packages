@@ -52,11 +52,8 @@ enum class OpCode : uint8_t {
     VERSION,
     BLOCKNUMBER,
     TIMESTAMP,
-    COINBASE,
     FEEPERL2GAS,
     FEEPERDAGAS,
-    BLOCKL2GASLIMIT,
-    BLOCKDAGASLIMIT,
     // Execution Environment - Calldata
     CALLDATACOPY,
 
@@ -65,13 +62,19 @@ enum class OpCode : uint8_t {
     L2GASLEFT,
     DAGASLEFT,
     // Machine State - Internal Control Flow
-    JUMP,
-    JUMPI,
+    JUMP_16,
+    JUMPI_16,
     INTERNALCALL,
     INTERNALRETURN,
     // Machine State - Memory
-    SET,
-    MOV,
+    SET_8,
+    SET_16,
+    SET_32,
+    SET_64,
+    SET_128,
+    SET_FF,
+    MOV_8,
+    MOV_16,
     CMOV,
 
     // World State

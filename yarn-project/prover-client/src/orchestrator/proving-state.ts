@@ -47,7 +47,6 @@ export class ProvingState {
   private rootParityInputs: Array<RootParityInput<typeof RECURSIVE_PROOF_LENGTH> | undefined> = [];
   private finalRootParityInputs: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
   public blockRootRollupPublicInputs: BlockRootOrBlockMergePublicInputs | undefined;
-  public finalAggregationObject: Fr[] | undefined;
   public finalProof: Proof | undefined;
   public block: L2Block | undefined;
   private txs: TxProvingState[] = [];

@@ -30,6 +30,8 @@ use attributes::{attributes, inner_attribute, validate_secondary_attributes};
 use doc_comments::{inner_doc_comments, outer_doc_comments};
 pub use types::parse_type;
 use visibility::item_visibility;
+use visibility::item_visibility;
+pub use visibility::visibility;
 pub use visibility::visibility;
 
 use super::{
