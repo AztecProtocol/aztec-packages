@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725985973308,
+  "lastUpdate": 1725991920474,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "47e83fa680f46b12cd65c26475908987f97fff4d",
-          "message": "fix(bb): eliminate recursion in accumulate* (#8205)\n\nJean is working on the AVM recursive verifier and he found that these\nfunctions were executed recursively (the compiler was indeed generating\nrecursive calls) and causing a stack overflow. This fixes that.\n* ~~Also fixed `accumulate_relation_evaluations_without_skipping` which\nwas only not skipping the first relation.~~ Tests fail with the fix,\nI've added a comment.\n* I also made some params `const&`. IIUC they were being copied before\nwhich can be massive for the type `AllValues`. Not sure about that but\nyou might want to check the callers, etc.",
-          "timestamp": "2024-08-27T14:00:30+01:00",
-          "tree_id": "48228f7a215f4460e1d28bcd247adeca1c73f09d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/47e83fa680f46b12cd65c26475908987f97fff4d"
-        },
-        "date": 1724764280203,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13497.53438000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10433.232167000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5095.946416000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4660.768961000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39514.393355,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39514393000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14675.655707,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14675655000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3780309344,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3780309344 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 207605461,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 207605461 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3067587446,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3067587446 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173312509,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173312509 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 119752968,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 119752968 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "372f23ce0aa44a3aa6e1ef2f864df303a3229e6b",
+          "message": "feat(bb): towards reduced polynomial memory usage (#7990)\n\nSee https://hackmd.io/MDcSYZtESay9rI6-Atd0fg for motivation\r\n\r\nAnother pass on moving polynomials to a form where 'islands' of\r\nnon-zeroes are supported.\r\n- introduce a new form of shifts: we start unshifted polynomials at\r\nstart_index() == 1 and for shifted polynomials simply shallow copy them\r\nwith start_index() == 0. Note more non-trivial copying of polynomials\r\n(heard whispering of this with AVM, or perhaps if we had prover-builder\r\nsharing) would need more flexibility in the array backing\r\n- ensure shifted polynomials are allocated as above\r\n- change operator[] to be .at() everywhere, which is arbitrarily chosen\r\nto be the mutable operator. This is to keep operator[] able to read\r\noutside of strictly-defined bounds as before. For any mutable accesses,\r\nwe use at().\r\n- adapt the code to the new shift scheme, this took the majority of the\r\ntime\r\n- try out the new abbreviated scheme with \r\n- PolynomialSpan now replaces std::span in a few cases, namely in\r\ncomputing commitments. This includes a start index offset. When\r\ncomputing MSMs this is natural as we just offset the SRS index\r\n(representing the exponent) by start_index, which follows as\r\nconceptually we have 0 values before start_index.\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <adam@aztecprotocol.com>",
+          "timestamp": "2024-09-10T13:52:52-04:00",
+          "tree_id": "c20664264e2aa4825e8563b878d3adada49c2198",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/372f23ce0aa44a3aa6e1ef2f864df303a3229e6b"
+        },
+        "date": 1725991912656,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13512.246870000014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10334.680747000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5272.830596999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4857.368219000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 40711.050929,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 40711050000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14691.888535,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14691890000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3679026130,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3679026130 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 146540180,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 146540180 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3036972834,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3036972834 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 123005064,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 123005064 ns\nthreads: 1"
           }
         ]
       }
