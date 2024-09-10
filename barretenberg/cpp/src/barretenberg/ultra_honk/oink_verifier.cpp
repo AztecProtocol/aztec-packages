@@ -3,15 +3,6 @@
 
 namespace bb {
 
-// template <typename... Strings> void test_function(const Strings&... labels)
-// {
-//     constexpr size_t num_challenges = sizeof...(Strings);
-//     std::cout << "num challenges = " << num_challenges << std::endl;
-//     std::vector<std::string> labels2 = { labels... };
-//     for (size_t i = 0; i < labels2.size(); ++i) {
-//         std::cout << "labels = " << labels2[i] << std::endl;
-//     }
-// }
 /**
  * @brief Oink Verifier function that runs all the rounds of the verifier
  * @details Returns the witness commitments and relation_parameters

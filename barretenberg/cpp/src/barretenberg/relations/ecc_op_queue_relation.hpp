@@ -70,13 +70,6 @@ template <typename FF_> class EccOpQueueRelationImpl {
         auto op_wire_3 = View(in.ecc_op_wire_3);
         auto op_wire_4 = View(in.ecc_op_wire_4);
         auto lagrange_ecc_op = View(in.lagrange_ecc_op);
-
-        // (o1 - w1) * qs + (-qs + s).o1
-        // (o1 - w1) * qs - qs.o1 + s.o1
-        // -w1.qs + s.o1
-
-        // (o1 - w1.q).s
-        // (o1 - w1 - w1) * qs + w1 * s
         // Contribution (1)
         auto tmp = op_wire_1 - w_1 * lagrange_ecc_op;
         tmp *= scaling_factor;
