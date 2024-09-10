@@ -133,6 +133,12 @@ void AztecIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  */
 void AztecIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<VerificationKey>& precomputed_vk)
 {
+    is_kernel = !is_kernel; // toggle on each call (every even circuit is a kernel)
+
+    if (auto_verify_mode && is_kernel) {
+        complete_kernel_circuit_logic(circuit);
+    }
+
     // Construct merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(circuit);
     merge_verification_queue.emplace_back(merge_proof);
@@ -248,7 +254,6 @@ bool AztecIVC::prove_and_verify()
 {
     auto proof = prove();
 
-    ASSERT(verification_queue.size() == 1); // ensure only a single fold proof remains in the queue
     auto verifier_inst = std::make_shared<DeciderVerificationKey>(this->verification_queue[0].honk_verification_key);
     return verify(proof, { this->verifier_accumulator, verifier_inst });
 }

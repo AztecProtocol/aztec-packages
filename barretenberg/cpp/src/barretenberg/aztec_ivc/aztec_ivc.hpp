@@ -109,6 +109,9 @@ class AztecIVC {
     // A flag indicating whether or not to construct a structured trace in the DeciderProvingKey
     TraceStructure trace_structure = TraceStructure::NONE;
 
+    bool auto_verify_mode = false;
+    bool is_kernel = true;
+
     bool initialized = false; // Is the IVC accumulator initialized
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit);
