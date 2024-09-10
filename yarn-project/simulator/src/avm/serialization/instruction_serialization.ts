@@ -40,13 +40,19 @@ export enum Opcode {
   L2GASLEFT,
   DAGASLEFT,
   // Control flow
-  JUMP,
-  JUMPI,
+  JUMP_16,
+  JUMPI_16,
   INTERNALCALL,
   INTERNALRETURN,
   // Memory
-  SET,
-  MOV,
+  SET_8,
+  SET_16,
+  SET_32,
+  SET_64,
+  SET_128,
+  SET_FF,
+  MOV_8,
+  MOV_16,
   CMOV,
   // World state
   SLOAD,
@@ -92,6 +98,7 @@ export enum OperandType {
   UINT32,
   UINT64,
   UINT128,
+  FF,
 }
 
 type OperandNativeType = number | bigint;
@@ -104,7 +111,26 @@ const OPERAND_SPEC = new Map<OperandType, [number, () => OperandNativeType, Oper
   [OperandType.UINT32, [4, Buffer.prototype.readUint32BE, Buffer.prototype.writeUint32BE]],
   [OperandType.UINT64, [8, Buffer.prototype.readBigInt64BE, Buffer.prototype.writeBigInt64BE]],
   [OperandType.UINT128, [16, readBigInt128BE, writeBigInt128BE]],
+  [OperandType.FF, [32, readBigInt254BE, writeBigInt254BE]],
 ]);
+
+function readBigInt254BE(this: Buffer): bigint {
+  const totalBytes = 32;
+  let ret: bigint = 0n;
+  for (let i = 0; i < totalBytes; ++i) {
+    ret <<= 8n;
+    ret |= BigInt(this.readUint8(i));
+  }
+  return ret;
+}
+
+function writeBigInt254BE(this: Buffer, value: bigint): void {
+  const totalBytes = 32;
+  for (let offset = totalBytes - 1; offset >= 0; --offset) {
+    this.writeUint8(Number(value & 0xffn), offset);
+    value >>= 8n;
+  }
+}
 
 function readBigInt128BE(this: Buffer): bigint {
   const totalBytes = 16;
@@ -156,12 +182,10 @@ export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType
  * @param cls The class to be serialized.
  * @returns
  */
-export function serialize(operands: OperandType[], cls: any): Buffer {
+export function serializeAs(operands: OperandType[], opcode: Opcode, cls: any): Buffer {
   const chunks: Buffer[] = [];
 
-  // TODO: infer opcode not in this loop
-  assert(cls.constructor.opcode !== undefined && cls.constructor.opcode !== null);
-  const rawClassValues: any[] = [cls.constructor.opcode, ...Object.values(cls)];
+  const rawClassValues: any[] = [opcode, ...Object.values(cls)];
   assert(
     rawClassValues.length === operands.length,
     `Got ${rawClassValues.length} values but only ${operands.length} serialization operands are specified!`,

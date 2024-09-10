@@ -9,6 +9,7 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
 } from '../constants.gen.js';
 import {
+  PublicDataLeafHint,
   type PublicDataRead,
   type PublicDataTreeLeafPreimage,
   type PublicDataUpdateRequest,
@@ -25,18 +26,22 @@ type PublicDataMembershipWitnessOracle = {
   getMatchOrLowPublicDataMembershipWitness(leafSlot: bigint): Promise<PublicDataMembershipWitnessWithPreimage>;
 };
 
+async function buildPublicDataLeafHint(oracle: PublicDataMembershipWitnessOracle, leafSlot: bigint) {
+  const { membershipWitness, leafPreimage } = await oracle.getMatchOrLowPublicDataMembershipWitness(leafSlot);
+  return new PublicDataLeafHint(leafPreimage, membershipWitness);
+}
+
 export async function buildPublicDataHints(
   oracle: PublicDataMembershipWitnessOracle,
   publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
   publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-): Promise<Tuple<PublicDataHint, typeof MAX_PUBLIC_DATA_HINTS>> {
-  const publicDataLeafSlots = [...publicDataReads, ...publicDataUpdateRequests]
-    .filter(r => !r.isEmpty())
-    .map(r => r.leafSlot.toBigInt());
-  const uniquePublicDataLeafSlots = [...new Set(publicDataLeafSlots)];
-
-  const hints = await Promise.all(uniquePublicDataLeafSlots.map(slot => buildPublicDataHint(oracle, slot)));
-  return padArrayEnd(hints, PublicDataHint.empty(), MAX_PUBLIC_DATA_HINTS);
+): Promise<Tuple<PublicDataLeafHint, typeof MAX_PUBLIC_DATA_HINTS>> {
+  const leafSlots = [...publicDataReads.map(r => r.leafSlot), ...publicDataUpdateRequests.map(w => w.leafSlot)]
+    .filter(s => !s.isZero())
+    .map(s => s.toBigInt());
+  const uniqueLeafSlots = [...new Set(leafSlots)];
+  const hints = await Promise.all(uniqueLeafSlots.map(slot => buildPublicDataLeafHint(oracle, slot)));
+  return padArrayEnd(hints, PublicDataLeafHint.empty(), MAX_PUBLIC_DATA_HINTS);
 }
 
 export async function buildPublicDataHint(oracle: PublicDataMembershipWitnessOracle, leafSlot: bigint) {

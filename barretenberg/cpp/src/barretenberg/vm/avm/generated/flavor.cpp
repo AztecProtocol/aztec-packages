@@ -2204,6 +2204,10 @@ AvmFlavor::CommitmentLabels::CommitmentLabels()
     Base::incl_mem_tag_err_counts = "INCL_MEM_TAG_ERR_COUNTS";
 };
 
+// Note: current de-/serialization routines are not including the padded zero univariates which are added as part of
+// current sumcheck implementation. Namely, this algorithm is padding to reach CONST_PROOF_SIZE_LOG_N sumcheck rounds.
+// Similarly, zeromorph implementation performs same padding over some commitments (zm_cq_comms).
+// In code below, the loops are of size log(circuit_size) instead of CONST_PROOF_SIZE_LOG_N.
 void AvmFlavor::Transcript::deserialize_full_transcript()
 {
     size_t num_frs_read = 0;
@@ -2226,6 +2230,7 @@ void AvmFlavor::Transcript::deserialize_full_transcript()
     zm_pi_comm = deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
 }
 
+// See note above AvmFlavor::Transcript::deserialize_full_transcript()
 void AvmFlavor::Transcript::serialize_full_transcript()
 {
     size_t old_proof_length = proof_data.size();
@@ -2277,5 +2282,21 @@ AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_pu
         poly = Polynomial(circuit_size);
     }
 };
+
+/**
+ * @brief Serialize verification key to field elements
+ *
+ * @return std::vector<FF>
+ */
+std::vector<AvmFlavor::VerificationKey::FF> AvmFlavor::VerificationKey::to_field_elements() const
+{
+    std::vector<FF> elements = { FF(circuit_size), FF(num_public_inputs) };
+
+    for (auto const& comm : get_all()) {
+        std::vector<FF> comm_as_fields = field_conversion::convert_to_bn254_frs(comm);
+        elements.insert(elements.end(), comm_as_fields.begin(), comm_as_fields.end());
+    }
+    return elements;
+}
 
 } // namespace bb

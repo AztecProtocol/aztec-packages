@@ -1,10 +1,10 @@
 use crate::{
     abis::{
-    gas::Gas, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
-    private_call_request::PrivateCallRequest, public_call_request::PublicCallRequest,
+    note_hash::ScopedNoteHash, nullifier::ScopedNullifier, private_call_request::PrivateCallRequest,
+    public_call_request::PublicCallRequest,
     log_hash::{ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}
 },
-    traits::{Serialize, Deserialize, Eq, Empty}, messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    traits::{Serialize, Deserialize, Empty}, messaging::l2_to_l1_message::ScopedL2ToL1Message,
     utils::reader::Reader
 };
 use crate::constants::{

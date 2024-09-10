@@ -315,10 +315,12 @@ class AvmFlavor {
 
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        using FF = VerificationKey_::FF;
+
         VerificationKey() = default;
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
-            : VerificationKey_(proving_key->circuit_size, proving_key->num_public_inputs)
+            : VerificationKey_(proving_key->circuit_size, static_cast<size_t>(proving_key->num_public_inputs))
         {
             for (auto [polynomial, commitment] :
                  zip_view(proving_key->get_precomputed_polynomials(), this->get_all())) {
@@ -337,6 +339,8 @@ class AvmFlavor {
             }
             pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         }
+
+        std::vector<FF> to_field_elements() const;
     };
 
     class AllValues : public AllEntities<FF> {

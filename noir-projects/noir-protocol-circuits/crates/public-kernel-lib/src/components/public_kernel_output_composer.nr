@@ -8,7 +8,6 @@ use dep::types::{
     abis::{
     accumulated_data::PublicAccumulatedDataBuilder,
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
-    public_call_data::PublicCallData, public_call_request::PublicCallRequest,
     public_circuit_public_inputs::PublicCircuitPublicInputs, public_data_read::PublicDataRead
 },
     traits::is_empty, utils::arrays::array_to_bounded_vec

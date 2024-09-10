@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.53.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.52.0...barretenberg-v0.53.0) (2024-09-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **avm/brillig:** take addresses in calldatacopy ([#8388](https://github.com/AztecProtocol/aztec-packages/issues/8388))
+* remove coinbase and unimplemented block gas limit opcodes from AVM ([#8408](https://github.com/AztecProtocol/aztec-packages/issues/8408))
+
+### Features
+
+* Add poseidon relations to UltraKeccak flavor and Solidity verifier ([#8243](https://github.com/AztecProtocol/aztec-packages/issues/8243)) ([f7e4bfb](https://github.com/AztecProtocol/aztec-packages/commit/f7e4bfb0fc8070b7b79366241f3d37357dfaee27))
+* **avm/brillig:** Take addresses in calldatacopy ([#8388](https://github.com/AztecProtocol/aztec-packages/issues/8388)) ([eab944c](https://github.com/AztecProtocol/aztec-packages/commit/eab944cbb77eb613e61a879312b58c415f8a0c13))
+* **ci:** Tracy gate counter preset ([#8382](https://github.com/AztecProtocol/aztec-packages/issues/8382)) ([882af1e](https://github.com/AztecProtocol/aztec-packages/commit/882af1ed821c135b68a5d693a81b7fc580ad97c2))
+* Replace arithmetic equalities with assert equal ([#8386](https://github.com/AztecProtocol/aztec-packages/issues/8386)) ([0d8e835](https://github.com/AztecProtocol/aztec-packages/commit/0d8e835dd6cd6cd545edda20f652ab6f10c530da))
+* Ultra keccak honk verifier ([#8261](https://github.com/AztecProtocol/aztec-packages/issues/8261)) ([7f02900](https://github.com/AztecProtocol/aztec-packages/commit/7f029007365b57c06699914f97b93d0891d2a6f1))
+* Update AztecIvc interface to facilitate acir-ivc ([#8230](https://github.com/AztecProtocol/aztec-packages/issues/8230)) ([665750a](https://github.com/AztecProtocol/aztec-packages/commit/665750a8d7f20ea4e3f7cded052b88eb6bb28600))
+* Verify public validation requests ([#8150](https://github.com/AztecProtocol/aztec-packages/issues/8150)) ([2be1415](https://github.com/AztecProtocol/aztec-packages/commit/2be14157abe3b277c58780ecc03bb1eff8dec20e))
+
+
+### Bug Fixes
+
+* Broken build ([#8395](https://github.com/AztecProtocol/aztec-packages/issues/8395)) ([d0ea6eb](https://github.com/AztecProtocol/aztec-packages/commit/d0ea6ebbe8b4bb918acc2aa5a4c09863a93b7c08))
+* Revert "feat: ultra keccak honk verifier ([#8427](https://github.com/AztecProtocol/aztec-packages/issues/8427)) ([31df5ea](https://github.com/AztecProtocol/aztec-packages/commit/31df5ead9e182bcf57588438f1b73eba4c052fa5))
+* Revert "feat: ultra keccak honk verifier" ([#8391](https://github.com/AztecProtocol/aztec-packages/issues/8391)) ([3228e75](https://github.com/AztecProtocol/aztec-packages/commit/3228e7526aa30b514375c62264cbde578754cd79))
+
+
+### Miscellaneous
+
+* **avm:** Move proving key to avm files ([#8318](https://github.com/AztecProtocol/aztec-packages/issues/8318)) ([32d67bd](https://github.com/AztecProtocol/aztec-packages/commit/32d67bd72244bfc3ea28aef7358c467a5b238b6b))
+* **avm:** Remove some unused deps ([#8366](https://github.com/AztecProtocol/aztec-packages/issues/8366)) ([e2150a7](https://github.com/AztecProtocol/aztec-packages/commit/e2150a7e5fc84932b65af07025514fc3c57f1cbc))
+* **bb:** Reinstate "chore: uncomment asserts in oink rec verifier"" ([#8356](https://github.com/AztecProtocol/aztec-packages/issues/8356)) ([4dbad01](https://github.com/AztecProtocol/aztec-packages/commit/4dbad01c866b28f7d440d7b4e17631ed6a0469f3))
+* **bb:** Use std::span for srs ([#8371](https://github.com/AztecProtocol/aztec-packages/issues/8371)) ([f174699](https://github.com/AztecProtocol/aztec-packages/commit/f1746999ea12cc8117efd5a0c3b2ec5d80196343))
+* Improve ec addition ([#8291](https://github.com/AztecProtocol/aztec-packages/issues/8291)) ([e8a097c](https://github.com/AztecProtocol/aztec-packages/commit/e8a097cf338bae2445006b3f20a2f54fc8f5e7f5))
+* More efficient verification with shplonk and gemini ([#8351](https://github.com/AztecProtocol/aztec-packages/issues/8351)) ([e51d157](https://github.com/AztecProtocol/aztec-packages/commit/e51d157fc7ae9a8ffeba8e6f89dbe87034d36db4))
+* Remove coinbase and unimplemented block gas limit opcodes from AVM ([#8408](https://github.com/AztecProtocol/aztec-packages/issues/8408)) ([dd09b76](https://github.com/AztecProtocol/aztec-packages/commit/dd09b76f70420a3824bf406bb2044481f68cd741))
+* Remove unimplemented headermember opcode from avm ([#8407](https://github.com/AztecProtocol/aztec-packages/issues/8407)) ([cfea06e](https://github.com/AztecProtocol/aztec-packages/commit/cfea06ed72449a62e21ba4b0f1b0d77200f91635))
+* Renaming `Instance`'s ([#8362](https://github.com/AztecProtocol/aztec-packages/issues/8362)) ([4789440](https://github.com/AztecProtocol/aztec-packages/commit/478944010ca8f28eabba733d04a9a8e9a43c29a9))
+* Uncomment asserts in oink rec verifier ([#8316](https://github.com/AztecProtocol/aztec-packages/issues/8316)) ([a7f3144](https://github.com/AztecProtocol/aztec-packages/commit/a7f314448215950f6f1a7d4f282359df040be502))
+
 ## [0.52.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.51.1...barretenberg-v0.52.0) (2024-09-01)
 
 

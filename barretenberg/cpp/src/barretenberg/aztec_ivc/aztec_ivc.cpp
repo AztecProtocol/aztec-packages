@@ -15,7 +15,7 @@ void AztecIVC::instantiate_stdlib_verification_queue(ClientCircuit& circuit)
         auto stdlib_proof = bb::convert_proof_to_witness(&circuit, proof);
         auto stdlib_vkey = std::make_shared<RecursiveVerificationKey>(&circuit, vkey);
 
-        stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vkey, type);
+        stdlib_verification_queue.push_back({ stdlib_proof, stdlib_vkey, type });
     }
     verification_queue.clear(); // the native data is not needed beyond this point
 }

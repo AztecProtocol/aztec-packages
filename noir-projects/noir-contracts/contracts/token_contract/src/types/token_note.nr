@@ -18,6 +18,7 @@ trait OwnedNote {
 global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
 global TOKEN_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 
+// docs:start:TokenNote
 #[aztec(note)]
 struct TokenNote {
     // The amount of tokens in the note
@@ -27,6 +28,7 @@ struct TokenNote {
     // Randomness of the note to hide its contents
     randomness: Field,
 }
+// docs:end:TokenNote
 
 impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
     // docs:start:nullifier

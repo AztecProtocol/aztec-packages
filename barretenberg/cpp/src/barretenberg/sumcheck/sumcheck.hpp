@@ -1,9 +1,9 @@
 #pragma once
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "sumcheck_round.hpp"
 
 namespace bb {
@@ -123,7 +123,6 @@ template <typename Flavor> class SumcheckProver {
     using ClaimedEvaluations = typename Flavor::AllValues;
 
     using Transcript = typename Flavor::Transcript;
-    using DeciderPK = DeciderProvingKey_<Flavor>;
     using RelationSeparator = typename Flavor::RelationSeparator;
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
@@ -177,15 +176,6 @@ template <typename Flavor> class SumcheckProver {
         , transcript(transcript)
         , round(multivariate_n)
         , partially_evaluated_polynomials(multivariate_n){};
-
-    /**
-     * @brief Compute round univariate, place it in transcript, compute challenge, partially evaluate. Repeat
-     * until final round, then get full evaluations of prover polynomials, and place them in transcript.
-     */
-    SumcheckOutput<Flavor> prove(std::shared_ptr<DeciderPK> key)
-    {
-        return prove(key->proving_key.polynomials, key->relation_parameters, key->alphas, key->gate_challenges);
-    };
 
     /**
      * @brief Compute round univariate, place it in transcript, compute challenge, partially evaluate. Repeat

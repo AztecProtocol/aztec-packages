@@ -1,5 +1,6 @@
 #include "acir_to_constraint_buf.hpp"
 #include "barretenberg/common/container.hpp"
+#include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include <cstddef>
@@ -466,7 +467,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Eventually arg.proof_type will be
                 // the only means for setting the proof type. use of honk_recursion flag in this context can go away
                 // once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
-                if (honk_recursion && proof_type_in != HONK) {
+                if (honk_recursion && proof_type_in != HONK && proof_type_in != AVM) {
                     proof_type_in = HONK;
                 }
 
@@ -477,14 +478,22 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .key_hash = input_key,
                     .proof_type = proof_type_in,
                 };
+
                 // Add the recursion constraint to the appropriate container based on proof type
-                if (c.proof_type == PLONK) {
+                switch (c.proof_type) {
+                case PLONK:
                     af.recursion_constraints.push_back(c);
                     af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
-                } else if (c.proof_type == HONK) {
+                    break;
+                case HONK:
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
-                } else {
+                    break;
+                case AVM:
+                    af.avm_recursion_constraints.push_back(c);
+                    af.original_opcode_indices.avm_recursion_constraints.push_back(opcode_index);
+                    break;
+                default:
                     info("Invalid PROOF_TYPE in RecursionConstraint!");
                     ASSERT(false);
                 }

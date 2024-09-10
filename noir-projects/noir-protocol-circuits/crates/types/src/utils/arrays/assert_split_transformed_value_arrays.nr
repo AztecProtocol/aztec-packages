@@ -42,13 +42,6 @@ pub fn assert_split_transformed_value_arrays_with_hint<T, S, let N: u32, Env>(
     }
 }
 
-unconstrained fn get_num_non_revertibles<T, let N: u32>(
-    sorted_array: [T; N],
-    split_counter: u32
-) -> u32 where T: Ordered {
-    find_index_hint(sorted_array, |n: T| n.counter() >= split_counter)
-}
-
 pub fn assert_split_transformed_value_arrays<T, S, let N: u32, Env>(
     sorted_array: [T; N],
     transformed_value_array_lt: [S; N], // Values whose counters are less than the split counter.
@@ -56,7 +49,9 @@ pub fn assert_split_transformed_value_arrays<T, S, let N: u32, Env>(
     is_transformed: fn[Env](T, S) -> bool,
     split_counter: u32
 ) where T: Ordered + Empty + Eq, S: Empty + Eq {
-    let num_non_revertibles = get_num_non_revertibles(sorted_array, split_counter);
+    let num_non_revertibles = unsafe {
+        find_index_hint(sorted_array, |n: T| n.counter() >= split_counter)
+    };
 
     assert_split_transformed_value_arrays_with_hint(
         sorted_array,
@@ -70,41 +65,18 @@ pub fn assert_split_transformed_value_arrays<T, S, let N: u32, Env>(
 
 mod tests {
     use crate::{
-        abis::side_effect::Ordered, tests::utils::pad_end, traits::Empty,
+        tests::{types::TestValue, utils::pad_end},
         utils::arrays::assert_split_transformed_value_arrays::{assert_split_transformed_value_arrays, assert_split_transformed_value_arrays_with_hint}
     };
 
-    struct TestItem {
-        value: Field,
-        counter: u32,
-    }
-
-    impl Ordered for TestItem {
-        fn counter(self) -> u32 {
-            self.counter
-        }
-    }
-
-    impl Eq for TestItem {
-        fn eq(self, other: Self) -> bool {
-            (self.value == other.value) & (self.counter == other.counter)
-        }
-    }
-
-    impl Empty for TestItem {
-        fn empty() -> Self {
-            TestItem { value: 0, counter: 0 }
-        }
-    }
-
     global NUM_TEST_ITEMS = 5;
 
-    fn is_transformed(from: TestItem, to: Field) -> bool {
+    fn is_transformed(from: TestValue, to: Field) -> bool {
         from.value == to
     }
 
     struct TestBuilder {
-        sorted_array: [TestItem; NUM_TEST_ITEMS],
+        sorted_array: [TestValue; NUM_TEST_ITEMS],
         transformed_value_array_lt: [Field; NUM_TEST_ITEMS],
         transformed_value_array_gte: [Field; NUM_TEST_ITEMS],
         split_counter: u32
@@ -113,11 +85,11 @@ mod tests {
     impl TestBuilder {
         pub fn new() -> Self {
             let sorted_array = [
-                TestItem { value: 40, counter: 2 },
-                TestItem { value: 30, counter: 7 },
-                TestItem { value: 80, counter: 11 },
-                TestItem { value: 10, counter: 13 },
-                TestItem { value: 50, counter: 29 }
+                TestValue { value: 40, counter: 2 },
+                TestValue { value: 30, counter: 7 },
+                TestValue { value: 80, counter: 11 },
+                TestValue { value: 10, counter: 13 },
+                TestValue { value: 50, counter: 29 }
             ];
 
             let transformed_value_array_lt = pad_end([40, 30, 80], 0);
@@ -159,7 +131,7 @@ mod tests {
     fn assert_split_transformed_value_arrays_empty_succeeds() {
         let mut builder = TestBuilder::new();
 
-        builder.sorted_array = [TestItem::empty(); NUM_TEST_ITEMS];
+        builder.sorted_array = [TestValue::empty(); NUM_TEST_ITEMS];
         builder.transformed_value_array_lt = [0; NUM_TEST_ITEMS];
         builder.transformed_value_array_gte = [0; NUM_TEST_ITEMS];
 

@@ -1,6 +1,6 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/common/op_count.hpp"
-#include "barretenberg/plonk_honk_shared/instance_inspector.hpp"
+#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 
 namespace bb {
