@@ -140,7 +140,7 @@ template <class Builder> class DataBusDepot {
         auto context = commitment.get_context();
 
         // Set flag indicating propagation of return data; save the index at which it will be stored in public inputs
-        size_t start_idx = context->public_inputs.size();
+        auto start_idx = static_cast<uint32_t>(context->public_inputs.size());
         if (is_kernel) {
             context->databus_propagation_data.contains_kernel_return_data_commitment = true;
             context->databus_propagation_data.kernel_return_data_public_input_idx = start_idx;
