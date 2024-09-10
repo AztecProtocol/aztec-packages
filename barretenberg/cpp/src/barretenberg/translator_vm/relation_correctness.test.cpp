@@ -59,7 +59,7 @@ TEST_F(TranslatorRelationCorrectnessTests, Permutation)
     ProverPolynomials prover_polynomials;
     // ensure we can shift these
     for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {
-        prover_poly = Polynomial{ full_circuit_size };
+        prover_poly = Polynomial::shiftable(full_circuit_size);
     }
 
     for (Polynomial& prover_poly : prover_polynomials.get_all()) {
@@ -180,7 +180,7 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     ProverPolynomials prover_polynomials;
     // Allocate polynomials
     for (Polynomial& prover_poly : prover_polynomials.get_to_be_shifted()) {
-        prover_poly = Polynomial{ circuit_size - 1, circuit_size, /* start index for shiftability */ 1 };
+        prover_poly = Polynomial::shiftable(circuit_size);
     }
     for (Polynomial& prover_poly : prover_polynomials.get_all()) {
         if (prover_poly.is_empty()) {
@@ -189,19 +189,19 @@ TEST_F(TranslatorRelationCorrectnessTests, DeltaRangeConstraint)
     }
 
     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
-    prover_polynomials.lagrange_first.at(0) = 1;
+    prover_polynomials.lagrange_first.at(0) = 0;
     prover_polynomials.lagrange_last.at(circuit_size - 1) = 1;
 
     // Create a vector and fill with necessary steps for the DeltaRangeConstraint relation
     auto sorted_elements_count = (max_value / sort_step) + 1;
-    std::vector<uint64_t> vector_for_sorting(circuit_size);
+    std::vector<uint64_t> vector_for_sorting(prover_polynomials.ordered_range_constraints_0.size());
     for (size_t i = 0; i < sorted_elements_count - 1; i++) {
         vector_for_sorting[i] = i * sort_step;
     }
     vector_for_sorting[sorted_elements_count - 1] = max_value;
 
     // Add random values to fill the leftover space
-    for (size_t i = sorted_elements_count; i < circuit_size; i++) {
+    for (size_t i = sorted_elements_count; i < vector_for_sorting.size(); i++) {
         vector_for_sorting[i] = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
     }
 
