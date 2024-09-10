@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726004979630,
+  "lastUpdate": 1726010429933,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ac54f5ce82ac9ca51e35390b782c7da26d3b00da",
-          "message": "fix(bb): mac build (#8255)",
-          "timestamp": "2024-08-29T01:34:08+01:00",
-          "tree_id": "441bfdebba7fbaea6d79fcab1f90e0fe9f5f40da",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ac54f5ce82ac9ca51e35390b782c7da26d3b00da"
-        },
-        "date": 1724893246087,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13726.291202999988,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10561.954965 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5313.71356199999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4888.807434000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40167.21280699999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40167213000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 15166.263861000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15166263000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3800921463,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3800921463 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 214312673,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 214312673 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3144035472,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3144035472 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 176657224,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 176657224 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 120525161,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 120525161 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "11dc8ff185d74e6e5bc51e85d6bcd6577ac83161",
+          "message": "feat: Verification key stuff (#8431)\n\nThe previous\r\n[PR](https://github.com/AztecProtocol/aztec-packages/pull/8230) in this\r\nseries set up the basic infrastructure for completing kernel circuits\r\nfrom acir RecursionConstraints, including connecting the dummy proof in\r\nthe constraint to the genuine witnesses known internally in AztecIvc.\r\nThis PR completes this line work by using the (genuine) verification key\r\nwitnesses in the constraint to construct the stdlib verification keys\r\nfrom which the recursive verifiers are instantiated.\r\n\r\nDoing this properly involved correcting/implementing/testing various\r\nserialization/deserialization/construction methods for native and stdlib\r\nverification keys - this accounts for most of the changes in this PR.\r\nThe corrections mostly applied to Mega and were related to not\r\naccounting for `databus_propagation_data`. I also updated some of the\r\ncorresponding Ultra methods in an attempt to make them a bit more\r\nreadable and more easily maintainable.\r\n\r\ncloses https://github.com/AztecProtocol/barretenberg/issues/1090",
+          "timestamp": "2024-09-10T15:57:31-07:00",
+          "tree_id": "40b450407a63fd66bd0e89c98ceb713add3d33b6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/11dc8ff185d74e6e5bc51e85d6bcd6577ac83161"
+        },
+        "date": 1726010422832,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13208.551596999996,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9999.809599999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5081.5984319999925,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4687.6720669999995 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39355.33390899999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39355334000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14570.068407,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14570069000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3624062111,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3624062111 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 145209696,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 145209696 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2975426016,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2975426016 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 120350600,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 120350600 ns\nthreads: 1"
           }
         ]
       }
