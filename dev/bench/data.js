@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1725925549280,
+  "lastUpdate": 1725964959837,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cd5d2dfe7150fa9bd64945aa6c1a66dfa4be1536",
-          "message": "refactor(Protogalaxy): Move state out of Instances (#8177)\n\nThe main goal of this PR, which is achieved, is to move all move all\r\ndata except the `_data` array out of `ProverInstances`. I do additional\r\ncleanup:\r\n- Use constructors for pow polys rather than a `void` type function to\r\nupdate the state.\r\n- Delete commented out higher folding test, which I had been maintaining\r\nin commented out form\r\n - Move `ProtogalaxyProofConstructionState` def into `ProtogalaxyProver`\r\n- More idiomatic folding of relation parameters (loop over a zip of\r\ngetters)",
-          "timestamp": "2024-08-26T15:21:02-04:00",
-          "tree_id": "c6e4f60ee5a89ddf8df26e9298797673cb151dfc",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cd5d2dfe7150fa9bd64945aa6c1a66dfa4be1536"
-        },
-        "date": 1724700825331,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13493.079619000015,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10322.377991000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5076.528722999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4678.360789000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39592.29461900001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39592295000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14609.373649999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14609375000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3719550373,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3719550373 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 209812343,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 209812343 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3042896287,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3042896287 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173490579,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173490579 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 120792195,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 120792195 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "684d96271669116380facfa48db6cba3a5d945de",
+          "message": "fix(avm): full proving kernel fix (#8468)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
+          "timestamp": "2024-09-10T11:34:44+01:00",
+          "tree_id": "4bf74ca29664bd492b5f6060a9741b69d4478aaf",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/684d96271669116380facfa48db6cba3a5d945de"
+        },
+        "date": 1725964953157,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13418.417184999982,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10359.953250999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5119.566243999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4680.212910000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39469.766101,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39469765000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14726.158300000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14726159000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3690698772,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3690698772 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 148596935,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 148596935 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3009349797,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3009349797 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 120728963,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 120728963 ns\nthreads: 1"
           }
         ]
       }
