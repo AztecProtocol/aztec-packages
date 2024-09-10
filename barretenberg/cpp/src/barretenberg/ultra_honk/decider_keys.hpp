@@ -43,9 +43,9 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderProvingKeys_ {
      *           PK 0             PK 1             PK 2             PK 3
      *           q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...  q_c q_l q_r ...
      *           *   *            *   *            *   *            *   *
-     *           *   *            *   *            *   *            *   *
      *           a_1 a_2 a_3 ...  b_1 b_2 b_3 ...  c_1 c_2 c_3 ...  d_1 d_2 d_3 ...
      *           *   *            *   *            *   *            *   *
+     *           ⋮    ⋮             ⋮   ⋮             ⋮   ⋮             ⋮   ⋮
      *
      * and the function returns the univariates [{a_1, b_1, c_1, d_1}, {a_2, b_2, c_2, d_2}, ...]
      *
@@ -108,6 +108,16 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
         }
     };
 
+    /**
+     * @brief Get the precomputed commitments at a given index
+     * @example if the row idx is 2, and there are 4 decider verification keys
+     *           VK 0  VK 1  VK 2  VK 3
+     *           q_c   q_c   q_c   q_c
+     *           *     *     *     *
+     *           a_1   b_1   c_1   d_1
+     *           *     *     *     *
+     *  then the function outputs the vector of group elements {a_1, b_1, c_1, d_1}
+     */
     std::vector<Commitment> get_precomputed_commitments_at_index(const size_t idx) const
     {
         std::vector<Commitment> result(NUM);
@@ -118,6 +128,10 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
         return result;
     }
 
+    /**
+     * @brief Get the witness commitments at a given index
+     * @details This is similar to get_precomputed_commitments_at_index, but for witness commitments.
+     */
     std::vector<Commitment> get_witness_commitments_at_index(const size_t idx) const
     {
         std::vector<Commitment> result(NUM);
