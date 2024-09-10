@@ -37,7 +37,7 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
 }
 
 template <typename FF, size_t NUM>
-std::tuple<FF, std::vector<FF>> compute_lagrange_vanishing_polynomial_evaluations(const FF& combiner_challenge)
+std::tuple<FF, std::vector<FF>> compute_vanishing_polynomial_and_lagrange_evaluations(const FF& combiner_challenge)
 {
     static_assert(NUM < 5);
     static constexpr FF inverse_two = FF(2).invert();
@@ -73,14 +73,14 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     static constexpr size_t BATCHED_EXTENDED_LENGTH = DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH;
     static constexpr size_t NUM_KEYS = DeciderVerificationKeys::NUM;
 
+    const std::shared_ptr<const DeciderVK>& accumulator = keys_to_fold[0];
+    const size_t log_circuit_size = static_cast<size_t>(accumulator->verification_key->log_circuit_size);
+
     run_oink_verifier_on_each_incomplete_key(proof);
 
+    // Perturbator round
     const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::shared_ptr<const DeciderVK>& accumulator = keys_to_fold[0]; // WORKTODO: move
-
-    const size_t log_circuit_size = static_cast<size_t>(accumulator->verification_key->log_circuit_size);
     const std::vector<FF> deltas = compute_round_challenge_pows(log_circuit_size, delta);
-
     std::vector<FF> perturbator_coeffs(log_circuit_size + 1, 0);
     if (accumulator->is_accumulator) {
         for (size_t idx = 1; idx <= log_circuit_size; idx++) {
@@ -88,51 +88,52 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
                 transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
         }
     }
+    const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
+    // Combiner quotient round
     perturbator_coeffs[0] = accumulator->target_sum;
     const Polynomial<FF> perturbator(perturbator_coeffs);
-    const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
     const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
 
-    // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
-    std::array<FF, BATCHED_EXTENDED_LENGTH - NUM_KEYS> combiner_quotient_evals;
+    std::array<FF, BATCHED_EXTENDED_LENGTH - NUM_KEYS>
+        combiner_quotient_evals; // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
+                                 // Hence we need  k(d - 1) evaluations to represent it.
     size_t idx = 0;
     for (auto& val : combiner_quotient_evals) {
         val = transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx++));
     }
-    const Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_KEYS> combiner_quotient(combiner_quotient_evals);
+
+    // Folding
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
+    const Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_KEYS> combiner_quotient(combiner_quotient_evals);
     const FF combiner_quotient_evaluation = combiner_quotient.evaluate(combiner_challenge);
 
-    auto [vanishing_polynomial_at_challenge, lagranges] =
-        compute_lagrange_vanishing_polynomial_evaluations<FF, NUM_KEYS>(combiner_challenge);
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     auto next_accumulator = std::make_shared<DeciderVK>();
     next_accumulator->verification_key = std::make_shared<VerificationKey>(*accumulator->verification_key);
     next_accumulator->is_accumulator = true;
 
+    // Compute next folding parameters
+    const auto [vanishing_polynomial_at_challenge, lagranges] =
+        compute_vanishing_polynomial_and_lagrange_evaluations<FF, NUM_KEYS>(combiner_challenge);
+    next_accumulator->target_sum =
+        perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_evaluation;
+    next_accumulator->gate_challenges = // note: known already in previous round
+        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
+
+    // // Fold the commitments
     size_t commitment_idx = 0;
     for (auto& folded_commitment : next_accumulator->verification_key->get_all()) {
         folded_commitment =
             batch_mul_native(keys_to_fold.get_precomputed_commitments_at_index(commitment_idx), lagranges);
         commitment_idx++;
     }
-
-    // Compute next folding parameters
-    next_accumulator->target_sum =
-        perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_evaluation;
-    next_accumulator->gate_challenges =
-        update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
-
-    // Compute ϕ
-
     commitment_idx = 0;
     for (auto& folded_commitment : next_accumulator->witness_commitments.get_all()) {
         folded_commitment = batch_mul_native(keys_to_fold.get_witness_commitments_at_index(commitment_idx), lagranges);
         commitment_idx++;
     }
 
+    // Fold the relation parameters
     size_t alpha_idx = 0;
     for (auto& alpha : next_accumulator->alphas) {
         alpha = FF(0);
