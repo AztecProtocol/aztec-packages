@@ -151,18 +151,6 @@ library TranscriptLib {
             Fr unused;
             (alphas[NUMBER_OF_ALPHAS - 1], unused) = splitChallenge(nextPreviousChallenge);
         }
-        if (((NUMBER_OF_ALPHAS & 1) == 1) && (NUMBER_OF_ALPHAS > 2)) {
-            nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(nextPreviousChallenge))));
-            Fr unused;
-            (alphas[NUMBER_OF_ALPHAS - 1], unused) = splitChallenge(nextPreviousChallenge);
-        }
-        // alphas[0] = FrLib.fromBytes32(keccak256(abi.encodePacked(alpha0)));
-
-        // Fr prevChallenge = alphas[0];
-        // for (uint256 i = 1; i < NUMBER_OF_ALPHAS; i++) {
-        //     prevChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(prevChallenge))));
-        //     alphas[i] = prevChallenge;
-        // }
     }
 
     function generateGateChallenges(Fr previousChallenge)
