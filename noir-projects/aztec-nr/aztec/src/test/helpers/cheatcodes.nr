@@ -57,6 +57,10 @@ unconstrained pub fn set_msg_sender(msg_sender: AztecAddress) {
     oracle_set_msg_sender(msg_sender)
 }
 
+unconstrained pub fn set_calldata(calldata: [Field]) {
+    oracle_set_calldata(calldata)
+}
+
 unconstrained pub fn get_msg_sender() -> AztecAddress {
     oracle_get_msg_sender()
 }
@@ -187,3 +191,6 @@ unconstrained fn oracle_get_function_selector() -> FunctionSelector {}
 
 #[oracle(setFunctionSelector)]
 unconstrained fn oracle_set_function_selector(selector: FunctionSelector) {}
+
+#[oracle(setCalldata)]
+unconstrained fn oracle_set_calldata(calldata: [Field]) {}

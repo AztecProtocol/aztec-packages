@@ -144,20 +144,6 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_grand_product
     witness_comms.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.z_perm);
 }
 
-template <typename Flavor, typename FF, std::size_t N, typename String, std::size_t... Indices>
-auto call_foo_helper(const std::array<String, N>& v,
-                     std::index_sequence<Indices...> /*unused*/,
-                     std::shared_ptr<typename Flavor::Transcript> transcript)
-{
-    return transcript->template get_challenges<FF>(std::get<Indices>(v)...);
-}
-
-template <typename Flavor, typename FF, std::size_t N, typename String>
-auto get_alpha_challenges(const std::array<String, N>& v, std::shared_ptr<typename Flavor::Transcript> transcript)
-{
-    return call_foo_helper<Flavor, FF, N, String>(v, std::make_index_sequence<N>(), transcript);
-}
-
 template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<Flavor>::generate_alphas_round()
 {
     // Get the relation separation challenges for sumcheck/combiner computation
@@ -167,7 +153,6 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<
         args[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
     return transcript->template get_challenges<FF>(args);
-    ;
 }
 
 template class OinkVerifier<UltraFlavor>;

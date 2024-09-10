@@ -92,6 +92,7 @@ export class Archiver implements ArchiveSource {
     private readonly store: ArchiverDataStore,
     private readonly pollingIntervalMs = 10_000,
     private readonly instrumentation: ArchiverInstrumentation,
+    private readonly l1StartBlock: bigint = 0n,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
   ) {}
 
@@ -124,6 +125,7 @@ export class Archiver implements ArchiveSource {
       archiverStore,
       config.archiverPollingIntervalMS,
       new ArchiverInstrumentation(telemetry),
+      BigInt(config.archiverL1StartBlock),
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -175,8 +177,12 @@ export class Archiver implements ArchiveSource {
      *
      * This code does not handle reorgs.
      */
-    const { blockBodiesSynchedTo, blocksSynchedTo, messagesSynchedTo, provenLogsSynchedTo } =
-      await this.store.getSynchPoint();
+    const {
+      blockBodiesSynchedTo = this.l1StartBlock,
+      blocksSynchedTo = this.l1StartBlock,
+      messagesSynchedTo = this.l1StartBlock,
+      provenLogsSynchedTo = this.l1StartBlock,
+    } = await this.store.getSynchPoint();
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
 
     if (

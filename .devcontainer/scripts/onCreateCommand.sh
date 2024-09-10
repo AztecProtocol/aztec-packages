@@ -17,10 +17,10 @@ corepack enable
 
 if [ "$TYPE" != "sandbox_only" ]; then
     source ~/.bashrc
-    yes | npx create-aztec-app -t $TYPE -n $NAME -s
+    yes | npx aztec-app -t $TYPE -n $NAME -s
     mv $NAME/* $NAME/.* .
     rm -rf $NAME
-    
+
     yarn
 
     npx -y playwright install --with-deps

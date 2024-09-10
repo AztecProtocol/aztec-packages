@@ -21,7 +21,7 @@ template <typename FF> Polynomial<FF> sparse_random_poly(const size_t size, cons
 
     for (size_t i = 0; i < num_nonzero; i++) {
         size_t idx = engine.get_random_uint32() % size;
-        polynomial[idx] = FF::random_element();
+        polynomial.at(idx) = FF::random_element();
     }
 
     return polynomial;
@@ -55,7 +55,7 @@ template <typename Curve> void bench_commit_sparse(::benchmark::State& state)
 
     auto polynomial = Polynomial<Fr>(num_points);
     for (size_t i = 0; i < num_nonzero; i++) {
-        polynomial[i] = 1;
+        polynomial.at(i) = 1;
     }
 
     for (auto _ : state) {
@@ -74,7 +74,7 @@ template <typename Curve> void bench_commit_sparse_preprocessed(::benchmark::Sta
 
     auto polynomial = Polynomial<Fr>(num_points);
     for (size_t i = 0; i < num_nonzero; i++) {
-        polynomial[i] = 1;
+        polynomial.at(i) = 1;
     }
 
     for (auto _ : state) {
@@ -121,10 +121,7 @@ template <typename Curve> void bench_commit_random(::benchmark::State& state)
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
     const size_t num_points = 1 << state.range(0);
-    auto polynomial = Polynomial<Fr>(num_points);
-    for (auto& coeff : polynomial) {
-        coeff = Fr::random_element();
-    }
+    Polynomial<Fr> polynomial = Polynomial<Fr>::random(num_points);
     for (auto _ : state) {
         key->commit(polynomial);
     }
@@ -137,15 +134,11 @@ template <typename Curve> void bench_commit_random_non_power_of_2(::benchmark::S
     auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
 
     const size_t num_points = 1 << state.range(0);
-    auto polynomial = Polynomial<Fr>(num_points - 1);
-    for (auto& coeff : polynomial) {
-        coeff = Fr::random_element();
-    }
+    Polynomial<Fr> polynomial = Polynomial<Fr>::random(num_points - 1);
     for (auto _ : state) {
         key->commit(polynomial);
     }
 }
-
 BENCHMARK(bench_commit_zero<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);

@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/constexpr_utils.hpp"
+#include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
@@ -57,8 +58,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
     size_t circuit_size = full_polynomials.get_polynomial_size();
-    Polynomial numerator{ circuit_size };
-    Polynomial denominator{ circuit_size };
+    Polynomial numerator{ circuit_size, circuit_size };
+    Polynomial denominator{ circuit_size, circuit_size };
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
@@ -72,14 +73,17 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         // calling get_row which creates full copies. avoid?
         for (size_t i = start; i < end; ++i) {
             for (auto [eval, full_poly] : zip_view(evaluations.get_all(), full_polynomials.get_all())) {
-                eval = full_poly.size() > i ? full_poly[i] : 0;
+                eval = full_poly.size() > i ? full_poly.get(i) : 0;
             }
-            numerator[i] = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
+            numerator.at(i) = GrandProdRelation::template compute_grand_product_numerator<Accumulator>(
                 evaluations, relation_parameters);
-            denominator[i] = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
+            denominator.at(i) = GrandProdRelation::template compute_grand_product_denominator<Accumulator>(
                 evaluations, relation_parameters);
         }
     });
+
+    DEBUG_LOG_ALL(numerator.coeffs());
+    DEBUG_LOG_ALL(denominator.coeffs());
 
     // Step (2)
     // Compute the accumulating product of the numerator and denominator terms.
@@ -100,12 +104,15 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t start = thread_idx * block_size;
         const size_t end = (thread_idx + 1) * block_size;
         for (size_t i = start; i < end - 1; ++i) {
-            numerator[i + 1] *= numerator[i];
-            denominator[i + 1] *= denominator[i];
+            numerator.at(i + 1) *= numerator[i];
+            denominator.at(i + 1) *= denominator[i];
         }
         partial_numerators[thread_idx] = numerator[end - 1];
         partial_denominators[thread_idx] = denominator[end - 1];
     });
+
+    DEBUG_LOG_ALL(partial_numerators);
+    DEBUG_LOG_ALL(partial_denominators);
 
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = thread_idx * block_size;
@@ -119,25 +126,31 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                 denominator_scaling *= partial_denominators[j];
             }
             for (size_t i = start; i < end; ++i) {
-                numerator[i] *= numerator_scaling;
-                denominator[i] *= denominator_scaling;
+                numerator.at(i) = numerator[i] * numerator_scaling;
+                denominator.at(i) = denominator[i] * denominator_scaling;
             }
         }
 
         // Final step: invert denominator
-        FF::batch_invert(std::span{ &denominator[start], block_size });
+        FF::batch_invert(std::span{ &denominator.data()[start], block_size });
     });
+
+    DEBUG_LOG_ALL(numerator.coeffs());
+    DEBUG_LOG_ALL(denominator.coeffs());
 
     // Step (3) Compute z_perm[i] = numerator[i] / denominator[i]
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
-    grand_product_polynomial[0] = 0;
+    // We have a 'virtual' 0 at the start (as this is a to-be-shifted polynomial)
+    ASSERT(grand_product_polynomial.start_index() == 1);
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = thread_idx * block_size;
         const size_t end = (thread_idx == num_threads - 1) ? circuit_size - 1 : (thread_idx + 1) * block_size;
         for (size_t i = start; i < end; ++i) {
-            grand_product_polynomial[i + 1] = numerator[i] * denominator[i];
+            grand_product_polynomial.at(i + 1) = numerator[i] * denominator[i];
         }
     });
+
+    DEBUG_LOG_ALL(grand_product_polynomial.coeffs());
 }
 
 /**

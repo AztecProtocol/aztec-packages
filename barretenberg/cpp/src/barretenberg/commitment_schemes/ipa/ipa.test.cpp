@@ -35,9 +35,9 @@ TEST_F(IPATest, CommitOnManyZeroCoeffPolyWorks)
     constexpr size_t n = 4;
     Polynomial p(n);
     for (size_t i = 0; i < n - 1; i++) {
-        p[i] = Fr::zero();
+        p.at(i) = Fr::zero();
     }
-    p[3] = Fr::one();
+    p.at(3) = Fr::one();
     GroupElement commitment = this->commit(p);
     auto srs_elements = this->ck()->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * p[0];
@@ -84,7 +84,7 @@ TEST_F(IPATest, OpenAtZero)
     using IPA = IPA<Curve>;
     // generate a random polynomial, degree needs to be a power of two
     size_t n = 128;
-    auto poly = this->random_polynomial(n);
+    auto poly = Polynomial::random(n);
     Fr x = Fr::zero();
     auto eval = poly.evaluate(x);
     auto commitment = this->commit(poly);
@@ -110,7 +110,7 @@ TEST_F(IPATest, ChallengesAreZero)
     using IPA = IPA<Curve>;
     // generate a random polynomial, degree needs to be a power of two
     size_t n = 128;
-    auto poly = this->random_polynomial(n);
+    auto poly = Polynomial::random(n);
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
@@ -158,8 +158,8 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
     size_t n = 4;
     auto poly = Polynomial(n);
     for (size_t i = 0; i < n / 2; i++) {
-        poly[i] = Fr::random_element();
-        poly[i + (n / 2)] = poly[i];
+        poly.at(i) = Fr::random_element();
+        poly.at(i + (n / 2)) = poly[i];
     }
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
@@ -196,7 +196,7 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 TEST_F(IPATest, Commit)
 {
     constexpr size_t n = 128;
-    auto poly = this->random_polynomial(n);
+    auto poly = Polynomial::random(n);
     GroupElement commitment = this->commit(poly);
     auto srs_elements = this->ck()->srs->get_monomial_points();
     GroupElement expected = srs_elements[0] * poly[0];
@@ -214,7 +214,7 @@ TEST_F(IPATest, Open)
     using IPA = IPA<Curve>;
     // generate a random polynomial, degree needs to be a power of two
     size_t n = 128;
-    auto poly = this->random_polynomial(n);
+    auto poly = Polynomial::random(n);
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
@@ -249,9 +249,8 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n);
-    poly2[0] = Fr::zero(); // this property is required of polynomials whose shift is used
+    auto poly1 = Polynomial::random(n);
+    auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
 
     GroupElement commitment1 = this->commit(poly1);
     GroupElement commitment2 = this->commit(poly2);
@@ -270,7 +269,7 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     }
 
     Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted(n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
     batched_unshifted.add_scaled(poly1, rhos[0]);
     batched_unshifted.add_scaled(poly2, rhos[1]);
     batched_to_be_shifted.add_scaled(poly2, rhos[2]);
@@ -336,10 +335,8 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n);
-    poly2[0] = Fr::zero(); // this property is required of polynomials whose shift is used
-
+    auto poly1 = Polynomial::random(n);
+    auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
     Commitment commitment1 = this->commit(poly1);
     Commitment commitment2 = this->commit(poly2);
     std::vector<Commitment> unshifted_commitments = { commitment1, commitment2 };
@@ -360,7 +357,7 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     }
 
     Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted(n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
     batched_unshifted.add_scaled(poly1, rhos[0]);
     batched_unshifted.add_scaled(poly2, rhos[1]);
     batched_to_be_shifted.add_scaled(poly2, rhos[2]);

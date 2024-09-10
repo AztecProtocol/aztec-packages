@@ -31,7 +31,7 @@ abstract class ComparatorInstruction extends ThreeOperandInstruction {
 
 export class Eq extends ComparatorInstruction {
   static readonly type: string = 'EQ';
-  static readonly opcode = Opcode.EQ;
+  static readonly opcode = Opcode.EQ_8; // FIXME: needed for gas.
 
   protected compare(a: MemoryValue, b: MemoryValue): boolean {
     return a.equals(b);
@@ -40,7 +40,7 @@ export class Eq extends ComparatorInstruction {
 
 export class Lt extends ComparatorInstruction {
   static readonly type: string = 'LT';
-  static readonly opcode = Opcode.LT;
+  static readonly opcode = Opcode.LT_8; // FIXME: needed for gas.
 
   protected compare(a: MemoryValue, b: MemoryValue): boolean {
     return a.lt(b);
@@ -49,7 +49,7 @@ export class Lt extends ComparatorInstruction {
 
 export class Lte extends ComparatorInstruction {
   static readonly type: string = 'LTE';
-  static readonly opcode = Opcode.LTE;
+  static readonly opcode = Opcode.LTE_8; // FIXME: needed for gas.
 
   protected compare(a: MemoryValue, b: MemoryValue): boolean {
     return a.lt(b) || a.equals(b);
