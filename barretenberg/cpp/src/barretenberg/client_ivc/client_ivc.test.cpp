@@ -91,52 +91,6 @@ TEST_F(ClientIVCTests, Basic)
     EXPECT_TRUE(ivc.prove_and_verify());
 };
 
-// /**
-//  * @brief A simple test demonstrating IVC for three mock circuits which does more logic than just two circuits.
-//  *
-//  */
-// TEST_F(ClientIVCTests, BasicThree)
-// {
-//     ClientIVC ivc;
-
-//     for (size_t idx = 0; idx < 3; ++idx) {
-//         Builder circuit = create_mock_circuit(ivc);
-//         ivc.accumulate(circuit);
-//     }
-
-//     EXPECT_TRUE(prove_and_verify(ivc));
-// };
-
-// /**
-//  * @brief Check that the IVC fails if an intermediate fold proof is invalid
-//  *
-//  */
-// TEST_F(ClientIVCTests, BasicFailure)
-// {
-//     ClientIVC ivc;
-
-//     // Initialize the IVC with an arbitrary circuit
-//     Builder circuit_0 = create_mock_circuit(ivc);
-//     ivc.accumulate(circuit_0);
-
-//     // Create another circuit and accumulate
-//     Builder circuit_1 = create_mock_circuit(ivc);
-//     ivc.accumulate(circuit_1);
-
-//     // Tamper with the fold proof just created in the last accumulation step
-//     for (auto& val : ivc.fold_output.proof) {
-//         if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
-//             val += 1;
-//             break;
-//         }
-//     }
-//     // Accumulate another circuit; this involves recursive folding verification of the bad proof which throws an
-//     error
-//     // because of circuit sizes don't match.
-//     Builder circuit_2 = create_mock_circuit(ivc);
-//     EXPECT_ANY_THROW(ivc.accumulate(circuit_2));
-// };
-
 /**
  * @brief Prove and verify accumulation of an arbitrary set of circuits
  *
@@ -161,77 +115,82 @@ TEST_F(ClientIVCTests, BasicLarge)
     EXPECT_TRUE(ivc.prove_and_verify());
 };
 
-// /**
-//  * @brief Using a structured trace allows for the accumulation of circuits of varying size
-//  *
-//  */
-// TEST_F(ClientIVCTests, BasicStructured)
-// {
-//     ClientIVC ivc;
-//     ivc.trace_structure = TraceStructure::SMALL_TEST;
+/**
+ * @brief Using a structured trace allows for the accumulation of circuits of varying size
+ *
+ */
+TEST_F(ClientIVCTests, BasicStructured)
+{
+    AztecIVC ivc;
+    ivc.auto_verify_mode = true;
+    ivc.trace_structure = TraceStructure::SMALL_TEST;
 
-//     // Construct some circuits of varying size
-//     Builder circuit_0 = create_mock_circuit(ivc, /*log2_num_gates=*/5);
-//     Builder circuit_1 = create_mock_circuit(ivc, /*log2_num_gates=*/8);
-//     Builder circuit_2 = create_mock_circuit(ivc, /*log2_num_gates=*/11);
+    // Construct some circuits of varying size
+    Builder circuit_0 = create_mock_circuit(ivc, /*log2_num_gates=*/5);
+    Builder circuit_1 = create_mock_circuit(ivc, /*log2_num_gates=*/8);
+    Builder circuit_2 = create_mock_circuit(ivc, /*log2_num_gates=*/11);
+    Builder circuit_3 = create_mock_circuit(ivc, /*log2_num_gates=*/11);
 
-//     // The circuits can be accumulated as normal due to the structured trace
-//     ivc.accumulate(circuit_0);
-//     ivc.accumulate(circuit_1);
-//     ivc.accumulate(circuit_2);
+    // The circuits can be accumulated as normal due to the structured trace
+    ivc.accumulate(circuit_0);
+    ivc.accumulate(circuit_1);
+    ivc.accumulate(circuit_2);
+    ivc.accumulate(circuit_3);
 
-//     EXPECT_TRUE(prove_and_verify(ivc));
-// };
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
 
-// /**
-//  * @brief Prove and verify accumulation of an arbitrary set of circuits using precomputed verification keys
-//  *
-//  */
-// TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
-// {
-//     ClientIVC ivc;
+/**
+ * @brief Prove and verify accumulation of an arbitrary set of circuits using precomputed verification keys
+ *
+ */
+TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
+{
+    AztecIVC ivc;
+    ivc.auto_verify_mode = true;
 
-//     // Construct a set of arbitrary circuits
-//     size_t NUM_CIRCUITS = 3;
-//     std::vector<Builder> circuits;
-//     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-//         circuits.emplace_back(create_mock_circuit(ivc));
-//     }
+    // Construct a set of arbitrary circuits
+    size_t NUM_CIRCUITS = 4;
+    std::vector<Builder> circuits;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        circuits.emplace_back(create_mock_circuit(ivc));
+    }
 
-//     // Precompute the verification keys that will be needed for the IVC
-//     auto precomputed_vkeys = ivc.precompute_folding_verification_keys(circuits);
+    // Precompute the verification keys that will be needed for the IVC
+    auto precomputed_vkeys = ivc.precompute_folding_verification_keys(circuits);
 
-//     // Accumulate each circuit using the precomputed VKs
-//     for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
-//         ivc.accumulate(circuit, precomputed_vk);
-//     }
+    // Accumulate each circuit using the precomputed VKs
+    for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
+        ivc.accumulate(circuit, precomputed_vk);
+    }
 
-//     EXPECT_TRUE(prove_and_verify(ivc));
-// };
+    EXPECT_TRUE(ivc.prove_and_verify());
+};
 
-// /**
-//  * @brief Perform accumulation with a structured trace and precomputed verification keys
-//  *
-//  */
-// TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
-// {
-//     ClientIVC ivc;
-//     ivc.trace_structure = TraceStructure::SMALL_TEST;
+/**
+ * @brief Perform accumulation with a structured trace and precomputed verification keys
+ *
+ */
+TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
+{
+    AztecIVC ivc;
+    ivc.auto_verify_mode = true;
+    ivc.trace_structure = TraceStructure::SMALL_TEST;
 
-//     // Construct a set of arbitrary circuits
-//     size_t NUM_CIRCUITS = 3;
-//     std::vector<Builder> circuits;
-//     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-//         circuits.emplace_back(create_mock_circuit(ivc, /*log2_num_gates=*/5));
-//     }
+    // Construct a set of arbitrary circuits
+    size_t NUM_CIRCUITS = 4;
+    std::vector<Builder> circuits;
+    for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+        circuits.emplace_back(create_mock_circuit(ivc, /*log2_num_gates=*/5));
+    }
 
-//     // Precompute the (structured) verification keys that will be needed for the IVC
-//     auto precomputed_vkeys = ivc.precompute_folding_verification_keys(circuits);
+    // Precompute the (structured) verification keys that will be needed for the IVC
+    auto precomputed_vkeys = ivc.precompute_folding_verification_keys(circuits);
 
-//     // Accumulate each circuit
-//     for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
-//         ivc.accumulate(circuit, precomputed_vk);
-//     }
+    // Accumulate each circuit
+    for (auto [circuit, precomputed_vk] : zip_view(circuits, precomputed_vkeys)) {
+        ivc.accumulate(circuit, precomputed_vk);
+    }
 
-//     EXPECT_TRUE(prove_and_verify(ivc));
-// };
+    EXPECT_TRUE(ivc.prove_and_verify());
+};

@@ -143,5 +143,8 @@ class AztecIVC {
     bool prove_and_verify();
 
     HonkProof decider_prove() const;
+
+    std::vector<std::shared_ptr<VerificationKey>> precompute_folding_verification_keys(
+        std::vector<ClientCircuit> circuits);
 };
 } // namespace bb

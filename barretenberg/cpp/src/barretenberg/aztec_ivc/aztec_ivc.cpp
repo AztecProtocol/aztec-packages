@@ -258,4 +258,36 @@ bool AztecIVC::prove_and_verify()
     return verify(proof, { this->verifier_accumulator, verifier_inst });
 }
 
+/**
+ * @brief Given a set of circuits, compute the verification keys that will be required by the IVC scheme
+ * @details The verification keys computed here are in general not the same as the verification keys for the
+ * raw input circuits because recursive verifier circuits (merge and/or folding) may be appended to the incoming
+ * circuits as part accumulation.
+ * @note This method exists for convenience and is not not meant to be used in practice for IVC. Given a set of
+ * circuits, it could be run once and for all to compute then save the required VKs. It also provides a convenient
+ * (albeit innefficient) way of separating out the cost of computing VKs from a benchmark.
+ *
+ * @param circuits A copy of the circuits to be accumulated (passing by reference would alter the original circuits)
+ * @return std::vector<std::shared_ptr<ClientIVC::VerificationKey>>
+ */
+std::vector<std::shared_ptr<AztecIVC::VerificationKey>> AztecIVC::precompute_folding_verification_keys(
+    std::vector<ClientCircuit> circuits)
+{
+    std::vector<std::shared_ptr<VerificationKey>> vkeys;
+
+    for (auto& circuit : circuits) {
+        accumulate(circuit);
+        vkeys.emplace_back(honk_vk);
+    }
+
+    // Reset the scheme so it can be reused for actual accumulation, maintaining the trace structure setting as is
+    TraceStructure structure = trace_structure;
+    bool auto_verify = auto_verify_mode;
+    *this = AztecIVC();
+    this->trace_structure = structure;
+    this->auto_verify_mode = auto_verify;
+
+    return vkeys;
+}
+
 } // namespace bb
