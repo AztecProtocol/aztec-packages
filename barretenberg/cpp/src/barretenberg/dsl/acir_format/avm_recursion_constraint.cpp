@@ -43,7 +43,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
 
     // Relevant source for proof layout: AvmFlavor::Transcript::serialize_full_transcript()
     assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm - Flavor::NUM_ALL_ENTITIES * num_frs_fr -
-            2 * num_frs_comm) %
+            2 * num_frs_comm - num_frs_fr) %
                (num_frs_comm + num_frs_fr * Flavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
            0);
 
@@ -51,7 +51,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // Here, we should always get CONST_PROOF_SIZE_LOG_N which is not what is
     // usually set for the AVM proof. As it is a dummy key/proof, it should not matter.
     auto log_circuit_size = (proof_size - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
-                             Flavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
+                             Flavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm - num_frs_fr) /
                             (num_frs_comm + num_frs_fr * Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
 
     /***************************************************************************
