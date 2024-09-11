@@ -25,6 +25,7 @@ interface IRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     uint256 _currentTime,
+    bytes32 _txsEffecstHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view;
 
@@ -40,19 +41,6 @@ interface IRollup {
     bytes32 _blockHash,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body
-  ) external;
-  function propose(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    bytes calldata _body
-  ) external;
-  function propose(bytes calldata _header, bytes32 _archive, bytes32 _blockHash) external;
-  function propose(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    SignatureLib.Signature[] memory _signatures
   ) external;
 
   function submitBlockRootProof(
@@ -77,4 +65,5 @@ interface IRollup {
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
+  function computeTxsEffectsHash(bytes calldata _body) external view returns (bytes32);
 }

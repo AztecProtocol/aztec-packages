@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.54.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.53.0...aztec-package-v0.54.0) (2024-09-10)
+
+
+### Features
+
+* Archiver fork block num ([#8425](https://github.com/AztecProtocol/aztec-packages/issues/8425)) ([a9f2364](https://github.com/AztecProtocol/aztec-packages/commit/a9f2364264e5cba4d01f09ef18801dd5ff39ae87))
+
+
+### Miscellaneous
+
+* Merge devnet to master ([#8472](https://github.com/AztecProtocol/aztec-packages/issues/8472)) ([26706e9](https://github.com/AztecProtocol/aztec-packages/commit/26706e9d4339e6cf7603b6c86f1e7a1d3942bd63))
+
 ## [0.53.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.52.0...aztec-package-v0.53.0) (2024-09-09)
 
 

@@ -1446,5 +1446,6 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator/
 template class cycle_group<bb::StandardCircuitBuilder>;
 template class cycle_group<bb::UltraCircuitBuilder>;
 template class cycle_group<bb::MegaCircuitBuilder>;
+template struct cycle_group<bb::CircuitSimulatorBN254>::cycle_scalar;
 
 } // namespace bb::stdlib

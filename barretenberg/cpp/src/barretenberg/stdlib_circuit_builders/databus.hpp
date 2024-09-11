@@ -68,6 +68,8 @@ enum class BusId { CALLDATA, SECONDARY_CALLDATA, RETURNDATA };
  *
  */
 struct DatabusPropagationData {
+    bool operator==(const DatabusPropagationData&) const = default;
+
     // Flags indicating whether the public inputs contain commitment(s) to app/kernel return data
     bool contains_app_return_data_commitment = false;
     bool contains_kernel_return_data_commitment = false;
@@ -75,8 +77,8 @@ struct DatabusPropagationData {
     // The start index of the return data commitments (if present) in the public inputs. Note: a start index is all
     // that's needed here since the commitents are represented by a fixed number of witnesses and are contiguous in the
     // public inputs by construction.
-    size_t app_return_data_public_input_idx = 0;
-    size_t kernel_return_data_public_input_idx = 0;
+    uint32_t app_return_data_public_input_idx = 0;
+    uint32_t kernel_return_data_public_input_idx = 0;
 
     // Is this a kernel circuit (used to determine when databus consistency checks can be appended to a circuit in IVC)
     bool is_kernel = false;
@@ -90,6 +92,12 @@ struct DatabusPropagationData {
            << data.is_kernel << "\n";
         return os;
     };
+
+    MSGPACK_FIELDS(contains_app_return_data_commitment,
+                   contains_kernel_return_data_commitment,
+                   app_return_data_public_input_idx,
+                   kernel_return_data_public_input_idx,
+                   is_kernel);
 };
 
 } // namespace bb
