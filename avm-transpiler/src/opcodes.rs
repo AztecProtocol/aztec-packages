@@ -79,7 +79,8 @@ pub enum AvmOpcode {
     STATICCALL,
     DELEGATECALL,
     RETURN,
-    REVERT,
+    REVERT_8,
+    REVERT_16,
     // Misc
     DEBUGLOG,
     // Gadgets
@@ -189,7 +190,8 @@ impl AvmOpcode {
             AvmOpcode::STATICCALL => "STATICCALL",
             AvmOpcode::DELEGATECALL => "DELEGATECALL",
             AvmOpcode::RETURN => "RETURN",
-            AvmOpcode::REVERT => "REVERT",
+            AvmOpcode::REVERT_8 => "REVERT_8",
+            AvmOpcode::REVERT_16 => "REVERT_16",
 
             // Misc
             AvmOpcode::DEBUGLOG => "DEBUGLOG",
