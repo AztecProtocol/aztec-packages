@@ -6,7 +6,7 @@ contract DelegatedOn {
     };
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_current_public_keys
+        keys::getters::get_current_public_keys, utils::comparison::Comparator
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -34,7 +34,7 @@ contract DelegatedOn {
     #[aztec(private)]
     fn get_private_value(amount: Field, owner: AztecAddress) -> pub Field {
         let mut options = NoteGetterOptions::new();
-        options = options.select(ValueNote::properties().value, amount, Option::none()).set_limit(1);
+        options = options.select(ValueNote::properties().value, amount, Comparator.EQ).set_limit(1);
         let notes = storage.a_map_with_private_values.at(owner).get_notes(options);
         notes.get(0).value
     }
@@ -43,4 +43,3 @@ contract DelegatedOn {
         storage.current_value.read()
     }
 }
-

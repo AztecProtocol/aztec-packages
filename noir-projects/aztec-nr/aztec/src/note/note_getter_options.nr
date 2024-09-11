@@ -91,17 +91,9 @@ impl<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOpt
         &mut self,
         property_selector: PropertySelector,
         value: T,
-        comparator: Option<u8>
+        comparator: u8
     ) -> Self where T: ToField {
-        self.selects.push(
-            Option::some(
-                Select::new(
-                    property_selector,
-                    value.to_field(),
-                    comparator.unwrap_or(Comparator.EQ)
-                )
-            )
-        );
+        self.selects.push(Option::some(Select::new(property_selector, value.to_field(), comparator)));
         *self
     }
 
