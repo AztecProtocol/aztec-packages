@@ -105,7 +105,8 @@ enum class OpCode : uint8_t {
     STATICCALL,
     DELEGATECALL,
     RETURN,
-    REVERT,
+    REVERT_8,
+    REVERT_16,
 
     // Misc
     DEBUGLOG,
