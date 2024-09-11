@@ -31,7 +31,7 @@ namespace bb::crypto::merkle_tree {
  * All public methods are asynchronous unless marked otherwise
  */
 template <typename Store, typename HashingPolicy>
-class IndexedTree : public IndexAddressedAppendOnlyTree<Store, HashingPolicy> {
+class IndexAddressedIndexedTree : public IndexAddressedAppendOnlyTree<Store, HashingPolicy> {
   public:
     using StoreType = Store;
 
@@ -42,12 +42,12 @@ class IndexedTree : public IndexAddressedAppendOnlyTree<Store, HashingPolicy> {
     using LeafCallback = std::function<void(const TypedResponse<GetIndexedLeafResponse<LeafValueType>>&)>;
     using FindLowLeafCallback = std::function<void(const TypedResponse<std::pair<bool, index_t>>&)>;
 
-    IndexedTree(Store& store, ThreadPool& workers, index_t initial_size);
-    IndexedTree(IndexedTree const& other) = delete;
-    IndexedTree(IndexedTree&& other) = delete;
-    ~IndexedTree() = default;
-    IndexedTree& operator=(const IndexedTree& other) = delete;
-    IndexedTree& operator=(IndexedTree&& other) = delete;
+    IndexAddressedIndexedTree(Store& store, ThreadPool& workers, index_t initial_size);
+    IndexAddressedIndexedTree(IndexAddressedIndexedTree const& other) = delete;
+    IndexAddressedIndexedTree(IndexAddressedIndexedTree&& other) = delete;
+    ~IndexAddressedIndexedTree() = default;
+    IndexAddressedIndexedTree& operator=(const IndexAddressedIndexedTree& other) = delete;
+    IndexAddressedIndexedTree& operator=(IndexAddressedIndexedTree&& other) = delete;
 
     /**
      * @brief Adds or updates a single values in the tree (updates not currently supported)
@@ -169,7 +169,9 @@ class IndexedTree : public IndexAddressedAppendOnlyTree<Store, HashingPolicy> {
 };
 
 template <typename Store, typename HashingPolicy>
-IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers, index_t initial_size)
+IndexAddressedIndexedTree<Store, HashingPolicy>::IndexAddressedIndexedTree(Store& store,
+                                                                           ThreadPool& workers,
+                                                                           index_t initial_size)
     : IndexAddressedAppendOnlyTree<Store, HashingPolicy>(store, workers)
 {
     if (initial_size < 2) {
@@ -229,9 +231,9 @@ IndexedTree<Store, HashingPolicy>::IndexedTree(Store& store, ThreadPool& workers
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::get_leaf(const index_t& index,
-                                                 bool includeUncommitted,
-                                                 const LeafCallback& completion) const
+void IndexAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& index,
+                                                               bool includeUncommitted,
+                                                               const LeafCallback& completion) const
 {
     auto job = [=, this]() {
         execute_and_report<GetIndexedLeafResponse<LeafValueType>>(
@@ -245,7 +247,7 @@ void IndexedTree<Store, HashingPolicy>::get_leaf(const index_t& index,
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::find_leaf_index(
+void IndexAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index(
     const LeafValueType& leaf,
     bool includeUncommitted,
     const IndexAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
@@ -254,7 +256,7 @@ void IndexedTree<Store, HashingPolicy>::find_leaf_index(
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::find_leaf_index_from(
+void IndexAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
     const LeafValueType& leaf,
     index_t start_index,
     bool includeUncommitted,
@@ -277,9 +279,9 @@ void IndexedTree<Store, HashingPolicy>::find_leaf_index_from(
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& leaf_key,
-                                                      bool includeUncommitted,
-                                                      const FindLowLeafCallback& on_completion) const
+void IndexAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& leaf_key,
+                                                                    bool includeUncommitted,
+                                                                    const FindLowLeafCallback& on_completion) const
 {
     auto job = [=, this]() {
         execute_and_report<std::pair<bool, index_t>>(
@@ -294,23 +296,23 @@ void IndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& leaf_key,
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::add_or_update_value(const LeafValueType& value,
-                                                            const AddCompletionCallback& completion)
+void IndexAddressedIndexedTree<Store, HashingPolicy>::add_or_update_value(const LeafValueType& value,
+                                                                          const AddCompletionCallback& completion)
 {
     add_or_update_values(std::vector<LeafValueType>{ value }, 1, completion);
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<LeafValueType>& values,
-                                                             const AddCompletionCallback& completion)
+void IndexAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<LeafValueType>& values,
+                                                                           const AddCompletionCallback& completion)
 {
     add_or_update_values(values, 0, completion);
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<LeafValueType>& values,
-                                                             const uint32_t subtree_depth,
-                                                             const AddCompletionCallback& completion)
+void IndexAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<LeafValueType>& values,
+                                                                           const uint32_t subtree_depth,
+                                                                           const AddCompletionCallback& completion)
 {
     // We first take a copy of the leaf values and their locations within the set given to us
     std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>> values_to_be_sorted =
@@ -433,9 +435,10 @@ void IndexedTree<Store, HashingPolicy>::add_or_update_values(const std::vector<L
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::perform_insertions(size_t total_leaves,
-                                                           std::shared_ptr<std::vector<LeafInsertion>> insertions,
-                                                           const InsertionCompletionCallback& completion)
+void IndexAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
+    size_t total_leaves,
+    std::shared_ptr<std::vector<LeafInsertion>> insertions,
+    const InsertionCompletionCallback& completion)
 {
     auto low_leaf_witness_data = std::make_shared<std::vector<LowLeafWitnessData<LeafValueType>>>(
         total_leaves,
@@ -498,7 +501,7 @@ void IndexedTree<Store, HashingPolicy>::perform_insertions(size_t total_leaves,
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::generate_hashes_for_appending(
+void IndexAddressedIndexedTree<Store, HashingPolicy>::generate_hashes_for_appending(
     std::shared_ptr<std::vector<IndexedLeafValueType>> leaves_to_hash, const HashGenerationCallback& completion)
 {
     execute_and_report<HashGenerationResponse>(
@@ -515,7 +518,7 @@ void IndexedTree<Store, HashingPolicy>::generate_hashes_for_appending(
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::generate_insertions(
+void IndexAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
     const std::shared_ptr<std::vector<std::pair<LeafValueType, index_t>>>& values_to_be_sorted,
     const InsertionGenerationCallback& on_completion)
 {
@@ -619,12 +622,13 @@ void IndexedTree<Store, HashingPolicy>::generate_insertions(
 }
 
 template <typename Store, typename HashingPolicy>
-void IndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_root(const index_t& leaf_index,
-                                                                     const IndexedLeafValueType& leaf,
-                                                                     Signal& leader,
-                                                                     Signal& follower,
-                                                                     fr_sibling_path& previous_sibling_path,
-                                                                     ReadTransaction& tx)
+void IndexAddressedIndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_root(
+    const index_t& leaf_index,
+    const IndexedLeafValueType& leaf,
+    Signal& leader,
+    Signal& follower,
+    fr_sibling_path& previous_sibling_path,
+    ReadTransaction& tx)
 {
     auto get_node = [&](uint32_t level, index_t index) -> fr { return get_element_or_zero(level, index, tx, true); };
     // We are a worker at a specific leaf index.

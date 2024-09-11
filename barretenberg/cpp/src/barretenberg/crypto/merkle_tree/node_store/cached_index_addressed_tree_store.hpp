@@ -26,7 +26,7 @@ namespace bb::crypto::merkle_tree {
  * 16 byte integers: Nodes in the tree, key value = ((2 ^ level) + index - 1)
  * 32 bytes integers: The value of the leaf (32 bytes) to the set of indices where the leaf exists in the tree.
  */
-template <typename PersistedStore, typename LeafValueType> class CachedTreeStore {
+template <typename PersistedStore, typename LeafValueType> class IndexAddressedCachedTreeStore {
   public:
     using PersistedStoreType = PersistedStore;
     using LeafType = LeafValueType;
@@ -36,7 +36,7 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
     using ReadTransactionPtr = std::unique_ptr<ReadTransaction>;
     using WriteTransactionPtr = std::unique_ptr<WriteTransaction>;
 
-    CachedTreeStore(std::string name, uint32_t levels, PersistedStore& dataStore)
+    IndexAddressedCachedTreeStore(std::string name, uint32_t levels, PersistedStore& dataStore)
         : name(std::move(name))
         , depth(levels)
         , nodes(std::vector<std::unordered_map<index_t, std::vector<uint8_t>>>(
@@ -45,13 +45,13 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
     {
         initialise();
     }
-    ~CachedTreeStore() = default;
+    ~IndexAddressedCachedTreeStore() = default;
 
-    CachedTreeStore() = delete;
-    CachedTreeStore(CachedTreeStore const& other) = delete;
-    CachedTreeStore(CachedTreeStore const&& other) = delete;
-    CachedTreeStore& operator=(CachedTreeStore const& other) = delete;
-    CachedTreeStore& operator=(CachedTreeStore const&& other) = delete;
+    IndexAddressedCachedTreeStore() = delete;
+    IndexAddressedCachedTreeStore(IndexAddressedCachedTreeStore const& other) = delete;
+    IndexAddressedCachedTreeStore(IndexAddressedCachedTreeStore const&& other) = delete;
+    IndexAddressedCachedTreeStore& operator=(IndexAddressedCachedTreeStore const& other) = delete;
+    IndexAddressedCachedTreeStore& operator=(IndexAddressedCachedTreeStore const&& other) = delete;
 
     /**
      * @brief Returns the index of the leaf with a value immediately lower than the value provided
@@ -174,9 +174,8 @@ template <typename PersistedStore, typename LeafValueType> class CachedTreeStore
 };
 
 template <typename PersistedStore, typename LeafValueType>
-std::pair<bool, index_t> CachedTreeStore<PersistedStore, LeafValueType>::find_low_value(const fr& new_leaf_key,
-                                                                                        bool includeUncommitted,
-                                                                                        ReadTransaction& tx) const
+std::pair<bool, index_t> IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::find_low_value(
+    const fr& new_leaf_key, bool includeUncommitted, ReadTransaction& tx) const
 {
     uint256_t new_value_as_number = uint256_t(new_leaf_key);
     std::vector<uint8_t> data;
@@ -219,9 +218,10 @@ std::pair<bool, index_t> CachedTreeStore<PersistedStore, LeafValueType>::find_lo
 }
 
 template <typename PersistedStore, typename LeafValueType>
-std::optional<typename CachedTreeStore<PersistedStore, LeafValueType>::IndexedLeafValueType> CachedTreeStore<
-    PersistedStore,
-    LeafValueType>::get_leaf(const index_t& index, ReadTransaction& tx, bool includeUncommitted) const
+std::optional<typename IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::IndexedLeafValueType>
+IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::get_leaf(const index_t& index,
+                                                                       ReadTransaction& tx,
+                                                                       bool includeUncommitted) const
 {
     if (includeUncommitted) {
         typename std::unordered_map<index_t, IndexedLeafValueType>::const_iterator it = leaves_.find(index);
@@ -241,9 +241,9 @@ std::optional<typename CachedTreeStore<PersistedStore, LeafValueType>::IndexedLe
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::set_at_index(const index_t& index,
-                                                                  const IndexedLeafValueType& leaf,
-                                                                  bool add_to_index)
+void IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::set_at_index(const index_t& index,
+                                                                                const IndexedLeafValueType& leaf,
+                                                                                bool add_to_index)
 {
     leaves_[index] = leaf;
     if (add_to_index) {
@@ -259,7 +259,7 @@ void CachedTreeStore<PersistedStore, LeafValueType>::set_at_index(const index_t&
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::update_index(const index_t& index, const fr& leaf)
+void IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::update_index(const index_t& index, const fr& leaf)
 {
     auto it = indices_.find(uint256_t(leaf));
     if (it == indices_.end()) {
@@ -272,15 +272,14 @@ void CachedTreeStore<PersistedStore, LeafValueType>::update_index(const index_t&
 }
 
 template <typename PersistedStore, typename LeafValueType>
-std::optional<index_t> CachedTreeStore<PersistedStore, LeafValueType>::find_leaf_index(const LeafValueType& leaf,
-                                                                                       ReadTransaction& tx,
-                                                                                       bool includeUncommitted) const
+std::optional<index_t> IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::find_leaf_index(
+    const LeafValueType& leaf, ReadTransaction& tx, bool includeUncommitted) const
 {
     return find_leaf_index_from(leaf, 0, tx, includeUncommitted);
 }
 
 template <typename PersistedStore, typename LeafValueType>
-std::optional<index_t> CachedTreeStore<PersistedStore, LeafValueType>::find_leaf_index_from(
+std::optional<index_t> IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::find_leaf_index_from(
     const LeafValueType& leaf, index_t start_index, ReadTransaction& tx, bool includeUncommitted) const
 {
     Indices committed;
@@ -324,19 +323,19 @@ std::optional<index_t> CachedTreeStore<PersistedStore, LeafValueType>::find_leaf
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::put_node(uint32_t level,
-                                                              index_t index,
-                                                              const std::vector<uint8_t>& data)
+void IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::put_node(uint32_t level,
+                                                                            index_t index,
+                                                                            const std::vector<uint8_t>& data)
 {
     nodes[level][index] = data;
 }
 
 template <typename PersistedStore, typename LeafValueType>
-bool CachedTreeStore<PersistedStore, LeafValueType>::get_node(uint32_t level,
-                                                              index_t index,
-                                                              std::vector<uint8_t>& data,
-                                                              ReadTransaction& transaction,
-                                                              bool includeUncommitted) const
+bool IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::get_node(uint32_t level,
+                                                                            index_t index,
+                                                                            std::vector<uint8_t>& data,
+                                                                            ReadTransaction& transaction,
+                                                                            bool includeUncommitted) const
 {
     if (includeUncommitted) {
         const auto& level_map = nodes[level];
@@ -350,13 +349,13 @@ bool CachedTreeStore<PersistedStore, LeafValueType>::get_node(uint32_t level,
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::put_meta(const TreeMeta& m)
+void IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::put_meta(const TreeMeta& m)
 {
     meta = m;
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::put_initial_meta(TreeMeta& meta)
+void IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::put_initial_meta(TreeMeta& meta)
 {
     WriteTransactionPtr tx = create_write_transaction();
     try {
@@ -369,9 +368,9 @@ void CachedTreeStore<PersistedStore, LeafValueType>::put_initial_meta(TreeMeta& 
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::get_meta(TreeMeta& m,
-                                                              ReadTransaction& tx,
-                                                              bool includeUncommitted) const
+void IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::get_meta(TreeMeta& m,
+                                                                            ReadTransaction& tx,
+                                                                            bool includeUncommitted) const
 {
     if (includeUncommitted) {
         m = meta;
@@ -381,15 +380,16 @@ void CachedTreeStore<PersistedStore, LeafValueType>::get_meta(TreeMeta& m,
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::get_initial_meta(TreeMeta& m, ReadTransaction& tx) const
+void IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::get_initial_meta(TreeMeta& m,
+                                                                                    ReadTransaction& tx) const
 {
     read_persisted_meta(m, tx, true);
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::get_full_meta(TreeMeta& m,
-                                                                   ReadTransaction& tx,
-                                                                   bool includeUncommitted) const
+void IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::get_full_meta(TreeMeta& m,
+                                                                                 ReadTransaction& tx,
+                                                                                 bool includeUncommitted) const
 {
     if (includeUncommitted) {
         m = meta;
@@ -398,7 +398,8 @@ void CachedTreeStore<PersistedStore, LeafValueType>::get_full_meta(TreeMeta& m,
     read_persisted_meta(m, tx);
 }
 
-template <typename PersistedStore, typename LeafValueType> void CachedTreeStore<PersistedStore, LeafValueType>::commit()
+template <typename PersistedStore, typename LeafValueType>
+void IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::commit()
 {
     {
         {
@@ -450,7 +451,7 @@ template <typename PersistedStore, typename LeafValueType> void CachedTreeStore<
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::rollback()
+void IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::rollback()
 {
     // Extract the committed meta data and destroy the cache
     {
@@ -464,9 +465,9 @@ void CachedTreeStore<PersistedStore, LeafValueType>::rollback()
 }
 
 template <typename PersistedStore, typename LeafValueType>
-bool CachedTreeStore<PersistedStore, LeafValueType>::read_persisted_meta(TreeMeta& m,
-                                                                         ReadTransaction& tx,
-                                                                         bool initial) const
+bool IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::read_persisted_meta(TreeMeta& m,
+                                                                                       ReadTransaction& tx,
+                                                                                       bool initial) const
 {
     std::vector<uint8_t> data;
     bool success = false;
@@ -483,7 +484,9 @@ bool CachedTreeStore<PersistedStore, LeafValueType>::read_persisted_meta(TreeMet
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::persist_meta(TreeMeta& m, WriteTransaction& tx, bool initial)
+void IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::persist_meta(TreeMeta& m,
+                                                                                WriteTransaction& tx,
+                                                                                bool initial)
 {
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, m);
@@ -497,7 +500,7 @@ void CachedTreeStore<PersistedStore, LeafValueType>::persist_meta(TreeMeta& m, W
 }
 
 template <typename PersistedStore, typename LeafValueType>
-void CachedTreeStore<PersistedStore, LeafValueType>::initialise()
+void IndexAddressedCachedTreeStore<PersistedStore, LeafValueType>::initialise()
 {
     // Read the persisted meta data, if the name or depth of the tree is not consistent with what was provided during
     // construction then we throw

@@ -31,16 +31,16 @@ using crypto::merkle_tree::index_t;
 
 using HashPolicy = crypto::merkle_tree::Poseidon2HashPolicy;
 
-using FrStore = crypto::merkle_tree::CachedTreeStore<crypto::merkle_tree::LMDBStore, fr>;
+using FrStore = crypto::merkle_tree::CachedIndexAddressedTreeStore<crypto::merkle_tree::LMDBStore, fr>;
 using FrTree = crypto::merkle_tree::IndexAddressedAppendOnlyTree<FrStore, HashPolicy>;
 
-using NullifierStore =
-    crypto::merkle_tree::CachedTreeStore<crypto::merkle_tree::LMDBStore, crypto::merkle_tree::NullifierLeafValue>;
-using NullifierTree = crypto::merkle_tree::IndexedTree<NullifierStore, HashPolicy>;
+using NullifierStore = crypto::merkle_tree::CachedIndexAddressedTreeStore<crypto::merkle_tree::LMDBStore,
+                                                                          crypto::merkle_tree::NullifierLeafValue>;
+using NullifierTree = crypto::merkle_tree::IndexAddressedIndexedTree<NullifierStore, HashPolicy>;
 
-using PublicDataStore =
-    crypto::merkle_tree::CachedTreeStore<crypto::merkle_tree::LMDBStore, crypto::merkle_tree::PublicDataLeafValue>;
-using PublicDataTree = crypto::merkle_tree::IndexedTree<PublicDataStore, HashPolicy>;
+using PublicDataStore = crypto::merkle_tree::CachedIndexAddressedTreeStore<crypto::merkle_tree::LMDBStore,
+                                                                           crypto::merkle_tree::PublicDataLeafValue>;
+using PublicDataTree = crypto::merkle_tree::IndexAddressedIndexedTree<PublicDataStore, HashPolicy>;
 
 using Tree = std::variant<TreeWithStore<FrTree>, TreeWithStore<NullifierTree>, TreeWithStore<PublicDataTree>>;
 
@@ -219,8 +219,8 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
                                                                                 index_t leaf) const
 {
     using namespace crypto::merkle_tree;
-    using Store = CachedTreeStore<LMDBStore, T>;
-    using Tree = IndexedTree<Store, HashPolicy>;
+    using Store = CachedIndexAddressedTreeStore<LMDBStore, T>;
+    using Tree = IndexAddressedIndexedTree<Store, HashPolicy>;
 
     if (auto* const wrapper = std::get_if<TreeWithStore<Tree>>(&_trees.at(id))) {
         std::optional<IndexedLeaf<T>> value;
@@ -259,8 +259,8 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision revision, MerkleT
             signal.signal_level();
         });
     } else {
-        using Store = CachedTreeStore<LMDBStore, T>;
-        using Tree = IndexedTree<Store, HashPolicy>;
+        using Store = CachedIndexAddressedTreeStore<LMDBStore, T>;
+        using Tree = IndexAddressedIndexedTree<Store, HashPolicy>;
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(_trees.at(tree_id));
         wrapper.tree->get_leaf(
@@ -297,8 +297,8 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision rev,
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(_trees.at(id));
         wrapper.tree->find_leaf_index_from(leaf, start_index, uncommitted, callback);
     } else {
-        using Store = CachedTreeStore<LMDBStore, T>;
-        using Tree = IndexedTree<Store, HashPolicy>;
+        using Store = CachedIndexAddressedTreeStore<LMDBStore, T>;
+        using Tree = IndexAddressedIndexedTree<Store, HashPolicy>;
 
         auto& wrapper = std::get<TreeWithStore<Tree>>(_trees.at(id));
         wrapper.tree->find_leaf_index_from(leaf, start_index, uncommitted, callback);
@@ -324,8 +324,8 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
         auto& wrapper = std::get<TreeWithStore<FrTree>>(_trees.at(id));
         wrapper.tree->add_values(leaves, callback);
     } else {
-        using Store = CachedTreeStore<LMDBStore, T>;
-        using Tree = IndexedTree<Store, HashPolicy>;
+        using Store = CachedIndexAddressedTreeStore<LMDBStore, T>;
+        using Tree = IndexAddressedIndexedTree<Store, HashPolicy>;
         auto& wrapper = std::get<TreeWithStore<Tree>>(_trees.at(id));
         wrapper.tree->add_or_update_values(leaves, 0, callback);
     }
@@ -343,8 +343,8 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
                                                                 uint32_t subtree_depth)
 {
     using namespace crypto::merkle_tree;
-    using Store = CachedTreeStore<LMDBStore, T>;
-    using Tree = IndexedTree<Store, HashPolicy>;
+    using Store = CachedIndexAddressedTreeStore<LMDBStore, T>;
+    using Tree = IndexAddressedIndexedTree<Store, HashPolicy>;
 
     Signal signal;
     BatchInsertionResult<T> result;

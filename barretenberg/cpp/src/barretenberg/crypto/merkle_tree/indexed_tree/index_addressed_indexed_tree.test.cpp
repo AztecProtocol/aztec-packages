@@ -1,4 +1,4 @@
-#include "indexed_tree.hpp"
+#include "./index_addressed_indexed_tree.hpp"
 #include "../fixtures.hpp"
 #include "../hash.hpp"
 #include "../node_store/array_store.hpp"
@@ -7,9 +7,10 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/index_addressed_indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
-#include "barretenberg/crypto/merkle_tree/node_store/cached_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/cached_index_addressed_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
@@ -26,8 +27,8 @@ using namespace bb::crypto::merkle_tree;
 
 using HashPolicy = Poseidon2HashPolicy;
 
-using Store = CachedTreeStore<LMDBStore, NullifierLeafValue>;
-using TreeType = IndexedTree<Store, HashPolicy>;
+using Store = IndexAddressedCachedTreeStore<LMDBStore, NullifierLeafValue>;
+using TreeType = IndexAddressedIndexedTree<Store, HashPolicy>;
 using IndexedNullifierLeafType = IndexedLeaf<NullifierLeafValue>;
 using IndexedPublicDataLeafType = IndexedLeaf<PublicDataLeafValue>;
 
@@ -52,10 +53,7 @@ class PersistedIndexedTreeTest : public testing::Test {
 
 std::string PersistedIndexedTreeTest::_directory;
 
-template <typename LeafValueType>
-void check_size(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
-                index_t expected_size,
-                bool includeUncommitted = true)
+template <typename TypeOfTree> void check_size(TypeOfTree& tree, index_t expected_size, bool includeUncommitted = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
@@ -67,9 +65,7 @@ void check_size(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2
     signal.wait_for_level();
 }
 
-template <typename LeafValueType>
-fr get_root(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
-            bool includeUncommitted = true)
+template <typename TypeOfTree> fr get_root(TypeOfTree& tree, bool includeUncommitted = true)
 {
     fr r;
     Signal signal;
@@ -82,19 +78,14 @@ fr get_root(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2Hash
     return r;
 }
 
-template <typename LeafValueType>
-void check_root(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
-                fr expected_root,
-                bool includeUncommitted = true)
+template <typename TypeOfTree> void check_root(TypeOfTree& tree, fr expected_root, bool includeUncommitted = true)
 {
     fr root = get_root(tree, includeUncommitted);
     EXPECT_EQ(root, expected_root);
 }
 
-template <typename LeafValueType>
-fr_sibling_path get_sibling_path(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
-                                 index_t index,
-                                 bool includeUncommitted = true)
+template <typename TypeOfTree>
+fr_sibling_path get_sibling_path(TypeOfTree& tree, index_t index, bool includeUncommitted = true)
 {
     fr_sibling_path h;
     Signal signal;
@@ -107,10 +98,8 @@ fr_sibling_path get_sibling_path(IndexedTree<CachedTreeStore<LMDBStore, LeafValu
     return h;
 }
 
-template <typename LeafValueType>
-IndexedLeaf<LeafValueType> get_leaf(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
-                                    index_t index,
-                                    bool includeUncommitted = true)
+template <typename LeafValueType, typename TypeOfTree>
+IndexedLeaf<LeafValueType> get_leaf(TypeOfTree& tree, index_t index, bool includeUncommitted = true)
 {
     std::optional<IndexedLeaf<LeafValueType>> l;
     Signal signal;
@@ -123,10 +112,8 @@ IndexedLeaf<LeafValueType> get_leaf(IndexedTree<CachedTreeStore<LMDBStore, LeafV
     return l.value();
 }
 
-template <typename LeafValueType>
-std::pair<bool, index_t> get_low_leaf(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
-                                      const LeafValueType& leaf,
-                                      bool includeUncommitted = true)
+template <typename LeafValueType, typename TypeOfTree>
+std::pair<bool, index_t> get_low_leaf(TypeOfTree& tree, const LeafValueType& leaf, bool includeUncommitted = true)
 {
     std::pair<bool, index_t> low_leaf_info;
     Signal signal;
@@ -139,8 +126,8 @@ std::pair<bool, index_t> get_low_leaf(IndexedTree<CachedTreeStore<LMDBStore, Lea
     return low_leaf_info;
 }
 
-template <typename LeafValueType>
-void check_find_leaf_index(TreeType& tree,
+template <typename LeafValueType, typename TypeOfTree>
+void check_find_leaf_index(TypeOfTree& tree,
                            const LeafValueType& leaf,
                            index_t expected_index,
                            bool expected_success,
@@ -159,8 +146,8 @@ void check_find_leaf_index(TreeType& tree,
     signal.wait_for_level();
 }
 
-template <typename LeafValueType>
-void check_sibling_path(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
+template <typename TypeOfTree>
+void check_sibling_path(TypeOfTree& tree,
                         index_t index,
                         fr_sibling_path expected_sibling_path,
                         bool includeUncommitted = true)
@@ -169,8 +156,7 @@ void check_sibling_path(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, P
     EXPECT_EQ(path, expected_sibling_path);
 }
 
-template <typename LeafValueType>
-void commit_tree(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree)
+template <typename TypeOfTree> void commit_tree(TypeOfTree& tree)
 {
     Signal signal;
     auto completion = [&](const Response& response) -> void {
@@ -181,9 +167,7 @@ void commit_tree(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon
     signal.wait_for_level();
 }
 
-template <typename LeafValueType>
-void add_value(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
-               const LeafValueType& value)
+template <typename LeafValueType, typename TypeOfTree> void add_value(TypeOfTree& tree, const LeafValueType& value)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<AddIndexedDataResponse<LeafValueType>>&) -> void {
@@ -194,9 +178,8 @@ void add_value(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2H
     signal.wait_for_level();
 }
 
-template <typename LeafValueType>
-void add_values(IndexedTree<CachedTreeStore<LMDBStore, LeafValueType>, Poseidon2HashPolicy>& tree,
-                const std::vector<NullifierLeafValue>& values)
+template <typename LeafValueType, typename TypeOfTree>
+void add_values(TypeOfTree& tree, const std::vector<LeafValueType>& values)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<AddIndexedDataResponse<LeafValueType>>&) -> void {
@@ -607,8 +590,8 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
     IndexedNullifierLeafType zero_leaf(NullifierLeafValue(0), 1, 1);
     IndexedNullifierLeafType one_leaf(NullifierLeafValue(1), 0, 0);
     check_size(tree, current_size);
-    EXPECT_EQ(get_leaf(tree, 0), zero_leaf);
-    EXPECT_EQ(get_leaf(tree, 1), one_leaf);
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 0), zero_leaf);
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 1), one_leaf);
 
     /**
      * Add new value 30:
@@ -621,9 +604,9 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      */
     add_value(tree, NullifierLeafValue(30));
     check_size(tree, ++current_size);
-    EXPECT_EQ(get_leaf(tree, 0), create_indexed_nullifier_leaf(0, 1, 1));
-    EXPECT_EQ(get_leaf(tree, 1), create_indexed_nullifier_leaf(1, 2, 30));
-    EXPECT_EQ(get_leaf(tree, 2), create_indexed_nullifier_leaf(30, 0, 0));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 0), create_indexed_nullifier_leaf(0, 1, 1));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 1), create_indexed_nullifier_leaf(1, 2, 30));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 2), create_indexed_nullifier_leaf(30, 0, 0));
 
     /**
      * Add new value 10:
@@ -636,10 +619,10 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      */
     add_value(tree, NullifierLeafValue(10));
     check_size(tree, ++current_size);
-    EXPECT_EQ(get_leaf(tree, 0), create_indexed_nullifier_leaf(0, 1, 1));
-    EXPECT_EQ(get_leaf(tree, 1), create_indexed_nullifier_leaf(1, 3, 10));
-    EXPECT_EQ(get_leaf(tree, 2), create_indexed_nullifier_leaf(30, 0, 0));
-    EXPECT_EQ(get_leaf(tree, 3), create_indexed_nullifier_leaf(10, 2, 30));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 0), create_indexed_nullifier_leaf(0, 1, 1));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 1), create_indexed_nullifier_leaf(1, 3, 10));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 2), create_indexed_nullifier_leaf(30, 0, 0));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 3), create_indexed_nullifier_leaf(10, 2, 30));
 
     /**
      * Add new value 20:
@@ -652,11 +635,11 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      */
     add_value(tree, NullifierLeafValue(20));
     check_size(tree, ++current_size);
-    EXPECT_EQ(get_leaf(tree, 0), create_indexed_nullifier_leaf(0, 1, 1));
-    EXPECT_EQ(get_leaf(tree, 1), create_indexed_nullifier_leaf(1, 3, 10));
-    EXPECT_EQ(get_leaf(tree, 2), create_indexed_nullifier_leaf(30, 0, 0));
-    EXPECT_EQ(get_leaf(tree, 3), create_indexed_nullifier_leaf(10, 4, 20));
-    EXPECT_EQ(get_leaf(tree, 4), create_indexed_nullifier_leaf(20, 2, 30));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 0), create_indexed_nullifier_leaf(0, 1, 1));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 1), create_indexed_nullifier_leaf(1, 3, 10));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 2), create_indexed_nullifier_leaf(30, 0, 0));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 3), create_indexed_nullifier_leaf(10, 4, 20));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 4), create_indexed_nullifier_leaf(20, 2, 30));
 
     // Adding the same value must not affect anything
     // tree.update_element(20);
@@ -677,20 +660,20 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory)
      */
     add_value(tree, NullifierLeafValue(50));
     check_size(tree, ++current_size);
-    EXPECT_EQ(get_leaf(tree, 0), create_indexed_nullifier_leaf(0, 1, 1));
-    EXPECT_EQ(get_leaf(tree, 1), create_indexed_nullifier_leaf(1, 3, 10));
-    EXPECT_EQ(get_leaf(tree, 2), create_indexed_nullifier_leaf(30, 5, 50));
-    EXPECT_EQ(get_leaf(tree, 3), create_indexed_nullifier_leaf(10, 4, 20));
-    EXPECT_EQ(get_leaf(tree, 4), create_indexed_nullifier_leaf(20, 2, 30));
-    EXPECT_EQ(get_leaf(tree, 5), create_indexed_nullifier_leaf(50, 0, 0));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 0), create_indexed_nullifier_leaf(0, 1, 1));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 1), create_indexed_nullifier_leaf(1, 3, 10));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 2), create_indexed_nullifier_leaf(30, 5, 50));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 3), create_indexed_nullifier_leaf(10, 4, 20));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 4), create_indexed_nullifier_leaf(20, 2, 30));
+    EXPECT_EQ(get_leaf<NullifierLeafValue>(tree, 5), create_indexed_nullifier_leaf(50, 0, 0));
 
     // Manually compute the node values
-    auto e000 = hash_leaf(get_leaf(tree, 0));
-    auto e001 = hash_leaf(get_leaf(tree, 1));
-    auto e010 = hash_leaf(get_leaf(tree, 2));
-    auto e011 = hash_leaf(get_leaf(tree, 3));
-    auto e100 = hash_leaf(get_leaf(tree, 4));
-    auto e101 = hash_leaf(get_leaf(tree, 5));
+    auto e000 = hash_leaf(get_leaf<NullifierLeafValue>(tree, 0));
+    auto e001 = hash_leaf(get_leaf<NullifierLeafValue>(tree, 1));
+    auto e010 = hash_leaf(get_leaf<NullifierLeafValue>(tree, 2));
+    auto e011 = hash_leaf(get_leaf<NullifierLeafValue>(tree, 3));
+    auto e100 = hash_leaf(get_leaf<NullifierLeafValue>(tree, 4));
+    auto e101 = hash_leaf(get_leaf<NullifierLeafValue>(tree, 5));
     auto e110 = fr::zero();
     auto e111 = fr::zero();
 
@@ -759,7 +742,7 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_tree)
 
     IndexedNullifierLeafType zero_leaf = create_indexed_nullifier_leaf(0, 1, 1);
     check_size(tree, current_size);
-    EXPECT_EQ(hash_leaf(get_leaf(tree, 0)), hash_leaf(zero_leaf));
+    EXPECT_EQ(hash_leaf(get_leaf<NullifierLeafValue>(tree, 0)), hash_leaf(zero_leaf));
 
     // Add 20 random values to the tree
     for (uint32_t i = 0; i < 20; i++) {
@@ -782,15 +765,17 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_tree)
     fr new_member = fr::random_element();
     std::vector<uint256_t> differences;
     for (uint32_t i = 0; i < uint32_t(21); i++) {
-        uint256_t diff_hi = abs_diff(uint256_t(new_member), uint256_t(get_leaf(tree, i).value.get_key()));
-        uint256_t diff_lo = abs_diff(uint256_t(new_member), uint256_t(get_leaf(tree, i).value.get_key()));
+        uint256_t diff_hi =
+            abs_diff(uint256_t(new_member), uint256_t(get_leaf<NullifierLeafValue>(tree, i).value.get_key()));
+        uint256_t diff_lo =
+            abs_diff(uint256_t(new_member), uint256_t(get_leaf<NullifierLeafValue>(tree, i).value.get_key()));
         differences.push_back(diff_hi + diff_lo);
     }
     auto it = std::min_element(differences.begin(), differences.end());
     auto index = static_cast<uint32_t>(it - differences.begin());
 
     // Merkle proof at `index` proves non-membership of `new_member`
-    EXPECT_TRUE(verify_sibling_path(tree, get_leaf(tree, index), index));
+    EXPECT_TRUE(verify_sibling_path(tree, get_leaf<NullifierLeafValue>(tree, index), index));
 }
 
 TEST_F(PersistedIndexedTreeTest, can_add_single_whilst_reading)
@@ -844,9 +829,10 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory_with_public_data_writes)
     constexpr size_t depth = 3;
     std::string name = random_string();
     LMDBStore db(*_environment, name, false, false, integer_key_cmp);
-    CachedTreeStore<LMDBStore, PublicDataLeafValue> store(name, depth, db);
+    IndexAddressedCachedTreeStore<LMDBStore, PublicDataLeafValue> store(name, depth, db);
     auto tree =
-        IndexedTree<CachedTreeStore<LMDBStore, PublicDataLeafValue>, Poseidon2HashPolicy>(store, workers, current_size);
+        IndexAddressedIndexedTree<IndexAddressedCachedTreeStore<LMDBStore, PublicDataLeafValue>, Poseidon2HashPolicy>(
+            store, workers, current_size);
 
     /**
      * Intial state:
@@ -861,8 +847,8 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory_with_public_data_writes)
     IndexedPublicDataLeafType zero_leaf = create_indexed_public_data_leaf(0, 0, 1, 1);
     IndexedPublicDataLeafType one_leaf = create_indexed_public_data_leaf(1, 0, 0, 0);
     check_size(tree, current_size);
-    EXPECT_EQ(get_leaf(tree, 0), zero_leaf);
-    EXPECT_EQ(get_leaf(tree, 1), one_leaf);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), zero_leaf);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), one_leaf);
 
     /**
      * Add new slot:value 30:5:
@@ -876,9 +862,9 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory_with_public_data_writes)
      */
     add_value(tree, PublicDataLeafValue(30, 5));
     check_size(tree, ++current_size);
-    EXPECT_EQ(get_leaf(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
-    EXPECT_EQ(get_leaf(tree, 1), create_indexed_public_data_leaf(1, 0, 2, 30));
-    EXPECT_EQ(get_leaf(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
 
     /**
      * Add new slot:value 10:20:
@@ -892,10 +878,10 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory_with_public_data_writes)
      */
     add_value(tree, PublicDataLeafValue(10, 20));
     check_size(tree, ++current_size);
-    EXPECT_EQ(get_leaf(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
-    EXPECT_EQ(get_leaf(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
-    EXPECT_EQ(get_leaf(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
-    EXPECT_EQ(get_leaf(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
 
     /**
      * Update value at slot 30 to 6:
@@ -910,11 +896,11 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory_with_public_data_writes)
     add_value(tree, PublicDataLeafValue(30, 6));
     // The size still increases as we pad with an empty leaf
     check_size(tree, ++current_size);
-    EXPECT_EQ(get_leaf(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
-    EXPECT_EQ(get_leaf(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
-    EXPECT_EQ(get_leaf(tree, 2), create_indexed_public_data_leaf(30, 6, 0, 0));
-    EXPECT_EQ(get_leaf(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
-    EXPECT_EQ(get_leaf(tree, 4), create_indexed_public_data_leaf(0, 0, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 4), create_indexed_public_data_leaf(0, 0, 0, 0));
 
     /**
      * Add new value slot:value 50:8:
@@ -928,20 +914,20 @@ TEST_F(PersistedIndexedTreeTest, test_indexed_memory_with_public_data_writes)
      */
     add_value(tree, PublicDataLeafValue(50, 8));
     check_size(tree, ++current_size);
-    EXPECT_EQ(get_leaf(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
-    EXPECT_EQ(get_leaf(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
-    EXPECT_EQ(get_leaf(tree, 2), create_indexed_public_data_leaf(30, 6, 5, 50));
-    EXPECT_EQ(get_leaf(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
-    EXPECT_EQ(get_leaf(tree, 4), create_indexed_public_data_leaf(0, 0, 0, 0));
-    EXPECT_EQ(get_leaf(tree, 5), create_indexed_public_data_leaf(50, 8, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 5, 50));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 4), create_indexed_public_data_leaf(0, 0, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 5), create_indexed_public_data_leaf(50, 8, 0, 0));
 
     // Manually compute the node values
-    auto e000 = hash_leaf(get_leaf(tree, 0));
-    auto e001 = hash_leaf(get_leaf(tree, 1));
-    auto e010 = hash_leaf(get_leaf(tree, 2));
-    auto e011 = hash_leaf(get_leaf(tree, 3));
+    auto e000 = hash_leaf(get_leaf<PublicDataLeafValue>(tree, 0));
+    auto e001 = hash_leaf(get_leaf<PublicDataLeafValue>(tree, 1));
+    auto e010 = hash_leaf(get_leaf<PublicDataLeafValue>(tree, 2));
+    auto e011 = hash_leaf(get_leaf<PublicDataLeafValue>(tree, 3));
     auto e100 = fr::zero(); // tree doesn't hash 0 leaves!
-    auto e101 = hash_leaf(get_leaf(tree, 5));
+    auto e101 = hash_leaf(get_leaf<PublicDataLeafValue>(tree, 5));
     auto e110 = fr::zero();
     auto e111 = fr::zero();
 

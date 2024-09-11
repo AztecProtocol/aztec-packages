@@ -10,7 +10,7 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/array_store.hpp"
-#include "barretenberg/crypto/merkle_tree/node_store/cached_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/cached_index_addressed_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "gtest/gtest.h"
@@ -22,7 +22,7 @@
 using namespace bb;
 using namespace bb::crypto::merkle_tree;
 
-using Store = CachedTreeStore<LMDBStore, bb::fr>;
+using Store = IndexAddressedCachedTreeStore<LMDBStore, bb::fr>;
 using TreeType = IndexAddressedAppendOnlyTree<Store, Poseidon2HashPolicy>;
 
 class PersistedIndexAddressedAppendOnlyTreeTest : public testing::Test {

@@ -13,10 +13,10 @@
 using namespace benchmark;
 using namespace bb::crypto::merkle_tree;
 
-using StoreType = CachedTreeStore<LMDBStore, NullifierLeafValue>;
+using StoreType = CachedIndexAddressedTreeStore<LMDBStore, NullifierLeafValue>;
 
-using Poseidon2 = IndexedTree<StoreType, Poseidon2HashPolicy>;
-using Pedersen = IndexedTree<StoreType, PedersenHashPolicy>;
+using Poseidon2 = IndexAddressedIndexedTree<StoreType, Poseidon2HashPolicy>;
+using Pedersen = IndexAddressedIndexedTree<StoreType, PedersenHashPolicy>;
 
 const size_t TREE_DEPTH = 40;
 const size_t MAX_BATCH_SIZE = 128;
