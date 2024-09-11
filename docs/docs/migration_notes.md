@@ -6,7 +6,43 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.53.0
+### [Aztec.nr] Remove `OwnedNote` and create `UintNote`
+`OwnedNote` allowed having a U128 `value` in the custom note while `ValueNote` restricted to just a Field.
+
+We have removed `OwnedNote` but are introducing a more genric `UintNote` within aztec.nr
+```
+#[aztec(note)]
+struct UintNote {
+    // The integer stored by the note
+    value: U128,
+    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
+    npk_m_hash: Field,
+    // Randomness of the note to hide its contents
+    randomness: Field,
+}
+```
+
+### [TXE] logging
+You can now use `debug_log()` within your contract to print logs when using the TXE
+
+Remember to set the following environment variables to activate debug logging:
+```bash
+export DEBUG="aztec:*"
+export LOG_LEVEL="debug"
+```
+
+### [Account] no assert in is_valid_impl
+
+`is_valid_impl` method in account contract asserted if signature was true. Instead now we will return the verification to give flexibility to developers to handle it as they please.
+
+```diff
+- let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
+- assert(verification == true);
+- true
++ std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message)
+
+## 0.49.0
 
 ### Key Rotation API overhaul
 
@@ -823,7 +859,7 @@ This change was made to communicate that we do not constrain the value in circui
 Historically it have been possible to "view" `unconstrained` functions to simulate them and get the return values, but not for `public` nor `private` functions.
 This has lead to a lot of bad code where we have the same function implemented thrice, once in `private`, once in `public` and once in `unconstrained`.
 It is not possible to call `simulate` on any call to get the return values!
-However, beware that it currently always returns a Field array of size 4 for private and public.  
+However, beware that it currently always returns a Field array of size 4 for private and public.
 This will change to become similar to the return values of the `unconstrained` functions with proper return types.
 
 ```diff

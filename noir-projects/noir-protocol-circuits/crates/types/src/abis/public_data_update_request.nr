@@ -1,11 +1,14 @@
-use crate::constants::{PUBLIC_DATA_UPDATE_REQUEST_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST};
-use crate::traits::{Empty, Hash, Serialize, Deserialize};
-use crate::public_data_tree_leaf::PublicDataTreeLeaf;
-use crate::address::AztecAddress;
-use crate::contrakt::storage_update_request::StorageUpdateRequest;
-use crate::data::hash::{compute_public_data_tree_value, compute_public_data_tree_index};
-use crate::abis::side_effect::{Ordered, Positioned};
+use crate::{
+    abis::{side_effect::Ordered}, address::AztecAddress, constants::PUBLIC_DATA_UPDATE_REQUEST_LENGTH,
+    contrakt::storage_update_request::StorageUpdateRequest,
+    data::{
+    hash::{compute_public_data_tree_value, compute_public_data_tree_index},
+    public_data_tree_leaf::PublicDataTreeLeaf
+},
+    traits::{Empty, Serialize, Deserialize}
+};
 
+// TODO: Rename to PublicDataWrite
 struct PublicDataUpdateRequest {
     leaf_slot : Field,
     new_value : Field,
@@ -22,12 +25,6 @@ impl PublicDataUpdateRequest {
             new_value: compute_public_data_tree_value(update_request.new_value),
             counter: update_request.counter
         }
-    }
-}
-
-impl Positioned for PublicDataUpdateRequest {
-    fn position(self) -> Field {
-        self.leaf_slot
     }
 }
 
@@ -51,15 +48,6 @@ impl Empty for PublicDataUpdateRequest {
             new_value : 0,
             counter : 0
         }
-    }
-}
-
-impl Hash for PublicDataUpdateRequest {
-    fn hash(self) -> Field {
-        crate::hash::poseidon2_hash_with_separator([
-            self.leaf_slot,
-            self.new_value
-        ], GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
     }
 }
 

@@ -2,8 +2,8 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
-import { InstructionExecutionError } from '../errors.js';
 import { adjustCalldataIndex, initContext, initExecutionEnvironment } from '../fixtures/index.js';
+import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
 
@@ -17,86 +17,111 @@ describe('Memory instructions', () => {
   describe('SET', () => {
     it('Should (de)serialize correctly [tag=u8]', () => {
       const buf = Buffer.from([
-        Set.opcode, // opcode
+        Opcode.SET_8, // opcode
         0x01, // indirect
         TypeTag.UINT8, // inTag
         ...Buffer.from('12', 'hex'),
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('56', 'hex'), // dstOffset
       ]);
-      const inst = new Set(/*indirect=*/ 0x01, /*inTag=*/ TypeTag.UINT8, /*value=*/ 0x12, /*dstOffset=*/ 0x3456789a);
+      const inst = new Set(/*indirect=*/ 0x01, /*inTag=*/ TypeTag.UINT8, /*value=*/ 0x12, /*dstOffset=*/ 0x56).as(
+        Opcode.SET_8,
+        Set.wireFormat8,
+      );
 
-      expect(Set.deserialize(buf)).toEqual(inst);
+      expect(Set.as(Set.wireFormat8).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=u16]', () => {
       const buf = Buffer.from([
-        Set.opcode, // opcode
+        Opcode.SET_16, // opcode
         0x01, // indirect
         TypeTag.UINT16, // inTag
         ...Buffer.from('1234', 'hex'),
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Set(/*indirect=*/ 0x01, /*inTag=*/ TypeTag.UINT16, /*value=*/ 0x1234, /*dstOffset=*/ 0x3456789a);
+      const inst = new Set(/*indirect=*/ 0x01, /*inTag=*/ TypeTag.UINT16, /*value=*/ 0x1234, /*dstOffset=*/ 0x3456).as(
+        Opcode.SET_16,
+        Set.wireFormat16,
+      );
 
-      expect(Set.deserialize(buf)).toEqual(inst);
+      expect(Set.as(Set.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=u32]', () => {
       const buf = Buffer.from([
-        Set.opcode, // opcode
+        Opcode.SET_32, // opcode
         0x01, // indirect
         TypeTag.UINT32, // inTag
         ...Buffer.from('12345678', 'hex'),
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new Set(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.UINT32,
         /*value=*/ 0x12345678,
-        /*dstOffset=*/ 0x3456789a,
-      );
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.SET_32, Set.wireFormat32);
 
-      expect(Set.deserialize(buf)).toEqual(inst);
+      expect(Set.as(Set.wireFormat32).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=u64]', () => {
       const buf = Buffer.from([
-        Set.opcode, // opcode
+        Opcode.SET_64, // opcode
         0x01, // indirect
         TypeTag.UINT64, // inTag
         ...Buffer.from('1234567812345678', 'hex'),
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('34567', 'hex'), // dstOffset
       ]);
       const inst = new Set(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.UINT64,
         /*value=*/ 0x1234567812345678n,
-        /*dstOffset=*/ 0x3456789a,
-      );
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.SET_64, Set.wireFormat64);
 
-      expect(Set.deserialize(buf)).toEqual(inst);
+      expect(Set.as(Set.wireFormat64).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
     it('Should (de)serialize correctly [tag=u128]', () => {
       const buf = Buffer.from([
-        Set.opcode, // opcode
+        Opcode.SET_128, // opcode
         0x01, // indirect
         TypeTag.UINT128, // inTag
         ...Buffer.from('12345678123456781234567812345678', 'hex'), // const (will be 128 bit)
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new Set(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.UINT128,
         /*value=*/ 0x12345678123456781234567812345678n,
-        /*dstOffset=*/ 0x3456789a,
-      );
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.SET_128, Set.wireFormat128);
 
-      expect(Set.deserialize(buf)).toEqual(inst);
+      expect(Set.as(Set.wireFormat128).deserialize(buf)).toEqual(inst);
+      expect(inst.serialize()).toEqual(buf);
+    });
+
+    it('Should (de)serialize correctly [tag=ff]', () => {
+      const buf = Buffer.from([
+        Opcode.SET_FF, // opcode
+        0x01, // indirect
+        TypeTag.UINT128, // inTag
+        ...Buffer.from('1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', 'hex'), // const (will be 32 bytes)
+        ...Buffer.from('3456', 'hex'), // dstOffset
+      ]);
+      const inst = new Set(
+        /*indirect=*/ 0x01,
+        /*inTag=*/ TypeTag.UINT128,
+        /*value=*/ 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdefn,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.SET_FF, Set.wireFormatFF);
+
+      expect(Set.as(Set.wireFormatFF).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
@@ -130,14 +155,6 @@ describe('Memory instructions', () => {
 
       expect(actual).toEqual(new Uint16(0x5678));
       expect(tag).toEqual(TypeTag.UINT16);
-    });
-
-    it('should throw if tag is FIELD, UNINITIALIZED, INVALID', async () => {
-      for (const tag of [TypeTag.FIELD, TypeTag.UNINITIALIZED, TypeTag.INVALID]) {
-        await expect(
-          async () => await new Set(/*indirect=*/ 0, /*inTag=*/ tag, /*value=*/ 1234n, /*offset=*/ 1).execute(context),
-        ).rejects.toThrow(InstructionExecutionError);
-      }
     });
   });
 
@@ -302,12 +319,15 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         Mov.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // srcOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('12', 'hex'), // srcOffset
+        ...Buffer.from('34', 'hex'), // dstOffset
       ]);
-      const inst = new Mov(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12345678, /*dstOffset=*/ 0x3456789a);
+      const inst = new Mov(/*indirect=*/ 0x01, /*srcOffset=*/ 0x12, /*dstOffset=*/ 0x34).as(
+        Opcode.MOV_8,
+        Mov.wireFormat8,
+      );
 
-      expect(Mov.deserialize(buf)).toEqual(inst);
+      expect(Mov.as(Mov.wireFormat8).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
@@ -432,14 +452,14 @@ describe('Memory instructions', () => {
       const buf = Buffer.from([
         CalldataCopy.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // cdOffset
-        ...Buffer.from('23456789', 'hex'), // copysize
+        ...Buffer.from('12345678', 'hex'), // cdOffsetAddress
+        ...Buffer.from('23456789', 'hex'), // copysizeOffset
         ...Buffer.from('3456789a', 'hex'), // dstOffset
       ]);
       const inst = new CalldataCopy(
         /*indirect=*/ 0x01,
-        /*cdOffset=*/ 0x12345678,
-        /*copysize=*/ 0x23456789,
+        /*cdOffsetAddress=*/ 0x12345678,
+        /*copysizeOffset=*/ 0x23456789,
         /*dstOffset=*/ 0x3456789a,
       );
 
@@ -450,30 +470,23 @@ describe('Memory instructions', () => {
     it('Writes nothing if size is 0', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      context.machineState.memory.set(0, new Uint16(12)); // Some previous data to be overwritten
+      context.machineState.memory.set(0, new Uint32(adjustCalldataIndex(0))); // cdoffset
+      context.machineState.memory.set(1, new Uint32(0)); // size
+      context.machineState.memory.set(3, new Uint16(12)); // not overwritten
 
-      await new CalldataCopy(
-        /*indirect=*/ 0,
-        /*cdOffset=*/ adjustCalldataIndex(0),
-        /*copySize=*/ 0,
-        /*dstOffset=*/ 0,
-      ).execute(context);
+      await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
 
-      const actual = context.machineState.memory.get(0);
+      const actual = context.machineState.memory.get(3);
       expect(actual).toEqual(new Uint16(12));
     });
 
     it('Copies all calldata', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      context.machineState.memory.set(0, new Uint16(12)); // Some previous data to be overwritten
+      context.machineState.memory.set(0, new Uint32(adjustCalldataIndex(0))); // cdoffset
+      context.machineState.memory.set(1, new Uint32(3)); // size
 
-      await new CalldataCopy(
-        /*indirect=*/ 0,
-        /*cdOffset=*/ adjustCalldataIndex(0),
-        /*copySize=*/ 3,
-        /*dstOffset=*/ 0,
-      ).execute(context);
+      await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 3);
       expect(actual).toEqual([new Field(1), new Field(2), new Field(3)]);
@@ -482,14 +495,10 @@ describe('Memory instructions', () => {
     it('Copies slice of calldata', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      context.machineState.memory.set(0, new Uint16(12)); // Some previous data to be overwritten
+      context.machineState.memory.set(0, new Uint32(adjustCalldataIndex(1))); // cdoffset
+      context.machineState.memory.set(1, new Uint32(2)); // size
 
-      await new CalldataCopy(
-        /*indirect=*/ 0,
-        /*cdOffset=*/ adjustCalldataIndex(1),
-        /*copySize=*/ 2,
-        /*dstOffset=*/ 0,
-      ).execute(context);
+      await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
 
       const actual = context.machineState.memory.getSlice(/*offset=*/ 0, /*size=*/ 2);
       expect(actual).toEqual([new Field(2), new Field(3)]);

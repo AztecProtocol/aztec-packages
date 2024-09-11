@@ -2,8 +2,8 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -80,11 +80,14 @@ class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
 
+        std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> alpha_labels;
         for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
             std::string label = "alpha_" + std::to_string(i);
-            manifest_expected.add_challenge(round, label);
-            round++;
+            alpha_labels[i] = label;
         }
+
+        manifest_expected.add_challenge(round, alpha_labels);
+        round++;
 
         for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);

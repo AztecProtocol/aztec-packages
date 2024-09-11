@@ -140,42 +140,58 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
         {
-            // deserialize circuit size
+            using namespace bb::stdlib::field_conversion;
+
             size_t num_frs_read = 0;
-            size_t num_frs_FF = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
-            size_t num_frs_Comm = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
 
-            this->circuit_size = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                              builder, elements.subspan(num_frs_read, num_frs_FF))
-                                              .get_value());
-            num_frs_read += num_frs_FF;
-            this->num_public_inputs = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                   builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                   .get_value());
-            num_frs_read += num_frs_FF;
+            this->circuit_size = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->num_public_inputs = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->pub_inputs_offset = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->contains_recursive_proof =
+                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
-            this->pub_inputs_offset = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                   builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                   .get_value());
-            num_frs_read += num_frs_FF;
-            this->contains_recursive_proof = bool(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                      builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                      .get_value());
-            num_frs_read += num_frs_FF;
-
-            for (uint32_t i = 0; i < bb::AGGREGATION_OBJECT_SIZE; ++i) {
-                this->recursive_proof_public_input_indices[i] =
-                    uint32_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                 builder, elements.subspan(num_frs_read, num_frs_FF))
-                                 .get_value());
-                num_frs_read += num_frs_FF;
+            for (uint32_t& idx : this->recursive_proof_public_input_indices) {
+                idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
 
-            for (Commitment& comm : this->get_all()) {
-                comm = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(
-                    builder, elements.subspan(num_frs_read, num_frs_Comm));
-                num_frs_read += num_frs_Comm;
+            this->databus_propagation_data.contains_app_return_data_commitment =
+                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->databus_propagation_data.contains_kernel_return_data_commitment =
+                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->databus_propagation_data.app_return_data_public_input_idx =
+                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->databus_propagation_data.kernel_return_data_public_input_idx =
+                uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->databus_propagation_data.is_kernel =
+                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+
+            for (Commitment& commitment : this->get_all()) {
+                commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
             }
+
+            if (num_frs_read != elements.size()) {
+                info("Warning: Invalid buffer length in VerificationKey constuctor from fields!");
+                ASSERT(false);
+            }
+        }
+
+        /**
+         * @brief Construct a VerificationKey from a set of corresponding witness indices
+         *
+         * @param builder
+         * @param witness_indices
+         * @return VerificationKey
+         */
+        static VerificationKey from_witness_indices(CircuitBuilder& builder,
+                                                    const std::span<const uint32_t>& witness_indices)
+        {
+            std::vector<FF> vkey_fields;
+            vkey_fields.reserve(witness_indices.size());
+            for (const auto& idx : witness_indices) {
+                vkey_fields.emplace_back(FF::from_witness_index(&builder, idx));
+            }
+            return VerificationKey(builder, vkey_fields);
         }
     };
 

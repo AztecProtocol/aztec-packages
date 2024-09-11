@@ -150,7 +150,7 @@ GeminiProverOutput<Curve> GeminiProver_<Curve>::compute_fold_polynomial_evaluati
     Polynomial& batched_G = gemini_polynomials[1]; // G(X) = ∑ⱼ ρᵏ⁺ʲ gⱼ(X)
 
     // Compute univariate opening queries rₗ = r^{2ˡ} for l = 0, 1, ..., m-1
-    std::vector<Fr> r_squares = gemini::squares_of_r(r_challenge, num_variables);
+    std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r_challenge, num_variables);
 
     // Compute G/r
     Fr r_inv = r_challenge.invert();
