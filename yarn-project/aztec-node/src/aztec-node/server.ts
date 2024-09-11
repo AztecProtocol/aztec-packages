@@ -115,8 +115,7 @@ export class AztecNodeService implements AztecNode {
       `Rollup: ${config.l1Contracts.rollupAddress.toString()}\n` +
       `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
       `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
-      `Outbox: ${config.l1Contracts.outboxAddress.toString()}\n` +
-      `Availability Oracle: ${config.l1Contracts.availabilityOracleAddress.toString()}`;
+      `Outbox: ${config.l1Contracts.outboxAddress.toString()}`;
     this.log.info(message);
   }
 

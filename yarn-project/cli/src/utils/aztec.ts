@@ -69,8 +69,7 @@ export async function deployAztecContracts(
     RegistryBytecode,
     RollupAbi,
     RollupBytecode,
-    AvailabilityOracleAbi,
-    AvailabilityOracleBytecode,
+
     FeeJuicePortalAbi,
     FeeJuicePortalBytecode,
     PortalERC20Abi,
@@ -95,10 +94,6 @@ export async function deployAztecContracts(
     outbox: {
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
-    },
-    availabilityOracle: {
-      contractAbi: AvailabilityOracleAbi,
-      contractBytecode: AvailabilityOracleBytecode,
     },
     rollup: {
       contractAbi: RollupAbi,
