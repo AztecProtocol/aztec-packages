@@ -43,12 +43,14 @@ enum class OpCode : uint8_t {
     OR_16,
     XOR_8,
     XOR_16,
-    NOT,
+    NOT_8,
+    NOT_16,
     SHL_8,
     SHL_16,
     SHR_8,
     SHR_16,
-    CAST,
+    CAST_8,
+    CAST_16,
 
     // Execution Environment
     ADDRESS,

@@ -823,6 +823,12 @@ fn generate_cast_instruction(
     destination_indirect: bool,
     dst_tag: AvmTypeTag,
 ) -> AvmInstruction {
+    let bits_needed = bits_needed_for(&source).max(bits_needed_for(&destination));
+    let avm_opcode = match bits_needed {
+        8 => AvmOpcode::CAST_8,
+        16 => AvmOpcode::CAST_16,
+        _ => panic!("CAST only supports 8 and 16 bit encodings, needed {}", bits_needed),
+    };
     let mut indirect_flags = ALL_DIRECT;
     if source_indirect {
         indirect_flags |= ZEROTH_OPERAND_INDIRECT;
@@ -831,10 +837,10 @@ fn generate_cast_instruction(
         indirect_flags |= FIRST_OPERAND_INDIRECT;
     }
     AvmInstruction {
-        opcode: AvmOpcode::CAST,
+        opcode: avm_opcode,
         indirect: Some(indirect_flags),
         tag: Some(dst_tag),
-        operands: vec![AvmOperand::U32 { value: source }, AvmOperand::U32 { value: destination }],
+        operands: vec![make_operand(bits_needed, &source), make_operand(bits_needed, &destination)],
     }
 }
 
