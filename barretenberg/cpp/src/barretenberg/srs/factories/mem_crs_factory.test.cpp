@@ -45,7 +45,7 @@ TEST(reference_string, mem_bn254_file_consistency)
               0);
 }
 
-TEST(reference_string, DISABLED_mem_grumpkin_file_consistency)
+TEST(reference_string, mem_grumpkin_file_consistency)
 {
     // Load 1024 from file.
     auto file_crs = FileCrsFactory<Grumpkin>("../srs_db/grumpkin", 1024);

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { Crs, Barretenberg, RawBuffer } from './index.js';
+import { Crs, GrumpkinCrs, Barretenberg, RawBuffer } from './index.js';
 import createDebug from 'debug';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
@@ -32,7 +32,7 @@ function getBytecode(bytecodePath: string) {
   return decompressed;
 }
 
-async function getGates(bytecodePath: string, honkRecursion: boolean, api: Barretenberg) {
+async function getGatesUltra(bytecodePath: string, honkRecursion: boolean, api: Barretenberg) {
   const { total } = await computeCircuitSize(bytecodePath, honkRecursion, api);
   return total;
 }
@@ -53,18 +53,18 @@ async function computeCircuitSize(bytecodePath: string, honkRecursion: boolean, 
 async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1, honkRecursion = false) {
   const api = await Barretenberg.new({ threads });
 
-  const circuitSize = await getGates(bytecodePath, honkRecursion, api);
+  const circuitSize = await getGatesUltra(bytecodePath, honkRecursion, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
-  const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
+  const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize)) + 13));
   // if (subgroupSize > MAX_CIRCUIT_SIZE) {
   //   throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
   // }
-
   debug(`circuit size: ${circuitSize}`);
   debug(`subgroup size: ${subgroupSize}`);
   debug('loading crs...');
   // Plus 1 needed! (Move +1 into Crs?)
   const crs = await Crs.new(subgroupSize + 1, crsPath);
+  const grumpkinCrs = await GrumpkinCrs.new(8192 + 1, crsPath);
 
   // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
   // await api.commonInitSlabAllocator(subgroupSize);
@@ -72,7 +72,7 @@ async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
   await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
-
+  await api.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
   const acirComposer = await api.acirNewAcirComposer(subgroupSize);
   return { api, acirComposer, circuitSize, subgroupSize };
 }
@@ -158,6 +158,7 @@ export async function foldAndVerifyProgram(bytecodePath: string, witnessPath: st
     const witness = getWitness(witnessPath);
 
     const verified = await api.acirFoldAndVerifyProgramStack(bytecode, witness);
+    debug(`verified: ${verified}`);
     return verified;
   } finally {
     await api.destroy();
@@ -186,10 +187,10 @@ export async function prove(bytecodePath: string, witnessPath: string, crsPath: 
   }
 }
 
-export async function gateCount(bytecodePath: string, honkRecursion: boolean) {
+export async function gateCountUltra(bytecodePath: string, honkRecursion: boolean) {
   const api = await Barretenberg.new({ threads: 1 });
   try {
-    const numberOfGates = await getGates(bytecodePath, honkRecursion, api);
+    const numberOfGates = await getGatesUltra(bytecodePath, honkRecursion, api);
     debug(`number of gates: : ${numberOfGates}`);
     // Create an 8-byte buffer and write the number into it.
     // Writing number directly to stdout will result in a variable sized
@@ -487,13 +488,23 @@ program
 
 program
   .command('gates')
-  .description('Print gate count to standard output.')
+  .description('Print Ultra Builder gate count to standard output.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-hr, --honk-recursion', 'Specify whether to use UltraHonk recursion', false)
   .action(async ({ bytecodePath: bytecodePath, honkRecursion: honkRecursion }) => {
     handleGlobalOptions();
-    await gateCount(bytecodePath, honkRecursion);
+    await gateCountUltra(bytecodePath, honkRecursion);
   });
+
+// program
+//   .command('mega_gates')
+//   .description('Print Mega Builder gate count to standard output.')
+//   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+//   .option('-hr, --honk-recursion', 'Specify whether to use UltraHonk recursion', false)
+//   .action(async ({ bytecodePath: bytecodePath, honkRecursion: honkRecursion }) => {
+//     handleGlobalOptions();
+//     await gateCountMega(bytecodePath, honkRecursion);
+//   });
 
 program
   .command('verify')
