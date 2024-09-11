@@ -83,7 +83,8 @@ export enum Opcode {
   STATICCALL,
   DELEGATECALL,
   RETURN,
-  REVERT,
+  REVERT_8,
+  REVERT_16,
   // Misc
   DEBUGLOG,
   // Gadgets

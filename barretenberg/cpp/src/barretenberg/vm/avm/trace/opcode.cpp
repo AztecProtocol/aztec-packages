@@ -174,8 +174,10 @@ std::string to_string(OpCode opcode)
         return "DELEGATECALL";
     case OpCode::RETURN:
         return "RETURN";
-    case OpCode::REVERT:
-        return "REVERT";
+    case OpCode::REVERT_8:
+        return "REVERT_8";
+    case OpCode::REVERT_16:
+        return "REVERT_16";
     // Misc
     case OpCode::DEBUGLOG:
         return "DEBUGLOG";

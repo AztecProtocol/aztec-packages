@@ -155,7 +155,8 @@ const INSTRUCTION_SET = () =>
     [StaticCall.opcode, Instruction.deserialize.bind(StaticCall)],
     //[DelegateCall.opcode, Instruction.deserialize.bind(DelegateCall)],
     [Return.opcode, Instruction.deserialize.bind(Return)],
-    [Revert.opcode, Instruction.deserialize.bind(Revert)],
+    [Opcode.REVERT_8, Revert.as(Revert.wireFormat8).deserialize],
+    [Opcode.REVERT_16, Revert.as(Revert.wireFormat16).deserialize],
 
     // Misc
     [DebugLog.opcode, Instruction.deserialize.bind(DebugLog)],

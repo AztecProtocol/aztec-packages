@@ -274,12 +274,22 @@ pub fn brillig_to_avm(
                 });
             }
             BrilligOpcode::Trap { revert_data } => {
+                let bits_needed = [revert_data.pointer.0, revert_data.size]
+                    .iter()
+                    .map(bits_needed_for)
+                    .max()
+                    .unwrap();
+                let avm_opcode = match bits_needed {
+                    8 => AvmOpcode::REVERT_8,
+                    16 => AvmOpcode::REVERT_16,
+                    _ => panic!("REVERT only support 8 or 16 bit encodings, got: {}", bits_needed),
+                };
                 avm_instrs.push(AvmInstruction {
-                    opcode: AvmOpcode::REVERT,
+                    opcode: avm_opcode,
                     indirect: Some(ZEROTH_OPERAND_INDIRECT),
                     operands: vec![
-                        AvmOperand::U32 { value: revert_data.pointer.0 as u32 },
-                        AvmOperand::U32 { value: revert_data.size as u32 },
+                        make_operand(bits_needed, &revert_data.pointer.0),
+                        make_operand(bits_needed, &revert_data.size),
                     ],
                     ..Default::default()
                 });
