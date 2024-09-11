@@ -1,5 +1,10 @@
 #pragma once
 #include "aes128_constraint.hpp"
+
+#ifndef DISABLE_AZTEC_VM
+#include "avm_recursion_constraint.hpp"
+#endif
+
 #include "barretenberg/aztec_ivc/aztec_ivc.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -51,6 +56,7 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> ec_add_constraints;
     std::vector<size_t> recursion_constraints;
     std::vector<size_t> honk_recursion_constraints;
+    std::vector<size_t> avm_recursion_constraints;
     std::vector<size_t> ivc_recursion_constraints;
     std::vector<size_t> bigint_from_le_bytes_constraints;
     std::vector<size_t> bigint_to_le_bytes_constraints;
@@ -99,6 +105,7 @@ struct AcirFormat {
     std::vector<EcAdd> ec_add_constraints;
     std::vector<RecursionConstraint> recursion_constraints;
     std::vector<RecursionConstraint> honk_recursion_constraints;
+    std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> ivc_recursion_constraints;
     std::vector<BigIntFromLeBytes> bigint_from_le_bytes_constraints;
     std::vector<BigIntToLeBytes> bigint_to_le_bytes_constraints;
@@ -144,6 +151,7 @@ struct AcirFormat {
                    ec_add_constraints,
                    recursion_constraints,
                    honk_recursion_constraints,
+                   avm_recursion_constraints,
                    ivc_recursion_constraints,
                    poly_triple_constraints,
                    block_constraints,
@@ -258,7 +266,12 @@ void process_plonk_recursion_constraints(Builder& builder,
 void process_honk_recursion_constraints(Builder& builder,
                                         AcirFormat& constraint_system,
                                         bool has_valid_witness_assignments,
-                                        bool honk_recursion,
                                         GateCounter<Builder>& gate_counter);
+
+#ifndef DISABLE_AZTEC_VM
+void process_avm_recursion_constraints(Builder& builder,
+                                       AcirFormat& constraint_system,
+                                       GateCounter<Builder>& gate_counter);
+#endif
 
 } // namespace acir_format

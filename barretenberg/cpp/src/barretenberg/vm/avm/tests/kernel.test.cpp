@@ -1081,7 +1081,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
     auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, value } });
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(slot), slot_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, slot, slot_offset, AvmMemoryTag::FF);
         trace_builder.op_sload(indirect, slot_offset, size, dest_offset);
     };
     auto checks = [=]([[maybe_unused]] bool indirect, const std::vector<Row>& trace) {
@@ -1121,8 +1121,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSstore)
     uint32_t output_offset = START_SSTORE_WRITE_OFFSET;
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
-        trace_builder.op_set(0, static_cast<uint128_t>(slot), metadata_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, slot, metadata_offset, AvmMemoryTag::FF);
         trace_builder.op_sstore(indirect, value_offset, size, metadata_offset);
     };
     auto checks = [=]([[maybe_unused]] bool indirect, const std::vector<Row>& trace) {
@@ -1165,13 +1165,13 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
     auto execution_hints = ExecutionHints().with_note_hash_exists_hints({ { 0, exists } });
 
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
         // TODO(#8287): Leaf index isnt constrained properly so we just set it to 0
         trace_builder.op_note_hash_exists(/*indirect*/ false, value_offset, 0, metadata_offset);
     };
     // TODO: fix
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
         trace_builder.op_set(0, value_offset, indirect_value_offset, AvmMemoryTag::U32);
         trace_builder.op_set(0, metadata_offset, indirect_metadata_offset, AvmMemoryTag::U32);
         // TODO(#8287): Leaf index isnt constrained properly so we just set it to 0
@@ -1214,7 +1214,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
     auto execution_hints = ExecutionHints().with_nullifier_exists_hints({ { 0, exists } });
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
         trace_builder.op_nullifier_exists(/*indirect=*/0, value_offset, metadata_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -1253,7 +1253,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierNonExists)
     auto execution_hints = ExecutionHints().with_nullifier_exists_hints({ { 0, exists } });
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
         trace_builder.op_nullifier_exists(/*indirect=*/0, value_offset, metadata_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -1293,7 +1293,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
     auto execution_hints = ExecutionHints().with_l1_to_l2_message_exists_hints({ { 0, exists } });
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
         // TODO(#8287): Leaf index isnt constrained properly so we just set it to 0
         trace_builder.op_l1_to_l2_msg_exists(/*indirect*/ false, value_offset, 0, metadata_offset);
     };

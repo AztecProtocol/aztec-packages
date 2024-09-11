@@ -1,6 +1,6 @@
 #pragma once
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
-#include "barretenberg/sumcheck/instance/verifier_instance.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/decider_verification_key.hpp"
 
 namespace bb {
 

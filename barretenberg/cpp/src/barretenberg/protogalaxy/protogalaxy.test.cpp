@@ -533,7 +533,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         check_accumulator_target_sum_manual(prover_accumulator, true);
 
         // Tamper with an accumulator polynomial
-        prover_accumulator->proving_key.polynomials.w_l[1] = FF::random_element();
+        prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element();
         check_accumulator_target_sum_manual(prover_accumulator, false);
 
         TupleOfKeys insts_2 = construct_keys(1); // just one decider key pair

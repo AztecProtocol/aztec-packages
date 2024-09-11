@@ -87,7 +87,10 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
 #endif
     }
 
-    uint32_t get_fixed_size() const { return fixed_size; }
+    uint32_t get_fixed_size(bool is_structured = true) const
+    {
+        return is_structured ? fixed_size : static_cast<uint32_t>(size());
+    }
     void set_fixed_size(uint32_t size_in) { fixed_size = size_in; }
 #ifdef TRACY_HACK_GATES_AS_MEMORY
     ~ExecutionTraceBlock()

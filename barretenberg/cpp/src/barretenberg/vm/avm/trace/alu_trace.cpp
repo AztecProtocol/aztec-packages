@@ -1,5 +1,6 @@
 #include "barretenberg/vm/avm/trace/alu_trace.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
+#include "barretenberg/vm/avm/trace/opcode.hpp"
 
 namespace bb::avm_trace {
 
@@ -117,7 +118,7 @@ FF AvmAluTraceBuilder::op_add(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::ADD,
+        .opcode = OpCode::ADD_8, // FIXME: take into account all opcodes.
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -161,7 +162,7 @@ FF AvmAluTraceBuilder::op_sub(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::SUB,
+        .opcode = OpCode::SUB_8, // FIXME: take into account all opcodes.
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -213,7 +214,7 @@ FF AvmAluTraceBuilder::op_mul(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::MUL,
+        .opcode = OpCode::MUL_8, // FIXME: take into account all opcodes.
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -266,7 +267,7 @@ FF AvmAluTraceBuilder::op_div(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     AvmAluTraceBuilder::AluTraceEntry row{
         .alu_clk = clk,
-        .opcode = OpCode::DIV,
+        .opcode = OpCode::DIV_8, // FIXME: take into account all opcodes.
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -313,7 +314,7 @@ FF AvmAluTraceBuilder::op_eq(FF const& a, FF const& b, AvmMemoryTag in_tag, uint
 
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::EQ,
+        .opcode = OpCode::EQ_8, // FIXME: take into account all opcodes.
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -349,7 +350,7 @@ FF AvmAluTraceBuilder::op_lt(FF const& a, FF const& b, AvmMemoryTag in_tag, uint
     // The subtlety is here that the circuit is designed as a GT(x,y) circuit, therefore we swap the inputs a & b
     AvmAluTraceBuilder::AluTraceEntry row{
         .alu_clk = clk,
-        .opcode = OpCode::LT,
+        .opcode = OpCode::LT_8, // FIXME: take into account all opcodes.
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -384,7 +385,7 @@ FF AvmAluTraceBuilder::op_lte(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
     // Construct the row that performs the lte check
     AvmAluTraceBuilder::AluTraceEntry row{
         .alu_clk = clk,
-        .opcode = OpCode::LTE,
+        .opcode = OpCode::LTE_8, // FIXME: take into account all opcodes.
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -473,7 +474,7 @@ FF AvmAluTraceBuilder::op_shl(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
     }
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::SHL,
+        .opcode = OpCode::SHL_8, // FIXME: take into account all opcodes.
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -536,7 +537,7 @@ FF AvmAluTraceBuilder::op_shr(FF const& a, FF const& b, AvmMemoryTag in_tag, uin
 
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::SHR,
+        .opcode = OpCode::SHR_8, // FIXME: take into account all opcodes.
         .tag = in_tag,
         .alu_ia = a,
         .alu_ib = b,
@@ -616,9 +617,10 @@ bool AvmAluTraceBuilder::is_range_check_required() const
  */
 bool AvmAluTraceBuilder::is_alu_row_enabled(const AvmAluTraceBuilder::AluTraceEntry& r)
 {
-    return (r.opcode == OpCode::ADD || r.opcode == OpCode::SUB || r.opcode == OpCode::MUL || r.opcode == OpCode::EQ ||
-            r.opcode == OpCode::NOT || r.opcode == OpCode::LT || r.opcode == OpCode::LTE || r.opcode == OpCode::SHR ||
-            r.opcode == OpCode::SHL || r.opcode == OpCode::CAST || r.opcode == OpCode::DIV);
+    return (r.opcode == OpCode::ADD_8 || r.opcode == OpCode::SUB_8 || r.opcode == OpCode::MUL_8 ||
+            r.opcode == OpCode::EQ_8 || r.opcode == OpCode::NOT || r.opcode == OpCode::LT_8 ||
+            r.opcode == OpCode::LTE_8 || r.opcode == OpCode::SHR_8 || r.opcode == OpCode::SHL_8 ||
+            r.opcode == OpCode::CAST || r.opcode == OpCode::DIV_8);
 }
 
 /**
@@ -635,17 +637,17 @@ void AvmAluTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
         dest.alu_sel_alu = FF(1);
 
         if (src.opcode.has_value()) {
-            dest.alu_op_add = FF(src.opcode == OpCode::ADD ? 1 : 0);
-            dest.alu_op_sub = FF(src.opcode == OpCode::SUB ? 1 : 0);
-            dest.alu_op_mul = FF(src.opcode == OpCode::MUL ? 1 : 0);
+            dest.alu_op_add = FF(src.opcode == OpCode::ADD_8 || src.opcode == OpCode::ADD_16 ? 1 : 0);
+            dest.alu_op_sub = FF(src.opcode == OpCode::SUB_8 || src.opcode == OpCode::SUB_16 ? 1 : 0);
+            dest.alu_op_mul = FF(src.opcode == OpCode::MUL_8 || src.opcode == OpCode::MUL_16 ? 1 : 0);
             dest.alu_op_not = FF(src.opcode == OpCode::NOT ? 1 : 0);
-            dest.alu_op_eq = FF(src.opcode == OpCode::EQ ? 1 : 0);
-            dest.alu_op_lt = FF(src.opcode == OpCode::LT ? 1 : 0);
-            dest.alu_op_lte = FF(src.opcode == OpCode::LTE ? 1 : 0);
+            dest.alu_op_eq = FF(src.opcode == OpCode::EQ_8 || src.opcode == OpCode::EQ_16 ? 1 : 0);
+            dest.alu_op_lt = FF(src.opcode == OpCode::LT_8 || src.opcode == OpCode::LT_16 ? 1 : 0);
+            dest.alu_op_lte = FF(src.opcode == OpCode::LTE_8 || src.opcode == OpCode::LTE_16 ? 1 : 0);
             dest.alu_op_cast = FF(src.opcode == OpCode::CAST ? 1 : 0);
-            dest.alu_op_shr = FF(src.opcode == OpCode::SHR ? 1 : 0);
-            dest.alu_op_shl = FF(src.opcode == OpCode::SHL ? 1 : 0);
-            dest.alu_op_div = FF(src.opcode == OpCode::DIV ? 1 : 0);
+            dest.alu_op_shr = FF(src.opcode == OpCode::SHR_8 || src.opcode == OpCode::SHR_16 ? 1 : 0);
+            dest.alu_op_shl = FF(src.opcode == OpCode::SHL_8 || src.opcode == OpCode::SHL_16 ? 1 : 0);
+            dest.alu_op_div = FF(src.opcode == OpCode::DIV_8 || src.opcode == OpCode::DIV_16 ? 1 : 0);
         }
 
         if (src.tag.has_value()) {

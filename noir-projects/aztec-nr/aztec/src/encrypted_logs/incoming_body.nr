@@ -137,12 +137,12 @@ mod test {
             }
         };
 
-        /// 1. `EncryptedLogIncomingBody::from_note` calls `note.to_be_bytes(storage_slot)` function which serializes
-        /// the note to bytes - note that in the case of `AddressNote` the `to_be_bytes` function was automatically
-        /// implemented by Aztec macros.
+        // 1. `EncryptedLogIncomingBody::from_note` calls `note.to_be_bytes(storage_slot)` function which serializes
+        // the note to bytes - note that in the case of `AddressNote` the `to_be_bytes` function was automatically
+        // implemented by Aztec macros.
         let body = EncryptedLogIncomingBody::from_note(note, storage_slot);
 
-        /// 2. `body.compute_ciphertext(...)` function then derives symmetric key from `eph_sk` and `ivpk` and encrypts
+        // 2. `body.compute_ciphertext(...)` function then derives symmetric key from `eph_sk` and `ivpk` and encrypts
         // the note plaintext using AES-128.
         let ciphertext = body.compute_ciphertext(eph_sk, ivpk);
 

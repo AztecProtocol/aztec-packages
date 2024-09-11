@@ -56,8 +56,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     std::vector<Polynomial> f_polynomials; // unshifted polynomials
     std::vector<NativeFr> v_evaluations;
     for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
-        f_polynomials.emplace_back(Polynomial::random(N));
-        f_polynomials[i][0] = NativeFr(0); // ensure f is "shiftable"
+        f_polynomials.emplace_back(Polynomial::random(N, /*shiftable*/ 1));
         v_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge));
     }
 
@@ -102,7 +101,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         ++poly_idx;
     }
 
-    Polynomial batched_poly_to_be_shifted(N); // batched to-be-shifted polynomials
+    Polynomial batched_poly_to_be_shifted = Polynomial::shiftable(N); // batched to-be-shifted polynomials
     for (auto& to_be_shifted_poly : g_polynomials) {
         batched_poly_to_be_shifted.add_scaled(to_be_shifted_poly, rhos[poly_idx]);
         ++poly_idx;

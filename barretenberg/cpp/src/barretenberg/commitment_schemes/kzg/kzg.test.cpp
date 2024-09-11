@@ -31,7 +31,7 @@ TYPED_TEST(KZGTest, single)
     using KZG = KZG<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
 
-    auto witness = this->random_polynomial(n);
+    auto witness = Polynomial<Fr>::random(n);
     g1::element commitment = this->commit(witness);
 
     auto challenge = Fr::random_element();
@@ -74,9 +74,8 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n);
-    poly2[0] = Fr::zero(); // this property is required of polynomials whose shift is used
+    auto poly1 = Polynomial::random(n);
+    auto poly2 = Polynomial::random(n, 1); // make 'shiftable'
 
     GroupElement commitment1 = this->commit(poly1);
     GroupElement commitment2 = this->commit(poly2);
@@ -98,7 +97,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 
     // Compute batched polynomials
     Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted(n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
     batched_unshifted.add_scaled(poly1, rhos[0]);
     batched_unshifted.add_scaled(poly2, rhos[1]);
     batched_to_be_shifted.add_scaled(poly2, rhos[2]);
@@ -192,9 +191,8 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
-    auto poly1 = this->random_polynomial(n);
-    auto poly2 = this->random_polynomial(n);
-    poly2[0] = Fr::zero(); // this property is required of polynomials whose shift is used
+    auto poly1 = Polynomial::random(n);
+    auto poly2 = Polynomial::random(n, /*shiftable*/ 1);
 
     Commitment commitment1 = this->commit(poly1);
     Commitment commitment2 = this->commit(poly2);
@@ -217,7 +215,7 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
 
     // Compute batched polynomials
     Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted(n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
     batched_unshifted.add_scaled(poly1, rhos[0]);
     batched_unshifted.add_scaled(poly2, rhos[1]);
     batched_to_be_shifted.add_scaled(poly2, rhos[2]);
