@@ -556,10 +556,16 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                  std::get<uint16_t>(inst.operands.at(4)),
                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
-        case OpCode::NOT:
+        case OpCode::NOT_8:
             trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint32_t>(inst.operands.at(2)),
-                                 std::get<uint32_t>(inst.operands.at(3)),
+                                 std::get<uint8_t>(inst.operands.at(2)),
+                                 std::get<uint8_t>(inst.operands.at(3)),
+                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        case OpCode::NOT_16:
+            trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
+                                 std::get<uint16_t>(inst.operands.at(2)),
+                                 std::get<uint16_t>(inst.operands.at(3)),
                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
         case OpCode::SHL_8:
@@ -592,10 +598,16 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
 
             // Compute - Type Conversions
-        case OpCode::CAST:
+        case OpCode::CAST_8:
             trace_builder.op_cast(std::get<uint8_t>(inst.operands.at(0)),
-                                  std::get<uint32_t>(inst.operands.at(2)),
-                                  std::get<uint32_t>(inst.operands.at(3)),
+                                  std::get<uint8_t>(inst.operands.at(2)),
+                                  std::get<uint8_t>(inst.operands.at(3)),
+                                  std::get<AvmMemoryTag>(inst.operands.at(1)));
+            break;
+        case OpCode::CAST_16:
+            trace_builder.op_cast(std::get<uint8_t>(inst.operands.at(0)),
+                                  std::get<uint16_t>(inst.operands.at(2)),
+                                  std::get<uint16_t>(inst.operands.at(3)),
                                   std::get<AvmMemoryTag>(inst.operands.at(1)));
             break;
 

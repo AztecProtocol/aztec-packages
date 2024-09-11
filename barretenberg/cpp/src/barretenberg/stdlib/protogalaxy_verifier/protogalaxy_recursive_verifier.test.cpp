@@ -63,7 +63,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
     static void create_function_circuit(InnerBuilder& builder, size_t log_num_gates = 10)
     {
         using fr_ct = typename InnerCurve::ScalarField;
-        using fq_ct = typename InnerCurve::BaseField;
+        using fq_ct = stdlib::bigfield<InnerBuilder, typename InnerCurve::BaseFieldNative::Params>;
         using public_witness_ct = typename InnerCurve::public_witness_ct;
         using witness_ct = typename InnerCurve::witness_ct;
         using byte_array_ct = typename InnerCurve::byte_array_ct;
@@ -281,7 +281,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
         auto native_verifier_acc =
             std::make_shared<InnerDeciderVerificationKey>(recursive_verifier_accumulator->get_value());
-        info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
+        info("Folding Recursive Verifier: num gates = ", folding_circuit.get_num_gates());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
