@@ -63,15 +63,22 @@ export class ValidatorClient implements Validator {
   }
 
   public registerBlockProposalHandler() {
-    const handler = (block: BlockProposal): Promise<BlockAttestation> => {
+    const handler = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
       return this.attestToProposal(block);
     };
     this.p2pClient.registerBlockProposalHandler(handler);
   }
 
-  async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation> {
+  async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation | undefined> {
     // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
-    await this.ensureTransactionsAreAvailable(proposal);
+    try {
+      await this.ensureTransactionsAreAvailable(proposal);
+    } catch (error: any) {
+      if (error instanceof TransactionsNotAvailableError) {
+        this.log.error(`Transactions not available, skipping attestation ${error.message}`);
+      }
+      return undefined;
+    }
     this.log.debug(`Transactions available, attesting to proposal with ${proposal.txs.length} transactions`);
 
     // If the above function does not throw an error, then we can attest to the proposal

@@ -13,8 +13,7 @@ import {
   nullifierNonExistentReadRequestHintsFromBuffer,
 } from '../non_existent_read_request_hints.js';
 import { PartialStateReference } from '../partial_state_reference.js';
-import { PublicDataHint } from '../public_data_hint.js';
-import { PublicDataReadRequestHints } from '../public_data_read_request_hints.js';
+import { PublicDataLeafHint } from '../public_data_leaf_hint.js';
 import { type NullifierReadRequestHints, nullifierReadRequestHintsFromBuffer } from '../read_request_hints/index.js';
 import { TreeLeafReadRequestHint } from '../tree_leaf_read_request_hint.js';
 import { PublicKernelData } from './public_kernel_data.js';
@@ -44,8 +43,7 @@ export class PublicKernelTailCircuitPrivateInputs {
       TreeLeafReadRequestHint<typeof L1_TO_L2_MSG_TREE_HEIGHT>,
       typeof MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX
     >,
-    public readonly publicDataHints: Tuple<PublicDataHint, typeof MAX_PUBLIC_DATA_HINTS>,
-    public readonly publicDataReadRequestHints: PublicDataReadRequestHints,
+    public readonly publicDataHints: Tuple<PublicDataLeafHint, typeof MAX_PUBLIC_DATA_HINTS>,
     public readonly startState: PartialStateReference,
   ) {}
 
@@ -57,7 +55,6 @@ export class PublicKernelTailCircuitPrivateInputs {
       this.nullifierNonExistentReadRequestHints,
       this.l1ToL2MsgReadRequestHints,
       this.publicDataHints,
-      this.publicDataReadRequestHints,
       this.startState,
     );
   }
@@ -86,8 +83,7 @@ export class PublicKernelTailCircuitPrivateInputs {
       reader.readArray(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, {
         fromBuffer: buf => TreeLeafReadRequestHint.fromBuffer(buf, L1_TO_L2_MSG_TREE_HEIGHT),
       }),
-      reader.readArray(MAX_PUBLIC_DATA_HINTS, PublicDataHint),
-      reader.readObject(PublicDataReadRequestHints),
+      reader.readArray(MAX_PUBLIC_DATA_HINTS, PublicDataLeafHint),
       reader.readObject(PartialStateReference),
     );
   }

@@ -7,9 +7,9 @@ import { Instruction } from './instruction.js';
 
 export class Jump extends Instruction {
   static type: string = 'JUMP';
-  static readonly opcode: Opcode = Opcode.JUMP;
+  static readonly opcode: Opcode = Opcode.JUMP_16;
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT32];
+  static readonly wireFormat: OperandType[] = [OperandType.UINT8, OperandType.UINT16];
 
   constructor(private jumpOffset: number) {
     super();
@@ -26,14 +26,14 @@ export class Jump extends Instruction {
 
 export class JumpI extends Instruction {
   static type: string = 'JUMPI';
-  static readonly opcode: Opcode = Opcode.JUMPI;
+  static readonly opcode: Opcode = Opcode.JUMPI_16;
 
   // Instruction wire format with opcode.
   static readonly wireFormat: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(private indirect: number, private loc: number, private condOffset: number) {

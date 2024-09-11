@@ -199,8 +199,8 @@ describe('e2e_p2p_network', () => {
 
     // Replace the p2p node implementation of some of the nodes with a spy such that it does not store transactions that are gossiped to it
     // Original implementation of `processTxFromPeer` will store received transactions in the tx pool.
-    // We have chosen nodes 0,2 as they do not get chosen to be the sequencer in this test ( node 1 does ).
-    const nodeToTurnOffTxGossip = [0, 2];
+    // We have chosen nodes 0,3 as they do not get chosen to be the sequencer in this test.
+    const nodeToTurnOffTxGossip = [0, 3];
     for (const nodeIndex of nodeToTurnOffTxGossip) {
       jest
         .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'processTxFromPeer')

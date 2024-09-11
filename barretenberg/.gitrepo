@@ -6,7 +6,7 @@
 [subrepo]
 remote = https://github.com/AztecProtocol/barretenberg
 	branch = master
-	commit = 928febf3f9f18bf69f29f53b238c233f6ad77fcc
-	parent = 225b6d319d013ce41d6396ba01cd0968da074c4e
+	commit = c51bd8fa77d04c01099948434a18e142093f49ee
+	parent = 11dc8ff185d74e6e5bc51e85d6bcd6577ac83161
 	method = merge
 	cmdver = 0.4.6

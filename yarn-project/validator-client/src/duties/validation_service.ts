@@ -2,7 +2,6 @@ import { BlockAttestation, BlockProposal, type TxHash } from '@aztec/circuit-typ
 import { type Header } from '@aztec/circuits.js';
 import { keccak256 } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type ValidatorKeyStore } from '../key_store/interface.js';
 
@@ -18,13 +17,10 @@ export class ValidationService {
    *
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
-  async createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
-    // NOTE: just signing the archive and txs for now
-    const payload = serializeToBuffer([archive, txs]);
-    const hashed = keccak256(payload);
-    const sig = await this.keyStore.sign(hashed);
+  createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
+    const payloadSigner = (payload: Buffer) => this.keyStore.sign(payload);
 
-    return new BlockProposal(header, archive, txs, sig);
+    return BlockProposal.createProposalFromSigner(header, archive, txs, payloadSigner);
   }
 
   /**
