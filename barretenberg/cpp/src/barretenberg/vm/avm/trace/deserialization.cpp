@@ -66,7 +66,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::OR_16, three_operand_format16 },
     { OpCode::XOR_8, three_operand_format8 },
     { OpCode::XOR_16, three_operand_format16 },
-    { OpCode::NOT, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT8 } },
+    { OpCode::NOT, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::SHL_8, three_operand_format8 },
     { OpCode::SHL_16, three_operand_format16 },
     { OpCode::SHR_8, three_operand_format8 },
