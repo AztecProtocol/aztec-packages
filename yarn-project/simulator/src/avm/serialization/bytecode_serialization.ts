@@ -97,7 +97,7 @@ const INSTRUCTION_SET = () =>
     [Opcode.XOR_8, Xor.as(Xor.wireFormat8).deserialize],
     [Opcode.XOR_16, Xor.as(Xor.wireFormat16).deserialize],
     [Opcode.NOT_8, Not.as(Not.wireFormat8).deserialize],
-    [Opcode.NOT_16, Not.as(Not.wireFormat8).deserialize],
+    [Opcode.NOT_16, Not.as(Not.wireFormat16).deserialize],
     [Opcode.SHL_8, Shl.as(Shl.wireFormat8).deserialize],
     [Opcode.SHL_16, Shl.as(Shl.wireFormat16).deserialize],
     [Opcode.SHR_8, Shr.as(Shr.wireFormat8).deserialize],
