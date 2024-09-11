@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726010429933,
+  "lastUpdate": 1726065043331,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47281315+guipublic@users.noreply.github.com",
-            "name": "guipublic",
-            "username": "guipublic"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0653ba5cc8283fade1c9f8fd534717833cc18e0a",
-          "message": "fix: handle constant output for sha256 (#8251)\n\nSmall PR to enable constant outputs support for sha256. This is required\r\nin order to enable constant inputs for sha256.\r\nI expected that constant inputs sha256 to be folded in Noir but we may\r\nbe missing some cases.",
-          "timestamp": "2024-08-29T11:28:59+02:00",
-          "tree_id": "839b0424d7c23f39bcac0de08ce4d38588387eac",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0653ba5cc8283fade1c9f8fd534717833cc18e0a"
-        },
-        "date": 1724924650413,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13540.50203,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10349.916316 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5133.519778999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4765.987133 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39968.78757700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39968787000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14735.276866,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14735277000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3780129175,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3780129175 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208308511,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 208308511 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3100384190,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3100384190 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 172941020,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 172941020 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 120350600,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 120350600 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "79995c84e0f88c1ee72876fd21c50c33830597fc",
+          "message": "chore: use uint32_t instead of size_t for databus data (#8479)\n\nChange type from `size_t` to `uint32_t` for `databus_propagation_data`\r\nto avoid potential issues serializing `size_t`.",
+          "timestamp": "2024-09-11T07:17:39-07:00",
+          "tree_id": "eb7754317b0f3d6329977a7f5d7e1ceff62db92e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/79995c84e0f88c1ee72876fd21c50c33830597fc"
+        },
+        "date": 1726065036568,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13196.205115000026,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10143.045867 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5127.099915999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4707.782201 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39655.819502000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39655819000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14580.904604,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14580904000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3641674960,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3641674960 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 145244147,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 145244147 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2958248351,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2958248351 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 120353478,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 120353478 ns\nthreads: 1"
           }
         ]
       }
