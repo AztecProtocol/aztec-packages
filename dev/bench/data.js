@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726069513817,
+  "lastUpdate": 1726072747764,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2323cd53486d3a8a063685094ad51aa98412c4a5",
-          "message": "refactor(bb): use std::span in pippenger for scalars (#8269)\n\nRefactoring stepping stone. Behaves identically\r\n\r\nNext step would be to use this to allow accessing power of 2 quantities\r\nabove the std::span size() (with a different wrapper class) so that\r\nnon-powers-of-2 can be passed directly to pippenger\r\n\r\nWe recently anted to save memory on polynomials. The idea is that\r\ninstead of rounding up to a power of 2 to make pippenger fast (at cost\r\nof memory), we will make a wrapper class that happily pretends it has\r\nT{} (i.e. zeroes) anywhere form 0 to nearest rounded up power of 2. For\r\nstarters this just introduces a std::span, which should behave\r\nidentically",
-          "timestamp": "2024-08-29T17:01:38Z",
-          "tree_id": "31b16225009c56551e9841d8ef13262eed82adcd",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2323cd53486d3a8a063685094ad51aa98412c4a5"
-        },
-        "date": 1724951819644,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13802.474261000014,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10547.411571999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5069.99193499999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4646.312263999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40270.66841,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40270667000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14611.493934999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14611493000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3784618196,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3784618196 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 210979989,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 210979989 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3176792949,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3176792949 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 175458836,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 175458836 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 121366957,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 121366957 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5a76ec61fb9dee976cdee8bba8198854d9249bf3",
+          "message": "refactor: Protogalaxy verifier matches prover 1 (#8414)\n\nThis is doing some renaming, making types explicit, and simplifying the\r\ninitialization used to produce an output accumulator.",
+          "timestamp": "2024-09-11T12:21:12-04:00",
+          "tree_id": "2df4f9ee7198b7a0670a5ee21ccfb4c3a5846957",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5a76ec61fb9dee976cdee8bba8198854d9249bf3"
+        },
+        "date": 1726072740097,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13126.410951999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9954.003275000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5150.760734999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4755.643168 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39464.853223000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39464853000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14595.896837999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14595896000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3604309527,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3604309527 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 145238763,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 145238763 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2966150783,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2966150783 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 122920882,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 122920882 ns\nthreads: 1"
           }
         ]
       }
