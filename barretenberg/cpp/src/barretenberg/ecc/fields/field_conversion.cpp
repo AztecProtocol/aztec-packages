@@ -58,6 +58,56 @@ std::vector<bb::fr> convert_grumpkin_fr_to_bn254_frs(const grumpkin::fr& val)
     return result;
 }
 
+std::vector<bb::fr> convert_bn254_g1_to_bn254_frs(const curve::BN254::AffineElement& val)
+{
+    // Goal is to slice up the 64 bit limbs of grumpkin::fr/uint256_t to mirror the 68 bit limbs of bigfield
+    // We accomplish this by dividing the grumpkin::fr's value into two 68*2=136 bit pieces.
+    constexpr uint64_t LOWER_BITS = 2 * NUM_LIMB_BITS;
+    constexpr uint256_t LOWER_MASK = (uint256_t(1) << LOWER_BITS) - 1;
+
+    constexpr uint256_t SINGLE_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
+
+    uint256_t x = uint256_t(val.x);
+    uint256_t y = uint256_t(val.y);
+    ASSERT(x < (uint256_t(1) << TOTAL_BITS));
+    ASSERT(y < (uint256_t(1) << TOTAL_BITS));
+
+    auto xlo = x & LOWER_MASK;
+    auto xhi = x >> LOWER_BITS;
+    auto ylo = y & LOWER_MASK;
+    auto yhi = y >> LOWER_BITS;
+
+    auto xhilo = xhi & SINGLE_MASK;
+    auto xhihi = xhi >> NUM_LIMB_BITS;
+
+    std::vector<bb::fr> result(3);
+    result[0] = xlo + (xhilo << LOWER_BITS);
+    result[1] = xhihi + (ylo << NUM_LIMB_BITS);
+    result[2] = yhi;
+    return result;
+}
+
+curve::BN254::AffineElement convert_bn254_frs_to_bn254_g1(std::span<const bb::fr> val)
+{
+    constexpr uint64_t LOWER_BITS = 2 * NUM_LIMB_BITS;
+    constexpr uint256_t LOWER_MASK = (uint256_t(1) << LOWER_BITS) - 1;
+
+    constexpr uint256_t SINGLE_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
+
+    uint256_t first = val[0];
+    uint256_t second = val[1];
+    uint256_t xlo = first & LOWER_MASK;
+    uint256_t xhilo = first >> LOWER_BITS;
+    uint256_t xhihi = second & SINGLE_MASK;
+    uint256_t xhi = xhilo + (xhihi << NUM_LIMB_BITS);
+    uint256_t ylo = second >> NUM_LIMB_BITS;
+    uint256_t yhi = val[2];
+
+    uint256_t x = xlo + (xhi << LOWER_BITS);
+    uint256_t y = ylo + (yhi << LOWER_BITS);
+
+    return { x, y };
+}
 grumpkin::fr convert_to_grumpkin_fr(const bb::fr& f)
 {
     const uint64_t NUM_BITS_IN_TWO_LIMBS = 2 * NUM_LIMB_BITS; // the number of bits in 2 bigfield limbs which is 136

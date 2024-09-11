@@ -29,11 +29,116 @@ template <typename Builder, typename T> inline T convert_challenge(Builder& buil
 }
 
 template <typename Builder>
-inline std::vector<fr<Builder>> convert_goblin_fr_to_bn254_frs(const goblin_field<Builder>& input)
+inline bn254_element<Builder> convert_bn254_frs_to_bn254_g1(std::span<const fr<Builder>> input)
 {
-    std::vector<fr<Builder>> result(2);
-    result[0] = input.limbs[0];
-    result[1] = input.limbs[1];
+    fr<Builder> shift1(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
+    fr<Builder> shift2(static_cast<uint256_t>(1) << (NUM_LIMB_BITS * 2));
+
+    auto split_first_limb = [shift2](fr<Builder> limb) {
+        uint256_t v = limb.get_value();
+        uint256_t hi_v = v >> (NUM_LIMB_BITS * 2);          // 136 bits
+        uint256_t lo_v = v - (hi_v << (NUM_LIMB_BITS * 2)); // 68 bits
+        fr<Builder> lo;
+        fr<Builder> hi;
+        if (limb.is_constant()) {
+            lo = fr<Builder>(lo_v);
+            hi = fr<Builder>(hi_v);
+        } else {
+            lo = fr<Builder>::from_witness(limb.get_context(), lo_v);
+            hi = fr<Builder>::from_witness(limb.get_context(), hi_v);
+        }
+        lo.create_range_constraint(NUM_LIMB_BITS * 2);
+        hi.create_range_constraint(NUM_LIMB_BITS);
+        limb.assert_equal(lo + hi * shift2);
+        return std::array<fr<Builder>, 2>{ lo, hi };
+    };
+
+    auto split_second_limb = [shift1](fr<Builder> limb) {
+        uint256_t v = limb.get_value();
+        uint256_t hi_v = v >> NUM_LIMB_BITS;          // 68 bits
+        uint256_t lo_v = v - (hi_v << NUM_LIMB_BITS); // 136 bits
+        fr<Builder> lo;
+        fr<Builder> hi;
+        if (limb.is_constant()) {
+            lo = fr<Builder>(lo_v);
+            hi = fr<Builder>(hi_v);
+        } else {
+            lo = fr<Builder>::from_witness(limb.get_context(), lo_v);
+            hi = fr<Builder>::from_witness(limb.get_context(), hi_v);
+        }
+        lo.create_range_constraint(NUM_LIMB_BITS);
+        hi.create_range_constraint(NUM_LIMB_BITS * 2);
+        limb.assert_equal(lo + hi * shift1);
+        return std::array<fr<Builder>, 2>{ lo, hi };
+    };
+    auto first_split = split_first_limb(input[0]);
+    auto second_split = split_second_limb(input[1]);
+
+    auto xlo = first_split[0];
+    auto xhi = (first_split[1] + second_split[0] * shift1);
+    auto ylo = second_split[1];
+    auto yhi = input[2];
+
+    using BaseField = typename bn254_element<Builder>::BaseField;
+    BaseField x(xlo, xhi);
+    BaseField y(ylo, yhi);
+    return bn254_element<Builder>(x, y);
+}
+
+template <typename Builder>
+    requires(IsGoblinBigGroup<Builder, fq<Builder>, fr<Builder>, curve::BN254::Group>)
+inline std::vector<fr<Builder>> convert_bn254_g1_to_bn254_frs(const bn254_element<Builder>& input)
+{
+    fr<Builder> shift1(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
+    fr<Builder> shift2(static_cast<uint256_t>(1) << (NUM_LIMB_BITS * 2));
+
+    auto split_limb = [shift1](fr<Builder> limb) {
+        constexpr uint256_t shift_v = uint256_t(1) << NUM_LIMB_BITS;
+        uint256_t v = limb.get_value();
+        uint256_t hi_v = v >> shift_v;
+        uint256_t lo_v = v - (hi_v << shift_v);
+        fr<Builder> lo;
+        fr<Builder> hi;
+        if (limb.is_constant()) {
+            lo = fr<Builder>(lo_v);
+            hi = fr<Builder>(hi_v);
+        } else {
+            lo = fr<Builder>::from_witness(limb.get_context(), lo_v);
+            hi = fr<Builder>::from_witness(limb.get_context(), hi_v);
+        }
+        lo.create_range_constraint(NUM_LIMB_BITS);
+        hi.create_range_constraint(NUM_LIMB_BITS);
+        limb.assert_equal(lo + hi * shift1);
+        return std::array<fr<Builder>, 2>{ lo, hi };
+    };
+
+    auto xlo = input.x.limbs[0];
+    auto xhi = input.x.limbs[1];
+    auto ylo = input.y.limbs[0];
+    auto yhi = input.y.limbs[1];
+    auto xhi_split = split_limb(xhi);
+
+    std::vector<fr<Builder>> result(3);
+    result[0] = xlo + xhi_split[0] * shift2;
+    result[1] = xhi_split[1] + ylo * shift1;
+    result[2] = yhi;
+    return result;
+}
+
+template <typename Builder>
+    requires(!IsGoblinBigGroup<Builder, fq<Builder>, fr<Builder>, curve::BN254::Group>)
+inline std::vector<fr<Builder>> convert_bn254_g1_to_bn254_frs(const bn254_element<Builder>& input)
+{
+    fr<Builder> shift1(static_cast<uint256_t>(1) << NUM_LIMB_BITS);
+    fr<Builder> shift2(static_cast<uint256_t>(1) << (NUM_LIMB_BITS * 2));
+
+    std::vector<fr<Builder>> result(3);
+    result[0] = input.x.binary_basis_limbs[0].element + (input.x.binary_basis_limbs[1].element * shift1) +
+                (input.x.binary_basis_limbs[2].element * shift2);
+    result[1] = input.x.binary_basis_limbs[3].element + (input.y.binary_basis_limbs[0].element * shift1) +
+                (input.y.binary_basis_limbs[1].element * shift2);
+    result[2] = input.y.binary_basis_limbs[2].element + (input.y.binary_basis_limbs[3].element * shift1);
+
     return result;
 }
 
@@ -61,8 +166,7 @@ template <typename Builder, typename T> constexpr size_t calc_num_bn254_frs()
     } else if constexpr (IsAnyOf<T, fq<Builder>> || IsAnyOf<T, goblin_field<Builder>>) {
         return Bn254FqParams::NUM_BN254_SCALARS;
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
-        using BaseField = bn254_element<Builder>::BaseField;
-        return 2 * calc_num_bn254_frs<Builder, BaseField>();
+        return 3 * calc_num_bn254_frs<Builder, fr<Builder>>();
     } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
         return 2 * calc_num_bn254_frs<Builder, fr<Builder>>();
     } else {
@@ -98,14 +202,13 @@ template <typename Builder, typename T> T convert_from_bn254_frs(Builder& builde
         goblin_field<Builder> result(fr_vec[0], fr_vec[1]);
         return result;
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
-        using BaseField = bn254_element<Builder>::BaseField;
-        constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, BaseField>();
-        ASSERT(fr_vec.size() == 2 * BASE_FIELD_SCALAR_SIZE);
-        bn254_element<Builder> result;
+        constexpr size_t BASE_FIELD_SCALAR_SIZE = calc_num_bn254_frs<Builder, fr<Builder>>();
+        ASSERT(fr_vec.size() == 3 * BASE_FIELD_SCALAR_SIZE);
+        bn254_element<Builder> result = convert_bn254_frs_to_bn254_g1(fr_vec);
 
-        result.x = convert_from_bn254_frs<Builder, BaseField>(builder, fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
-        result.y = convert_from_bn254_frs<Builder, BaseField>(
-            builder, fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
+        // result.x = convert_from_bn254_frs<Builder, BaseField>(builder, fr_vec.subspan(0, BASE_FIELD_SCALAR_SIZE));
+        // result.y = convert_from_bn254_frs<Builder, BaseField>(
+        //     builder, fr_vec.subspan(BASE_FIELD_SCALAR_SIZE, BASE_FIELD_SCALAR_SIZE));
 
         // We have a convention that the group element is at infinity if both x/y coordinates are 0.
         // We also know that all bn254 field elements are 136-bit scalars.
@@ -158,15 +261,8 @@ template <typename Builder, typename T> std::vector<fr<Builder>> convert_to_bn25
         return fr_vec;
     } else if constexpr (IsAnyOf<T, fq<Builder>>) {
         return convert_grumpkin_fr_to_bn254_frs(val);
-    } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
-        return convert_goblin_fr_to_bn254_frs(val);
     } else if constexpr (IsAnyOf<T, bn254_element<Builder>>) {
-        using BaseField = bn254_element<Builder>::BaseField;
-        auto fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
-        auto fr_vec_y = convert_to_bn254_frs<Builder, BaseField>(val.y);
-        std::vector<fr<Builder>> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
-        fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
-        return fr_vec;
+        return convert_bn254_g1_to_bn254_frs<Builder>(val);
     } else if constexpr (IsAnyOf<T, grumpkin_element<Builder>>) {
         using BaseField = fr<Builder>;
         auto fr_vec_x = convert_to_bn254_frs<Builder, BaseField>(val.x);
