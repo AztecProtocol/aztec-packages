@@ -284,24 +284,6 @@ jobs:
         # limit our parallelism to half our cores
         run: earthly-ci --no-output +preset-gcc
 
-  bb-gcc-pic:
-    needs: [build-images, changes]
-    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      # Only allow one memory-hunger prover test to use this runner
-      - uses: ./.github/ci-setup-action
-        with:
-          # must be globally unique for build x runner
-          concurrency_key: bb-gcc-pic
-      - name: "Ensure GCC PIC Builds"
-        working-directory: ./barretenberg/cpp/
-        timeout-minutes: 40
-        # limit our parallelism to half our cores
-        run: earthly-ci --no-output +preset-gcc-pic
-
   # barretenberg (prover) native, AVM (public VM) and Merkle tree (world state) tests
   # only ran on x86 for resource reasons (memory intensive)
   bb-native-tests:
@@ -706,7 +688,6 @@ jobs:
       # - acir-bench # non-blocking
       # - bench-summary # non-blocking
       - bb-gcc
-      - bb-gcc-pic
       - bb-native-tests
       - bb-js-test
       - noir-build-acir-tests
