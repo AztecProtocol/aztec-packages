@@ -29,7 +29,7 @@ preset-release:
     RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb && rm -rf build/{deps,lib,src}
     SAVE ARTIFACT build/bin
 
-preset-release-pic:
+preset-release-world-state:
   FROM +source
   RUN cmake --preset clang16-pic -Bbuild && cmake --build build --target world_state_napi && cp ./build/lib/world_state_napi.node ./build/bin && rm -rf build/{deps,lib,src}
   SAVE ARTIFACT build/bin
@@ -105,11 +105,6 @@ preset-wasm-threads:
 preset-gcc:
     FROM +source
     RUN cmake --preset gcc -Bbuild && cmake --build build && rm -rf build/{deps,lib,src}
-    SAVE ARTIFACT build/bin
-
-preset-gcc-pic:
-    FROM +source
-    RUN cmake --preset gcc-pic -Bbuild && cmake --build build && rm -rf build/{deps,lib,src}
     SAVE ARTIFACT build/bin
 
 preset-fuzzing:
@@ -274,4 +269,4 @@ build:
     BUILD +preset-wasm
     BUILD +preset-wasm-threads
     BUILD +preset-release
-    BUILD +preset-release-pic
+    BUILD +preset-release-world-state

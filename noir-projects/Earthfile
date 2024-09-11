@@ -8,7 +8,7 @@ source:
   # Install bb
   COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
   # Install world state napi
-  COPY ../barretenberg/cpp/+preset-release-pic/bin/world_state_napi.node /usr/src/barretenberg/cpp/build/bin/world_state_napi.node
+  COPY ../barretenberg/cpp/+preset-release-world-state/bin/world_state_napi.node /usr/src/barretenberg/cpp/build/bin/world_state_napi.node
 
   WORKDIR /usr/src/noir-projects
 
