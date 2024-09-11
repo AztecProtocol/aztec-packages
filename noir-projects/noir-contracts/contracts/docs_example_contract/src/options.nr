@@ -12,7 +12,11 @@ pub fn create_npk_card_getter_options(
     offset: u32
 ) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN, Field, Field> {
     let mut options = NoteGetterOptions::new();
-    options.select(CardNote::properties().npk_m_hash, Comparator.EQ, account_npk_m_hash).sort(CardNote::properties().points, SortOrder.DESC).set_offset(offset)
+    options.select(
+        CardNote::properties().npk_m_hash,
+        Comparator.EQ,
+        account_npk_m_hash
+    ).sort(CardNote::properties().points, SortOrder.DESC).set_offset(offset)
 }
 // docs:end:state_vars-NoteGetterOptionsSelectSortOffset
 

@@ -25,8 +25,7 @@ contract Token {
         encrypted_note_emission::{encode_and_encrypt_note_with_keys, encode_and_encrypt_note_with_keys_unconstrained},
         encrypted_event_emission::encode_and_encrypt_event_with_keys_unconstrained
     },
-        keys::getters::get_current_public_keys,
-        utils::comparison::Comparator,
+        keys::getters::get_current_public_keys, utils::comparison::Comparator
     };
 
     // docs:start:import_authwit

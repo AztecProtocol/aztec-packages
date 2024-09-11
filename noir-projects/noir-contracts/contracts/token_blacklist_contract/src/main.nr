@@ -13,8 +13,7 @@ contract TokenBlacklist {
     use dep::aztec::{
         hash::compute_secret_hash,
         prelude::{AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        utils::comparison::Comparator,
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note, utils::comparison::Comparator
     };
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
