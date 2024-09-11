@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726079002393,
+  "lastUpdate": 1726081709565,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ilyas@aztecprotocol.com",
-            "name": "Ilyas Ridhuan",
-            "username": "IlyasRidhuan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cc12558c8683b67ebfaf37d2018fd87ff52ab974",
-          "message": "refactor(avm): replace range and cmp with gadgets (#8164)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this line.",
-          "timestamp": "2024-08-29T19:50:38+01:00",
-          "tree_id": "311e1a69f4a210cfe17742bcad7db45c9b6b8f34",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cc12558c8683b67ebfaf37d2018fd87ff52ab974"
-        },
-        "date": 1724958341059,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13746.385995999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10742.527569 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5064.125118999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4582.918392999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39756.178349,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39756179000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14761.892755,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14761892000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3899793116,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3899793116 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 219958465,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 219958465 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3101696455,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3101696455 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 174907237,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 174907237 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 120708713,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 120708713 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c1aa6f73d13e860d5fcee07e82347a7633f8b334",
+          "message": "feat: native world state (#7516)\n\nThis PR adds a new CPP module for managing the merkle trees that make up\r\nthe world state. A new implementetion of `MerkleTreeDb` is provided to\r\ninteract with the native code.\r\n\r\nmsgpack is used to pass messages across the js<->cpp boundary. Tests\r\nhave been added to assert that the two world state implementations work\r\nin the same way (more tests would be better).\r\n\r\nThis PR builds on top of #7037.\r\n\r\nPS: I'm not as experienced with C++\r\n\r\n---------\r\n\r\nCo-authored-by: PhilWindle <philip.windle@gmail.com>",
+          "timestamp": "2024-09-11T18:51:22Z",
+          "tree_id": "9836524680064b834aa8d47a0436bfffc1df04d6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c1aa6f73d13e860d5fcee07e82347a7633f8b334"
+        },
+        "date": 1726081702115,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 13267.470184000018,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 10118.305175 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5201.765956999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4781.691881000002 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 39746.689372999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 39746689000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14682.158606,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14682158000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3649750872,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3649750872 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 147086561,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 147086561 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3006639401,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3006639401 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 124088338,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 124088338 ns\nthreads: 1"
           }
         ]
       }
