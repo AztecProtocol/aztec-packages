@@ -59,12 +59,11 @@ mod tests {
         abis::{
         function_selector::FunctionSelector, gas::Gas,
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-        note_hash::NoteHash, public_call_stack_item_compressed::PublicCallStackItemCompressed,
+        public_call_stack_item_compressed::PublicCallStackItemCompressed,
         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-        public_call_data::PublicCallData, public_kernel_data::PublicKernelData,
         read_request::ReadRequest
     },
-        address::AztecAddress, constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, BASE_ROLLUP_INDEX},
+        address::AztecAddress, constants::PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
         contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}, traits::is_empty
     };

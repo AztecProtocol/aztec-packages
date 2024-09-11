@@ -443,7 +443,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     HeaderLib.Header memory header = HeaderLib.decode(_header);
     setupEpoch();
 
-    bytes32 digest = keccak256(abi.encodePacked(_archive, _txHashes));
+    bytes32 digest = keccak256(abi.encode(_archive, _txHashes));
     _validateHeader({
       _header: header,
       _signatures: _signatures,

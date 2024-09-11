@@ -13,6 +13,10 @@ interface MockAvailabilityOracleWrite {
   publish: (args: readonly [`0x${string}`], options: { account: PrivateKeyAccount }) => Promise<`0x${string}`>;
 }
 
+interface MockAvailabilityOracleEstimate {
+  publish: (args: readonly [`0x${string}`], options: { account: PrivateKeyAccount }) => Promise<bigint>;
+}
+
 interface MockAvailabilityOracleRead {
   isAvailable: (args: readonly [`0x${string}`]) => Promise<boolean>;
 }
@@ -21,6 +25,7 @@ class MockAvailabilityOracle {
   constructor(
     public write: MockAvailabilityOracleWrite,
     public simulate: MockAvailabilityOracleWrite,
+    public estimateGas: MockAvailabilityOracleEstimate,
     public read: MockAvailabilityOracleRead,
   ) {}
 }
@@ -69,6 +74,7 @@ describe('L1Publisher', () => {
   let availabilityOracleRead: MockProxy<MockAvailabilityOracleRead>;
   let availabilityOracleWrite: MockProxy<MockAvailabilityOracleWrite>;
   let availabilityOracleSimulate: MockProxy<MockAvailabilityOracleWrite>;
+  let availabilityOracleEstimate: MockProxy<MockAvailabilityOracleEstimate>;
   let availabilityOracle: MockAvailabilityOracle;
 
   let publicClient: MockProxy<MockPublicClient>;
@@ -88,6 +94,8 @@ describe('L1Publisher', () => {
 
   let publisher: L1Publisher;
 
+  const GAS_GUESS = 300_000n;
+
   beforeEach(() => {
     l2Block = L2Block.random(42);
 
@@ -97,7 +105,7 @@ describe('L1Publisher', () => {
     body = l2Block.body.toBuffer();
 
     processTxHash = `0x${Buffer.from('txHashProcess').toString('hex')}`; // random tx hash
-    proposeTxHash = `0x${Buffer.from('txHashpropose').toString('hex')}`; // random tx hash
+    proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash
 
     processTxReceipt = {
       transactionHash: processTxHash,
@@ -118,9 +126,11 @@ describe('L1Publisher', () => {
     availabilityOracleWrite = mock<MockAvailabilityOracleWrite>();
     availabilityOracleRead = mock<MockAvailabilityOracleRead>();
     availabilityOracleSimulate = mock<MockAvailabilityOracleWrite>();
+    availabilityOracleEstimate = mock<MockAvailabilityOracleEstimate>();
     availabilityOracle = new MockAvailabilityOracle(
       availabilityOracleWrite,
       availabilityOracleSimulate,
+      availabilityOracleEstimate,
       availabilityOracleRead,
     );
 
@@ -146,6 +156,7 @@ describe('L1Publisher', () => {
     account = (publisher as any)['account'];
 
     rollupContractRead.getCurrentSlot.mockResolvedValue(l2Block.header.globalVariables.slotNumber.toBigInt());
+    availabilityOracleEstimate.publish.mockResolvedValueOnce(GAS_GUESS);
     publicClient.getBlock.mockResolvedValue({ timestamp: 12n });
   });
 
@@ -153,6 +164,7 @@ describe('L1Publisher', () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     rollupContractWrite.propose.mockResolvedValueOnce(proposeTxHash);
     rollupContractSimulate.propose.mockResolvedValueOnce(proposeTxHash);
+
     publicClient.getTransactionReceipt.mockResolvedValueOnce(proposeTxReceipt);
 
     const result = await publisher.proposeL2Block(l2Block);
@@ -163,12 +175,13 @@ describe('L1Publisher', () => {
       `0x${header.toString('hex')}`,
       `0x${archive.toString('hex')}`,
       `0x${blockHash.toString('hex')}`,
+      [],
       `0x${body.toString('hex')}`,
     ] as const;
-    if (!L1Publisher.SKIP_SIMULATION) {
-      expect(rollupContractSimulate.propose).toHaveBeenCalledWith(args, { account: account });
-    }
-    expect(rollupContractWrite.propose).toHaveBeenCalledWith(args, { account: account });
+    expect(rollupContractWrite.propose).toHaveBeenCalledWith(args, {
+      account: account,
+      gas: L1Publisher.PROPOSE_GAS_GUESS + GAS_GUESS * 2n,
+    });
     expect(publicClient.getTransactionReceipt).toHaveBeenCalledWith({ hash: proposeTxHash });
   });
 
@@ -186,11 +199,9 @@ describe('L1Publisher', () => {
       `0x${header.toString('hex')}`,
       `0x${archive.toString('hex')}`,
       `0x${blockHash.toString('hex')}`,
+      [],
     ] as const;
-    if (!L1Publisher.SKIP_SIMULATION) {
-      expect(rollupContractSimulate.propose).toHaveBeenCalledWith(args, { account });
-    }
-    expect(rollupContractWrite.propose).toHaveBeenCalledWith(args, { account });
+    expect(rollupContractWrite.propose).toHaveBeenCalledWith(args, { account, gas: L1Publisher.PROPOSE_GAS_GUESS });
     expect(publicClient.getTransactionReceipt).toHaveBeenCalledWith({ hash: processTxHash });
   });
 

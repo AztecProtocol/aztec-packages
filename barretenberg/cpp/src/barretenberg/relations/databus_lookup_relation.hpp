@@ -235,7 +235,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         bool nonzero_read_count = false;
         for (size_t i = 0; i < circuit_size; ++i) {
             // Determine if the present row contains a databus operation
-            auto& q_busread = polynomials.q_busread[i];
+            auto q_busread = polynomials.q_busread[i];
             if constexpr (bus_idx == 0) { // calldata
                 is_read = q_busread == 1 && polynomials.q_l[i] == 1;
                 nonzero_read_count = polynomials.calldata_read_counts[i] > 0;
@@ -252,12 +252,14 @@ template <typename FF_> class DatabusLookupRelationImpl {
             if (is_read || nonzero_read_count) {
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
                 auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
-                inverse_polynomial[i] = compute_read_term<FF>(row, relation_parameters) *
-                                        compute_write_term<FF, bus_idx>(row, relation_parameters);
+                auto value = compute_read_term<FF>(row, relation_parameters) *
+                             compute_write_term<FF, bus_idx>(row, relation_parameters);
+                inverse_polynomial.at(i) = value;
             }
         }
         // Compute inverse polynomial I in place by inverting the product at each row
-        FF::batch_invert(inverse_polynomial);
+        // Note: zeroes are ignored as they are not used anyway
+        FF::batch_invert(inverse_polynomial.coeffs());
     };
 
     /**

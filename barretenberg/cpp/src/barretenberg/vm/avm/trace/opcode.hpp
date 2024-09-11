@@ -21,24 +21,33 @@ namespace bb::avm_trace {
  */
 enum class OpCode : uint8_t {
     // Compute
-    // Compute - Arithmetic
-    ADD,
-    SUB,
-    MUL,
-    DIV,
-    FDIV,
-    // Compute - Comparators
-    EQ,
-    LT,
-    LTE,
-    // Compute - Bitwise
-    AND,
-    OR,
-    XOR,
+    ADD_8,
+    ADD_16,
+    SUB_8,
+    SUB_16,
+    MUL_8,
+    MUL_16,
+    DIV_8,
+    DIV_16,
+    FDIV_8,
+    FDIV_16,
+    EQ_8,
+    EQ_16,
+    LT_8,
+    LT_16,
+    LTE_8,
+    LTE_16,
+    AND_8,
+    AND_16,
+    OR_8,
+    OR_16,
+    XOR_8,
+    XOR_16,
     NOT,
-    SHL,
-    SHR,
-    // Compute - Type Conversions
+    SHL_8,
+    SHL_16,
+    SHR_8,
+    SHR_16,
     CAST,
 
     // Execution Environment
@@ -62,13 +71,19 @@ enum class OpCode : uint8_t {
     L2GASLEFT,
     DAGASLEFT,
     // Machine State - Internal Control Flow
-    JUMP,
-    JUMPI,
+    JUMP_16,
+    JUMPI_16,
     INTERNALCALL,
     INTERNALRETURN,
     // Machine State - Memory
-    SET,
-    MOV,
+    SET_8,
+    SET_16,
+    SET_32,
+    SET_64,
+    SET_128,
+    SET_FF,
+    MOV_8,
+    MOV_16,
     CMOV,
 
     // World State

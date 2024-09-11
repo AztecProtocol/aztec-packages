@@ -39,7 +39,7 @@ template <class T> constexpr field<T> field<T>::operator*(const field& other) co
     }
 }
 
-template <class T> constexpr field<T>& field<T>::operator*=(const field& other) noexcept
+template <class T> constexpr field<T>& field<T>::operator*=(const field& other) & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_mul");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
@@ -75,7 +75,7 @@ template <class T> constexpr field<T> field<T>::sqr() const noexcept
     }
 }
 
-template <class T> constexpr void field<T>::self_sqr() noexcept
+template <class T> constexpr void field<T>::self_sqr() & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("f::self_sqr");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
@@ -109,7 +109,7 @@ template <class T> constexpr field<T> field<T>::operator+(const field& other) co
     }
 }
 
-template <class T> constexpr field<T>& field<T>::operator+=(const field& other) noexcept
+template <class T> constexpr field<T>& field<T>::operator+=(const field& other) & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_add");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
@@ -188,7 +188,7 @@ template <class T> constexpr field<T> field<T>::operator-() const noexcept
     return (p - *this).reduce_once(); // modulus - *this;
 }
 
-template <class T> constexpr field<T>& field<T>::operator-=(const field& other) noexcept
+template <class T> constexpr field<T>& field<T>::operator-=(const field& other) & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_sub");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
@@ -204,7 +204,7 @@ template <class T> constexpr field<T>& field<T>::operator-=(const field& other) 
     return *this;
 }
 
-template <class T> constexpr void field<T>::self_neg() noexcept
+template <class T> constexpr void field<T>::self_neg() & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_neg");
     if constexpr ((T::modulus_3 >= 0x4000000000000000ULL) ||
@@ -217,7 +217,7 @@ template <class T> constexpr void field<T>::self_neg() noexcept
     }
 }
 
-template <class T> constexpr void field<T>::self_conditional_negate(const uint64_t predicate) noexcept
+template <class T> constexpr void field<T>::self_conditional_negate(const uint64_t predicate) & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_conditional_negate");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
@@ -313,7 +313,7 @@ template <class T> constexpr field<T> field<T>::from_montgomery_form() const noe
     return operator*(one_raw).reduce_once();
 }
 
-template <class T> constexpr void field<T>::self_to_montgomery_form() noexcept
+template <class T> constexpr void field<T>::self_to_montgomery_form() & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_to_montgomery_form");
     constexpr field r_squared =
@@ -326,7 +326,7 @@ template <class T> constexpr void field<T>::self_to_montgomery_form() noexcept
     self_reduce_once();
 }
 
-template <class T> constexpr void field<T>::self_from_montgomery_form() noexcept
+template <class T> constexpr void field<T>::self_from_montgomery_form() & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_from_montgomery_form");
     constexpr field one_raw{ 1, 0, 0, 0 };
@@ -348,7 +348,7 @@ template <class T> constexpr field<T> field<T>::reduce_once() const noexcept
     }
 }
 
-template <class T> constexpr void field<T>::self_reduce_once() noexcept
+template <class T> constexpr void field<T>::self_reduce_once() & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_reduce_once");
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
@@ -555,14 +555,14 @@ template <class T> constexpr field<T> field<T>::operator/(const field& other) co
     return operator*(other.invert());
 }
 
-template <class T> constexpr field<T>& field<T>::operator/=(const field& other) noexcept
+template <class T> constexpr field<T>& field<T>::operator/=(const field& other) & noexcept
 {
     BB_OP_COUNT_TRACK_NAME("fr::self_div");
     *this = operator/(other);
     return *this;
 }
 
-template <class T> constexpr void field<T>::self_set_msb() noexcept
+template <class T> constexpr void field<T>::self_set_msb() & noexcept
 {
     data[3] = 0ULL | (1ULL << 63ULL);
 }
