@@ -62,7 +62,7 @@ contract Child {
     #[aztec(private)]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let mut options = NoteGetterOptions::new();
-        options = options.select(ValueNote::properties().value,  Comparator.EQ, amount).set_limit(1);
+        options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);
         let notes = storage.a_map_with_private_values.at(owner).get_notes(options);
         notes.get(0).value
     }

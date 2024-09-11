@@ -212,7 +212,7 @@ contract DocsExample {
     }
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
-    unconstrained fn read_note(amount: Field, comparator: u8) -> pub BoundedVec<CardNote, 10> {
+    unconstrained fn read_note(comparator: u8, amount: Field) -> pub BoundedVec<CardNote, 10> {
         let mut options = NoteViewerOptions::new();
         storage.set.view_notes(options.select(CardNote::properties().points, comparator, amount))
     }
