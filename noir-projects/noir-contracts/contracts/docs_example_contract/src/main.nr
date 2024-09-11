@@ -19,7 +19,6 @@ contract DocsExample {
         PrivateSet, SharedImmutable, Deserialize
     };
     use dep::aztec::encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys};
-    use dep::aztec::note::note_getter_options::Comparator;
     use dep::aztec::keys::getters::get_current_public_keys;
     // how to import methods from other files/folders within your workspace
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
@@ -215,13 +214,7 @@ contract DocsExample {
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
     unconstrained fn read_note(amount: Field, comparator: u8) -> pub BoundedVec<CardNote, 10> {
         let mut options = NoteViewerOptions::new();
-        storage.set.view_notes(
-            options.select(
-                CardNote::properties().points,
-                amount,
-                comparator
-            )
-        )
+        storage.set.view_notes(options.select(CardNote::properties().points, comparator, amount))
     }
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
 

@@ -66,10 +66,10 @@ contract StaticChild {
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
         let mut options = NoteGetterOptions::new();
-        options = options.select(ValueNote::properties().value, amount, Comparator.EQ).select(
+        options = options.select(ValueNote::properties().value, Comparator.EQ, amount).select(
             ValueNote::properties().npk_m_hash,
-            owner_npk_m_hash,
-            Comparator.EQ
+            Comparator.EQ,
+            owner_npk_m_hash
         ).set_limit(1);
         let notes = storage.a_private_value.get_notes(options);
         notes.get(0).value

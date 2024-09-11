@@ -168,10 +168,10 @@ contract TokenBlacklist {
         // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
         // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();
-        options = options.select(TransparentNote::properties().amount, amount, Comparator.EQ).select(
+        options = options.select(TransparentNote::properties().amount, Comparator.EQ, amount).select(
             TransparentNote::properties().secret_hash,
-            secret_hash,
-            Comparator.EQ
+            Comparator.EQ,
+            secret_hash
         ).set_limit(1);
 
         let notes = storage.pending_shields.pop_notes(options);

@@ -1,7 +1,6 @@
 use std::option::Option;
 use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::ToField};
 use crate::note::note_interface::NoteInterface;
-use crate::utils::comparison::Comparator;
 
 struct PropertySelector {
     index: u8,
@@ -11,13 +10,15 @@ struct PropertySelector {
 
 struct Select {
     property_selector: PropertySelector,
-    value: Field,
     comparator: u8,
+    value: Field,
 }
 
 impl Select {
-    pub fn new(property_selector: PropertySelector, value: Field, comparator: u8) -> Self {
-        Select { property_selector, value, comparator }
+    // The selected property will be the left hand side and value the right hand side of the operation, so e.g. the
+    // object created by new(property, Comparator.GT, value) represents 'property > value'.
+    pub fn new(property_selector: PropertySelector, comparator: u8, value: Field) -> Self {
+        Select { property_selector, comparator, value }
     }
 }
 
@@ -90,10 +91,10 @@ impl<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOpt
     pub fn select<T>(
         &mut self,
         property_selector: PropertySelector,
-        value: T,
-        comparator: u8
+        comparator: u8,
+        value: T
     ) -> Self where T: ToField {
-        self.selects.push(Option::some(Select::new(property_selector, value.to_field(), comparator)));
+        self.selects.push(Option::some(Select::new(property_selector, comparator, value.to_field())));
         *self
     }
 
