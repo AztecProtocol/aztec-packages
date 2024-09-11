@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../bigfield/bigfield.hpp"
+#include "../bigfield/goblin_field.hpp"
 #include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
@@ -9,21 +10,16 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup_goblin.hpp"
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/707) If using a a circuit builder with Goblin, which is
-// designed to have efficient bb::g1 operations, a developer might accidentally write inefficient circuits
-// using biggroup functions that do not use the OpQueue. We use this concept to prevent compilation of such functions.
-template <typename Builder, typename NativeGroup>
-concept IsNotGoblinInefficiencyTrap = !(IsMegaBuilder<Builder> && std::same_as<NativeGroup, bb::g1>);
-
-namespace bb::stdlib {
+namespace bb::stdlib::element_default {
 
 // ( ͡° ͜ʖ ͡°)
 template <class Builder, class Fq, class Fr, class NativeGroup> class element {
   public:
     using bool_ct = stdlib::bool_t<Builder>;
     using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
-
+    using BaseField = Fq;
     struct secp256k1_wnaf {
         std::vector<field_t<Builder>> wnaf;
         field_t<Builder> positive_skew;
@@ -177,22 +173,13 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
      * We can chain repeated point additions together, where we only require 2 non-native field multiplications per
      * point addition, instead of 3
      **/
-    static chain_add_accumulator chain_add_start(const element& p1, const element& p2)
-        requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
-    static chain_add_accumulator chain_add(const element& p1, const chain_add_accumulator& accumulator)
-        requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
-    static element chain_add_end(const chain_add_accumulator& accumulator)
-        requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
-
-    element montgomery_ladder(const element& other) const
-        requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
-    element montgomery_ladder(const chain_add_accumulator& accumulator)
-        requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
-    element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const
-        requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
-
-    element quadruple_and_add(const std::vector<element>& to_add) const
-        requires(IsNotGoblinInefficiencyTrap<Builder, NativeGroup>);
+    static chain_add_accumulator chain_add_start(const element& p1, const element& p2);
+    static chain_add_accumulator chain_add(const element& p1, const chain_add_accumulator& accumulator);
+    static element chain_add_end(const chain_add_accumulator& accumulator);
+    element montgomery_ladder(const element& other) const;
+    element montgomery_ladder(const chain_add_accumulator& accumulator);
+    element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const;
+    element quadruple_and_add(const std::vector<element>& to_add) const;
 
     typename NativeGroup::affine_element get_value() const
     {
@@ -221,12 +208,6 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
                              const bool with_edgecases = false);
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) max_num_bits is unused; could implement and use
-    // this to optimize other operations.
-    static element goblin_batch_mul(const std::vector<element>& points,
-                                    const std::vector<Fr>& scalars,
-                                    const size_t max_num_bits = 0);
 
     // we want to conditionally compile this method iff our curve params are the BN254 curve.
     // This is a bit tricky to do with `std::enable_if`, because `bn254_endo_batch_mul` is a member function of a class
@@ -938,16 +919,31 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         typename std::conditional<HasPlookup<Builder>, batch_lookup_table_plookup<>, batch_lookup_table_base>::type;
 };
 
-template <typename T>
-concept IsBigGroup = std::is_same_v<typename T::biggroup_tag, T>;
-
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, element<C, Fq, Fr, G> const& v)
 {
     return os << "{ " << v.x << " , " << v.y << " }";
 }
-} // namespace bb::stdlib
+} // namespace bb::stdlib::element_default
 
+namespace bb::stdlib {
+template <typename T>
+concept IsBigGroup = std::is_same_v<typename T::biggroup_tag, T>;
+
+template <typename Builder, class Fq, class Fr, class NativeGroup>
+concept IsGoblinBigGroup =
+    IsMegaBuilder<Builder> && std::same_as<Fq, bb::stdlib::bigfield<Builder, bb::Bn254FqParams>> &&
+    std::same_as<Fr, bb::stdlib::field_t<Builder>> && std::same_as<NativeGroup, bb::g1>;
+
+/**
+ * @brief element wraps either element_default::element or element_goblin::goblin_element depending on parametrisation
+ * @details if C = MegaBuilder, G = bn254, Fq = bigfield<C, bb::Bn254FqParams>, Fr = field_t then we're cooking
+ */
+template <typename C, typename Fq, typename Fr, typename G>
+using element = std::conditional_t<IsGoblinBigGroup<C, Fq, Fr, G>,
+                                   element_goblin::goblin_element<C, goblin_field<C>, Fr, G>,
+                                   element_default::element<C, Fq, Fr, G>>;
+} // namespace bb::stdlib
 #include "biggroup_batch_mul.hpp"
 #include "biggroup_bn254.hpp"
 #include "biggroup_goblin.hpp"

@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 
-namespace bb::stdlib {
+namespace bb::stdlib::element_default {
 
 /**
  * @brief Compute an offset generator for use in biggroup tables
@@ -100,4 +100,4 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
 
     return { points, scalars };
 }
-} // namespace bb::stdlib
+} // namespace bb::stdlib::element_default
