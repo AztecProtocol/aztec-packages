@@ -31,7 +31,8 @@ pub enum AvmOpcode {
     SHL_16,
     SHR_8,
     SHR_16,
-    CAST,
+    CAST_8,
+    CAST_16,
     // Execution environment
     ADDRESS,
     STORAGEADDRESS,
@@ -133,7 +134,8 @@ impl AvmOpcode {
             AvmOpcode::SHR_8 => "SHR_8",
             AvmOpcode::SHR_16 => "SHR_16",
             // Compute - Type Conversions
-            AvmOpcode::CAST => "CAST",
+            AvmOpcode::CAST_8 => "CAST_8",
+            AvmOpcode::CAST_16 => "CAST_16",
 
             // Execution Environment
             AvmOpcode::ADDRESS => "ADDRESS",
