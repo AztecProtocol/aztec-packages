@@ -489,7 +489,7 @@ TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
         const auto& q_3 = input_elements.q_o;
         const auto& q_4 = input_elements.q_4;
         const auto& q_poseidon2_external = input_elements.q_poseidon2_external;
-
+        input_elements.q_poseidon2_internal = 0;
         SumcheckArrayOfValuesOverSubrelations expected_values;
 
         // add round constants
@@ -561,6 +561,7 @@ TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
         const auto& w_4_shift = input_elements.w_4_shift;
         const auto& q_1 = input_elements.q_l;
         const auto& q_poseidon2_internal = input_elements.q_poseidon2_internal;
+        input_elements.q_poseidon2_external = 0;
         SumcheckArrayOfValuesOverSubrelations expected_values;
 
         // add round constants on only first element
