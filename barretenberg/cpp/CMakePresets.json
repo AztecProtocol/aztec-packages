@@ -478,6 +478,11 @@
       "configurePreset": "clang16-pic"
     },
     {
+      "name": "default-pic",
+      "inherits": "default",
+      "configurePreset": "default-pic"
+    },
+    {
       "name": "tracy-gates",
       "inherits": "default",
       "configurePreset": "tracy-gates"
