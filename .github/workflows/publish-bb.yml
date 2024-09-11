@@ -17,6 +17,7 @@ on:
 permissions:
   # Necessary to upload new release artifacts
   contents: write
+  issues: write
 
 jobs:
   build-x86_64-linux-gnu:
