@@ -96,8 +96,13 @@ export class ReqResp {
   ): Promise<Buffer | undefined> {
     try {
       const stream = await this.libp2p.dialProtocol(peerId, subProtocol);
+      this.logger.debug(`Stream opened with ${peerId.publicKey} for ${subProtocol}`);
 
       const result = await pipe([payload], stream, this.readMessage);
+
+      await stream.close();
+      this.logger.debug(`Stream closed with ${peerId.publicKey} for ${subProtocol}`);
+
       return result;
     } catch (e) {
       this.logger.warn(`Failed to send request to peer ${peerId.publicKey}`);

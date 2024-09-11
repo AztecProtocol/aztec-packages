@@ -1,5 +1,6 @@
 import { BlockAttestation, BlockProposal, type TxHash } from '@aztec/circuit-types';
 import { type Header } from '@aztec/circuits.js';
+import { keccak256 } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { type ValidatorKeyStore } from '../key_store/interface.js';
@@ -16,16 +17,17 @@ export class ValidationService {
    *
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
-  async createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
-    // Note: just signing the archive for now
-    const archiveBuf = archive.toBuffer();
-    const sig = await this.keyStore.sign(archiveBuf);
+  createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
+    const payloadSigner = (payload: Buffer) => this.keyStore.sign(payload);
 
-    return new BlockProposal(header, archive, txs, sig);
+    return BlockProposal.createProposalFromSigner(header, archive, txs, payloadSigner);
   }
 
   /**
    * Attest to the given block proposal constructed by the current sequencer
+   *
+   * NOTE: This is just a blind signing.
+   *       We assume that the proposal is valid and DA guarantees have been checked previously.
    *
    * @param proposal - The proposal to attest to
    * @returns attestation
@@ -33,8 +35,8 @@ export class ValidationService {
   async attestToProposal(proposal: BlockProposal): Promise<BlockAttestation> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7961): check that the current validator is correct
 
-    const buf = proposal.archive.toBuffer();
+    const buf = keccak256(proposal.getPayload());
     const sig = await this.keyStore.sign(buf);
-    return new BlockAttestation(proposal.header, proposal.archive, sig);
+    return new BlockAttestation(proposal.header, proposal.archive, proposal.txs, sig);
   }
 }

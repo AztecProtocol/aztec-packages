@@ -1,6 +1,7 @@
 import { L2Block, type ViemSignature } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import { sleep } from '@aztec/foundation/sleep';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -9,31 +10,11 @@ import { type GetTransactionReceiptReturnType, type PrivateKeyAccount } from 'vi
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1Publisher } from './l1-publisher.js';
 
-interface MockAvailabilityOracleWrite {
-  publish: (args: readonly [`0x${string}`], options: { account: PrivateKeyAccount }) => Promise<`0x${string}`>;
-}
-
-interface MockAvailabilityOracleEstimate {
-  publish: (args: readonly [`0x${string}`], options: { account: PrivateKeyAccount }) => Promise<bigint>;
-}
-
-interface MockAvailabilityOracleRead {
-  isAvailable: (args: readonly [`0x${string}`]) => Promise<boolean>;
-}
-
-class MockAvailabilityOracle {
-  constructor(
-    public write: MockAvailabilityOracleWrite,
-    public simulate: MockAvailabilityOracleWrite,
-    public estimateGas: MockAvailabilityOracleEstimate,
-    public read: MockAvailabilityOracleRead,
-  ) {}
-}
-
 interface MockPublicClient {
   getTransactionReceipt: ({ hash }: { hash: '0x${string}' }) => Promise<GetTransactionReceiptReturnType>;
   getBlock(): Promise<{ timestamp: bigint }>;
   getTransaction: ({ hash }: { hash: '0x${string}' }) => Promise<{ input: `0x${string}`; hash: `0x${string}` }>;
+  estimateGas: ({ to, data }: { to: '0x${string}'; data: '0x${string}' }) => Promise<bigint>;
 }
 
 interface MockRollupContractWrite {
@@ -58,30 +39,17 @@ interface MockRollupContractRead {
 }
 
 class MockRollupContract {
-  constructor(
-    public write: MockRollupContractWrite,
-    public simulate: MockRollupContractWrite,
-    public read: MockRollupContractRead,
-  ) {}
+  constructor(public write: MockRollupContractWrite, public read: MockRollupContractRead, public abi = RollupAbi) {}
 }
 
 describe('L1Publisher', () => {
   let rollupContractRead: MockProxy<MockRollupContractRead>;
   let rollupContractWrite: MockProxy<MockRollupContractWrite>;
-  let rollupContractSimulate: MockProxy<MockRollupContractWrite>;
   let rollupContract: MockRollupContract;
-
-  let availabilityOracleRead: MockProxy<MockAvailabilityOracleRead>;
-  let availabilityOracleWrite: MockProxy<MockAvailabilityOracleWrite>;
-  let availabilityOracleSimulate: MockProxy<MockAvailabilityOracleWrite>;
-  let availabilityOracleEstimate: MockProxy<MockAvailabilityOracleEstimate>;
-  let availabilityOracle: MockAvailabilityOracle;
 
   let publicClient: MockProxy<MockPublicClient>;
 
-  let processTxHash: `0x${string}`;
   let proposeTxHash: `0x${string}`;
-  let processTxReceipt: GetTransactionReceiptReturnType;
   let proposeTxReceipt: GetTransactionReceiptReturnType;
   let l2Block: L2Block;
 
@@ -104,14 +72,8 @@ describe('L1Publisher', () => {
     blockHash = l2Block.header.hash().toBuffer();
     body = l2Block.body.toBuffer();
 
-    processTxHash = `0x${Buffer.from('txHashProcess').toString('hex')}`; // random tx hash
     proposeTxHash = `0x${Buffer.from('txHashPropose').toString('hex')}`; // random tx hash
 
-    processTxReceipt = {
-      transactionHash: processTxHash,
-      status: 'success',
-      logs: [],
-    } as unknown as GetTransactionReceiptReturnType;
     proposeTxReceipt = {
       transactionHash: proposeTxHash,
       status: 'success',
@@ -119,20 +81,8 @@ describe('L1Publisher', () => {
     } as unknown as GetTransactionReceiptReturnType;
 
     rollupContractWrite = mock<MockRollupContractWrite>();
-    rollupContractSimulate = mock<MockRollupContractWrite>();
     rollupContractRead = mock<MockRollupContractRead>();
-    rollupContract = new MockRollupContract(rollupContractWrite, rollupContractSimulate, rollupContractRead);
-
-    availabilityOracleWrite = mock<MockAvailabilityOracleWrite>();
-    availabilityOracleRead = mock<MockAvailabilityOracleRead>();
-    availabilityOracleSimulate = mock<MockAvailabilityOracleWrite>();
-    availabilityOracleEstimate = mock<MockAvailabilityOracleEstimate>();
-    availabilityOracle = new MockAvailabilityOracle(
-      availabilityOracleWrite,
-      availabilityOracleSimulate,
-      availabilityOracleEstimate,
-      availabilityOracleRead,
-    );
+    rollupContract = new MockRollupContract(rollupContractWrite, rollupContractRead);
 
     publicClient = mock<MockPublicClient>();
 
@@ -141,7 +91,6 @@ describe('L1Publisher', () => {
       l1ChainId: 1,
       publisherPrivateKey: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`,
       l1Contracts: {
-        availabilityOracleAddress: EthAddress.ZERO.toString(),
         rollupAddress: EthAddress.ZERO.toString(),
       },
       l1PublishRetryIntervalMS: 1,
@@ -149,21 +98,19 @@ describe('L1Publisher', () => {
 
     publisher = new L1Publisher(config, new NoopTelemetryClient());
 
-    (publisher as any)['availabilityOracleContract'] = availabilityOracle;
     (publisher as any)['rollupContract'] = rollupContract;
     (publisher as any)['publicClient'] = publicClient;
 
     account = (publisher as any)['account'];
 
     rollupContractRead.getCurrentSlot.mockResolvedValue(l2Block.header.globalVariables.slotNumber.toBigInt());
-    availabilityOracleEstimate.publish.mockResolvedValueOnce(GAS_GUESS);
     publicClient.getBlock.mockResolvedValue({ timestamp: 12n });
+    publicClient.estimateGas.mockResolvedValue(GAS_GUESS);
   });
 
   it('publishes and propose l2 block to l1', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
     rollupContractWrite.propose.mockResolvedValueOnce(proposeTxHash);
-    rollupContractSimulate.propose.mockResolvedValueOnce(proposeTxHash);
 
     publicClient.getTransactionReceipt.mockResolvedValueOnce(proposeTxReceipt);
 
@@ -176,46 +123,19 @@ describe('L1Publisher', () => {
       `0x${archive.toString('hex')}`,
       `0x${blockHash.toString('hex')}`,
       [],
+      [],
       `0x${body.toString('hex')}`,
     ] as const;
     expect(rollupContractWrite.propose).toHaveBeenCalledWith(args, {
       account: account,
-      gas: L1Publisher.PROPOSE_GAS_GUESS + GAS_GUESS * 2n,
+      gas: L1Publisher.PROPOSE_GAS_GUESS + GAS_GUESS,
     });
     expect(publicClient.getTransactionReceipt).toHaveBeenCalledWith({ hash: proposeTxHash });
   });
 
-  it('publishes l2 block to l1 (already published body)', async () => {
-    availabilityOracleRead.isAvailable.mockResolvedValueOnce(true);
-    rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    rollupContractWrite.propose.mockResolvedValueOnce(processTxHash);
-    rollupContractSimulate.propose.mockResolvedValueOnce(processTxHash);
-    publicClient.getTransactionReceipt.mockResolvedValueOnce(processTxReceipt);
-
-    const result = await publisher.processL2Block(l2Block);
-
-    expect(result).toEqual(true);
-    const args = [
-      `0x${header.toString('hex')}`,
-      `0x${archive.toString('hex')}`,
-      `0x${blockHash.toString('hex')}`,
-      [],
-    ] as const;
-    expect(rollupContractWrite.propose).toHaveBeenCalledWith(args, { account, gas: L1Publisher.PROPOSE_GAS_GUESS });
-    expect(publicClient.getTransactionReceipt).toHaveBeenCalledWith({ hash: processTxHash });
-  });
-
   it('does not retry if sending a propose tx fails', async () => {
-    availabilityOracleRead.isAvailable.mockResolvedValueOnce(true);
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    rollupContractWrite.propose
-      .mockRejectedValueOnce(new Error())
-      .mockResolvedValueOnce(processTxHash as `0x${string}`);
-
-    // Note that simulate will be valid both times
-    rollupContractSimulate.propose
-      .mockResolvedValueOnce(processTxHash as `0x${string}`)
-      .mockResolvedValueOnce(processTxHash as `0x${string}`);
+    rollupContractWrite.propose.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxHash);
 
     const result = await publisher.processL2Block(l2Block);
 
@@ -235,7 +155,6 @@ describe('L1Publisher', () => {
 
   it('does not retry if sending a publish and propose tx fails', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    rollupContractSimulate.propose.mockResolvedValueOnce(proposeTxHash as `0x${string}`);
     rollupContractWrite.propose.mockRejectedValueOnce(new Error());
 
     const result = await publisher.processL2Block(l2Block);
@@ -245,11 +164,9 @@ describe('L1Publisher', () => {
   });
 
   it('retries if fetching the receipt fails (propose)', async () => {
-    availabilityOracleRead.isAvailable.mockResolvedValueOnce(true);
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    rollupContractSimulate.propose.mockResolvedValueOnce(processTxHash);
-    rollupContractWrite.propose.mockResolvedValueOnce(processTxHash);
-    publicClient.getTransactionReceipt.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(processTxReceipt);
+    rollupContractWrite.propose.mockResolvedValueOnce(proposeTxHash);
+    publicClient.getTransactionReceipt.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxReceipt);
 
     const result = await publisher.processL2Block(l2Block);
 
@@ -259,7 +176,6 @@ describe('L1Publisher', () => {
 
   it('retries if fetching the receipt fails (publish propose)', async () => {
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    rollupContractSimulate.propose.mockResolvedValueOnce(proposeTxHash as `0x${string}`);
     rollupContractWrite.propose.mockResolvedValueOnce(proposeTxHash as `0x${string}`);
     publicClient.getTransactionReceipt.mockRejectedValueOnce(new Error()).mockResolvedValueOnce(proposeTxReceipt);
 
@@ -280,10 +196,9 @@ describe('L1Publisher', () => {
   });
 
   it('returns false if propose tx reverts', async () => {
-    availabilityOracleRead.isAvailable.mockResolvedValueOnce(true);
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
 
-    publicClient.getTransactionReceipt.mockResolvedValueOnce({ ...processTxReceipt, status: 'reverted' });
+    publicClient.getTransactionReceipt.mockResolvedValueOnce({ ...proposeTxReceipt, status: 'reverted' });
 
     const result = await publisher.processL2Block(l2Block);
 
@@ -303,9 +218,8 @@ describe('L1Publisher', () => {
   });
 
   it('returns false if sending propose tx is interrupted', async () => {
-    availabilityOracleRead.isAvailable.mockResolvedValueOnce(true);
     rollupContractRead.archive.mockResolvedValue(l2Block.header.lastArchive.root.toString() as `0x${string}`);
-    rollupContractWrite.propose.mockImplementationOnce(() => sleep(10, processTxHash) as Promise<`0x${string}`>);
+    rollupContractWrite.propose.mockImplementationOnce(() => sleep(10, proposeTxHash) as Promise<`0x${string}`>);
 
     const resultPromise = publisher.processL2Block(l2Block);
     publisher.interrupt();
