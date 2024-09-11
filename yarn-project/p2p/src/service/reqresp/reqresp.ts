@@ -178,7 +178,7 @@ export class ReqResp {
     if (!this.rateLimiter.allow(protocol, connection.remotePeer)) {
       this.logger.warn(`Rate limit exceeded for ${protocol} from ${connection.remotePeer}`);
 
-      // TODO: handle changing peer scoring for failed rate limit, maybe differentiate between global and peer limits here when punishing
+      // TODO(#8483): handle changing peer scoring for failed rate limit, maybe differentiate between global and peer limits here when punishing
       await stream.close();
       return;
     }
