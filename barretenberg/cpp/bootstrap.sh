@@ -64,7 +64,7 @@ function build_native {
   cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
   cmake --build --preset $PRESET --target bb
   cmake --build --preset $PIC_PRESET --target world_state_napi
-  # copy the world_state_napi build artifact over to the world state in yarh-project
+  # copy the world_state_napi build artifact over to the world state in yarn-project
   mkdir -p ../../yarn-project/world-state/build/
   cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
 }
