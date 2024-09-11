@@ -524,10 +524,7 @@ export class Sequencer {
 
     const numberOfRequiredAttestations = Math.floor((committee.length * 2) / 3) + 1;
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7974): we do not have transaction[] lists in the block for now
-    // Dont do anything with the proposals for now - just collect them
-
-    this.log.verbose('ATTEST | Creating block proposal');
+    this.log.verbose('Creating block proposal');
     const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
 
     this.state = SequencerState.PUBLISHING_BLOCK_TO_PEERS;
@@ -553,7 +550,7 @@ export class Sequencer {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
 
-    const publishedL2Block = await this.publisher.processL2Block(block, attestations, txHashes);
+    const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes);
     if (publishedL2Block) {
       this.lastPublishedBlock = block.number;
     } else {

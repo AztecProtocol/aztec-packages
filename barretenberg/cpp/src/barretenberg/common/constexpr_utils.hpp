@@ -5,6 +5,21 @@
 #include <utility>
 
 namespace bb {
+namespace detail {
+
+/**
+ * @brief Create an index sequence from Min to Max (not included) with an increment of Inc
+ */
+template <size_t Min, size_t Max, size_t Inc> constexpr auto make_index_range()
+{
+    static_assert(Max >= Min);
+    static_assert(Inc >= 1);
+    return []<size_t... Is>(std::index_sequence<Is...>) {
+        return std::index_sequence<Min + (Is * Inc)...>{};
+    }(std::make_index_sequence<(Max - Min - 1) / Inc + 1>{});
+}
+
+} // namespace detail
 
 /**
  * @brief Implements a loop using a compile-time iterator. Requires c++20.
@@ -55,37 +70,11 @@ namespace bb {
  */
 template <size_t Start, size_t End, size_t Inc, class F> constexpr void constexpr_for(F&& f)
 {
-    // Call function `f<Start>()` iff Start < End
-    if constexpr (Start < End) {
-        // F must be a template lambda with a single **typed** template parameter that represents the iterator
-        // (e.g. [&]<size_t i>(){ ... } is good)
-        // (and [&]<typename i>(){ ... } won't compile!)
-
-        /**
-         * Explaining f.template operator()<Start>()
-         *
-         * The following line must explicitly tell the compiler that <Start> is a template parameter by using the
-         * `template` keyword.
-         * (if we wrote f<Start>(), the compiler could legitimately interpret `<` as a less than symbol)
-         *
-         * The fragment `f.template` tells the compiler that we're calling a *templated* member of `f`.
-         * The "member" being called is the function operator, `operator()`, which must be explicitly provided
-         * (for any function X, `X(args)` is an alias for `X.operator()(args)`)
-         * The compiler has no alias `X.template <tparam>(args)` for `X.template operator()<tparam>(args)` so we must
-         * write it explicitly here
-         *
-         * To summarize what the next line tells the compiler...
-         * 1. I want to call a member of `f` that expects one or more template parameters
-         * 2. The member of `f` that I want to call is the function operator
-         * 3. The template parameter is `Start`
-         * 4. The function operator itself contains no arguments
-         */
-        f.template operator()<Start>();
-
-        // Once we have executed `f`, we recursively call the `constexpr_for` function, increasing the value of `Start`
-        // by `Inc`
-        constexpr_for<Start + Inc, End, Inc>(f);
-    }
+    // F must be a template lambda with a single **typed** template parameter that represents the iterator
+    // (e.g. [&]<size_t i>(){ ... } is good)
+    // (and [&]<typename i>(){ ... } won't compile!)
+    constexpr auto indices = detail::make_index_range<Start, End, Inc>();
+    [&]<size_t... Is>(std::index_sequence<Is...>) { (f.template operator()<Is>(), ...); }(indices);
 }
 
 }; // namespace bb

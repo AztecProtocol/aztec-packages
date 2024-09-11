@@ -225,11 +225,11 @@ export class L1Publisher {
   }
 
   /**
-   * Publishes L2 block on L1.
-   * @param block - L2 block to publish.
+   * Proposes a L2 block on L1.
+   * @param block - L2 block to propose.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(block: L2Block, attestations?: Signature[], txHashes?: TxHash[]): Promise<boolean> {
+  public async proposeL2Block(block: L2Block, attestations?: Signature[], txHashes?: TxHash[]): Promise<boolean> {
     const ctx = {
       blockNumber: block.number,
       slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
