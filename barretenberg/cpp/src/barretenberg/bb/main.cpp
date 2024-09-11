@@ -47,14 +47,9 @@ std::string getHomeDir()
 }
 
 std::string CRS_PATH = getHomeDir() + "/.bb-crs";
+
 const std::filesystem::path current_path = std::filesystem::current_path();
 const auto current_dir = current_path.filename().string();
-
-static constexpr size_t CRS_MINIMUM_SIZE = 128;
-size_t size_or_min(const size_t in)
-{
-    return in > CRS_MINIMUM_SIZE ? in : CRS_MINIMUM_SIZE;
-}
 
 /**
  * @brief Initialize the global crs_factory for bn254 based on a known dyadic circuit size
@@ -200,7 +195,7 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
 
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(size_or_min(srs_size));
+    init_bn254_crs(srs_size);
 
     // Construct Honk proof
     Prover prover{ builder };
@@ -1064,7 +1059,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
 
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(size_or_min(srs_size));
+    init_bn254_crs(srs_size);
 
     Prover prover{ builder };
     return prover;
@@ -1301,7 +1296,7 @@ void prove_honk_output_all(const std::string& bytecodePath,
 
     auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
-    init_bn254_crs(size_or_min(srs_size));
+    init_bn254_crs(srs_size);
 
     // Construct Honk proof
     Prover prover{ builder };
