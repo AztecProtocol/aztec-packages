@@ -59,10 +59,12 @@ echo "# When running cmake directly, remember to use: --build --preset $PRESET"
 echo "#################################"
 
 function build_native {
+  # Build bb with standard preset and world_state_napi with Position Independent code variant
   cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
   cmake --preset $PIC_PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
   cmake --build --preset $PRESET --target bb
   cmake --build --preset $PIC_PRESET --target world_state_napi
+  # copy the world_state_napi build artifact over to the world state in yarh-project
   mkdir -p ../../yarn-project/world-state/build/
   cp ./build-pic/lib/world_state_napi.node ../../yarn-project/world-state/build/
 }

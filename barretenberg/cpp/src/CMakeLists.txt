@@ -55,7 +55,7 @@ else()
 endif()
 
 if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  message("Building with PIC")
+  message("Building with Position Independent Code")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
   set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -fPIC")
   add_subdirectory(barretenberg/world_state_napi)
