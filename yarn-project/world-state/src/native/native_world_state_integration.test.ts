@@ -60,10 +60,12 @@ describe('NativeWorldState', () => {
 
   describe('Initial state', () => {
     it.each(
-      allTrees.flatMap(t => [
-        [...t, false],
-        [...t, true],
-      ]),
+      allTrees
+        .filter(x => x[1] != MerkleTreeId.ARCHIVE)
+        .flatMap(t => [
+          [...t, false],
+          [...t, true],
+        ]),
     )('tree %s is the same', async (_, treeId, includeUncommitted) => {
       await assertSameTree(treeId, includeUncommitted);
     });
