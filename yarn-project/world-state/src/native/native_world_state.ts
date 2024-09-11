@@ -3,6 +3,7 @@ import {
   type HandleL2BlockAndMessagesResult,
   type IndexedTreeId,
   type L2Block,
+  MerkleTreeAdminOperations,
   MerkleTreeId,
   type MerkleTreeLeafType,
   type MerkleTreeOperations,
@@ -34,7 +35,10 @@ import { Decoder, Encoder, addExtension } from 'msgpackr';
 import { isAnyArrayBuffer } from 'util/types';
 
 import { type MerkleTreeDb, type TreeSnapshots } from '../world-state-db/merkle_tree_db.js';
-import { MerkleTreeOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
+import {
+  MerkleTreeAdminOperationsFacade,
+  MerkleTreeOperationsFacade,
+} from '../world-state-db/merkle_tree_operations_facade.js';
 import {
   MessageHeader,
   type SerializedIndexedLeaf,
@@ -105,8 +109,8 @@ export class NativeWorldStateService implements MerkleTreeDb {
     }
   }
 
-  public asLatest(): MerkleTreeOperations {
-    return new MerkleTreeOperationsFacade(this, true);
+  public asLatest(): MerkleTreeAdminOperations {
+    return new MerkleTreeAdminOperationsFacade(this, true);
   }
 
   // async buildInitialHeader(ic: boolean = false): Promise<Header> {

@@ -17,12 +17,12 @@ import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 
-import { type MerkleTrees } from '../world-state-db/index.js';
 import {
   MerkleTreeAdminOperationsFacade,
   MerkleTreeOperationsFacade,
 } from '../world-state-db/merkle_tree_operations_facade.js';
 import { MerkleTreeSnapshotOperationsFacade } from '../world-state-db/merkle_tree_snapshot_operations_facade.js';
+import { type MerkleTrees } from '../world-state-db/merkle_trees.js';
 import { type WorldStateConfig } from './config.js';
 import {
   WorldStateRunningState,
@@ -53,7 +53,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
 
   constructor(
     store: AztecKVStore,
-    private merkleTreeDb: MerkleTreeDb,
+    private merkleTreeDb: MerkleTrees,
     private l2BlockSource: L2BlockSource & L1ToL2MessageSource,
     private config: WorldStateConfig,
     private log = createDebugLogger('aztec:world_state'),
