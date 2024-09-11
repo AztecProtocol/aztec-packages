@@ -127,7 +127,7 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     FoldingResult<Flavor> result{ .accumulator = keys[0], .proof = std::move(transcript->proof_data) };
     result.accumulator->is_accumulator = true;
 
-    // Compute the next target sum (for its use; must be computed by the verifier)
+    // Compute the next target sum (for its own use; verifier must compute its own values)
     auto [vanishing_polynomial_at_challenge, lagranges] =
         Fun::compute_vanishing_polynomial_and_lagranges(combiner_challenge);
     result.accumulator->target_sum = perturbator_evaluation * lagranges[0] +
