@@ -213,6 +213,13 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                     self.increment_program_counter()
                 }
             }
+            Opcode::Not { destination, source, bit_size } => {
+                if let Err(error) = self.process_not(*source, *destination, *bit_size) {
+                    self.fail(error)
+                } else {
+                    self.increment_program_counter()
+                }
+            }
             Opcode::Cast { destination: destination_address, source: source_address, bit_size } => {
                 let source_value = self.memory.read(*source_address);
                 let casted_value = self.cast(*bit_size, source_value);
@@ -707,6 +714,36 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
 
         let result_value = evaluate_binary_int_op(&op, lhs_value, rhs_value, bit_size)?;
         self.memory.write(result, result_value);
+        Ok(())
+    }
+
+    fn process_not(
+        &mut self,
+        source: MemoryAddress,
+        destination: MemoryAddress,
+        op_bit_size: IntegerBitSize,
+    ) -> Result<(), String> {
+        let (value, bit_size) = self
+            .memory
+            .read(source)
+            .extract_integer()
+            .ok_or("Not opcode source is not an integer")?;
+
+        if bit_size != op_bit_size {
+            return Err(format!(
+                "Not opcode source bit size {} does not match expected bit size {}",
+                bit_size, op_bit_size
+            ));
+        }
+
+        let negated_value = if let IntegerBitSize::U128 = bit_size {
+            !value
+        } else {
+            let bit_size: u32 = bit_size.into();
+            let mask = (1_u128 << bit_size as u128) - 1;
+            (!value) & mask
+        };
+        self.memory.write(destination, MemoryValue::new_integer(negated_value, bit_size));
         Ok(())
     }
 

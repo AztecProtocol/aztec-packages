@@ -179,6 +179,17 @@ pub fn brillig_to_avm(
                     ],
                 });
             }
+            BrilligOpcode::Not { destination, source, bit_size } => {
+                avm_instrs.push(AvmInstruction {
+                    opcode: AvmOpcode::NOT,
+                    indirect: Some(ALL_DIRECT),
+                    operands: vec![
+                        AvmOperand::U32 { value: source.to_usize() as u32 },
+                        AvmOperand::U32 { value: destination.to_usize() as u32 },
+                    ],
+                    tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
+                });
+            }
             BrilligOpcode::CalldataCopy { destination_address, size_address, offset_address } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::CALLDATACOPY,
