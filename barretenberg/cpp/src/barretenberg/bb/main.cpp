@@ -1,3 +1,4 @@
+#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
 #include "barretenberg/bb/file_io.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/map.hpp"
@@ -329,6 +330,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     using Program = acir_format::AcirProgram;
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
+    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
 
     init_bn254_crs(1 << 24);
     init_grumpkin_crs(1 << 15);
@@ -342,10 +344,9 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
         std::vector<uint8_t> buffer =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[i][0]), gzippedBincodes[i].size()); // NOLINT
 
-        std::vector<acir_format::AcirFormat> constraint_systems = acir_format::program_buf_to_acir_format(
-            buffer,
-            false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                    // this assumes that folding is never done with ultrahonk.
+        std::vector<acir_format::AcirFormat> constraint_systems =
+            acir_format::program_buf_to_acir_format(buffer,
+                                                    /*honk_recursion=*/false);
         std::vector<uint8_t> witnessBuffer =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&witnessMaps[i][0]), witnessMaps[i].size()); // NOLINT
         acir_format::WitnessVectorStack witness_stack = acir_format::witness_buf_to_witness_stack(witnessBuffer);
@@ -353,14 +354,13 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
         folding_stack.push_back(program_stack.back());
     }
     // TODO(#7371) dedupe this with the rest of the similar code
-    ClientIVC ivc;
+    AztecIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     // Accumulate the entire program stack into the IVC
     for (Program& program : folding_stack) {
-        // auto& stack_item = program_stack.witness_stack[i];
-
-        // Construct a bberg circuit from the acir representation
+        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
         auto circuit =
             acir_format::create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
         ivc.accumulate(circuit);
@@ -378,12 +378,12 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_vk = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.decider_vk);
+    auto last_vk = std::make_shared<DeciderVerificationKey>(ivc.honk_vk);
     vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
-    write_file(vkPath, to_buffer(ivc.decider_vk));
+    write_file(vkPath, to_buffer(ivc.honk_vk));
     write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
     write_file(eccVkPath, to_buffer(eccvm_vk));
@@ -513,12 +513,12 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_vk = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.decider_vk);
+    auto last_vk = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.honk_vk);
     vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
-    write_file(vkPath, to_buffer(ivc.decider_vk)); // maybe dereference
+    write_file(vkPath, to_buffer(ivc.honk_vk)); // maybe dereference
     write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
     write_file(eccVkPath, to_buffer(eccvm_vk));
@@ -1349,6 +1349,8 @@ int main(int argc, char* argv[])
             std::cerr << "No command provided.\n";
             return 1;
         }
+
+        verbose_logging = true;
 
         std::string command = args[0];
         vinfo("bb command is: ", command);

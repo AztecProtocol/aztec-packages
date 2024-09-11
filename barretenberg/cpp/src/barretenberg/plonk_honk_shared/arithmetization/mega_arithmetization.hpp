@@ -98,7 +98,7 @@ template <typename FF_> class MegaArith {
     struct E2eStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         E2eStructuredBlockSizes()
         {
-            this->ecc_op = 1 << 9;
+            this->ecc_op = 1 << 10;
             this->pub_inputs = 4000;
             this->arithmetic = 200000;
             this->delta_range = 25000;

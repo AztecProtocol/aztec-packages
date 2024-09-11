@@ -47,7 +47,7 @@ class ClientIVCRecursionTests : public testing::Test {
         }
 
         Proof proof = ivc.prove();
-        FoldVerifierInput fold_verifier_input{ ivc.verifier_accumulator, { ivc.decider_vk } };
+        FoldVerifierInput fold_verifier_input{ ivc.verifier_accumulator, { ivc.honk_vk } };
         GoblinVerifierInput goblin_verifier_input{ std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key()),
                                                    std::make_shared<TranslatorVK>(
                                                        ivc.goblin.get_translator_proving_key()) };

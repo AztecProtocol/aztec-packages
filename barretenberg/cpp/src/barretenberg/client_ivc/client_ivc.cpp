@@ -21,7 +21,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
         // Construct stdlib accumulator, vkey and proof
         auto stdlib_verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_accumulator);
-        auto stdlib_decider_vk = std::make_shared<RecursiveVerificationKey>(&circuit, decider_vk);
+        auto stdlib_decider_vk = std::make_shared<RecursiveVerificationKey>(&circuit, honk_vk);
         auto stdlib_proof = bb::convert_proof_to_witness(&circuit, fold_output.proof);
 
         FoldingRecursiveVerifier verifier{ &circuit, stdlib_verifier_accum, { stdlib_decider_vk } };
@@ -50,15 +50,15 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
 
     // Set the verification key from precomputed if available, else compute it
     if (precomputed_vk) {
-        decider_vk = precomputed_vk;
+        honk_vk = precomputed_vk;
     } else {
-        decider_vk = std::make_shared<VerificationKey>(decider_pk->proving_key);
+        honk_vk = std::make_shared<VerificationKey>(decider_pk->proving_key);
     }
 
     // If the IVC is uninitialized, simply initialize the prover and verifier accumulators
     if (!initialized) {
         fold_output.accumulator = decider_pk;
-        verifier_accumulator = std::make_shared<DeciderVerificationKey>(decider_vk);
+        verifier_accumulator = std::make_shared<DeciderVerificationKey>(honk_vk);
         initialized = true;
     } else { // Otherwise, fold the new proving key into the accumulator
         FoldingProver folding_prover({ fold_output.accumulator, decider_pk });
@@ -142,7 +142,7 @@ std::vector<std::shared_ptr<ClientIVC::VerificationKey>> ClientIVC::precompute_f
 
     for (auto& circuit : circuits) {
         accumulate(circuit);
-        vkeys.emplace_back(decider_vk);
+        vkeys.emplace_back(honk_vk);
     }
 
     // Reset the scheme so it can be reused for actual accumulation, maintaining the trace structure setting as is
@@ -163,7 +163,7 @@ bool ClientIVC::prove_and_verify()
 {
     auto proof = prove();
 
-    auto verifier_inst = std::make_shared<DeciderVerificationKey>(this->decider_vk);
+    auto verifier_inst = std::make_shared<DeciderVerificationKey>(this->honk_vk);
     return verify(proof, { this->verifier_accumulator, verifier_inst });
 }
 

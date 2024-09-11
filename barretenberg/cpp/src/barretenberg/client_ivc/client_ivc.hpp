@@ -66,7 +66,7 @@ class ClientIVC {
     GoblinProver goblin;
     ProverFoldOutput fold_output;
     std::shared_ptr<DeciderVerificationKey> verifier_accumulator;
-    std::shared_ptr<VerificationKey> decider_vk;
+    std::shared_ptr<VerificationKey> honk_vk;
 
     // A flag indicating whether or not to construct a structured trace in the DeciderProvingKey
     TraceStructure trace_structure = TraceStructure::NONE;
