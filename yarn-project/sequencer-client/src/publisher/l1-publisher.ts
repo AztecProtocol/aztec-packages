@@ -1,8 +1,8 @@
 import { type L2Block, type Signature, type TxHash } from '@aztec/circuit-types';
+import { getHashedSignaturePayload } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import { ETHEREUM_SLOT_DURATION, EthAddress, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
-import { keccak256 } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
@@ -255,7 +255,7 @@ export class L1Publisher {
       blockHash: block.hash().toString(),
     };
 
-    const digest = keccak256(serializeToBuffer(block.archive.root, txHashes ?? []));
+    const digest = getHashedSignaturePayload(block.archive.root, txHashes ?? []);
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),

@@ -3,9 +3,10 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { keccak256, recoverMessageAddress } from 'viem';
+import { recoverMessageAddress } from 'viem';
 
 import { TxHash } from '../tx/tx_hash.js';
+import { get0xStringHashedSignaturePayload, getSignaturePayload } from './block_utils.js';
 import { Gossipable } from './gossipable.js';
 import { Signature } from './signature.js';
 import { TopicType, createTopicString } from './topic_type.js';
@@ -55,7 +56,7 @@ export class BlockAttestation extends Gossipable {
   async getSender() {
     if (!this.sender) {
       // Recover the sender from the attestation
-      const hashed = keccak256(this.getPayload());
+      const hashed = get0xStringHashedSignaturePayload(this.archive, this.txHashes);
       const address = await recoverMessageAddress({
         message: { raw: hashed },
         signature: this.signature.to0xString(),
@@ -68,7 +69,7 @@ export class BlockAttestation extends Gossipable {
   }
 
   getPayload(): Buffer {
-    return serializeToBuffer([this.archive, this.txHashes]);
+    return getSignaturePayload(this.archive, this.txHashes);
   }
 
   toBuffer(): Buffer {
