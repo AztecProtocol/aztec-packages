@@ -26,6 +26,23 @@ impl UnaryOp {
         // docs:end:is_dereference
         self.op == 3
     }
+
+    // docs:start:unary_quoted
+    pub comptime fn quoted(self) -> Quoted {
+        // docs:end:unary_quoted
+        if self.is_minus() {
+            quote { - }
+        } else if self.is_not() {
+            quote { ! }
+        } else if self.is_mutable_reference() {
+            quote { &mut }
+        } else if self.is_dereference() {
+            quote { * }
+        } else {
+            let op = self;
+            crate::panic::panic(f"Unexpected unary operator in UnaryOp::quoted: {op}")
+        }
+    }
 }
 
 struct BinaryOp {
@@ -127,6 +144,47 @@ impl BinaryOp {
     pub fn is_modulo(self) -> bool {
         // docs:end:is_modulo
         self.op == 15
+    }
+
+    // docs:start:binary_quoted
+    pub comptime fn quoted(self) -> Quoted {
+        // docs:end:binary_quoted
+        if self.is_add() {
+            quote { + }
+        } else if self.is_subtract() {
+            quote { - }
+        } else if self.is_multiply() {
+            quote { * }
+        } else if self.is_divide() {
+            quote { / }
+        } else if self.is_equal() {
+            quote { == }
+        } else if self.is_not_equal() {
+            quote { != }
+        } else if self.is_less_than() {
+            quote { < }
+        } else if self.is_less_than_or_equal() {
+            quote { <= }
+        } else if self.is_greater_than() {
+            quote { > }
+        } else if self.is_greater_than_or_equal() {
+            quote { >= }
+        } else if self.is_and() {
+            quote { & }
+        } else if self.is_or() {
+            quote { | }
+        } else if self.is_xor() {
+            quote { ^ }
+        } else if self.is_shift_right() {
+            quote { >> }
+        } else if self.is_shift_left() {
+            quote { << }
+        } else if self.is_modulo() {
+            quote { % }
+        } else {
+            let op = self;
+            crate::panic::panic(f"Unexpected binary operator in BinaryOp::quoted: {op}")
+        }
     }
 }
 

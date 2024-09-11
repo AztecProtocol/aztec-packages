@@ -1,32 +1,47 @@
 import { type IndexedTreeId, MerkleTreeId } from '@aztec/circuit-types';
 import {
   type Fr,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   type MAX_NULLIFIERS_PER_TX,
   type MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  type MAX_PUBLIC_DATA_HINTS,
   type MAX_PUBLIC_DATA_READS_PER_TX,
   type MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
+  NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   type Nullifier,
   PUBLIC_DATA_TREE_HEIGHT,
-  type PublicDataHint,
   type PublicDataRead,
   type PublicDataTreeLeafPreimage,
   type PublicDataUpdateRequest,
   type ScopedReadRequest,
+  type TreeLeafReadRequest,
+  TreeLeafReadRequestHint,
   buildNullifierNonExistentReadRequestHints,
   buildPublicDataHint,
   buildPublicDataHints,
-  buildPublicDataReadRequestHints,
   buildSiloedNullifierReadRequestHints,
 } from '@aztec/circuits.js';
+import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 export class HintsBuilder {
   constructor(private db: MerkleTreeOperations) {}
+
+  async getNoteHashReadRequestsHints(
+    readRequests: Tuple<TreeLeafReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_TX>,
+  ) {
+    return await this.getTreeLeafReadRequestsHints(
+      readRequests,
+      MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+      NOTE_HASH_TREE_HEIGHT,
+      MerkleTreeId.NOTE_HASH_TREE,
+    );
+  }
 
   async getNullifierReadRequestHints(
     nullifierReadRequests: Tuple<ScopedReadRequest, typeof MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
@@ -50,6 +65,17 @@ export class HintsBuilder {
     return buildNullifierNonExistentReadRequestHints(this, nullifierNonExistentReadRequests, pendingNullifiers);
   }
 
+  async getL1ToL2MsgReadRequestsHints(
+    readRequests: Tuple<TreeLeafReadRequest, typeof MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX>,
+  ) {
+    return await this.getTreeLeafReadRequestsHints(
+      readRequests,
+      MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
+      L1_TO_L2_MSG_TREE_HEIGHT,
+      MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+    );
+  }
+
   getPublicDataHints(
     publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
     publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
@@ -60,14 +86,6 @@ export class HintsBuilder {
   getPublicDataHint(dataAction: PublicDataRead | PublicDataUpdateRequest | bigint) {
     const slot = typeof dataAction === 'bigint' ? dataAction : dataAction.leafSlot.toBigInt();
     return buildPublicDataHint(this, slot);
-  }
-
-  getPublicDataReadRequestHints(
-    publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
-    publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-    publicDataHints: Tuple<PublicDataHint, typeof MAX_PUBLIC_DATA_HINTS>,
-  ) {
-    return buildPublicDataReadRequestHints(publicDataReads, publicDataUpdateRequests, publicDataHints);
   }
 
   async getNullifierMembershipWitness(nullifier: Fr) {
@@ -120,8 +138,8 @@ export class HintsBuilder {
     treeHeight: TREE_HEIGHT,
     index: bigint,
   ) {
-    const siblingPath = await this.db.getSiblingPath(treeId, index);
-    const membershipWitness = new MembershipWitness<TREE_HEIGHT>(treeHeight, index, siblingPath.toTuple());
+    const siblingPath = await this.db.getSiblingPath<TREE_HEIGHT>(treeId, index);
+    const membershipWitness = new MembershipWitness(treeHeight, index, siblingPath.toTuple());
 
     const leafPreimage = await this.db.getLeafPreimage(treeId, index);
     if (!leafPreimage) {
@@ -129,5 +147,22 @@ export class HintsBuilder {
     }
 
     return { membershipWitness, leafPreimage };
+  }
+
+  private async getTreeLeafReadRequestsHints<N extends number, TREE_HEIGHT extends number>(
+    readRequests: Tuple<TreeLeafReadRequest, N>,
+    size: N,
+    treeHeight: TREE_HEIGHT,
+    treeId: MerkleTreeId,
+  ): Promise<Tuple<TreeLeafReadRequestHint<TREE_HEIGHT>, N>> {
+    const hints = makeTuple(size, () => TreeLeafReadRequestHint.empty(treeHeight));
+    for (let i = 0; i < readRequests.length; i++) {
+      const request = readRequests[i];
+      if (!request.isEmpty()) {
+        const siblingPath = await this.db.getSiblingPath<typeof treeHeight>(treeId, request.leafIndex.toBigInt());
+        hints[i] = new TreeLeafReadRequestHint(treeHeight, siblingPath.toTuple());
+      }
+    }
+    return hints;
   }
 }

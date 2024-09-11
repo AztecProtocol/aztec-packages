@@ -13,7 +13,7 @@ As for that, we highly recommend reading [this very nice post](https://dba.xyz/d
 Essentially Data Publication $\subset$ Data Availability, since if it is available, it must also have been published.
 This difference might be small but becomes important in a few moments.
 
-Progressing the state of the validating light node requires that we can convince it (and therefore the [availability oracle](./index.md#availability-oracle)) that the data was published - as it needs to compute the public inputs for the proof.
+Progressing the state of the validating light node requires that we can convince it that the data was published - as it needs to compute the public inputs for the proof.
 The exact method of computing these public inputs can vary depending on the data layer, but generally, it could be by providing the data directly or by using data availability sampling or a data availability committee.
 
 The exact mechanism greatly impacts the security and cost of the system, and will be discussed in the following sections.
@@ -246,7 +246,7 @@ Assuming that this is a decent guess, and we can estimate the data requirements 
 Using the values from just above for transaction data requirements, we can get a ball park estimate of what we can expect to require at different throughput levels.
 
 <!-- prettier-ignore -->
-|Throughput | Everyone | Someone | Total | 
+|Throughput | Everyone | Someone | Total |
 |:-----:|:-----:|:-----:|:-----:|
 | 1 TPS | $512 \dfrac{byte}{s}$ | $1036 \dfrac{byte}{s}$ | $1548 \dfrac{byte}{s}$ |
 | 10 TPS | $5120 \dfrac{byte}{s}$ | $10360 \dfrac{byte}{s}$ | $15480 \dfrac{byte}{s}$ |

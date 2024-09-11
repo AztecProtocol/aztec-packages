@@ -1,6 +1,7 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
 import {
   type BlockProver,
+  type MerkleTreeAdminOperations,
   type ProcessedTx,
   type PublicExecutionRequest,
   type ServerCircuitProver,
@@ -45,7 +46,7 @@ export class TestContext {
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
-    public actualDb: MerkleTreeOperations,
+    public actualDb: MerkleTreeAdminOperations,
     public prover: ServerCircuitProver,
     public proverAgent: ProverAgent,
     public orchestrator: ProvingOrchestrator,
@@ -75,7 +76,7 @@ export class TestContext {
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const telemetry = new NoopTelemetryClient();
 
-    let actualDb: MerkleTreeOperations;
+    let actualDb: MerkleTreeAdminOperations;
 
     if (worldState === 'native') {
       const dir = await fs.mkdtemp(join(tmpdir(), 'prover-client-world-state-'));

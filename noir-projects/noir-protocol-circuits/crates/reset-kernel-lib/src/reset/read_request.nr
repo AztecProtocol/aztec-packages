@@ -27,6 +27,16 @@ impl Empty for ReadRequestStatus {
     }
 }
 
+impl ReadRequestStatus {
+    pub fn pending(hint_index: u32) -> Self {
+        ReadRequestStatus { state: ReadRequestState.PENDING, hint_index }
+    }
+
+    pub fn settled(hint_index: u32) -> Self {
+        ReadRequestStatus { state: ReadRequestState.SETTLED, hint_index }
+    }
+}
+
 trait ReadValueHint {
     fn read_request_index(self) -> u32;
 }
@@ -62,7 +72,7 @@ fn validate_pending_read_requests<let READ_REQUEST_LEN: u32, T, let PENDING_VALU
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
     pending_values: [T; PENDING_VALUE_LEN],
     hints: [PendingReadHint; NUM_PENDING_READS]
-) where T: Readable {
+) where T: Readable<ScopedReadRequest> {
     for i in 0..NUM_PENDING_READS {
         let hint = hints[i];
         let read_request_index = hint.read_request_index;
@@ -80,9 +90,9 @@ fn validate_settled_read_requests<let READ_REQUEST_LEN: u32, let NUM_SETTLED_REA
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
     hints: [H; NUM_SETTLED_READS],
     tree_root: Field
-) where 
-    H: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE> + ReadValueHint, 
-    LEAF_PREIMAGE: LeafPreimage + Readable {
+) where
+    H: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE> + ReadValueHint,
+    LEAF_PREIMAGE: LeafPreimage + Readable<ScopedReadRequest> {
     for i in 0..NUM_SETTLED_READS {
         let hint = hints[i];
         let read_request_index = hint.read_request_index();
@@ -143,10 +153,10 @@ pub fn verify_reset_read_requests<
     settled_read_hints: [H; NUM_SETTLED_READS],
     tree_root: Field,
     propagated_read_requests: [ScopedReadRequest; READ_REQUEST_LEN]
-) where 
-    P: Readable, 
+) where
+    P: Readable<ScopedReadRequest>,
     H: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE> + ReadValueHint,
-    LEAF_PREIMAGE: LeafPreimage + Readable {
+    LEAF_PREIMAGE: LeafPreimage + Readable<ScopedReadRequest> {
     validate_pending_read_requests(read_requests, pending_values, pending_read_hints);
 
     validate_settled_read_requests(read_requests, settled_read_hints, tree_root);
@@ -197,7 +207,7 @@ mod tests {
         counter: u32,
     }
 
-    impl Readable for TestValue {
+    impl Readable<ScopedReadRequest> for TestValue {
         fn assert_match_read_request(self, read_request: ScopedReadRequest) {
             let siloed_value = silo_test_value(read_request.value());
             assert_eq(self.value, siloed_value, "Hinted test value does not match");
@@ -226,7 +236,7 @@ mod tests {
         }
     }
 
-    impl Readable for TestLeafPreimage {
+    impl Readable<ScopedReadRequest> for TestLeafPreimage {
         fn assert_match_read_request(self, read_request: ScopedReadRequest) {
             let siloed_value = silo_test_value(read_request.value());
             assert_eq(siloed_value, self.value, "Provided leaf preimage is not for target value");
@@ -271,8 +281,8 @@ mod tests {
         leaf_preimages: [TestLeafPreimage; NUM_SETTLED_READS],
     }
 
-    impl<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32, let NUM_SETTLED_READS: u32> TestBuilder<READ_REQUEST_LEN, PENDING_VALUE_LEN, NUM_PENDING_READS, NUM_SETTLED_READS> {
-        pub fn new() -> TestBuilder<4, 2, 2, 2> {
+    impl TestBuilder<4, 2, 2, 2> {
+        pub fn new() -> Self {
             let contract_address = AztecAddress::from_field(123);
 
             // Create 4 values. 10 and 11 are settled. 12 and 13 are pending.
@@ -310,8 +320,10 @@ mod tests {
 
             TestBuilder { read_requests, read_request_statuses, pending_values, pending_read_hints, leaf_preimages }
         }
+    }
 
-        fn build_tree<N>(self) -> NonEmptyMerkleTree<2, 3, 2, 1> {
+    impl<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32, let NUM_SETTLED_READS: u32> TestBuilder<READ_REQUEST_LEN, PENDING_VALUE_LEN, NUM_PENDING_READS, NUM_SETTLED_READS> {
+        fn build_tree(self) -> NonEmptyMerkleTree<2, 3, 2, 1> {
             NonEmptyMerkleTree::new(
                 [self.leaf_preimages[0].as_leaf(), self.leaf_preimages[1].as_leaf()],
                 [0; 3],
@@ -346,7 +358,7 @@ mod tests {
             TestSettledReadHint::nada(self.read_requests.len())
         }
 
-        pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
+        unconstrained pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
             get_unverified_read_requests(self.read_requests, self.read_request_statuses)
         }
 
@@ -373,6 +385,9 @@ mod tests {
 
         pub fn verify_with_settled_hints(self, settled_hints: [TestSettledReadHint; 2]) {
             let tree = self.build_tree();
+            let unverified = unsafe {
+                self.get_unverified_read_requests()
+            };
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
@@ -380,12 +395,15 @@ mod tests {
                 self.pending_read_hints,
                 settled_hints,
                 tree.get_root(),
-                self.get_unverified_read_requests()
+                unverified
             );
         }
 
         pub fn verify(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
+            let unverified = unsafe {
+                self.get_unverified_read_requests()
+            };
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
@@ -393,7 +411,7 @@ mod tests {
                 self.pending_read_hints,
                 settled_hints,
                 tree_root,
-                self.get_unverified_read_requests()
+                unverified
             );
         }
     }
@@ -495,7 +513,9 @@ mod tests {
     fn verify_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
 
-        let unverified_read_requests = builder.get_unverified_read_requests();
+        let unverified_read_requests = unsafe {
+            builder.get_unverified_read_requests()
+        };
         assert(is_empty_array(unverified_read_requests));
 
         builder.verify();
@@ -513,7 +533,9 @@ mod tests {
         settled_hints[0] = builder.get_nada_settled_read_hint();
 
         let read_requests = builder.read_requests;
-        let unverified_read_requests = builder.get_unverified_read_requests();
+        let unverified_read_requests = unsafe {
+            builder.get_unverified_read_requests()
+        };
         assert_array_eq(
             unverified_read_requests,
             [read_requests[0], read_requests[2]]

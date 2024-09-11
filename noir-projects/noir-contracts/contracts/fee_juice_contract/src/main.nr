@@ -99,31 +99,6 @@ contract FeeJuice {
         storage.balances.at(to).write(new_balance);
     }
 
-    // TODO(palla/gas) Remove this function and use the private claim flow only
-    #[aztec(public)]
-    fn claim_public(to: AztecAddress, amount: Field, secret: Field, leaf_index: Field) {
-        let content_hash = get_bridge_gas_msg_hash(to, amount);
-        let portal_address = storage.portal_address.read_public();
-        assert(!portal_address.is_zero());
-
-        // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content_hash, secret, portal_address, leaf_index);
-
-        let new_balance = storage.balances.at(to).read() + U128::from_integer(amount);
-        storage.balances.at(to).write(new_balance);
-    }
-
-    // TODO(@just-mitch): remove this function before mainnet deployment
-    // convenience function for testing
-    // the true canonical Fee Juice contract will not have this function
-    #[aztec(public)]
-    fn mint_public(to: AztecAddress, amount: Field) {
-        let amount = U128::from_integer(amount);
-        let new_balance = storage.balances.at(to).read().add(amount);
-
-        storage.balances.at(to).write(new_balance);
-    }
-
     #[aztec(public)]
     #[aztec(view)]
     fn check_balance(fee_limit: Field) {

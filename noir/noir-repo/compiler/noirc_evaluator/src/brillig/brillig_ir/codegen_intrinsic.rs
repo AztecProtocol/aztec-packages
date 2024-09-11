@@ -1,12 +1,12 @@
 use acvm::acir::{
-    brillig::{BlackBoxOp, HeapArray, IntegerBitSize},
+    brillig::{BlackBoxOp, IntegerBitSize},
     AcirField,
 };
 
 use crate::brillig::brillig_ir::BrilligBinaryOp;
 
 use super::{
-    brillig_variable::{BrilligVector, SingleAddrVariable},
+    brillig_variable::{BrilligArray, SingleAddrVariable},
     debug_show::DebugToString,
     registers::RegisterAllocator,
     BrilligContext,
@@ -67,27 +67,29 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
     pub(crate) fn codegen_to_radix(
         &mut self,
         source_field: SingleAddrVariable,
-        target_vector: BrilligVector,
+        target_array: BrilligArray,
         radix: u32,
-        limb_count: usize,
         big_endian: bool,
         output_bits: bool, // If true will generate bit limbs, if false will generate byte limbs
     ) {
         assert!(source_field.bit_size == F::max_num_bits());
 
-        self.usize_const_instruction(target_vector.size, limb_count.into());
-        self.usize_const_instruction(target_vector.rc, 1_usize.into());
-        self.codegen_allocate_array(target_vector.pointer, target_vector.size);
+        self.codegen_initialize_array(target_array);
+
+        let heap_array = self.codegen_brillig_array_to_heap_array(target_array);
 
         self.black_box_op_instruction(BlackBoxOp::ToRadix {
             input: source_field.address,
             radix,
-            output: HeapArray { pointer: target_vector.pointer, size: limb_count },
+            output: heap_array,
             output_bits,
         });
 
         if big_endian {
-            self.codegen_array_reverse(target_vector.pointer, target_vector.size);
+            let items_len = self.make_usize_constant_instruction(target_array.size.into());
+            self.codegen_array_reverse(heap_array.pointer, items_len.address);
+            self.deallocate_single_addr(items_len);
         }
+        self.deallocate_register(heap_array.pointer);
     }
 }

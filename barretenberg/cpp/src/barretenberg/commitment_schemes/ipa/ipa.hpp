@@ -1,9 +1,11 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
@@ -161,9 +163,14 @@ template <typename Curve_> class IPA {
 
         // Step 4.
         // Set initial vector a to the polynomial monomial coefficients and load vector G
-        auto a_vec = polynomial;
-        auto* srs_elements = ck->srs->get_monomial_points();
+        // Ensure the polynomial copy is fully-formed
+        auto a_vec = polynomial.full();
+        std::span<Commitment> srs_elements = ck->srs->get_monomial_points();
         std::vector<Commitment> G_vec_local(poly_length);
+
+        if (poly_length * 2 > srs_elements.size()) {
+            throw_or_abort("potential bug: Not enough SRS points for IPA!");
+        }
 
         // The SRS stored in the commitment key is the result after applying the pippenger point table so the
         // values at odd indices contain the point {srs[i-1].x * beta, srs[i-1].y}, where beta is the endomorphism
@@ -212,16 +219,16 @@ template <typename Curve_> class IPA {
                 }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
             // Sum inner product contributions computed in parallel and unpack the std::pair
             auto [inner_prod_L, inner_prod_R] = sum_pairs(inner_prods);
-            // Step 6.a (using letters, because doxygen automaticall converts the sublist counters to letters :( )
+            // Step 6.a (using letters, because doxygen automatically converts the sublist counters to letters :( )
             // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
             L_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                &a_vec[0], &G_vec_local[round_size], round_size, ck->pippenger_runtime_state);
+                {&a_vec.at(0), /*size*/ round_size}, {&G_vec_local[round_size], /*size*/ round_size}, ck->pippenger_runtime_state);
             L_i += aux_generator * inner_prod_L;
 
             // Step 6.b
             // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
             R_i = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-                &a_vec[round_size], &G_vec_local[0], round_size, ck->pippenger_runtime_state);
+                {&a_vec.at(round_size), /*size*/ round_size}, {&G_vec_local[0], /*size*/ round_size}, ck->pippenger_runtime_state);
             R_i += aux_generator * inner_prod_R;
 
             // Step 6.c
@@ -257,7 +264,7 @@ template <typename Curve_> class IPA {
             parallel_for_heuristic(
                 round_size,
                 [&](size_t j) {
-                    a_vec[j] += round_challenge * a_vec[round_size + j];
+                    a_vec.at(j) += round_challenge * a_vec[round_size + j];
                     b_vec[j] += round_challenge_inv * b_vec[round_size + j];
                 }, thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
         }
@@ -345,7 +352,7 @@ template <typename Curve_> class IPA {
         // Step 5.
         // Compute C₀ = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
         GroupElement LR_sums = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            &msm_scalars[0], &msm_elements[0], pippenger_size, vk->pippenger_runtime_state);
+            {&msm_scalars[0], /*size*/ pippenger_size}, {&msm_elements[0], /*size*/ pippenger_size}, vk->pippenger_runtime_state);
         GroupElement C_zero = C_prime + LR_sums;
 
         //  Step 6.
@@ -377,8 +384,10 @@ template <typename Curve_> class IPA {
                 }
             }, thread_heuristics::FF_MULTIPLICATION_COST * log_poly_degree);
 
-        auto* srs_elements = vk->get_monomial_points();
-
+        std::span<const Commitment> srs_elements = vk->get_monomial_points();
+        if (poly_length * 2 > srs_elements.size()) {
+            throw_or_abort("potential bug: Not enough SRS points for IPA!");
+        }
         // Copy the G_vector to local memory.
         std::vector<Commitment> G_vec_local(poly_length);
 
@@ -394,7 +403,7 @@ template <typename Curve_> class IPA {
         // Step 8.
         // Compute G₀
         Commitment G_zero = bb::scalar_multiplication::pippenger_without_endomorphism_basis_points<Curve>(
-            &s_vec[0], &G_vec_local[0], poly_length, vk->pippenger_runtime_state);
+            {&s_vec[0], /*size*/ poly_length}, {&G_vec_local[0], /*size*/ poly_length}, vk->pippenger_runtime_state);
 
         // Step 9.
         // Receive a₀ from the prover
@@ -570,6 +579,49 @@ template <typename Curve_> class IPA {
                                              const OpeningClaim<Curve>& opening_claim,
                                              const auto& transcript)
     {
+        return reduce_verify_internal(vk, opening_claim, transcript);
+    }
+    /**
+     * @brief A method that produces an IPA opening claim from Shplemini accumulator containing vectors of commitments
+     * and scalars and a Shplonk evaluation challenge.
+     *
+     * @details Compute the commitment \f$ C \f$ that will be used to prove that Shplonk batching is performed correctly
+     * and check the evaluation claims of the batched univariate polynomials. The check is done by verifying that the
+     * polynomial corresponding to \f$ C \f$ evaluates to \f$ 0 \f$ at the Shplonk challenge point \f$ z \f$.
+     *
+     */
+    static OpeningClaim<Curve> reduce_batch_opening_claim(
+        const BatchOpeningClaim<Curve>&  batch_opening_claim)
+    {
+        using Utils = CommitmentSchemesUtils<Curve>;
+        // Extract batch_mul arguments from the accumulator
+        const auto& commitments = batch_opening_claim.commitments;
+        const auto& scalars = batch_opening_claim.scalars;
+        const Fr& shplonk_eval_challenge = batch_opening_claim.evaluation_point;
+        // Compute \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$
+        GroupElement shplonk_output_commitment;
+        if constexpr (Curve::is_stdlib_type) {
+            shplonk_output_commitment =
+                GroupElement::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+        } else {
+            shplonk_output_commitment = Utils::batch_mul_native(commitments, scalars);
+        }
+        // Output an opening claim to be verified by the IPA opening protocol
+        return { { shplonk_eval_challenge, Fr(0) }, shplonk_output_commitment };
+    }
+    /**
+     * @brief Verify the IPA opening claim obtained from a Shplemini accumulator
+     *
+     * @param batch_opening_claim
+     * @param vk
+     * @param transcript
+     * @return VerifierAccumulator
+     */
+    static VerifierAccumulator reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
+                                                                 const std::shared_ptr<VK>& vk,
+                                                                 auto& transcript)
+    {
+        const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
         return reduce_verify_internal(vk, opening_claim, transcript);
     }
 };

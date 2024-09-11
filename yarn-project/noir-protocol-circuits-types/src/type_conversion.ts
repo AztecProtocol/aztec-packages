@@ -32,11 +32,12 @@ import {
   type KeyValidationHint,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
   L2ToL1Message,
-  type LeafDataReadHint,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -96,8 +97,8 @@ import {
   PublicCallStackItemCompressed,
   type PublicCircuitPublicInputs,
   type PublicDataHint,
+  type PublicDataLeafHint,
   PublicDataRead,
-  type PublicDataReadRequestHints,
   type PublicDataTreeLeaf,
   type PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
@@ -127,8 +128,11 @@ import {
   type StateDiffHints,
   StateReference,
   type TransientDataIndexHint,
+  TreeLeafReadRequest,
+  type TreeLeafReadRequestHint,
   TxContext,
   type TxRequest,
+  VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -166,7 +170,6 @@ import type {
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
   L2ToL1Message as L2ToL1MessageNoir,
-  LeafDataReadHint as LeafDataReadHintNoir,
   LogHash as LogHashNoir,
   MaxBlockNumber as MaxBlockNumberNoir,
   MembershipWitness as MembershipWitnessNoir,
@@ -215,8 +218,8 @@ import type {
   PublicCallStackItem as PublicCallStackItemNoir,
   PublicCircuitPublicInputs as PublicCircuitPublicInputsNoir,
   PublicDataHint as PublicDataHintNoir,
+  PublicDataLeafHint as PublicDataLeafHintNoir,
   PublicDataRead as PublicDataReadNoir,
-  PublicDataReadRequestHints as PublicDataReadRequestHintsNoir,
   PublicDataTreeLeaf as PublicDataTreeLeafNoir,
   PublicDataTreeLeafPreimage as PublicDataTreeLeafPreimageNoir,
   PublicDataUpdateRequest as PublicDataUpdateRequestNoir,
@@ -244,8 +247,11 @@ import type {
   StorageRead as StorageReadNoir,
   StorageUpdateRequest as StorageUpdateRequestNoir,
   TransientDataIndexHint as TransientDataIndexHintNoir,
+  TreeLeafReadRequestHint as TreeLeafReadRequestHintNoir,
+  TreeLeafReadRequest as TreeLeafReadRequestNoir,
   TxContext as TxContextNoir,
   TxRequest as TxRequestNoir,
+  VerificationKey as VerificationKeyNoir,
 } from './types/index.js';
 
 /* eslint-disable camelcase */
@@ -812,6 +818,17 @@ export function mapScopedReadRequestFromNoir(scoped: ScopedReadRequestNoir): Sco
   );
 }
 
+function mapTreeLeafReadRequestToNoir(readRequest: TreeLeafReadRequest): TreeLeafReadRequestNoir {
+  return {
+    value: mapFieldToNoir(readRequest.value),
+    leaf_index: mapFieldToNoir(readRequest.leafIndex),
+  };
+}
+
+function mapTreeLeafReadRequestFromNoir(readRequest: TreeLeafReadRequestNoir) {
+  return new TreeLeafReadRequest(mapFieldFromNoir(readRequest.value), mapFieldFromNoir(readRequest.leaf_index));
+}
+
 /**
  * Maps a KeyValidationRequest to a noir KeyValidationRequest.
  * @param request - The KeyValidationRequest.
@@ -1052,7 +1069,11 @@ export function mapPublicDataUpdateRequestToNoir(
  * @returns The parsed public data read.
  */
 export function mapPublicDataReadFromNoir(publicDataRead: PublicDataReadNoir): PublicDataRead {
-  return new PublicDataRead(mapFieldFromNoir(publicDataRead.leaf_slot), mapFieldFromNoir(publicDataRead.value));
+  return new PublicDataRead(
+    mapFieldFromNoir(publicDataRead.leaf_slot),
+    mapFieldFromNoir(publicDataRead.value),
+    mapNumberFromNoir(publicDataRead.counter),
+  );
 }
 
 /**
@@ -1064,6 +1085,7 @@ export function mapPublicDataReadToNoir(publicDataRead: PublicDataRead): PublicD
   return {
     leaf_slot: mapFieldToNoir(publicDataRead.leafSlot),
     value: mapFieldToNoir(publicDataRead.value),
+    counter: mapNumberToNoir(publicDataRead.counter),
   };
 }
 
@@ -1081,10 +1103,11 @@ function mapPendingReadHintToNoir(hint: PendingReadHint): PendingReadHintNoir {
   };
 }
 
-function mapLeafDataReadHintToNoir(hint: LeafDataReadHint): LeafDataReadHintNoir {
+function mapTreeLeafReadRequestHintToNoir<N extends number>(
+  hint: TreeLeafReadRequestHint<N>,
+): TreeLeafReadRequestHintNoir<N> {
   return {
-    read_request_index: mapNumberToNoir(hint.readRequestIndex),
-    data_hint_index: mapNumberToNoir(hint.dataHintIndex),
+    sibling_path: mapTuple(hint.siblingPath, mapFieldToNoir) as FixedLengthArray<NoirField, N>,
   };
 }
 
@@ -1171,11 +1194,10 @@ function mapPublicDataHintToNoir(hint: PublicDataHint): PublicDataHintNoir {
   };
 }
 
-function mapPublicDataReadRequestHintsToNoir(hints: PublicDataReadRequestHints): PublicDataReadRequestHintsNoir {
+function mapPublicDataLeafHintToNoir(hint: PublicDataLeafHint): PublicDataLeafHintNoir {
   return {
-    read_request_statuses: mapTuple(hints.readRequestStatuses, mapReadRequestStatusToNoir),
-    pending_read_hints: mapTuple(hints.pendingReadHints, mapPendingReadHintToNoir),
-    leaf_data_read_hints: mapTuple(hints.leafDataReadHints, mapLeafDataReadHintToNoir),
+    preimage: mapPublicDataTreePreimageToNoir(hint.preimage),
+    membership_witness: mapMembershipWitnessToNoir(hint.membershipWitness),
   };
 }
 
@@ -1228,11 +1250,13 @@ function mapPrivateValidationRequestsFromNoir(requests: PrivateValidationRequest
 function mapPublicValidationRequestsToNoir(requests: PublicValidationRequests): PublicValidationRequestsNoir {
   return {
     for_rollup: mapRollupValidationRequestsToNoir(requests.forRollup),
+    note_hash_read_requests: mapTuple(requests.noteHashReadRequests, mapTreeLeafReadRequestToNoir),
     nullifier_read_requests: mapTuple(requests.nullifierReadRequests, mapScopedReadRequestToNoir),
     nullifier_non_existent_read_requests: mapTuple(
       requests.nullifierNonExistentReadRequests,
       mapScopedReadRequestToNoir,
     ),
+    l1_to_l2_msg_read_requests: mapTuple(requests.l1ToL2MsgReadRequests, mapTreeLeafReadRequestToNoir),
     public_data_reads: mapTuple(requests.publicDataReads, mapPublicDataReadToNoir),
   };
 }
@@ -1240,6 +1264,11 @@ function mapPublicValidationRequestsToNoir(requests: PublicValidationRequests): 
 function mapPublicValidationRequestsFromNoir(requests: PublicValidationRequestsNoir): PublicValidationRequests {
   return new PublicValidationRequests(
     mapRollupValidationRequestsFromNoir(requests.for_rollup),
+    mapTupleFromNoir(
+      requests.note_hash_read_requests,
+      MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+      mapTreeLeafReadRequestFromNoir,
+    ),
     mapTupleFromNoir(
       requests.nullifier_read_requests,
       MAX_NULLIFIER_READ_REQUESTS_PER_TX,
@@ -1249,6 +1278,11 @@ function mapPublicValidationRequestsFromNoir(requests: PublicValidationRequestsN
       requests.nullifier_non_existent_read_requests,
       MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
       mapScopedReadRequestFromNoir,
+    ),
+    mapTupleFromNoir(
+      requests.l1_to_l2_msg_read_requests,
+      MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
+      mapTreeLeafReadRequestFromNoir,
     ),
     mapTupleFromNoir(requests.public_data_reads, MAX_PUBLIC_DATA_READS_PER_TX, mapPublicDataReadFromNoir),
   );
@@ -1543,9 +1577,12 @@ export function mapKernelDataToNoir(kernelData: KernelData): KernelDataNoir {
   };
 }
 
-export function mapVerificationKeyToNoir(key: VerificationKeyAsFields) {
+export function mapVerificationKeyToNoir(key: VerificationKeyAsFields): VerificationKeyNoir {
+  if (key.key.length !== VERIFICATION_KEY_LENGTH_IN_FIELDS) {
+    throw new Error(`Expected ${VERIFICATION_KEY_LENGTH_IN_FIELDS} fields, got ${key.key.length}`);
+  }
   return {
-    key: mapTuple(key.key, mapFieldToNoir),
+    key: mapTuple(key.key as Tuple<Fr, typeof VERIFICATION_KEY_LENGTH_IN_FIELDS>, mapFieldToNoir),
     hash: mapFieldToNoir(key.hash),
   };
 }
@@ -1750,12 +1787,19 @@ export function mapPublicKernelTailCircuitPrivateInputsToNoir(
 ): PublicKernelTailCircuitPrivateInputsNoir {
   return {
     previous_kernel: mapPublicKernelDataToNoir(inputs.previousKernel),
+    note_hash_read_request_hints: mapTuple(
+      inputs.noteHashReadRequestHints,
+      (hint: TreeLeafReadRequestHint<typeof NOTE_HASH_TREE_HEIGHT>) => mapTreeLeafReadRequestHintToNoir(hint),
+    ),
     nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
     nullifier_non_existent_read_request_hints: mapNullifierNonExistentReadRequestHintsToNoir(
       inputs.nullifierNonExistentReadRequestHints,
     ),
-    public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataHintToNoir),
-    public_data_read_request_hints: mapPublicDataReadRequestHintsToNoir(inputs.publicDataReadRequestHints),
+    l1_to_l2_msg_read_request_hints: mapTuple(
+      inputs.l1ToL2MsgReadRequestHints,
+      (hint: TreeLeafReadRequestHint<typeof L1_TO_L2_MSG_TREE_HEIGHT>) => mapTreeLeafReadRequestHintToNoir(hint),
+    ),
+    public_data_hints: mapTuple(inputs.publicDataHints, mapPublicDataLeafHintToNoir),
     start_state: mapPartialStateReferenceToNoir(inputs.startState),
   };
 }
@@ -1887,10 +1931,10 @@ export function mapPublicCircuitPublicInputsToNoir(
     call_context: mapCallContextToNoir(publicInputs.callContext),
     args_hash: mapFieldToNoir(publicInputs.argsHash),
     returns_hash: mapFieldToNoir(publicInputs.returnsHash),
-    note_hash_read_requests: mapTuple(publicInputs.noteHashReadRequests, mapReadRequestToNoir),
+    note_hash_read_requests: mapTuple(publicInputs.noteHashReadRequests, mapTreeLeafReadRequestToNoir),
     nullifier_read_requests: mapTuple(publicInputs.nullifierReadRequests, mapReadRequestToNoir),
     nullifier_non_existent_read_requests: mapTuple(publicInputs.nullifierNonExistentReadRequests, mapReadRequestToNoir),
-    l1_to_l2_msg_read_requests: mapTuple(publicInputs.l1ToL2MsgReadRequests, mapReadRequestToNoir),
+    l1_to_l2_msg_read_requests: mapTuple(publicInputs.l1ToL2MsgReadRequests, mapTreeLeafReadRequestToNoir),
     contract_storage_update_requests: mapTuple(
       publicInputs.contractStorageUpdateRequests,
       mapStorageUpdateRequestToNoir,

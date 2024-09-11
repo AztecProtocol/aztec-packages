@@ -15,7 +15,7 @@ import {Rollup} from "../src/core/Rollup.sol";
 import {IFeeJuicePortal} from "../src/core/interfaces/IFeeJuicePortal.sol";
 import {FeeJuicePortal} from "../src/core/FeeJuicePortal.sol";
 import {Leonidas} from "../src/core/sequencer_selection/Leonidas.sol";
-import {AvailabilityOracle} from "../src/core/availability_oracle/AvailabilityOracle.sol";
+import {SignatureLib} from "../src/core/sequencer_selection/SignatureLib.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {PortalERC20} from "./portals/PortalERC20.sol";
@@ -37,7 +37,7 @@ contract RollupTest is DecoderBase {
   PortalERC20 internal portalERC20;
   FeeJuicePortal internal feeJuicePortal;
 
-  AvailabilityOracle internal availabilityOracle;
+  SignatureLib.Signature[] internal signatures;
 
   /**
    * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
@@ -53,7 +53,6 @@ contract RollupTest is DecoderBase {
     }
 
     registry = new Registry(address(this));
-    availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
     feeJuicePortal = new FeeJuicePortal(address(this));
     portalERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
@@ -62,7 +61,6 @@ contract RollupTest is DecoderBase {
     );
     rollup = new Rollup(
       registry,
-      availabilityOracle,
       IFeeJuicePortal(address(feeJuicePortal)),
       bytes32(0),
       address(this),
@@ -78,21 +76,44 @@ contract RollupTest is DecoderBase {
     _;
   }
 
-  function testRevertPrune() public setUpFor("mixed_block_1") {
-    if (rollup.isDevNet()) {
-      vm.expectRevert(abi.encodeWithSelector(Errors.DevNet__NoPruningAllowed.selector));
-      rollup.prune();
+  function testRevertProveTwice() public setUpFor("mixed_block_1") {
+    DecoderBase.Data memory data = load("mixed_block_1").block;
+    bytes memory header = data.header;
+    bytes32 archive = data.archive;
+    bytes memory body = data.body;
 
-      return;
+    // We jump to the time of the block. (unless it is in the past)
+    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
+
+    rollup.propose(header, archive, bytes32(0), signatures, body);
+
+    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonSequentialProving.selector));
+    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
+  }
+
+  function testTimestamp() public setUpFor("mixed_block_1") {
+    // Ensure that the timestamp of the current slot is never in the future.
+    for (uint256 i = 0; i < 100; i++) {
+      uint256 slot = rollup.getCurrentSlot();
+      uint256 ts = rollup.getTimestampForSlot(slot);
+
+      assertLe(ts, block.timestamp, "Invalid timestamp");
+
+      vm.warp(block.timestamp + 12);
+      vm.roll(block.number + 1);
     }
+  }
 
+  function testRevertPrune() public setUpFor("mixed_block_1") {
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
     rollup.prune();
 
     _testBlock("mixed_block_1", false);
 
     uint256 currentSlot = rollup.getCurrentSlot();
-    (,, uint128 slot,) = rollup.blocks(1);
+    (,, uint128 slot) = rollup.blocks(1);
     uint256 prunableAt = uint256(slot) + rollup.TIMELINESS_PROVING_IN_SLOTS();
 
     vm.expectRevert(
@@ -102,10 +123,6 @@ contract RollupTest is DecoderBase {
   }
 
   function testPrune() public setUpFor("mixed_block_1") {
-    if (rollup.isDevNet()) {
-      return;
-    }
-
     _testBlock("mixed_block_1", false);
 
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
@@ -114,7 +131,7 @@ contract RollupTest is DecoderBase {
     //        Even if we end up reverting block 1, we should still see the same root in the inbox.
     bytes32 inboxRoot2 = inbox.getRoot(2);
 
-    (,, uint128 slot,) = rollup.blocks(1);
+    (,, uint128 slot) = rollup.blocks(1);
     uint256 prunableAt = uint256(slot) + rollup.TIMELINESS_PROVING_IN_SLOTS();
 
     uint256 timeOfPrune = rollup.getTimestampForSlot(prunableAt);
@@ -176,11 +193,21 @@ contract RollupTest is DecoderBase {
     assembly {
       mstore(add(header, add(0x20, 0x0248)), feeAmount)
     }
-    availabilityOracle.publish(body);
 
     assertEq(portalERC20.balanceOf(address(rollup)), 0, "invalid rollup balance");
 
     uint256 portalBalance = portalERC20.balanceOf(address(feeJuicePortal));
+
+    // We jump to the time of the block. (unless it is in the past)
+    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
+
+    address coinbase = data.decodedHeader.globalVariables.coinbase;
+    uint256 coinbaseBalance = portalERC20.balanceOf(coinbase);
+    assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
+
+    // Assert that balance have NOT been increased by proposing the block
+    rollup.propose(header, archive, bytes32(0), signatures, body);
+    assertEq(portalERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -190,15 +217,13 @@ contract RollupTest is DecoderBase {
         feeAmount
       )
     );
-    rollup.process(header, archive, bytes32(0));
-
-    address coinbase = data.decodedHeader.globalVariables.coinbase;
-    uint256 coinbaseBalance = portalERC20.balanceOf(coinbase);
-    assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
+    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
+    assertEq(portalERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
 
     portalERC20.mint(address(feeJuicePortal), feeAmount - portalBalance);
 
-    rollup.process(header, archive, bytes32(0));
+    // When the block is proven we should have received the funds
+    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
     assertEq(portalERC20.balanceOf(coinbase), feeAmount, "invalid coinbase balance");
   }
 
@@ -221,9 +246,17 @@ contract RollupTest is DecoderBase {
 
   function testConsecutiveMixedBlocksNonSequentialProof() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false);
-    _testBlock("mixed_block_2", true);
 
-    assertTrue(rollup.isBlockProven(2), "Block 2 is not proven");
+    DecoderBase.Data memory data = load("mixed_block_2").block;
+    bytes memory header = data.header;
+    bytes32 archive = data.archive;
+    bytes memory body = data.body;
+
+    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
+    rollup.propose(header, archive, bytes32(0), signatures, body);
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonSequentialProving.selector));
+    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
 
     assertEq(rollup.pendingBlockCount(), 3, "Invalid pending block count");
     assertEq(rollup.provenBlockCount(), 1, "Invalid proven block count");
@@ -255,10 +288,8 @@ contract RollupTest is DecoderBase {
       mstore(add(header, add(0x20, 0x0174)), 0x420)
     }
 
-    availabilityOracle.publish(body);
-
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 0x420));
-    rollup.process(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), signatures, body);
   }
 
   function testRevertInvalidChainId() public setUpFor("empty_block_1") {
@@ -272,10 +303,8 @@ contract RollupTest is DecoderBase {
       mstore(add(header, add(0x20, 0x0134)), 0x420)
     }
 
-    availabilityOracle.publish(body);
-
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidChainId.selector, 31337, 0x420));
-    rollup.process(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), signatures, body);
   }
 
   function testRevertInvalidVersion() public setUpFor("empty_block_1") {
@@ -288,10 +317,8 @@ contract RollupTest is DecoderBase {
       mstore(add(header, add(0x20, 0x0154)), 0x420)
     }
 
-    availabilityOracle.publish(body);
-
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 1, 0x420));
-    rollup.process(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), signatures, body);
   }
 
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
@@ -309,10 +336,8 @@ contract RollupTest is DecoderBase {
       mstore(add(header, add(0x20, 0x01b4)), badTs)
     }
 
-    availabilityOracle.publish(body);
-
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
-    rollup.process(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), signatures, body);
   }
 
   function testBlocksWithAssumeProven() public setUpFor("mixed_block_1") {
@@ -350,9 +375,8 @@ contract RollupTest is DecoderBase {
 
   function testSubmitProofInvalidArchive() public setUpFor("empty_block_1") {
     _testBlock("empty_block_1", false);
-    _testBlock("empty_block_2", false);
 
-    DecoderBase.Data memory data = load("empty_block_2").block;
+    DecoderBase.Data memory data = load("empty_block_1").block;
     bytes memory header = data.header;
     bytes32 archive = data.archive;
 
@@ -363,7 +387,7 @@ contract RollupTest is DecoderBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Rollup__InvalidArchive.selector, rollup.archiveAt(1), 0xdeadbeef
+        Errors.Rollup__InvalidArchive.selector, rollup.archiveAt(0), 0xdeadbeef
       )
     );
     rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
@@ -412,17 +436,14 @@ contract RollupTest is DecoderBase {
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
-    availabilityOracle.publish(body);
-
-    rollup.process(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), signatures, body);
 
     if (_submitProof) {
+      uint256 pre = rollup.provenBlockCount();
+
       rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
 
-      assertTrue(
-        rollup.isBlockProven(full.block.decodedHeader.globalVariables.blockNumber),
-        "Block not proven"
-      );
+      assertEq(pre + 1, rollup.provenBlockCount(), "Block not proven");
     }
 
     bytes32 l2ToL1MessageTreeRoot;

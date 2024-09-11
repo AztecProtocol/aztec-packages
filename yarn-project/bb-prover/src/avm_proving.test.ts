@@ -27,6 +27,7 @@ import {
   PublicCircuitPublicInputs,
   ReadRequest,
   RevertCode,
+  TreeLeafReadRequest,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -39,6 +40,7 @@ import {
   initExecutionEnvironment,
   initHostStorage,
   initPersistableStateManager,
+  resolveAvmTestContractAssertionMessage,
 } from '@aztec/simulator/avm/fixtures';
 
 import { jest } from '@jest/globals';
@@ -125,7 +127,7 @@ describe('AVM WitGen, proof generation and verification', () => {
       async (name, calldata) => {
         await proveAndVerifyAvmTestContract(name, calldata);
       },
-      TIMEOUT,
+      TIMEOUT * 2, // We need more for keccak for now
     );
   });
 
@@ -256,7 +258,8 @@ const proveAndVerifyAvmTestContract = async (
   } else {
     // Explicit revert when an assertion failed.
     expect(avmResult.reverted).toBe(true);
-    expect(avmResult.revertReason?.message).toContain(assertionErrString);
+    expect(avmResult.revertReason).toBeDefined();
+    expect(resolveAvmTestContractAssertionMessage(functionName, avmResult.revertReason!)).toContain(assertionErrString);
   }
 
   const pxResult = trace.toPublicExecutionResult(
@@ -305,7 +308,7 @@ const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInpu
     returnsHash: computeVarArgsHash(result.returnValues),
     noteHashReadRequests: padArrayEnd(
       result.noteHashReadRequests,
-      ReadRequest.empty(),
+      TreeLeafReadRequest.empty(),
       MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     ),
     nullifierReadRequests: padArrayEnd(
@@ -320,7 +323,7 @@ const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInpu
     ),
     l1ToL2MsgReadRequests: padArrayEnd(
       result.l1ToL2MsgReadRequests,
-      ReadRequest.empty(),
+      TreeLeafReadRequest.empty(),
       MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
     ),
     contractStorageReads: padArrayEnd(

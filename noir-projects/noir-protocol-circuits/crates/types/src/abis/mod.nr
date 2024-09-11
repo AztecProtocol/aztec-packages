@@ -14,11 +14,13 @@ mod combined_constant_data;
 
 mod side_effect;
 mod read_request;
+mod tree_leaf_read_request;
 mod log_hash;
 mod note_hash;
 mod nullifier;
 mod public_data_read;
 mod public_data_update_request;
+mod public_data_write;
 
 mod accumulated_data;
 mod validation_requests;

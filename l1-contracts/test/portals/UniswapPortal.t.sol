@@ -4,7 +4,6 @@ import "forge-std/Test.sol";
 
 // Rollup Processor
 import {Rollup} from "../../src/core/Rollup.sol";
-import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
@@ -53,14 +52,8 @@ contract UniswapPortalTest is Test {
     vm.selectFork(forkId);
 
     registry = new Registry(address(this));
-    rollup = new Rollup(
-      registry,
-      new AvailabilityOracle(),
-      IFeeJuicePortal(address(0)),
-      bytes32(0),
-      address(this),
-      new address[](0)
-    );
+    rollup =
+      new Rollup(registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
     registry.upgrade(address(rollup));
 
     daiTokenPortal = new TokenPortal();

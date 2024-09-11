@@ -59,7 +59,7 @@ mod test {
     global ADDRESS_NOTE_BYTES_LEN = 32 * 3 + 64;
 
     impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
-        fn compute_note_hiding_point(self) -> Point {
+        fn compute_note_hiding_point(_self: Self) -> Point {
             crate::generators::Ga1
         }
 
@@ -90,8 +90,8 @@ mod test {
 
             let mut buffer: [u8; ADDRESS_NOTE_BYTES_LEN] = [0; ADDRESS_NOTE_BYTES_LEN];
 
-            let storage_slot_bytes = storage_slot.to_be_bytes(32);
-            let note_type_id_bytes = AddressNote::get_note_type_id().to_be_bytes(32);
+            let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
+            let note_type_id_bytes: [u8; 32] = AddressNote::get_note_type_id().to_be_bytes();
 
             for i in 0..32 {
                 buffer[i] = storage_slot_bytes[i];
@@ -99,7 +99,7 @@ mod test {
             }
 
             for i in 0..serialized_note.len() {
-                let bytes = serialized_note[i].to_be_bytes(32);
+                let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
                 for j in 0..32 {
                     buffer[64 + i * 32 + j] = bytes[j];
                 }
@@ -137,12 +137,12 @@ mod test {
             }
         };
 
-        /// 1. `EncryptedLogIncomingBody::from_note` calls `note.to_be_bytes(storage_slot)` function which serializes
-        /// the note to bytes - note that in the case of `AddressNote` the `to_be_bytes` function was automatically
-        /// implemented by Aztec macros.
+        // 1. `EncryptedLogIncomingBody::from_note` calls `note.to_be_bytes(storage_slot)` function which serializes
+        // the note to bytes - note that in the case of `AddressNote` the `to_be_bytes` function was automatically
+        // implemented by Aztec macros.
         let body = EncryptedLogIncomingBody::from_note(note, storage_slot);
 
-        /// 2. `body.compute_ciphertext(...)` function then derives symmetric key from `eph_sk` and `ivpk` and encrypts
+        // 2. `body.compute_ciphertext(...)` function then derives symmetric key from `eph_sk` and `ivpk` and encrypts
         // the note plaintext using AES-128.
         let ciphertext = body.compute_ciphertext(eph_sk, ivpk);
 
@@ -177,14 +177,14 @@ mod test {
 
     impl EventInterface<TEST_EVENT_BYTES_LEN, TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS> for TestEvent {
         fn get_event_type_id() -> EventSelector {
-            EventSelector::from_signature("TestEvent(Field,Field,Field)")
+            comptime { EventSelector::from_signature("TestEvent(Field,Field,Field)") }
         }
 
         fn private_to_be_bytes(self, randomness: Field) -> [u8; TEST_EVENT_BYTES_LEN] {
             let mut buffer: [u8; TEST_EVENT_BYTES_LEN] = [0; TEST_EVENT_BYTES_LEN];
 
-            let randomness_bytes = randomness.to_be_bytes(32);
-            let event_type_id_bytes = TestEvent::get_event_type_id().to_field().to_be_bytes(32);
+            let randomness_bytes: [u8; 32] = randomness.to_be_bytes();
+            let event_type_id_bytes: [u8; 32] = TestEvent::get_event_type_id().to_field().to_be_bytes();
 
             for i in 0..32 {
                 buffer[i] = randomness_bytes[i];
@@ -194,7 +194,7 @@ mod test {
             let serialized_event = self.serialize();
 
             for i in 0..serialized_event.len() {
-                let bytes = serialized_event[i].to_be_bytes(32);
+                let bytes: [u8; 32] = serialized_event[i].to_be_bytes();
                 for j in 0..32 {
                     buffer[64 + i * 32 + j] = bytes[j];
                 }
@@ -206,7 +206,7 @@ mod test {
         fn to_be_bytes(self) -> [u8; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS] {
              let mut buffer: [u8; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS] = [0; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS];
 
-             let event_type_id_bytes = TestEvent::get_event_type_id().to_field().to_be_bytes(32);
+             let event_type_id_bytes: [u8; 32] = TestEvent::get_event_type_id().to_field().to_be_bytes();
 
              for i in 0..32 {
                  buffer[i] = event_type_id_bytes[i];
@@ -215,7 +215,7 @@ mod test {
              let serialized_event = self.serialize();
 
              for i in 0..serialized_event.len() {
-                 let bytes = serialized_event[i].to_be_bytes(32);
+                 let bytes: [u8; 32] = serialized_event[i].to_be_bytes();
                  for j in 0..32 {
                      buffer[32 + i * 32 + j] = bytes[j];
                 }

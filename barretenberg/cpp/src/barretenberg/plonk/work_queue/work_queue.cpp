@@ -82,8 +82,10 @@ void work_queue::put_ifft_data(std::shared_ptr<fr[]> result, const size_t work_i
     for (const auto& item : work_item_queue) {
         if (item.work_type == WorkType::IFFT) {
             if (count == work_item_number) {
-                bb::polynomial wire(key->circuit_size);
-                memcpy(wire.data().get(), result.get(), key->circuit_size * sizeof(bb::fr));
+                bb::LegacyPolynomial<bb::fr> wire(key->circuit_size);
+                memcpy(static_cast<void*>(wire.data().get()),
+                       static_cast<const void*>(result.get()),
+                       key->circuit_size * sizeof(bb::fr));
                 key->polynomial_store.put(item.tag, std::move(wire));
                 return;
             }
@@ -209,12 +211,12 @@ void work_queue::process_queue()
 
             ASSERT(msm_size <= key->reference_string->get_monomial_size());
 
-            bb::g1::affine_element* srs_points = key->reference_string->get_monomial_points();
+            std::span<bb::g1::affine_element> srs_points = key->reference_string->get_monomial_points();
 
             // Run pippenger multi-scalar multiplication.
             auto runtime_state = bb::scalar_multiplication::pippenger_runtime_state<curve::BN254>(msm_size);
             bb::g1::affine_element result(bb::scalar_multiplication::pippenger_unsafe<curve::BN254>(
-                item.mul_scalars.get(), srs_points, msm_size, runtime_state));
+                { item.mul_scalars.get(), msm_size }, srs_points, runtime_state));
 
             transcript->add_element(item.tag, result.to_buffer());
 

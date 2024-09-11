@@ -83,10 +83,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
-  private lastL1BlockNewBlocks: bigint = 0n;
-  private lastL1BlockNewBlockBodies: bigint = 0n;
-  private lastL1BlockNewMessages: bigint = 0n;
-  private lastL1BlockNewProvenLogs: bigint = 0n;
+  private lastL1BlockNewBlocks: bigint | undefined = undefined;
+  private lastL1BlockNewBlockBodies: bigint | undefined = undefined;
+  private lastL1BlockNewMessages: bigint | undefined = undefined;
+  private lastL1BlockNewProvenLogs: bigint | undefined = undefined;
 
   private lastProvenL2BlockNumber: number = 0;
 
@@ -225,7 +225,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   public addL1ToL2Messages(messages: DataRetrieval<InboxLeaf>): Promise<boolean> {
-    if (messages.lastProcessedL1BlockNumber <= this.lastL1BlockNewMessages) {
+    if (
+      typeof this.lastL1BlockNewMessages === 'bigint' &&
+      messages.lastProcessedL1BlockNumber <= this.lastL1BlockNewMessages
+    ) {
       return Promise.resolve(false);
     }
 
