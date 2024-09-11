@@ -549,7 +549,7 @@ describe('L1Publisher integration', () => {
                 `0x${block.archive.root.toBuffer().toString('hex')}`,
                 `0x${block.header.hash().toBuffer().toString('hex')}`,
                 [],
-                []
+                [],
               ],
             });
       expect(ethTx.input).toEqual(expectedData);
