@@ -18,6 +18,7 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       },
       "cacheVariables": {
+        "TARGET_ARCH": "skylake"
       }
     },
     {
@@ -33,6 +34,7 @@
         "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
       },
       "cacheVariables": {
+        "TARGET_ARCH": "skylake",
         "ENABLE_PIC": "ON"
       }
     },
