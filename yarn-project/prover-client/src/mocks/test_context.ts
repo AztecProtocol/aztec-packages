@@ -24,7 +24,7 @@ import {
   type WorldStatePublicDB,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { MerkleTrees } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import * as fs from 'fs/promises';

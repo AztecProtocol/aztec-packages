@@ -3,10 +3,9 @@ import {
   type HandleL2BlockAndMessagesResult,
   type IndexedTreeId,
   type L2Block,
-  MerkleTreeAdminOperations,
+  type MerkleTreeAdminOperations,
   MerkleTreeId,
   type MerkleTreeLeafType,
-  type MerkleTreeOperations,
   SiblingPath,
   type TreeInfo,
   TxEffect,
@@ -35,10 +34,7 @@ import { Decoder, Encoder, addExtension } from 'msgpackr';
 import { isAnyArrayBuffer } from 'util/types';
 
 import { type MerkleTreeDb, type TreeSnapshots } from '../world-state-db/merkle_tree_db.js';
-import {
-  MerkleTreeAdminOperationsFacade,
-  MerkleTreeOperationsFacade,
-} from '../world-state-db/merkle_tree_operations_facade.js';
+import { MerkleTreeAdminOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
 import {
   MessageHeader,
   type SerializedIndexedLeaf,

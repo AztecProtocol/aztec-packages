@@ -91,14 +91,6 @@ type LeafTypes = {
   [MerkleTreeId.ARCHIVE]: Fr;
 };
 
-type LeafValueTypes = {
-  [MerkleTreeId.NULLIFIER_TREE]: NullifierLeaf;
-  [MerkleTreeId.NOTE_HASH_TREE]: Fr;
-  [MerkleTreeId.PUBLIC_DATA_TREE]: PublicDataTreeLeaf;
-  [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: Fr;
-  [MerkleTreeId.ARCHIVE]: Fr;
-};
-
 export type MerkleTreeLeafType<ID extends MerkleTreeId> = LeafTypes[ID];
 
 /** Defines the interface for operations on a set of Merkle Trees. */
