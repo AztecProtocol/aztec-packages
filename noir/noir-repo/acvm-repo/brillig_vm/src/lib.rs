@@ -991,6 +991,62 @@ mod tests {
     }
 
     #[test]
+    fn not_opcode() {
+        let calldata: Vec<FieldElement> = vec![(1_usize).into()];
+
+        let opcodes = &[
+            Opcode::Const {
+                destination: MemoryAddress(0),
+                bit_size: BitSize::Integer(IntegerBitSize::U32),
+                value: FieldElement::from(1u64),
+            },
+            Opcode::Const {
+                destination: MemoryAddress(1),
+                bit_size: BitSize::Integer(IntegerBitSize::U32),
+                value: FieldElement::from(0u64),
+            },
+            Opcode::CalldataCopy {
+                destination_address: MemoryAddress(0),
+                size_address: MemoryAddress(0),
+                offset_address: MemoryAddress(1),
+            },
+            Opcode::Cast {
+                destination: MemoryAddress::from(1),
+                source: MemoryAddress::from(0),
+                bit_size: BitSize::Integer(IntegerBitSize::U128),
+            },
+            Opcode::Not {
+                destination: MemoryAddress::from(1),
+                source: MemoryAddress::from(1),
+                bit_size: IntegerBitSize::U128,
+            },
+            Opcode::Stop { return_data_offset: 1, return_data_size: 1 },
+        ];
+        let mut vm = VM::new(calldata, opcodes, vec![], &StubbedBlackBoxSolver);
+
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::Finished { return_data_offset: 1, return_data_size: 1 });
+
+        let VM { memory, .. } = vm;
+
+        let (negated_value, _) = memory
+            .read(MemoryAddress::from(1))
+            .extract_integer()
+            .expect("Expected integer as the output of Not");
+        assert_eq!(negated_value, !1_u128);
+    }
+
+    #[test]
     fn mov_opcode() {
         let calldata: Vec<FieldElement> = vec![(1u128).into(), (2u128).into(), (3u128).into()];
 
