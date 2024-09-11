@@ -199,20 +199,6 @@
       }
     },
     {
-      "name": "gcc-pic",
-      "displayName": "Build with GCC using PIC",
-      "description": "Build with globally installed GCC using PIC",
-      "inherits": "gcc",
-      "binaryDir": "build-gcc-pic",
-      "environment": {
-        "CC": "gcc",
-        "CXX": "g++"
-      },
-      "cacheVariables": {
-        "ENABLE_PIC": "ON"
-      }
-    },
-    {
       "name": "gcc10",
       "displayName": "Build with GCC-10",
       "description": "Build with globally installed GCC-10",
@@ -520,11 +506,6 @@
       "name": "gcc",
       "inherits": "default",
       "configurePreset": "gcc"
-    },
-    {
-      "name": "gcc-pic",
-      "inherits": "default",
-      "configurePreset": "gcc-pic"
     },
     {
       "name": "gcc10",
