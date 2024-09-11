@@ -66,13 +66,15 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::OR_16, three_operand_format16 },
     { OpCode::XOR_8, three_operand_format8 },
     { OpCode::XOR_16, three_operand_format16 },
-    { OpCode::NOT, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT8 } },
+    { OpCode::NOT_8, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT8 } },
+    { OpCode::NOT_16, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::SHL_8, three_operand_format8 },
     { OpCode::SHL_16, three_operand_format16 },
     { OpCode::SHR_8, three_operand_format8 },
     { OpCode::SHR_16, three_operand_format16 },
     // Compute - Type Conversions
-    { OpCode::CAST, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::CAST_8, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT8 } },
+    { OpCode::CAST_16, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT16 } },
 
     // Execution Environment - Globals
     { OpCode::ADDRESS, getter_format },

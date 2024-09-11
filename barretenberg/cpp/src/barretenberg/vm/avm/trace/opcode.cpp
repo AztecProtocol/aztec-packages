@@ -69,8 +69,10 @@ std::string to_string(OpCode opcode)
         return "XOR_8";
     case OpCode::XOR_16:
         return "XOR_16";
-    case OpCode::NOT:
-        return "NOT";
+    case OpCode::NOT_8:
+        return "NOT_8";
+    case OpCode::NOT_16:
+        return "NOT_16";
     case OpCode::SHL_8:
         return "SHL_8";
     case OpCode::SHL_16:
@@ -80,8 +82,10 @@ std::string to_string(OpCode opcode)
     case OpCode::SHR_16:
         return "SHR_16";
     // Compute - Type Conversions
-    case OpCode::CAST:
-        return "CAST";
+    case OpCode::CAST_8:
+        return "CAST_8";
+    case OpCode::CAST_16:
+        return "CAST_16";
     // Execution Environment
     case OpCode::ADDRESS:
         return "ADDRESS";

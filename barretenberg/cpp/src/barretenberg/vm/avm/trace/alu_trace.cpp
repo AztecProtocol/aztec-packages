@@ -425,7 +425,7 @@ FF AvmAluTraceBuilder::op_not(FF const& a, AvmMemoryTag in_tag, uint32_t const c
 
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::NOT,
+        .opcode = OpCode::NOT_8, // FIXME: take into account all opcodes.
         .tag = in_tag,
         .alu_ia = a,
         .alu_ic = c,
@@ -585,7 +585,7 @@ FF AvmAluTraceBuilder::op_cast(FF const& a, AvmMemoryTag in_tag, uint32_t clk)
     }
     alu_trace.push_back(AvmAluTraceBuilder::AluTraceEntry{
         .alu_clk = clk,
-        .opcode = OpCode::CAST,
+        .opcode = OpCode::CAST_8, // FIXME: take into account all opcodes.
         .tag = in_tag,
         .alu_ia = a,
         .alu_ic = c,
@@ -618,9 +618,10 @@ bool AvmAluTraceBuilder::is_range_check_required() const
 bool AvmAluTraceBuilder::is_alu_row_enabled(const AvmAluTraceBuilder::AluTraceEntry& r)
 {
     return (r.opcode == OpCode::ADD_8 || r.opcode == OpCode::SUB_8 || r.opcode == OpCode::MUL_8 ||
-            r.opcode == OpCode::EQ_8 || r.opcode == OpCode::NOT || r.opcode == OpCode::LT_8 ||
-            r.opcode == OpCode::LTE_8 || r.opcode == OpCode::SHR_8 || r.opcode == OpCode::SHL_8 ||
-            r.opcode == OpCode::CAST || r.opcode == OpCode::DIV_8);
+            r.opcode == OpCode::EQ_8 || r.opcode == OpCode::NOT_8 || r.opcode == OpCode::NOT_16 ||
+            r.opcode == OpCode::LT_8 || r.opcode == OpCode::LTE_8 || r.opcode == OpCode::SHR_8 ||
+            r.opcode == OpCode::SHL_8 || r.opcode == OpCode::CAST_8 || r.opcode == OpCode::CAST_8 ||
+            r.opcode == OpCode::CAST_16 || r.opcode == OpCode::DIV_8);
 }
 
 /**
@@ -640,11 +641,11 @@ void AvmAluTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
             dest.alu_op_add = FF(src.opcode == OpCode::ADD_8 || src.opcode == OpCode::ADD_16 ? 1 : 0);
             dest.alu_op_sub = FF(src.opcode == OpCode::SUB_8 || src.opcode == OpCode::SUB_16 ? 1 : 0);
             dest.alu_op_mul = FF(src.opcode == OpCode::MUL_8 || src.opcode == OpCode::MUL_16 ? 1 : 0);
-            dest.alu_op_not = FF(src.opcode == OpCode::NOT ? 1 : 0);
+            dest.alu_op_not = FF(src.opcode == OpCode::NOT_8 || src.opcode == OpCode::NOT_16 ? 1 : 0);
             dest.alu_op_eq = FF(src.opcode == OpCode::EQ_8 || src.opcode == OpCode::EQ_16 ? 1 : 0);
             dest.alu_op_lt = FF(src.opcode == OpCode::LT_8 || src.opcode == OpCode::LT_16 ? 1 : 0);
             dest.alu_op_lte = FF(src.opcode == OpCode::LTE_8 || src.opcode == OpCode::LTE_16 ? 1 : 0);
-            dest.alu_op_cast = FF(src.opcode == OpCode::CAST ? 1 : 0);
+            dest.alu_op_cast = FF(src.opcode == OpCode::CAST_8 || src.opcode == OpCode::CAST_16 ? 1 : 0);
             dest.alu_op_shr = FF(src.opcode == OpCode::SHR_8 || src.opcode == OpCode::SHR_16 ? 1 : 0);
             dest.alu_op_shl = FF(src.opcode == OpCode::SHL_8 || src.opcode == OpCode::SHL_16 ? 1 : 0);
             dest.alu_op_div = FF(src.opcode == OpCode::DIV_8 || src.opcode == OpCode::DIV_16 ? 1 : 0);
