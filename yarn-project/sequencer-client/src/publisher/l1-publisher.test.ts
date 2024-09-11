@@ -123,6 +123,7 @@ describe('L1Publisher', () => {
       `0x${archive.toString('hex')}`,
       `0x${blockHash.toString('hex')}`,
       [],
+      [],
       `0x${body.toString('hex')}`,
     ] as const;
     expect(rollupContractWrite.propose).toHaveBeenCalledWith(args, {
