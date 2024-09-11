@@ -1,11 +1,4 @@
-import {
-  type Fr,
-  type Header,
-  type NullifierLeaf,
-  type NullifierLeafPreimage,
-  type PublicDataTreeLeaf,
-  type StateReference,
-} from '@aztec/circuits.js';
+import { type Fr, type Header, type NullifierLeafPreimage, type StateReference } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
