@@ -424,12 +424,6 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         var
     }
 
-    fn make_constant(&mut self, constant: F, bit_size: u32) -> SingleAddrVariable {
-        let var = SingleAddrVariable::new(self.allocate_register(), bit_size);
-        self.constant(var.address, var.bit_size, constant, false);
-        var
-    }
-
     /// Returns a register which holds the value of an usize constant
     pub(crate) fn make_usize_constant_instruction(&mut self, constant: F) -> SingleAddrVariable {
         let register = self.allocate_register();
