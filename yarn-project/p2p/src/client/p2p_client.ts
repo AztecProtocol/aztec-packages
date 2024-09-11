@@ -70,7 +70,7 @@ export interface P2P {
    */
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
-  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation>): void;
+  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
 
   /**
    * Request a list of transactions from another peer by their tx hashes.
@@ -287,7 +287,7 @@ export class P2PClient implements P2P {
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
-  public registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation>): void {
+  public registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void {
     this.p2pService.registerBlockReceivedCallback(handler);
   }
 
@@ -319,6 +319,8 @@ export class P2PClient implements P2P {
 
     this.log.debug(`Requested ${txHash.toString()} from peer | success = ${!!tx}`);
     if (tx) {
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8485): This check is not sufficient to validate the transaction. We need to validate the entire proof.
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8483): alter peer scoring system for a validator that returns an invalid transcation
       await this.txPool.addTxs([tx]);
     }
 
