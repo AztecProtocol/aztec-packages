@@ -3,7 +3,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 
 import { type L2Block } from '../l2_block.js';
-import { type MerkleTreeId } from '../merkle_tree_id.js';
+import { type MerkleTreeId, type TreeHeights } from '../merkle_tree_id.js';
 import { type SiblingPath } from '../sibling_path/sibling_path.js';
 
 /**
@@ -198,11 +198,11 @@ export interface MerkleTreeOperations {
    * @param subtreeHeight - Height of the subtree.
    * @returns The witness data for the leaves to be updated when inserting the new ones.
    */
-  batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number, ID extends IndexedTreeId>(
+  batchInsert<SubtreeSiblingPathHeight extends number, ID extends IndexedTreeId>(
     treeId: ID,
     leaves: Buffer[],
     subtreeHeight: number,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
+  ): Promise<BatchInsertionResult<TreeHeights[ID], SubtreeSiblingPathHeight>>;
 }
 
 /** Operations on merkle trees world state that can modify the underlying store. */

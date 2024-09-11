@@ -61,6 +61,14 @@ export class ConstantRollupData {
   toBuffer() {
     return serializeToBuffer(...ConstantRollupData.getFields(this));
   }
+
+  public equals(other: ConstantRollupData) {
+    return (
+      this.lastArchive.equals(other.lastArchive) &&
+      this.vkTreeRoot.equals(other.vkTreeRoot) &&
+      this.globalVariables.equals(other.globalVariables)
+    );
+  }
 }
 
 /**

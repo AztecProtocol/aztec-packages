@@ -72,6 +72,17 @@ export class PublicValidationRequests {
     return this.toBuffer().toString('hex');
   }
 
+  equals(other: PublicValidationRequests) {
+    return (
+      this.forRollup.equals(other.forRollup) &&
+      this.noteHashReadRequests.every((r, i) => r.equals(other.noteHashReadRequests[i])) &&
+      this.nullifierReadRequests.every((r, i) => r.equals(other.nullifierReadRequests[i])) &&
+      this.nullifierNonExistentReadRequests.every((r, i) => r.equals(other.nullifierNonExistentReadRequests[i])) &&
+      this.l1ToL2MsgReadRequests.every((r, i) => r.equals(other.l1ToL2MsgReadRequests[i])) &&
+      this.publicDataReads.every((r, i) => r.equals(other.publicDataReads[i]))
+    );
+  }
+
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new PublicValidationRequests(

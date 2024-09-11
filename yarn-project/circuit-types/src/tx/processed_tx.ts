@@ -65,7 +65,7 @@ export type AvmProvingRequest = {
   kernelRequest: PublicKernelNonTailRequest;
 };
 
-export type PublicProvingRequest = AvmProvingRequest | PublicKernelRequest;
+export type PublicProvingRequest = AvmProvingRequest | PublicKernelTailRequest;
 
 /**
  * Represents a tx that has been processed by the sequencer public processor,

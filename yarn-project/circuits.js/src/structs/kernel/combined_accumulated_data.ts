@@ -70,6 +70,22 @@ export class CombinedAccumulatedData {
     public gasUsed: Gas,
   ) {}
 
+  equals(other: CombinedAccumulatedData) {
+    return (
+      this.noteHashes.every((x, i) => x.equals(other.noteHashes[i])) &&
+      this.nullifiers.every((x, i) => x.equals(other.nullifiers[i])) &&
+      this.l2ToL1Msgs.every((x, i) => x.equals(other.l2ToL1Msgs[i])) &&
+      this.noteEncryptedLogsHashes.every((x, i) => x.equals(other.noteEncryptedLogsHashes[i])) &&
+      this.encryptedLogsHashes.every((x, i) => x.equals(other.encryptedLogsHashes[i])) &&
+      this.unencryptedLogsHashes.every((x, i) => x.equals(other.unencryptedLogsHashes[i])) &&
+      this.noteEncryptedLogPreimagesLength.equals(other.noteEncryptedLogPreimagesLength) &&
+      this.encryptedLogPreimagesLength.equals(other.encryptedLogPreimagesLength) &&
+      this.unencryptedLogPreimagesLength.equals(other.unencryptedLogPreimagesLength) &&
+      this.publicDataUpdateRequests.every((x, i) => x.equals(other.publicDataUpdateRequests[i])) &&
+      this.gasUsed.equals(other.gasUsed)
+    );
+  }
+
   getSize() {
     return (
       arraySerializedSizeOfNonEmpty(this.noteHashes) +

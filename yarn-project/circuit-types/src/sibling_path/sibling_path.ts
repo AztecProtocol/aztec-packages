@@ -68,7 +68,7 @@ export class SiblingPath<N extends number> {
    * Returns the path buffer underlying the sibling path.
    * @returns The Buffer array representation of this object.
    */
-  public toBufferArray(): Buffer[] {
+  public toBufferArray(): Tuple<Buffer, N> {
     return this.data;
   }
 

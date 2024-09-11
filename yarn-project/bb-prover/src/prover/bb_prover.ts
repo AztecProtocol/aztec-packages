@@ -5,6 +5,7 @@ import {
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
   type ServerCircuitProver,
+  TubeProofAndVK,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
@@ -662,9 +663,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return await this.runInDirectory(operation);
   }
 
-  public async getTubeProof(
-    input: TubeInputs,
-  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }> {
+  public async getTubeProof(input: TubeInputs): Promise<TubeProofAndVK> {
     // this probably is gonna need to call client ivc
     const operation = async (bbWorkingDirectory: string) => {
       logger.debug(`createTubeProof: ${bbWorkingDirectory}`);
@@ -688,7 +687,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         } fields`,
       );
 
-      return { tubeVK, tubeProof };
+      return { verificationKey: tubeVK, proof: tubeProof, type: 'tube-proof' };
     };
     return await this.runInDirectory(operation);
   }

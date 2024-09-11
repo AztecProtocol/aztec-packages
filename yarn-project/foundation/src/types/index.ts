@@ -13,5 +13,8 @@ export type FunctionsOf<T> = {
 /** Marks a set of properties of a type as optional. */
 export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
+/** Marks a set of properties of a type as required. */
+export type RequiredBy<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
+
 /** Removes readonly modifiers for a type. */
 export type Writeable<T> = { -readonly [P in keyof T]: T[P] };

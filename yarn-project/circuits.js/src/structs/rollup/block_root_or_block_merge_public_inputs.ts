@@ -1,9 +1,9 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { GlobalVariables } from '../global_variables.js';
-import { EthAddress } from '../index.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 
 /**
@@ -110,6 +110,21 @@ export class BlockRootOrBlockMergePublicInputs {
   static fromString(str: string) {
     return BlockRootOrBlockMergePublicInputs.fromBuffer(Buffer.from(str, 'hex'));
   }
+
+  public equals(other: BlockRootOrBlockMergePublicInputs) {
+    return (
+      this.previousArchive.equals(other.previousArchive) &&
+      this.newArchive.equals(other.newArchive) &&
+      this.previousBlockHash.equals(other.previousBlockHash) &&
+      this.endBlockHash.equals(other.endBlockHash) &&
+      this.startGlobalVariables.equals(other.startGlobalVariables) &&
+      this.endGlobalVariables.equals(other.endGlobalVariables) &&
+      this.outHash.equals(other.outHash) &&
+      this.fees.every((fee, i) => fee.equals(other.fees[i])) &&
+      this.vkTreeRoot.equals(other.vkTreeRoot) &&
+      this.proverId.equals(other.proverId)
+    );
+  }
 }
 
 export class FeeRecipient {
@@ -130,5 +145,9 @@ export class FeeRecipient {
 
   toFields() {
     return serializeToFields(...FeeRecipient.getFields(this));
+  }
+
+  public equals(other: FeeRecipient) {
+    return this.recipient.equals(other.recipient) && this.value.equals(other.value);
   }
 }

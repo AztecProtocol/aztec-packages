@@ -20,7 +20,6 @@ export class RecursiveProof<N extends number> {
      * Holds the serialized proof data in an array of fields, this is without the public inputs
      */
     public proof: Tuple<Fr, N>,
-
     /**
      * Holds the serialized proof data in a binary buffer, this contains the public inputs
      */
@@ -79,6 +78,14 @@ export class RecursiveProof<N extends number> {
   ): RecursiveProof<N extends number ? N : number> {
     return RecursiveProof.fromBuffer(Buffer.from(str, 'hex'), expectedSize);
   }
+
+  static empty<N extends number>(size: N) {
+    return new RecursiveProof(makeTuple<Fr, N>(size, Fr.zero), makeEmptyProof(), true);
+  }
+
+  isEmpty() {
+    return this.proof.every(field => field.isZero());
+  }
 }
 
 /**
@@ -87,7 +94,7 @@ export class RecursiveProof<N extends number> {
  * @returns The empty "proof".
  */
 export function makeEmptyRecursiveProof<N extends number>(size: N) {
-  return new RecursiveProof(makeTuple<Fr, N>(size, Fr.zero), makeEmptyProof(), true);
+  return RecursiveProof.empty(size);
 }
 
 export function makeRecursiveProof<PROOF_LENGTH extends number>(size: PROOF_LENGTH, seed = 1) {

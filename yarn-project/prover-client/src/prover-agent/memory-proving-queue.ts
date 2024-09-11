@@ -9,6 +9,7 @@ import {
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
   type ServerCircuitProver,
+  type TubeProofAndVK,
 } from '@aztec/circuit-types';
 import type {
   AvmCircuitInputs,
@@ -24,13 +25,11 @@ import type {
   PrivateKernelEmptyInputData,
   PublicKernelCircuitPublicInputs,
   RECURSIVE_PROOF_LENGTH,
-  RecursiveProof,
   RootParityInput,
   RootParityInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
   TubeInputs,
-  VerificationKeyData,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { AbortError, TimeoutError } from '@aztec/foundation/error';
@@ -273,11 +272,7 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
     return this.enqueue({ type: ProvingRequestType.PRIVATE_KERNEL_EMPTY, inputs }, signal, epochNumber);
   }
 
-  getTubeProof(
-    inputs: TubeInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> }> {
+  getTubeProof(inputs: TubeInputs, signal?: AbortSignal, epochNumber?: number): Promise<TubeProofAndVK> {
     return this.enqueue({ type: ProvingRequestType.TUBE_PROOF, inputs }, signal, epochNumber);
   }
 

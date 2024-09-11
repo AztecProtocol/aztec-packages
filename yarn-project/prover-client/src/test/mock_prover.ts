@@ -137,12 +137,12 @@ export class MockProver implements ServerCircuitProver {
   }
 
   getTubeProof(): Promise<{
-    tubeVK: VerificationKeyData;
-    tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>;
+    verificationKey: VerificationKeyData;
+    proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>;
   }> {
     return Promise.resolve({
-      tubeVK: VerificationKeyData.makeFake(),
-      tubeProof: makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      verificationKey: VerificationKeyData.makeFake(),
+      proof: makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
     });
   }
 }

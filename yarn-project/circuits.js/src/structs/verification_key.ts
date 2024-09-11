@@ -296,6 +296,10 @@ export class VerificationKeyData {
     return new VerificationKeyData(VerificationKeyAsFields.makeFake(), VerificationKey.makeFake().toBuffer());
   }
 
+  static makeEmpty(): VerificationKeyData {
+    return new VerificationKeyData(VerificationKeyAsFields.makeEmpty(), VerificationKeyAsFields.makeEmpty().toBuffer());
+  }
+
   /**
    * Serialize as a buffer.
    * @returns The buffer.
@@ -342,6 +346,13 @@ export class AvmVerificationKeyData {
 
   static makeFake(): AvmVerificationKeyData {
     return new AvmVerificationKeyData(AvmVerificationKeyAsFields.makeFake(), VerificationKey.makeFake().toBuffer());
+  }
+
+  static makeEmpty(): AvmVerificationKeyData {
+    return new AvmVerificationKeyData(
+      AvmVerificationKeyAsFields.makeEmpty(),
+      AvmVerificationKeyAsFields.makeEmpty().toBuffer(),
+    );
   }
 
   /**

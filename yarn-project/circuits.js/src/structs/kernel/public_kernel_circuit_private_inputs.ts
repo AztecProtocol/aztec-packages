@@ -18,6 +18,14 @@ export class PublicKernelCircuitPrivateInputs {
     public readonly publicCall: PublicCallData,
   ) {}
 
+  /** Returns a copy of these private inputs with the given proof for the previous kernel and avm. */
+  withNestedProofs(avm: PublicCallData['proof'], ...kernel: Parameters<PublicKernelData['withProof']>) {
+    return new PublicKernelCircuitPrivateInputs(
+      this.previousKernel.withProof(...kernel),
+      this.publicCall.withProof(avm),
+    );
+  }
+
   /**
    * Serializes the object to a buffer.
    * @returns - Buffer representation of the object.

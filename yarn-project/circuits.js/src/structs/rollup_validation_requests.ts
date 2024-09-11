@@ -26,6 +26,10 @@ export class RollupValidationRequests {
     return this.toBuffer().toString('hex');
   }
 
+  equals(other: RollupValidationRequests) {
+    return this.maxBlockNumber.equals(other.maxBlockNumber);
+  }
+
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new RollupValidationRequests(MaxBlockNumber.fromFields(reader));

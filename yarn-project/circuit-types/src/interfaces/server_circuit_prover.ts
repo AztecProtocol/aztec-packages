@@ -4,6 +4,7 @@ import {
   type PublicInputsAndTubeProof,
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
+  type TubeProofAndVK,
   type Tx,
 } from '@aztec/circuit-types';
 import {
@@ -20,13 +21,11 @@ import {
   type PrivateKernelEmptyInputData,
   type PublicKernelCircuitPublicInputs,
   type RECURSIVE_PROOF_LENGTH,
-  type RecursiveProof,
   type RootParityInput,
   type RootParityInputs,
   type RootRollupInputs,
   type RootRollupPublicInputs,
   type TubeInputs,
-  type VerificationKeyData,
 } from '@aztec/circuits.js';
 
 /**
@@ -67,11 +66,7 @@ export interface ServerCircuitProver {
    * Get a recursively verified client IVC proof (making it a compatible honk proof for the rest of the rollup).
    * @param input - Input to the circuit.
    */
-  getTubeProof(
-    tubeInput: TubeInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH> }>;
+  getTubeProof(tubeInput: TubeInputs, signal?: AbortSignal, epochNumber?: number): Promise<TubeProofAndVK>;
 
   /**
    * Creates a proof for the given input.

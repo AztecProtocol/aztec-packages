@@ -96,6 +96,19 @@ export class BaseOrMergeRollupPublicInputs {
     return this.toBuffer().toString('hex');
   }
 
+  public equals(other: BaseOrMergeRollupPublicInputs) {
+    return (
+      this.rollupType === other.rollupType &&
+      this.numTxs === other.numTxs &&
+      this.constants.equals(other.constants) &&
+      this.start.equals(other.start) &&
+      this.end.equals(other.end) &&
+      this.txsEffectsHash.equals(other.txsEffectsHash) &&
+      this.outHash.equals(other.outHash) &&
+      this.accumulatedFees.equals(other.accumulatedFees)
+    );
+  }
+
   /**
    * Deserializes from a hex string.
    * @param str - A hex string to deserialize from.

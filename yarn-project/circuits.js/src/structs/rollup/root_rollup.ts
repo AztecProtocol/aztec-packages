@@ -154,4 +154,19 @@ export class RootRollupPublicInputs {
   static fromString(str: string) {
     return RootRollupPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
   }
+
+  public equals(other: RootRollupPublicInputs): boolean {
+    return (
+      this.previousArchive.equals(other.previousArchive) &&
+      this.endArchive.equals(other.endArchive) &&
+      this.previousBlockHash.equals(other.previousBlockHash) &&
+      this.endBlockHash.equals(other.endBlockHash) &&
+      this.endTimestamp.equals(other.endTimestamp) &&
+      this.endBlockNumber.equals(other.endBlockNumber) &&
+      this.outHash.equals(other.outHash) &&
+      this.fees.every((fee, i) => fee.equals(other.fees[i])) &&
+      this.vkTreeRoot.equals(other.vkTreeRoot) &&
+      this.proverId.equals(other.proverId)
+    );
+  }
 }

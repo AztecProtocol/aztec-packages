@@ -1,4 +1,4 @@
-import { makeTuple } from '@aztec/foundation/array';
+import { FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -61,6 +61,21 @@ export class PublicKernelData {
       0,
       makeTuple(VK_TREE_HEIGHT, Fr.zero),
       ClientIvcProof.empty(),
+    );
+  }
+
+  /** Returns a copy of this struct with the given proof set. */
+  withProof(
+    fields: Pick<FieldsOf<PublicKernelData>, 'proof' | 'vk'> &
+      Partial<Pick<FieldsOf<PublicKernelData>, 'clientIvcProof' | 'vkIndex' | 'vkPath'>>,
+  ) {
+    return new PublicKernelData(
+      this.publicInputs,
+      fields.proof,
+      fields.vk,
+      fields.vkIndex ?? 0,
+      fields.vkPath ?? makeTuple(VK_TREE_HEIGHT, Fr.zero),
+      fields.clientIvcProof,
     );
   }
 

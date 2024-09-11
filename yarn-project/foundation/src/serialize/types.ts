@@ -20,6 +20,7 @@ export function assertLength<T, N extends number>(array: T[], n: N): Tuple<T, N>
   }
   return array as Tuple<T, N>;
 }
+
 /**
  * Annoying, mapping a tuple does not preserve length.
  * This is a helper to preserve length during a map operation.
@@ -37,4 +38,19 @@ type MapTuple<T extends any[], F extends (item: any) => any> = {
  */
 export function mapTuple<T extends any[], F extends (item: T[number]) => any>(tuple: T, fn: F): MapTuple<T, F> {
   return tuple.map(fn) as MapTuple<T, F>;
+}
+
+// TODO(palla): Fix mapTuple with the following signature. Commented out for now since it breaks several calls in noir-mappings.
+// export function mapTuple<T extends any[], F extends (item: T[number]) => any>(tuple: T, fn: F): MapTuple<T, F> {
+//   return tuple.map(fn) as MapTuple<T, F>;
+// }
+// type MapTuple<T extends any[], F extends (item: any) => any> = {
+//   [K in keyof T]: F extends (item: T[K]) => infer V ? V : never;
+// };
+
+/** Equivalent of Promise.all for tuples. */
+export function awaitTuple<I, N extends number, T extends Tuple<I, N>>(
+  tuple: T,
+): Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }> {
+  return Promise.all(tuple) as Promise<{ -readonly [P in keyof T]: Awaited<T[P]> }>;
 }

@@ -4,6 +4,7 @@ import {
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
   type ServerCircuitProver,
+  TubeProofAndVK,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
@@ -261,13 +262,11 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public async getTubeProof(
-    _tubeInput: TubeInputs,
-  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }> {
+  public async getTubeProof(_tubeInput: TubeInputs): Promise<TubeProofAndVK> {
     await this.delay();
     return {
-      tubeVK: VerificationKeyData.makeFake(),
-      tubeProof: makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
+      verificationKey: VerificationKeyData.makeFake(),
+      proof: makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
     };
   }
 

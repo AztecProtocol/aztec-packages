@@ -40,6 +40,14 @@ export class TxContext {
     return serializeToBuffer(...TxContext.getFields(this));
   }
 
+  equals(other: TxContext): boolean {
+    return (
+      this.chainId.equals(other.chainId) &&
+      this.version.equals(other.version) &&
+      this.gasSettings.equals(other.gasSettings)
+    );
+  }
+
   static fromFields(fields: Fr[] | FieldReader): TxContext {
     const reader = FieldReader.asReader(fields);
     return new TxContext(reader.readField(), reader.readField(), reader.readObject(GasSettings));

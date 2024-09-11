@@ -11,15 +11,23 @@ export class BaseParityInputs {
     public readonly vkTreeRoot: Fr,
   ) {}
 
+  public static sliceMessages(
+    array: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
+    index: number,
+  ): Tuple<Fr, typeof NUM_MSGS_PER_BASE_PARITY> {
+    const start = index * NUM_MSGS_PER_BASE_PARITY;
+    const end = start + NUM_MSGS_PER_BASE_PARITY;
+    const msgs = array.slice(start, end);
+    return msgs as Tuple<Fr, typeof NUM_MSGS_PER_BASE_PARITY>;
+  }
+
   public static fromSlice(
     array: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
     index: number,
     vkTreeRoot: Fr,
   ): BaseParityInputs {
-    const start = index * NUM_MSGS_PER_BASE_PARITY;
-    const end = start + NUM_MSGS_PER_BASE_PARITY;
-    const msgs = array.slice(start, end);
-    return new BaseParityInputs(msgs as Tuple<Fr, typeof NUM_MSGS_PER_BASE_PARITY>, vkTreeRoot);
+    const msgs = BaseParityInputs.sliceMessages(array, index);
+    return new BaseParityInputs(msgs, vkTreeRoot);
   }
 
   /** Serializes the inputs to a buffer. */

@@ -14,6 +14,10 @@ export class ReadRequest {
     public counter: number,
   ) {}
 
+  equals(other: ReadRequest) {
+    return this.value.equals(other.value) && this.counter === other.counter;
+  }
+
   /**
    * Serialize this as a buffer.
    * @returns The buffer.
@@ -78,6 +82,10 @@ export class ScopedReadRequest {
 
   get counter() {
     return this.readRequest.counter;
+  }
+
+  equals(other: ScopedReadRequest) {
+    return this.readRequest.equals(other.readRequest) && this.contractAddress.equals(other.contractAddress);
   }
 
   /**

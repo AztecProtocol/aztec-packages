@@ -19,6 +19,10 @@ export class LogHash implements Ordered {
     return new LogHash(reader.readField(), reader.readU32(), reader.readField());
   }
 
+  equals(other: LogHash): boolean {
+    return this.value.equals(other.value) && this.counter === other.counter && this.length.equals(other.length);
+  }
+
   isEmpty() {
     return this.value.isZero() && this.length.isZero() && !this.counter;
   }
@@ -54,6 +58,10 @@ export class ScopedLogHash implements Ordered {
 
   get value() {
     return this.logHash.value;
+  }
+
+  equals(other: ScopedLogHash): boolean {
+    return this.logHash.equals(other.logHash) && this.contractAddress.equals(other.contractAddress);
   }
 
   toFields(): Fr[] {

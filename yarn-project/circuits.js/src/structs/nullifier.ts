@@ -16,6 +16,10 @@ export class Nullifier implements Ordered {
     return new Nullifier(reader.readField(), reader.readU32(), reader.readField());
   }
 
+  equals(other: Nullifier): boolean {
+    return this.value.equals(other.value) && this.counter === other.counter && this.noteHash.equals(other.noteHash);
+  }
+
   isEmpty() {
     return this.value.isZero() && !this.counter && this.noteHash.isZero();
   }

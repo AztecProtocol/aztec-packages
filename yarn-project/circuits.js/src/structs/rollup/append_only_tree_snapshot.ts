@@ -42,6 +42,10 @@ export class AppendOnlyTreeSnapshot {
     return this.toBuffer().toString(STRING_ENCODING);
   }
 
+  public equals(other: AppendOnlyTreeSnapshot) {
+    return this.root.equals(other.root) && this.nextAvailableLeafIndex === other.nextAvailableLeafIndex;
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): AppendOnlyTreeSnapshot {
     const reader = BufferReader.asReader(buffer);
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(reader), reader.readNumber());

@@ -19,6 +19,10 @@ export class MaxBlockNumber {
     public value: Fr,
   ) {}
 
+  equals(other: MaxBlockNumber) {
+    return this.isSome === other.isSome && this.value.equals(other.value);
+  }
+
   /**
    * Serialize as a buffer.
    * @returns The buffer.

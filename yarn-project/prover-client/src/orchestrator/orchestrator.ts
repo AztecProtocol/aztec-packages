@@ -790,13 +790,13 @@ export class ProvingOrchestrator implements BlockProver {
       ),
       result => {
         logger.debug(`Completed tube proof for tx index: ${txIndex}`);
-        const nextKernelRequest = txProvingState.getNextPublicKernelFromTubeProof(result.tubeProof, result.tubeVK);
+        const nextKernelRequest = txProvingState.getNextPublicKernelFromTubeProof(result.proof, result.verificationKey);
         this.checkAndEnqueueNextTxCircuit(
           provingState,
           txIndex,
           -1,
-          result.tubeProof,
-          result.tubeVK,
+          result.proof,
+          result.verificationKey,
           nextKernelRequest,
         );
       },

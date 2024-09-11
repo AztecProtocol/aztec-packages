@@ -38,6 +38,17 @@ export class KernelCircuitPublicInputs {
     public feePayer: AztecAddress,
   ) {}
 
+  equals(other: KernelCircuitPublicInputs): boolean {
+    return (
+      this.rollupValidationRequests.equals(other.rollupValidationRequests) &&
+      this.end.equals(other.end) &&
+      this.constants.equals(other.constants) &&
+      this.startState.equals(other.startState) &&
+      this.revertCode === other.revertCode &&
+      this.feePayer.equals(other.feePayer)
+    );
+  }
+
   getNonEmptyNullifiers() {
     return this.end.nullifiers.filter(n => !n.isZero());
   }

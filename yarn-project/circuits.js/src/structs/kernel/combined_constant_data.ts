@@ -31,6 +31,15 @@ export class CombinedConstantData {
     public globalVariables: GlobalVariables,
   ) {}
 
+  equals(other: CombinedConstantData) {
+    return (
+      this.historicalHeader.equals(other.historicalHeader) &&
+      this.txContext.equals(other.txContext) &&
+      this.vkTreeRoot.equals(other.vkTreeRoot) &&
+      this.globalVariables.equals(other.globalVariables)
+    );
+  }
+
   toBuffer() {
     return serializeToBuffer(this.historicalHeader, this.txContext, this.vkTreeRoot, this.globalVariables);
   }

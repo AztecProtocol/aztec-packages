@@ -1,4 +1,10 @@
-import { type BatchInsertionResult, type L2Block, type MerkleTreeId, type SiblingPath } from '@aztec/circuit-types';
+import {
+  type BatchInsertionResult,
+  type L2Block,
+  type MerkleTreeId,
+  type SiblingPath,
+  TreeHeights,
+} from '@aztec/circuit-types';
 import {
   type HandleL2BlockAndMessagesResult,
   type IndexedTreeId,
@@ -172,11 +178,11 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * @param subtreeHeight - Height of the subtree.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
-  public batchInsert<TreeHeight extends number, SubtreeSiblingPathHeight extends number>(
-    treeId: IndexedTreeId,
+  public batchInsert<TID extends IndexedTreeId, SubtreeSiblingPathHeight extends number>(
+    treeId: TID,
     leaves: Buffer[],
     subtreeHeight: number,
-  ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
+  ): Promise<BatchInsertionResult<TreeHeights[TID], SubtreeSiblingPathHeight>> {
     return this.trees.batchInsert(treeId, leaves, subtreeHeight);
   }
 }

@@ -7,9 +7,14 @@ import { type Tuple } from '../serialize/types.js';
  * @param length - Target length.
  * @returns A new padded array.
  */
-export function padArrayEnd<T, N extends number>(arr: T[], elem: T, length: N): Tuple<T, N> {
+export function padArrayEnd<T, N extends number>(
+  arr: T[],
+  elem: T,
+  length: N,
+  errMsg = `Array size exceeds target length`,
+): Tuple<T, N> {
   if (arr.length > length) {
-    throw new Error(`Array size exceeds target length`);
+    throw new Error(errMsg);
   }
   // Since typescript cannot always deduce that something is a tuple, we cast
   return [...arr, ...Array(length - arr.length).fill(elem)] as Tuple<T, N>;
@@ -28,9 +33,14 @@ export function removeArrayPaddingEnd<T>(arr: T[], isEmpty: (item: T) => boolean
  * @param length - Target length.
  * @returns A new padded array.
  */
-export function padArrayStart<T, N extends number>(arr: T[], elem: T, length: N): Tuple<T, N> {
+export function padArrayStart<T, N extends number>(
+  arr: T[],
+  elem: T,
+  length: N,
+  errMsg = `Array size exceeds target length`,
+): Tuple<T, N> {
   if (arr.length > length) {
-    throw new Error(`Array size exceeds target length`);
+    throw new Error(errMsg);
   }
   // Since typescript cannot always deduce that something is a tuple, we cast
   return [...Array(length - arr.length).fill(elem), ...arr] as Tuple<T, N>;

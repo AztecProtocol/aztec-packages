@@ -21,6 +21,14 @@ export class PartialStateReference {
     return this.noteHashTree.getSize() + this.nullifierTree.getSize() + this.publicDataTree.getSize();
   }
 
+  equals(other: PartialStateReference) {
+    return (
+      this.noteHashTree.equals(other.noteHashTree) &&
+      this.nullifierTree.equals(other.nullifierTree) &&
+      this.publicDataTree.equals(other.publicDataTree)
+    );
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): PartialStateReference {
     const reader = BufferReader.asReader(buffer);
     return new PartialStateReference(

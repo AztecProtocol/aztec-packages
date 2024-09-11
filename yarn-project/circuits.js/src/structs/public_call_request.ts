@@ -30,6 +30,10 @@ export class PublicCallRequest {
     return serializeToBuffer(this.item, this.counter);
   }
 
+  equals(other: PublicCallRequest): boolean {
+    return this.item.equals(other.item) && this.counter === other.counter;
+  }
+
   /**
    * Deserialize this from a buffer.
    * @param buffer - The bufferable type from which to deserialize.

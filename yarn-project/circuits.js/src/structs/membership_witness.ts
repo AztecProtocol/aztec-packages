@@ -56,7 +56,10 @@ export class MembershipWitness<N extends number> {
     return new MembershipWitness<N>(pathSize, leafIndex, arr);
   }
 
-  static fromBufferArray<N extends number>(leafIndex: bigint, siblingPath: Tuple<Buffer, N>): MembershipWitness<N> {
+  static fromBufferArray<const N extends number>(
+    leafIndex: bigint,
+    siblingPath: Tuple<Buffer, N>,
+  ): MembershipWitness<N> {
     return new MembershipWitness<N>(
       siblingPath.length as N,
       leafIndex,

@@ -50,6 +50,18 @@ export class PublicCallStackItemCompressed {
     return serializeToBuffer(...PublicCallStackItemCompressed.getFields(this));
   }
 
+  equals(other: PublicCallStackItemCompressed): boolean {
+    return (
+      this.contractAddress.equals(other.contractAddress) &&
+      this.callContext.equals(other.callContext) &&
+      this.argsHash.equals(other.argsHash) &&
+      this.returnsHash.equals(other.returnsHash) &&
+      this.revertCode.equals(other.revertCode) &&
+      this.startGasLeft.equals(other.startGasLeft) &&
+      this.endGasLeft.equals(other.endGasLeft)
+    );
+  }
+
   /**
    * Deserializes from a buffer or reader.
    * @param buffer - Buffer or reader to read from.

@@ -10,6 +10,7 @@ import {
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
+  type ParityPublicInputs,
   type PrivateKernelEmptyInputData,
   type Proof,
   type PublicKernelCircuitPublicInputs,
@@ -26,21 +27,25 @@ import {
 
 import type { PublicKernelNonTailRequest, PublicKernelTailRequest } from '../tx/processed_tx.js';
 
+type PublicInputs<T> = { inputs: T };
+
 export type AvmProofAndVerificationKey = {
   proof: Proof;
   verificationKey: AvmVerificationKeyData;
 };
 
-export type PublicInputsAndRecursiveProof<T> = {
-  inputs: T;
+export type PublicInputsAndRecursiveProof<T> = PublicInputs<T> & NestedRecursiveProofAndVK;
+
+export type PublicInputsAndTubeProof<T> = PublicInputs<T> & TubeProofAndVK;
+
+export type NestedRecursiveProofAndVK = {
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
   verificationKey: VerificationKeyData;
 };
 
-export type PublicInputsAndTubeProof<T> = {
-  inputs: T;
-  proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>;
+export type TubeProofAndVK = {
   verificationKey: VerificationKeyData;
+  proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>;
 };
 
 export function makePublicInputsAndRecursiveProof<T>(
@@ -76,7 +81,8 @@ export enum ProvingRequestType {
 
   BASE_PARITY,
   ROOT_PARITY,
-  // Recursive Client IVC verification to connect private -> public or rollup
+
+  /** Recursive Client IVC verification to connect private to public or rollup */
   TUBE_PROOF,
 }
 
@@ -132,6 +138,25 @@ export type ProvingRequest =
       inputs: TubeInputs;
     };
 
+export type SimulationRequestPublicInputs = {
+  [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: KernelCircuitPublicInputs;
+  [ProvingRequestType.PUBLIC_VM]: null;
+
+  [ProvingRequestType.PUBLIC_KERNEL_NON_TAIL]: PublicKernelCircuitPublicInputs;
+  [ProvingRequestType.PUBLIC_KERNEL_TAIL]: KernelCircuitPublicInputs;
+
+  [ProvingRequestType.BASE_ROLLUP]: BaseOrMergeRollupPublicInputs;
+  [ProvingRequestType.MERGE_ROLLUP]: BaseOrMergeRollupPublicInputs;
+  [ProvingRequestType.BLOCK_ROOT_ROLLUP]: BlockRootOrBlockMergePublicInputs;
+  [ProvingRequestType.BLOCK_MERGE_ROLLUP]: BlockRootOrBlockMergePublicInputs;
+  [ProvingRequestType.ROOT_ROLLUP]: RootRollupPublicInputs;
+
+  [ProvingRequestType.BASE_PARITY]: ParityPublicInputs;
+  [ProvingRequestType.ROOT_PARITY]: ParityPublicInputs;
+
+  [ProvingRequestType.TUBE_PROOF]: null;
+};
+
 export type ProvingRequestPublicInputs = {
   [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>;
   [ProvingRequestType.PUBLIC_VM]: AvmProofAndVerificationKey;
@@ -147,9 +172,11 @@ export type ProvingRequestPublicInputs = {
 
   [ProvingRequestType.BASE_PARITY]: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>;
   [ProvingRequestType.ROOT_PARITY]: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
-  // TODO(#7369) properly structure tube proof flow
-  [ProvingRequestType.TUBE_PROOF]: { tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> };
+
+  [ProvingRequestType.TUBE_PROOF]: TubeProofAndVK;
 };
+
+export type SimulationRequestResult<T extends ProvingRequestType> = SimulationRequestPublicInputs[T];
 
 export type ProvingRequestResult<T extends ProvingRequestType> = ProvingRequestPublicInputs[T];
 

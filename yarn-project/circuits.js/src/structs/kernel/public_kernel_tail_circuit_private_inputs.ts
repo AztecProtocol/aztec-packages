@@ -63,6 +63,18 @@ export class PublicKernelTailCircuitPrivateInputs {
     return this.toBuffer().toString('hex');
   }
 
+  withNestedProof(...kernel: Parameters<PublicKernelData['withProof']>) {
+    return new PublicKernelTailCircuitPrivateInputs(
+      this.previousKernel.withProof(...kernel),
+      this.noteHashReadRequestHints,
+      this.nullifierReadRequestHints,
+      this.nullifierNonExistentReadRequestHints,
+      this.l1ToL2MsgReadRequestHints,
+      this.publicDataHints,
+      this.startState,
+    );
+  }
+
   static fromString(str: string) {
     return PublicKernelTailCircuitPrivateInputs.fromBuffer(Buffer.from(str, 'hex'));
   }

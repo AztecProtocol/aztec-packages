@@ -65,6 +65,16 @@ export class Header {
     return Header.fromBuffer(this.toBuffer());
   }
 
+  equals(other: Header): boolean {
+    return (
+      this.lastArchive.equals(other.lastArchive) &&
+      this.contentCommitment.equals(other.contentCommitment) &&
+      this.state.equals(other.state) &&
+      this.globalVariables.equals(other.globalVariables) &&
+      this.totalFees.equals(other.totalFees)
+    );
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): Header {
     const reader = BufferReader.asReader(buffer);
 

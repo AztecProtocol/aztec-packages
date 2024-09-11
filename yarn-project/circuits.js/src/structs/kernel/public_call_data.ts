@@ -23,6 +23,10 @@ export class PublicCallData {
     public readonly bytecodeHash: Fr,
   ) {}
 
+  withProof(proof: Proof) {
+    return new PublicCallData(this.callStackItem, proof, this.bytecodeHash);
+  }
+
   toBuffer() {
     return serializeToBuffer(this.callStackItem, this.proof, this.bytecodeHash);
   }

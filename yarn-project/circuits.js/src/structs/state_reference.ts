@@ -35,6 +35,10 @@ export class StateReference {
     return fields;
   }
 
+  equals(other: StateReference): boolean {
+    return this.l1ToL2MessageTree.equals(other.l1ToL2MessageTree) && this.partial.equals(other.partial);
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): StateReference {
     const reader = BufferReader.asReader(buffer);
     return new StateReference(reader.readObject(AppendOnlyTreeSnapshot), reader.readObject(PartialStateReference));

@@ -7,6 +7,10 @@ import { type Ordered } from '../interfaces/index.js';
 export class NoteHash {
   constructor(public value: Fr, public counter: number) {}
 
+  equals(other: NoteHash) {
+    return this.value.equals(other.value) && this.counter === other.counter;
+  }
+
   toFields(): Fr[] {
     return [this.value, new Fr(this.counter)];
   }
@@ -51,6 +55,10 @@ export class ScopedNoteHash implements Ordered {
 
   get value() {
     return this.noteHash.value;
+  }
+
+  equals(other: ScopedNoteHash) {
+    return this.noteHash.equals(other.noteHash) && this.contractAddress.equals(other.contractAddress);
   }
 
   toFields(): Fr[] {

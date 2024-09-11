@@ -84,6 +84,18 @@ export class PublicKernelCircuitPublicInputs {
     return !this.publicTeardownCallStack[0].isEmpty();
   }
 
+  equals(other: PublicKernelCircuitPublicInputs) {
+    return (
+      this.validationRequests.equals(other.validationRequests) &&
+      this.endNonRevertibleData.equals(other.endNonRevertibleData) &&
+      this.end.equals(other.end) &&
+      this.constants.equals(other.constants) &&
+      this.revertCode === other.revertCode &&
+      this.publicTeardownCallStack.every((item, i) => item.equals(other.publicTeardownCallStack[i])) &&
+      this.feePayer.equals(other.feePayer)
+    );
+  }
+
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer or reader to read from.

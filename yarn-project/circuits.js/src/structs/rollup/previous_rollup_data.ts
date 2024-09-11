@@ -2,8 +2,8 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { NESTED_RECURSIVE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { MembershipWitness } from '../membership_witness.js';
-import { RecursiveProof } from '../recursive_proof.js';
-import { VerificationKeyAsFields } from '../verification_key.js';
+import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
+import { VerificationKeyAsFields, VerificationKeyData } from '../verification_key.js';
 import { BaseOrMergeRollupPublicInputs } from './base_or_merge_rollup_public_inputs.js';
 
 /**
@@ -49,6 +49,16 @@ export class PreviousRollupData {
       RecursiveProof.fromBuffer(reader, NESTED_RECURSIVE_PROOF_LENGTH),
       reader.readObject(VerificationKeyAsFields),
       MembershipWitness.fromBuffer(reader, VK_TREE_HEIGHT),
+    );
+  }
+
+  /** Creates a struct with empty proof and verification key. Used for simulation. */
+  public static withEmptyProof(baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputs): PreviousRollupData {
+    return new PreviousRollupData(
+      baseOrMergeRollupPublicInputs,
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      VerificationKeyData.makeEmpty().keyAsFields,
+      MembershipWitness.empty(VK_TREE_HEIGHT),
     );
   }
 }

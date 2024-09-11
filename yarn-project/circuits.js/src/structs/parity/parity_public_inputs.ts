@@ -68,4 +68,12 @@ export class ParityPublicInputs {
   static fromString(str: string) {
     return ParityPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
   }
+
+  public equals(other: ParityPublicInputs) {
+    return (
+      this.shaRoot.equals(other.shaRoot) &&
+      this.convertedRoot.equals(other.convertedRoot) &&
+      this.vkTreeRoot.equals(other.vkTreeRoot)
+    );
+  }
 }

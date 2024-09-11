@@ -4,6 +4,10 @@ import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/
 export class TreeLeafReadRequest {
   constructor(public value: Fr, public leafIndex: Fr) {}
 
+  equals(other: TreeLeafReadRequest) {
+    return this.value.equals(other.value) && this.leafIndex.equals(other.leafIndex);
+  }
+
   toBuffer(): Buffer {
     return serializeToBuffer(this.value, this.leafIndex);
   }

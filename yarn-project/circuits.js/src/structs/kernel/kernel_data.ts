@@ -3,6 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { RECURSIVE_PROOF_LENGTH, VK_TREE_HEIGHT } from '../../constants.gen.js';
+import { MembershipWitness } from '../membership_witness.js';
 import { RecursiveProof, makeEmptyRecursiveProof } from '../recursive_proof.js';
 import { type UInt32 } from '../shared.js';
 import { VerificationKeyData } from '../verification_key.js';
@@ -51,6 +52,17 @@ export class KernelData {
       reader.readObject(VerificationKeyData),
       reader.readNumber(),
       reader.readArray(VK_TREE_HEIGHT, Fr),
+    );
+  }
+
+  static withEmptyProof(publicInputs: KernelCircuitPublicInputs) {
+    const emptyWitness = MembershipWitness.empty(VK_TREE_HEIGHT);
+    return new KernelData(
+      publicInputs,
+      makeEmptyRecursiveProof(RECURSIVE_PROOF_LENGTH),
+      VerificationKeyData.makeEmpty(),
+      Number(emptyWitness.leafIndex),
+      emptyWitness.siblingPath,
     );
   }
 

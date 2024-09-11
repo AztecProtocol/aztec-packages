@@ -140,12 +140,14 @@ describe('aztec node', () => {
         maxBlockNumber: new MaxBlockNumber(true, new Fr(1)),
         getSize: () => 1,
         toBuffer: () => Fr.ZERO.toBuffer(),
+        equals: () => true,
       };
 
       validMaxBlockNumberMetadata.data.forRollup!.rollupValidationRequests = {
         maxBlockNumber: new MaxBlockNumber(true, new Fr(5)),
         getSize: () => 1,
         toBuffer: () => Fr.ZERO.toBuffer(),
+        equals: () => true,
       };
 
       lastBlockNumber = 3;

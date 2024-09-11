@@ -1,10 +1,11 @@
+import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { VK_TREE_HEIGHT } from '../../constants.gen.js';
 import { RecursiveProof } from '../recursive_proof.js';
-import { VerificationKeyAsFields } from '../verification_key.js';
+import { VerificationKeyAsFields, VerificationKeyData } from '../verification_key.js';
 import { ParityPublicInputs } from './parity_public_inputs.js';
 
 export class RootParityInput<PROOF_LENGTH extends number> {
@@ -25,6 +26,10 @@ export class RootParityInput<PROOF_LENGTH extends number> {
 
   toString() {
     return this.toBuffer().toString('hex');
+  }
+
+  hasEmptyProof() {
+    return this.proof.isEmpty();
   }
 
   static from<PROOF_LENGTH extends number>(
@@ -55,5 +60,18 @@ export class RootParityInput<PROOF_LENGTH extends number> {
     expectedSize?: PROOF_LENGTH,
   ): RootParityInput<PROOF_LENGTH extends number ? PROOF_LENGTH : number> {
     return RootParityInput.fromBuffer(Buffer.from(str, 'hex'), expectedSize);
+  }
+
+  /** Creates a struct with empty proof and verification key. Used for simulation. */
+  static withEmptyProof<PROOF_LENGTH extends number>(
+    publicInputs: ParityPublicInputs,
+    proofLength: PROOF_LENGTH,
+  ): RootParityInput<PROOF_LENGTH> {
+    return new RootParityInput(
+      RecursiveProof.empty(proofLength),
+      VerificationKeyData.makeEmpty().keyAsFields,
+      makeTuple(VK_TREE_HEIGHT, Fr.zero),
+      publicInputs,
+    );
   }
 }

@@ -48,6 +48,15 @@ export class ContentCommitment {
     return serialized;
   }
 
+  equals(other: ContentCommitment): boolean {
+    return (
+      this.numTxs.equals(other.numTxs) &&
+      this.txsEffectsHash.equals(other.txsEffectsHash) &&
+      this.inHash.equals(other.inHash) &&
+      this.outHash.equals(other.outHash)
+    );
+  }
+
   static fromBuffer(buffer: Buffer | BufferReader): ContentCommitment {
     const reader = BufferReader.asReader(buffer);
 

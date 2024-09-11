@@ -1,6 +1,5 @@
-import { MerkleTreeId, type ProcessedTx } from '@aztec/circuit-types';
+import { MerkleTreeId, type ProcessedTx, type TreeHeights, getTreeHeight } from '@aztec/circuit-types';
 import {
-  ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
@@ -155,12 +154,7 @@ export async function buildBaseRollupInput(
   });
 
   const blockHash = tx.data.constants.historicalHeader.hash();
-  const archiveRootMembershipWitness = await getMembershipWitnessFor(
-    blockHash,
-    MerkleTreeId.ARCHIVE,
-    ARCHIVE_HEIGHT,
-    db,
-  );
+  const archiveRootMembershipWitness = await getMembershipWitnessFor(blockHash, MerkleTreeId.ARCHIVE, db);
 
   return BaseRollupInputs.from({
     kernelData: getKernelDataFor(tx, kernelVk, proof),
@@ -258,21 +252,9 @@ export async function getBlockRootRollupInput(
     getPreviousRollupDataFromPublicInputs(rollupOutputRight, rollupProofRight, verificationKeyRight),
   ];
 
-  const getRootTreeSiblingPath = async (treeId: MerkleTreeId) => {
-    const { size } = await db.getTreeInfo(treeId);
-    const path = await db.getSiblingPath(treeId, size);
-    return path.toFields();
-  };
-
   // Get blocks tree
   const startArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
-  const newArchiveSiblingPathArray = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE);
-
-  const newArchiveSiblingPath = makeTuple(
-    ARCHIVE_HEIGHT,
-    i => (i < newArchiveSiblingPathArray.length ? newArchiveSiblingPathArray[i] : Fr.ZERO),
-    0,
-  );
+  const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, db);
 
   return BlockRootRollupInputs.from({
     previousRollupData,
@@ -286,6 +268,12 @@ export async function getBlockRootRollupInput(
     previousBlockHash: Fr.ZERO,
     proverId,
   });
+}
+
+export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeOperations) {
+  const { size } = await db.getTreeInfo(treeId);
+  const path = await db.getSiblingPath(treeId, size);
+  return padArrayEnd(path.toFields(), Fr.ZERO, getTreeHeight(treeId));
 }
 
 // Builds the inputs for the final root rollup circuit, without making any changes to trees
@@ -459,18 +447,19 @@ export async function getSubtreeSiblingPath(
 }
 
 // Scan a tree searching for a specific value and return a membership witness proof for it
-export async function getMembershipWitnessFor<N extends number>(
+export async function getMembershipWitnessFor<TID extends MerkleTreeId>(
   value: Fr,
-  treeId: MerkleTreeId,
-  height: N,
+  treeId: TID,
   db: MerkleTreeOperations,
-): Promise<MembershipWitness<N>> {
+): Promise<MembershipWitness<TreeHeights[TID]>> {
+  const height = getTreeHeight(treeId);
+
   // If this is an empty tx, then just return zeroes
   if (value.isZero()) {
     return makeEmptyMembershipWitness(height);
   }
 
-  const index = await db.findLeafIndex(treeId, value.toBuffer());
+  const index = await db.findLeafIndex(treeId as MerkleTreeId, value.toBuffer());
   if (index === undefined) {
     throw new Error(`Leaf with value ${value} not found in tree ${MerkleTreeId[treeId]}`);
   }
@@ -480,15 +469,19 @@ export async function getMembershipWitnessFor<N extends number>(
 
 export function validatePartialState(
   partialState: PartialStateReference,
-  treeSnapshots: Map<MerkleTreeId, AppendOnlyTreeSnapshot>,
+  treeSnapshots:
+    | Map<MerkleTreeId, AppendOnlyTreeSnapshot>
+    | Record<
+        MerkleTreeId.NOTE_HASH_TREE | MerkleTreeId.NULLIFIER_TREE | MerkleTreeId.PUBLIC_DATA_TREE,
+        AppendOnlyTreeSnapshot
+      >,
 ) {
-  validateSimulatedTree(treeSnapshots.get(MerkleTreeId.NOTE_HASH_TREE)!, partialState.noteHashTree, 'NoteHashTree');
-  validateSimulatedTree(treeSnapshots.get(MerkleTreeId.NULLIFIER_TREE)!, partialState.nullifierTree, 'NullifierTree');
-  validateSimulatedTree(
-    treeSnapshots.get(MerkleTreeId.PUBLIC_DATA_TREE)!,
-    partialState.publicDataTree,
-    'PublicDataTree',
-  );
+  const getSnapshot = (
+    treeId: MerkleTreeId.NOTE_HASH_TREE | MerkleTreeId.NULLIFIER_TREE | MerkleTreeId.PUBLIC_DATA_TREE,
+  ) => ('get' in treeSnapshots ? treeSnapshots.get(treeId) : treeSnapshots[treeId])!;
+  validateSimulatedTree(getSnapshot(MerkleTreeId.NOTE_HASH_TREE), partialState.noteHashTree, 'NoteHashTree');
+  validateSimulatedTree(getSnapshot(MerkleTreeId.NULLIFIER_TREE), partialState.nullifierTree, 'NullifierTree');
+  validateSimulatedTree(getSnapshot(MerkleTreeId.PUBLIC_DATA_TREE), partialState.publicDataTree, 'PublicDataTree');
 }
 
 // Helper for comparing two trees snapshots

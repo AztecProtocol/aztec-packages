@@ -141,8 +141,15 @@ export const makeEmptyProcessedTx = (builderDb: MerkleTreeOperations, chainId: F
   return makeEmptyProcessedTxFromHistoricalTreeRoots(header, chainId, version, getVKTreeRoot());
 };
 
-// Updates the expectedDb trees based on the new note hashes, contracts, and nullifiers from these txs
-export const updateExpectedTreesFromTxs = async (db: MerkleTreeOperations, txs: ProcessedTx[]) => {
+/**
+ * Updates the expectedDb trees based on the new note hashes, contracts, and nullifiers from these txs
+ * @remarks Does not work if one of the tx has fee payment enabled
+ */
+export const updateExpectedTreesFromTxs = async (
+  db: MerkleTreeOperations,
+  txs: ProcessedTx[],
+  l1ToL2Messages?: Fr[],
+) => {
   await db.appendLeaves(
     MerkleTreeId.NOTE_HASH_TREE,
     txs.flatMap(tx =>
@@ -164,14 +171,25 @@ export const updateExpectedTreesFromTxs = async (db: MerkleTreeOperations, txs: 
     ),
     NULLIFIER_TREE_HEIGHT,
   );
+
   for (const tx of txs) {
     await db.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
-      tx.data.end.publicDataUpdateRequests.map(write => {
-        return new PublicDataTreeLeaf(write.leafSlot, write.newValue).toBuffer();
-      }),
+      [
+        ...tx.data.end.publicDataUpdateRequests.map(write => {
+          return new PublicDataTreeLeaf(write.leafSlot, write.newValue).toBuffer();
+        }),
+        // Add an extra leaf at the end to account for the fee payer write,
+        // so the number of writes match the actual ones done by the sequencer;
+        // note that this will not work if the test tx has fee payment enabled
+        PublicDataTreeLeaf.empty().toBuffer(),
+      ],
       PUBLIC_DATA_SUBTREE_HEIGHT,
     );
+  }
+
+  if (l1ToL2Messages) {
+    await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
   }
 };
 
@@ -181,7 +199,7 @@ export const makeGlobals = (blockNumber: number) => {
     Fr.ZERO,
     new Fr(blockNumber),
     new Fr(blockNumber) /** slot number */,
-    Fr.ZERO,
+    new Fr(blockNumber) /** timestamp */,
     EthAddress.ZERO,
     AztecAddress.ZERO,
     GasFees.empty(),

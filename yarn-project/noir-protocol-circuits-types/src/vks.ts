@@ -6,6 +6,7 @@ import {
   EMPTY_NESTED_INDEX,
   Fr,
   MERGE_ROLLUP_INDEX,
+  MembershipWitness,
   type MerkleTree,
   MerkleTreeCalculator,
   PRIVATE_KERNEL_EMPTY_INDEX,
@@ -190,4 +191,10 @@ export function getVKSiblingPath(vkIndex: number) {
       .map(buf => new Fr(buf)),
     VK_TREE_HEIGHT,
   );
+}
+
+export function getVKMembershipWitness(vk: VerificationKeyData | VerificationKeyAsFields | Fr) {
+  const index = getVKIndex(vk);
+  const siblingPath = getVKSiblingPath(index);
+  return new MembershipWitness(VK_TREE_HEIGHT, BigInt(index), siblingPath);
 }
