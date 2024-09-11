@@ -8,6 +8,7 @@ import { type Libp2p } from 'libp2p';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
 import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { RequestResponseRateLimiter } from './rate_limiter/rate_limiter.js';
 import { type P2PReqRespConfig } from './config.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
@@ -35,12 +36,15 @@ export class ReqResp {
   private individualRequestTimeoutMs: number;
 
   private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
+  private rateLimiter: RequestResponseRateLimiter;
 
   constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p) {
     this.logger = createDebugLogger('aztec:p2p:reqresp');
 
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
+
+    this.rateLimiter = new RequestResponseRateLimiter();
   }
 
   /**
@@ -62,6 +66,7 @@ export class ReqResp {
     for (const protocol of Object.keys(this.subProtocolHandlers)) {
       await this.libp2p.unhandle(protocol);
     }
+    this.rateLimiter.destroy();
     await this.libp2p.stop();
     this.abortController.abort();
   }
@@ -167,8 +172,16 @@ export class ReqResp {
    *
    * @param param0 - The incoming stream data
    */
-  private async streamHandler(protocol: ReqRespSubProtocol, { stream }: IncomingStreamData) {
+  private async streamHandler(protocol: ReqRespSubProtocol, { stream, connection }: IncomingStreamData) {
     // Store a reference to from this for the async generator
+    if (!this.rateLimiter.allow(protocol, connection.remotePeer)) {
+      this.logger.warn(`Rate limit exceeded for ${protocol} from ${connection.remotePeer}`);
+
+      // TODO: handle changing peer scoring for failed rate limit, maybe differentiate between global and peer limits here when punishing
+      await stream.close();
+      return;
+    }
+
     const handler = this.subProtocolHandlers[protocol];
 
     try {

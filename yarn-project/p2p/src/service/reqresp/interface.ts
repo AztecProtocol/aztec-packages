@@ -17,6 +17,47 @@ export type ReqRespSubProtocol = typeof PING_PROTOCOL | typeof STATUS_PROTOCOL |
 export type ReqRespSubProtocolHandler = (msg: Buffer) => Promise<Uint8Array>;
 
 /**
+ * A type mapping from supprotocol to it's description
+ */
+export type ReqRespSubProtocols = Record<ReqRespSubProtocol, ReqRespSubProtocolDescription>;
+
+export type ReqRespSubProtocolRateLimits = Record<ReqRespSubProtocol, ProtocolRateLimitQuota>;
+
+/**
+ * Each Request Response Sub Protocol define's it's own handler and rate limits
+ */
+export type ReqRespSubProtocolDescription = {
+  handler: ReqRespSubProtocolHandler;
+  rateLimits: ProtocolRateLimitQuota
+}
+
+/**
+ * A rate limit quota
+ */
+export interface RateLimitQuota {
+  /**
+   * The time window in ms
+   */
+  quotaTimeMs: number;
+  /**
+   * The number of requests allowed within the time window
+   */
+  quotaCount: number;
+}
+
+export interface ProtocolRateLimitQuota {
+  /**
+   * The rate limit quota for a single peer
+   */
+  peerLimit: RateLimitQuota;
+  /**
+   * The rate limit quota for the global peer set
+   */
+  globalLimit: RateLimitQuota;
+}
+
+
+/**
  * A type mapping from supprotocol to it's handling funciton
  */
 export type ReqRespSubProtocolHandlers = Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>;
