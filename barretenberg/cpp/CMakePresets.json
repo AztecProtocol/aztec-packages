@@ -23,8 +23,8 @@
     },
     {
       "name": "default-pic",
-      "displayName": "Build with Clang with PIC",
-      "description": "Build with globally installed Clang with PIC",
+      "displayName": "Build with Clang with Position Independent Code",
+      "description": "Build with globally installed Clang with Position Independent Code",
       "binaryDir": "build-pic",
       "generator": "Ninja",
       "environment": {
@@ -84,8 +84,8 @@
     },
     {
       "name": "clang16-pic",
-      "displayName": "Release build with PIC",
-      "description": "Build with globally installed Clang-16 using PIC",
+      "displayName": "Release build with Position Independent Code",
+      "description": "Build with globally installed Clang-16 using Position Independent Code",
       "inherits": "clang16",
       "binaryDir": "build-pic",
       "cacheVariables": {
