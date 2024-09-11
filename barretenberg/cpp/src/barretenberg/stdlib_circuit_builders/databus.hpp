@@ -77,8 +77,8 @@ struct DatabusPropagationData {
     // The start index of the return data commitments (if present) in the public inputs. Note: a start index is all
     // that's needed here since the commitents are represented by a fixed number of witnesses and are contiguous in the
     // public inputs by construction.
-    size_t app_return_data_public_input_idx = 0;
-    size_t kernel_return_data_public_input_idx = 0;
+    uint32_t app_return_data_public_input_idx = 0;
+    uint32_t kernel_return_data_public_input_idx = 0;
 
     // Is this a kernel circuit (used to determine when databus consistency checks can be appended to a circuit in IVC)
     bool is_kernel = false;
