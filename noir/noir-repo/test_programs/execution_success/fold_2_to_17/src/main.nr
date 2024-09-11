@@ -1,13 +1,11 @@
 use std::hash::poseidon2;
 
-global len = 2450 * 2;
+global len = 2450 * 2 - 240;
 fn main(x: Field) {
     let ped_input = [x; len];
     let mut val = poseidon2::Poseidon2::hash(ped_input, len);
     let z = foo(x);
-    let z2 = foo(x);
-    assert(z == z2);
-    assert(val != 0);
+    assert(val == z);
 }
 
 #[fold]
