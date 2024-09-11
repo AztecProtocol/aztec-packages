@@ -1,12 +1,13 @@
-use crate::address::{AztecAddress, EthAddress, PublicKeysHash, SaltedInitializationHash, PartialAddress};
-use crate::tests::fixtures;
-use crate::contract_class_id::ContractClassId;
+use crate::{
+    address::{AztecAddress, PublicKeysHash, SaltedInitializationHash, PartialAddress},
+    contract_class_id::ContractClassId
+};
 
 struct ContractData {
     address: AztecAddress,
     artifact_hash: Field,
     contract_address_salt: Field,
-    contract_class_id: ContractClassId, 
+    contract_class_id: ContractClassId,
     private_functions_root: Field,
     public_bytecode_commitment: Field,
     public_keys_hash: PublicKeysHash,

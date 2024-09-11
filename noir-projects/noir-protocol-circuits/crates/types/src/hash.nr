@@ -13,7 +13,7 @@ use crate::{
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     recursion::verification_key::VerificationKey, traits::{is_empty, ToField},
-    utils::field::field_from_bytes_32_trunc, point::Point
+    utils::field::field_from_bytes_32_trunc
 };
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
@@ -274,10 +274,6 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(
     }
 
     sponge.squeeze()
-}
-
-pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
-    std::hash::pedersen_commitment_with_separator(inputs, hash_index)
 }
 
 #[test]

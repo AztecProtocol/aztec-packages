@@ -3,6 +3,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/zip_view.hpp"
@@ -71,6 +72,7 @@ template <typename Curve> class ZeroMorphProver_ {
     static std::vector<Polynomial> compute_multilinear_quotients(Polynomial& polynomial,
                                                                  std::span<const FF> u_challenge)
     {
+        DEBUG_LOG(polynomial, u_challenge);
         size_t log_N = numeric::get_msb(polynomial.size());
         // Define the vector of quotients q_k, k = 0, ..., log_N-1
         std::vector<Polynomial> quotients;
@@ -83,10 +85,11 @@ template <typename Curve> class ZeroMorphProver_ {
         size_t size_q = 1 << (log_N - 1);
         Polynomial q{ size_q };
         for (size_t l = 0; l < size_q; ++l) {
-            q[l] = polynomial[size_q + l] - polynomial[l];
+            q.at(l) = polynomial[size_q + l] - polynomial[l];
         }
 
         quotients[log_N - 1] = q.share();
+        DEBUG_LOG(quotients[log_N - 1], log_N - 1);
 
         std::vector<FF> f_k;
         f_k.resize(size_q);
@@ -104,7 +107,7 @@ template <typename Curve> class ZeroMorphProver_ {
             q = Polynomial{ size_q };
 
             for (size_t l = 0; l < size_q; ++l) {
-                q[l] = f_k[size_q + l] - f_k[l];
+                q.at(l) = f_k[size_q + l] - f_k[l];
             }
 
             quotients[log_N - k - 1] = q.share();
@@ -130,6 +133,7 @@ template <typename Curve> class ZeroMorphProver_ {
                                                              FF y_challenge,
                                                              size_t N)
     {
+        DEBUG_LOG(quotients, y_challenge, N);
         // Batched lifted degree quotient polynomial
         auto result = Polynomial(N);
 
@@ -142,7 +146,7 @@ template <typename Curve> class ZeroMorphProver_ {
             auto deg_k = static_cast<size_t>((1 << k) - 1);
             size_t offset = N - deg_k - 1;
             for (size_t idx = 0; idx < deg_k + 1; ++idx) {
-                result[offset + idx] += scalar * quotient[idx];
+                result.at(offset + idx) += scalar * quotient[idx];
             }
             scalar *= y_challenge; // update batching scalar y^k
             k++;
@@ -168,6 +172,7 @@ template <typename Curve> class ZeroMorphProver_ {
                                                                           FF y_challenge,
                                                                           FF x_challenge)
     {
+        DEBUG_LOG(batched_quotient, quotients, y_challenge, x_challenge);
         size_t N = batched_quotient.size();
         size_t log_N = quotients.size();
 
@@ -217,17 +222,20 @@ template <typename Curve> class ZeroMorphProver_ {
         FF x_challenge,
         std::vector<Polynomial> concatenation_groups_batched = {})
     {
+        DEBUG_LOG(
+            f_batched, g_batched, quotients, v_evaluation, u_challenge, x_challenge, concatenation_groups_batched);
         size_t N = f_batched.size();
         size_t log_N = quotients.size();
 
         // Initialize Z_x with x * \sum_{i=0}^{m-1} f_i + \sum_{i=0}^{l-1} g_i
-        auto result = g_batched;
+        // Make sure g_batched does not have any starting implicit/virtual 0s as we will assign to [0]
+        auto result = g_batched.full();
         result.add_scaled(f_batched, x_challenge);
 
         // Compute Z_x -= v * x * \Phi_n(x)
         auto phi_numerator = x_challenge.pow(N) - 1; // x^N - 1
         auto phi_n_x = phi_numerator / (x_challenge - 1);
-        result[0] -= v_evaluation * x_challenge * phi_n_x;
+        result.at(0) -= v_evaluation * x_challenge * phi_n_x;
 
         // Add contribution from q_k polynomials
         auto x_power = x_challenge; // x^{2^k}
@@ -288,6 +296,7 @@ template <typename Curve> class ZeroMorphProver_ {
                                                                              Polynomial& Z_x,
                                                                              FF z_challenge)
     {
+        DEBUG_LOG(zeta_x, Z_x, z_challenge);
         // We cannot commit to polynomials with size > N_max
         size_t N = zeta_x.size();
         ASSERT(N <= N_max);
@@ -336,6 +345,15 @@ template <typename Curve> class ZeroMorphProver_ {
                               RefSpan<FF> concatenated_evaluations = {},
                               const std::vector<RefVector<Polynomial>>& concatenation_groups = {})
     {
+        DEBUG_LOG(f_polynomials,
+                  g_polynomials,
+                  g_shift_evaluations,
+                  multilinear_challenge,
+                  commitment_key,
+                  transcript,
+                  concatenated_polynomials,
+                  concatenated_evaluations,
+                  concatenation_groups);
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
         const FF rho = transcript->template get_challenge<FF>("rho");
 
@@ -359,7 +377,7 @@ template <typename Curve> class ZeroMorphProver_ {
             batching_scalar *= rho;
         }
 
-        Polynomial g_batched{ N }; // batched to-be-shifted polynomials
+        Polynomial g_batched{ N - 1, N, 1 }; // batched to-be-shifted polynomials
         for (auto [g_poly, g_shift_eval] : zip_view(g_polynomials, g_shift_evaluations)) {
             g_batched.add_scaled(g_poly, batching_scalar);
             batched_evaluation += batching_scalar * g_shift_eval;
@@ -398,6 +416,7 @@ template <typename Curve> class ZeroMorphProver_ {
         // Compute and send commitments C_{q_k} = [q_k], k = 0,...,d-1
         for (size_t idx = 0; idx < log_N; ++idx) {
             Commitment q_k_commitment = commitment_key->commit(quotients[idx]);
+            DEBUG_LOG(idx, quotients[idx], q_k_commitment);
             std::string label = "ZM:C_q_" + std::to_string(idx);
             transcript->send_to_verifier(label, q_k_commitment);
         }

@@ -75,14 +75,81 @@ resource "null_resource" "upload_public_directory" {
   }
 }
 
-resource "aws_route53_record" "subdomain_record" {
+# resource "aws_route53_record" "subdomain_record" {
+#   zone_id = data.terraform_remote_state.aztec2_iac.outputs.aws_route53_zone_id
+#   name    = "install.aztec.network"
+#   type    = "A"
+
+#   alias {
+#     name                   = aws_s3_bucket_website_configuration.website_bucket.website_domain
+#     zone_id                = aws_s3_bucket.install_bucket.hosted_zone_id
+#     evaluate_target_health = true
+#   }
+# }
+
+resource "aws_cloudfront_distribution" "install" {
+  origin {
+    domain_name = aws_s3_bucket.install_bucket.website_endpoint
+    origin_id   = "S3-install-aztec-network"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = ""
+
+  aliases = ["install.aztec.network"]
+
+  default_cache_behavior {
+    allowed_methods  = ["GET", "HEAD"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "S3-install-aztec-network"
+
+    forwarded_values {
+      query_string = false
+
+      cookies {
+        forward = "none"
+      }
+    }
+
+    # TODO: Once new aztec-up script (almost certainly within days of this change), switch to redirect-to-https.
+    # viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy = "allow-all"
+    min_ttl                = 0
+    default_ttl            = 3600
+    max_ttl                = 86400
+  }
+
+  price_class = "PriceClass_All"
+
+  viewer_certificate {
+    acm_certificate_arn      = data.terraform_remote_state.aztec2_iac.outputs.aws_acm_certificate_aztec_network_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2019"
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+}
+
+resource "aws_route53_record" "install_record" {
   zone_id = data.terraform_remote_state.aztec2_iac.outputs.aws_route53_zone_id
   name    = "install.aztec.network"
   type    = "A"
 
   alias {
-    name                   = "${aws_s3_bucket_website_configuration.website_bucket.website_domain}"
-    zone_id                = "${aws_s3_bucket.install_bucket.hosted_zone_id}"
-    evaluate_target_health = true
+    name                   = aws_cloudfront_distribution.install.domain_name
+    zone_id                = aws_cloudfront_distribution.install.hosted_zone_id
+    evaluate_target_health = false
   }
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
+#include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_key.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"

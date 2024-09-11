@@ -2,6 +2,8 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+// for PolynomialSpan
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <fstream>
@@ -105,17 +107,22 @@ template <typename Fr> class LegacyPolynomial {
 
     Fr& operator[](const size_t i) { return coefficients_[i]; }
 
+    // For compatibility with Polynomial (which needs a special mutable accessor)
     Fr const& at(const size_t i) const
     {
         ASSERT(i < capacity());
         return coefficients_[i];
-    };
+    }
 
+    // For compatibility with Polynomial (which needs a special mutable accessor)
     Fr& at(const size_t i)
     {
         ASSERT(i < capacity());
         return coefficients_[i];
-    };
+    }
+
+    // For compatibility with Polynomial (which needs a special safe mutation function)
+    void set_if_valid_index(size_t index, const Fr& value) { at(index) = value; }
 
     Fr evaluate(const Fr& z, size_t target_size) const;
     Fr evaluate(const Fr& z) const;
@@ -151,6 +158,8 @@ template <typename Fr> class LegacyPolynomial {
 
     bool is_empty() const { return size_ == 0; }
 
+    // For compatibility with polynomial.hpp
+    // void set(size_t i, const Fr& value) { (*this)[i] = value; };
     /**
      * @brief Returns an std::span of the left-shift of self.
      *
@@ -267,6 +276,20 @@ template <typename Fr> class LegacyPolynomial {
         std::generate_n(p.begin(), num_coeffs, []() { return Fr::random_element(); });
         return p;
     }
+
+    /**
+     * @brief Implicit conversion operator to convert Polynomial to PolynomialSpan.
+     * NOTE: For LegacyPolynomial, unlike Polynomial, start index is always 0.
+     * @return PolynomialSpan<Fr> A span covering the entire polynomial.
+     */
+    operator PolynomialSpan<Fr>() { return { 0, { coefficients_, coefficients_ + size() } }; }
+
+    /**
+     * @brief Implicit conversion operator to convert Polynomial to PolynomialSpan.
+     * NOTE: For LegacyPolynomial, unlike Polynomial, start index is always 0.
+     * @return PolynomialSpan<Fr> A span covering the entire polynomial.
+     */
+    operator PolynomialSpan<const Fr>() const { return { 0, { coefficients_, coefficients_ + size() } }; }
 
   private:
     // allocate a fresh memory pointer for backing memory

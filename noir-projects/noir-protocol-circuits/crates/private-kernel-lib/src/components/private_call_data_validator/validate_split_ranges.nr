@@ -1,6 +1,6 @@
 use dep::types::abis::side_effect::RangeOrdered;
 
-pub fn validate_split_ranges<T, N>(
+pub fn validate_split_ranges<T, let N: u32>(
     min_revertible_side_effect_counter: u32,
     first_revertible_item_index: u32,
     items: [T; N],

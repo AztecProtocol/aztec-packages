@@ -17,8 +17,8 @@ export class ProvenStore {
   /**
    * Gets the most recent L1 block processed.
    */
-  getSynchedL1BlockNumber(): bigint {
-    return this.#lastSynchedL1Block.get() ?? 0n;
+  getSynchedL1BlockNumber(): bigint | undefined {
+    return this.#lastSynchedL1Block.get();
   }
 
   getProvenL2BlockNumber(): number {
