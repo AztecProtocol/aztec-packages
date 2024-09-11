@@ -94,19 +94,11 @@ export class SubProtocolRateLimiter {
   private readonly peerQuotaCount: number;
   private readonly peerQuotaTimeMs: number;
 
-  private cleanupInterval: NodeJS.Timeout | undefined = undefined;
-
   constructor(peerQuotaCount: number, peerQuotaTimeMs: number, globalQuotaCount: number, globalQuotaTimeMs: number) {
     this.peerLimiters = new Map();
     this.globalLimiter = new GCRARateLimiter(globalQuotaCount, globalQuotaTimeMs);
     this.peerQuotaCount = peerQuotaCount;
     this.peerQuotaTimeMs = peerQuotaTimeMs;
-  }
-
-  start() {
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupInactivePeers();
-    }, CHECK_DISCONNECTED_PEERS_INTERVAL_MS);
   }
 
   allow(peerId: PeerId): boolean {
@@ -129,20 +121,13 @@ export class SubProtocolRateLimiter {
     return peerLimiter.limiter.allow();
   }
 
-  private cleanupInactivePeers() {
+  cleanupInactivePeers() {
     const now = Date.now();
     this.peerLimiters.forEach((peerLimiter, peerId) => {
       if (now - peerLimiter.lastAccess > CHECK_DISCONNECTED_PEERS_INTERVAL_MS) {
         this.peerLimiters.delete(peerId);
       }
     });
-  }
-
-  /**
-   * Make sure to call destroy on each of the sub protocol rate limiters when cleaning up
-   */
-  stop() {
-    clearInterval(this.cleanupInterval);
   }
 }
 
@@ -170,6 +155,8 @@ export class SubProtocolRateLimiter {
 export class RequestResponseRateLimiter {
   private subProtocolRateLimiters: Map<ReqRespSubProtocol, SubProtocolRateLimiter>;
 
+  private cleanupInterval: NodeJS.Timeout | undefined = undefined;
+
   constructor(rateLimits: ReqRespSubProtocolRateLimits = DEFAULT_RATE_LIMITS) {
     this.subProtocolRateLimiters = new Map();
 
@@ -186,6 +173,12 @@ export class RequestResponseRateLimiter {
     }
   }
 
+  start() {
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupInactivePeers();
+    }, CHECK_DISCONNECTED_PEERS_INTERVAL_MS);
+  }
+
   allow(subProtocol: ReqRespSubProtocol, peerId: PeerId): boolean {
     const limiter = this.subProtocolRateLimiters.get(subProtocol);
     if (!limiter) {
@@ -195,7 +188,14 @@ export class RequestResponseRateLimiter {
     return limiter.allow(peerId);
   }
 
+  cleanupInactivePeers() {
+    this.subProtocolRateLimiters.forEach(limiter => limiter.cleanupInactivePeers());
+  }
+
+  /**
+   * Make sure to call destroy on each of the sub protocol rate limiters when cleaning up
+   */
   stop() {
-    this.subProtocolRateLimiters.forEach(limiter => limiter.stop());
+    clearInterval(this.cleanupInterval);
   }
 }

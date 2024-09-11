@@ -56,6 +56,7 @@ export class ReqResp {
     for (const subProtocol of Object.keys(this.subProtocolHandlers)) {
       await this.libp2p.handle(subProtocol, this.streamHandler.bind(this, subProtocol as ReqRespSubProtocol));
     }
+    this.rateLimiter.start();
   }
 
   /**
@@ -66,7 +67,7 @@ export class ReqResp {
     for (const protocol of Object.keys(this.subProtocolHandlers)) {
       await this.libp2p.unhandle(protocol);
     }
-    this.rateLimiter.destroy();
+    this.rateLimiter.stop();
     await this.libp2p.stop();
     this.abortController.abort();
   }
