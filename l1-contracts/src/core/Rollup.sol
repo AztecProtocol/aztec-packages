@@ -191,6 +191,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _blockHash,
+    bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body
   ) external override(IRollup) {
@@ -198,11 +199,13 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
     // Decode and validate header
     HeaderLib.Header memory header = HeaderLib.decode(_header);
+
+    bytes32 digest = keccak256(abi.encode(_archive, _txHashes));
     setupEpoch();
     _validateHeader({
       _header: header,
       _signatures: _signatures,
-      _digest: _archive,
+      _digest: digest,
       _currentTime: block.timestamp,
       _txEffectsHash: txsEffectsHash,
       _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
@@ -419,6 +422,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
     }
 
+    // Make sure that the proposer is up to date
     bytes32 tipArchive = archive();
     if (tipArchive != _archive) {
       revert Errors.Rollup__InvalidArchive(tipArchive, _archive);

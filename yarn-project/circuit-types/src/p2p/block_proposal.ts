@@ -6,6 +6,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { recoverMessageAddress } from 'viem';
 
 import { TxHash } from '../tx/tx_hash.js';
+import { get0xStringHashedSignaturePayload, getHashedSignaturePayload, getSignaturePayload } from './block_utils.js';
 import { Gossipable } from './gossipable.js';
 import { Signature } from './signature.js';
 import { TopicType, createTopicString } from './topic_type.js';
@@ -49,14 +50,27 @@ export class BlockProposal extends Gossipable {
     return BlockProposalHash.fromField(this.archive);
   }
 
+  static async createProposalFromSigner(
+    header: Header,
+    archive: Fr,
+    txs: TxHash[],
+    payloadSigner: (payload: Buffer) => Promise<Signature>,
+  ) {
+    const hashed = getHashedSignaturePayload(archive, txs);
+    const sig = await payloadSigner(hashed);
+
+    return new BlockProposal(header, archive, txs, sig);
+  }
+
   /**Get Sender
    * Lazily evaluate the sender of the proposal; result is cached
    */
   async getSender() {
     if (!this.sender) {
       // performance note(): this signature method requires another hash behind the scenes
+      const hashed = get0xStringHashedSignaturePayload(this.archive, this.txs);
       const address = await recoverMessageAddress({
-        message: { raw: this.p2pMessageIdentifier().to0xString() },
+        message: { raw: hashed },
         signature: this.signature.to0xString(),
       });
       // Cache the sender for later use
@@ -64,6 +78,10 @@ export class BlockProposal extends Gossipable {
     }
 
     return this.sender;
+  }
+
+  getPayload() {
+    return getSignaturePayload(this.archive, this.txs);
   }
 
   toBuffer(): Buffer {
