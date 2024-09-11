@@ -30,7 +30,8 @@
       "environment": {
         "CC": "clang",
         "CXX": "clang++",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
       },
       "cacheVariables": {
         "TARGET_ARCH": "skylake",
