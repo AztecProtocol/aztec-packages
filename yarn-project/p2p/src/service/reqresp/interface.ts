@@ -28,8 +28,8 @@ export type ReqRespSubProtocolRateLimits = Record<ReqRespSubProtocol, ProtocolRa
  */
 export type ReqRespSubProtocolDescription = {
   handler: ReqRespSubProtocolHandler;
-  rateLimits: ProtocolRateLimitQuota
-}
+  rateLimits: ProtocolRateLimitQuota;
+};
 
 /**
  * A rate limit quota
@@ -55,7 +55,6 @@ export interface ProtocolRateLimitQuota {
    */
   globalLimit: RateLimitQuota;
 }
-
 
 /**
  * A type mapping from supprotocol to it's handling funciton

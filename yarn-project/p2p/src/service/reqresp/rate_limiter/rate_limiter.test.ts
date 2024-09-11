@@ -1,0 +1,142 @@
+import { jest } from '@jest/globals';
+import { type PeerId } from '@libp2p/interface';
+
+import { PING_PROTOCOL, type ReqRespSubProtocolRateLimits, TX_REQ_PROTOCOL } from '../interface.js';
+import { RequestResponseRateLimiter } from './rate_limiter.js';
+
+class MockPeerId {
+  private id: string;
+  constructor(id: string) {
+    this.id = id;
+  }
+  public toString(): string {
+    return this.id;
+  }
+}
+
+const makePeer = (id: string): PeerId => {
+  return new MockPeerId(id) as unknown as PeerId;
+};
+
+describe('rate limiter', () => {
+  let rateLimiter: RequestResponseRateLimiter;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    const config = {
+      [TX_REQ_PROTOCOL]: {
+        // One request every 200ms
+        peerLimit: {
+          quotaCount: 5,
+          quotaTimeMs: 1000,
+        },
+        // One request every 100ms
+        globalLimit: {
+          quotaCount: 10,
+          quotaTimeMs: 1000,
+        },
+      },
+    } as ReqRespSubProtocolRateLimits; // force type as we will not provide descriptions of all protocols
+    rateLimiter = new RequestResponseRateLimiter(config);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    rateLimiter.stop();
+  });
+
+  it('Should allow requests within a peer limit', () => {
+    const peerId = makePeer('peer1');
+    for (let i = 0; i < 5; i++) {
+      jest.advanceTimersByTime(200);
+      expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+    }
+    expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
+    jest.advanceTimersByTime(200);
+    expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+    expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
+  });
+
+  it('Should allow requests within the global limit', () => {
+    for (let i = 0; i < 10; i++) {
+      jest.advanceTimersByTime(99);
+      expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer(`peer${i}`))).toBe(true);
+    }
+    expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer('nolettoinno'))).toBe(false);
+  });
+
+  it('Should reset after quota has passed', () => {
+    const peerId = makePeer('peer1');
+    for (let i = 0; i < 5; i++) {
+      jest.advanceTimersByTime(200);
+      expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+    }
+    expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
+    jest.advanceTimersByTime(1000);
+    expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+  });
+
+  it('Should handle multiple protocols separately', () => {
+    const config = {
+      [TX_REQ_PROTOCOL]: {
+        peerLimit: {
+          quotaCount: 5,
+          quotaTimeMs: 1000,
+        },
+        globalLimit: {
+          quotaCount: 10,
+          quotaTimeMs: 1000,
+        },
+      },
+      [PING_PROTOCOL]: {
+        peerLimit: {
+          quotaCount: 2,
+          quotaTimeMs: 1000,
+        },
+        globalLimit: {
+          quotaCount: 4,
+          quotaTimeMs: 1000,
+        },
+      },
+    } as ReqRespSubProtocolRateLimits;
+    const multiProtocolRateLimiter = new RequestResponseRateLimiter(config);
+
+    const peerId = makePeer('peer1');
+
+    // Protocol 1
+    for (let i = 0; i < 5; i++) {
+      jest.advanceTimersByTime(200);
+      expect(multiProtocolRateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+    }
+    expect(multiProtocolRateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
+
+    // Protocol 2
+    for (let i = 0; i < 2; i++) {
+      jest.advanceTimersByTime(500);
+      expect(multiProtocolRateLimiter.allow(PING_PROTOCOL, peerId)).toBe(true);
+    }
+    expect(multiProtocolRateLimiter.allow(PING_PROTOCOL, peerId)).toBe(false);
+
+    multiProtocolRateLimiter.stop();
+  });
+
+  it('Should allow requests if no rate limiter is configured', () => {
+    const rateLimiter = new RequestResponseRateLimiter({} as ReqRespSubProtocolRateLimits);
+    expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer('peer1'))).toBe(true);
+  });
+
+  it('Should smooth out spam', () => {
+    const requests = 1000;
+    const peers = 100;
+    let allowedRequests = 0;
+
+    for (let i = 0; i < requests; i++) {
+      const peerId = makePeer(`peer${i % peers}`);
+      if (rateLimiter.allow(TX_REQ_PROTOCOL, peerId)) {
+        allowedRequests++;
+      }
+      jest.advanceTimersByTime(5);
+    }
+    expect(allowedRequests).toBe(50);
+  });
+});
