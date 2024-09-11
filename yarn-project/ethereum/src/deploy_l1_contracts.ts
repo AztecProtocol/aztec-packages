@@ -74,10 +74,6 @@ export interface L1ContractArtifactsForDeployment {
    */
   outbox: ContractArtifacts;
   /**
-   * Availability Oracle contract artifacts
-   */
-  availabilityOracle: ContractArtifacts;
-  /**
    * Registry contract artifacts
    */
   registry: ContractArtifacts;
@@ -186,9 +182,6 @@ export const deployL1Contracts = async (
   const registryAddress = await deployer.deploy(contractsToDeploy.registry, [account.address.toString()]);
   logger.info(`Deployed Registry at ${registryAddress}`);
 
-  const availabilityOracleAddress = await deployer.deploy(contractsToDeploy.availabilityOracle);
-  logger.info(`Deployed AvailabilityOracle at ${availabilityOracleAddress}`);
-
   const feeJuiceAddress = await deployer.deploy(contractsToDeploy.feeJuice);
 
   logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
@@ -199,7 +192,6 @@ export const deployL1Contracts = async (
 
   const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
     getAddress(registryAddress.toString()),
-    getAddress(availabilityOracleAddress.toString()),
     getAddress(feeJuicePortalAddress.toString()),
     args.vkTreeRoot.toString(),
     account.address.toString(),
@@ -318,7 +310,6 @@ export const deployL1Contracts = async (
   logger.verbose(`All transactions for L1 deployment have been mined`);
 
   const l1Contracts: L1ContractAddresses = {
-    availabilityOracleAddress,
     rollupAddress,
     registryAddress,
     inboxAddress,

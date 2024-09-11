@@ -14,7 +14,6 @@ rollup_address=$(echo "$output" | grep -oP 'Rollup Address: \K0x[a-fA-F0-9]{40}'
 registry_address=$(echo "$output" | grep -oP 'Registry Address: \K0x[a-fA-F0-9]{40}')
 inbox_address=$(echo "$output" | grep -oP 'L1 -> L2 Inbox Address: \K0x[a-fA-F0-9]{40}')
 outbox_address=$(echo "$output" | grep -oP 'L2 -> L1 Outbox Address: \K0x[a-fA-F0-9]{40}')
-availability_oracle_address=$(echo "$output" | grep -oP 'Availability Oracle Address: \K0x[a-fA-F0-9]{40}')
 fee_juice_address=$(echo "$output" | grep -oP 'Fee Juice Address: \K0x[a-fA-F0-9]{40}')
 fee_juice_portal_address=$(echo "$output" | grep -oP 'Fee Juice Portal Address: \K0x[a-fA-F0-9]{40}')
 
@@ -37,7 +36,6 @@ export ROLLUP_CONTRACT_ADDRESS=$rollup_address
 export REGISTRY_CONTRACT_ADDRESS=$registry_address
 export INBOX_CONTRACT_ADDRESS=$inbox_address
 export OUTBOX_CONTRACT_ADDRESS=$outbox_address
-export AVAILABILITY_ORACLE_CONTRACT_ADDRESS=$availability_oracle_address
 export FEE_JUICE_CONTRACT_ADDRESS=$fee_juice_address
 export FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$fee_juice_portal_address
 export VALIDATOR_PRIVATE_KEY=$private_key

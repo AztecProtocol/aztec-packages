@@ -15,7 +15,6 @@ import {Outbox} from "../../src/core/messagebridge/Outbox.sol";
 import {Errors} from "../../src/core/libraries/Errors.sol";
 import {Rollup} from "../../src/core/Rollup.sol";
 import {Leonidas} from "../../src/core/sequencer_selection/Leonidas.sol";
-import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {PortalERC20} from "../portals/PortalERC20.sol";
@@ -36,8 +35,6 @@ contract SpartaTest is DecoderBase {
   MerkleTestUtil internal merkleTestUtil;
   TxsDecoderHelper internal txsHelper;
   PortalERC20 internal portalERC20;
-
-  AvailabilityOracle internal availabilityOracle;
 
   mapping(address validator => uint256 privateKey) internal privateKeys;
 
@@ -66,15 +63,9 @@ contract SpartaTest is DecoderBase {
     }
 
     registry = new Registry(address(this));
-    availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
     rollup = new Rollup(
-      registry,
-      availabilityOracle,
-      IFeeJuicePortal(address(0)),
-      bytes32(0),
-      address(this),
-      initialValidators
+      registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), initialValidators
     );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
@@ -175,8 +166,6 @@ contract SpartaTest is DecoderBase {
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
-    availabilityOracle.publish(body);
-
     ree.proposer = rollup.getCurrentProposer();
     ree.shouldRevert = false;
 
@@ -222,13 +211,15 @@ contract SpartaTest is DecoderBase {
       }
 
       vm.prank(ree.proposer);
-      rollup.propose(header, archive, bytes32(0), txHashes, signatures);
+      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
-      rollup.propose(header, archive, bytes32(0));
+      SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
+
+      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
