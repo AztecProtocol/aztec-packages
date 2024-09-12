@@ -1,6 +1,6 @@
 // A contract used along with `Parent` contract to test nested calls.
 contract Delegator {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PublicMutable, PrivateSet, Deserialize, Map};
+    use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, PublicMutable, PrivateSet, Map};
     use dep::value_note::value_note::ValueNote;
     use dep::delegated_on::DelegatedOn;
     use dep::aztec::utils::comparison::Comparator;

@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::AztecAddress, traits::{Empty, Eq, Serialize}};
+use dep::protocol_types::{address::AztecAddress, traits::{Empty, Serialize}};
 
 global NOTE_HEADER_LENGTH: Field = 4;
 
