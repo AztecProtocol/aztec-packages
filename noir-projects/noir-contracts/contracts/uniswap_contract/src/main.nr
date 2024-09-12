@@ -7,10 +7,7 @@ mod util;
 contract Uniswap {
     use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, SharedImmutable};
 
-    use dep::authwit::auth::{
-        assert_current_call_valid_authwit_public,
-        compute_authwit_message_hash_from_call, set_authorized
-    };
+    use dep::authwit::auth::{assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call, set_authorized};
 
     use dep::token::Token;
     use dep::token_bridge::TokenBridge;
