@@ -17,10 +17,17 @@ global KEY_REGISTRY_UPDATE_BLOCKS = 5;
 
 global KEY_REGISTRY_STORAGE_SLOT = 1;
 
+// A helper function that gets app-siloed nullifier secret key for a given `npk_m_hash`. This function is used
+// in unconstrained contexts only - in Note::compute_nullifier_without_context which in turn is called by
+// `compute_note_hash_and_optionally_a_nullifier` function that is used by the NoteProcessor. The safe alternative
+// is `request_nsk_app` function define on `PrivateContext`.
 unconstrained pub fn get_nsk_app(npk_m_hash: Field) -> Field {
     get_key_validation_request(npk_m_hash, NULLIFIER_INDEX).sk_app
 }
 
+// A helper function that gets app-siloed outgoing viewing key for a given `ovpk_m_hash`. This function is used
+// in unconstrained contexts only - when computing unconstrained note logs. The safe alternative is `request_ovsk_app`
+// function defined on `PrivateContext`.
 unconstrained pub fn get_ovsk_app(ovpk_m_hash: Field) -> Field {
     get_key_validation_request(ovpk_m_hash, OUTGOING_INDEX).sk_app
 }
