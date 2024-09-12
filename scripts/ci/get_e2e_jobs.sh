@@ -35,7 +35,7 @@ full_list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+b
 # If branch is master or allow_list contains 'e2e-all', return full list
 if [[ "$BRANCH" == "master" ]] || [[ " ${allow_list[@]} " =~ "e2e-all" ]]; then
   # print as JSON list
-  echo "$full_list" | jq -R 'split(" ")'
+  echo "$full_list" | jq -Rc 'split(" ")'
   exit 0
 fi
 
@@ -50,4 +50,4 @@ for item in $full_list; do
 done
 
 # Print the filtered list in JSON format
-echo ${filtered_list[@]} | jq -R 'split(" ")'
+echo ${filtered_list[@]} | jq -Rc 'split(" ")'
