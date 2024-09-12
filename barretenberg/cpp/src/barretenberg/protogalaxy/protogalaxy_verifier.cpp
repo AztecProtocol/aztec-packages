@@ -151,6 +151,10 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
             key->relation_parameters.lookup_grand_product_delta * lagranges[vk_idx];
     }
 
+    for (auto& param : next_accumulator->relation_parameters.get_to_fold()) {
+        info(param);
+    };
+
     return next_accumulator;
 }
 
