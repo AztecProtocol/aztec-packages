@@ -133,10 +133,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     }
 
     // Fold the relation parameters
-    idx = 0;
-    for (auto& alpha : next_accumulator->alphas) {
-        alpha = linear_combination(keys_to_fold.get_alphas_at_index(idx), lagranges);
-        idx++;
+    for (auto [combination, to_combine] : zip_view(next_accumulator->alphas, keys_to_fold.get_alphas())) {
+        combination = linear_combination(to_combine, lagranges);
     }
     for (auto [combination, to_combine] :
          zip_view(next_accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
