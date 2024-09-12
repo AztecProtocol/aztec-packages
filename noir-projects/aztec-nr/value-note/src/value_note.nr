@@ -1,9 +1,10 @@
 use dep::aztec::{
     generators::{Ga1 as G_amt, Ga2 as G_npk, Ga3 as G_rnd, G_slot},
     protocol_types::{
-    address::AztecAddress, traits::{Deserialize, Serialize}, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-    hash::poseidon2_hash_with_separator, point::{Point, POINT_LENGTH}
+    traits::Serialize, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator,
+    point::{Point, POINT_LENGTH}
 },
+    macros::notes::note,
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_nullify},
     oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
 };
@@ -15,6 +16,7 @@ global VALUE_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 
 // docs:start:value-note-def
 #[aztec(note)]
+#[note]
 struct ValueNote {
     value: Field,
    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.

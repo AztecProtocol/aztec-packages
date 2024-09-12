@@ -24,13 +24,11 @@ pub comptime fn generate_storage_field_constructor(typ: Type, slot: Quoted, pare
         typ.as_struct().is_some(), "Storage containers must be generic structs of the form `Container<Context, _>`, or Map<Context, Key, _>"
     );
     let (container_struct, generics) = typ.as_struct().unwrap();
-    let struct_name_quote = container_struct.name();
+    let struct_name = container_struct.name();
 
     if is_storage_map(typ) {
         let (value_constructor, _) = generate_storage_field_constructor(generics[1], quote { slot }, true);
-        (
-            quote { $struct_name_quote::new(context, $slot, | context, slot | { $value_constructor }) }, 1
-        )
+        (quote { $struct_name::new(context, $slot, | context, slot | { $value_constructor }) }, 1)
     } else {
         let (container_struct, _) = typ.as_struct().unwrap();
         let serialized_size = if parent_is_map | container_struct.has_named_attribute(quote { note }) {
@@ -43,23 +41,36 @@ pub comptime fn generate_storage_field_constructor(typ: Type, slot: Quoted, pare
             assert(stored_struct.as_struct().is_some(), "Storable items must be Serializable structs");
             get_serialized_size(stored_struct)
         };
-        (quote { $struct_name_quote::new(context, $slot)}, serialized_size)
+        (quote { $struct_name::new(context, $slot)}, serialized_size)
     }
 }
 
-// comptime fn add_context_generic(typ: Type) -> Type {
-//     let generics = typ.generics();
-//     let context_generic = quote { Context };
-//     let generics = generics.push_back(context_generic);
-//     quote { $typ<$generics> }.as_type()
-// }
+comptime fn add_context_generic(typ: Type, context_generic: Type) -> Type {
+    assert(
+        typ.as_struct().is_some(), "Storage containers must be generic structs of the form `Container<..., Context>`"
+    );
+    if is_storage_map(typ) {
+        let (def, mut generics) = typ.as_struct().unwrap();
+        let name = def.name();
+        generics[generics.len() - 2] = add_context_generic(generics[1], context_generic);
+        generics[generics.len() - 1] = context_generic;
+        let generics = generics.map(|typ: Type| quote{$typ}).join(quote{,});
+        quote { $name<$generics> }.as_type()
+    } else {
+        let (def, mut generics) = typ.as_struct().unwrap();
+        let name = def.name();
+        generics[generics.len() - 1] = context_generic;
+        let generics = generics.map(|typ: Type| quote{$typ}).join(quote{,});
+        quote { $name<$generics> }.as_type()
+    }
+}
 
 pub comptime fn storage(s: StructDefinition) -> Quoted {
     let mut slot: u32 = 1;
     let mut storage_vars_constructors = &[];
     let mut storage_layout_fields = &[];
     let mut storage_layout_constructors = &[];
-    let mut new_storage_fields = &[];
+    //let mut new_storage_fields = &[];
     //let context_generic = s.add_generic("Context");
     for field in s.fields() {
         let (name, typ) = field;
@@ -67,9 +78,13 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
         storage_vars_constructors = storage_vars_constructors.push_back(quote { $name: $storage_field_constructor });
         storage_layout_fields = storage_layout_fields.push_back(quote { $name: dep::aztec::prelude::Storable });
         storage_layout_constructors = storage_layout_constructors.push_back(quote { $name: dep::aztec::prelude::Storable { slot: $slot } });
-        //new_storage_fields = new_storage_fields.push_back((name, quote ));
+        //let with_context_generic = add_context_generic(typ, context_generic);
+        //println(with_context_generic);
+        //new_storage_fields = new_storage_fields.push_back((name,  with_context_generic ));
         slot += serialized_size;
     }
+
+    //s.set_fields(new_storage_fields);
 
     let storage_vars_constructors = storage_vars_constructors.join(quote {,});
     let storage_layout_fields = storage_layout_fields.join(quote {,});

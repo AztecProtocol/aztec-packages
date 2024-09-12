@@ -3,10 +3,10 @@ use dep::aztec::macros::aztec_contract;
 #[aztec_contract]
 contract Counter {
     // docs:start:imports
-    use dep::aztec::prelude::{AztecAddress, Map};
-    use dep::value_note::{balance_utils, value_note::ValueNote};
-    use dep::easy_private_state::EasyPrivateUint;
-    use dep::aztec::macros::{storage::storage, functions::{initializer, private, transform_unconstrained}};
+    use aztec::prelude::{AztecAddress, Map};
+    use value_note::{balance_utils, value_note::ValueNote};
+    use easy_private_state::EasyPrivateUint;
+    use aztec::macros::{storage::storage, functions::{initializer, private}};
     // docs:end:imports
 
     // docs:start:storage_struct
@@ -38,7 +38,6 @@ contract Counter {
     // docs:end:increment
 
     // docs:start:get_counter
-    #[transform_unconstrained]
     unconstrained fn get_counter(owner: AztecAddress) -> pub Field {
         let counters = storage.counters;
         balance_utils::get_balance(counters.at(owner).set)

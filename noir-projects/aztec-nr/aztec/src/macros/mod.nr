@@ -1,15 +1,37 @@
 mod functions;
 mod utils;
-mod note;
+mod notes;
 mod storage;
 
 use functions::STUBS;
 use storage::STORAGE_LAYOUT_NAME;
+use notes::NOTES;
+
 use functions::transform_unconstrained;
 
 pub comptime fn generate_contract_interface(m: Module) -> Quoted {
     let module_name = m.name();
     let fn_stubs_quote = STUBS.join(quote {});
+
+    let has_storage = STORAGE_LAYOUT_NAME != quote {};
+    let storage_layout_getter = if has_storage {
+        quote {
+            pub fn storage_layout() -> StorageLayout {
+                $STORAGE_LAYOUT_NAME
+            }
+        }
+    } else {
+        quote {}
+    };
+
+    let library_storage_layout_getter = if has_storage {
+        quote {
+            #[contract_library_method]
+            $storage_layout_getter
+        }
+    } else {
+        quote {}
+    };
 
     quote {
         struct $module_name {
@@ -29,9 +51,7 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
                 Self { target_contract: aztec::protocol_types::address::AztecAddress::zero() }
             }
 
-            pub fn storage_layout() -> StorageLayout {
-                $STORAGE_LAYOUT_NAME
-            }
+            $storage_layout_getter
         }
 
         #[contract_library_method]
@@ -46,18 +66,66 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
             $module_name { target_contract: aztec::protocol_types::address::AztecAddress::zero() }
         }
 
-        #[contract_library_method]
-        pub fn storage_layout() -> StorageLayout {
-            $STORAGE_LAYOUT_NAME
+        $library_storage_layout_getter
+
+    }
+}
+
+pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
+    let mut max_note_length: u32 = 0;
+    let body = if NOTES.len() == 0 {
+        quote {
+            assert(false, "This contract does not use private notes");
+            [0, 0, 0, 0]
+        }
+    } else {
+        max_note_length = NOTES.fold(0, | acc, (_, len): (StructDefinition, u32) | {
+            acc + len
+        });
+        let if_statements = NOTES.map(
+            | (note, _): (StructDefinition, u32) | {
+                let note_name = note.name();
+                quote {
+                    if note_type_id == $note_name::get_note_type_id() {
+                        aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($note_name::deserialize_content, note_header, compute_nullifier, serialized_note)
+                    }
+                }
+        }
+        ).join(quote{});
+
+        quote {
+            let note_header = aztec::prelude::NoteHeader::new(contract_address, nonce, storage_slot);
+            $if_statements
+            else {
+                assert(false, "Unknown note type ID");
+                [0, 0, 0, 0]
+            }
+        }
+    };
+
+    quote {
+        unconstrained fn compute_note_hash_and_optionally_a_nullifier(
+            contract_address: aztec::protocol_types::address::AztecAddress,
+            nonce: Field,
+            storage_slot: Field,
+            note_type_id: Field,
+            compute_nullifier: bool,
+            serialized_note: [Field; $max_note_length],
+        ) -> pub [Field; 4] {
+            $body
         }
     }
 }
 
 pub comptime fn aztec_contract(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
-    let functions = m.functions();
-    // for f in functions.filter(| f | f.) {
-    //     transform_unconstrained(f);
-    // }
-    interface
+    let unconstrained_functions = m.functions().filter(| f: FunctionDefinition | f.is_unconstrained() & !f.has_named_attribute(quote { test }));
+    let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
+    for f in unconstrained_functions {
+        transform_unconstrained(f);
+    }
+    quote {
+        $interface
+        $compute_note_hash_and_optionally_a_nullifier
+    }
 }

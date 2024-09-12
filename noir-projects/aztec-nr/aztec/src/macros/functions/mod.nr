@@ -1,39 +1,52 @@
 use std::meta::{unquote, type_of};
 
 use super::utils::{
-    modify_fn_body, is_fn_private, get_fn_visibility, add_to_hasher, is_fn_view, compute_fn_selector,
-    add_to_field_slice
+    modify_fn_body, is_fn_private, get_fn_visibility, is_fn_view, compute_fn_selector,
+    add_to_field_slice, add_to_hasher
 };
+use super::storage::STORAGE_LAYOUT_NAME;
+use super::utils::is_fn_public;
 
 comptime mut global STUBS: [Quoted] = &[];
 
-pub comptime fn internal(f: FunctionDefinition) {
+// Empty annotation just to leave a mark in the function that can be used to add the check in the correct place over at #[private]
+pub comptime fn internal(_f: FunctionDefinition) {}
+
+comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
     let name = f.name();
     let assertion_message = f"Function {name} can only be called internally";
-    let internal_check = quote { assert(context.msg_sender() == context.this_address(), $assertion_message); };
-    modify_fn_body(f, internal_check, quote {});
+    quote { assert(context.msg_sender() == context.this_address(), $assertion_message); }
 }
 
-pub comptime fn view(f: FunctionDefinition) {
+// Empty annotation just to leave a mark in the function that can be used to add the check in the correct place over at #[private]
+pub comptime fn view(_f: FunctionDefinition) {}
+
+comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
     let name = f.name();
     let assertion_message = f"Function {name} can only be called statically";
-    let static_check = if is_fn_private(f) {
+    if is_fn_private(f) {
         quote { assert(context.inputs.call_context.is_static_call == true, $assertion_message); }
     } else {
         quote { assert(context.inputs.is_static_call == true, $assertion_message); }
-    };
-    modify_fn_body(f, static_check, quote {});
+    }
 }
 
-pub comptime fn initializer(f: FunctionDefinition) {
+// Empty annotation just to leave a mark in the function that can be used to add the check in the correct place over at #[private]
+pub comptime fn initializer(_f: FunctionDefinition) {}
+
+comptime fn create_assert_initializer(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
-    let to_prepend = f"dep::aztec::initializer::assert_initialization_matches_address_preimage_{fn_visibility}(context);".quoted_contents();
-    modify_fn_body(f, to_prepend, quote {});
+    f"dep::aztec::initializer::assert_initialization_matches_address_preimage_{fn_visibility}(context);".quoted_contents()
 }
 
 comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
     f"dep::aztec::initializer::assert_is_initialized_{fn_visibility}(&mut context);".quoted_contents()
+}
+
+comptime fn create_mark_as_initialized(f: FunctionDefinition) -> Quoted {
+    let fn_visibility = get_fn_visibility(f);
+    f"dep::aztec::initializer::mark_as_initialized_{fn_visibility}(&mut context);".quoted_contents()
 }
 
 comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
@@ -53,7 +66,7 @@ comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     };
 
     let return_value_type = f.return_type();
-    let return_type_quote = if !return_value_type.eq(type_of(())) {
+    let return_type = if return_value_type != type_of(()) {
         quote { return_type: $return_value_type }
     } else {
         quote {}
@@ -68,7 +81,7 @@ comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
         #[abi(functions)]
         struct $abi_struct_name {
             parameters: $parameters_struct_name,
-            $return_type_quote
+            $return_type
         }
     };
     result
@@ -80,6 +93,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     STUBS = STUBS.push_back(fn_stub);
 
     let module_has_initializer = f.module().functions().any(|f: FunctionDefinition| f.has_named_attribute(quote { initializer }));
+    let module_has_storage = STORAGE_LAYOUT_NAME != quote { };
 
     let current_params = f.parameters();
     f.set_parameters(
@@ -90,22 +104,41 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     ].append(current_params)
     );
     let mut body = f.body().as_block().unwrap();
-    let args_hasher_name_quote = quote { args_hasher };
-    let args_hasher_quote = current_params.fold(
+    let args_hasher_name = quote { args_hasher };
+    let args_hasher = current_params.fold(
         quote {
-        let mut $args_hasher_name_quote = dep::aztec::hash::ArgsHasher::new();
+        let mut $args_hasher_name = dep::aztec::hash::ArgsHasher::new();
         },
-        |args_hasher_quote, param: (Quoted, Type)| {
+        |args_hasher, param: (Quoted, Type)| {
         let (name, typ) = param;
-        let appended_arg_quote = add_to_hasher(args_hasher_name_quote, name, typ);
+        let appended_arg = add_to_hasher(args_hasher_name, name, typ);
         quote {
-            $args_hasher_quote
-            $appended_arg_quote
+            $args_hasher
+            $appended_arg
         }
     }
     );
-    let context_creation_quote = quote { let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hasher.hash()); };
-    let storage_init_quote = quote { let storage = Storage::init(&mut context); };
+    let context_creation = quote { let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hasher.hash()); };
+    let internal_check = if f.has_named_attribute(quote { internal }) {
+        create_internal_check(f)
+    } else {
+        quote {}
+    };
+    let view_check = if f.has_named_attribute(quote { view }) {
+        create_view_check(f)
+    } else {
+        quote {}
+    };
+    let (assert_initializer, mark_as_initialized) = if f.has_named_attribute(quote { initializer }) {
+        (create_assert_initializer(f), create_mark_as_initialized(f))
+    } else {
+        (quote {}, quote {})
+    };
+    let storage_init = if module_has_storage {
+        quote { let storage = Storage::init(&mut context); }
+    } else {
+        quote {}
+    };
     let init_check = if module_has_initializer & !f.has_named_attribute(quote { no_init_check }) {
         create_init_check(f)
     } else {
@@ -114,39 +147,39 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
 
     let return_value_type = f.return_type();
 
-    let return_value_quote = if !return_value_type.eq(type_of(())) {
+    let return_value = if return_value_type != type_of(()) {
         let (body_without_return, return_value) = body.pop_back();
-        let return_value_quote = return_value.quoted();
-        let return_hasher_name_quote = quote { return_hasher };
-        let return_value_into_hasher_quote = add_to_hasher(
-            return_hasher_name_quote,
-            return_value_quote,
-            return_value_type
-        );
+        let return_value = return_value.quoted();
+        let return_hasher_name = quote { return_hasher };
+        let return_value_into_hasher = add_to_hasher(return_hasher_name, return_value, return_value_type);
 
         body = body_without_return;
 
         quote {
-            let $return_hasher_name_quote = dep::aztec::hash::ArgsHasher::new();
-            $return_value_into_hasher_quote
-            context.set_return_hash($return_hasher_name_quote);
+            let $return_hasher_name = dep::aztec::hash::ArgsHasher::new();
+            $return_value_into_hasher
+            context.set_return_hash($return_hasher_name);
         }
     } else {
         quote {}
     };
 
-    let context_finish_quote = quote { context.finish() };
+    let context_finish = quote { context.finish() };
 
     let to_prepend = quote {
-        $args_hasher_quote
-        $context_creation_quote
-        $storage_init_quote
+        $args_hasher
+        $context_creation
+        $assert_initializer
         $init_check
+        $internal_check
+        $view_check
+        $storage_init
     };
 
     let to_append = quote {
-        $return_value_quote
-        $context_finish_quote
+        $return_value
+        $mark_as_initialized
+        $context_finish
     };
 
     modify_fn_body(f, to_prepend, to_append);
@@ -158,12 +191,60 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     fn_abi
 }
 
-pub comptime fn transform_unconstrained(f: FunctionDefinition) {
-    let context_creation_quote = quote { let mut context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new(); };
-    let storage_init_quote = quote { let storage = Storage::init(context); };
+pub comptime fn public(f: FunctionDefinition) -> Quoted {
+    let fn_abi = create_fn_abi_export(f);
+    let fn_stub = stub_fn(f);
+    STUBS = STUBS.push_back(fn_stub);
+
+    let module_has_initializer = f.module().functions().any(|f: FunctionDefinition| f.has_named_attribute(quote { initializer }));
+    let module_has_storage = STORAGE_LAYOUT_NAME != quote { };
+
+    let current_params = f.parameters();
+    f.set_parameters(
+        &[
+        (
+            quote { inputs }, quote { crate::context::inputs::public_context_inputs::PublicContextInputs }.as_type()
+        )
+    ].append(current_params)
+    );
+    let context_creation = quote { let mut context = dep::aztec::context::public_context::PublicContext::new(inputs); };
+    let storage_init = if module_has_storage {
+        quote { let storage = Storage::init(&mut context); }
+    } else {
+        quote {}
+    };
+    let init_check = if module_has_initializer & !f.has_named_attribute(quote { no_init_check }) {
+        create_init_check(f)
+    } else {
+        quote {}
+    };
+
     let to_prepend = quote {
-        $context_creation_quote
-        $storage_init_quote
+        $context_creation
+        $storage_init
+        $init_check
+    };
+
+    let to_append = quote {};
+
+    modify_fn_body(f, to_prepend, to_append);
+    f.set_unconstrained(true);
+    f.set_return_public(true);
+    fn_abi
+}
+
+pub comptime fn transform_unconstrained(f: FunctionDefinition) {
+    let context_creation = quote { let mut context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new(); };
+    let module_has_storage = STORAGE_LAYOUT_NAME != quote { };
+
+    let storage_init = if module_has_storage {
+        quote { let storage = Storage::init(context); }
+    } else {
+        quote {}
+    };
+    let to_prepend = quote {
+        $context_creation
+        $storage_init
     };
 
     modify_fn_body(f, to_prepend, quote {});
@@ -175,8 +256,8 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     let fn_return_type = f.return_type();
     let fn_visibility = get_fn_visibility(f);
     let is_static_call = is_fn_view(f);
-    let is_void: bool = fn_return_type.eq(type_of(()));
-    let fn_visibility_capitalized = if fn_visibility.eq(quote { private }) {
+    let is_void = fn_return_type == type_of(());
+    let fn_visibility_capitalized = if is_fn_private(f) {
         quote { Private }
     } else {
         quote { Public }
@@ -187,45 +268,45 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         quote { }
     };
     let is_void_capitalized = if is_void { quote { Void } } else { quote { } };
-    let args_acc_name_quote = quote { args_acc };
-    let args_acc_quote = fn_parameters.fold(
+    let args_acc_name = quote { args_acc };
+    let args_acc = fn_parameters.fold(
         quote {
-                let mut $args_acc_name_quote = &[];
+                let mut $args_acc_name = &[];
             },
-        |args_hasher_quote, param: (Quoted, Type)| {
+        |args_hasher, param: (Quoted, Type)| {
             let (name, typ) = param;
-            let appended_arg_quote = add_to_field_slice(args_acc_name_quote, name, typ);
+            let appended_arg = add_to_field_slice(args_acc_name, name, typ);
             quote {
-                $args_hasher_quote
-                $appended_arg_quote
+                $args_hasher
+                $appended_arg
             }
         }
     );
 
-    let args_hash_name_quote = if fn_visibility == quote { private } {
+    let args_hash_name = if fn_visibility == quote { private } {
         quote { args_hash }
     } else {
         quote {}
     };
 
-    let args_quote = if fn_visibility == quote { private } {
+    let args = if fn_visibility == quote { private } {
         quote {
-            $args_acc_quote
-            let $args_hash_name_quote = dep::aztec::hash::hash_args($args_acc_name_quote);
+            $args_acc
+            let $args_hash_name = dep::aztec::hash::hash_args($args_acc_name);
         }
     } else {
-        args_acc_quote
+        args_acc
     };
 
-    let fn_parameters_quote = fn_parameters.map(
+    let fn_parameters_list = fn_parameters.map(
         | (name, typ): (Quoted, Type) | {
             quote { $name: $typ }
         }
     ).join(quote{,});
 
-    let fn_name_str_quote = fn_name.as_str_quote();
+    let fn_name_str = fn_name.as_str_quote();
 
-    let fn_name_len: u32 = unquote!(quote { $fn_name_str_quote.as_bytes().len()});
+    let fn_name_len: u32 = unquote!(quote { $fn_name_str.as_bytes().len()});
 
     let arg_types_list = fn_parameters.map(|(_, typ): (_, Type)| quote { $typ }).join(quote {,});
     let arg_types = if fn_parameters.len() == 1 {
@@ -237,29 +318,29 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     let generics = if is_void {
         f"{arg_types}>".quoted_contents()
     } else {
-        f"{arg_types}, {fn_return_type}>".quoted_contents()
+        f"{fn_return_type}, {arg_types}>".quoted_contents()
     };
 
-    let call_interface_name_quote = f"dep::aztec::context::call_interfaces::{fn_visibility_capitalized}{is_static_call_capitalized}{is_void_capitalized}CallInterface".quoted_contents();
-    let call_interface_name_w_generics_quote = f"{call_interface_name_quote}<{fn_name_len}, {generics}".quoted_contents();
+    let call_interface_name = f"dep::aztec::context::call_interfaces::{fn_visibility_capitalized}{is_static_call_capitalized}{is_void_capitalized}CallInterface".quoted_contents();
+    let call_interface_name_w_generics = f"{call_interface_name}<{fn_name_len}, {generics}".quoted_contents();
 
     let fn_selector: Field = compute_fn_selector(f);
 
-    let gas_opts = if fn_visibility.eq(quote { public }) {
-        quote { gas_opts: dep::aztec::context::gas::GasOpts::default() }
+    let gas_opts = if is_fn_public(f) {
+        quote { gas_opts: dep::aztec::context::gas::GasOpts::default() }
     } else {
         quote {}
     };
 
     let input_type = f"crate::context::inputs::{fn_visibility_capitalized}ContextInputs".quoted_contents().as_type();
 
-    let return_type_hint = if fn_visibility.eq(quote { private }) {
+    let return_type_hint = if is_fn_private(f) {
         quote { protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }.as_type()
     } else {
         fn_return_type
     };
 
-    let parameter_names_quote = if fn_parameters.len() > 0 {
+    let parameter_names = if fn_parameters.len() > 0 {
         let params = fn_parameters.map(|(name, _): (Quoted, _)| name).join(quote {,});
         f",{params}".quoted_contents()
     } else {
@@ -268,20 +349,26 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
 
     let original = quote {
         | inputs: $input_type  | -> $return_type_hint {
-            $fn_name(inputs $parameter_names_quote)
+            $fn_name(inputs $parameter_names)
         }
     };
 
+    let args_hash = if fn_visibility == quote { private } {
+        quote { $args_hash_name, }
+    } else {
+        quote {}
+    };
+
     quote {
-        pub fn $fn_name(self, $fn_parameters_quote) -> $call_interface_name_w_generics_quote {
-            $args_quote
+        pub fn $fn_name(self, $fn_parameters_list) -> $call_interface_name_w_generics {
+            $args
             let selector = dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_field($fn_selector);
-            $call_interface_name_quote {
+            $call_interface_name {
                 target_contract: self.target_contract,
                 selector,
-                name: $fn_name_str_quote,
-                $args_hash_name_quote,
-                args: $args_acc_name_quote,
+                name: $fn_name_str,
+                $args_hash
+                args: $args_acc_name,
                 original: $original,
                 is_static: $is_static_call,
                 $gas_opts
