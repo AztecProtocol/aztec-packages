@@ -32,21 +32,6 @@ class ClientIVCTests : public ::testing::Test {
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
 
     /**
-     * @brief Prove and verify the IVC scheme
-     * @details Constructs four proofs: merge, eccvm, translator, decider; Verifies these four plus the final folding
-     * proof constructed on the last accumulation round
-     *
-     */
-    static bool prove_and_verify(AztecIVC& ivc)
-    {
-        ZoneScopedN("ClientIVC::prove_and_verify");
-        auto proof = ivc.prove();
-
-        auto verifier_inst = std::make_shared<DeciderVerificationKey>(ivc.decider_vk);
-        return ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
-    }
-
-    /**
      * @brief Construct mock circuit with arithmetic gates and goblin ops
      * @details Currently default sized to 2^16 to match kernel. (Note: dummy op gates added to avoid non-zero
      * polynomials will bump size to next power of 2)
