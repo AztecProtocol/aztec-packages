@@ -13,7 +13,7 @@ contract TokenBlacklist {
     use dep::aztec::{
         hash::compute_secret_hash,
         prelude::{AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note, utils::comparison::Comparator
     };
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
@@ -167,10 +167,10 @@ contract TokenBlacklist {
         // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
         // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();
-        options = options.select(TransparentNote::properties().amount, amount, Option::none()).select(
+        options = options.select(TransparentNote::properties().amount, Comparator.EQ, amount).select(
             TransparentNote::properties().secret_hash,
-            secret_hash,
-            Option::none()
+            Comparator.EQ,
+            secret_hash
         ).set_limit(1);
 
         let notes = storage.pending_shields.pop_notes(options);
