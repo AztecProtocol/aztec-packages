@@ -1,20 +1,20 @@
-import { type Fr } from '@aztec/foundation/fields';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
 import { inspect } from 'util';
 
-import { PublicCallStackItemCompressed } from './public_call_stack_item_compressed.js';
+import { CallContext } from './call_context.js';
 
 /**
  * Represents a request to call a public function.
  */
 export class PublicCallRequest {
   constructor(
-    public item: PublicCallStackItemCompressed,
-    /**
-     * The counter for this call request.
-     */
+    public contractAddress: AztecAddress,
+    public callContext: CallContext,
+    public argsHash: Fr,
     public counter: number,
   ) {}
 
@@ -27,7 +27,7 @@ export class PublicCallRequest {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.item, this.counter);
+    return serializeToBuffer(this.contractAddress, this.callContext, this.argsHash, this.counter);
   }
 
   /**
@@ -37,7 +37,12 @@ export class PublicCallRequest {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new PublicCallRequest(PublicCallStackItemCompressed.fromBuffer(reader), reader.readNumber());
+    return new PublicCallRequest(
+      reader.readObject(AztecAddress),
+      reader.readObject(CallContext),
+      reader.readObject(Fr),
+      reader.readNumber(),
+    );
   }
 
   /**
@@ -55,29 +60,36 @@ export class PublicCallRequest {
    * @returns The array.
    */
   static getFields(fields: FieldsOf<PublicCallRequest>) {
-    return [fields.item, fields.counter] as const;
+    return [fields.contractAddress, fields.callContext, fields.argsHash, fields.counter] as const;
   }
 
   toFields(): Fr[] {
-    return serializeToFields([this.item, this.counter]);
+    return serializeToFields([this.contractAddress, this.callContext, this.argsHash, this.counter]);
   }
 
   static fromFields(fields: Fr[] | FieldReader): PublicCallRequest {
     const reader = FieldReader.asReader(fields);
-    return new PublicCallRequest(PublicCallStackItemCompressed.fromFields(reader), reader.readU32());
+    return new PublicCallRequest(
+      AztecAddress.fromFields(reader),
+      CallContext.fromFields(reader),
+      reader.readField(),
+      reader.readU32(),
+    );
   }
 
   static empty() {
-    return new PublicCallRequest(PublicCallStackItemCompressed.empty(), 0);
+    return new PublicCallRequest(AztecAddress.ZERO, CallContext.empty(), Fr.ZERO, 0);
   }
 
   isEmpty(): boolean {
-    return this.item.isEmpty() && this.counter == 0;
+    return this.contractAddress.isZero() && this.callContext.isEmpty() && this.argsHash.isEmpty() && this.counter == 0;
   }
 
   [inspect.custom]() {
     return `PublicCallRequest {
-      item: ${this.item}
+      contractAddress: ${this.contractAddress}
+      callContext: ${this.callContext}
+      argsHash: ${this.argsHash}
       counter: ${this.counter}
     }`;
   }

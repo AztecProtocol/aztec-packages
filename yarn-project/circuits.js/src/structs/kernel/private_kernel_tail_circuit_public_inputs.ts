@@ -1,8 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX } from '../../constants.gen.js';
 import { countAccumulatedItems, mergeAccumulatedData } from '../../utils/index.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicCallRequest } from '../public_call_request.js';
@@ -164,11 +162,7 @@ export class PrivateKernelTailCircuitPublicInputs {
       this.forPublic.end,
       this.constants,
       this.revertCode,
-      padArrayEnd(
-        [this.forPublic.publicTeardownCallRequest],
-        PublicCallRequest.empty(),
-        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-      ),
+      this.forPublic.publicTeardownCallRequest,
       this.feePayer,
     );
   }

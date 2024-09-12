@@ -213,7 +213,7 @@ export class Tx extends Gossipable {
               this.data
                 .getNonRevertiblePublicCallRequests()
                 .at(-1)!
-                .item.callContext.functionSelector.toField()
+                .callContext.functionSelector.toField()
                 .toBigInt() === 0x43417bb1n
               ? 'fpc_public'
               : 'fpc_private'

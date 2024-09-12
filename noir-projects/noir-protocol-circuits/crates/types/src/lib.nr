@@ -30,4 +30,7 @@ mod data;
 mod storage;
 mod validate;
 
-pub use abis::kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs};
+pub use abis::kernel_circuit_public_inputs::{
+    KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
+    VMCircuitPublicInputs
+};

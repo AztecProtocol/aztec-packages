@@ -4,6 +4,9 @@ import {
   PublicDataWrite,
   type PublicInputsAndRecursiveProof,
   type PublicInputsAndTubeProof,
+  type PublicKernelInnerRequest,
+  type PublicKernelMergeRequest,
+  type PublicKernelTailRequest,
   type SimulationError,
   type Tx,
   TxEffect,
@@ -20,39 +23,20 @@ import {
   KernelCircuitPublicInputs,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type PublicDataUpdateRequest,
-  type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
-  type PublicKernelTailCircuitPrivateInputs,
   type RecursiveProof,
   type TUBE_PROOF_LENGTH,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 import { siloL2ToL1Message } from '@aztec/circuits.js/hash';
 
-import { type CircuitName } from '../stats/stats.js';
-
-/**
- * Used to communicate to the prover which type of circuit to prove
- */
-export enum PublicKernelType {
-  NON_PUBLIC = 'non-public',
-  SETUP = 'setup',
-  APP_LOGIC = 'app-logic',
-  TEARDOWN = 'teardown',
-  TAIL = 'tail',
+export enum PublicKernelPhase {
+  SETUP,
+  APP_LOGIC,
+  TEARDOWN,
 }
 
-export type PublicKernelTailRequest = {
-  type: PublicKernelType.TAIL;
-  inputs: PublicKernelTailCircuitPrivateInputs;
-};
-
-export type PublicKernelNonTailRequest = {
-  type: PublicKernelType.SETUP | PublicKernelType.APP_LOGIC | PublicKernelType.TEARDOWN;
-  inputs: PublicKernelCircuitPrivateInputs;
-};
-
-export type PublicKernelRequest = PublicKernelTailRequest | PublicKernelNonTailRequest;
+export type PublicKernelRequest = PublicKernelInnerRequest | PublicKernelMergeRequest | PublicKernelTailRequest;
 
 export const AVM_REQUEST = 'AVM' as const;
 
@@ -62,7 +46,7 @@ export type AvmProvingRequest = {
   bytecode: Buffer;
   calldata: Fr[];
   avmHints: AvmExecutionHints;
-  kernelRequest: PublicKernelNonTailRequest;
+  kernelRequest: PublicKernelInnerRequest;
 };
 
 export type PublicProvingRequest = AvmProvingRequest | PublicKernelRequest;
@@ -96,7 +80,7 @@ export type ProcessedTx = Pick<Tx, 'clientIvcProof' | 'noteEncryptedLogs' | 'enc
    * Gas usage per public execution phase.
    * Doesn't account for any base costs nor DA gas used in private execution.
    */
-  gasUsed: Partial<Record<PublicKernelType, Gas>>;
+  gasUsed: Partial<Record<PublicKernelPhase, Gas>>;
   /**
    * All public data updates for this transaction, including those created
    * or updated by the protocol, such as balance updates from fee payments.
@@ -352,19 +336,4 @@ function validateProcessedTxLogs(tx: ProcessedTx): void {
 export function validateProcessedTx(tx: ProcessedTx): void {
   validateProcessedTxLogs(tx);
   // TODO: validate other fields
-}
-
-export function mapPublicKernelToCircuitName(kernelType: PublicKernelRequest['type']): CircuitName {
-  switch (kernelType) {
-    case PublicKernelType.SETUP:
-      return 'public-kernel-setup';
-    case PublicKernelType.APP_LOGIC:
-      return 'public-kernel-app-logic';
-    case PublicKernelType.TEARDOWN:
-      return 'public-kernel-teardown';
-    case PublicKernelType.TAIL:
-      return 'public-kernel-tail';
-    default:
-      throw new Error(`Unknown kernel type: ${kernelType}`);
-  }
 }

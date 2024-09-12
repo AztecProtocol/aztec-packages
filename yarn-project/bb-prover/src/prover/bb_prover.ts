@@ -2,8 +2,6 @@
 import {
   type AvmProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
-  type PublicKernelNonTailRequest,
-  type PublicKernelTailRequest,
   type ServerCircuitProver,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
@@ -27,7 +25,10 @@ import {
   type PrivateKernelEmptyInputData,
   PrivateKernelEmptyInputs,
   Proof,
+  type PublicKernelCircuitPrivateInputs,
   type PublicKernelCircuitPublicInputs,
+  type PublicKernelInnerCircuitPrivateInputs,
+  type PublicKernelTailCircuitPrivateInputs,
   RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
   RootParityInput,
@@ -36,6 +37,7 @@ import {
   type RootRollupPublicInputs,
   TUBE_PROOF_LENGTH,
   type TubeInputs,
+  type VMCircuitPublicInputs,
   type VerificationKeyAsFields,
   type VerificationKeyData,
   makeRecursiveProofFromBinary,
@@ -59,6 +61,10 @@ import {
   convertMergeRollupOutputsFromWitnessMap,
   convertPrivateKernelEmptyInputsToWitnessMap,
   convertPrivateKernelEmptyOutputsFromWitnessMap,
+  convertPublicInnerInputsToWitnessMap,
+  convertPublicInnerOutputFromWitnessMap,
+  convertPublicMergeInputsToWitnessMap,
+  convertPublicMergeOutputFromWitnessMap,
   convertPublicTailInputsToWitnessMap,
   convertPublicTailOutputFromWitnessMap,
   convertRootParityInputsToWitnessMap,
@@ -94,7 +100,6 @@ import {
 import type { ACVMConfig, BBConfig } from '../config.js';
 import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { ProverInstrumentation } from '../instrumentation.js';
-import { PublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractAvmVkData, extractVkData } from '../verification_key/verification_key_data.js';
 
@@ -206,47 +211,83 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   /**
-   * Requests that a public kernel circuit be executed and the proof generated
+   * Requests that a public kernel inner circuit be executed and the proof generated
    * @param kernelRequest - The object encapsulating the request for a proof
    * @returns The requested circuit's public inputs and proof
    */
-  @trackSpan('BBNativeRollupProver.getPublicKernelProof', kernelReq => ({
-    [Attributes.PROTOCOL_CIRCUIT_NAME]: mapProtocolArtifactNameToCircuitName(
-      PublicKernelArtifactMapping[kernelReq.type]!.artifact,
-    ),
-  }))
-  public async getPublicKernelProof(
-    kernelRequest: PublicKernelNonTailRequest,
-  ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
-    const kernelOps = PublicKernelArtifactMapping[kernelRequest.type];
-    if (kernelOps === undefined) {
-      throw new Error(`Unable to prove kernel type ${kernelRequest.type}`);
-    }
+  @trackSpan('BBNativeRollupProver.getPublicKernelInnerProof', {
+    [Attributes.PROTOCOL_CIRCUIT_NAME]: 'public-kernel-inner',
+  })
+  public async getPublicKernelInnerProof(
+    inputs: PublicKernelInnerCircuitPrivateInputs,
+  ): Promise<PublicInputsAndRecursiveProof<VMCircuitPublicInputs>> {
+    const artifact = 'PublicKernelInnerArtifact';
 
     // We may need to convert the recursive proof into fields format
-    kernelRequest.inputs.previousKernel.proof = await this.ensureValidProof(
-      kernelRequest.inputs.previousKernel.proof,
-      kernelOps.artifact,
-      kernelRequest.inputs.previousKernel.vk,
+    inputs.previousKernel.proof = await this.ensureValidProof(
+      inputs.previousKernel.proof,
+      artifact,
+      inputs.previousKernel.vk,
     );
 
     await this.verifyWithKey(
-      getUltraHonkFlavorForCircuit(kernelOps.artifact),
-      kernelRequest.inputs.previousKernel.vk,
-      kernelRequest.inputs.previousKernel.proof.binaryProof,
+      getUltraHonkFlavorForCircuit(artifact),
+      inputs.previousKernel.vk,
+      inputs.previousKernel.proof.binaryProof,
     );
 
     const { circuitOutput, proof } = await this.createRecursiveProof(
-      kernelRequest.inputs,
-      kernelOps.artifact,
+      inputs,
+      artifact,
       NESTED_RECURSIVE_PROOF_LENGTH,
-      kernelOps.convertInputs,
-      kernelOps.convertOutputs,
+      convertPublicInnerInputsToWitnessMap,
+      convertPublicInnerOutputFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit(kernelOps.artifact);
+    const verificationKey = await this.getVerificationKeyDataForCircuit(artifact);
 
-    await this.verifyProof(kernelOps.artifact, proof.binaryProof);
+    await this.verifyProof(artifact, proof.binaryProof);
+
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
+  }
+
+  /**
+   * Requests that a public kernel merge circuit be executed and the proof generated
+   * @param kernelRequest - The object encapsulating the request for a proof
+   * @returns The requested circuit's public inputs and proof
+   */
+  @trackSpan('BBNativeRollupProver.getPublicKernelMergeProof', {
+    [Attributes.PROTOCOL_CIRCUIT_NAME]: 'public-kernel-merge',
+  })
+  public async getPublicKernelMergeProof(
+    inputs: PublicKernelCircuitPrivateInputs,
+  ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
+    const artifact = 'PublicKernelMergeArtifact';
+
+    // We may need to convert the recursive proof into fields format
+    inputs.previousKernel.proof = await this.ensureValidProof(
+      inputs.previousKernel.proof,
+      artifact,
+      inputs.previousKernel.vk,
+    );
+
+    await this.verifyWithKey(
+      getUltraHonkFlavorForCircuit(artifact),
+      inputs.previousKernel.vk,
+      inputs.previousKernel.proof.binaryProof,
+    );
+
+    const { circuitOutput, proof } = await this.createRecursiveProof(
+      inputs,
+      artifact,
+      NESTED_RECURSIVE_PROOF_LENGTH,
+      convertPublicMergeInputsToWitnessMap,
+      convertPublicMergeOutputFromWitnessMap,
+    );
+
+    const verificationKey = await this.getVerificationKeyDataForCircuit(artifact);
+
+    await this.verifyProof(artifact, proof.binaryProof);
 
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
@@ -257,10 +298,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @returns The requested circuit's public inputs and proof
    */
   public async getPublicTailProof(
-    kernelRequest: PublicKernelTailRequest,
+    inputs: PublicKernelTailCircuitPrivateInputs,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
     const { circuitOutput, proof } = await this.createRecursiveProof(
-      kernelRequest.inputs,
+      inputs,
       'PublicKernelTailArtifact',
       NESTED_RECURSIVE_PROOF_LENGTH,
       convertPublicTailInputsToWitnessMap,

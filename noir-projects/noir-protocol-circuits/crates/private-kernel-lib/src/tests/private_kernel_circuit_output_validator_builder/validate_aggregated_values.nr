@@ -155,8 +155,8 @@ fn validate_aggregated_values_max_block_number_random_output_fails() {
 fn validate_aggregated_values_public_teardown_call_request_from_previous_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.append_public_teardown_call_request();
-    builder.output.append_public_teardown_call_request();
+    builder.previous_kernel.set_public_teardown_call_request();
+    builder.output.set_public_teardown_call_request();
 
     builder.validate_as_inner_call();
 }
@@ -165,8 +165,8 @@ fn validate_aggregated_values_public_teardown_call_request_from_previous_succeed
 fn validate_aggregated_values_public_teardown_call_request_from_private_call_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_public_teardown_call_request();
-    builder.output.append_public_teardown_call_request();
+    builder.private_call.set_public_teardown_call_request();
+    builder.output.set_public_teardown_call_request();
 
     builder.validate_as_inner_call();
 }
@@ -175,9 +175,9 @@ fn validate_aggregated_values_public_teardown_call_request_from_private_call_suc
 fn validate_aggregated_values_public_teardown_call_request_from_both_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.append_public_teardown_call_request();
-    builder.private_call.append_public_teardown_call_request();
-    builder.output.append_public_teardown_call_request();
+    builder.previous_kernel.set_public_teardown_call_request();
+    builder.private_call.set_public_teardown_call_request();
+    builder.output.set_public_teardown_call_request();
 
     builder.validate_as_inner_call();
 }
@@ -186,10 +186,10 @@ fn validate_aggregated_values_public_teardown_call_request_from_both_fails() {
 fn validate_aggregated_values_public_teardown_call_request_from_previous_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.previous_kernel.append_public_teardown_call_request();
-    builder.output.append_public_teardown_call_request();
+    builder.previous_kernel.set_public_teardown_call_request();
+    builder.output.set_public_teardown_call_request();
     // Tweak the output.
-    builder.output.public_teardown_call_stack.storage[0].item.args_hash += 1;
+    builder.output.public_teardown_call_request.args_hash += 1;
 
     builder.validate_as_inner_call();
 }
@@ -198,10 +198,10 @@ fn validate_aggregated_values_public_teardown_call_request_from_previous_mismatc
 fn validate_aggregated_values_public_teardown_call_request_from_private_call_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.append_public_teardown_call_request();
-    builder.output.append_public_teardown_call_request();
+    builder.private_call.set_public_teardown_call_request();
+    builder.output.set_public_teardown_call_request();
     // Tweak the output.
-    builder.output.public_teardown_call_stack.storage[0].item.args_hash += 1;
+    builder.output.public_teardown_call_request.args_hash += 1;
 
     builder.validate_as_inner_call();
 }
@@ -210,7 +210,7 @@ fn validate_aggregated_values_public_teardown_call_request_from_private_call_mis
 fn validate_aggregated_values_public_teardown_call_request_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.append_public_teardown_call_request();
+    builder.output.set_public_teardown_call_request();
 
     builder.validate_as_inner_call();
 }

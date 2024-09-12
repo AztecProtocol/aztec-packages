@@ -1,11 +1,9 @@
-import { makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { type Fr } from '@aztec/foundation/fields';
-import { BufferReader, FieldReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
 
-import { MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX } from '../../constants.gen.js';
 import { PublicCallRequest } from '../public_call_request.js';
 import { PublicValidationRequests } from '../public_validation_requests.js';
 import { RevertCode } from '../revert_code.js';
@@ -41,7 +39,7 @@ export class PublicKernelCircuitPublicInputs {
     /**
      * The call request for the public teardown function
      */
-    public publicTeardownCallStack: Tuple<PublicCallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public publicTeardownCallRequest: PublicCallRequest,
     /**
      * The address of the fee payer for the transaction
      */
@@ -55,7 +53,7 @@ export class PublicKernelCircuitPublicInputs {
       this.end,
       this.constants,
       this.revertCode,
-      this.publicTeardownCallStack,
+      this.publicTeardownCallRequest,
       this.feePayer,
     );
   }
@@ -72,18 +70,6 @@ export class PublicKernelCircuitPublicInputs {
     return PublicKernelCircuitPublicInputs.fromBuffer(Buffer.from(str, 'hex'));
   }
 
-  get needsSetup() {
-    return !this.endNonRevertibleData.publicCallStack[0].isEmpty();
-  }
-
-  get needsAppLogic() {
-    return !this.end.publicCallStack[0].isEmpty();
-  }
-
-  get needsTeardown() {
-    return !this.publicTeardownCallStack[0].isEmpty();
-  }
-
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer or reader to read from.
@@ -97,7 +83,7 @@ export class PublicKernelCircuitPublicInputs {
       reader.readObject(PublicAccumulatedData),
       reader.readObject(CombinedConstantData),
       reader.readObject(RevertCode),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest),
+      reader.readObject(PublicCallRequest),
       reader.readObject(AztecAddress),
     );
   }
@@ -109,7 +95,7 @@ export class PublicKernelCircuitPublicInputs {
       PublicAccumulatedData.empty(),
       CombinedConstantData.empty(),
       RevertCode.OK,
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest.empty),
+      PublicCallRequest.empty(),
       AztecAddress.ZERO,
     );
   }
@@ -122,7 +108,7 @@ export class PublicKernelCircuitPublicInputs {
       PublicAccumulatedData.fromFields(reader),
       CombinedConstantData.fromFields(reader),
       RevertCode.fromField(reader.readField()),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest),
+      PublicCallRequest.fromFields(reader),
       AztecAddress.fromFields(reader),
     );
   }
@@ -134,7 +120,7 @@ export class PublicKernelCircuitPublicInputs {
       end: ${inspect(this.end)},
       constants: ${inspect(this.constants)},
       revertCode: ${this.revertCode},
-      publicTeardownCallStack: ${inspect(this.publicTeardownCallStack)}
+      publicTeardownCallRequest: ${inspect(this.publicTeardownCallRequest)}
       feePayer: ${this.feePayer}
       }`;
   }

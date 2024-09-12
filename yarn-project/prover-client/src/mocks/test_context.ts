@@ -71,7 +71,7 @@ export class TestContext {
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const telemetry = new NoopTelemetryClient();
     const actualDb = await MerkleTrees.new(openTmpStore(), telemetry).then(t => t.asLatest());
-    const processor = new PublicProcessor(
+    const processor = PublicProcessor.create(
       actualDb,
       publicExecutor,
       publicKernel,

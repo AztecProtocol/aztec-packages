@@ -1,4 +1,4 @@
-import { PublicKernelType, type SimulatedTx, mockSimulatedTx } from '@aztec/circuit-types';
+import { PublicKernelPhase, type SimulatedTx, mockSimulatedTx } from '@aztec/circuit-types';
 import { type CombinedAccumulatedData, Gas } from '@aztec/circuits.js';
 
 import { getGasLimits } from './get_gas_limits.js';
@@ -14,9 +14,9 @@ describe('getGasLimits', () => {
     data.gasUsed = Gas.from({ daGas: 100, l2Gas: 200 });
     simulatedTx.tx.data.publicInputs.end = data;
     simulatedTx.publicOutput!.gasUsed = {
-      [PublicKernelType.SETUP]: Gas.from({ daGas: 10, l2Gas: 20 }),
-      [PublicKernelType.APP_LOGIC]: Gas.from({ daGas: 20, l2Gas: 40 }),
-      [PublicKernelType.TEARDOWN]: Gas.from({ daGas: 10, l2Gas: 20 }),
+      [PublicKernelPhase.SETUP]: Gas.from({ daGas: 10, l2Gas: 20 }),
+      [PublicKernelPhase.APP_LOGIC]: Gas.from({ daGas: 20, l2Gas: 40 }),
+      [PublicKernelPhase.TEARDOWN]: Gas.from({ daGas: 10, l2Gas: 20 }),
     };
     simulationTeardownGasLimits = Gas.empty();
   });

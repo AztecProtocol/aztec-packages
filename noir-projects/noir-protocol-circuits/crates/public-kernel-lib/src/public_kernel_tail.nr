@@ -16,16 +16,13 @@ use dep::types::{
     constants::{
     L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
     MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_HINTS, MAX_PUBLIC_DATA_READS_PER_TX,
-    NOTE_HASH_TREE_HEIGHT, PUBLIC_KERNEL_SETUP_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX,
-    PUBLIC_KERNEL_TEARDOWN_INDEX
+    NOTE_HASH_TREE_HEIGHT, PUBLIC_KERNEL_MERGE_INDEX
 },
     data::PublicDataLeafHint, partial_state_reference::PartialStateReference
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
-    PUBLIC_KERNEL_SETUP_INDEX,
-    PUBLIC_KERNEL_APP_LOGIC_INDEX,
-    PUBLIC_KERNEL_TEARDOWN_INDEX,
+    PUBLIC_KERNEL_MERGE_INDEX,
 ];
 
 struct PublicKernelTailCircuitPrivateInputs {
@@ -111,8 +108,7 @@ mod tests {
         MAX_PUBLIC_DATA_HINTS, NOTE_HASH_SUBTREE_HEIGHT, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
         NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT,
         PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_TREE_HEIGHT,
-        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT,
-        PUBLIC_KERNEL_APP_LOGIC_INDEX, PUBLIC_KERNEL_SETUP_INDEX, PUBLIC_KERNEL_TEARDOWN_INDEX
+        MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NOTE_HASH_TREE_HEIGHT, PUBLIC_KERNEL_MERGE_INDEX
     },
         data::{PublicDataLeafHint, PublicDataTreeLeafPreimage},
         hash::{compute_siloed_nullifier, silo_note_hash},
@@ -173,7 +169,7 @@ mod tests {
 
     impl PublicKernelTailCircuitPrivateInputsBuilder {
         pub fn new() -> PublicKernelTailCircuitPrivateInputsBuilder {
-            let previous_kernel = FixtureBuilder::new().in_vk_tree(PUBLIC_KERNEL_APP_LOGIC_INDEX);
+            let previous_kernel = FixtureBuilder::new().in_vk_tree(PUBLIC_KERNEL_MERGE_INDEX);
             let previous_revertible = FixtureBuilder::new();
             let nullifier_non_existent_read_request_hints_builder = NullifierNonExistentReadRequestHintsBuilder::new();
 
@@ -418,6 +414,7 @@ mod tests {
         builder.succeeded();
     }
 
+    #[test]
     unconstrained fn one_pending_nullifier_read_request() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
 
@@ -630,25 +627,9 @@ mod tests {
     }
 
     #[test]
-    fn valid_previous_kernel_setup() {
+    fn valid_previous_kernel_merge() {
         let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PUBLIC_KERNEL_SETUP_INDEX);
-
-        let _res = builder.execute();
-    }
-
-    #[test]
-    fn valid_previous_kernel_app_logic() {
-        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PUBLIC_KERNEL_APP_LOGIC_INDEX);
-
-        let _res = builder.execute();
-    }
-
-    #[test]
-    fn valid_previous_kernel_teardown() {
-        let mut builder = PublicKernelTailCircuitPrivateInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PUBLIC_KERNEL_TEARDOWN_INDEX);
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PUBLIC_KERNEL_MERGE_INDEX);
 
         let _res = builder.execute();
     }

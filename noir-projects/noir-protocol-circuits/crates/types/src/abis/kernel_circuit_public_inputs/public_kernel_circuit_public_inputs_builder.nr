@@ -4,8 +4,7 @@ use crate::{
     kernel_circuit_public_inputs::{public_kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs},
     public_call_request::PublicCallRequest, validation_requests::PublicValidationRequestsBuilder
 },
-    address::AztecAddress, constants::MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, traits::Empty,
-    utils::arrays::array_to_bounded_vec
+    address::AztecAddress, traits::Empty
 };
 
 struct PublicKernelCircuitPublicInputsBuilder {
@@ -14,7 +13,7 @@ struct PublicKernelCircuitPublicInputsBuilder {
     end: PublicAccumulatedDataBuilder,
     constants: CombinedConstantData,
     revert_code: u8,
-    public_teardown_call_stack: BoundedVec<PublicCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public_teardown_call_request: PublicCallRequest,
     fee_payer: AztecAddress,
 }
 
@@ -26,7 +25,7 @@ impl PublicKernelCircuitPublicInputsBuilder {
             end: PublicAccumulatedDataBuilder::new(data.end),
             constants: data.constants,
             revert_code: data.revert_code,
-            public_teardown_call_stack: array_to_bounded_vec(data.public_teardown_call_stack),
+            public_teardown_call_request: data.public_teardown_call_request,
             fee_payer: data.fee_payer
         }
     }
@@ -41,7 +40,7 @@ impl PublicKernelCircuitPublicInputsBuilder {
             end: self.end.finish(),
             constants: self.constants,
             revert_code: self.revert_code,
-            public_teardown_call_stack: self.public_teardown_call_stack.storage,
+            public_teardown_call_request: self.public_teardown_call_request,
             fee_payer: self.fee_payer
         }
     }
@@ -55,7 +54,7 @@ impl Empty for PublicKernelCircuitPublicInputsBuilder {
             end: PublicAccumulatedDataBuilder::empty(),
             constants: CombinedConstantData::empty(),
             revert_code: 0 as u8,
-            public_teardown_call_stack: BoundedVec::new(),
+            public_teardown_call_request: PublicCallRequest::empty(),
             fee_payer: AztecAddress::empty(),
         }
     }

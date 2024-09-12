@@ -1,12 +1,12 @@
 import {
   type AllowedElement,
   type PublicExecutionRequest,
-  PublicKernelType,
+  PublicKernelPhase,
   Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AbstractPhaseManager, ContractsDataSourcePublicDB } from '@aztec/simulator';
+import { ContractsDataSourcePublicDB, EnqueuedCallsProcessor } from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
@@ -45,8 +45,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       return true;
     }
 
-    const { [PublicKernelType.SETUP]: setupFns } = AbstractPhaseManager.extractEnqueuedPublicCallsByPhase(tx);
-
+    const setupFns = EnqueuedCallsProcessor.getExecutionRequestsByPhase(tx, PublicKernelPhase.SETUP);
     for (const setupFn of setupFns) {
       if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
         this.#log.warn(

@@ -13,8 +13,8 @@ import {
   type LogHash,
   type NoteHash,
   type Nullifier,
-  PublicCallRequest,
   PublicCallStackItemCompressed,
+  PublicInnerCallRequest,
   type ReadRequest,
   RevertCode,
   type TreeLeafReadRequest,
@@ -89,7 +89,7 @@ export interface PublicExecutionResult {
   // TODO(dbanks12): add contract instance read requests
 
   /** The requests to call public functions made by this call. */
-  publicCallRequests: PublicCallRequest[];
+  publicCallRequests: PublicInnerCallRequest[];
   /** The results of nested calls. */
   nestedExecutions: this[];
 
@@ -100,15 +100,8 @@ export interface PublicExecutionResult {
   functionName: string;
 }
 
-/**
- * Returns if the input is a public execution result and not just a public execution.
- * @param input - Public execution or public execution result.
- * @returns Whether the input is a public execution result and not just a public execution.
- */
-export function isPublicExecutionResult(
-  input: PublicExecutionRequest | PublicExecutionResult,
-): input is PublicExecutionResult {
-  return 'executionRequest' in input && input.executionRequest !== undefined;
+export function collectExecutionResults(result: PublicExecutionResult): PublicExecutionResult[] {
+  return [result, ...result.nestedExecutions.map(collectExecutionResults)].flat();
 }
 
 /**
@@ -146,5 +139,5 @@ export function resultToPublicCallRequest(result: PublicExecutionResult) {
     Gas.from(result.startGasLeft),
     Gas.from(result.endGasLeft),
   );
-  return new PublicCallRequest(item, result.startSideEffectCounter.toNumber());
+  return new PublicInnerCallRequest(item, result.startSideEffectCounter.toNumber());
 }

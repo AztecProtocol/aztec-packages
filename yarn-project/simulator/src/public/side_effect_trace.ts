@@ -14,7 +14,7 @@ import {
   LogHash,
   NoteHash,
   Nullifier,
-  type PublicCallRequest,
+  type PublicInnerCallRequest,
   ReadRequest,
   TreeLeafReadRequest,
 } from '@aztec/circuits.js';
@@ -53,7 +53,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   private allUnencryptedLogs: UnencryptedL2Log[] = [];
   private unencryptedLogsHashes: LogHash[] = [];
 
-  private publicCallRequests: PublicCallRequest[] = [];
+  private publicCallRequests: PublicInnerCallRequest[] = [];
 
   private gotContractInstances: ContractInstanceWithAddress[] = [];
 

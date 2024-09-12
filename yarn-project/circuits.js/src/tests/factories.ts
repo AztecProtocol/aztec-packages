@@ -111,7 +111,6 @@ import {
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
-  PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
   PublicKernelData,
   PublicKernelTailCircuitPrivateInputs,
@@ -148,6 +147,7 @@ import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
   PublicDataLeafHint,
+  PublicInnerCallRequest,
   PublicValidationRequests,
   ScopedL2ToL1Message,
   ScopedNoteHash,
@@ -461,7 +461,12 @@ export function makePublicCircuitPublicInputs(
       ContractStorageUpdateRequest.empty,
     ),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500, ContractStorageRead.empty),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makePublicCallRequest, seed + 0x600, PublicCallRequest.empty),
+    tupleGenerator(
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+      makePublicInnerCallRequest,
+      seed + 0x600,
+      PublicInnerCallRequest.empty,
+    ),
     tupleGenerator(MAX_NOTE_HASHES_PER_CALL, makeNoteHash, seed + 0x700, NoteHash.empty),
     tupleGenerator(MAX_NULLIFIERS_PER_CALL, makeNullifier, seed + 0x800, Nullifier.empty),
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_CALL, makeL2ToL1Message, seed + 0x900, L2ToL1Message.empty),
@@ -487,14 +492,13 @@ export function makePublicKernelCircuitPublicInputs(
   seed = 1,
   fullAccumulatedData = true,
 ): PublicKernelCircuitPublicInputs {
-  const tupleGenerator = fullAccumulatedData ? makeTuple : makeHalfFullTuple;
   return new PublicKernelCircuitPublicInputs(
     makePublicValidationRequests(seed),
     makePublicAccumulatedData(seed, fullAccumulatedData),
     makePublicAccumulatedData(seed, fullAccumulatedData),
     makeConstantData(seed + 0x100),
     RevertCode.OK,
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest, seed + 0x600, PublicCallRequest.empty),
+    makePublicCallRequest(seed + 0x600),
     makeAztecAddress(seed + 0x700),
   );
 }
@@ -647,21 +651,26 @@ function makePrivateCallRequest(seed = 1): PrivateCallRequest {
   );
 }
 
-function makePublicCallStackItemCompressed(seed = 1, isPublicExecutionResult: boolean): PublicCallStackItemCompressed {
+function makePublicCallStackItemCompressed(seed = 1): PublicCallStackItemCompressed {
   const callContext = makeCallContext(seed);
   return new PublicCallStackItemCompressed(
     callContext.storageContractAddress,
     callContext,
     fr(seed + 0x20),
-    isPublicExecutionResult ? fr(seed + 0x30) : fr(0),
+    fr(seed + 0x30),
     RevertCode.OK,
-    isPublicExecutionResult ? makeGas(seed + 0x40) : Gas.empty(),
-    isPublicExecutionResult ? makeGas(seed + 0x50) : Gas.empty(),
+    makeGas(seed + 0x40),
+    makeGas(seed + 0x50),
   );
 }
 
-export function makePublicCallRequest(seed = 1, isPublicExecutionResult = false): PublicCallRequest {
-  return new PublicCallRequest(makePublicCallStackItemCompressed(seed, isPublicExecutionResult), seed + 0x60);
+export function makePublicCallRequest(seed = 1): PublicCallRequest {
+  const callContext = makeCallContext(seed);
+  return new PublicCallRequest(callContext.storageContractAddress, callContext, fr(seed + 0x20), seed + 0x60);
+}
+
+function makePublicInnerCallRequest(seed = 1): PublicInnerCallRequest {
+  return new PublicInnerCallRequest(makePublicCallStackItemCompressed(seed), seed + 0x60);
 }
 
 /**
@@ -675,7 +684,6 @@ export function makePublicCallStackItem(seed = 1, full = false): PublicCallStack
     // in the public kernel, function can't be a constructor or private
     new FunctionData(makeSelector(seed + 0x1), /*isPrivate=*/ false),
     makePublicCircuitPublicInputs(seed + 0x10, undefined, full),
-    false,
   );
   callStackItem.publicInputs.callContext.storageContractAddress = callStackItem.contractAddress;
   return callStackItem;
@@ -690,15 +698,6 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
   const publicCallData = new PublicCallData(makePublicCallStackItem(seed, full), makeProof(), fr(seed + 1));
 
   return publicCallData;
-}
-
-/**
- * Makes arbitrary public kernel inputs.
- * @param seed - The seed to use for generating the public kernel inputs.
- * @returns Public kernel inputs.
- */
-export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCircuitPrivateInputs {
-  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makePublicCallData(seed + 0x1000));
 }
 
 /**

@@ -3,8 +3,7 @@ use crate::{
     accumulated_data::PublicAccumulatedData, combined_constant_data::CombinedConstantData,
     public_call_request::PublicCallRequest, validation_requests::PublicValidationRequests
 },
-    address::AztecAddress,
-    constants::{MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH},
+    address::AztecAddress, constants::PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
 };
 
@@ -14,7 +13,7 @@ struct PublicKernelCircuitPublicInputs {
     end: PublicAccumulatedData,
     constants: CombinedConstantData,
     revert_code: u8,
-    public_teardown_call_stack: [PublicCallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+    public_teardown_call_request: PublicCallRequest,
     fee_payer: AztecAddress
 }
 
@@ -26,7 +25,7 @@ impl Empty for PublicKernelCircuitPublicInputs {
             end: PublicAccumulatedData::empty(),
             constants: CombinedConstantData::empty(),
             revert_code: 0,
-            public_teardown_call_stack: [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
+            public_teardown_call_request: PublicCallRequest::empty(),
             fee_payer: AztecAddress::empty()
         }
     }
@@ -41,11 +40,7 @@ impl Serialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCircu
     fields.extend_from_array(self.end.serialize());
     fields.extend_from_array(self.constants.serialize());
     fields.push(self.revert_code as Field);
-
-    for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX {
-      fields.extend_from_array(self.public_teardown_call_stack[i].serialize());
-    }
-
+    fields.extend_from_array(self.public_teardown_call_request.serialize());
     fields.extend_from_array(self.fee_payer.serialize());
 
     assert_eq(fields.len(), PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
@@ -64,7 +59,7 @@ impl Deserialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCir
         end: reader.read_struct(PublicAccumulatedData::deserialize),
         constants: reader.read_struct(CombinedConstantData::deserialize),
         revert_code: reader.read() as u8,
-        public_teardown_call_stack: reader.read_struct_array(PublicCallRequest::deserialize, [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX]),
+        public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
         fee_payer: reader.read_struct(AztecAddress::deserialize),
     };
     reader.finish();
@@ -79,7 +74,8 @@ impl Eq for PublicKernelCircuitPublicInputs {
     (self.end == other.end) &
     (self.constants == other.constants) &
     (self.revert_code == other.revert_code) &
-    (self.public_teardown_call_stack == other.public_teardown_call_stack)
+    (self.public_teardown_call_request == other.public_teardown_call_request) &
+    (self.fee_payer == other.fee_payer)
   }
 }
 

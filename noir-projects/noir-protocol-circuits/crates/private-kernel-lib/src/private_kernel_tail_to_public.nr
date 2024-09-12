@@ -163,7 +163,7 @@ mod tests {
     fn can_run_with_only_teardown() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.public_call_requests = BoundedVec::new();
-        builder.previous_kernel.append_public_teardown_call_request();
+        builder.previous_kernel.set_public_teardown_call_request();
 
         builder.succeeded();
     }

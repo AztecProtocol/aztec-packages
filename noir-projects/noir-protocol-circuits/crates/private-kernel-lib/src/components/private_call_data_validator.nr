@@ -285,8 +285,8 @@ impl PrivateCallDataValidator {
             should_check &= i != num_requests;
             if should_check {
                 validate_call_context(
-                    call_requests[i].item.contract_address,
-                    call_requests[i].item.call_context,
+                    call_requests[i].contract_address,
+                    call_requests[i].call_context,
                     public_inputs.call_context
                 );
             }
@@ -298,8 +298,8 @@ impl PrivateCallDataValidator {
         let request = self.data.call_stack_item.public_inputs.public_teardown_call_request;
         if request.counter != 0 {
             validate_call_context(
-                request.item.contract_address,
-                request.item.call_context,
+                request.contract_address,
+                request.call_context,
                 public_inputs.call_context
             );
         }

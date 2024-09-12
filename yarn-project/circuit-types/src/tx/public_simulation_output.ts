@@ -3,7 +3,7 @@ import { mapValues } from '@aztec/foundation/collection';
 
 import { EncryptedTxL2Logs, UnencryptedTxL2Logs } from '../logs/tx_l2_logs.js';
 import { type SimulationError } from '../simulation_error.js';
-import { type PublicKernelType } from './processed_tx.js';
+import { type PublicKernelPhase } from './processed_tx.js';
 
 /** Return values of simulating a circuit. */
 export type ProcessReturnValues = Fr[] | undefined;
@@ -31,6 +31,10 @@ export class NestedProcessReturnValues {
       json.nested?.map((n: any) => NestedProcessReturnValues.fromJSON(n)),
     );
   }
+
+  static empty() {
+    return new NestedProcessReturnValues([]);
+  }
 }
 
 /**
@@ -44,7 +48,7 @@ export class PublicSimulationOutput {
     public constants: CombinedConstantData,
     public end: CombinedAccumulatedData,
     public publicReturnValues: NestedProcessReturnValues[],
-    public gasUsed: Partial<Record<PublicKernelType, Gas>>,
+    public gasUsed: Partial<Record<PublicKernelPhase, Gas>>,
   ) {}
 
   toJSON() {

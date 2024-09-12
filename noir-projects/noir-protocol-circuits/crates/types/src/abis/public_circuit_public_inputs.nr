@@ -2,7 +2,7 @@ use crate::{
     abis::{
     call_context::CallContext, note_hash::NoteHash, nullifier::Nullifier, read_request::ReadRequest,
     tree_leaf_read_request::TreeLeafReadRequest, gas::Gas, global_variables::GlobalVariables,
-    log_hash::LogHash, public_call_request::PublicCallRequest
+    log_hash::LogHash, public_inner_call_request::PublicInnerCallRequest
 },
     address::AztecAddress,
     constants::{
@@ -32,7 +32,7 @@ struct PublicCircuitPublicInputs {
     contract_storage_reads: [StorageRead; MAX_PUBLIC_DATA_READS_PER_CALL],
 
     // todo: add sideeffect ranges for the input to these hashes
-    public_call_requests: [PublicCallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+    public_call_requests: [PublicInnerCallRequest; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     note_hashes: [NoteHash; MAX_NOTE_HASHES_PER_CALL],
     nullifiers: [Nullifier; MAX_NULLIFIERS_PER_CALL],
     l2_to_l1_msgs: [L2ToL1Message; MAX_L2_TO_L1_MSGS_PER_CALL],
@@ -132,7 +132,7 @@ impl Deserialize<PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicCircuitPublicInp
             l1_to_l2_msg_read_requests: reader.read_struct_array(TreeLeafReadRequest::deserialize, [TreeLeafReadRequest::empty(); MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL]),
             contract_storage_update_requests: reader.read_struct_array(StorageUpdateRequest::deserialize, [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL]),
             contract_storage_reads: reader.read_struct_array(StorageRead::deserialize, [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL]),
-            public_call_requests: reader.read_struct_array(PublicCallRequest::deserialize, [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
+            public_call_requests: reader.read_struct_array(PublicInnerCallRequest::deserialize, [PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL]),
             note_hashes: reader.read_struct_array(NoteHash::deserialize, [NoteHash::empty(); MAX_NOTE_HASHES_PER_CALL]),
             nullifiers: reader.read_struct_array(Nullifier::deserialize, [Nullifier::empty(); MAX_NULLIFIERS_PER_CALL]),
             l2_to_l1_msgs: reader.read_struct_array(L2ToL1Message::deserialize, [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL]),
@@ -165,7 +165,7 @@ impl Empty for PublicCircuitPublicInputs {
             l1_to_l2_msg_read_requests: [TreeLeafReadRequest::empty(); MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL],
             contract_storage_update_requests: [StorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
             contract_storage_reads: [StorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
-            public_call_requests: [PublicCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+            public_call_requests: [PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
             note_hashes: [NoteHash::empty(); MAX_NOTE_HASHES_PER_CALL],
             nullifiers: [Nullifier::empty(); MAX_NULLIFIERS_PER_CALL],
             l2_to_l1_msgs: [L2ToL1Message::empty(); MAX_L2_TO_L1_MSGS_PER_CALL],

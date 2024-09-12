@@ -35,7 +35,7 @@ import { L2ToL1Message } from './l2_to_l1_message.js';
 import { LogHash } from './log_hash.js';
 import { NoteHash } from './note_hash.js';
 import { Nullifier } from './nullifier.js';
-import { PublicCallRequest } from './public_call_request.js';
+import { PublicInnerCallRequest } from './public_inner_call_request.js';
 import { ReadRequest } from './read_request.js';
 import { RevertCode } from './revert_code.js';
 import { TreeLeafReadRequest } from './tree_leaf_read_request.js';
@@ -90,7 +90,7 @@ export class PublicCircuitPublicInputs {
     /**
      * Public call stack of the current kernel iteration.
      */
-    public publicCallRequests: Tuple<PublicCallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public publicCallRequests: Tuple<PublicInnerCallRequest, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * New note hashes created within a public execution call
      */
@@ -167,7 +167,7 @@ export class PublicCircuitPublicInputs {
       makeTuple(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, TreeLeafReadRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest.empty),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicInnerCallRequest.empty),
       makeTuple(MAX_NOTE_HASHES_PER_CALL, NoteHash.empty),
       makeTuple(MAX_NULLIFIERS_PER_CALL, Nullifier.empty),
       makeTuple(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message.empty),
@@ -279,7 +279,7 @@ export class PublicCircuitPublicInputs {
       reader.readArray(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, TreeLeafReadRequest),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicInnerCallRequest),
       reader.readArray(MAX_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
@@ -309,7 +309,7 @@ export class PublicCircuitPublicInputs {
       reader.readArray(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, TreeLeafReadRequest),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicInnerCallRequest),
       reader.readArray(MAX_NOTE_HASHES_PER_CALL, NoteHash),
       reader.readArray(MAX_NULLIFIERS_PER_CALL, Nullifier),
       reader.readArray(MAX_L2_TO_L1_MSGS_PER_CALL, L2ToL1Message),
