@@ -29,8 +29,8 @@ allow_list=(
 IFS=',' read -r -a input_labels <<< "$LABELS"
 allow_list+=("${input_labels[@]}")
 
-# Generate full list of targets, excluding specific entries
-full_list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' | grep -v "+network" | grep -v 'devnet' | sed 's/+//')
+# Generate full list of targets, excluding specific entries, on one line
+full_list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' | grep -v "+network" | grep -v 'devnet' | sed 's/+//' | xargs echo)
 
 # If branch is master or allow_list contains 'e2e-all', return full list
 if [[ "$BRANCH" == "master" ]] || [[ " ${allow_list[@]} " =~ "e2e-all" ]]; then
