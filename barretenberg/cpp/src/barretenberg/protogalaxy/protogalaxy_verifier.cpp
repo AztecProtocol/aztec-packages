@@ -98,7 +98,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     std::array<FF, BATCHED_EXTENDED_LENGTH - NUM_KEYS>
         combiner_quotient_evals; // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
                                  // Hence we need  k(d - 1) evaluations to represent it.
-    size_t idx = 0;
+    size_t idx = DeciderVerificationKeys::NUM;
     for (auto& val : combiner_quotient_evals) {
         val = transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx++));
     }
