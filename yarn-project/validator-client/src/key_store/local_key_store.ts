@@ -1,4 +1,4 @@
-import { Signature } from '@aztec/circuit-types';
+import { Signature } from '@aztec/foundation/eth-signature';
 
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 

@@ -1,5 +1,5 @@
-import { Buffer32 } from '@aztec/foundation/buffer';
-import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { Buffer32 } from "@aztec/foundation/buffer";
+import { serializeToBuffer, BufferReader } from "@aztec/foundation/serialize";
 
 /**Viem Signature
  *
@@ -19,6 +19,7 @@ export type ViemSignature = {
  * Contains a signature split into it's primary components (r,s,v)
  */
 export class Signature {
+
   constructor(
     /** The r value of the signature */
     public readonly r: Buffer32,
@@ -32,25 +33,16 @@ export class Signature {
 
   static fromBuffer(buf: Buffer | BufferReader): Signature {
     const reader = BufferReader.asReader(buf);
+
     const r = reader.readObject(Buffer32);
+    console.log("reading r ", r);
     const s = reader.readObject(Buffer32);
+    console.log("reading s", s);
     const v = reader.readNumber();
 
     const isEmpty = r.isZero() && s.isZero();
 
     return new Signature(r, s, v, isEmpty);
-  }
-
-  toBuffer(): Buffer {
-    return serializeToBuffer([this.r, this.s, this.v]);
-  }
-
-  static empty(): Signature {
-    return new Signature(Buffer32.ZERO, Buffer32.ZERO, 0, true);
-  }
-
-  to0xString(): `0x${string}` {
-    return `0x${this.r.toString()}${this.s.toString()}${this.v.toString(16)}`;
   }
 
   /**
@@ -69,6 +61,23 @@ export class Signature {
     const isEmpty = r.isZero() && s.isZero();
 
     return new Signature(r, s, v, isEmpty);
+  }
+
+  static empty(): Signature {
+    return new Signature(Buffer32.ZERO, Buffer32.ZERO, 0, true);
+  }
+
+  equals(other: Signature): boolean {
+    return this.r.equals(other.r) && this.s.equals(other.s) && this.v === other.v && this.isEmpty === other.isEmpty;
+  }
+
+  toBuffer(): Buffer {
+    return serializeToBuffer([this.r, this.s, this.v]);
+  }
+
+
+  to0xString(): `0x${string}` {
+    return `0x${this.r.toString()}${this.s.toString()}${this.v.toString(16)}`;
   }
 
   /**

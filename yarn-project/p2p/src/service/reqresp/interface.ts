@@ -6,9 +6,11 @@ import { Tx, TxHash } from '@aztec/circuit-types';
 export const PING_PROTOCOL = '/aztec/req/ping/0.1.0';
 export const STATUS_PROTOCOL = '/aztec/req/status/0.1.0';
 export const TX_REQ_PROTOCOL = '/aztec/req/tx/0.1.0';
+// export const ATTESTATION_REQ_PROTOCOL = '/aztec/req/attestation/0.1.0';
 
 // Sum type for sub protocols
 export type ReqRespSubProtocol = typeof PING_PROTOCOL | typeof STATUS_PROTOCOL | typeof TX_REQ_PROTOCOL;
+// | typeof ATTESTATION_REQ_PROTOCOL;
 
 /**
  * A handler for a sub protocol
@@ -74,6 +76,7 @@ export const DEFAULT_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [PING_PROTOCOL]: defaultHandler,
   [STATUS_PROTOCOL]: defaultHandler,
   [TX_REQ_PROTOCOL]: defaultHandler,
+  // [ATTESTATION_REQ_PROTOCOL]: defaultHandler,
 };
 
 /**
@@ -127,4 +130,5 @@ export const subProtocolMap: SubProtocolMap = {
     request: TxHash,
     response: Tx,
   },
+  // [ATTESTATION_REQ_PROTOCOL]: {
 };

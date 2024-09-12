@@ -8,7 +8,7 @@ import { recoverMessageAddress } from 'viem';
 import { TxHash } from '../tx/tx_hash.js';
 import { get0xStringHashedSignaturePayload, getHashedSignaturePayload, getSignaturePayload } from './block_utils.js';
 import { Gossipable } from './gossipable.js';
-import { Signature } from './signature.js';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { TopicType, createTopicString } from './topic_type.js';
 
 export class BlockProposalHash extends Buffer32 {

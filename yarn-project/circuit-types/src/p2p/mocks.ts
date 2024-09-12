@@ -8,7 +8,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { BlockAttestation } from './block_attestation.js';
 import { BlockProposal } from './block_proposal.js';
 import { get0xStringHashedSignaturePayload } from './block_utils.js';
-import { Signature } from './signature.js';
+import { Signature } from '@aztec/foundation/eth-signature';
 
 export const makeBlockProposal = async (signer?: PrivateKeyAccount): Promise<BlockProposal> => {
   signer = signer || randomSigner();

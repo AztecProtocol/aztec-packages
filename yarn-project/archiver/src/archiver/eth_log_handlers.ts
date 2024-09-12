@@ -1,4 +1,5 @@
-import { Body, InboxLeaf, L2Block, type ViemSignature } from '@aztec/circuit-types';
+import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
+import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { AppendOnlyTreeSnapshot, Header, Proof } from '@aztec/circuits.js';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
