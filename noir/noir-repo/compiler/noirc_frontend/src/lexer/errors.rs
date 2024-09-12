@@ -1,3 +1,4 @@
+use crate::hir::def_collector::dc_crate::CompilationError;
 use crate::parser::ParserError;
 use crate::parser::ParserErrorReason;
 use crate::token::SpannedToken;
@@ -19,6 +20,8 @@ pub enum LexerErrorKind {
     IntegerLiteralTooLarge { span: Span, limit: String },
     #[error("{:?} is not a valid attribute", found)]
     MalformedFuncAttribute { span: Span, found: String },
+    #[error("{:?} is not a valid inner attribute", found)]
+    InvalidInnerAttribute { span: Span, found: String },
     #[error("Logical and used instead of bitwise and")]
     LogicalAnd { span: Span },
     #[error("Unterminated block comment")]
@@ -42,6 +45,12 @@ impl From<LexerErrorKind> for ParserError {
     }
 }
 
+impl From<LexerErrorKind> for CompilationError {
+    fn from(error: LexerErrorKind) -> Self {
+        ParserError::from(error).into()
+    }
+}
+
 impl LexerErrorKind {
     pub fn span(&self) -> Span {
         match self {
@@ -50,6 +59,7 @@ impl LexerErrorKind {
             LexerErrorKind::InvalidIntegerLiteral { span, .. } => *span,
             LexerErrorKind::IntegerLiteralTooLarge { span, .. } => *span,
             LexerErrorKind::MalformedFuncAttribute { span, .. } => *span,
+            LexerErrorKind::InvalidInnerAttribute { span, .. } => *span,
             LexerErrorKind::LogicalAnd { span } => *span,
             LexerErrorKind::UnterminatedBlockComment { span } => *span,
             LexerErrorKind::UnterminatedStringLiteral { span } => *span,
@@ -94,6 +104,11 @@ impl LexerErrorKind {
             LexerErrorKind::MalformedFuncAttribute { span, found } => (
                 "Malformed function attribute".to_string(),
                 format!(" {found} is not a valid attribute"),
+                *span,
+            ),
+            LexerErrorKind::InvalidInnerAttribute { span, found } => (
+                "Invalid inner attribute".to_string(),
+                format!(" {found} is not a valid inner attribute"),
                 *span,
             ),
             LexerErrorKind::LogicalAnd { span } => (

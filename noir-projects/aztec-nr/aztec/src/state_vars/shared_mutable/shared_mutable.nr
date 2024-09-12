@@ -9,7 +9,7 @@ use crate::state_vars::{
     shared_mutable::{scheduled_value_change::ScheduledValueChange, scheduled_delay_change::ScheduledDelayChange}
 };
 use crate::oracle::storage::storage_read;
-use dep::std::unsafe::zeroed;
+use dep::std::mem::zeroed;
 
 mod test;
 
@@ -17,6 +17,11 @@ struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
     context: Context,
     storage_slot: Field,
 }
+
+// Separators separating storage slot of different values within the same state variable
+global VALUE_CHANGE_SEPARATOR: u32 = 0;
+global DELAY_CHANGE_SEPARATOR: u32 = 1;
+global HASH_SEPARATOR: u32 = 2;
 
 // This will make the Aztec macros require that T implements the Serialize<N> trait, and allocate N storage slots to
 // this state variable. This is incorrect, since what we actually store is:
@@ -57,16 +62,6 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
         Self { context, storage_slot }
     }
 
-    fn hash_scheduled_data(
-        value_change: ScheduledValueChange<T>,
-        delay_change: ScheduledDelayChange<INITIAL_DELAY>
-    ) -> Field {
-        // TODO(#5491 and https://github.com/noir-lang/noir/issues/4784): update this so that we don't need to rely on
-        // ScheduledValueChange serializing to 3 and ScheduledDelayChange serializing to 1
-        let concatenated: [Field; 4] = concat_arrays(value_change.serialize(), delay_change.serialize());
-        poseidon2_hash(concatenated)
-    }
-
     // Since we can't rely on the native storage allocation scheme, we hash the storage slot to get a unique location in
     // which we can safely store as much data as we need.
     // See https://github.com/AztecProtocol/aztec-packages/issues/5492 and
@@ -76,15 +71,15 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
     //  - a ScheduledDelaChange
     //  - the hash of both of these (via `hash_scheduled_data`)
     fn get_value_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot, 0], 0)
+        pedersen_hash([self.storage_slot], VALUE_CHANGE_SEPARATOR)
     }
 
     fn get_delay_change_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot, 1], 0)
+        pedersen_hash([self.storage_slot], DELAY_CHANGE_SEPARATOR)
     }
 
     fn get_hash_storage_slot(self) -> Field {
-        pedersen_hash([self.storage_slot, 2], 0)
+        pedersen_hash([self.storage_slot], HASH_SEPARATOR)
     }
 
     // It may seem odd that we take a header and address instead of reading from e.g. a PrivateContext, but this lets us
@@ -102,32 +97,34 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
         // Instead, we get an oracle to provide us the correct values for both the value and delay changes, and instead
         // prove inclusion of their hash, which is both a much smaller proof (a single slot), and also independent of
         // the size of T.
-        let (value_change_hint, delay_change_hint) = get_public_storage_hints(address, self.storage_slot, historical_block_number);
+        let (value_change_hint, delay_change_hint) = unsafe {
+            get_public_storage_hints(address, self.storage_slot, historical_block_number)
+        };
 
         // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
         let hash = header.public_storage_historical_read(self.get_hash_storage_slot(), address);
 
-        // @todo This is written strangely to bypass a formatting issue with the if that is breaking ci.
-        let (a, b, c) = if hash != 0 {
-            let a = SharedMutable::hash_scheduled_data(value_change_hint, delay_change_hint);
-            (a, value_change_hint, delay_change_hint)
+        if hash != 0 {
+            assert_eq(
+                hash, SharedMutable::hash_scheduled_data(value_change_hint, delay_change_hint), "Hint values do not match hash"
+            );
         } else {
             // The hash slot can only hold a zero if it is uninitialized, meaning no value or delay change was ever
             // scheduled. Therefore, the hints must then correspond to uninitialized scheduled changes.
-            let b = ScheduledValueChange::deserialize(zeroed());
-            let c = ScheduledDelayChange::deserialize(zeroed());
-            (hash, b, c)
+            assert_eq(
+                value_change_hint, ScheduledValueChange::deserialize(zeroed()), "Non-zero value change for zero hash"
+            );
+            assert_eq(
+                delay_change_hint, ScheduledDelayChange::deserialize(zeroed()), "Non-zero delay change for zero hash"
+            );
         };
-
-        assert_eq(hash, a, "Hint values do not match hash");
-        assert_eq(value_change_hint, b, "Non-zero value change for zero hash");
-        assert_eq(delay_change_hint, c, "Non-zero delay change for zero hash");
 
         (value_change_hint, delay_change_hint, historical_block_number)
     }
 }
 
 impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicContext> where T: ToField + FromField + Eq {
+
     pub fn schedule_value_change(self, new_value: T) {
         let mut value_change = self.read_value_change();
         let delay_change = self.read_delay_change();
@@ -222,6 +219,16 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateCont
         // historical public value matches the current one, since it can only change after the horizon.
         self.context.set_tx_max_block_number(block_horizon);
         value_change.get_current_at(historical_block_number)
+    }
+
+    fn hash_scheduled_data(
+        value_change: ScheduledValueChange<T>,
+        delay_change: ScheduledDelayChange<INITIAL_DELAY>
+    ) -> Field {
+        // TODO(#5491 and https://github.com/noir-lang/noir/issues/4784): update this so that we don't need to rely on
+        // ScheduledValueChange serializing to 3 and ScheduledDelayChange serializing to 1
+        let concatenated: [Field; 4] = concat_arrays(value_change.serialize(), delay_change.serialize());
+        poseidon2_hash(concatenated)
     }
 }
 

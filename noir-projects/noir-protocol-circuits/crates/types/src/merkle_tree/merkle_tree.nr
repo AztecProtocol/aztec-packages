@@ -1,5 +1,4 @@
-use crate::traits::Empty;
-use crate::merkle_tree::membership::assert_check_membership;
+use crate::{traits::Empty, hash::merkle_hash};
 
 struct MerkleTree<let N: u32> {
     leaves: [Field; N],
@@ -25,12 +24,12 @@ impl<let N: u32> MerkleTree<N> {
 
         // hash base layer
         for i in 0..half_size {
-            nodes[i] = std::hash::pedersen_hash([leaves[2*i], leaves[2*i+1]]);
+            nodes[i] = merkle_hash(leaves[2*i],  leaves[2*i+1]);
         }
 
         // hash the other layers
         for i in 0..(total_nodes - half_size) {
-            nodes[half_size+i] = std::hash::pedersen_hash([nodes[2*i], nodes[2*i+1]]);
+            nodes[half_size+i] = merkle_hash(nodes[2*i],  nodes[2*i+1]);
         }
 
         MerkleTree { leaves, nodes }
@@ -51,9 +50,9 @@ impl<let N: u32> MerkleTree<N> {
         let mut current_index = leaf_index;
         let mut subtree_width = N;
 
-        let mut sibling_index = MerkleTree::sibling_index(current_index);
+        let mut current_sibling_index = sibling_index(current_index);
 
-        path[0] = self.leaves[sibling_index];
+        path[0] = self.leaves[current_sibling_index];
 
         let mut subtree_offset: u32 = 0;
 
@@ -61,14 +60,18 @@ impl<let N: u32> MerkleTree<N> {
             current_index = current_index / 2;
             subtree_width = subtree_width / 2;
 
-            sibling_index = MerkleTree::sibling_index(current_index);
+            current_sibling_index = sibling_index(current_index);
 
-            path[i] = self.nodes[subtree_offset + sibling_index];
+            path[i] = self.nodes[subtree_offset + current_sibling_index];
 
             subtree_offset += subtree_width;
         }
 
         path
     }
+}
+
+pub fn sibling_index(index: u32) -> u32 {
+    if index % 2 == 0 { index + 1 } else { index - 1 }
 }
 

@@ -66,26 +66,15 @@ impl MergeRollupInputs {
 }
 
 mod tests {
-    use crate::{
-        merge::merge_rollup_inputs::MergeRollupInputs,
-        tests::merge_rollup_inputs::default_merge_rollup_inputs
-    };
+    use crate::{tests::merge_rollup_inputs::default_merge_rollup_inputs};
     use dep::types::hash::accumulate_sha256;
-    use dep::types::constants::{ROOT_PARITY_INDEX, MERGE_ROLLUP_INDEX, BASE_ROLLUP_INDEX};
+    use dep::types::constants::{MERGE_ROLLUP_INDEX, BASE_ROLLUP_INDEX};
 
     #[test(should_fail_with="The rollup should be filled greedily from L to R, but received a L base and R merge")]
     fn different_rollup_type_fails() {
         let mut inputs = default_merge_rollup_inputs();
         inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.rollup_type = 0;
         inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.rollup_type = 1;
-        let _output = inputs.merge_rollup_circuit();
-    }
-
-    #[test(should_fail_with="input proofs have different constants")]
-    fn constants_different_fails() {
-        let mut inputs = default_merge_rollup_inputs();
-        inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.constants.global_variables.chain_id = 1;
-        inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.global_variables.chain_id = 0;
         let _output = inputs.merge_rollup_circuit();
     }
 

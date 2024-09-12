@@ -1,6 +1,7 @@
 import { FunctionSelector, Header } from '@aztec/circuits.js';
 import { EventSelector, NoteSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
@@ -40,6 +41,7 @@ export function createAztecNodeClient(url: string, fetch = defaultFetch): AztecN
       TxEffect,
       LogId,
       TxHash,
+      Buffer32,
       PublicDataWitness,
       SiblingPath,
     },

@@ -1,19 +1,22 @@
-use noirc_frontend::ast::{ItemVisibility, NoirFunction, NoirTraitImpl, TraitImplItem};
+use noirc_frontend::ast::{Documented, ItemVisibility, NoirFunction, NoirTraitImpl, TraitImplItem};
 use noirc_frontend::macros_api::{NodeInterner, StructId};
 use noirc_frontend::token::SecondaryAttribute;
 use noirc_frontend::{
     graph::CrateId,
     macros_api::{FileId, HirContext},
-    parse_program,
     parser::SortedModule,
 };
 
 use crate::utils::hir_utils::collect_crate_structs;
+use crate::utils::parse_utils::parse_program;
 use crate::utils::{ast_utils::is_custom_attribute, errors::AztecMacroError};
 
 // Automatic implementation of most of the methods in the EventInterface trait, guiding the user with meaningful error messages in case some
 // methods must be implemented manually.
-pub fn generate_event_impls(module: &mut SortedModule) -> Result<(), AztecMacroError> {
+pub fn generate_event_impls(
+    module: &mut SortedModule,
+    empty_spans: bool,
+) -> Result<(), AztecMacroError> {
     // Find structs annotated with #[aztec(event)]
     // Why doesn't this work ? Events are not tagged and do not appear, it seems only going through the submodule works
     // let annotated_event_structs = module
@@ -31,10 +34,11 @@ pub fn generate_event_impls(module: &mut SortedModule) -> Result<(), AztecMacroE
     //     print!("\ngenerate_event_interface_impl COUNT: {}\n", event_struct.name.0.contents);
     // }
 
-    for submodule in module.submodules.iter_mut() {
-        let annotated_event_structs = submodule.contents.types.iter_mut().filter(|typ| {
-            typ.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(event)"))
-        });
+    for submodule in module.submodules.iter_mut().map(|m| &mut m.item) {
+        let annotated_event_structs =
+            submodule.contents.types.iter_mut().map(|typ| &mut typ.item).filter(|typ| {
+                typ.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(event)"))
+            });
 
         for event_struct in annotated_event_structs {
             // event_struct.attributes.push(SecondaryAttribute::Abi("events".to_string()));
@@ -49,35 +53,60 @@ pub fn generate_event_impls(module: &mut SortedModule) -> Result<(), AztecMacroE
 
             let mut event_fields = vec![];
 
-            for (field_ident, field_type) in event_struct.fields.iter() {
+            for field in event_struct.fields.iter() {
+                let field_ident = &field.item.name;
+                let field_type = &field.item.typ;
                 event_fields.push((
                     field_ident.0.contents.to_string(),
                     field_type.typ.to_string().replace("plain::", ""),
                 ));
             }
 
-            let mut event_interface_trait_impl =
-                generate_trait_impl_stub_event_interface(event_type.as_str(), event_byte_len)?;
-            event_interface_trait_impl.items.push(TraitImplItem::Function(
-                generate_fn_get_event_type_id(event_type.as_str(), event_len)?,
+            let mut event_interface_trait_impl = generate_trait_impl_stub_event_interface(
+                event_type.as_str(),
+                event_byte_len,
+                empty_spans,
+            )?;
+            event_interface_trait_impl.items.push(Documented::not_documented(
+                TraitImplItem::Function(generate_fn_get_event_type_id(
+                    event_type.as_str(),
+                    event_len,
+                    empty_spans,
+                )?),
             ));
-            event_interface_trait_impl.items.push(TraitImplItem::Function(
-                generate_fn_private_to_be_bytes(event_type.as_str(), event_byte_len)?,
+            event_interface_trait_impl.items.push(Documented::not_documented(
+                TraitImplItem::Function(generate_fn_private_to_be_bytes(
+                    event_type.as_str(),
+                    event_byte_len,
+                    empty_spans,
+                )?),
             ));
-            event_interface_trait_impl.items.push(TraitImplItem::Function(
-                generate_fn_to_be_bytes(event_type.as_str(), event_byte_len)?,
+            event_interface_trait_impl.items.push(Documented::not_documented(
+                TraitImplItem::Function(generate_fn_to_be_bytes(
+                    event_type.as_str(),
+                    event_byte_len,
+                    empty_spans,
+                )?),
             ));
-            event_interface_trait_impl
-                .items
-                .push(TraitImplItem::Function(generate_fn_emit(event_type.as_str())?));
+            event_interface_trait_impl.items.push(Documented::not_documented(
+                TraitImplItem::Function(generate_fn_emit(event_type.as_str(), empty_spans)?),
+            ));
             submodule.contents.trait_impls.push(event_interface_trait_impl);
 
-            let serialize_trait_impl =
-                generate_trait_impl_serialize(event_type.as_str(), event_len, &event_fields)?;
+            let serialize_trait_impl = generate_trait_impl_serialize(
+                event_type.as_str(),
+                event_len,
+                &event_fields,
+                empty_spans,
+            )?;
             submodule.contents.trait_impls.push(serialize_trait_impl);
 
-            let deserialize_trait_impl =
-                generate_trait_impl_deserialize(event_type.as_str(), event_len, &event_fields)?;
+            let deserialize_trait_impl = generate_trait_impl_deserialize(
+                event_type.as_str(),
+                event_len,
+                &event_fields,
+                empty_spans,
+            )?;
             submodule.contents.trait_impls.push(deserialize_trait_impl);
         }
     }
@@ -88,6 +117,7 @@ pub fn generate_event_impls(module: &mut SortedModule) -> Result<(), AztecMacroE
 fn generate_trait_impl_stub_event_interface(
     event_type: &str,
     byte_length: u32,
+    empty_spans: bool,
 ) -> Result<NoirTraitImpl, AztecMacroError> {
     let byte_length_without_randomness = byte_length - 32;
     let trait_impl_source = format!(
@@ -98,7 +128,7 @@ impl dep::aztec::event::event_interface::EventInterface<{byte_length}, {byte_len
     )
     .to_string();
 
-    let (parsed_ast, errors) = parse_program(&trait_impl_source);
+    let (parsed_ast, errors) = parse_program(&trait_impl_source, empty_spans);
     if !errors.is_empty() {
         dbg!(errors);
         return Err(AztecMacroError::CouldNotImplementEventInterface {
@@ -116,6 +146,7 @@ fn generate_trait_impl_serialize(
     event_type: &str,
     event_len: u32,
     event_fields: &[(String, String)],
+    empty_spans: bool,
 ) -> Result<NoirTraitImpl, AztecMacroError> {
     let field_names = event_fields
         .iter()
@@ -143,7 +174,7 @@ fn generate_trait_impl_serialize(
     )
     .to_string();
 
-    let (parsed_ast, errors) = parse_program(&trait_impl_source);
+    let (parsed_ast, errors) = parse_program(&trait_impl_source, empty_spans);
     if !errors.is_empty() {
         dbg!(errors);
         return Err(AztecMacroError::CouldNotImplementEventInterface {
@@ -161,6 +192,7 @@ fn generate_trait_impl_deserialize(
     event_type: &str,
     event_len: u32,
     event_fields: &[(String, String)],
+    empty_spans: bool,
 ) -> Result<NoirTraitImpl, AztecMacroError> {
     let field_names: Vec<String> = event_fields
         .iter()
@@ -189,7 +221,7 @@ fn generate_trait_impl_deserialize(
     )
     .to_string();
 
-    let (parsed_ast, errors) = parse_program(&trait_impl_source);
+    let (parsed_ast, errors) = parse_program(&trait_impl_source, empty_spans);
     if !errors.is_empty() {
         dbg!(errors);
         return Err(AztecMacroError::CouldNotImplementEventInterface {
@@ -206,19 +238,20 @@ fn generate_trait_impl_deserialize(
 fn generate_fn_get_event_type_id(
     event_type: &str,
     field_length: u32,
+    empty_spans: bool,
 ) -> Result<NoirFunction, AztecMacroError> {
     let from_signature_input =
         std::iter::repeat("Field").take(field_length as usize).collect::<Vec<_>>().join(",");
     let function_source = format!(
         "
         fn get_event_type_id() -> dep::aztec::protocol_types::abis::event_selector::EventSelector {{
-           dep::aztec::protocol_types::abis::event_selector::EventSelector::from_signature(\"{event_type}({from_signature_input})\")
+           comptime {{ dep::aztec::protocol_types::abis::event_selector::EventSelector::from_signature(\"{event_type}({from_signature_input})\") }}
     }}
     ",
     )
     .to_string();
 
-    let (function_ast, errors) = parse_program(&function_source);
+    let (function_ast, errors) = parse_program(&function_source, empty_spans);
     if !errors.is_empty() {
         dbg!(errors);
         return Err(AztecMacroError::CouldNotImplementEventInterface {
@@ -227,7 +260,7 @@ fn generate_fn_get_event_type_id(
     }
 
     let mut function_ast = function_ast.into_sorted();
-    let mut noir_fn = function_ast.functions.remove(0);
+    let mut noir_fn = function_ast.functions.remove(0).item;
     noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
@@ -235,14 +268,15 @@ fn generate_fn_get_event_type_id(
 fn generate_fn_private_to_be_bytes(
     event_type: &str,
     byte_length: u32,
+    empty_spans: bool,
 ) -> Result<NoirFunction, AztecMacroError> {
     let function_source = format!(
         "
          fn private_to_be_bytes(self: {event_type}, randomness: Field) -> [u8; {byte_length}] {{
              let mut buffer: [u8; {byte_length}] = [0; {byte_length}];
 
-             let randomness_bytes = randomness.to_be_bytes(32);
-             let event_type_id_bytes = {event_type}::get_event_type_id().to_field().to_be_bytes(32);
+             let randomness_bytes: [u8; 32] = randomness.to_be_bytes();
+             let event_type_id_bytes: [u8; 32] = {event_type}::get_event_type_id().to_field().to_be_bytes();
 
              for i in 0..32 {{
                  buffer[i] = randomness_bytes[i];
@@ -252,7 +286,7 @@ fn generate_fn_private_to_be_bytes(
              let serialized_event = self.serialize();
 
              for i in 0..serialized_event.len() {{
-                 let bytes = serialized_event[i].to_be_bytes(32);
+                 let bytes: [u8; 32] = serialized_event[i].to_be_bytes();
                  for j in 0..32 {{
                      buffer[64 + i * 32 + j] = bytes[j];
                 }}
@@ -264,7 +298,7 @@ fn generate_fn_private_to_be_bytes(
     )
     .to_string();
 
-    let (function_ast, errors) = parse_program(&function_source);
+    let (function_ast, errors) = parse_program(&function_source, empty_spans);
     if !errors.is_empty() {
         dbg!(errors);
         return Err(AztecMacroError::CouldNotImplementEventInterface {
@@ -273,7 +307,7 @@ fn generate_fn_private_to_be_bytes(
     }
 
     let mut function_ast = function_ast.into_sorted();
-    let mut noir_fn = function_ast.functions.remove(0);
+    let mut noir_fn = function_ast.functions.remove(0).item;
     noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
@@ -281,6 +315,7 @@ fn generate_fn_private_to_be_bytes(
 fn generate_fn_to_be_bytes(
     event_type: &str,
     byte_length: u32,
+    empty_spans: bool,
 ) -> Result<NoirFunction, AztecMacroError> {
     let byte_length_without_randomness = byte_length - 32;
     let function_source = format!(
@@ -288,7 +323,7 @@ fn generate_fn_to_be_bytes(
          fn to_be_bytes(self: {event_type}) -> [u8; {byte_length_without_randomness}] {{
              let mut buffer: [u8; {byte_length_without_randomness}] = [0; {byte_length_without_randomness}];
 
-             let event_type_id_bytes = {event_type}::get_event_type_id().to_field().to_be_bytes(32);
+             let event_type_id_bytes: [u8; 32] = {event_type}::get_event_type_id().to_field().to_be_bytes();
 
              for i in 0..32 {{
                  buffer[i] = event_type_id_bytes[i];
@@ -297,7 +332,7 @@ fn generate_fn_to_be_bytes(
              let serialized_event = self.serialize();
 
              for i in 0..serialized_event.len() {{
-                 let bytes = serialized_event[i].to_be_bytes(32);
+                 let bytes: [u8; 32] = serialized_event[i].to_be_bytes();
                  for j in 0..32 {{
                      buffer[32 + i * 32 + j] = bytes[j];
                 }}
@@ -308,7 +343,7 @@ fn generate_fn_to_be_bytes(
     ")
     .to_string();
 
-    let (function_ast, errors) = parse_program(&function_source);
+    let (function_ast, errors) = parse_program(&function_source, empty_spans);
     if !errors.is_empty() {
         dbg!(errors);
         return Err(AztecMacroError::CouldNotImplementEventInterface {
@@ -317,12 +352,12 @@ fn generate_fn_to_be_bytes(
     }
 
     let mut function_ast = function_ast.into_sorted();
-    let mut noir_fn = function_ast.functions.remove(0);
+    let mut noir_fn = function_ast.functions.remove(0).item;
     noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }
 
-fn generate_fn_emit(event_type: &str) -> Result<NoirFunction, AztecMacroError> {
+fn generate_fn_emit(event_type: &str, empty_spans: bool) -> Result<NoirFunction, AztecMacroError> {
     let function_source = format!(
         "
         fn emit<Env>(self: {event_type}, _emit: fn[Env](Self) -> ()) {{
@@ -332,7 +367,7 @@ fn generate_fn_emit(event_type: &str) -> Result<NoirFunction, AztecMacroError> {
     )
     .to_string();
 
-    let (function_ast, errors) = parse_program(&function_source);
+    let (function_ast, errors) = parse_program(&function_source, empty_spans);
     if !errors.is_empty() {
         dbg!(errors);
         return Err(AztecMacroError::CouldNotImplementEventInterface {
@@ -341,7 +376,7 @@ fn generate_fn_emit(event_type: &str) -> Result<NoirFunction, AztecMacroError> {
     }
 
     let mut function_ast = function_ast.into_sorted();
-    let mut noir_fn = function_ast.functions.remove(0);
+    let mut noir_fn = function_ast.functions.remove(0).item;
     noir_fn.def.visibility = ItemVisibility::Public;
     Ok(noir_fn)
 }

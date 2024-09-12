@@ -55,7 +55,22 @@ export interface AztecKVStore {
   transaction<T extends Exclude<any, Promise<any>>>(callback: () => T): Promise<T>;
 
   /**
-   * Clears the store
+   * Clears all entries in the store
    */
   clear(): Promise<void>;
+
+  /**
+   * Forks the store.
+   */
+  fork(): Promise<AztecKVStore>;
+
+  /**
+   * Deletes the store
+   */
+  delete(): Promise<void>;
+
+  /**
+   * Estimates the size of the store in bytes.
+   */
+  estimateSize(): { bytes: number };
 }

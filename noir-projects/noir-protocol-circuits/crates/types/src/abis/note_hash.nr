@@ -19,7 +19,7 @@ impl Ordered for NoteHash {
 impl Eq for NoteHash {
     fn eq(self, other: NoteHash) -> bool {
         (self.value == other.value)
-            & (self.counter == other.counter) 
+            & (self.counter == other.counter)
     }
 }
 
@@ -116,7 +116,7 @@ impl Deserialize<SCOPED_NOTE_HASH_LENGTH> for ScopedNoteHash {
     }
 }
 
-impl Readable for ScopedNoteHash {
+impl Readable<ScopedReadRequest> for ScopedNoteHash {
     fn assert_match_read_request(self, read_request: ScopedReadRequest) {
         assert_eq(self.note_hash.value, read_request.value(), "Value of the note hash does not match read request");
         assert_eq(self.contract_address, read_request.contract_address, "Contract address of the note hash does not match read request");
@@ -127,9 +127,9 @@ impl Readable for ScopedNoteHash {
 }
 
 impl ScopedNoteHash {
-    pub fn expose_to_public(self) -> NoteHash {
+    pub fn expose_to_public(self) -> ScopedNoteHash {
         // Hide the actual counter when exposing it to the public kernel.
-        NoteHash { value: self.note_hash.value, counter: 0 }
+        NoteHash { value: self.note_hash.value, counter: 0 }.scope(AztecAddress::zero())
     }
 }
 

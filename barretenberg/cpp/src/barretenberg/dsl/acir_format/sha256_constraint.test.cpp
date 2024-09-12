@@ -21,13 +21,13 @@ class Sha256Tests : public ::testing::Test {
 TEST_F(Sha256Tests, TestSha256Compression)
 {
 
-    std::array<Sha256Input, 16> inputs;
+    std::array<WitnessOrConstant<bb::fr>, 16> inputs;
     for (size_t i = 0; i < 16; ++i) {
-        inputs[i] = { .witness = static_cast<uint32_t>(i + 1), .num_bits = 32 };
+        inputs[i] = WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 1));
     }
-    std::array<Sha256Input, 8> hash_values;
+    std::array<WitnessOrConstant<bb::fr>, 8> hash_values;
     for (size_t i = 0; i < 8; ++i) {
-        hash_values[i] = { .witness = static_cast<uint32_t>(i + 17), .num_bits = 32 };
+        hash_values[i] = WitnessOrConstant<bb::fr>::from_index(static_cast<uint32_t>(i + 17));
     }
     Sha256Compression sha256_compression{
         .inputs = inputs,
@@ -59,9 +59,12 @@ TEST_F(Sha256Tests, TestSha256Compression)
         .ec_add_constraints = {},
         .recursion_constraints = {},
         .honk_recursion_constraints = {},
+        .avm_recursion_constraints = {},
+        .ivc_recursion_constraints = {},
         .bigint_from_le_bytes_constraints = {},
         .bigint_to_le_bytes_constraints = {},
         .bigint_operations = {},
+        .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},
         .block_constraints = {},

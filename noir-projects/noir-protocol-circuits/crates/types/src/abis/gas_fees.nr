@@ -1,8 +1,4 @@
-use crate::{
-    abis::function_selector::FunctionSelector, address::{EthAddress, AztecAddress},
-    constants::GAS_FEES_LENGTH, hash::pedersen_hash, traits::{Deserialize, Hash, Serialize, Empty},
-    abis::side_effect::Ordered, utils::reader::Reader
-};
+use crate::{constants::GAS_FEES_LENGTH, traits::{Deserialize, Serialize, Empty}};
 
 struct GasFees {
     fee_per_da_gas: Field,

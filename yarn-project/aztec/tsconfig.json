@@ -37,6 +37,9 @@
       "path": "../cli"
     },
     {
+      "path": "../cli-wallet"
+    },
+    {
       "path": "../entrypoints"
     },
     {
@@ -64,6 +67,9 @@
       "path": "../p2p-bootstrap"
     },
     {
+      "path": "../proof-verifier"
+    },
+    {
       "path": "../protocol-contracts"
     },
     {
@@ -80,6 +86,9 @@
     },
     {
       "path": "../txe"
+    },
+    {
+      "path": "../types"
     }
   ],
   "include": ["src"]

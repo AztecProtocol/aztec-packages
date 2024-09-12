@@ -4,16 +4,22 @@
 #include <tuple>
 #include <utility>
 
-/**
- * @brief constexpr_utils defines some helper methods that perform some stl-equivalent operations
- * but in a constexpr context over quantities known at compile-time
- *
- * Current methods are:
- *
- * constexpr_for : loop over a range , where the size_t iterator `i` is a constexpr variable
- * constexpr_find : find if an element is in an array
- */
 namespace bb {
+namespace detail {
+
+/**
+ * @brief Create an index sequence from Min to Max (not included) with an increment of Inc
+ */
+template <size_t Min, size_t Max, size_t Inc> constexpr auto make_index_range()
+{
+    static_assert(Max >= Min);
+    static_assert(Inc >= 1);
+    return []<size_t... Is>(std::index_sequence<Is...>) {
+        return std::index_sequence<Min + (Is * Inc)...>{};
+    }(std::make_index_sequence<(Max - Min - 1) / Inc + 1>{});
+}
+
+} // namespace detail
 
 /**
  * @brief Implements a loop using a compile-time iterator. Requires c++20.
@@ -64,99 +70,11 @@ namespace bb {
  */
 template <size_t Start, size_t End, size_t Inc, class F> constexpr void constexpr_for(F&& f)
 {
-    // Call function `f<Start>()` iff Start < End
-    if constexpr (Start < End) {
-        // F must be a template lambda with a single **typed** template parameter that represents the iterator
-        // (e.g. [&]<size_t i>(){ ... } is good)
-        // (and [&]<typename i>(){ ... } won't compile!)
-
-        /**
-         * Explaining f.template operator()<Start>()
-         *
-         * The following line must explicitly tell the compiler that <Start> is a template parameter by using the
-         * `template` keyword.
-         * (if we wrote f<Start>(), the compiler could legitimately interpret `<` as a less than symbol)
-         *
-         * The fragment `f.template` tells the compiler that we're calling a *templated* member of `f`.
-         * The "member" being called is the function operator, `operator()`, which must be explicitly provided
-         * (for any function X, `X(args)` is an alias for `X.operator()(args)`)
-         * The compiler has no alias `X.template <tparam>(args)` for `X.template operator()<tparam>(args)` so we must
-         * write it explicitly here
-         *
-         * To summarize what the next line tells the compiler...
-         * 1. I want to call a member of `f` that expects one or more template parameters
-         * 2. The member of `f` that I want to call is the function operator
-         * 3. The template parameter is `Start`
-         * 4. The function operator itself contains no arguments
-         */
-        f.template operator()<Start>();
-
-        // Once we have executed `f`, we recursively call the `constexpr_for` function, increasing the value of `Start`
-        // by `Inc`
-        constexpr_for<Start + Inc, End, Inc>(f);
-    }
+    // F must be a template lambda with a single **typed** template parameter that represents the iterator
+    // (e.g. [&]<size_t i>(){ ... } is good)
+    // (and [&]<typename i>(){ ... } won't compile!)
+    constexpr auto indices = detail::make_index_range<Start, End, Inc>();
+    [&]<size_t... Is>(std::index_sequence<Is...>) { (f.template operator()<Is>(), ...); }(indices);
 }
 
-/**
- * @brief returns true/false depending on whether `key` is in `container`
- *
- * @tparam container i.e. what are we looking in?
- * @tparam key i.e. what are we looking for?
- * @return true found!
- * @return false not found!
- *
- * @details method is constexpr and can be used in static_asserts
- */
-template <const auto& container, auto key> constexpr bool constexpr_find()
-{
-    // using ElementType = typename std::remove_extent<ContainerType>::type;
-    bool found = false;
-    constexpr_for<0, container.size(), 1>([&]<size_t k>() {
-        if constexpr (std::get<k>(container) == key) {
-            found = true;
-        }
-    });
-    return found;
-}
-
-/**
- * @brief Create a constexpr array object whose elements contain a default value
- *
- * @tparam T type contained in the array
- * @tparam Is index sequence
- * @param value the value each array element is being initialized to
- * @return constexpr std::array<T, sizeof...(Is)>
- *
- * @details This method is used to create constexpr arrays whose encapsulated type:
- *
- * 1. HAS NO CONSTEXPR DEFAULT CONSTRUCTOR
- * 2. HAS A CONSTEXPR COPY CONSTRUCTOR
- *
- * An example of this is bb::field_t
- * (the default constructor does not default assign values to the field_t member variables for efficiency reasons, to
- * reduce the time require to construct large arrays of field elements. This means the default constructor for field_t
- * cannot be constexpr)
- */
-template <typename T, std::size_t... Is>
-constexpr std::array<T, sizeof...(Is)> create_array(T value, std::index_sequence<Is...> /*unused*/)
-{
-    // cast Is to void to remove the warning: unused value
-    std::array<T, sizeof...(Is)> result = { { (static_cast<void>(Is), value)... } };
-    return result;
-}
-
-/**
- * @brief Create a constexpr array object whose values all are 0
- *
- * @tparam T
- * @tparam N
- * @return constexpr std::array<T, N>
- *
- * @details Use in the same context as create_array, i.e. when encapsulated type has a default constructor that is not
- * constexpr
- */
-template <typename T, size_t N> constexpr std::array<T, N> create_empty_array()
-{
-    return create_array(T(0), std::make_index_sequence<N>());
-}
 }; // namespace bb

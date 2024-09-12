@@ -128,7 +128,9 @@ fn main() {
 
 ### sort_via
 
-Sorts the array with a custom comparison function
+Sorts the array with a custom comparison function. The ordering function must return true if the first argument should be sorted to be before the second argument or is equal to the second argument.
+
+Using this method with an operator like `<` that does not return `true` for equal values will result in an assertion failure for arrays with equal elements.
 
 ```rust
 fn sort_via(self, ordering: fn(T, T) -> bool) -> [T; N]
@@ -139,10 +141,10 @@ example
 ```rust
 fn main() {
     let arr = [42, 32]
-    let sorted_ascending = arr.sort_via(|a, b| a < b);
+    let sorted_ascending = arr.sort_via(|a, b| a <= b);
     assert(sorted_ascending == [32, 42]); // verifies
 
-    let sorted_descending = arr.sort_via(|a, b| a > b);
+    let sorted_descending = arr.sort_via(|a, b| a >= b);
     assert(sorted_descending == [32, 42]); // does not verify
 }
 ```
@@ -250,4 +252,24 @@ fn main() {
     assert(any);
 }
 
+```
+
+### as_str_unchecked
+
+Converts a byte array of type `[u8; N]` to a string. Note that this performs no UTF-8 validation -
+the given array is interpreted as-is as a string.
+
+```rust
+impl<let N: u32> [u8; N] {
+    pub fn as_str_unchecked(self) -> str<N>
+}
+```
+
+example:
+
+```rust
+fn main() {
+    let hi = [104, 105].as_str_unchecked();
+    assert_eq(hi, "hi");
+}
 ```

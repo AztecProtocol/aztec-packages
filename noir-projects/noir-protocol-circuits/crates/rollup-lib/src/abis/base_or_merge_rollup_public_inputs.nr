@@ -1,5 +1,4 @@
 use dep::types::{
-    abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
     constants::BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH, partial_state_reference::PartialStateReference,
     traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
 };
@@ -24,7 +23,7 @@ struct BaseOrMergeRollupPublicInputs {
 
     // We hash public inputs to make them constant-sized (to then be unpacked on-chain)
     txs_effects_hash : Field,
-    out_hash : Field, 
+    out_hash : Field,
 
     accumulated_fees: Field
 }
@@ -38,7 +37,7 @@ impl Empty for BaseOrMergeRollupPublicInputs {
             start: PartialStateReference::empty(),
             end: PartialStateReference::empty(),
             txs_effects_hash : 0,
-            out_hash : 0, 
+            out_hash : 0,
             accumulated_fees: 0
         }
     }
@@ -82,7 +81,7 @@ impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublic
     let item = Self {
         rollup_type: reader.read() as u32,
         num_txs: reader.read() as u32,
-        constants: reader.read_struct(ConstantRollupData::deserialize),        
+        constants: reader.read_struct(ConstantRollupData::deserialize),
         start: reader.read_struct(PartialStateReference::deserialize),
         end: reader.read_struct(PartialStateReference::deserialize),
         txs_effects_hash: reader.read(),

@@ -1,7 +1,4 @@
-use crate::{
-    constants::{CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST},
-    hash::pedersen_hash, traits::{Deserialize, Hash, Empty, Serialize}
-};
+use crate::{constants::CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 struct StorageUpdateRequest {
     storage_slot : Field,
@@ -23,12 +20,6 @@ impl Empty for StorageUpdateRequest {
             new_value: 0,
             counter: 0
         }
-    }
-}
-
-impl Hash for StorageUpdateRequest {
-    fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
     }
 }
 

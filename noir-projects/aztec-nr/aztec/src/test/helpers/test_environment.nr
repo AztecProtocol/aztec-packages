@@ -12,10 +12,7 @@ use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deplo
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
 use crate::hash::{hash_args, hash_args_array};
 
-use crate::note::{
-    note_header::NoteHeader, note_interface::NoteInterface,
-    utils::{compute_inner_note_hash, compute_note_hash_for_consumption}
-};
+use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
 use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_created_note};
 
 struct TestEnvironment {}
@@ -99,7 +96,7 @@ impl TestEnvironment {
         let selector = FunctionSelector::from_signature("constructor(Field,Field)");
 
         let mut context = self.private_at(get_block_number());
-        let args = [test_account.keys.ivpk_m.x, test_account.keys.ivpk_m.y];
+        let args = [test_account.keys.ivpk_m.inner.x, test_account.keys.ivpk_m.inner.y];
         let _ = context.call_private_function(address, selector, args);
 
         address
@@ -135,7 +132,7 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).unpack_into()
     }
 
-    fn call_private_void<C, let M: u32, Env, let N: u32>(
+    fn call_private_void<C, let M: u32, Env>(
         _self: Self,
         call_interface: C
     ) where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
@@ -157,7 +154,7 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).assert_empty();
     }
 
-    fn call_public<C, let M: u32, T, Env, let N: u32>(
+    fn call_public<C, let M: u32, T, Env>(
         _self: Self,
         call_interface: C
     ) -> T where C: CallInterface<M, PublicContextInputs, T, Env> {
@@ -167,22 +164,26 @@ impl TestEnvironment {
         let original_fn_selector = cheatcodes::get_function_selector();
         let target_address = call_interface.get_contract_address();
         let fn_selector = call_interface.get_selector();
+        let calldata = call_interface.get_args();
 
         cheatcodes::set_fn_selector(fn_selector);
         cheatcodes::set_contract_address(target_address);
         cheatcodes::set_msg_sender(original_contract_address);
         let mut inputs = cheatcodes::get_public_context_inputs();
-        inputs.args_hash = hash_args(call_interface.get_args());
+        inputs.calldata_length = call_interface.get_args().len() as Field;
         inputs.is_static_call = call_interface.get_is_static();
+        cheatcodes::set_calldata(calldata);
+
         let result = original_fn(inputs);
 
         cheatcodes::set_fn_selector(original_fn_selector);
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);
+        cheatcodes::set_calldata(calldata);
         result
     }
 
-    fn assert_public_call_fails<C, let M: u32, T, Env, let N: u32>(
+    fn assert_public_call_fails<C, let M: u32, T, Env>(
         _self: Self,
         call_interface: C
     ) where C: CallInterface<M, PublicContextInputs, T, Env> {
@@ -193,7 +194,7 @@ impl TestEnvironment {
         );
     }
 
-    fn assert_private_call_fails<C, let M: u32, T, Env, let N: u32>(
+    fn assert_private_call_fails<C, let M: u32, T, Env>(
         _self: Self,
         call_interface: C
     ) where C: CallInterface<M, PrivateContextInputs, T, Env> {
@@ -219,14 +220,15 @@ impl TestEnvironment {
 
         let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
         note.set_header(header);
-        let inner_note_hash = compute_inner_note_hash(*note);
+        // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
+        let note_hash = note.compute_note_hiding_point().x;
         let serialized_note = Note::serialize_content(*note);
         assert(
             notify_created_note(
             storage_slot,
             Note::get_note_type_id(),
             serialized_note,
-            inner_note_hash,
+            note_hash,
             note_hash_counter
         )
             == 0

@@ -7,11 +7,14 @@ source:
   COPY ../noir/+nargo/nargo /usr/bin/nargo
   # Install bb
   COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+  # Install world state napi
+  COPY ../barretenberg/cpp/+preset-release-world-state/bin/world_state_napi.node /usr/src/barretenberg/cpp/build/bin/world_state_napi.node
 
   WORKDIR /usr/src/noir-projects
 
   # Copy source.
-  COPY --dir aztec-nr noir-contracts noir-protocol-circuits .
+  COPY package.json yarn.lock mega_honk_circuits.json .
+  COPY --dir aztec-nr noir-contracts noir-protocol-circuits mock-protocol-circuits scripts .
 
   # for debugging rebuilds
   RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
@@ -22,6 +25,7 @@ build-contracts:
   # Install transpiler
   COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
 
+  RUN yarn
   RUN cd noir-contracts && NARGO=nargo TRANSPILER=avm-transpiler ./bootstrap.sh
   SAVE ARTIFACT noir-contracts
 
@@ -31,20 +35,40 @@ build-protocol-circuits:
   FROM +source
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY mkdir -p ~/.aws && \
       bash -c 'echo -e "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY" > ~/.aws/credentials'
+
+  # Install bb
+  COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+  RUN yarn
   RUN cd noir-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
   SAVE ARTIFACT noir-protocol-circuits
+
+build-mock-protocol-circuits:
+  LOCALLY
+  LET bb_source_hash = $(cd .. && git ls-tree -r HEAD | grep 'barretenberg/cpp' | awk '{print $3}' | git hash-object --stdin)
+  FROM +source
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY mkdir -p ~/.aws && \
+      bash -c 'echo -e "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY" > ~/.aws/credentials'
+
+  # Install bb
+  COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+  RUN yarn
+  RUN cd mock-protocol-circuits && BB_HASH=$bb_source_hash NARGO=nargo ./bootstrap.sh
+  SAVE ARTIFACT mock-protocol-circuits
 
 build:
   FROM +source
   BUILD +build-contracts
   BUILD +build-protocol-circuits
+  BUILD +build-mock-protocol-circuits
 
   COPY +build-contracts/noir-contracts ./noir-contracts
   COPY +build-protocol-circuits/noir-protocol-circuits ./noir-protocol-circuits
+  COPY +build-mock-protocol-circuits/mock-protocol-circuits ./mock-protocol-circuits
 
   SAVE ARTIFACT aztec-nr
   SAVE ARTIFACT noir-contracts
   SAVE ARTIFACT noir-protocol-circuits
+  SAVE ARTIFACT mock-protocol-circuits
 
 test:
   FROM ../yarn-project/+txe
@@ -71,9 +95,13 @@ test:
       NARGO_FOREIGN_CALL_TIMEOUT=300000 nargo test --silence-warnings --oracle-resolver http://localhost:8080
 
 format:
-  FROM +build
+  FROM +source
 
   WORKDIR /usr/src/noir-projects/noir-protocol-circuits
+  RUN yarn && node ./generate_variants.js
+  RUN nargo fmt --check
+
+  WORKDIR /usr/src/noir-projects/mock-protocol-circuits
   RUN nargo fmt --check
 
   WORKDIR /usr/src/noir-projects/noir-contracts
@@ -83,13 +111,16 @@ format:
   RUN nargo fmt --check
 
 gates-report:
-  FROM +build-protocol-circuits
+  FROM +source
   WORKDIR /usr/src/noir-projects
 
-  COPY ./gates_report.sh ./gates_report.sh
-  COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
-
+  # Install bb
+  COPY ../barretenberg/cpp/+preset-release/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
   ENV BB_BIN /usr/src/barretenberg/cpp/build/bin/bb
+
+  RUN cd noir-protocol-circuits && yarn && node ./generate_variants.js && nargo compile --silence-warnings
+
+  COPY ./gates_report.sh ./gates_report.sh
   RUN ./gates_report.sh
 
   SAVE ARTIFACT ./noir-protocol-circuits/gates_report.json gates_report.json

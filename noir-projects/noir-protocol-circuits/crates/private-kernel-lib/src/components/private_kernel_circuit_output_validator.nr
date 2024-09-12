@@ -4,12 +4,16 @@ use dep::types::{
     kernel_circuit_public_inputs::{PrivateKernelCircuitPublicInputs, PrivateKernelCircuitPublicInputsArrayLengths},
     max_block_number::MaxBlockNumber,
     private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths},
-    private_kernel::private_call_data::PrivateCallData, side_effect::Scoped
+    side_effect::Scoped
 },
     address::AztecAddress, traits::{Empty, is_empty}, transaction::tx_request::TxRequest
 };
 
-fn validate_array_prepended<T, N>(dest: [T; N], source: [T; N], num_source_items: u32) where T: Eq {
+fn validate_array_prepended<T, let N: u32>(
+    dest: [T; N],
+    source: [T; N],
+    num_source_items: u32
+) where T: Eq {
     let mut proceed = true;
     for i in 0..source.len() {
         proceed &= i != num_source_items;
@@ -19,7 +23,7 @@ fn validate_array_prepended<T, N>(dest: [T; N], source: [T; N], num_source_items
     }
 }
 
-fn validate_array_appended<T, N, M>(
+fn validate_array_appended<T, let N: u32, let M: u32>(
     dest: [T; N],
     source: [T; M],
     num_source_items: u32,
@@ -43,7 +47,7 @@ fn validate_array_appended<T, N, M>(
 }
 
 // Similar to validate_array_appended, except that the contract address of the dest items will also be checked.
-fn validate_array_appended_scoped<ST, T, N, M>(
+fn validate_array_appended_scoped<ST, T, let N: u32, let M: u32>(
     dest: [ST; N],
     source: [T; M],
     num_source_items: u32,
@@ -73,7 +77,7 @@ fn validate_array_appended_scoped<ST, T, N, M>(
 }
 
 // Similar to validate_array_appended, except that the souce items will be appended to dest in reversed order.
-fn validate_array_appended_reversed<T, N, M>(
+fn validate_array_appended_reversed<T, let N: u32, let M: u32>(
     dest: [T; N],
     source: [T; M],
     num_source_items: u32,
@@ -238,6 +242,10 @@ impl PrivateKernelCircuitOutputValidator {
         array_lengths: PrivateKernelCircuitPublicInputsArrayLengths
     ) {
         assert_eq(self.output.constants, previous_kernel.constants, "mismatch constants");
+
+        assert_eq(
+            self.output.validation_requests.split_counter, previous_kernel.validation_requests.split_counter, "mismatch validation requests split counter"
+        );
 
         validate_array_prepended(
             self.output.validation_requests.note_hash_read_requests,

@@ -6,7 +6,7 @@ use dep::types::{
     NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_HEIGHT
 },
     merkle_tree::MembershipWitness, tests::{merkle_tree_utils::NonEmptyMerkleTree},
-    utils::{arrays::{find_index, sort_get_sorted_hints}, field::full_field_greater_than}
+    utils::{arrays::{find_index_hint, get_sorted_result}}
 };
 
 struct NullifierNonExistentReadRequestHintsBuilder {
@@ -49,10 +49,10 @@ impl NullifierNonExistentReadRequestHintsBuilder {
         self.non_membership_hints.push(hint);
     }
 
-    pub fn to_hints(self) -> NullifierNonExistentReadRequestHints {
-        let sorted_result = sort_get_sorted_hints(
+    unconstrained pub fn to_hints(self) -> NullifierNonExistentReadRequestHints {
+        let sorted_result = get_sorted_result(
             self.pending_nullifiers,
-            |a: Nullifier, b: Nullifier| a.value.lt(b.value)
+            |a: Nullifier, b: Nullifier| (b.value == 0) | ((a.value != 0) & a.value.lt(b.value))
         );
         let sorted_pending_values = sorted_result.sorted_array;
         let sorted_pending_value_index_hints = sorted_result.sorted_index_hints;
@@ -61,7 +61,7 @@ impl NullifierNonExistentReadRequestHintsBuilder {
         for i in 0..MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX {
             if i < self.read_values.len() {
                 let value = self.read_values.get_unchecked(i);
-                next_pending_value_indices[i] = find_index(sorted_pending_values, |v: Nullifier| !v.value.lt(value));
+                next_pending_value_indices[i] = find_index_hint(sorted_pending_values, |v: Nullifier| !v.value.lt(value));
             }
         }
 

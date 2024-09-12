@@ -5,14 +5,16 @@ import {
   ContractDeployer,
   ContractFunctionInteraction,
   type DebugLogger,
+  Fq,
   Fr,
   L1NotePayload,
   type PXE,
   type Wallet,
   deriveKeys,
+  retryUntil,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -236,7 +238,7 @@ describe('e2e_block_building', () => {
   });
 
   describe('logs in nested calls are ordered as expected', () => {
-    // This test was originally writted for e2e_nested, but it was refactored
+    // This test was originally written for e2e_nested, but it was refactored
     // to not use TestContract.
     let testContract: TestContract;
 
@@ -293,17 +295,81 @@ describe('e2e_block_building', () => {
       // compare logs
       expect(rct.status).toEqual('success');
       const encryptedLogs = tx.encryptedLogs.unrollLogs();
-      expect(encryptedLogs[0].maskedContractAddress).toEqual(pedersenHash([testContract.address, new Fr(5)], 0));
-      expect(encryptedLogs[1].maskedContractAddress).toEqual(pedersenHash([testContract.address, new Fr(5)], 0));
+      expect(encryptedLogs[0].maskedContractAddress).toEqual(
+        poseidon2HashWithSeparator([testContract.address, new Fr(5)], 0),
+      );
+      expect(encryptedLogs[1].maskedContractAddress).toEqual(
+        poseidon2HashWithSeparator([testContract.address, new Fr(5)], 0),
+      );
       // Setting randomness = 0 in app means 'do not mask the address'
       expect(encryptedLogs[2].maskedContractAddress).toEqual(testContract.address.toField());
-      const expectedEncryptedLogsHash = tx.encryptedLogs.hash();
-      expect(tx.data.forRollup?.end.encryptedLogsHash).toEqual(new Fr(expectedEncryptedLogsHash));
 
       // TODO(1139 | 6408): We currently encrypted generic event logs the same way as notes, so the below
       // will likely not be useful when complete.
       // const decryptedLogs = encryptedLogs.map(l => TaggedNote.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey));
     }, 60_000);
+  });
+
+  describe('regressions', () => {
+    afterEach(async () => {
+      if (teardown) {
+        await teardown();
+      }
+    });
+
+    // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7918
+    it('publishes two blocks with only padding txs', async () => {
+      ({ teardown, pxe, logger, aztecNode } = await setup(0, {
+        minTxsPerBlock: 0,
+        skipProtocolContracts: true,
+      }));
+
+      await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 10, 1);
+    });
+
+    // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7537
+    it('sends a tx on the first block', async () => {
+      ({ teardown, pxe, logger, aztecNode } = await setup(0, {
+        minTxsPerBlock: 0,
+        skipProtocolContracts: true,
+      }));
+
+      const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
+      await account.waitSetup();
+    });
+
+    // Regression for https://github.com/AztecProtocol/aztec-packages/issues/8306
+    it('can simulate public txs while building a block', async () => {
+      ({
+        teardown,
+        pxe,
+        logger,
+        aztecNode,
+        wallet: owner,
+      } = await setup(1, {
+        minTxsPerBlock: 1,
+        skipProtocolContracts: true,
+      }));
+
+      logger.info('Deploying token contract');
+      const token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
+        .send()
+        .deployed();
+
+      logger.info('Updating min txs per block to 4');
+      await aztecNode.setConfig({ minTxsPerBlock: 4 });
+
+      logger.info('Spamming the network with public txs');
+      const txs = [];
+      for (let i = 0; i < 30; i++) {
+        const tx = token.methods.mint_public(owner.getAddress(), 10n);
+        await tx.create({ skipPublicSimulation: false });
+        txs.push(tx.send());
+      }
+
+      logger.info('Waiting for txs to be mined');
+      await Promise.all(txs.map(tx => tx.wait({ proven: false, timeout: 600 })));
+    });
   });
 });
 

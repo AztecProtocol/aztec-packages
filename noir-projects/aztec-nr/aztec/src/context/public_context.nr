@@ -5,14 +5,16 @@ use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use crate::context::inputs::public_context_inputs::PublicContextInputs;
 use crate::context::gas::GasOpts;
+use crate::hash::ArgsHasher;
 
 struct PublicContext {
     inputs: PublicContextInputs,
+    args_hash: Option<Field>
 }
 
 impl PublicContext {
     pub fn new(inputs: PublicContextInputs) -> Self {
-        PublicContext { inputs }
+        PublicContext { inputs, args_hash: Option::none() }
     }
 
     pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T) where T: Serialize<N> {
@@ -56,8 +58,7 @@ impl PublicContext {
             self.l1_to_l2_msg_exists(message_hash, leaf_index), "Tried to consume nonexistent L1-to-L2 message"
         );
 
-        // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_nullifier(nullifier, 0);
+        self.push_nullifier(nullifier);
     }
 
     fn message_portal(_self: &mut Self, recipient: EthAddress, content: Field) {
@@ -115,8 +116,7 @@ impl PublicContext {
     fn push_note_hash(_self: &mut Self, note_hash: Field) {
         emit_note_hash(note_hash);
     }
-    fn push_nullifier(_self: &mut Self, nullifier: Field, _nullified_commitment: Field) {
-        // Cannot nullify pending commitments in AVM, so `nullified_commitment` is not used
+    fn push_nullifier(_self: &mut Self, nullifier: Field) {
         emit_nullifier(nullifier);
     }
 
@@ -132,8 +132,20 @@ impl PublicContext {
     fn selector(_self: Self) -> FunctionSelector {
         FunctionSelector::from_u32(function_selector())
     }
-    fn get_args_hash(self) -> Field {
-        self.inputs.args_hash
+    fn get_args_hash(mut self) -> Field {
+        if !self.args_hash.is_some() {
+            let mut hasher = ArgsHasher::new();
+
+            // TODO: this should be replaced with the compile-time calldata size.
+            for i in 0..self.inputs.calldata_length as u32 {
+                let argn: [Field; 1] = calldata_copy((2 + i) as u32, 1);
+                hasher.add(argn[0]);
+            }
+
+            self.args_hash = Option::some(hasher.hash());
+        }
+
+        self.args_hash.unwrap()
     }
     fn transaction_fee(_self: Self) -> Field {
         transaction_fee()
@@ -166,7 +178,11 @@ impl PublicContext {
     }
 
     fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Field) -> [Field; N] {
-        storage_read(storage_slot)
+        let mut out = [0; N];
+        for i in 0..N {
+            out[i] = storage_read(storage_slot + i as Field);
+        }
+        out
     }
 
     fn storage_read<T, let N: u32>(self, storage_slot: Field) -> T where T: Deserialize<N> {
@@ -174,7 +190,9 @@ impl PublicContext {
     }
 
     fn raw_storage_write<let N: u32>(_self: Self, storage_slot: Field, values: [Field; N]) {
-        storage_write(storage_slot, values);
+        for i in 0..N {
+            storage_write(storage_slot + i as Field, values[i]);
+        }
     }
 
     fn storage_write<T, let N: u32>(self, storage_slot: Field, value: T) where T: Serialize<N> {
@@ -274,12 +292,16 @@ unconstrained fn call_static<let RET_SIZE: u32>(
     call_static_opcode(gas, address, args, function_selector)
 }
 
-unconstrained fn storage_read<let N: u32>(storage_slot: Field) -> [Field; N] {
-    storage_read_opcode(storage_slot, N as Field)
+unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
+    calldata_copy_opcode(cdoffset, copy_size)
 }
 
-unconstrained fn storage_write<let N: u32>(storage_slot: Field, values: [Field; N]) {
-    storage_write_opcode(storage_slot, values);
+unconstrained fn storage_read(storage_slot: Field) -> Field {
+    storage_read_opcode(storage_slot)
+}
+
+unconstrained fn storage_write(storage_slot: Field, value: Field) {
+    storage_write_opcode(storage_slot, value);
 }
 
 impl Empty for PublicContext {
@@ -352,6 +374,9 @@ unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Fie
 #[oracle(avmOpcodeSendL2ToL1Msg)]
 unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}
 
+#[oracle(avmOpcodeCalldataCopy)]
+unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {}
+
 #[oracle(avmOpcodeCall)]
 unconstrained fn call_opcode<let RET_SIZE: u32>(
     gas: [Field; 2], // gas allocation: [l2_gas, da_gas]
@@ -373,10 +398,10 @@ unconstrained fn call_static_opcode<let RET_SIZE: u32>(
 //    ^ return data      ^ success
 
 #[oracle(avmOpcodeStorageRead)]
-unconstrained fn storage_read_opcode<let N: u32>(storage_slot: Field, length: Field) -> [Field; N] {}
+unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
 
 #[oracle(avmOpcodeStorageWrite)]
-unconstrained fn storage_write_opcode<let N: u32>(storage_slot: Field, values: [Field; N]) {}
+unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
 
 struct FunctionReturns<let N: u32> {
     values: [Field; N]
@@ -387,15 +412,17 @@ impl<let N: u32> FunctionReturns<N> {
         FunctionReturns { values }
     }
 
-    pub fn assert_empty(returns: FunctionReturns<0>) {
-        assert(returns.values.len() == 0);
-    }
-
     pub fn raw(self) -> [Field; N] {
         self.values
     }
 
     pub fn deserialize_into<T>(self) -> T where T: Deserialize<N> {
         Deserialize::deserialize(self.raw())
+    }
+}
+
+impl FunctionReturns<0> {
+    pub fn assert_empty(self) {
+        assert(self.values.len() == 0);
     }
 }

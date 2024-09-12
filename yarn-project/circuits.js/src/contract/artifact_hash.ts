@@ -69,9 +69,10 @@ export function computeArtifactMetadataHash(artifact: ContractArtifact) {
   const exceptions: string[] = [
     'AuthRegistry',
     'KeyRegistry',
-    'GasToken',
+    'FeeJuice',
     'ContractInstanceDeployer',
     'ContractClassRegisterer',
+    'Router',
   ];
 
   // This is a temporary workaround for the canonical contracts to have deterministic deployments.

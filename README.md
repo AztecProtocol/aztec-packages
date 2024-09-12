@@ -1,16 +1,10 @@
 # Aztec Monorepo
 
-All the packages that make up [Aztec](https://docs.aztec.network).
+All the packages that make up [Aztec](https://docs.aztec.network). 
 
 - [**`l1-contracts`**](/l1-contracts): Solidity code for the Ethereum contracts that process rollups
 - [**`yarn-project`**](/yarn-project): Typescript code for client and backend
 - [**`docs`**](/docs): Documentation source for the docs site
-
-## Getting Started
-
-Want to start quickly? Get started in minutes with a free Github Codespace.
-
-[![One-Click React Starter](.devcontainer/assets/react_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Freact%2Fdevcontainer.json) [![One-Click HTML/TS Starter](.devcontainer/assets/vanilla_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Fvanilla%2Fdevcontainer.json) [![One-Click Token Starter](.devcontainer/assets/token_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Ftoken%2Fdevcontainer.json)
 
 ## Popular packages
 
@@ -23,7 +17,7 @@ Want to start quickly? Get started in minutes with a free Github Codespace.
 
 ## Issues Board
 
-All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://docs.aztec.network/misc/roadmap/main) section of our docs.
+All issues being worked on are tracked on the [Aztec Github Project](https://github.com/orgs/AztecProtocol/projects/22). For a higher-level roadmap, check the [milestones overview](https://docs.aztec.network/aztec/roadmap) section of our docs.
 
 ## Development Setup
 
@@ -73,7 +67,7 @@ Recovering if the sync is not happening with basic pull commands:
 
 - manually editing the commit variable in noir/noir-repo/.gitrepo:
   this needs to exist in the branch we push to, and have the same content as our base. This is similar to submodules, except instead of pointing to the final state of the module, it points to the last commit we have sync'd from, for purposes of commit replay. This can be fixed to match the commit in master after merges.
-- manually editing the parent variable in noir/noir-repo/.gitrepo: this is the parent of the last sync commit on aztec side. If you get errors with a commit not being found in the upstream repo, and the commit mentioned is not the commit variable above, it might indicate this is somehow incorrect. This can happen when commit content is ported without its history, e.g. squashes
+- manually editing the parent variable in noir/noir-repo/.gitrepo: this is the parent of the last sync commit on aztec side. If you get errors with a commit not being found in the upstream repo, and the commit mentioned is not the commit variable above, it might indicate this is somehow incorrect. This can happen when commit content is ported without its history, e.g. squashes.
 - use pull --force ONLY where you would use git reset. That is, if you really want to match some upstream noir for a purpose its fine, but you'll lose local changes (if any)
 
 ## Earthly

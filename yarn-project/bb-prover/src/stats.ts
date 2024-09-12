@@ -15,6 +15,10 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'base-rollup';
     case 'MergeRollupArtifact':
       return 'merge-rollup';
+    case 'BlockRootRollupArtifact':
+      return 'block-root-rollup';
+    case 'BlockMergeRollupArtifact':
+      return 'block-merge-rollup';
     case 'RootRollupArtifact':
       return 'root-rollup';
     case 'PublicKernelSetupArtifact':
@@ -35,6 +39,8 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'private-kernel-tail-to-public';
     case 'PrivateKernelResetFullArtifact':
       return 'private-kernel-reset-full';
+    case 'PrivateKernelResetFullInnerArtifact':
+      return 'private-kernel-reset-full-inner';
     case 'PrivateKernelResetBigArtifact':
       return 'private-kernel-reset-big';
     case 'PrivateKernelResetMediumArtifact':

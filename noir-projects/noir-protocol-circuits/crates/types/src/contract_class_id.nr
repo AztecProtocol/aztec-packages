@@ -1,5 +1,5 @@
 use crate::constants::GENERATOR_INDEX__CONTRACT_LEAF;
-use crate::traits::{ToField, FromField, Hash, Serialize, Deserialize};
+use crate::traits::{ToField, FromField, Serialize, Deserialize};
 
 struct ContractClassId {
   inner: Field
@@ -41,7 +41,7 @@ impl ContractClassId {
         private_functions_root: Field,
         public_bytecode_commitment: Field
     ) -> Self {
-        let hash = std::hash::pedersen_hash_with_separator(
+        let hash = crate::hash::poseidon2_hash_with_separator(
             [
             artifact_hash,
             private_functions_root,

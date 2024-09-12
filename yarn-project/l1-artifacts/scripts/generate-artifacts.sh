@@ -10,7 +10,6 @@ target_dir=./generated
 #   - a .{CONTRACT_NAME}Abi.ts containing the contract ABI.
 
 CONTRACTS=(
-  "l1-contracts:AvailabilityOracle"
   "l1-contracts:Registry"
   "l1-contracts:Inbox"
   "l1-contracts:Outbox"
@@ -19,7 +18,7 @@ CONTRACTS=(
   "l1-contracts:PortalERC20"
   "l1-contracts:UniswapPortal"
   "l1-contracts:IERC20"
-  "l1-contracts:GasPortal"
+  "l1-contracts:FeeJuicePortal"
   "l1-contracts:MockVerifier"
 )
 

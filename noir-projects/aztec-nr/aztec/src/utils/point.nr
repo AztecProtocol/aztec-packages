@@ -9,12 +9,16 @@ global BN254_FR_MODULUS_DIV_2: Field = 10944121435919637611123202872628637544274
 /// We don't serialize the point at infinity flag because this function is used in situations where we do not want
 /// to waste the extra byte (encrypted log).
 pub fn point_to_bytes(pk: Point) -> [u8; 32] {
+    // Note that there is 1 more free bit in the 32 bytes (254 bits currently occupied by the x coordinate, 1 bit for
+    // the "sign") so it's possible to use that last bit as an "is_infinite" flag if desired in the future.
     assert(!pk.is_infinite, "Cannot serialize point at infinity as bytes.");
 
-    let mut result = pk.x.to_be_bytes(32);
+    let mut result: [u8; 32] = pk.x.to_be_bytes();
 
     // We store only a "sign" of the y coordinate because the rest can be derived from the x coordinate. To get
-    // the sign we check if the y coordinate is greater than the curve's order minus 1 divided by 2.
+    // the sign we check if the y coordinate is less or equal than the curve's order minus 1 divided by 2.
+    // Ideally we'd do `y <= MOD_DIV_2`, but there's no `lte` function, so instead we do `!(y > MOD_DIV_2)`, which is
+    // equivalent, and then rewrite that as `!(MOD_DIV_2 < y)`, since we also have no `gt` function.
     if !BN254_FR_MODULUS_DIV_2.lt(pk.y) {
         // y is <= (modulus - 1) / 2 so we set the sign bit to 1
         // Here we leverage that field fits into 254 bits (log2(Fr.MODULUS) < 254) and given that we serialize Fr to 32
@@ -23,7 +27,7 @@ pub fn point_to_bytes(pk: Point) -> [u8; 32] {
         result[0] += 128;
     }
 
-    result.as_array()
+    result
 }
 
 mod test {

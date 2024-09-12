@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress, hash::{compute_siloed_nullifier, pedersen_hash},
-    constants::GENERATOR_INDEX__CONSTRUCTOR, abis::function_selector::FunctionSelector
+    address::AztecAddress, hash::poseidon2_hash_with_separator, constants::GENERATOR_INDEX__CONSTRUCTOR,
+    abis::function_selector::FunctionSelector
 };
 
 use crate::{
@@ -10,12 +10,12 @@ use crate::{
 
 pub fn mark_as_initialized_public(context: &mut PublicContext) {
     let init_nullifier = compute_unsiloed_contract_initialization_nullifier((*context).this_address());
-    context.push_nullifier(init_nullifier, 0);
+    context.push_nullifier(init_nullifier);
 }
 
 pub fn mark_as_initialized_private(context: &mut PrivateContext) {
     let init_nullifier = compute_unsiloed_contract_initialization_nullifier((*context).this_address());
-    context.push_nullifier(init_nullifier, 0);
+    context.push_nullifier(init_nullifier);
 }
 
 pub fn assert_is_initialized_public(context: &mut PublicContext) {
@@ -24,16 +24,8 @@ pub fn assert_is_initialized_public(context: &mut PublicContext) {
 }
 
 pub fn assert_is_initialized_private(context: &mut PrivateContext) {
-    let init_nullifier = compute_contract_initialization_nullifier(context.this_address());
-    let header = context.get_header();
-    header.prove_nullifier_inclusion(init_nullifier);
-}
-
-fn compute_contract_initialization_nullifier(address: AztecAddress) -> Field {
-    compute_siloed_nullifier(
-        address,
-        compute_unsiloed_contract_initialization_nullifier(address)
-    )
+    let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context.this_address());
+    context.push_nullifier_read_request(init_nullifier);
 }
 
 fn compute_unsiloed_contract_initialization_nullifier(address: AztecAddress) -> Field {
@@ -61,7 +53,7 @@ pub fn assert_initialization_matches_address_preimage_private(context: PrivateCo
 }
 
 pub fn compute_initialization_hash(init_selector: FunctionSelector, init_args_hash: Field) -> Field {
-    pedersen_hash(
+    poseidon2_hash_with_separator(
         [init_selector.to_field(), init_args_hash],
         GENERATOR_INDEX__CONSTRUCTOR
     )

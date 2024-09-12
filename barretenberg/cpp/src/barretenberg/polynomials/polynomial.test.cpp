@@ -3,16 +3,13 @@
 
 #include "barretenberg/polynomials/polynomial.hpp"
 
-using namespace bb;
-
 // Simple test/demonstration of shifted functionality
 TEST(Polynomial, Shifted)
 {
     using FF = bb::fr;
-    using Polynomial = Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     const size_t SIZE = 10;
-    auto poly = Polynomial::random(SIZE);
-    poly[0] = 0; // make it shiftable
+    auto poly = Polynomial::random(SIZE, /*shiftable*/ 1);
 
     // Instantiate the shift via the shited method
     auto poly_shifted = poly.shifted();
@@ -20,14 +17,14 @@ TEST(Polynomial, Shifted)
     EXPECT_EQ(poly_shifted.size(), poly.size());
 
     // The shift is indeed the shift
-    for (size_t i = 0; i < poly_shifted.size(); ++i) {
-        EXPECT_EQ(poly_shifted.at(i), poly.at(i + 1));
+    for (size_t i = 0; i < poly_shifted.size() - 1; ++i) {
+        EXPECT_EQ(poly_shifted.get(i), poly.get(i + 1));
     }
 
     // If I change the original polynomial, the shift is updated accordingly
-    poly[3] = 25;
-    for (size_t i = 0; i < poly_shifted.size(); ++i) {
-        EXPECT_EQ(poly_shifted.at(i), poly.at(i + 1));
+    poly.at(3) = 25;
+    for (size_t i = 0; i < poly_shifted.size() - 1; ++i) {
+        EXPECT_EQ(poly_shifted.get(i), poly.get(i + 1));
     }
 }
 
@@ -35,7 +32,7 @@ TEST(Polynomial, Shifted)
 TEST(Polynomial, Share)
 {
     using FF = bb::fr;
-    using Polynomial = Polynomial<FF>;
+    using Polynomial = bb::Polynomial<FF>;
     const size_t SIZE = 10;
     auto poly = Polynomial::random(SIZE);
 
@@ -46,10 +43,10 @@ TEST(Polynomial, Share)
     EXPECT_EQ(poly_clone, poly);
 
     // Changing one changes the other
-    poly[3] = 25;
+    poly.at(3) = 25;
     EXPECT_EQ(poly_clone, poly);
 
-    poly_clone[2] = 13;
+    poly_clone.at(2) = 13;
     EXPECT_EQ(poly_clone, poly);
 
     // If reset the original poly, it will no longer be equal to the clone made earlier
@@ -59,3 +56,111 @@ TEST(Polynomial, Share)
 
     EXPECT_NE(poly_clone, poly);
 }
+
+// Simple test/demonstration of various edge conditions
+TEST(Polynomial, Indices)
+{
+    auto poly = bb::Polynomial<bb::fr>::random(100, /*offset*/ 1);
+    EXPECT_EQ(poly.start_index(), 1);
+    EXPECT_EQ((*poly.indices().begin()), poly.start_index());
+    EXPECT_EQ(std::get<0>(*poly.indexed_values().begin()), poly.start_index());
+    EXPECT_EQ(std::get<1>(*poly.indexed_values().begin()), poly[poly.start_index()]);
+}
+
+#ifndef NDEBUG
+// Only run in an assert-enabled test suite.
+TEST(Polynomial, AddScaledEdgeConditions)
+{
+    // Suppress warnings about fork(), we're OK with the edge cases.
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = bb::fr;
+    auto test_subset_good = []() {
+        // Contained within poly
+        auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
+        poly.add_scaled(bb::Polynomial<FF>::random(4, /*start index*/ 1), 1);
+    };
+    ASSERT_NO_FATAL_FAILURE(test_subset_good());
+    auto test_subset_bad1 = []() {
+        // Not contained within poly
+        auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 1);
+        poly.add_scaled(bb::Polynomial<FF>::random(4, /*start index*/ 0), 1);
+    };
+    ASSERT_DEATH(test_subset_bad1(), ".*start_index.*other.start_index.*");
+    auto test_subset_bad2 = []() {
+        // Not contained within poly
+        auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
+        poly.add_scaled(bb::Polynomial<FF>::random(5, /*start index*/ 0), 1);
+    };
+    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*other.end_index.*");
+}
+
+TEST(Polynomial, OperatorAddEdgeConditions)
+{
+    // Suppress warnings about fork(), we're OK with the edge cases.
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = bb::fr;
+    auto test_subset_good = []() {
+        // Contained within poly
+        auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
+        poly += bb::Polynomial<FF>::random(4, /*start index*/ 1);
+    };
+    ASSERT_NO_FATAL_FAILURE(test_subset_good());
+    auto test_subset_bad1 = []() {
+        // Not contained within poly
+        auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 1);
+        poly += bb::Polynomial<FF>::random(4, /*start index*/ 0);
+    };
+    ASSERT_DEATH(test_subset_bad1(), ".*start_index.*other.start_index.*");
+    auto test_subset_bad2 = []() {
+        // Not contained within poly
+        auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
+        poly += bb::Polynomial<FF>::random(5, /*start index*/ 0);
+    };
+    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*other.end_index.*");
+}
+
+TEST(Polynomial, OperatorSubtractEdgeConditions)
+{
+    // Suppress warnings about fork(), we're OK with the edge cases.
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = bb::fr;
+    auto test_subset_good = []() {
+        // Contained within poly
+        auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
+        poly -= bb::Polynomial<FF>::random(4, /*start index*/ 1);
+    };
+    ASSERT_NO_FATAL_FAILURE(test_subset_good());
+    auto test_subset_bad1 = []() {
+        // Not contained within poly
+        auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 1);
+        poly -= bb::Polynomial<FF>::random(4, /*start index*/ 0);
+    };
+    ASSERT_DEATH(test_subset_bad1(), ".*start_index.*other.start_index.*");
+    auto test_subset_bad2 = []() {
+        // Not contained within poly
+        auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
+        poly -= bb::Polynomial<FF>::random(5, /*start index*/ 0);
+    };
+    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*other.end_index.*");
+}
+
+// Makes a vector fully of the virtual_size aka degree + 1
+TEST(Polynomial, Full)
+{
+    // Suppress warnings about fork(), we're OK with the edge cases.
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = bb::fr;
+    size_t degree_plus_1 = 10;
+    auto full_good = [=]() {
+        auto poly = bb::Polynomial<FF>::random(1, degree_plus_1, /*start index*/ degree_plus_1 - 1);
+        poly = poly.full();
+        poly -= bb::Polynomial<FF>::random(degree_plus_1, /*start index*/ 0);
+    };
+    ASSERT_NO_FATAL_FAILURE(full_good());
+    auto no_full_bad = [=]() {
+        auto poly = bb::Polynomial<FF>::random(1, degree_plus_1, /*start index*/ degree_plus_1 - 1);
+        poly -= bb::Polynomial<FF>::random(degree_plus_1, /*start index*/ 0);
+    };
+    ASSERT_DEATH(no_full_bad(), ".*start_index.*other.start_index.*");
+}
+#endif

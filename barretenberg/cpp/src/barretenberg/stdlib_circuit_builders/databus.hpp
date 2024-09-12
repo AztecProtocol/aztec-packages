@@ -57,4 +57,47 @@ struct BusVector {
 using DataBus = std::array<BusVector, 3>;
 enum class BusId { CALLDATA, SECONDARY_CALLDATA, RETURNDATA };
 
+/**
+ * @brief Data indicating the presence of databus return data commitments in the public inputs of the circuit
+ * @details The databus mechanism establishes the transfer of data between two circuits (i-1 and i) in a third circuit
+ * (i+1) via commitment equality checks of the form [R_{i-1}] = [C_i]. The return data commitment \pi_{i-1}.[R_{i-1}] is
+ * a private witness of circuit i, which extracts it and propagates it to the next circuit via the traditional public
+ * inputs mechanism. (I.e. the private witnesses corresponding to the commitment [R_{i-1}] are set to public). Since
+ * commitment [C_i] is part of the proof \pi_i, circuit i+1 can perform the required consistency check via
+ * \pi_i.public_inputs.[R_{i-1}] = \pi_i.[C_i].
+ *
+ */
+struct DatabusPropagationData {
+    bool operator==(const DatabusPropagationData&) const = default;
+
+    // Flags indicating whether the public inputs contain commitment(s) to app/kernel return data
+    bool contains_app_return_data_commitment = false;
+    bool contains_kernel_return_data_commitment = false;
+
+    // The start index of the return data commitments (if present) in the public inputs. Note: a start index is all
+    // that's needed here since the commitents are represented by a fixed number of witnesses and are contiguous in the
+    // public inputs by construction.
+    uint32_t app_return_data_public_input_idx = 0;
+    uint32_t kernel_return_data_public_input_idx = 0;
+
+    // Is this a kernel circuit (used to determine when databus consistency checks can be appended to a circuit in IVC)
+    bool is_kernel = false;
+
+    friend std::ostream& operator<<(std::ostream& os, DatabusPropagationData const& data)
+    {
+        os << data.contains_app_return_data_commitment << ",\n"
+           << data.contains_kernel_return_data_commitment << ",\n"
+           << data.app_return_data_public_input_idx << ",\n"
+           << data.kernel_return_data_public_input_idx << ",\n"
+           << data.is_kernel << "\n";
+        return os;
+    };
+
+    MSGPACK_FIELDS(contains_app_return_data_commitment,
+                   contains_kernel_return_data_commitment,
+                   app_return_data_public_input_idx,
+                   kernel_return_data_public_input_idx,
+                   is_kernel);
+};
+
 } // namespace bb

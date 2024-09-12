@@ -1,5 +1,94 @@
 # Changelog
 
+## [0.54.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.53.0...barretenberg.js-v0.54.0) (2024-09-10)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.53.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.52.0...barretenberg.js-v0.53.0) (2024-09-09)
+
+
+### Bug Fixes
+
+* HonkRecursion serde for cpp bindings ([#8387](https://github.com/AztecProtocol/aztec-packages/issues/8387)) ([6162179](https://github.com/AztecProtocol/aztec-packages/commit/6162179ffc9b04213ef600e1733d2ac696c1dbe6))
+
+## [0.52.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.51.1...barretenberg.js-v0.52.0) (2024-09-01)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.51.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.51.0...barretenberg.js-v0.51.1) (2024-08-29)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.51.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.50.1...barretenberg.js-v0.51.0) (2024-08-27)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.50.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.50.0...barretenberg.js-v0.50.1) (2024-08-23)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.50.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.49.2...barretenberg.js-v0.50.0) (2024-08-22)
+
+
+### Miscellaneous
+
+* Merge devnet fixes back to master ([#8149](https://github.com/AztecProtocol/aztec-packages/issues/8149)) ([6be2183](https://github.com/AztecProtocol/aztec-packages/commit/6be21831764243ea42ef932aac3b79f20b483a40))
+
+## [0.49.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.49.1...barretenberg.js-v0.49.2) (2024-08-15)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.49.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.49.0...barretenberg.js-v0.49.1) (2024-08-15)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.49.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.48.0...barretenberg.js-v0.49.0) (2024-08-15)
+
+
+### Miscellaneous
+
+* Pin yarn versions in noir-projects and bb/ts ([#7988](https://github.com/AztecProtocol/aztec-packages/issues/7988)) ([83f33a1](https://github.com/AztecProtocol/aztec-packages/commit/83f33a1c131c89c2113bea0527cfa5586529714c))
+
+## [0.48.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.47.1...barretenberg.js-v0.48.0) (2024-08-12)
+
+
+### Features
+
+* Ts pedersen commit with offset ([#7699](https://github.com/AztecProtocol/aztec-packages/issues/7699)) ([b2224b4](https://github.com/AztecProtocol/aztec-packages/commit/b2224b48190d33af5e78efa3a470503331b0371f))
+
+
+### Bug Fixes
+
+* Commonly occurring typo ([#7807](https://github.com/AztecProtocol/aztec-packages/issues/7807)) ([e3cc7d0](https://github.com/AztecProtocol/aztec-packages/commit/e3cc7d0fa0d842edcd24f1981b687cbdf057ce1a))
+
+## [0.47.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.47.0...barretenberg.js-v0.47.1) (2024-07-30)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
 ## [0.47.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.46.7...barretenberg.js-v0.47.0) (2024-07-24)
 
 

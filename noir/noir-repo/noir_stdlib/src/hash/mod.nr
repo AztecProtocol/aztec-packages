@@ -2,18 +2,17 @@ mod poseidon;
 mod mimc;
 mod poseidon2;
 mod keccak;
+mod sha256;
+mod sha512;
 
 use crate::default::Default;
 use crate::uint128::U128;
-use crate::sha256::{digest, sha256_var};
 use crate::collections::vec::Vec;
 use crate::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar, multi_scalar_mul, multi_scalar_mul_slice};
+use crate::meta::derive_via;
 
-#[foreign(sha256)]
-// docs:start:sha256
-pub fn sha256<let N: u32>(input: [u8; N]) -> [u8; 32]
-// docs:end:sha256
-{}
+// Kept for backwards compatibility
+pub use sha256::{digest, sha256, sha256_compression, sha256_var};
 
 #[foreign(blake2s)]
 // docs:start:blake2s
@@ -46,25 +45,30 @@ fn pedersen_commitment_with_separator<let N: u32>(input: [Field; N], separator: 
     }
 }
 
+#[no_predicates]
 fn pedersen_commitment_with_separator_noir<let N: u32>(input: [Field; N], separator: u32) -> EmbeddedCurvePoint {
     let mut points = [EmbeddedCurveScalar { lo: 0, hi: 0 }; N];
     for i in 0..N {
-        // we use the unsafe version because the multi_scalar_mul will constraint the scalars.
+        // we use the unsafe version because the multi_scalar_mul will constrain the scalars.
         points[i] = from_field_unsafe(input[i]);
     }
     let generators = derive_generators("DEFAULT_DOMAIN_SEPARATOR".as_bytes(), separator);
     multi_scalar_mul(generators, points)
 }
 
+#[no_predicates]
 fn pedersen_hash_with_separator_noir<let N: u32>(input: [Field; N], separator: u32) -> Field {
     let mut scalars: Vec<EmbeddedCurveScalar> = Vec::from_slice([EmbeddedCurveScalar { lo: 0, hi: 0 }; N].as_slice()); //Vec::new();
 
     for i in 0..N {
         scalars.set(i, from_field_unsafe(input[i]));
     }
-    scalars.push(EmbeddedCurveScalar { lo: N as Field, hi: 0 });
+    scalars.push(EmbeddedCurveScalar { lo: N as Field, hi: 0 as Field });
     let domain_generators :[EmbeddedCurvePoint; N]= derive_generators("DEFAULT_DOMAIN_SEPARATOR".as_bytes(), separator);
-    let mut vec_generators = Vec::from_slice(domain_generators.as_slice());
+    let mut vec_generators = Vec::new();
+    for i in 0..N {
+        vec_generators.push(domain_generators[i]);
+    }
     let length_generator : [EmbeddedCurvePoint; 1] = derive_generators("pedersen_hash_length".as_bytes(), 0);
     vec_generators.push(length_generator[0]);
     multi_scalar_mul_slice(vec_generators.slice, scalars.slice)[0]
@@ -86,7 +90,7 @@ fn __pedersen_commitment_with_separator<let N: u32>(input: [Field; N], separator
 #[field(bn254)]
 fn derive_generators<let N: u32, let M: u32>(domain_separator_bytes: [u8; M], starting_index: u32) -> [EmbeddedCurvePoint; N] {
     crate::assert_constant(domain_separator_bytes);
-    crate::assert_constant(starting_index);
+    // TODO(https://github.com/noir-lang/noir/issues/5672): Add back assert_constant on starting_index
     __derive_generators(domain_separator_bytes, starting_index)
 }
 
@@ -102,7 +106,9 @@ fn __derive_generators<let N: u32, let M: u32>(
     // does not assert the limbs are 128 bits
     // does not assert the decomposition does not overflow the EmbeddedCurveScalar
     fn from_field_unsafe(scalar: Field) -> EmbeddedCurveScalar {
-    let (xlo, xhi) = crate::field::bn254::decompose_hint(scalar);
+    let (xlo, xhi) = unsafe {
+        crate::field::bn254::decompose_hint(scalar)
+    };
     // Check that the decomposition is correct
     assert_eq(scalar, xlo + crate::field::bn254::TWO_POW_128 * xhi);
     EmbeddedCurveScalar { lo: xlo, hi: xhi }
@@ -112,7 +118,7 @@ pub fn hash_to_field(inputs: [Field]) -> Field {
     let mut sum = 0;
 
     for input in inputs {
-        let input_bytes: [u8; 32] = input.to_le_bytes(32).as_array();
+        let input_bytes: [u8; 32] = input.to_le_bytes();
         sum += crate::field::bytes32_to_field(blake2s(input_bytes));
     }
 
@@ -129,16 +135,23 @@ pub fn keccak256<let N: u32>(input: [u8; N], message_size: u32) -> [u8; 32]
 #[foreign(poseidon2_permutation)]
 pub fn poseidon2_permutation<let N: u32>(_input: [Field; N], _state_length: u32) -> [Field; N] {}
 
-#[foreign(sha256_compression)]
-pub fn sha256_compression(_input: [u32; 16], _state: [u32; 8]) -> [u32; 8] {}
-
 // Generic hashing support. 
 // Partially ported and impacted by rust.
 
 // Hash trait shall be implemented per type.
-trait Hash{
+#[derive_via(derive_hash)]
+trait Hash {
     fn hash<H>(self, state: &mut H) where H: Hasher;
 }
+
+// docs:start:derive_hash
+comptime fn derive_hash(s: StructDefinition) -> Quoted {
+    let name = quote { Hash };
+    let signature = quote { fn hash<H>(_self: Self, _state: &mut H) where H: std::hash::Hasher };
+    let for_each_field = |name| quote { _self.$name.hash(_state); };
+    crate::meta::make_trait_impl(s, name, signature, for_each_field, quote {}, |fields| fields)
+}
+// docs:end:derive_hash
 
 // Hasher trait shall be implemented by algorithms to provide hash-agnostic means.
 // TODO: consider making the types generic here ([u8], [Field], etc.)
@@ -179,7 +192,19 @@ impl Hash for Field {
     }
 }
 
+impl Hash for u1 {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        H::write(state, self as Field);
+    }
+}
+
 impl Hash for u8 {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        H::write(state, self as Field);
+    }
+}
+
+impl Hash for u16 {
     fn hash<H>(self, state: &mut H) where H: Hasher{
         H::write(state, self as Field);
     }
@@ -198,6 +223,12 @@ impl Hash for u64 {
 }
 
 impl Hash for i8 {
+    fn hash<H>(self, state: &mut H) where H: Hasher{
+        H::write(state, self as Field);
+    }
+}
+
+impl Hash for i16 {
     fn hash<H>(self, state: &mut H) where H: Hasher{
         H::write(state, self as Field);
     }

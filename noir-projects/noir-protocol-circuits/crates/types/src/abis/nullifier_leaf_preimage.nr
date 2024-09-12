@@ -26,7 +26,7 @@ impl Hash for NullifierLeafPreimage {
         if self.is_empty() {
             0
         } else {
-            std::hash::pedersen_hash(self.serialize())
+            crate::hash::poseidon2_hash(self.serialize())
         }
     }
 }
@@ -55,7 +55,7 @@ impl IndexedTreeLeafPreimage for NullifierLeafPreimage {
     }
 }
 
-impl Readable for NullifierLeafPreimage {
+impl Readable<ScopedReadRequest> for NullifierLeafPreimage {
     fn assert_match_read_request(self, read_request: ScopedReadRequest) {
         let siloed_value = compute_siloed_nullifier(read_request.contract_address, read_request.value());
         assert_eq(self.nullifier, siloed_value, "Value of the nullifier leaf does not match read request");

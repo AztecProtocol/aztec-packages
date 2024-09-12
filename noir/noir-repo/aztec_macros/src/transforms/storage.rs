@@ -1,8 +1,9 @@
 use acvm::acir::AcirField;
 use noirc_errors::Span;
 use noirc_frontend::ast::{
-    BlockExpression, Expression, ExpressionKind, FunctionDefinition, Ident, Literal, NoirFunction,
-    NoirStruct, Pattern, StatementKind, TypeImpl, UnresolvedType, UnresolvedTypeData,
+    BlockExpression, Documented, Expression, ExpressionKind, FunctionDefinition, GenericTypeArgs,
+    Ident, Literal, NoirFunction, NoirStruct, Pattern, StatementKind, TypeImpl, UnresolvedType,
+    UnresolvedTypeData,
 };
 use noirc_frontend::{
     graph::CrateId,
@@ -10,18 +11,18 @@ use noirc_frontend::{
         FieldElement, FileId, HirContext, HirExpression, HirLiteral, HirStatement, NodeInterner,
     },
     node_interner::TraitId,
-    parse_program,
     parser::SortedModule,
     token::SecondaryAttribute,
     Type,
 };
 
+use crate::utils::parse_utils::parse_program;
 use crate::{
     chained_path,
     utils::{
         ast_utils::{
             call, expression, ident, ident_path, is_custom_attribute, lambda, make_statement,
-            make_type, pattern, return_type, variable, variable_path,
+            make_type, path_segment, pattern, return_type, variable, variable_path,
         },
         errors::AztecMacroError,
         hir_utils::{
@@ -37,6 +38,7 @@ pub fn check_for_storage_definition(
     let result: Vec<&NoirStruct> = module
         .types
         .iter()
+        .map(|t| &t.item)
         .filter(|r#struct| {
             r#struct.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(storage)"))
         })
@@ -54,13 +56,13 @@ pub fn check_for_storage_definition(
 fn inject_context_in_storage_field(field: &mut UnresolvedType) -> Result<(), AztecMacroError> {
     match &mut field.typ {
         UnresolvedTypeData::Named(path, generics, _) => {
-            generics.push(make_type(UnresolvedTypeData::Named(
+            generics.ordered_args.push(make_type(UnresolvedTypeData::Named(
                 ident_path("Context"),
-                vec![],
+                GenericTypeArgs::default(),
                 false,
             )));
-            match path.segments.last().unwrap().0.contents.as_str() {
-                "Map" => inject_context_in_storage_field(&mut generics[1]),
+            match path.last_name() {
+                "Map" => inject_context_in_storage_field(&mut generics.ordered_args[1]),
                 _ => Ok(()),
             }
         }
@@ -87,6 +89,7 @@ pub fn inject_context_in_storage(module: &mut SortedModule) -> Result<(), AztecM
     let storage_struct = module
         .types
         .iter_mut()
+        .map(|t| &mut t.item)
         .find(|r#struct| {
             r#struct.attributes.iter().any(|attr| is_custom_attribute(attr, "aztec(storage)"))
         })
@@ -95,7 +98,7 @@ pub fn inject_context_in_storage(module: &mut SortedModule) -> Result<(), AztecM
     storage_struct
         .fields
         .iter_mut()
-        .map(|(_, field)| inject_context_in_storage_field(field))
+        .map(|field| inject_context_in_storage_field(&mut field.item.typ))
         .collect::<Result<Vec<_>, _>>()?;
     Ok(())
 }
@@ -106,9 +109,7 @@ pub fn check_for_storage_implementation(
     storage_struct_name: &String,
 ) -> bool {
     module.impls.iter().any(|r#impl| match &r#impl.object_type.typ {
-        UnresolvedTypeData::Named(path, _, _) => {
-            path.segments.last().is_some_and(|segment| segment.0.contents == *storage_struct_name)
-        }
+        UnresolvedTypeData::Named(path, _, _) => path.last_name() == *storage_struct_name,
         _ => false,
     })
 }
@@ -123,8 +124,8 @@ pub fn generate_storage_field_constructor(
     match typ {
         UnresolvedTypeData::Named(path, generics, _) => {
             let mut new_path = path.clone().to_owned();
-            new_path.segments.push(ident("new"));
-            match path.segments.last().unwrap().0.contents.as_str() {
+            new_path.segments.push(path_segment("new"));
+            match path.last_name() {
                 "Map" => Ok(call(
                     variable_path(new_path),
                     vec![
@@ -146,7 +147,10 @@ pub fn generate_storage_field_constructor(
                             generate_storage_field_constructor(
                                 // Map is expected to have three generic parameters: key, value and context (i.e.
                                 // Map<K, V, Context>. Here `get(1)` fetches the value type.
-                                &(type_ident.clone(), generics.get(1).unwrap().clone()),
+                                &(
+                                    type_ident.clone(),
+                                    generics.ordered_args.get(1).unwrap().clone(),
+                                ),
                                 variable("slot"),
                             )?,
                         ),
@@ -198,6 +202,7 @@ pub fn generate_storage_implementation(
     let definition = module
         .types
         .iter()
+        .map(|t| &t.item)
         .find(|r#struct| r#struct.name.0.contents == *storage_struct_name)
         .unwrap();
 
@@ -210,8 +215,10 @@ pub fn generate_storage_implementation(
         .fields
         .iter()
         .flat_map(|field| {
-            generate_storage_field_constructor(field, slot_zero.clone())
-                .map(|expression| (field.0.clone(), expression))
+            let ident = &field.item.name;
+            let typ = &field.item.typ;
+            generate_storage_field_constructor(&(ident.clone(), typ.clone()), slot_zero.clone())
+                .map(|expression| (field.item.name.clone(), expression))
         })
         .collect();
 
@@ -221,8 +228,11 @@ pub fn generate_storage_implementation(
 
     // This is the type over which the impl is generic.
     let generic_context_ident = ident("Context");
-    let generic_context_type =
-        make_type(UnresolvedTypeData::Named(ident_path("Context"), vec![], true));
+    let generic_context_type = make_type(UnresolvedTypeData::Named(
+        ident_path("Context"),
+        GenericTypeArgs::default(),
+        true,
+    ));
 
     let init = NoirFunction::normal(FunctionDefinition::normal(
         &ident("init"),
@@ -233,22 +243,20 @@ pub fn generate_storage_implementation(
         &return_type(chained_path!("Self")),
     ));
 
+    let ordered_args = vec![generic_context_type.clone()];
+    let generics = GenericTypeArgs { ordered_args, named_args: Vec::new() };
+
     let storage_impl = TypeImpl {
         object_type: UnresolvedType {
-            typ: UnresolvedTypeData::Named(
-                chained_path!(storage_struct_name),
-                vec![generic_context_type.clone()],
-                true,
-            ),
-            span: Some(Span::default()),
+            typ: UnresolvedTypeData::Named(chained_path!(storage_struct_name), generics, true),
+            span: Span::default(),
         },
         type_span: Span::default(),
         generics: vec![generic_context_ident.into()],
 
-        methods: vec![(init, Span::default())],
+        methods: vec![(Documented::not_documented(init), Span::default())],
 
         where_clause: vec![],
-        is_comptime: false,
     };
     module.impls.push(storage_impl);
 
@@ -501,17 +509,20 @@ pub fn generate_storage_layout(
     module: &mut SortedModule,
     storage_struct_name: String,
     module_name: &str,
+    empty_spans: bool,
 ) -> Result<(), AztecMacroError> {
     let definition = module
         .types
         .iter()
+        .map(|t| &t.item)
         .find(|r#struct| r#struct.name.0.contents == *storage_struct_name)
         .unwrap();
 
     let mut storable_fields = vec![];
     let mut storable_fields_impl = vec![];
 
-    definition.fields.iter().for_each(|(field_ident, _)| {
+    definition.fields.iter().for_each(|field| {
+        let field_ident = &field.item.name;
         storable_fields.push(format!("{}: dep::aztec::prelude::Storable", field_ident));
         storable_fields_impl
             .push(format!("{}: dep::aztec::prelude::Storable {{ slot: 0 }}", field_ident,));
@@ -533,7 +544,7 @@ pub fn generate_storage_layout(
         storable_fields_impl.join(",\n")
     );
 
-    let (struct_ast, errors) = parse_program(&storage_fields_source);
+    let (struct_ast, errors) = parse_program(&storage_fields_source, empty_spans);
     if !errors.is_empty() {
         dbg!(errors);
         return Err(AztecMacroError::CouldNotExportStorageLayout {

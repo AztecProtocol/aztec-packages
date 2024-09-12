@@ -1,14 +1,20 @@
 import { type ProvingJobSource } from '@aztec/circuit-types';
 import {
   AvmCircuitInputs,
+  AztecAddress,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   BaseRollupInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EthAddress,
   Fr,
   Header,
   KernelCircuitPublicInputs,
   MergeRollupInputs,
   ParityPublicInputs,
+  PrivateKernelEmptyInputData,
   Proof,
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
@@ -24,6 +30,7 @@ import {
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 
+import { type ProverAgent } from './prover-agent.js';
 import { ProvingError } from './proving-error.js';
 
 export function createProvingJobSourceServer(queue: ProvingJobSource): JsonRpcServer {
@@ -41,6 +48,7 @@ export function createProvingJobSourceServer(queue: ProvingJobSource): JsonRpcSe
       ParityPublicInputs,
       Proof,
       ProvingError,
+      PrivateKernelEmptyInputData,
       PublicKernelCircuitPrivateInputs,
       PublicKernelCircuitPublicInputs,
       PublicKernelTailCircuitPrivateInputs,
@@ -51,6 +59,9 @@ export function createProvingJobSourceServer(queue: ProvingJobSource): JsonRpcSe
       RootRollupPublicInputs,
       TubeInputs,
       VerificationKeyData,
+      BlockRootOrBlockMergePublicInputs,
+      BlockMergeRollupInputs,
+      BlockRootRollupInputs,
     },
     {},
   );
@@ -75,6 +86,7 @@ export function createProvingJobSourceClient(
       ParityPublicInputs,
       Proof,
       ProvingError,
+      PrivateKernelEmptyInputData,
       PublicKernelCircuitPrivateInputs,
       PublicKernelCircuitPublicInputs,
       PublicKernelTailCircuitPrivateInputs,
@@ -85,10 +97,34 @@ export function createProvingJobSourceClient(
       RootRollupInputs,
       TubeInputs,
       VerificationKeyData,
+      BlockRootOrBlockMergePublicInputs,
+      BlockMergeRollupInputs,
+      BlockRootRollupInputs,
     },
     {},
     false,
     namespace,
     fetch,
   ) as ProvingJobSource;
+}
+
+/**
+ * Wrap a ProverAgent instance with a JSON RPC HTTP server.
+ * @param node - The ProverNode
+ * @returns An JSON-RPC HTTP server
+ */
+export function createProverAgentRpcServer(agent: ProverAgent) {
+  const rpc = new JsonRpcServer(
+    agent,
+    {
+      AztecAddress,
+      EthAddress,
+      Fr,
+      Header,
+    },
+    {},
+    // disable methods
+    ['start', 'stop', 'setCircuitProver', 'work', 'getProof'],
+  );
+  return rpc;
 }

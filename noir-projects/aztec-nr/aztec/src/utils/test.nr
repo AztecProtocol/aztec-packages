@@ -1,9 +1,9 @@
-use crate::utils::{collapse, verify_collapse_hints};
+use super::collapse_array::{collapse_array, verify_collapse_hints};
 
 #[test]
 fn collapse_empty_array() {
     let original: [Option<Field>; 2] = [Option::none(), Option::none()];
-    let collapsed = collapse(original);
+    let collapsed = collapse_array(original);
 
     assert_eq(collapsed.len(), 0);
 }
@@ -11,7 +11,7 @@ fn collapse_empty_array() {
 #[test]
 fn collapse_non_sparse_array() {
     let original = [Option::some(7), Option::some(3), Option::none()];
-    let collapsed = collapse(original);
+    let collapsed = collapse_array(original);
 
     assert_eq(collapsed.len(), 2);
     assert_eq(collapsed.get(0), 7);
@@ -21,7 +21,7 @@ fn collapse_non_sparse_array() {
 #[test]
 fn collapse_sparse_array() {
     let original = [Option::some(7), Option::none(), Option::some(3)];
-    let collapsed = collapse(original);
+    let collapsed = collapse_array(original);
 
     assert_eq(collapsed.len(), 2);
     assert_eq(collapsed.get(0), 7);
@@ -31,7 +31,7 @@ fn collapse_sparse_array() {
 #[test]
 fn collapse_array_front_padding() {
     let original = [Option::none(), Option::none(), Option::some(7), Option::none(), Option::some(3)];
-    let collapsed = collapse(original);
+    let collapsed = collapse_array(original);
 
     assert_eq(collapsed.len(), 2);
     assert_eq(collapsed.get(0), 7);
@@ -41,7 +41,7 @@ fn collapse_array_front_padding() {
 #[test]
 fn collapse_array_back_padding() {
     let original = [Option::some(7), Option::none(), Option::some(3), Option::none(), Option::none()];
-    let collapsed = collapse(original);
+    let collapsed = collapse_array(original);
 
     assert_eq(collapsed.len(), 2);
     assert_eq(collapsed.get(0), 7);

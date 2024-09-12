@@ -42,7 +42,9 @@ impl PrivateKernelInnerCircuitPrivateInputs {
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
         // Generate output.
-        let output = self.generate_output();
+        let output = unsafe {
+            self.generate_output()
+        };
 
         // Validate inputs.
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
@@ -58,7 +60,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
         }
 
         // Validate output.
-        if !std::runtime::is_unconstrained() {
+        if dep::types::validate::should_validate_output() {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
                 self.previous_kernel.public_inputs,
                 previous_kernel_array_lengths,
@@ -74,7 +76,7 @@ mod tests {
     use crate::private_kernel_inner::{PrivateKernelInnerCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS};
     use dep::types::{
         abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
-        constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX},
+        constants::PRIVATE_KERNEL_INIT_INDEX,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}
     };
 

@@ -22,22 +22,22 @@ describe('Contract Class', () => {
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockUnconstrainedResultValue = 1;
   const l1Addresses: L1ContractAddresses = {
-    availabilityOracleAddress: EthAddress.random(),
     rollupAddress: EthAddress.random(),
     registryAddress: EthAddress.random(),
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
-    gasTokenAddress: EthAddress.random(),
-    gasPortalAddress: EthAddress.random(),
+    feeJuiceAddress: EthAddress.random(),
+    feeJuicePortalAddress: EthAddress.random(),
   };
   const mockNodeInfo: NodeInfo = {
     nodeVersion: 'vx.x.x',
     l1ChainId: 1,
     protocolVersion: 2,
     l1ContractAddresses: l1Addresses,
+    enr: undefined,
     protocolContractAddresses: {
       classRegisterer: AztecAddress.random(),
-      gasToken: AztecAddress.random(),
+      feeJuice: AztecAddress.random(),
       instanceDeployer: AztecAddress.random(),
       keyRegistry: AztecAddress.random(),
       multiCallEntrypoint: AztecAddress.random(),

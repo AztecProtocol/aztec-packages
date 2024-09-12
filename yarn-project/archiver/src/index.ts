@@ -6,11 +6,16 @@ import { createPublicClient, http } from 'viem';
 import { localhost } from 'viem/chains';
 
 import { Archiver, getArchiverConfigFromEnv } from './archiver/index.js';
+import { ArchiverInstrumentation } from './archiver/instrumentation.js';
 import { MemoryArchiverStore } from './archiver/memory_archiver_store/memory_archiver_store.js';
 
 export * from './archiver/index.js';
 export * from './rpc/index.js';
 export * from './factory.js';
+
+export { retrieveL2ProofVerifiedEvents, retrieveBlockFromRollup } from './archiver/data_retrieval.js';
+
+export { getL2BlockProposedLogs } from './archiver/eth_log_handlers.js';
 
 const log = createDebugLogger('aztec:archiver');
 
@@ -20,7 +25,7 @@ const log = createDebugLogger('aztec:archiver');
 // eslint-disable-next-line require-await
 async function main() {
   const config = getArchiverConfigFromEnv();
-  const { rpcUrl, l1Contracts } = config;
+  const { l1RpcUrl: rpcUrl, l1Contracts } = config;
 
   const publicClient = createPublicClient({
     chain: localhost,
@@ -32,12 +37,11 @@ async function main() {
   const archiver = new Archiver(
     publicClient,
     l1Contracts.rollupAddress,
-    l1Contracts.availabilityOracleAddress,
     l1Contracts.inboxAddress,
     l1Contracts.registryAddress,
     archiverStore,
     1000,
-    new NoopTelemetryClient(),
+    new ArchiverInstrumentation(new NoopTelemetryClient()),
   );
 
   const shutdown = async () => {

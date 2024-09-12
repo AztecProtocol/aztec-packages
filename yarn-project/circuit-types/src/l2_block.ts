@@ -22,7 +22,6 @@ export class L2Block {
   /**
    * Constructs a new instance from named fields.
    * @param fields - Fields to pass to the constructor.
-   * @param blockHash - Hash of the block.
    * @returns A new instance.
    */
   static fromFields(fields: {
@@ -96,6 +95,7 @@ export class L2Block {
     numEncryptedLogsPerCall = 2,
     numUnencryptedLogsPerCall = 1,
     inHash: Buffer | undefined = undefined,
+    slotNumber: number | undefined = undefined,
   ): L2Block {
     const body = Body.random(
       txsPerBlock,
@@ -109,7 +109,7 @@ export class L2Block {
 
     return L2Block.fromFields({
       archive: makeAppendOnlyTreeSnapshot(1),
-      header: makeHeader(0, l2BlockNum, txsEffectsHash, inHash),
+      header: makeHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, txsEffectsHash, inHash),
       body,
     });
   }
@@ -232,6 +232,7 @@ export class L2Block {
     return {
       txCount: this.body.txEffects.length,
       blockNumber: this.number,
+      blockTimestamp: this.header.globalVariables.timestamp.toNumber(),
       ...logsStats,
     };
   }
