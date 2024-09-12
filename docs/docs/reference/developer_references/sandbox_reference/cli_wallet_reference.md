@@ -37,6 +37,7 @@ It will also try to determine which type is expected. For example, if the alias 
 
 You can create arbitrary aliases with the `alias` command. For example `aztec-wallet alias accounts test_alias 0x2c37902cdade7710bd2355e5949416dc5e43a16e0b13a5560854d2451d92d289`.
 
+:::
 
 ## Account Management
 
