@@ -89,7 +89,7 @@ export class AvmExternalCallHint {
     returnData: Fr[],
     public readonly gasUsed: Gas,
     public readonly endSideEffectCounter: Fr,
-    packedBytecode: Fr[], // This might be easier to work with
+    packedBytecode: Fr[], // This might be easier to work with, but buffer would be more efficient.
   ) {
     this.returnData = new Vector(returnData);
     this.packedBytecode = new Vector(packedBytecode);

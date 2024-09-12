@@ -50,7 +50,7 @@ describe('e2e_deploy_contract contract class registration', () => {
     contractClass = getContractClassFromArtifact(artifact);
   });
 
-  it.only('registers the contract class on the node', async () => {
+  it('registers the contract class on the node', async () => {
     const registeredClass = await aztecNode.getContractClass(contractClass.id);
     expect(registeredClass).toBeDefined();
     expect(registeredClass!.artifactHash.toString()).toEqual(contractClass.artifactHash.toString());

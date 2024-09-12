@@ -184,12 +184,9 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
         throw_or_abort("Public inputs vector is not of PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH");
     }
 
-    auto instructions = Deserialization::parse(bytecode);
-    vinfo("Deserialized " + std::to_string(instructions.size()) + " instructions");
-
     std::vector<FF> returndata;
     std::vector<Row> trace = AVM_TRACK_TIME_V(
-        "prove/gen_trace", gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints));
+        "prove/gen_trace", gen_trace(bytecode, returndata, calldata, public_inputs_vec, execution_hints));
     if (!avm_dump_trace_path.empty()) {
         info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
         dump_trace_as_csv(trace, avm_dump_trace_path);
@@ -265,12 +262,12 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
  * @param calldata expressed as a vector of finite field elements.
  * @return The trace as a vector of Row.
  */
-std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions,
+std::vector<Row> Execution::gen_trace(std::vector<uint8_t> const& bytecode,
                                       std::vector<FF> const& calldata,
                                       std::vector<FF> const& public_inputs_vec)
 {
     std::vector<FF> returndata{};
-    return gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    return gen_trace(bytecode, returndata, calldata, public_inputs_vec);
 }
 
 /**
@@ -281,13 +278,15 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
  * @param public_inputs expressed as a vector of finite field elements.
  * @return The trace as a vector of Row.
  */
-std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructions,
+std::vector<Row> Execution::gen_trace(std::vector<uint8_t> const& bytecode,
                                       std::vector<FF>& returndata,
                                       std::vector<FF> const& calldata,
                                       std::vector<FF> const& public_inputs_vec,
                                       ExecutionHints const& execution_hints)
 
 {
+    std::vector<Instruction> instructions = Deserialization::parse(bytecode);
+    vinfo("Deserialized " + std::to_string(instructions.size()) + " instructions");
     vinfo("------- GENERATING TRACE -------");
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
@@ -307,8 +306,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
         auto inst = instructions.at(pc);
         debug("[@" + std::to_string(pc) + "] " + inst.to_string());
 
-        // TODO: We do not yet support the indirect flag. Therefore we do not extract
-        // inst.operands(0) (i.e. the indirect flag) when processiing the instructions.
         switch (inst.op_code) {
             // Compute
             // Compute - Arithmetic

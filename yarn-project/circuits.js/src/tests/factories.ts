@@ -1378,7 +1378,7 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
     makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     new Gas(seed + 0x200, seed),
     new Fr(seed + 0x300),
-    makeArray((seed % 100) + 11, i => new Fr(i), seed + 0x1000),
+    makeArray((seed % 200) + 11, i => new Fr(i), seed + 0x1000),
   );
 }
 

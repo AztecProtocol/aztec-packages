@@ -98,6 +98,10 @@ template <typename FF> struct AvmFullRow {
     FF binary_op_id{};
     FF binary_sel_bin{};
     FF binary_start{};
+    FF bytecode_end_latch{};
+    FF bytecode_length_remaining{};
+    FF bytecode_packed{};
+    FF bytecode_running_hash{};
     FF cmp_a_hi{};
     FF cmp_a_lo{};
     FF cmp_b_hi{};
@@ -740,7 +744,27 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
+<<<<<<< HEAD
     static constexpr size_t SIZE = 726;
+=======
+<<<<<<< HEAD
+    static constexpr size_t SIZE = 703;
+=======
+<<<<<<< HEAD
+    static constexpr size_t SIZE = 709;
+=======
+<<<<<<< HEAD
+    static constexpr size_t SIZE = 708;
+=======
+<<<<<<< HEAD
+    static constexpr size_t SIZE = 699;
+=======
+    static constexpr size_t SIZE = 702;
+>>>>>>> 47c2f8135 (feat(avm): add pil + trace placeholders)
+>>>>>>> dd7aaa51b (feat(avm): add pil + trace placeholders)
+>>>>>>> e3a99d4da (feat(avm): add pil + trace placeholders)
+>>>>>>> b132a4e42 (feat(avm): add pil + trace placeholders)
+>>>>>>> c59e02542 (feat(avm): add pil + trace placeholders)
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

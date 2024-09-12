@@ -1,0 +1,14 @@
+
+namespace bytecode(256);
+
+    pol commit packed;
+    pol commit length_remaining;
+    pol commit running_hash;
+
+    pol commit end_latch;
+
+    // TODO: Come back to this;
+    // pol commit class_id;
+    // pol commit contract_address;
+
+

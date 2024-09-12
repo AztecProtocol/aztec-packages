@@ -21,6 +21,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/vm/avm/generated/full_row.hpp"
 #include "barretenberg/vm/avm/trace/addressing_mode.hpp"
+#include "barretenberg/vm/avm/trace/bytecode_trace.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/fixed_bytes.hpp"
 #include "barretenberg/vm/avm/trace/fixed_gas.hpp"
@@ -3509,6 +3510,25 @@ std::vector<Row> AvmTraceBuilder::finalize()
      **********************************************************************************************/
 
     kernel_trace_builder.finalize(main_trace);
+
+    /**********************************************************************************************
+     * BYTECODE TRACE INCLUSION
+     **********************************************************************************************/
+    // For now we just calculate bytecode hashing, but we will do more here
+    std::vector<std::vector<FF>> all_contracts_bytecode{};
+    all_contracts_bytecode.reserve(execution_hints.externalcall_hints.size() + 1);
+    for (auto const& hint : execution_hints.externalcall_hints) {
+        all_contracts_bytecode.push_back(hint.packed_bytecode);
+    }
+
+    // This interface will change when we start feeding in more inputs and hints
+    auto avm_bytecode_builder = AvmBytecodeTraceBuilder(all_contracts_bytecode);
+    avm_bytecode_builder.build_bytecode_columns();
+    if (avm_bytecode_builder.size() > main_trace_size) {
+        main_trace_size = avm_bytecode_builder.size();
+        main_trace.resize(main_trace_size, {});
+    }
+    avm_bytecode_builder.finalize(main_trace);
 
     /**********************************************************************************************
      * ONLY FIXED TABLES FROM HERE ON
