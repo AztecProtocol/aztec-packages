@@ -43,7 +43,7 @@ std::vector<std::pair<K, V>> sorted_entries(const std::unordered_map<K, V>& map,
     std::vector<std::pair<K, V>> entries;
     entries.reserve(map.size());
     for (const auto& [key, value] : map) {
-        entries.emplace_back(key, value);
+        entries.push_back({ key, value });
     }
     std::sort(entries.begin(), entries.end(), [invert](const auto& a, const auto& b) {
         bool r = a.first < b.first;

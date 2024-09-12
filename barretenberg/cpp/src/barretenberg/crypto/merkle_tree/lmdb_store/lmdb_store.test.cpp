@@ -426,7 +426,7 @@ TEST_F(LMDBStoreTest, can_read_from_multiple_threads)
         std::vector<std::thread> threads;
         std::atomic<size_t> flag = num_threads;
         for (size_t i = 0; i < num_threads; i++) {
-            threads.emplace_back(read_loop, std::ref(store), key, std::ref(flag), VALUES[0]);
+            threads.push_back(read_loop(std::ref(store), key, std::ref(flag), VALUES[0]));
         }
         // wait until all threads have seen the old value
         while (flag != 0) {

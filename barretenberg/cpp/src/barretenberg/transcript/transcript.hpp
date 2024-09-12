@@ -66,7 +66,7 @@ class TranscriptManifest {
 
     void add_entry(size_t round, const std::string& element_label, size_t element_size)
     {
-        manifest[round].entries.emplace_back(element_label, element_size);
+        manifest[round].entries.push_back({ element_label, element_size });
     }
 
     [[nodiscard]] size_t size() const { return manifest.size(); }

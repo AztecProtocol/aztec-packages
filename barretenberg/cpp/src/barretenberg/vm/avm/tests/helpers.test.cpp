@@ -13,7 +13,7 @@ std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> opera
 {
     std::vector<ThreeOpParamRow> params;
     for (size_t i = 0; i < 5; i++) {
-        params.emplace_back(operands[i], mem_tags[i]);
+        params.push_back({ operands[i], mem_tags[i] });
     }
     return params;
 }

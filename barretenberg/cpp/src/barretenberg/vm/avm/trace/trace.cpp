@@ -3124,7 +3124,7 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
         if (is_inf) {
             points.emplace_back(grumpkin::g1::affine_element::infinity());
         } else {
-            points.emplace_back(x, y);
+            points.push_back({ x, y });
         }
     }
     // Reconstruct Grumpkin scalars

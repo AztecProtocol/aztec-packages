@@ -123,7 +123,7 @@ class ECCVMCircuitBuilder {
             if (op.mul) {
                 if ((op.z1 != 0 || op.z2 != 0) && !op.base_point.is_point_at_infinity()) {
                     msm_opqueue_index.push_back(op_idx);
-                    msm_mul_index.emplace_back(msm_count, active_mul_count);
+                    msm_mul_index.push_back({ msm_count, active_mul_count });
                     active_mul_count += static_cast<size_t>(op.z1 != 0) + static_cast<size_t>(op.z2 != 0);
                 }
             } else if (active_mul_count > 0) {
