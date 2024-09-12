@@ -1,6 +1,6 @@
 ---
 title: Inner Workings of Functions and Macros
-sidebar_position: 3
+sidebar_position: 4
 tags: [functions]
 ---
 
@@ -79,14 +79,14 @@ This function takes the application context, and converts it into the `PrivateCi
 
 Unconstrained functions are an underlying part of Noir. In short, they are functions which are not directly constrained and therefore should be seen as un-trusted. That they are un-trusted means that the developer must make sure to constrain their return values when used. Note: Calling an unconstrained function from a private function means that you are injecting unconstrained values.
 
-Defining a function as `unconstrained` tells Aztec to simulate it completely client-side in the [ACIR simulator](../../../aztec/concepts/pxe/index.md) without generating proofs. They are useful for extracting information from a user through an [oracle](../oracles/index.md).
+Defining a function as `unconstrained` tells Aztec to simulate it completely client-side in the [ACIR simulator](../../concepts/pxe/index.md) without generating proofs. They are useful for extracting information from a user through an [oracle](../oracles/index.md).
 
 When an unconstrained function is called, it prompts the ACIR simulator to
 
 1. generate the execution environment
 2. execute the function within this environment
 
-To generate the environment, the simulator gets the blockheader from the [PXE database](../../../aztec/concepts/pxe/index.md#database) and passes it along with the contract address to `ViewDataOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the unconstrained function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
+To generate the environment, the simulator gets the blockheader from the [PXE database](../../concepts/pxe/index.md#database) and passes it along with the contract address to `ViewDataOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the unconstrained function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
 
 Once the execution environment is created, `execute_unconstrained_function` is invoked:
 

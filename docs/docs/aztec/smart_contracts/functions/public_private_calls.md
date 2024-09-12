@@ -1,6 +1,9 @@
 ---
 title: Private <> Public Communication
+sidebar_position: 3
+tags: [functions]
 ---
+
 
 import Image from "@theme/IdealImage";
 

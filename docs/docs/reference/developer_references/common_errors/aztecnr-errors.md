@@ -48,7 +48,7 @@ This error occurs when you are trying to interact with a smart contract via an P
 
 To execute a transaction, the PXE needs to know the complete address of a contract and contract artifacts.
 
-To address the error, add the contract to the PXE by calling [`pxe.addContracts(...)`](../../../aztec/concepts/pxe/index.md).
+To address the error, add the contract to the PXE by calling [`pxe.addContracts(...)`](../../concepts/pxe/index.md).
 
 #### `Simulation error: No public key registered for address 0x0. Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...)`
 

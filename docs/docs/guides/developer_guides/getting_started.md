@@ -230,7 +230,7 @@ This should print
 Simulation result:  75n
 ```
 
-Redeeming the tokens into your private balance requires adding a note into the Private Execution Environment (PXE), which is a bit complex for a getting-started guide. If you'd like to learn more about that flow, you can [read the PXE explainer in the Concepts section](../../../aztec/concepts/pxe/index.md).
+Redeeming the tokens into your private balance requires adding a note into the Private Execution Environment (PXE), which is a bit complex for a getting-started guide. If you'd like to learn more about that flow, you can [read the PXE explainer in the Concepts section](../../concepts/pxe/index.md).
 
 **Congratulations, you now know the fundamentals of working with the Aztec sandbox!** You are ready to move onto the more fun stuff.
 
