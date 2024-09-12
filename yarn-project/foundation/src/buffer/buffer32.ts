@@ -117,6 +117,15 @@ export class Buffer32 {
   }
 
   /**
+   * Converts a number into a Buffer32 object.
+   * @param num - The number to convert.
+   * @returns A new Buffer32 object.
+   */
+  public static fromNumber(num: number): Buffer32 {
+    return new Buffer32(serializeBigInt(BigInt(num), Buffer32.SIZE));
+  }
+
+  /**
    * Generates a random Buffer32.
    * @returns A new Buffer32 object.
    */

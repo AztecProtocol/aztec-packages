@@ -54,7 +54,9 @@ contract EcdsaRAccount {
         let public_key = storage.public_key.get_note();
 
         // Load auth witness
-        let witness: [Field; 64] = get_auth_witness(outer_hash);
+        let witness: [Field; 64] = unsafe {
+            get_auth_witness(outer_hash)
+        };
         let mut signature: [u8; 64] = [0; 64];
         for i in 0..64 {
             signature[i] = witness[i] as u8;
@@ -64,9 +66,6 @@ contract EcdsaRAccount {
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
         let outer_hash_bytes: [u8; 32] = outer_hash.to_be_bytes();
         let hashed_message: [u8; 32] = std::hash::sha256(outer_hash_bytes);
-        let verification = std::ecdsa_secp256r1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
-        assert(verification == true);
-
-        true
+        std::ecdsa_secp256r1::verify_signature(public_key.x, public_key.y, signature, hashed_message)
     }
 }

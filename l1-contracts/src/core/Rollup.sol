@@ -4,7 +4,6 @@ pragma solidity >=0.8.18;
 
 // Interfaces
 import {IRollup, ITestRollup} from "./interfaces/IRollup.sol";
-import {IAvailabilityOracle} from "./interfaces/IAvailabilityOracle.sol";
 import {IInbox} from "./interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "./interfaces/messagebridge/IOutbox.sol";
 import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
@@ -19,6 +18,7 @@ import {MerkleLib} from "./libraries/MerkleLib.sol";
 import {SignatureLib} from "./sequencer_selection/SignatureLib.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {DataStructures} from "./libraries/DataStructures.sol";
+import {TxsDecoder} from "./libraries/decoders/TxsDecoder.sol";
 
 // Contracts
 import {MockVerifier} from "../mock/MockVerifier.sol";
@@ -47,7 +47,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   uint256 public constant TIMELINESS_PROVING_IN_SLOTS = 100;
 
   IRegistry public immutable REGISTRY;
-  IAvailabilityOracle public immutable AVAILABILITY_ORACLE;
   IInbox public immutable INBOX;
   IOutbox public immutable OUTBOX;
   uint256 public immutable VERSION;
@@ -73,7 +72,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   constructor(
     IRegistry _registry,
-    IAvailabilityOracle _availabilityOracle,
     IFeeJuicePortal _fpcJuicePortal,
     bytes32 _vkTreeRoot,
     address _ares,
@@ -81,7 +79,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   ) Leonidas(_ares) {
     verifier = new MockVerifier();
     REGISTRY = _registry;
-    AVAILABILITY_ORACLE = _availabilityOracle;
     FEE_JUICE_PORTAL = _fpcJuicePortal;
     INBOX = new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
     OUTBOX = new Outbox(address(this));
@@ -171,9 +168,17 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     vkTreeRoot = _vkTreeRoot;
   }
 
+  function computeTxsEffectsHash(bytes calldata _body)
+    external
+    view
+    override(IRollup)
+    returns (bytes32)
+  {
+    return TxsDecoder.decode(_body);
+  }
+
   /**
-   * @notice  Published the body and propose the block
-   * @dev     This should likely be purged in the future as it is a convenience method
+   * @notice  Publishes the body and propose the block
    * @dev     `eth_log_handlers` rely on this function
    *
    * @param _header - The L2 block header
@@ -186,30 +191,61 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _blockHash,
+    bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body
   ) external override(IRollup) {
-    AVAILABILITY_ORACLE.publish(_body);
-    propose(_header, _archive, _blockHash, _signatures);
-  }
+    bytes32 txsEffectsHash = TxsDecoder.decode(_body);
 
-  /**
-   * @notice  Published the body and propose the block
-   * @dev     This should likely be purged in the future as it is a convenience method
-   * @dev     `eth_log_handlers` rely on this function
-   * @param _header - The L2 block header
-   * @param _archive - A root of the archive tree after the L2 block is applied
-   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
-   * @param _body - The body of the L2 block
-   */
-  function propose(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    bytes calldata _body
-  ) external override(IRollup) {
-    AVAILABILITY_ORACLE.publish(_body);
-    propose(_header, _archive, _blockHash);
+    // Decode and validate header
+    HeaderLib.Header memory header = HeaderLib.decode(_header);
+
+    bytes32 digest = keccak256(abi.encode(_archive, _txHashes));
+    setupEpoch();
+    _validateHeader({
+      _header: header,
+      _signatures: _signatures,
+      _digest: digest,
+      _currentTime: block.timestamp,
+      _txEffectsHash: txsEffectsHash,
+      _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
+    });
+
+    blocks[pendingBlockCount++] = BlockLog({
+      archive: _archive,
+      blockHash: _blockHash,
+      slotNumber: header.globalVariables.slotNumber.toUint128()
+    });
+
+    // @note  The block number here will always be >=1 as the genesis block is at 0
+    bytes32 inHash = INBOX.consume(header.globalVariables.blockNumber);
+    if (header.contentCommitment.inHash != inHash) {
+      revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
+    }
+
+    // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
+    // Min size = smallest path of the rollup tree + 1
+    (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
+    uint256 l2ToL1TreeMinHeight = min + 1;
+    OUTBOX.insert(
+      header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight
+    );
+
+    emit L2BlockProposed(header.globalVariables.blockNumber);
+
+    // Automatically flag the block as proven if we have cheated and set assumeProvenUntilBlockNumber.
+    if (header.globalVariables.blockNumber < assumeProvenUntilBlockNumber) {
+      provenBlockCount += 1;
+
+      if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
+        // @note  This will currently fail if there are insufficient funds in the bridge
+        //        which WILL happen for the old version after an upgrade where the bridge follow.
+        //        Consider allowing a failure. See #7938.
+        FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
+      }
+
+      emit L2ProofVerified(header.globalVariables.blockNumber, "CHEAT");
+    }
   }
 
   /**
@@ -386,6 +422,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
     }
 
+    // Make sure that the proposer is up to date
     bytes32 tipArchive = archive();
     if (tipArchive != _archive) {
       revert Errors.Rollup__InvalidArchive(tipArchive, _archive);
@@ -416,87 +453,11 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     uint256 _currentTime,
+    bytes32 _txsEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view override(IRollup) {
     HeaderLib.Header memory header = HeaderLib.decode(_header);
-    _validateHeader(header, _signatures, _digest, _currentTime, _flags);
-  }
-
-  /**
-   * @notice propose an incoming L2 block with signatures
-   *
-   * @param _header - The L2 block header
-   * @param _archive - A root of the archive tree after the L2 block is applied
-   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
-   * @param _signatures - Signatures from the validators
-   */
-  function propose(
-    bytes calldata _header,
-    bytes32 _archive,
-    bytes32 _blockHash,
-    SignatureLib.Signature[] memory _signatures
-  ) public override(IRollup) {
-    // Decode and validate header
-    HeaderLib.Header memory header = HeaderLib.decode(_header);
-    setupEpoch();
-    _validateHeader({
-      _header: header,
-      _signatures: _signatures,
-      _digest: _archive,
-      _currentTime: block.timestamp,
-      _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
-    });
-
-    blocks[pendingBlockCount++] = BlockLog({
-      archive: _archive,
-      blockHash: _blockHash,
-      slotNumber: header.globalVariables.slotNumber.toUint128()
-    });
-
-    // @note  The block number here will always be >=1 as the genesis block is at 0
-    bytes32 inHash = INBOX.consume(header.globalVariables.blockNumber);
-    if (header.contentCommitment.inHash != inHash) {
-      revert Errors.Rollup__InvalidInHash(inHash, header.contentCommitment.inHash);
-    }
-
-    // TODO(#7218): Revert to fixed height tree for outbox, currently just providing min as interim
-    // Min size = smallest path of the rollup tree + 1
-    (uint256 min,) = MerkleLib.computeMinMaxPathLength(header.contentCommitment.numTxs);
-    uint256 l2ToL1TreeMinHeight = min + 1;
-    OUTBOX.insert(
-      header.globalVariables.blockNumber, header.contentCommitment.outHash, l2ToL1TreeMinHeight
-    );
-
-    emit L2BlockProposed(header.globalVariables.blockNumber);
-
-    // Automatically flag the block as proven if we have cheated and set assumeProvenUntilBlockNumber.
-    if (header.globalVariables.blockNumber < assumeProvenUntilBlockNumber) {
-      provenBlockCount += 1;
-
-      if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
-        // @note  This will currently fail if there are insufficient funds in the bridge
-        //        which WILL happen for the old version after an upgrade where the bridge follow.
-        //        Consider allowing a failure. See #7938.
-        FEE_JUICE_PORTAL.distributeFees(header.globalVariables.coinbase, header.totalFees);
-      }
-
-      emit L2ProofVerified(header.globalVariables.blockNumber, "CHEAT");
-    }
-  }
-
-  /**
-   * @notice Propose a L2 block without signatures
-   *
-   * @param _header - The L2 block header
-   * @param _archive - A root of the archive tree after the L2 block is applied
-   * @param _blockHash - The poseidon2 hash of the header added to the archive tree in the rollup circuit
-   */
-  function propose(bytes calldata _header, bytes32 _archive, bytes32 _blockHash)
-    public
-    override(IRollup)
-  {
-    SignatureLib.Signature[] memory emptySignatures = new SignatureLib.Signature[](0);
-    propose(_header, _archive, _blockHash, emptySignatures);
+    _validateHeader(header, _signatures, _digest, _currentTime, _txsEffectsHash, _flags);
   }
 
   /**
@@ -523,9 +484,10 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     uint256 _currentTime,
+    bytes32 _txEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
-    _validateHeaderForSubmissionBase(_header, _currentTime, _flags);
+    _validateHeaderForSubmissionBase(_header, _currentTime, _txEffectsHash, _flags);
     _validateHeaderForSubmissionSequencerSelection(
       _header.globalVariables.slotNumber, _signatures, _digest, _currentTime, _flags
     );
@@ -586,7 +548,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *          - The last archive root in the header MUST match the current archive
    *          - The slot MUST be larger than the slot of the previous block (ensures single block per slot)
    *          - The timestamp MUST be equal to GENESIS_TIME + slot * SLOT_DURATION
-   *          - The availability oracle MUST return true for availability of txsEffectsHash
+   *          - The `txsEffectsHash` of the header must match the computed `_txsEffectsHash`
    *            - This can be relaxed to happen at the time of `submitProof` instead
    *
    * @param _header - The header to validate
@@ -594,6 +556,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   function _validateHeaderForSubmissionBase(
     HeaderLib.Header memory _header,
     uint256 _currentTime,
+    bytes32 _txsEffectsHash,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
     if (block.chainid != _header.globalVariables.chainId) {
@@ -640,10 +603,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__TimestampInFuture(_currentTime, timestamp);
     }
 
-    // Check if the data is available using availability oracle (change availability oracle if you want a different DA layer)
-    if (
-      !_flags.ignoreDA && !AVAILABILITY_ORACLE.isAvailable(_header.contentCommitment.txsEffectsHash)
-    ) {
+    // Check if the data is available
+    if (!_flags.ignoreDA && _header.contentCommitment.txsEffectsHash != _txsEffectsHash) {
       revert Errors.Rollup__UnavailableTxs(_header.contentCommitment.txsEffectsHash);
     }
   }

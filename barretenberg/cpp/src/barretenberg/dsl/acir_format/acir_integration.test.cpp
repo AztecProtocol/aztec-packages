@@ -65,13 +65,13 @@ class AcirIntegrationTest : public ::testing::Test {
         builder.blocks.summarize();
         info("num gates          = ", builder.get_num_gates());
         info("total circuit size = ", builder.get_total_circuit_size());
-        info("circuit size       = ", prover.instance->proving_key.circuit_size);
-        info("log circuit size   = ", prover.instance->proving_key.log_circuit_size);
+        info("circuit size       = ", prover.proving_key->proving_key.circuit_size);
+        info("log circuit size   = ", prover.proving_key->proving_key.log_circuit_size);
 #endif
         auto proof = prover.construct_proof();
 
         // Verify Honk proof
-        auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
         Verifier verifier{ verification_key };
         return verifier.verify_proof(proof);
     }
@@ -418,7 +418,7 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
         ivc.accumulate(circuit);
 
         CircuitChecker::check(circuit);
-        // EXPECT_TRUE(prove_and_verify_honk<Flavor>(ivc.prover_instance));
+        // EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
 
         program_stack.pop_back();
     }

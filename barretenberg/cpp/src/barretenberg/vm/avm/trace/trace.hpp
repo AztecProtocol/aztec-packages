@@ -64,7 +64,7 @@ class AvmTraceBuilder {
     void op_sub(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_mul(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_div(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
-    void op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset);
+    void op_fdiv(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
     // Compute - Comparators
     void op_eq(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
@@ -94,12 +94,11 @@ class AvmTraceBuilder {
     void op_version(uint8_t indirect, uint32_t dst_offset);
     void op_block_number(uint8_t indirect, uint32_t dst_offset);
     void op_timestamp(uint8_t indirect, uint32_t dst_offset);
-    void op_coinbase(uint8_t indirect, uint32_t dst_offset);
     void op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset);
     void op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset);
 
     // Execution Environment - Calldata
-    void op_calldata_copy(uint8_t indirect, uint32_t cd_offset, uint32_t copy_size, uint32_t dst_offset);
+    void op_calldata_copy(uint8_t indirect, uint32_t cd_offset_address, uint32_t copy_size_offset, uint32_t dst_offset);
 
     // Machine State - Gas
     void op_l2gasleft(uint8_t indirect, uint32_t dst_offset);
@@ -113,20 +112,24 @@ class AvmTraceBuilder {
     void op_internal_return();
 
     // Machine State - Memory
-    void op_set(uint8_t indirect, uint128_t val, uint32_t dst_offset, AvmMemoryTag in_tag);
-    // TODO: only used for write_slice_to_memory. Remove.
-    void op_set_internal(uint8_t indirect, FF val_ff, uint32_t dst_offset, AvmMemoryTag in_tag);
+    void op_set(uint8_t indirect, FF val, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_mov(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset);
     void op_cmov(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t cond_offset, uint32_t dst_offset);
 
     // World State
     void op_sload(uint8_t indirect, uint32_t slot_offset, uint32_t size, uint32_t dest_offset);
     void op_sstore(uint8_t indirect, uint32_t src_offset, uint32_t size, uint32_t slot_offset);
-    void op_note_hash_exists(uint8_t indirect, uint32_t note_hash_offset, uint32_t dest_offset);
+    void op_note_hash_exists(uint8_t indirect,
+                             uint32_t note_hash_offset,
+                             uint32_t leaf_index_offset,
+                             uint32_t dest_offset);
     void op_emit_note_hash(uint8_t indirect, uint32_t note_hash_offset);
     void op_nullifier_exists(uint8_t indirect, uint32_t nullifier_offset, uint32_t dest_offset);
     void op_emit_nullifier(uint8_t indirect, uint32_t nullifier_offset);
-    void op_l1_to_l2_msg_exists(uint8_t indirect, uint32_t log_offset, uint32_t dest_offset);
+    void op_l1_to_l2_msg_exists(uint8_t indirect,
+                                uint32_t log_offset,
+                                uint32_t leaf_index_offset,
+                                uint32_t dest_offset);
     void op_get_contract_instance(uint8_t indirect, uint32_t address_offset, uint32_t dst_offset);
 
     // Accrued Substate
@@ -232,6 +235,9 @@ class AvmTraceBuilder {
                                                                        uint32_t clk,
                                                                        uint32_t data_offset,
                                                                        uint32_t metadata_offset);
+
+    Row create_kernel_output_opcode_for_leaf_index(
+        uint8_t indirect, uint32_t clk, uint32_t data_offset, uint32_t metadata_offset, uint32_t leaf_index);
 
     Row create_kernel_output_opcode_with_set_value_from_hint(uint8_t indirect,
                                                              uint32_t clk,

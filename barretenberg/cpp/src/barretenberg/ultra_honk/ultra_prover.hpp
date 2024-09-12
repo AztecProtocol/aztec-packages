@@ -4,9 +4,9 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 namespace bb {
 
@@ -21,12 +21,12 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using PCS = typename Flavor::PCS;
-    using ProverInstance = ProverInstance_<Flavor>;
-    using Instance = ProverInstance;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using DeciderPK = DeciderProvingKey;
     using Transcript = typename Flavor::Transcript;
     using ZeroMorph = ZeroMorphProver_<PCS>;
 
-    std::shared_ptr<Instance> instance;
+    std::shared_ptr<DeciderPK> proving_key;
 
     std::shared_ptr<Transcript> transcript;
 
@@ -38,7 +38,7 @@ template <IsUltraFlavor Flavor_> class UltraProver_ {
 
     std::shared_ptr<CommitmentKey> commitment_key;
 
-    explicit UltraProver_(const std::shared_ptr<Instance>&,
+    explicit UltraProver_(const std::shared_ptr<DeciderPK>&,
                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     explicit UltraProver_(Builder&);

@@ -1,16 +1,16 @@
-use dep::protocol_types::traits::{Serialize, Deserialize, FromField, ToField};
+use dep::protocol_types::traits::{Serialize, Deserialize};
 use std::cmp::min;
 
 mod test;
 
 // This data structure is used by SharedMutable to store the minimum delay with which a ScheduledValueChange object can
 // schedule a change.
-// This delay is initally equal to INITIAL_DELAY, and can be safely mutated to any other value over time. This mutation 
-// is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the 
-// delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a 
+// This delay is initally equal to INITIAL_DELAY, and can be safely mutated to any other value over time. This mutation
+// is performed via `schedule_change` in order to satisfy ScheduleValueChange constraints: if e.g. we allowed for the
+// delay to be decreased immediately then it'd be possible for the state variable to schedule a value change with a
 // reduced delay, invalidating prior private reads.
 struct ScheduledDelayChange<let INITIAL_DELAY: u32> {
-    // Both pre and post are stored in public storage, so by default they are zeroed. By wrapping them in an Option, 
+    // Both pre and post are stored in public storage, so by default they are zeroed. By wrapping them in an Option,
     // they default to Option::none(), which we detect and replace with INITIAL_DELAY. The end result is that a
     // ScheduledDelayChange that has not been initialized has a delay equal to INITIAL_DELAY, which is the desired
     // effect. Once initialized, the Option will never be none again.
@@ -83,11 +83,11 @@ impl<let INITIAL_DELAY: u32> ScheduledDelayChange<INITIAL_DELAY> {
     }
 
     /// Returns the minimum delay before a value might mutate due to a scheduled change, from the perspective of some
-    /// historical block number. It only returns a meaningful value when called in private with historical blocks. This 
+    /// historical block number. It only returns a meaningful value when called in private with historical blocks. This
     /// function can be used alongside `ScheduledValueChange.get_block_horizon` to properly constrain the
     /// `max_block_number` transaction property when reading mutable shared state.
     /// This value typically equals the current delay at the block following the historical one (the earliest one in
-    /// which a value change could be scheduled), but it also considers scenarios in which a delay reduction is 
+    /// which a value change could be scheduled), but it also considers scenarios in which a delay reduction is
     /// scheduled to happen in the near future, resulting in a way to schedule a change with an overall delay lower than
     /// the current one.
     pub fn get_effective_minimum_delay_at(self, historical_block_number: u32) -> u32 {
@@ -114,7 +114,7 @@ impl<let INITIAL_DELAY: u32> ScheduledDelayChange<INITIAL_DELAY> {
             //           |      until change                                              |
             //           |                                                                |
             //           |----------------------------------------------------------------|
-            //                        current delay at the earliest block in 
+            //                        current delay at the earliest block in
             //                             which to scheduled value change
 
             let blocks_until_change = self.block_of_change - (historical_block_number + 1);
@@ -136,8 +136,8 @@ impl<INITIAL_DELAY> Serialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
         let lo = ((self.pre.unwrap_unchecked() as u64) * (1 << 32))
             + (self.post.unwrap_unchecked() as u64);
 
-        let hi = (self.pre.is_some() as u64) * (1 << 33) 
-            + (self.post.is_some() as u64 * (1 << 32)) 
+        let hi = (self.pre.is_some() as u64) * (1 << 33)
+            + (self.post.is_some() as u64 * (1 << 32))
             + self.block_of_change as u64;
 
         let packed = U128::from_u64s_le(lo, hi);

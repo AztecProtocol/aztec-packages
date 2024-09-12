@@ -215,7 +215,11 @@ pub fn assert_current_call_valid_authwit(context: &mut PrivateContext, on_behalf
  * @param on_behalf_of The address that have authorized the current call
  * @param inner_hash The hash of the message to authorize
  */
-pub fn assert_inner_hash_valid_authwit(context: &mut PrivateContext, on_behalf_of: AztecAddress, inner_hash: Field) {
+pub fn assert_inner_hash_valid_authwit(
+    context: &mut PrivateContext,
+    on_behalf_of: AztecAddress,
+    inner_hash: Field
+) {
     // We perform a static call here and not a standard one to ensure that the account contract cannot re-enter.
     let result: Field = context.static_call_private_function(
         on_behalf_of,
@@ -262,7 +266,11 @@ pub fn assert_current_call_valid_authwit_public(context: &mut PublicContext, on_
  *
  * @param on_behalf_of The address that have authorized the `inner_hash`
  */
-pub fn assert_inner_hash_valid_authwit_public(context: &mut PublicContext, on_behalf_of: AztecAddress, inner_hash: Field) {
+pub fn assert_inner_hash_valid_authwit_public(
+    context: &mut PublicContext,
+    on_behalf_of: AztecAddress,
+    inner_hash: Field
+) {
     let result: Field = context.call_public_function(
         CANONICAL_AUTH_REGISTRY_ADDRESS,
         comptime {
@@ -338,7 +346,12 @@ pub fn compute_authwit_nullifier(on_behalf_of: AztecAddress, inner_hash: Field) 
  * @param version The version of the chain that the message is being consumed on
  * @param inner_hash The hash of the "inner" message that is being consumed
  */
-pub fn compute_authwit_message_hash(consumer: AztecAddress, chain_id: Field, version: Field, inner_hash: Field) -> Field {
+pub fn compute_authwit_message_hash(
+    consumer: AztecAddress,
+    chain_id: Field,
+    version: Field,
+    inner_hash: Field
+) -> Field {
     poseidon2_hash_with_separator(
         [
         consumer.to_field(),

@@ -1,5 +1,6 @@
 #include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -17,9 +18,18 @@ AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder* builder, const std
     , builder(builder)
 {}
 
+template <typename Flavor>
+AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof,
+                                                                                             AggregationObject agg_obj)
+{
+    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
+    return verify_proof(stdlib_proof, agg_obj);
+}
+
 // TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> AvmRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
+    const StdlibProof<Builder>& stdlib_proof, AggregationObject agg_obj)
 {
     using Curve = typename Flavor::Curve;
     using Zeromorph = ZeroMorphVerifier_<Curve>;
@@ -29,7 +39,6 @@ std::array<typename Flavor::GroupElement, 2> AvmRecursiveVerifier_<Flavor>::veri
     using RelationParams = ::bb::RelationParameters<typename Flavor::FF>;
     using Transcript = typename Flavor::Transcript;
 
-    StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
     transcript = std::make_shared<Transcript>(stdlib_proof);
 
     RelationParams relation_parameters;
@@ -84,10 +93,13 @@ std::array<typename Flavor::GroupElement, 2> AvmRecursiveVerifier_<Flavor>::veri
 
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
 
-    return pairing_points;
-
-    // Probably we will have to return an aggregation object (see ultra_recursive_verifier.cpp) once we interface
-    // with noir for public_kernel integration. Follow, the same recipe as in ultra_recursive_verifier.cpp in this case.
+    pairing_points[0] = pairing_points[0].normalize();
+    pairing_points[1] = pairing_points[1].normalize();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
+    typename Curve::ScalarField recursion_separator =
+        Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
+    agg_obj.aggregate(pairing_points, recursion_separator);
+    return agg_obj;
 }
 
 template class AvmRecursiveVerifier_<AvmRecursiveFlavor_<UltraCircuitBuilder>>;

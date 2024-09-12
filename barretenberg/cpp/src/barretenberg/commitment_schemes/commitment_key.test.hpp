@@ -72,15 +72,6 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
 
     Commitment commit(const Polynomial& polynomial) { return commitment_key->commit(polynomial); }
 
-    Polynomial random_polynomial(const size_t n)
-    {
-        Polynomial p(n);
-        for (size_t i = 0; i < n; ++i) {
-            p[i] = Fr::random_element(engine);
-        }
-        return p;
-    }
-
     Fr random_element() { return Fr::random_element(engine); }
 
     OpeningPair<Curve> random_eval(const Polynomial& polynomial)
@@ -92,7 +83,7 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
 
     std::pair<OpeningClaim<Curve>, Polynomial> random_claim(const size_t n)
     {
-        auto polynomial = random_polynomial(n);
+        auto polynomial = Polynomial::random(n);
         auto opening_pair = random_eval(polynomial);
         auto commitment = commit(polynomial);
         auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };

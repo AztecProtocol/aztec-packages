@@ -4,7 +4,7 @@
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/plonk_honk_shared/instance_inspector.hpp"
+#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
@@ -28,7 +28,7 @@ class DataBusTests : public ::testing::Test {
     static bool construct_and_verify_proof(MegaCircuitBuilder& builder)
     {
         MegaProver prover{ builder };
-        auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.instance->proving_key);
+        auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
         MegaVerifier verifier{ verification_key };
         auto proof = prover.construct_proof();
         return verifier.verify_proof(proof);

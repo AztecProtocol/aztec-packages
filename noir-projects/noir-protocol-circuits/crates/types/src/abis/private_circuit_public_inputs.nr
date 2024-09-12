@@ -1,6 +1,6 @@
 use crate::{
     abis::{
-    call_context::CallContext, max_block_number::MaxBlockNumber, gas_settings::GasSettings,
+    call_context::CallContext, max_block_number::MaxBlockNumber,
     validation_requests::KeyValidationRequestAndGenerator, note_hash::NoteHash, nullifier::Nullifier,
     private_call_request::PrivateCallRequest, public_call_request::PublicCallRequest,
     read_request::ReadRequest, log_hash::{LogHash, NoteLogHash, EncryptedLogHash}

@@ -5,6 +5,8 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { recoverMessageAddress } from 'viem';
 
+import { TxHash } from '../tx/tx_hash.js';
+import { get0xStringHashedSignaturePayload, getSignaturePayload } from './block_utils.js';
 import { Gossipable } from './gossipable.js';
 import { Signature } from './signature.js';
 import { TopicType, createTopicString } from './topic_type.js';
@@ -31,6 +33,7 @@ export class BlockAttestation extends Gossipable {
     public readonly header: Header,
     // TODO(https://github.com/AztecProtocol/aztec-packages/pull/7727#discussion_r1713670830): temporary
     public readonly archive: Fr,
+    public readonly txHashes: TxHash[],
     /** The signature of the block attester */
     public readonly signature: Signature,
   ) {
@@ -53,8 +56,9 @@ export class BlockAttestation extends Gossipable {
   async getSender() {
     if (!this.sender) {
       // Recover the sender from the attestation
+      const hashed = get0xStringHashedSignaturePayload(this.archive, this.txHashes);
       const address = await recoverMessageAddress({
-        message: { raw: this.p2pMessageIdentifier().to0xString() },
+        message: { raw: hashed },
         signature: this.signature.to0xString(),
       });
       // Cache the sender for later use
@@ -64,16 +68,25 @@ export class BlockAttestation extends Gossipable {
     return this.sender;
   }
 
+  getPayload(): Buffer {
+    return getSignaturePayload(this.archive, this.txHashes);
+  }
+
   toBuffer(): Buffer {
-    return serializeToBuffer([this.header, this.archive, this.signature]);
+    return serializeToBuffer([this.header, this.archive, this.txHashes.length, this.txHashes, this.signature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
     const reader = BufferReader.asReader(buf);
-    return new BlockAttestation(reader.readObject(Header), reader.readObject(Fr), reader.readObject(Signature));
+    return new BlockAttestation(
+      reader.readObject(Header),
+      reader.readObject(Fr),
+      reader.readArray(reader.readNumber(), TxHash),
+      reader.readObject(Signature),
+    );
   }
 
   static empty(): BlockAttestation {
-    return new BlockAttestation(Header.empty(), Fr.ZERO, Signature.empty());
+    return new BlockAttestation(Header.empty(), Fr.ZERO, [], Signature.empty());
   }
 }

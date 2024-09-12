@@ -8,7 +8,6 @@ use dep::types::{
     abis::{
     accumulated_data::PublicAccumulatedDataBuilder,
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, PublicKernelCircuitPublicInputsBuilder},
-    public_call_data::PublicCallData, public_call_request::PublicCallRequest,
     public_circuit_public_inputs::PublicCircuitPublicInputs, public_data_read::PublicDataRead
 },
     traits::is_empty, utils::arrays::array_to_bounded_vec
@@ -81,6 +80,14 @@ impl PublicKernelOutputComposer {
 
         let storage_contract_address = public_call.call_context.storage_contract_address;
 
+        let note_hash_read_requests = public_call.note_hash_read_requests;
+        for i in 0..note_hash_read_requests.len() {
+            let request = note_hash_read_requests[i];
+            if !is_empty(request) {
+                self.output_builder.validation_requests.note_hash_read_requests.push(request);
+            }
+        }
+
         let nullifier_read_requests = public_call.nullifier_read_requests;
         for i in 0..nullifier_read_requests.len() {
             let request = nullifier_read_requests[i];
@@ -94,6 +101,14 @@ impl PublicKernelOutputComposer {
             let request = nullifier_non_existent_read_requests[i];
             if !is_empty(request) {
                 self.output_builder.validation_requests.nullifier_non_existent_read_requests.push(request.scope(storage_contract_address));
+            }
+        }
+
+        let l1_to_l2_msg_read_requests = public_call.l1_to_l2_msg_read_requests;
+        for i in 0..l1_to_l2_msg_read_requests.len() {
+            let request = l1_to_l2_msg_read_requests[i];
+            if !is_empty(request) {
+                self.output_builder.validation_requests.l1_to_l2_msg_read_requests.push(request);
             }
         }
 
@@ -117,8 +132,8 @@ impl PublicKernelOutputComposer {
             self.output_builder.end = propagate_accumulated_data(&mut self.output_builder.end, public_call);
         }
 
-        // TODO: Should keep the data even when reverts. 
-        // The data is required for verifying validation requests in the tail circuit, which will then discard the 
+        // TODO: Should keep the data even when reverts.
+        // The data is required for verifying validation requests in the tail circuit, which will then discard the
         // revertible data.
         if revert_in_phase {
             self.output_builder.end = PublicAccumulatedDataBuilder::empty();
