@@ -8,7 +8,7 @@
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
-#include "barretenberg/sumcheck/instance/instances.hpp"
+#include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -63,7 +63,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
     static void create_function_circuit(InnerBuilder& builder, size_t log_num_gates = 10)
     {
         using fr_ct = typename InnerCurve::ScalarField;
-        using fq_ct = typename InnerCurve::BaseField;
+        using fq_ct = stdlib::bigfield<InnerBuilder, typename InnerCurve::BaseFieldNative::Params>;
         using public_witness_ct = typename InnerCurve::public_witness_ct;
         using witness_ct = typename InnerCurve::witness_ct;
         using byte_array_ct = typename InnerCurve::byte_array_ct;
@@ -205,7 +205,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto verifier =
             FoldingRecursiveVerifier{ &folding_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };
         verifier.verify_folding_proof(stdlib_proof);
-        info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
+        info("Folding Recursive Verifier: num gates = ", folding_circuit.get_num_gates());
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
 
         // Perform native folding verification and ensure it returns the same result (either true or false) as
@@ -276,7 +276,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto recursive_verifier_accumulator = verifier.verify_folding_proof(stdlib_proof);
         auto native_verifier_acc =
             std::make_shared<InnerDeciderVerificationKey>(recursive_verifier_accumulator->get_value());
-        info("Folding Recursive Verifier: num gates = ", folding_circuit.num_gates);
+        info("Folding Recursive Verifier: num gates = ", folding_circuit.get_num_gates());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
@@ -361,7 +361,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto verification_key = std::make_shared<InnerVerificationKey>(prover_inst->proving_key);
         auto verifier_inst = std::make_shared<InnerDeciderVerificationKey>(verification_key);
 
-        prover_accumulator->proving_key.polynomials.w_l[1] = FF::random_element();
+        prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element();
 
         // Generate a folding proof with the incorrect polynomials which would result in the prover having the wrong
         // target sum

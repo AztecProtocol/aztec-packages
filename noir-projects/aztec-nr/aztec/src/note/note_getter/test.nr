@@ -196,8 +196,8 @@ fn rejects_mismatched_selector() {
     let mut options = NoteGetterOptions::new();
     options = options.select(
             PropertySelector { index: 0, offset: 0, length: 32 },
-            value + 1,
-            Option::some(Comparator.EQ)
+            Comparator.EQ,
+            value + 1
         );
 
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);

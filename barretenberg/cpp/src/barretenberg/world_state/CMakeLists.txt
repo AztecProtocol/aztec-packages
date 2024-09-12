@@ -1,0 +1,1 @@
+barretenberg_module(world_state crypto_merkle_tree stdlib_poseidon2)

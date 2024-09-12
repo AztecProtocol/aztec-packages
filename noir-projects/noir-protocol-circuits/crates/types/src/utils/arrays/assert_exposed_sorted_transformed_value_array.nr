@@ -38,80 +38,34 @@ pub fn assert_exposed_sorted_transformed_value_array<T, S, let N: u32, Env>(
 
 mod tests {
     use crate::{
-        abis::side_effect::Ordered, traits::Empty,
+        tests::types::{is_combined_from_two_values, TestCombinedValue, TestTwoValues},
         utils::arrays::{assert_exposed_sorted_transformed_value_array::{assert_exposed_sorted_transformed_value_array, get_order_hints::OrderHint}}
     };
 
-    struct TestItem {
-        name: Field,
-        price: Field,
-        tax: Field,
-        counter: u32,
-    }
-
-    impl Ordered for TestItem {
-        fn counter(self) -> u32 {
-            self.counter
-        }
-    }
-
-    impl Empty for TestItem {
-        fn empty() -> Self {
-            TestItem { name: 0, price: 0, tax: 0, counter: 0 }
-        }
-    }
-
-    impl Eq for TestItem {
-        fn eq(self, other: Self) -> bool {
-            (self.name == other.name) & (self.price == other.price) & (self.tax == other.tax) & (self.counter == other.counter)
-        }
-    }
-
-    struct TestValue {
-        name: Field,
-        total: Field,
-    }
-
-    impl Empty for TestValue {
-        fn empty() -> Self {
-            TestValue { name: 0, total: 0 }
-        }
-    }
-
-    impl Eq for TestValue {
-        fn eq(self, other: Self) -> bool {
-            (self.name == other.name) & (self.total == other.total)
-        }
-    }
-
-    fn is_transformed(item: TestItem, value: TestValue) -> bool {
-        (item.name == value.name) & ((item.price + item.tax) == value.total)
-    }
-
-    struct TestDataBuilder<T, S, let N: u32> {
-        original_array: [T; N],
-        exposed_sorted_transformed_value_array: [S; N],
+    struct TestDataBuilder<let N: u32> {
+        original_array: [TestTwoValues; N],
+        exposed_sorted_transformed_value_array: [TestCombinedValue; N],
         hints: [OrderHint; N],
     }
 
-    impl TestDataBuilder<TestItem, TestValue, 6> {
+    impl TestDataBuilder<6> {
         pub fn new() -> Self {
             let original_array = [
-                TestItem { name: 100, price: 10, tax: 5, counter: 44 },
-                TestItem { name: 200, price: 20, tax: 6, counter: 22 },
-                TestItem { name: 300, price: 30, tax: 7, counter: 11 },
-                TestItem { name: 400, price: 40, tax: 8, counter: 33 },
-                TestItem::empty(),
-                TestItem::empty()
+                TestTwoValues { value_1: 10, value_2: 5, counter: 44 },
+                TestTwoValues { value_1: 20, value_2: 6, counter: 22 },
+                TestTwoValues { value_1: 30, value_2: 7, counter: 11 },
+                TestTwoValues { value_1: 40, value_2: 8, counter: 33 },
+                TestTwoValues::empty(),
+                TestTwoValues::empty()
             ];
 
             let exposed_sorted_transformed_value_array = [
-                TestValue { name: 300, total: 37 },
-                TestValue { name: 200, total: 26 },
-                TestValue { name: 400, total: 48 },
-                TestValue { name: 100, total: 15 },
-                TestValue::empty(),
-                TestValue::empty()
+                TestCombinedValue { value: 37 },
+                TestCombinedValue { value: 26 },
+                TestCombinedValue { value: 48 },
+                TestCombinedValue { value: 15 },
+                TestCombinedValue::empty(),
+                TestCombinedValue::empty()
             ];
 
             let hints = [
@@ -130,7 +84,7 @@ mod tests {
             assert_exposed_sorted_transformed_value_array(
                 self.original_array,
                 self.exposed_sorted_transformed_value_array,
-                is_transformed,
+                is_combined_from_two_values,
                 self.hints
             );
         }
@@ -147,7 +101,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Tweak the value at index 1.
-        builder.exposed_sorted_transformed_value_array[1].total += 1;
+        builder.exposed_sorted_transformed_value_array[1].value += 1;
 
         builder.execute();
     }
@@ -202,7 +156,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item.
-        builder.exposed_sorted_transformed_value_array[4] = TestValue { name: 500, total: 10 };
+        builder.exposed_sorted_transformed_value_array[4] = TestCombinedValue {  value: 10 };
 
         builder.execute();
     }
@@ -212,7 +166,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item.
-        builder.exposed_sorted_transformed_value_array[4] = TestValue { name: 500, total: 10 };
+        builder.exposed_sorted_transformed_value_array[4] = TestCombinedValue {  value: 10 };
         // Change the hint to point to an empty item.
         builder.hints[4].sorted_index = 5;
 
@@ -224,7 +178,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Remove an item.
-        builder.exposed_sorted_transformed_value_array[3] = TestValue::empty();
+        builder.exposed_sorted_transformed_value_array[3] = TestCombinedValue::empty();
 
         builder.execute();
     }

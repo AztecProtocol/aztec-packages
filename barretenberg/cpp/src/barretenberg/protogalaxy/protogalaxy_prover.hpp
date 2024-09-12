@@ -45,10 +45,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
         , commitment_key(keys_to_fold[1]->proving_key.commitment_key){};
 
-    // Returns the accumulator, which is the first element in DeciderProvingKeys. The accumulator is assumed to have the
-    // FoldingParameters set and be the result of a previous round of folding.
-    std::shared_ptr<DeciderPK> get_accumulator() { return keys_to_fold[0]; }
-
     /**
      * @brief For each key produced by a circuit, prior to folding, we need to complete the computation of its
      * prover polynomials; commit to witnesses and generate the relation parameters; and send the public data ϕ of

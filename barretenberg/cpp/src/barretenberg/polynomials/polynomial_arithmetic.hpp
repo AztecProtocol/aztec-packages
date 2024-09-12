@@ -269,7 +269,7 @@ template <typename Fr> void factor_roots(std::span<Fr> polynomial, std::span<con
     if (roots.size() == 1) {
         factor_roots(polynomial, roots[0]);
     } else {
-        // For division by several roots at once we need cache.
+        // For division by several roots at once we need a cache.
         // Let's say we are dividing a₀, a₁, a₂, ... by (r₀, r₁, r₂)
         // What we need to compute are the inverses: ((-r₀)⁻¹, (-r₁)⁻¹,(-r₂)⁻¹)
         // Then for a₀ we compute:

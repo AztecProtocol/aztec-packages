@@ -118,7 +118,15 @@ impl<'context> Elaborator<'context> {
                 let fields = self.resolve_type_inner(*fields, kind);
                 Type::FmtString(Box::new(resolved_size), Box::new(fields))
             }
-            Quoted(quoted) => Type::Quoted(quoted),
+            Quoted(quoted) => {
+                let in_function = matches!(self.current_item, Some(DependencyId::Function(_)));
+                if in_function && !self.in_comptime_context() {
+                    let span = typ.span;
+                    let typ = quoted.to_string();
+                    self.push_err(ResolverError::ComptimeTypeInRuntimeCode { span, typ });
+                }
+                Type::Quoted(quoted)
+            }
             Unit => Type::Unit,
             Unspecified => {
                 let span = typ.span;
@@ -450,7 +458,6 @@ impl<'context> Elaborator<'context> {
             }
             UnresolvedTypeExpression::Constant(int, _) => Type::Constant(int),
             UnresolvedTypeExpression::BinaryOperation(lhs, op, rhs, span) => {
-                let (lhs_span, rhs_span) = (lhs.span(), rhs.span());
                 let lhs = self.convert_expression_type(*lhs);
                 let rhs = self.convert_expression_type(*rhs);
 
@@ -463,15 +470,7 @@ impl<'context> Elaborator<'context> {
                             Type::Error
                         }
                     }
-                    (lhs, rhs) => {
-                        if !self.enable_arithmetic_generics {
-                            let span =
-                                if !matches!(lhs, Type::Constant(_)) { lhs_span } else { rhs_span };
-                            self.push_err(ResolverError::InvalidArrayLengthExpr { span });
-                        }
-
-                        Type::InfixExpr(Box::new(lhs), op, Box::new(rhs)).canonicalize()
-                    }
+                    (lhs, rhs) => Type::InfixExpr(Box::new(lhs), op, Box::new(rhs)).canonicalize(),
                 }
             }
             UnresolvedTypeExpression::AsTraitPath(path) => self.resolve_as_trait_path(*path),

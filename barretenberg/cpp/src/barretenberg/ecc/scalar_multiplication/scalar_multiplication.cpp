@@ -342,7 +342,8 @@ void add_affine_points(typename Curve::AffineElement* points,
     }
 
     if (batch_inversion_accumulator == 0) {
-        throw_or_abort("attempted to invert zero in add_affine_points");
+        // prefer abort to throw for code that might emit from multiple threads
+        abort_with_message("attempted to invert zero in add_affine_points");
     } else {
         batch_inversion_accumulator = batch_inversion_accumulator.invert();
     }
@@ -894,7 +895,7 @@ typename Curve::Element pippenger(std::span<const typename Curve::ScalarField> s
                                   pippenger_runtime_state<Curve>& state,
                                   bool handle_edge_cases)
 {
-    BB_OP_COUNT_TRACK();
+    BB_OP_COUNT_TIME_NAME("pippenger");
     using Group = typename Curve::Group;
     using Element = typename Curve::Element;
 
@@ -955,7 +956,7 @@ typename Curve::Element pippenger_unsafe_optimized_for_non_dyadic_polys(
         return pippenger_unsafe(scalars, points, state);
     }
     // We need a padding of scalars.
-    ASSERT(numeric::round_up_power_2(scalars.size()) <= points.size());
+    ASSERT(numeric::round_up_power_2(scalars.size()) * 2 <= points.size());
     // We do not optimize for the small case at all.
     return pippenger_internal(points, scalars, numeric::round_up_power_2(scalars.size()), state, false);
 }

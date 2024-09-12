@@ -265,6 +265,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "10000"
         },
         {
+          name = "ARCHIVER_L1_START_BLOCK",
+          value = "15918000"
+        },
+        {
           name  = "SEQ_RETRY_INTERVAL"
           value = "10000"
         },
@@ -307,10 +311,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "REGISTRY_CONTRACT_ADDRESS"
           value = data.terraform_remote_state.l1_contracts.outputs.registry_contract_address
-        },
-        {
-          name  = "AVAILABILITY_ORACLE_CONTRACT_ADDRESS"
-          value = data.terraform_remote_state.l1_contracts.outputs.availability_oracle_contract_address
         },
         {
           name  = "FEE_JUICE_CONTRACT_ADDRESS"

@@ -15,7 +15,7 @@ import {Rollup} from "../src/core/Rollup.sol";
 import {IFeeJuicePortal} from "../src/core/interfaces/IFeeJuicePortal.sol";
 import {FeeJuicePortal} from "../src/core/FeeJuicePortal.sol";
 import {Leonidas} from "../src/core/sequencer_selection/Leonidas.sol";
-import {AvailabilityOracle} from "../src/core/availability_oracle/AvailabilityOracle.sol";
+import {SignatureLib} from "../src/core/sequencer_selection/SignatureLib.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {PortalERC20} from "./portals/PortalERC20.sol";
@@ -37,7 +37,7 @@ contract RollupTest is DecoderBase {
   PortalERC20 internal portalERC20;
   FeeJuicePortal internal feeJuicePortal;
 
-  AvailabilityOracle internal availabilityOracle;
+  SignatureLib.Signature[] internal signatures;
 
   /**
    * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
@@ -53,7 +53,6 @@ contract RollupTest is DecoderBase {
     }
 
     registry = new Registry(address(this));
-    availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
     feeJuicePortal = new FeeJuicePortal(address(this));
     portalERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
@@ -62,7 +61,6 @@ contract RollupTest is DecoderBase {
     );
     rollup = new Rollup(
       registry,
-      availabilityOracle,
       IFeeJuicePortal(address(feeJuicePortal)),
       bytes32(0),
       address(this),
@@ -83,15 +81,12 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
-
-    // Progress time as necessary
-    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
-    availabilityOracle.publish(body);
+    bytes32[] memory txHashes = new bytes32[](0);
 
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
 
-    rollup.propose(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
 
     rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
 
@@ -192,6 +187,7 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     // Progress time as necessary
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
@@ -199,7 +195,6 @@ contract RollupTest is DecoderBase {
     assembly {
       mstore(add(header, add(0x20, 0x0248)), feeAmount)
     }
-    availabilityOracle.publish(body);
 
     assertEq(portalERC20.balanceOf(address(rollup)), 0, "invalid rollup balance");
 
@@ -213,7 +208,7 @@ contract RollupTest is DecoderBase {
     assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
 
     // Assert that balance have NOT been increased by proposing the block
-    rollup.propose(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
     assertEq(portalERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
 
     vm.expectRevert(
@@ -258,10 +253,10 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
-    availabilityOracle.publish(body);
-    rollup.propose(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonSequentialProving.selector));
     rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
@@ -290,16 +285,15 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     assembly {
       // TODO: Hardcoding offsets in the middle of tests is annoying to say the least.
       mstore(add(header, add(0x20, 0x0174)), 0x420)
     }
 
-    availabilityOracle.publish(body);
-
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 0x420));
-    rollup.propose(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
   }
 
   function testRevertInvalidChainId() public setUpFor("empty_block_1") {
@@ -307,16 +301,14 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     assembly {
-      // TODO: Hardcoding offsets in the middle of tests is annoying to say the least.
       mstore(add(header, add(0x20, 0x0134)), 0x420)
     }
 
-    availabilityOracle.publish(body);
-
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidChainId.selector, 31337, 0x420));
-    rollup.propose(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
   }
 
   function testRevertInvalidVersion() public setUpFor("empty_block_1") {
@@ -324,15 +316,14 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     assembly {
       mstore(add(header, add(0x20, 0x0154)), 0x420)
     }
 
-    availabilityOracle.publish(body);
-
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 1, 0x420));
-    rollup.propose(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
   }
 
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
@@ -340,6 +331,7 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     uint256 realTs = data.decodedHeader.globalVariables.timestamp;
     uint256 badTs = realTs + 1;
@@ -350,10 +342,8 @@ contract RollupTest is DecoderBase {
       mstore(add(header, add(0x20, 0x01b4)), badTs)
     }
 
-    availabilityOracle.publish(body);
-
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
-    rollup.propose(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
   }
 
   function testBlocksWithAssumeProven() public setUpFor("mixed_block_1") {
@@ -434,6 +424,7 @@ contract RollupTest is DecoderBase {
     bytes32 archive = full.block.archive;
     bytes memory body = full.block.body;
     uint32 numTxs = full.block.numTxs;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     // Overwrite some timestamps if needed
     if (_slotNumber != 0) {
@@ -452,9 +443,7 @@ contract RollupTest is DecoderBase {
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
-    availabilityOracle.publish(body);
-
-    rollup.propose(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
 
     if (_submitProof) {
       uint256 pre = rollup.provenBlockCount();

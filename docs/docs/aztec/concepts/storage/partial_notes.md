@@ -10,7 +10,7 @@ Partial notes are a concept that allows users to commit to an encrypted value, a
 
 Why is this useful?
 
-Consider the case where a user wants to pay for a transaction fee, using a [fee-payment contract](../../../protocol-specs/gas-and-fees/index.md) and they want to do this privately. They can't be certain what the transaction fee will be because the state of the network will have progressed by the time the transaction is processed by the sequencer, and transaction fees are dynamic. So the user can commit to a value for the transaction fee, publicly post this commitment, the fee payer can update the public commitment, deducting the final cost of the transaction from the commitment and returning the unused value to the user.
+Consider the case where a user wants to pay for a transaction fee, using a [fee-payment contract](../../../protocol-specs/gas-and-fees/index.md) and they want to do this privately. They can't be certain what the transaction fee will be because the state of the network will have progressed by the time the transaction is processed by the sequencer, and transaction fees are dynamic. So the user can commit to a value for the transaction fee, publicly post this commitment, the fee payer (aka paymaster) can update the public commitment, deducting the final cost of the transaction from the commitment and returning the unused value to the user.
 
 So, in general, the user is:
 
@@ -18,7 +18,7 @@ So, in general, the user is:
 - encrypting/compressing that computation with a point
 - passing that point as an argument to a public function
 
-And the fee payer is:
+And the paymaster is:
 
 - updating that point in public
 - treating/emitting the result(s) as a note hash(es)
@@ -31,6 +31,20 @@ To do this, we leverage the following properties of elliptic curve operations:
 2. `f(x) = x * G` being a one-way function.
 
 Property 1 allows us to be continually adding to a point on elliptic curve and property 2 allows us to pass the point to a public realm without revealing anything about the point preimage.
+
+### DEXes
+
+Currently private swaps require 2 transactions. One to start the swap and another to claim the swapped token from the DEX. With partial notes, you can create a note with zero value for the received amount and have another party complete it later from a public function, with the final swapped amount. This reduces the number of transactions needed to swap privately.
+
+Comparing to the flow above, the user is doing some private computation to stage the swap, encrypting the computation with a point and passing the point as an argument to a public function. Then another party is updating that point in public and emitting the result as a note hash for the user doing the swap.
+
+### Lending
+
+A similar pattern can be used for a lending protocol. The user can deposit a certain amount of a token to the lending contract and create a partial note for the borrowed token that will be completed by another party. This reduces the number of required transactions from 2 to 1.
+
+### Private Refunds
+
+Private transaction refunds from paymasters are the original inspiration for partial notes. Without partial notes, you have to claim your refund note. But the act of claiming itself needs gas! What if you overpaid fees on the refund tx? Then you have another 2nd order refund that you need to claim. This creates a never ending cycle! Partial notes allow paymasters to refund users without the user needing to claim the refund.
 
 Before getting to partial notes let's recap what is the flow of standard notes.
 
