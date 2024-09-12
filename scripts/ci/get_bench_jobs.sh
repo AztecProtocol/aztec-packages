@@ -17,7 +17,6 @@ allow_list+=("${input_labels[@]}")
 # Generate full list of targets on one line
 full_list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' | sed 's/+//' | xargs echo)
 
-echo "$full_list"
 # If branch is master or allow_list contains 'bench-all', return full list
 if [[ "$BRANCH" == "master" ]] || [[ " ${allow_list[@]} " =~ "bench-all" ]]; then
   # print as JSON list
