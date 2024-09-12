@@ -1,5 +1,5 @@
 ---
-title: Contract Communication
+title: Communication
 sidebar_position: 5
 ---
 
@@ -9,4 +9,4 @@ See [L1 \<--\> L2 communication (Portals)](./cross_chain_calls.mdx) for informat
 
 ## Private / Public execution
 
-For in-depth information about how private and public functions can call each other, read the [smart contracts explainers](../../smart_contracts/functions/public_private_calls.md).
+For in-depth information about how private and public functions can call each other, read the [Smart Contracts section](../../smart_contracts/functions/public_private_calls.md).
