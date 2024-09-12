@@ -1,6 +1,6 @@
 use super::traits::Serialize;
 
-pub(crate) fn flatten_to_fields(name: Quoted, typ: Type) -> ([Quoted], [Quoted]) {
+pub(crate) comptime fn flatten_to_fields(name: Quoted, typ: Type) -> ([Quoted], [Quoted]) {
     let mut fields = &[];
     let mut aux_vars = &[];
     if typ.is_field() | typ.as_integer().is_some() {

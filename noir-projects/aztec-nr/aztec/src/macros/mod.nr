@@ -56,8 +56,8 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
 pub comptime fn aztec_contract(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
     let functions = m.functions();
-    for f in functions.filter(| f | f.) {
-        transform_unconstrained(f);
-    }
+    // for f in functions.filter(| f | f.) {
+    //     transform_unconstrained(f);
+    // }
     interface
 }

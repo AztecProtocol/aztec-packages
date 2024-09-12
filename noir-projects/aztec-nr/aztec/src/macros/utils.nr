@@ -1,6 +1,6 @@
 use std::meta::{typ::fresh_type_variable, unquote};
 
-pub(crate) fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
+pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
     if f.has_named_attribute(quote { private }) {
         quote { private }
     } else {
@@ -8,19 +8,19 @@ pub(crate) fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
     }
 }
 
-pub(crate) fn is_fn_private(f: FunctionDefinition) -> bool {
+pub(crate) comptime fn is_fn_private(f: FunctionDefinition) -> bool {
     f.has_named_attribute(quote { private })
 }
 
-pub(crate) fn is_fn_public(f: FunctionDefinition) -> bool {
+pub(crate) comptime fn is_fn_public(f: FunctionDefinition) -> bool {
     f.has_named_attribute(quote { public })
 }
 
-pub(crate)  fn is_fn_view(f: FunctionDefinition) -> bool {
+pub(crate) comptime fn is_fn_view(f: FunctionDefinition) -> bool {
     f.has_named_attribute(quote { view })
 }
 
-pub(crate) fn fn_body_as_quoted(f: FunctionDefinition) -> Quoted {
+pub(crate) comptime fn fn_body_as_quoted(f: FunctionDefinition) -> Quoted {
     let body = f.body().as_block();
     assert(body.is_some(), "Function body must be a block");
     body.unwrap().fold(
@@ -35,7 +35,7 @@ pub(crate) fn fn_body_as_quoted(f: FunctionDefinition) -> Quoted {
     )
 }
 
-pub(crate) fn modify_fn_body(f: FunctionDefinition, prepend: Quoted, append: Quoted) {
+pub(crate) comptime fn modify_fn_body(f: FunctionDefinition, prepend: Quoted, append: Quoted) {
     let mut body_quote = fn_body_as_quoted(f);
     body_quote = quote {
         {
@@ -49,7 +49,7 @@ pub(crate) fn modify_fn_body(f: FunctionDefinition, prepend: Quoted, append: Quo
     f.set_body(body_expr.unwrap());
 }
 
-pub(crate) fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ: Type) -> Quoted {
+pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ: Type) -> Quoted {
     if typ.is_field() | typ.as_integer().is_some() {
         quote { $slice_name = $slice_name.push_back($name as Field); }
     } else if typ.as_struct().is_some() {
@@ -73,7 +73,7 @@ pub(crate) fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ: Type) ->
     }
 }
 
-pub(crate) fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Type) -> Quoted {
+pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Type) -> Quoted {
     if typ.is_field() | typ.as_integer().is_some() {
         quote { $hasher_name.add($name as Field); }
     } else if typ.as_struct().is_some() {
@@ -97,7 +97,7 @@ pub(crate) fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Type) -> Quo
     }
 }
 
-fn signature_of_type(typ: Type) -> Quoted {
+comptime fn signature_of_type(typ: Type) -> Quoted {
     if typ.is_field() {
         quote{Field}
     } else if typ.as_integer().is_some() {
@@ -139,7 +139,7 @@ fn signature_of_type(typ: Type) -> Quoted {
 }
 
 trait AsStrQuote {
-    fn as_str_quote(self) -> Quoted;
+    fn as_str_quote(self) -> Self;
 }
 
 impl<let N: u32, Env> AsStrQuote for Quoted {

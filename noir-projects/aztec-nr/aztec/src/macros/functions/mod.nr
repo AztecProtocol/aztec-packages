@@ -31,12 +31,12 @@ pub comptime fn initializer(f: FunctionDefinition) {
     modify_fn_body(f, to_prepend, quote {});
 }
 
-fn create_init_check(f: FunctionDefinition) -> Quoted {
+comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
     f"dep::aztec::initializer::assert_is_initialized_{fn_visibility}(&mut context);".quoted_contents()
 }
 
-fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
+comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
     // Remove first arg (inputs)
     let mut parameters = f.parameters().pop_front().1.map(
@@ -110,7 +110,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
         create_init_check(f)
     } else {
         quote {}
-    }
+    };
 
     let return_value_type = f.return_type();
 
@@ -158,7 +158,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     fn_abi
 }
 
-pub fn transform_unconstrained(f: FunctionDefinition) {
+pub comptime fn transform_unconstrained(f: FunctionDefinition) {
     let context_creation_quote = quote { let mut context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new(); };
     let storage_init_quote = quote { let storage = Storage::init(context); };
     let to_prepend = quote {
