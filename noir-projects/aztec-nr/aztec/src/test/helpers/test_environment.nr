@@ -213,7 +213,7 @@ impl TestEnvironment {
         note: &mut Note,
         storage_slot: Field,
         contract_address: AztecAddress
-    ) where Note: NoteInterface<N, M> {
+    ) where Note: NoteInterface<N> {
         let original_contract_address = get_contract_address();
         cheatcodes::set_contract_address(contract_address);
         let note_hash_counter = cheatcodes::get_side_effects_counter();

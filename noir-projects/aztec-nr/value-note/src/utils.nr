@@ -2,11 +2,11 @@ use dep::aztec::prelude::{AztecAddress, PrivateContext, PrivateSet, NoteGetterOp
 use dep::aztec::note::note_getter_options::SortOrder;
 use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
 use dep::aztec::keys::getters::get_current_public_keys;
-use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN}};
+use crate::{filter::filter_notes_min_sum, value_note::{ValueNote, VALUE_NOTE_LEN}};
 
 // Sort the note values (0th field) in descending order.
 // Pick the fewest notes whose sum is equal to or greater than `amount`.
-pub fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteGetterOptions<ValueNote, VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN, Field, Field> {
+pub fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteGetterOptions<ValueNote, VALUE_NOTE_LEN, Field, Field> {
     NoteGetterOptions::with_filter(filter_notes_min_sum, amount).sort(ValueNote::properties().value, SortOrder.DESC)
 }
 

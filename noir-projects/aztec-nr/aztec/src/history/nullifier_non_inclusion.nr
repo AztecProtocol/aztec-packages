@@ -1,7 +1,8 @@
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 use dep::protocol_types::{header::Header, utils::field::{full_field_less_than, full_field_greater_than}};
 use crate::{
-    context::PrivateContext, note::{utils::compute_siloed_nullifier, note_interface::NoteInterface},
+    context::PrivateContext,
+    note::{utils::compute_siloed_nullifier, note_interface::{NoteInterface, NullifiableNote}},
     oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness
 };
 
@@ -41,12 +42,16 @@ impl ProveNullifierNonInclusion for Header {
 }
 
 trait ProveNoteNotNullified {
-    fn prove_note_not_nullified<Note, N, M>(header: Header, note: Note, context: &mut PrivateContext) where Note: NoteInterface<N, M>;
+    fn prove_note_not_nullified<Note, N, M>(header: Header, note: Note, context: &mut PrivateContext) where Note: NoteInterface<N> + NullifiableNote;
 }
 
 impl ProveNoteNotNullified for Header {
     // docs:start:prove_note_not_nullified
-    fn prove_note_not_nullified<Note, N, M>(self, note: Note, context: &mut PrivateContext) where Note: NoteInterface<N, M> {
+    fn prove_note_not_nullified<Note, N, M>(
+        self,
+        note: Note,
+        context: &mut PrivateContext
+    ) where Note: NoteInterface<N> + NullifiableNote {
         let nullifier = compute_siloed_nullifier(note, context);
 
         self.prove_nullifier_non_inclusion(nullifier);

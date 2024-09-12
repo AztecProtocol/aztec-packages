@@ -5,17 +5,31 @@ use crate::{
 
 use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::Point, traits::Eq};
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
+use crate::note::note_interface::NullifiableNote;
 
 global MOCK_NOTE_LENGTH = 1;
-// MOCK_NOTE_LENGTH * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global MOCK_NOTE_BYTES_LENGTH: Field = 1 * 32 + 64;
 
 struct MockNote {
   header: NoteHeader,
   value: Field,
 }
 
-impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
+impl NullifiableNote for MockNote {
+    fn compute_nullifier(_self: Self, _context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+        // We don't use any kind of secret here since this is only a mock note and having it here would make tests
+        // more cumbersome
+        poseidon2_hash_with_separator([note_hash_for_nullify], GENERATOR_INDEX__NOTE_NULLIFIER as Field)
+    }
+
+    fn compute_nullifier_without_context(self) -> Field {
+        // We don't use any kind of secret here since this is only a mock note and having it here would make tests
+        // more cumbersome
+        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
+        poseidon2_hash_with_separator([note_hash_for_nullify], GENERATOR_INDEX__NOTE_NULLIFIER as Field)
+    }
+}
+
+impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
     fn serialize_content(self) -> [Field; MOCK_NOTE_LENGTH] {
       [self.value]
     }
@@ -47,23 +61,10 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
       4135
     }
 
-    fn compute_nullifier(_self: Self, _context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
-        // We don't use any kind of secret here since this is only a mock note and having it here would make tests
-        // more cumbersome
-        poseidon2_hash_with_separator([note_hash_for_nullify], GENERATOR_INDEX__NOTE_NULLIFIER as Field)
-    }
-
-    fn compute_nullifier_without_context(self) -> Field {
-        // We don't use any kind of secret here since this is only a mock note and having it here would make tests
-        // more cumbersome
-        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
-        poseidon2_hash_with_separator([note_hash_for_nullify], GENERATOR_INDEX__NOTE_NULLIFIER as Field)
-    }
-
-    fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_BYTES_LENGTH] {
+    fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_LENGTH * 32 + 64] {
       let serialized_note = self.serialize_content();
 
-        let mut buffer: [u8; MOCK_NOTE_BYTES_LENGTH] = [0; MOCK_NOTE_BYTES_LENGTH];
+        let mut buffer: [u8; MOCK_NOTE_LENGTH * 32 + 64] = [0; MOCK_NOTE_LENGTH * 32 + 64];
 
         let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
         let note_type_id_bytes: [u8; 32] = MockNote::get_note_type_id().to_be_bytes();

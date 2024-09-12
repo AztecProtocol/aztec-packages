@@ -13,9 +13,8 @@ pub comptime fn note(s: StructDefinition) {
     // }
 
     let serialized_len_generic = fresh_type_variable();
-    let bytes_len_generic = fresh_type_variable();
     let maybe_note_interface_impl = s.as_type().get_trait_impl(
-        quote { crate::note::note_interface::NoteInterface<$serialized_len_generic, $bytes_len_generic> }.as_trait_constraint()
+        quote { crate::note::note_interface::NoteInterface<$serialized_len_generic> }.as_trait_constraint()
     );
     assert(maybe_note_interface_impl.is_some(), "Note must implement NoteInterface");
     let note_interface_impl = maybe_note_interface_impl.unwrap();

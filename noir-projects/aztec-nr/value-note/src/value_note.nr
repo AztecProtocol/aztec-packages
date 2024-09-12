@@ -5,36 +5,54 @@ use dep::aztec::{
     point::{Point, POINT_LENGTH}
 },
     macros::notes::note,
-    note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_nullify},
+    note::{
+    note_header::NoteHeader, note_interface::{NullifiableNote, NoteInterface},
+    note_getter_options::PropertySelector, utils::compute_note_hash_for_nullify
+},
     oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
 };
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
-global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.
-// VALUE_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global VALUE_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
+global VALUE_NOTE_LEN: u64 = 3; // 3 plus a header.
 
 // docs:start:value-note-def
-#[aztec(note)]
 #[note]
 struct ValueNote {
     value: Field,
    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
     npk_m_hash: Field,
     randomness: Field,
+    header: NoteHeader
 }
 // docs:end:value-note-def
 
-impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
+struct ValueNoteProperties {
+    value: PropertySelector,
+    npk_m_hash: PropertySelector,
+    randomness: PropertySelector,
+}
+
+impl ValueNote {
+    fn properties() -> ValueNoteProperties {
+        ValueNoteProperties {
+            value: PropertySelector { index: 0, offset: 0, length: 32 },
+            npk_m_hash: PropertySelector { index: 1, offset: 0, length: 32 },
+            randomness: PropertySelector { index: 2, offset: 0, length: 32 }
+        }
+    }
+}
+
+impl NullifiableNote for ValueNote {
     // docs:start:nullifier
 
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
-        poseidon2_hash_with_separator([
+        poseidon2_hash_with_separator(
+            [
             note_hash_for_nullify,
             secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 
@@ -43,12 +61,64 @@ impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
-        poseidon2_hash_with_separator([
+        poseidon2_hash_with_separator(
+            [
             note_hash_for_nullify,
-            secret,
+            secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
+    }
+}
+
+impl NoteInterface<VALUE_NOTE_LEN> for ValueNote {
+
+    fn to_be_bytes(self, storage_slot: Field) -> [u8; VALUE_NOTE_LEN * 32 + 64] {
+        let serialized_note = self.serialize_content();
+
+        let mut buffer: [u8; VALUE_NOTE_LEN * 32 + 64] = [0; VALUE_NOTE_LEN * 32 + 64];
+
+        let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
+        let note_type_id_bytes: [u8; 32] = ValueNote::get_note_type_id().to_be_bytes();
+
+        for i in 0..32 {
+            {
+                buffer[i] = storage_slot_bytes[i];
+                buffer[32 + i] = note_type_id_bytes[i];
+            }
+        }
+
+        for i in 0..serialized_note.len() {
+            {
+                let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
+                for j in 0..32 {
+                    {
+                        buffer[64 + i * 32 + j] = bytes[j];
+                    }
+                }
+            }
+        }
+        buffer
+    }
+
+    fn deserialize_content(fields: [Field; VALUE_NOTE_LEN]) -> Self {
+        ValueNote { value: fields[0], npk_m_hash: fields[1], randomness: fields[2], header: NoteHeader::empty() }
+    }
+
+    fn serialize_content(self) -> [Field; VALUE_NOTE_LEN] {
+        [self.value, self.npk_m_hash, self.randomness]
+    }
+
+    fn get_note_type_id() -> Field {
+        1
+    }
+
+    fn set_header(&mut self, header: NoteHeader) {
+        self.header = header;
+    }
+
+    fn get_header(self) -> NoteHeader {
+        self.header
     }
 
     fn compute_note_hiding_point(self) -> Point {
@@ -96,9 +166,9 @@ impl Serialize<7> for ValueNote {
 
 impl Eq for ValueNote {
     fn eq(self, other: Self) -> bool {
-        (self.value == other.value) &
-        (self.npk_m_hash == other.npk_m_hash) &
-        (self.randomness == other.randomness)
+        (self.value == other.value)
+            & (self.npk_m_hash == other.npk_m_hash)
+            & (self.randomness == other.randomness)
     }
 }
 

@@ -3,7 +3,7 @@ use crate::context::PrivateContext;
 use crate::note::{
     constants::{GET_NOTE_ORACLE_RETURN_LENGTH, MAX_NOTES_PER_PAGE, VIEW_NOTE_ORACLE_RETURN_LENGTH},
     note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, NoteStatus, PropertySelector},
-    note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
+    note_interface::{NoteInterface, NullifiableNote}, note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_read_request
 };
 use crate::oracle;
@@ -36,7 +36,7 @@ fn check_note_header<Note, let N: u32, let M: u32>(
     context: PrivateContext,
     storage_slot: Field,
     note: Note
-) where Note: NoteInterface<N, M> {
+) where Note: NoteInterface<N> {
     let header = note.get_header();
     let contract_address = context.this_address();
     assert(header.contract_address.eq(contract_address), "Mismatch note header contract address.");
@@ -79,7 +79,7 @@ fn check_notes_order<let N: u32>(
 pub fn get_note<Note, let N: u32, let M: u32>(
     context: &mut PrivateContext,
     storage_slot: Field
-) -> (Note, Field) where Note: NoteInterface<N, M> {
+) -> (Note, Field) where Note: NoteInterface<N> + NullifiableNote {
     let note = unsafe {
         get_note_internal(storage_slot)
     };
@@ -97,8 +97,8 @@ pub fn get_note<Note, let N: u32, let M: u32>(
 pub fn get_notes<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
-    options: NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS>
-) -> (BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) where Note: NoteInterface<N, M> + Eq {
+    options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>
+) -> (BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) where Note: NoteInterface<N> + NullifiableNote + Eq {
     let opt_notes = unsafe {
         get_notes_internal(storage_slot, options)
     };
@@ -120,8 +120,8 @@ fn constrain_get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS,
     context: &mut PrivateContext,
     storage_slot: Field,
     opt_notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
-    options: NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS>
-) -> (BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) where Note: NoteInterface<N, M> + Eq {
+    options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>
+) -> (BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) where Note: NoteInterface<N> + NullifiableNote + Eq {
     // The filter is applied first to avoid pushing note read requests for notes we're not interested in. Note that
     // while the filter function can technically mutate the contents of the notes (as opposed to simply removing some),
     // the private kernel will later validate that these note actually exist, so transformations would cause for that
@@ -161,7 +161,7 @@ fn constrain_get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS,
     (notes, note_hashes)
 }
 
-unconstrained fn get_note_internal<Note, let N: u32, let M: u32>(storage_slot: Field) -> Note where Note: NoteInterface<N, M> {
+unconstrained fn get_note_internal<Note, let N: u32, let M: u32>(storage_slot: Field) -> Note where Note: NoteInterface<N> {
     let placeholder_note = [Option::none()];
     let placeholder_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
     let placeholder_note_length = [0; N];
@@ -188,8 +188,8 @@ unconstrained fn get_note_internal<Note, let N: u32, let M: u32>(storage_slot: F
 
 unconstrained fn get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     storage_slot: Field,
-    options: NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS>
-) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N, M> {
+    options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>
+) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {
     // This function simply performs some transformations from NoteGetterOptions into the types required by the oracle.
 
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) = flatten_options(options.selects, options.sorts);
@@ -220,10 +220,10 @@ unconstrained fn get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_A
     apply_preprocessor(opt_notes, options.preprocessor, options.preprocessor_args)
 }
 
-unconstrained pub fn view_notes<Note, let N: u32, let M: u32>(
+unconstrained pub fn view_notes<Note, let N: u32>(
     storage_slot: Field,
-    options: NoteViewerOptions<Note, N, M>
-) -> BoundedVec<Note, MAX_NOTES_PER_PAGE> where Note: NoteInterface<N, M> {
+    options: NoteViewerOptions<Note, N>
+) -> BoundedVec<Note, MAX_NOTES_PER_PAGE> where Note: NoteInterface<N> {
     let (num_selects, select_by_indexes, select_by_offsets, select_by_lengths, select_values, select_comparators, sort_by_indexes, sort_by_offsets, sort_by_lengths, sort_order) = flatten_options(options.selects, options.sorts);
     let placeholder_opt_notes = [Option::none(); MAX_NOTES_PER_PAGE];
     let placeholder_fields = [0; VIEW_NOTE_ORACLE_RETURN_LENGTH];
