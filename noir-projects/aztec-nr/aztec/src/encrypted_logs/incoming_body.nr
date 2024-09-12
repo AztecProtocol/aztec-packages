@@ -1,6 +1,6 @@
 use crate::note::note_interface::NoteInterface;
 use crate::event::event_interface::EventInterface;
-use dep::protocol_types::{scalar::Scalar, point::Point};
+use dep::protocol_types::{scalar::Scalar};
 
 use std::aes128::aes128_encrypt;
 use crate::keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::IvpkM};

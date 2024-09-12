@@ -12,7 +12,7 @@ contract TokenBlacklist {
     // Libs
     use dep::aztec::{
         hash::compute_secret_hash,
-        prelude::{AztecAddress, FunctionSelector, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
+        prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note, utils::comparison::Comparator
     };
 

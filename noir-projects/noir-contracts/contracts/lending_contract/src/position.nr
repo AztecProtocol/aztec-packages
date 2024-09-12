@@ -1,4 +1,3 @@
-use dep::aztec::prelude::AztecAddress;
 use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
 
 struct Position {

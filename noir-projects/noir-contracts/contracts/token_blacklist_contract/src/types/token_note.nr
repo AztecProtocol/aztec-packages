@@ -1,5 +1,5 @@
 use dep::aztec::{
-    prelude::{AztecAddress, NoteHeader, NoteInterface, PrivateContext},
+    prelude::{NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
     note::utils::compute_note_hash_for_nullify, oracle::unsafe_rand::unsafe_rand,
     keys::getters::get_nsk_app
