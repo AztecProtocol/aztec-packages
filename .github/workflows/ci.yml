@@ -3,6 +3,11 @@ on:
   push:
     branches: [master, provernet]
   pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
     branches-ignore: [devnet]
   workflow_dispatch:
     inputs: {}
@@ -705,9 +710,10 @@ jobs:
       - boxes
       - boxes-test
       # - protocol-circuits-gates-report # non-blocking
-    if: github.event.pull_request.draft == false && always()
+    if: always()
     steps:
-      - name: Report overall success
+      - name: Report overall success (non-draft)
+        if: github.event.pull_request.draft == false
         env:
           # We treat any skipped or failing jobs as a failure for the workflow as a whole.
           FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
@@ -719,6 +725,9 @@ jobs:
               echo "All jobs succeeded, merge allowed."
               exit 0
           fi
+      - name: Block merge (draft)
+        if: github.event.pull_request.draft
+        run: echo "Can't merge drafts." && exit 1
 
   rerun-check:
     runs-on: ubuntu-20.04

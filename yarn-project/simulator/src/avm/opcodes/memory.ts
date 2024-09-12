@@ -1,39 +1,57 @@
 import type { AvmContext } from '../avm_context.js';
-import { Field, TaggedMemory, TypeTag } from '../avm_memory_types.js';
-import { InstructionExecutionError } from '../errors.js';
-import { BufferCursor } from '../serialization/buffer_cursor.js';
-import { Opcode, OperandType, deserialize, serialize } from '../serialization/instruction_serialization.js';
+import { Field, TaggedMemory } from '../avm_memory_types.js';
+import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
 import { TwoOperandInstruction } from './instruction_impl.js';
 
-const TAG_TO_OPERAND_TYPE = new Map<TypeTag, OperandType>([
-  [TypeTag.UINT8, OperandType.UINT8],
-  [TypeTag.UINT16, OperandType.UINT16],
-  [TypeTag.UINT32, OperandType.UINT32],
-  [TypeTag.UINT64, OperandType.UINT64],
-  [TypeTag.UINT128, OperandType.UINT128],
-]);
-
-function getOperandTypeFromInTag(inTag: number | bigint): OperandType {
-  inTag = inTag as number;
-  const tagOperandType = TAG_TO_OPERAND_TYPE.get(inTag);
-  if (tagOperandType === undefined) {
-    throw new Error(`Invalid tag ${inTag} for SET.`);
-  }
-  return tagOperandType;
-}
-
 export class Set extends Instruction {
   static readonly type: string = 'SET';
-  static readonly opcode: Opcode = Opcode.SET;
+  // Required for gas.
+  static readonly opcode: Opcode = Opcode.SET_8;
 
-  private static readonly wireFormatBeforeConst: OperandType[] = [
-    OperandType.UINT8,
-    OperandType.UINT8,
-    OperandType.UINT8,
+  public static readonly wireFormat8: OperandType[] = [
+    OperandType.UINT8, // opcode
+    OperandType.UINT8, // indirect
+    OperandType.UINT8, // tag
+    OperandType.UINT8, // const (value)
+    OperandType.UINT8, // dstOffset
   ];
-  private static readonly wireFormatAfterConst: OperandType[] = [OperandType.UINT32];
+  public static readonly wireFormat16: OperandType[] = [
+    OperandType.UINT8, // opcode
+    OperandType.UINT8, // indirect
+    OperandType.UINT8, // tag
+    OperandType.UINT16, // const (value)
+    OperandType.UINT16, // dstOffset
+  ];
+  public static readonly wireFormat32: OperandType[] = [
+    OperandType.UINT8, // opcode
+    OperandType.UINT8, // indirect
+    OperandType.UINT8, // tag
+    OperandType.UINT32, // const (value)
+    OperandType.UINT16, // dstOffset
+  ];
+  public static readonly wireFormat64: OperandType[] = [
+    OperandType.UINT8, // opcode
+    OperandType.UINT8, // indirect
+    OperandType.UINT8, // tag
+    OperandType.UINT64, // const (value)
+    OperandType.UINT16, // dstOffset
+  ];
+  public static readonly wireFormat128: OperandType[] = [
+    OperandType.UINT8, // opcode
+    OperandType.UINT8, // indirect
+    OperandType.UINT8, // tag
+    OperandType.UINT128, // const (value)
+    OperandType.UINT16, // dstOffset
+  ];
+  public static readonly wireFormatFF: OperandType[] = [
+    OperandType.UINT8, // opcode
+    OperandType.UINT8, // indirect
+    OperandType.UINT8, // tag
+    OperandType.FF, // const (value)
+    OperandType.UINT16, // dstOffset
+  ];
 
   constructor(
     private indirect: number,
@@ -44,42 +62,13 @@ export class Set extends Instruction {
     super();
   }
 
-  /** We need to use a custom serialize function because of the variable length of the value. */
-  public override serialize(): Buffer {
-    const format: OperandType[] = [
-      ...Set.wireFormatBeforeConst,
-      getOperandTypeFromInTag(this.inTag),
-      ...Set.wireFormatAfterConst,
-    ];
-    return serialize(format, this);
-  }
-
-  /** We need to use a custom deserialize function because of the variable length of the value. */
-  public static override deserialize(this: typeof Set, buf: BufferCursor | Buffer): Set {
-    if (buf instanceof Buffer) {
-      buf = new BufferCursor(buf);
-    }
-    const beforeConst = deserialize(buf, Set.wireFormatBeforeConst);
-    const tag = beforeConst[beforeConst.length - 1];
-    const val = deserialize(buf, [getOperandTypeFromInTag(tag)]);
-    const afterConst = deserialize(buf, Set.wireFormatAfterConst);
-    const res = [...beforeConst, ...val, ...afterConst];
-    const args = res.slice(1) as ConstructorParameters<typeof Set>; // Remove opcode.
-    return new this(...args);
-  }
-
   public async execute(context: AvmContext): Promise<void> {
     const memoryOperations = { writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    // Per the YP, the tag cannot be a field.
-    if ([TypeTag.FIELD, TypeTag.UNINITIALIZED, TypeTag.INVALID].includes(this.inTag)) {
-      throw new InstructionExecutionError(`Invalid tag ${TypeTag[this.inTag]} for SET.`);
-    }
     const [dstOffset] = Addressing.fromWire(this.indirect).resolve([this.dstOffset], memory);
-
-    const res = TaggedMemory.integralFromTag(this.value, this.inTag);
+    const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
     memory.set(dstOffset, res);
 
     memory.assert(memoryOperations);
@@ -134,7 +123,7 @@ export class CMov extends Instruction {
 
 export class Cast extends TwoOperandInstruction {
   static readonly type: string = 'CAST';
-  static readonly opcode = Opcode.CAST;
+  static readonly opcode = Opcode.CAST_8;
 
   constructor(indirect: number, dstTag: number, srcOffset: number, dstOffset: number) {
     super(indirect, dstTag, srcOffset, dstOffset);
@@ -148,9 +137,7 @@ export class Cast extends TwoOperandInstruction {
     const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset, this.dstOffset], memory);
 
     const a = memory.get(srcOffset);
-
-    const casted =
-      this.inTag == TypeTag.FIELD ? new Field(a.toBigInt()) : TaggedMemory.integralFromTag(a.toBigInt(), this.inTag);
+    const casted = TaggedMemory.buildFromTagTruncating(a.toBigInt(), this.inTag);
 
     memory.set(dstOffset, casted);
 
@@ -161,13 +148,20 @@ export class Cast extends TwoOperandInstruction {
 
 export class Mov extends Instruction {
   static readonly type: string = 'MOV';
-  static readonly opcode: Opcode = Opcode.MOV;
-  // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = [
+  // FIXME: This is needed for gas.
+  static readonly opcode: Opcode = Opcode.MOV_8;
+
+  static readonly wireFormat8: OperandType[] = [
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT32,
-    OperandType.UINT32,
+    OperandType.UINT8,
+    OperandType.UINT8,
+  ];
+  static readonly wireFormat16: OperandType[] = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT16,
+    OperandType.UINT16,
   ];
 
   constructor(private indirect: number, private srcOffset: number, private dstOffset: number) {

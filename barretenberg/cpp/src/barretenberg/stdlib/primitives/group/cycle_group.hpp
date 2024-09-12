@@ -66,7 +66,7 @@ template <typename Builder> class cycle_group {
      * free from the `batch_mul` algorithm, making the range checks performed by `bigfield` largely redundant.
      */
     struct cycle_scalar {
-        static constexpr size_t LO_BITS = plookup::FixedBaseParams::BITS_PER_LO_SCALAR;
+        static constexpr size_t LO_BITS = field_t::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
         static constexpr size_t HI_BITS = NUM_BITS - LO_BITS;
         field_t lo;
         field_t hi;

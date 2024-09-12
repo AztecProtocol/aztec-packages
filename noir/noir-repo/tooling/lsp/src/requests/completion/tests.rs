@@ -5,9 +5,9 @@ mod completion_tests {
         requests::{
             completion::{
                 completion_items::{
-                    completion_item_with_sort_text,
-                    completion_item_with_trigger_parameter_hints_command, crate_completion_item,
-                    module_completion_item, simple_completion_item, snippet_completion_item,
+                    completion_item_with_detail, completion_item_with_sort_text,
+                    completion_item_with_trigger_parameter_hints_command, module_completion_item,
+                    simple_completion_item, snippet_completion_item,
                 },
                 sort_text::{auto_import_sort_text, self_mismatch_sort_text},
             },
@@ -107,12 +107,22 @@ mod completion_tests {
         insert_text: impl Into<String>,
         description: impl Into<String>,
     ) -> CompletionItem {
-        completion_item_with_trigger_parameter_hints_command(snippet_completion_item(
-            label,
-            CompletionItemKind::FUNCTION,
-            insert_text,
-            Some(description.into()),
-        ))
+        let insert_text: String = insert_text.into();
+        let description: String = description.into();
+
+        let has_arguments = insert_text.ends_with(')') && !insert_text.ends_with("()");
+        let completion_item = if has_arguments {
+            completion_item_with_trigger_parameter_hints_command(snippet_completion_item(
+                label,
+                CompletionItemKind::FUNCTION,
+                insert_text,
+                Some(description.clone()),
+            ))
+        } else {
+            simple_completion_item(label, CompletionItemKind::FUNCTION, Some(description.clone()))
+        };
+
+        completion_item_with_detail(completion_item, description)
     }
 
     fn field_completion_item(field: &str, typ: impl Into<String>) -> CompletionItem {
@@ -191,15 +201,8 @@ mod completion_tests {
             use foo::>|<
         "#;
 
-        assert_completion(
-            src,
-            vec![simple_completion_item(
-                "bar",
-                CompletionItemKind::FUNCTION,
-                Some("fn(i32) -> u64".to_string()),
-            )],
-        )
-        .await;
+        assert_completion(src, vec![function_completion_item("bar", "bar()", "fn(i32) -> u64")])
+            .await;
     }
 
     #[test]
@@ -208,7 +211,7 @@ mod completion_tests {
         let src = r#"
             use s>|<
         "#;
-        assert_completion(src, vec![crate_completion_item("std")]).await;
+        assert_completion(src, vec![module_completion_item("std")]).await;
 
         // "std" doesn't show up anymore because of the "crate::" prefix
         let src = r#"
@@ -284,7 +287,7 @@ mod completion_tests {
             src,
             vec![
                 module_completion_item("something"),
-                crate_completion_item("std"),
+                module_completion_item("std"),
                 simple_completion_item("super::", CompletionItemKind::KEYWORD, None),
             ],
         )
@@ -313,7 +316,7 @@ mod completion_tests {
                 mod something_else {}
                 use crate::s>|<
             }
-            
+
         "#;
         assert_completion(src, vec![module_completion_item("something")]).await;
     }
@@ -325,7 +328,7 @@ mod completion_tests {
                 mod something_else {}
                 use crate::something::s>|<
             }
-            
+
         "#;
         assert_completion(src, vec![module_completion_item("something_else")]).await;
     }
@@ -1672,11 +1675,7 @@ mod completion_tests {
         "#;
         assert_completion_excluding_auto_import(
             src,
-            vec![simple_completion_item(
-                "hello_world",
-                CompletionItemKind::FUNCTION,
-                Some("fn()".to_string()),
-            )],
+            vec![function_completion_item("hello_world", "hello_world()", "fn()")],
         )
         .await;
     }
@@ -1694,11 +1693,7 @@ mod completion_tests {
         "#;
         assert_completion_excluding_auto_import(
             src,
-            vec![simple_completion_item(
-                "bar",
-                CompletionItemKind::FUNCTION,
-                Some("fn()".to_string()),
-            )],
+            vec![function_completion_item("bar", "bar()", "fn()")],
         )
         .await;
     }
@@ -1716,11 +1711,7 @@ mod completion_tests {
         "#;
         assert_completion_excluding_auto_import(
             src,
-            vec![simple_completion_item(
-                "bar",
-                CompletionItemKind::FUNCTION,
-                Some("fn()".to_string()),
-            )],
+            vec![function_completion_item("bar", "bar()", "fn()")],
         )
         .await;
     }
@@ -1738,11 +1729,7 @@ mod completion_tests {
         "#;
         assert_completion_excluding_auto_import(
             src,
-            vec![simple_completion_item(
-                "bar",
-                CompletionItemKind::FUNCTION,
-                Some("fn()".to_string()),
-            )],
+            vec![function_completion_item("bar", "bar()", "fn()")],
         )
         .await;
     }
@@ -1762,11 +1749,7 @@ mod completion_tests {
         "#;
         assert_completion_excluding_auto_import(
             src,
-            vec![simple_completion_item(
-                "bar",
-                CompletionItemKind::FUNCTION,
-                Some("fn(self)".to_string()),
-            )],
+            vec![function_completion_item("bar", "bar()", "fn(self)")],
         )
         .await;
     }
@@ -1786,11 +1769,7 @@ mod completion_tests {
         "#;
         assert_completion_excluding_auto_import(
             src,
-            vec![simple_completion_item(
-                "bar",
-                CompletionItemKind::FUNCTION,
-                Some("fn(self)".to_string()),
-            )],
+            vec![function_completion_item("bar", "bar()", "fn(self)")],
         )
         .await;
     }
@@ -1948,6 +1927,42 @@ mod completion_tests {
                 "some_attr(…)",
                 "some_attr(${1:x})",
                 "fn(FunctionDefinition, Field)",
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_function_attribute_no_arguments() {
+        let src = r#"
+            #[some>|<]
+            fn foo() {}
+
+            fn some_attr(f: FunctionDefinition) {}
+        "#;
+
+        assert_completion_excluding_auto_import(
+            src,
+            vec![function_completion_item("some_attr", "some_attr", "fn(FunctionDefinition)")],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_trait_attribute() {
+        let src = r#"
+            #[some>|<]
+            trait SomeTrait {}
+
+            fn some_attr(t: TraitDefinition, x: Field) {}
+        "#;
+
+        assert_completion_excluding_auto_import(
+            src,
+            vec![function_completion_item(
+                "some_attr(…)",
+                "some_attr(${1:x})",
+                "fn(TraitDefinition, Field)",
             )],
         )
         .await;

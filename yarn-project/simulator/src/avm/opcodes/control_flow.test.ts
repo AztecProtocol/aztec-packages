@@ -15,9 +15,9 @@ describe('Control Flow Opcodes', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
         Jump.opcode, // opcode
-        ...Buffer.from('12345678', 'hex'), // loc
+        ...Buffer.from('1234', 'hex'), // loc
       ]);
-      const inst = new Jump(/*loc=*/ 0x12345678);
+      const inst = new Jump(/*loc=*/ 0x1234);
 
       expect(Jump.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
@@ -39,10 +39,10 @@ describe('Control Flow Opcodes', () => {
       const buf = Buffer.from([
         JumpI.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // loc
-        ...Buffer.from('a2345678', 'hex'), // condOffset
+        ...Buffer.from('1234', 'hex'), // loc
+        ...Buffer.from('a234', 'hex'), // condOffset
       ]);
-      const inst = new JumpI(/*indirect=*/ 1, /*loc=*/ 0x12345678, /*condOffset=*/ 0xa2345678);
+      const inst = new JumpI(/*indirect=*/ 1, /*loc=*/ 0x1234, /*condOffset=*/ 0xa234);
 
       expect(JumpI.deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
