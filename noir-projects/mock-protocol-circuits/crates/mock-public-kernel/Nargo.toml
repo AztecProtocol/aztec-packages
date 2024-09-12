@@ -1,5 +1,5 @@
 [package]
-name = "public_kernel"
+name = "mock_public_kernel"
 type = "bin"
 authors = [""]
 compiler_version = ">=0.32.0"

@@ -6,6 +6,7 @@ import MockPrivateKernelInitCircuit from '../artifacts/mock_private_kernel_init.
 import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inner.json' assert { type: 'json' };
 import MockPrivateKernelResetCircuit from '../artifacts/mock_private_kernel_reset.json' assert { type: 'json' };
 import MockPrivateKernelTailCircuit from '../artifacts/mock_private_kernel_tail.json' assert { type: 'json' };
+import MockPublicKernelCircuit from '../artifacts/mock_public_kernel.json' assert { type: 'json' };
 import type {
   AppCreatorInputType,
   AppPublicInputs,
@@ -15,6 +16,7 @@ import type {
   MockPrivateKernelInnerInputType,
   MockPrivateKernelResetInputType,
   MockPrivateKernelTailInputType,
+  MockPublicKernelInputType,
   PrivateKernelPublicInputs,
 } from './types/index.js';
 
@@ -26,6 +28,7 @@ export {
   MockPrivateKernelInnerCircuit,
   MockPrivateKernelResetCircuit,
   MockPrivateKernelTailCircuit,
+  MockPublicKernelCircuit,
 };
 
 export const MOCK_MAX_COMMITMENTS_PER_TX = 4;
@@ -101,6 +104,17 @@ export async function witnessGenMockPrivateKernelTailCircuit(
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {
     witness,
-    publicInputs: returnValue as PrivateKernelPublicInputs,
+    publicInputs: returnValue as KernelPublicInputs,
+  };
+}
+
+export async function witnessGenMockPublicKernelCircuit(
+  args: MockPublicKernelInputType,
+): Promise<WitnessGenResult<null>> {
+  const program = new Noir(MockPublicKernelCircuit);
+  const { witness, returnValue } = await program.execute(args, foreignCallHandler);
+  return {
+    witness,
+    publicInputs: returnValue as null,
   };
 }
