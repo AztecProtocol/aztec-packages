@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726086224204,
+  "lastUpdate": 1726170172798,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "ilyas@aztecprotocol.com",
-            "name": "Ilyas Ridhuan",
-            "username": "IlyasRidhuan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cc12558c8683b67ebfaf37d2018fd87ff52ab974",
-          "message": "refactor(avm): replace range and cmp with gadgets (#8164)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this line.",
-          "timestamp": "2024-08-29T19:50:38+01:00",
-          "tree_id": "311e1a69f4a210cfe17742bcad7db45c9b6b8f34",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cc12558c8683b67ebfaf37d2018fd87ff52ab974"
-        },
-        "date": 1725020818326,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13415.749659999989,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10267.035354000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5106.898284999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4707.720791 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39592.537155,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39592537000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14719.868357000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14719869000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3791014715,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3791014715 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208999644,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 208999644 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3111005329,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3111005329 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 174392881,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 174392881 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 113199311,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 113199311 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7e7353195592d503a92c7222788c739006fa81fc",
+          "message": "feat(avm): parallelize polynomial alloc and set (#8520)\n\nThis PR\n* Parallelizes allocation and initialization of prover polys\n* Removes duplicated initialization\n* Removes copy (replaces with move)\n\nImprovements in proving time for a 2^20 trace\n* Creation of prover time goes down 90%\n* Overall proving time goes down ~40%\n\n2^20 before\n```\n>>> prove/create_prover_ms: 53011\n>>> prove/all_ms: 95457\n\nprove/create_composer_ms: 0\nprove/create_verifier_ms: 322\nprove/execute_log_derivative_inverse_commitments_round_ms: 2579\nprove/execute_log_derivative_inverse_round_ms: 2294\nprove/execute_pcs_rounds_ms: 1915\nprove/execute_relation_check_rounds_ms: 12066\nprove/execute_wire_commitments_round_ms: 1138\nprove/gen_trace_ms: 18690\n```\n\n2^20 after\n```\n>>> prove/create_prover_ms: 5797\n>>> prove/all_ms: 50688\n\ncircuit_builder/init_polys_to_be_shifted_ms: 660\ncircuit_builder/init_polys_unshifted_ms: 301\ncircuit_builder/set_polys_shifted_ms: 0\ncircuit_builder/set_polys_unshifted_ms: 4395\ncomposer/create_prover:commitment_key_ms: 152\ncomposer/create_prover:construct_prover_ms: 55\ncomposer/create_prover:proving_key_ms: 177\ncomposer/create_prover:witness_ms: 5410\nprove/create_composer_ms: 0\nprove/create_verifier_ms: 326\nprove/execute_log_derivative_inverse_commitments_round_ms: 2523\nprove/execute_log_derivative_inverse_round_ms: 2185\nprove/execute_pcs_rounds_ms: 1766\nprove/execute_relation_check_rounds_ms: 11966\nprove/execute_wire_commitments_round_ms: 1148\nprove/gen_trace_ms: 20765\n```",
+          "timestamp": "2024-09-12T20:31:20+01:00",
+          "tree_id": "5b60b620c63d0aa6330d10c3000ae7bdad0da69a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7e7353195592d503a92c7222788c739006fa81fc"
+        },
+        "date": 1726170165994,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 12904.468823000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9300.876131 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5347.727393999989,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4894.554417999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 38460.641861,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 38460642000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14630.742252000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14630742000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3603398944,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3603398944 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 135956946,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 135956946 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2968437092,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2968437092 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 113648944,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 113648944 ns\nthreads: 1"
           }
         ]
       }
