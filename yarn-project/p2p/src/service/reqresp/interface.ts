@@ -3,9 +3,9 @@ import { Tx, TxHash } from '@aztec/circuit-types';
 /*
  * Request Response Sub Protocols
  */
-export const PING_PROTOCOL = '/aztec/ping/0.1.0';
-export const STATUS_PROTOCOL = '/aztec/status/0.1.0';
-export const TX_REQ_PROTOCOL = '/aztec/tx_req/0.1.0';
+export const PING_PROTOCOL = '/aztec/req/ping/0.1.0';
+export const STATUS_PROTOCOL = '/aztec/req/status/0.1.0';
+export const TX_REQ_PROTOCOL = '/aztec/req/tx/0.1.0';
 
 // Sum type for sub protocols
 export type ReqRespSubProtocol = typeof PING_PROTOCOL | typeof STATUS_PROTOCOL | typeof TX_REQ_PROTOCOL;

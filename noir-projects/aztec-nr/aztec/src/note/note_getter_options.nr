@@ -86,7 +86,7 @@ impl<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOpt
     // This method adds a `Select` criterion to the options.
     // It takes a property_selector indicating which field to select,
     // a value representing the specific value to match in that field, and
-    // a comparator (For possible values of comparators, please see the Comparator enum above)
+    // a comparator (For possible values of comparators, please see the Comparator enum from `utils::comparison`)
     pub fn select<T>(
         &mut self,
         property_selector: PropertySelector,

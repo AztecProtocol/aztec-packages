@@ -151,6 +151,11 @@ export class SimulatorOracle implements DBOracle {
     return await this.aztecNode.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
   }
 
+  // We need this in public as part of the EXISTS calls - but isn't used in private
+  public getCommitmentValue(_leafIndex: bigint): Promise<Fr | undefined> {
+    throw new Error('Unimplemented in private!');
+  }
+
   async getNullifierIndex(nullifier: Fr) {
     return await this.aztecNode.findLeafIndex('latest', MerkleTreeId.NULLIFIER_TREE, nullifier);
   }

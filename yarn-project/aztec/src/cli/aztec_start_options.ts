@@ -133,12 +133,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'OUTBOX_CONTRACT_ADDRESS',
     },
     {
-      flag: '--availability-oracle-address <value>',
-      description: 'The deployed L1 availability oracle contract address',
-      defaultValue: undefined,
-      envVar: 'AVAILABILITY_ORACLE_CONTRACT_ADDRESS',
-    },
-    {
       flag: '--fee-juice-address <value>',
       description: 'The deployed L1 Fee Juice contract address',
       defaultValue: undefined,

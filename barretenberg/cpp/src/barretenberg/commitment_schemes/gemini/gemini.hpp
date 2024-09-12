@@ -88,7 +88,7 @@ template <class Fr> inline std::vector<Fr> powers_of_rho(const Fr rho, const siz
  * @param num_squares The number of foldings
  * @return std::vector<typename Curve::ScalarField>
  */
-template <class Fr> inline std::vector<Fr> squares_of_r(const Fr r, const size_t num_squares)
+template <class Fr> inline std::vector<Fr> powers_of_evaluation_challenge(const Fr r, const size_t num_squares)
 {
     std::vector<Fr> squares = { r };
     squares.reserve(num_squares);
@@ -132,7 +132,7 @@ template <typename Curve> class GeminiVerifier_ {
      * (Cⱼ, Aⱼ(-r^{2ʲ}), -r^{2}), j = [1, ..., m-1]
      */
     static std::vector<OpeningClaim<Curve>> reduce_verification(std::span<const Fr> mle_opening_point, /* u */
-                                                                const Fr batched_evaluation,           /* all */
+                                                                Fr& batched_evaluation,                /* all */
                                                                 GroupElement& batched_f,               /* unshifted */
                                                                 GroupElement& batched_g, /* to-be-shifted */
                                                                 auto& transcript)
@@ -140,28 +140,17 @@ template <typename Curve> class GeminiVerifier_ {
         const size_t num_variables = mle_opening_point.size();
 
         // Get polynomials Fold_i, i = 1,...,m-1 from transcript
-        std::vector<Commitment> commitments;
-        commitments.reserve(num_variables - 1);
-        for (size_t i = 0; i < num_variables - 1; ++i) {
-            auto commitment =
-                transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
-            commitments.emplace_back(commitment);
-        }
+        const std::vector<Commitment> commitments = get_gemini_commitments(num_variables, transcript);
 
         // compute vector of powers of random evaluation point r
         const Fr r = transcript->template get_challenge<Fr>("Gemini:r");
-        std::vector<Fr> r_squares = gemini::squares_of_r(r, num_variables);
+        const std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r, num_variables);
 
         // Get evaluations a_i, i = 0,...,m-1 from transcript
-        std::vector<Fr> evaluations;
-        evaluations.reserve(num_variables);
-        for (size_t i = 0; i < num_variables; ++i) {
-            auto eval = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
-            evaluations.emplace_back(eval);
-        }
-
+        const std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
         // Compute evaluation A₀(r)
-        auto a_0_pos = compute_eval_pos(batched_evaluation, mle_opening_point, r_squares, evaluations);
+        auto a_0_pos =
+            compute_gemini_batched_univariate_evaluation(batched_evaluation, mle_opening_point, r_squares, evaluations);
 
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
@@ -183,42 +172,75 @@ template <typename Curve> class GeminiVerifier_ {
         return fold_polynomial_opening_claims;
     }
 
-  private:
+    static std::vector<Commitment> get_gemini_commitments(const size_t log_circuit_size, auto& transcript)
+    {
+        std::vector<Commitment> gemini_commitments;
+        gemini_commitments.reserve(log_circuit_size - 1);
+        for (size_t i = 0; i < log_circuit_size - 1; ++i) {
+            const Commitment commitment =
+                transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
+            gemini_commitments.emplace_back(commitment);
+        }
+        return gemini_commitments;
+    }
+    static std::vector<Fr> get_gemini_evaluations(const size_t log_circuit_size, auto& transcript)
+    {
+        std::vector<Fr> gemini_evaluations;
+        gemini_evaluations.reserve(log_circuit_size);
+        for (size_t i = 0; i < log_circuit_size; ++i) {
+            const Fr evaluation = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
+            gemini_evaluations.emplace_back(evaluation);
+        }
+        return gemini_evaluations;
+    }
+
     /**
      * @brief Compute the expected evaluation of the univariate commitment to the batched polynomial.
      *
-     * @param batched_mle_eval The evaluation of the folded polynomials
-     * @param mle_vars MLE opening point u
-     * @param r_squares squares of r, r², ..., r^{2ᵐ⁻¹}
-     * @param fold_polynomial_evals series of Aᵢ₋₁(−r^{2ⁱ⁻¹})
-     * @return evaluation A₀(r)
+     * Compute the evaluation \f$ A_0(r) = \sum \rho^i \cdot f_i + \frac{1}{r} \cdot \sum \rho^{i+k} g_i \f$, where \f$
+     * k \f$ is the number of "unshifted" commitments.
+     *
+     * @details Initialize \f$ A_{d}(r) \f$ with the batched evaluation \f$ \sum \rho^i f_i(\vec{u}) + \sum \rho^{i+k}
+     * g_i(\vec{u}) \f$. The folding property ensures that
+     * \f{align}{
+     * A_\ell\left(r^{2^\ell}\right) = (1 - u_{\ell-1}) \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) +
+     * A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2}
+     * + u_{\ell-1} \cdot \frac{A_{\ell-1}\left(r^{2^{\ell-1}}\right) -
+     * A_{\ell-1}\left(-r^{2^{\ell-1}}\right)}{2r^{2^{\ell-1}}}
+     * \f}
+     * Therefore, the verifier can recover \f$ A_0(r) \f$ by solving several linear equations.
+     *
+     * @param batched_mle_eval The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
+     * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$.
+     * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{m-1}} \f$.
+     * @param fold_polynomial_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
+     * @return Evaluation \f$ A_0(r) \f$.
      */
-    static Fr compute_eval_pos(const Fr batched_mle_eval,
-                               std::span<const Fr> mle_vars,
-                               std::span<const Fr> r_squares,
-                               std::span<const Fr> fold_polynomial_evals)
+    static Fr compute_gemini_batched_univariate_evaluation(Fr& batched_eval_accumulator,
+                                                           std::span<const Fr> evaluation_point,
+                                                           std::span<const Fr> challenge_powers,
+                                                           std::span<const Fr> fold_polynomial_evals)
     {
-        const size_t num_variables = mle_vars.size();
+        const size_t num_variables = evaluation_point.size();
 
         const auto& evals = fold_polynomial_evals;
 
-        // Initialize eval_pos with batched MLE eval v = ∑ⱼ ρʲ vⱼ + ∑ⱼ ρᵏ⁺ʲ v↺ⱼ
-        Fr eval_pos = batched_mle_eval;
+        // Solve the sequence of linear equations
         for (size_t l = num_variables; l != 0; --l) {
-            const Fr r = r_squares[l - 1];    // = rₗ₋₁ = r^{2ˡ⁻¹}
-            const Fr eval_neg = evals[l - 1]; // = Aₗ₋₁(−r^{2ˡ⁻¹})
-            const Fr u = mle_vars[l - 1];     // = uₗ₋₁
-
-            // The folding property ensures that
-            //                     Aₗ₋₁(r^{2ˡ⁻¹}) + Aₗ₋₁(−r^{2ˡ⁻¹})      Aₗ₋₁(r^{2ˡ⁻¹}) - Aₗ₋₁(−r^{2ˡ⁻¹})
-            // Aₗ(r^{2ˡ}) = (1-uₗ₋₁) ----------------------------- + uₗ₋₁ -----------------------------
-            //                                   2                                2r^{2ˡ⁻¹}
-            // We solve the above equation in Aₗ₋₁(r^{2ˡ⁻¹}), using the previously computed Aₗ(r^{2ˡ}) in eval_pos
-            // and using Aₗ₋₁(−r^{2ˡ⁻¹}) sent by the prover in the proof.
-            eval_pos = ((r * eval_pos * 2) - eval_neg * (r * (Fr(1) - u) - u)) / (r * (Fr(1) - u) + u);
+            // Get r²⁽ˡ⁻¹⁾
+            const Fr& challenge_power = challenge_powers[l - 1];
+            // Get A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾)
+            const Fr& eval_neg = evals[l - 1];
+            // Get uₗ₋₁
+            const Fr& u = evaluation_point[l - 1];
+            // Compute the numerator
+            batched_eval_accumulator =
+                ((challenge_power * batched_eval_accumulator * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
+            // Divide by the denominator
+            batched_eval_accumulator *= (challenge_power * (Fr(1) - u) + u).invert();
         }
 
-        return eval_pos; // return A₀(r)
+        return batched_eval_accumulator;
     }
 
     /**

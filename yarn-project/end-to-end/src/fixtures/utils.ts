@@ -3,6 +3,7 @@ import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
+  AnvilTestWatcher,
   AztecAddress,
   type AztecNode,
   BatchCall,
@@ -39,12 +40,10 @@ import {
   computeContractAddressFromInstance,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { NULL_KEY } from '@aztec/ethereum';
+import { NULL_KEY, isAnvilTestChain } from '@aztec/ethereum';
 import { bufferAsFields } from '@aztec/foundation/abi';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import {
-  AvailabilityOracleAbi,
-  AvailabilityOracleBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
   InboxAbi,
@@ -89,7 +88,6 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
-import { Watcher } from './watcher.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
@@ -132,10 +130,6 @@ export const setupL1Contracts = async (
     outbox: {
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
-    },
-    availabilityOracle: {
-      contractAbi: AvailabilityOracleAbi,
-      contractBytecode: AvailabilityOracleBytecode,
     },
     rollup: {
       contractAbi: RollupAbi,
@@ -349,7 +343,7 @@ export async function setup(
   let anvil: Anvil | undefined;
 
   if (!config.l1RpcUrl) {
-    if (chain.id != foundry.id) {
+    if (!isAnvilTestChain(chain.id)) {
       throw new Error(`No ETHEREUM_HOST set but non anvil chain requested`);
     }
     if (PXE_URL) {
@@ -406,6 +400,14 @@ export async function setup(
 
   config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
 
+  const watcher = new AnvilTestWatcher(
+    new EthCheatCodes(config.l1RpcUrl),
+    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    deployL1ContractsValues.publicClient,
+  );
+
+  await watcher.start();
+
   // Run the test with validators enabled
   const validatorPrivKey = getPrivateKeyFromIndex(1);
   config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
@@ -455,17 +457,6 @@ export async function setup(
     await deployCanonicalRouter(
       new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
     );
-  }
-
-  const watcher = new Watcher(
-    new EthCheatCodes(config.l1RpcUrl),
-    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    deployL1ContractsValues.publicClient,
-  );
-
-  // If we are NOT using wall time, we should start the watcher to jump in time as needed.
-  if (!opts.l1BlockTime) {
-    watcher.start();
   }
 
   const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];

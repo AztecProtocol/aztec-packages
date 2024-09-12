@@ -515,7 +515,7 @@ jobs:
         run: |
           env
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/mainnet-fork"
-          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.aztec_mainnet_fork_data_store"
+          terraform apply -input=false -auto-approve
 
       - name: Wait for mainnet fork deployment
         run: |
@@ -546,7 +546,6 @@ jobs:
           echo "TF_VAR_REGISTRY_CONTRACT_ADDRESS=$(extract registryAddress)" >>$GITHUB_ENV
           echo "TF_VAR_INBOX_CONTRACT_ADDRESS=$(extract inboxAddress)" >>$GITHUB_ENV
           echo "TF_VAR_OUTBOX_CONTRACT_ADDRESS=$(extract outboxAddress)" >>$GITHUB_ENV
-          echo "TF_VAR_AVAILABILITY_ORACLE_CONTRACT_ADDRESS=$(extract availabilityOracleAddress)" >>$GITHUB_ENV
           echo "TF_VAR_FEE_JUICE_CONTRACT_ADDRESS=$(extract feeJuiceAddress)" >>$GITHUB_ENV
           echo "TF_VAR_FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(extract feeJuicePortalAddress)" >>$GITHUB_ENV
 
@@ -567,13 +566,13 @@ jobs:
         working-directory: ./yarn-project/aztec/terraform/node
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-node"
-          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.node_data_store" -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.node_udp_range_start }}"
+          terraform apply -input=false -auto-approve -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.node_udp_range_start }}"
 
       - name: Deploy Aztec Prover Nodes
         working-directory: ./yarn-project/aztec/terraform/prover-node
         run: |
           terraform init -input=false -backend-config="key=${{ env.DEPLOY_TAG }}/aztec-prover-node"
-          terraform apply -input=false -auto-approve -replace="aws_efs_file_system.prover_node_data_store" -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.prover_node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.prover_node_udp_range_start }}"
+          terraform apply -input=false -auto-approve -var="NODE_P2P_TCP_PORT=${{ needs.set-network.outputs.prover_node_tcp_range_start }}" -var="NODE_P2P_UDP_PORT=${{ needs.set-network.outputs.prover_node_udp_range_start }}"
 
       - name: Deploy Provers
         working-directory: ./yarn-project/aztec/terraform/prover
@@ -772,7 +771,6 @@ jobs:
           ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ env.API_KEY }}
 
       - name: Deploy verifier (allow failure)
-        continue-on-error: true
         working-directory: ./yarn-project/aztec/terraform/pxe
         run: |
           set -eo pipefail

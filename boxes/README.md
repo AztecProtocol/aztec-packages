@@ -1,8 +1,10 @@
 # Aztec-App
 
 Aztec-App is a set of tools to ease development on Aztec. It consists of two main components:
+
 1. `npx` script
 2. boxes (starter kits)
+
 ## npx script
 
 NPX is a tool bundled with `npm` and other package managers. It allows you to run a binary from a cache without installing it globally.
@@ -13,9 +15,9 @@ To ease the development process, Aztec has developed this binary. To run it, ins
 npx aztec-app
 ```
 
-This will prompt you with some options to clone `Aztec Boxes` and install the sandbox. As the `npx` script evolves, other commands will be added or removed. You can run it with the `-h` flag to know what other commands and flags you can pass to it.
+This will prompt you with some options to clone `Aztec Boxes`. As the `npx` script evolves, other commands will be added or removed. You can run it with the `-h` flag to know what other commands and flags you can pass to it.
 
-> [!NOTE]  
+> [!NOTE]
 > As a tool that doesn't (yet) have automated testing, it versioning and release process is decoupled from `aztec`, and its deployment is entirely manual by running `yarn npm publish --access public`.
 
 ## Aztec Boxes
@@ -26,7 +28,7 @@ Aztec Boxes are the one-stop-shop for developing on Aztec. They often include a 
 - Frontend boilerplates
 - General tests
 
-Boxes include the sandbox installation script and its start command. By choosing the appropriate box, you can get started working on Aztec in a minimal amount of time.
+By choosing the appropriate box, you can get started working on Aztec in a minimal amount of time.
 
 ## Contributing
 
@@ -37,9 +39,6 @@ Most of the logic is in the `bin.js` file, where `commander` commands stuff. The
 - Prompts the user for options and commands
 - Inits some global variables such as a logger, a getter for the github repositories, the latest stable versions and tags, etc
 - Prompts the user to choose the project and clone it. It then rewrites the `Nargo.toml` and `package.json` files to point to the repos instead of the local dependencies.
-- Queries the local docker daemon for any existing sandbox images, prompting the user to install or update it if needed
-- Asks the user if they want to run the sandbox right away
-
 
 ## Templates
 

@@ -10,8 +10,6 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
 
-#include <gtest/gtest.h>
-
 using namespace bb;
 
 template <class PCS> class ZeroMorphRecursionTest : public CommitmentTest<typename PCS::Curve::NativeCurve> {};
@@ -40,31 +38,34 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     using ZeroMorphVerifier = ZeroMorphVerifier_<Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
-    constexpr size_t N = 2;
-    constexpr size_t NUM_UNSHIFTED = 1;
-    constexpr size_t NUM_SHIFTED = 0;
+    constexpr size_t N = 8;
+    constexpr size_t LOG_N = 3;
+    constexpr size_t NUM_UNSHIFTED = 2;
+    constexpr size_t NUM_SHIFTED = 1;
 
     srs::init_crs_factory("../srs_db/ignition");
-
-    std::vector<NativeFr> u_challenge = { NativeFr::random_element(&engine) };
+    std::vector<NativeFr> u_challenge(LOG_N);
+    for (size_t idx = 0; idx < LOG_N; ++idx) {
+        u_challenge[idx] = NativeFr::random_element(&engine);
+    };
 
     // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)
     std::vector<Polynomial> f_polynomials; // unshifted polynomials
     std::vector<NativeFr> v_evaluations;
     for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
-        f_polynomials.emplace_back(Polynomial::random(N));
-        f_polynomials[i][0] = NativeFr(0); // ensure f is "shiftable"
+        f_polynomials.emplace_back(Polynomial::random(N, /* starting index for shift */ 1));
         v_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge));
     }
-
     // Construct some "shifted" multilinear polynomials h_i as the left-shift-by-1 of f_i
     std::vector<Polynomial> g_polynomials; // to-be-shifted polynomials
     std::vector<Polynomial> h_polynomials; // shifts of the to-be-shifted polynomials
     std::vector<NativeFr> w_evaluations;
-    for (size_t i = 0; i < NUM_SHIFTED; ++i) {
-        g_polynomials.emplace_back(f_polynomials[i]);
-        h_polynomials.emplace_back(g_polynomials[i].shifted());
-        w_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
+    if constexpr (NUM_SHIFTED > 0) {
+        for (size_t i = 0; i < NUM_SHIFTED; ++i) {
+            g_polynomials.emplace_back(f_polynomials[i]);
+            h_polynomials.emplace_back(g_polynomials[i].shifted());
+            w_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
+        }
     }
 
     // Compute commitments [f_i]

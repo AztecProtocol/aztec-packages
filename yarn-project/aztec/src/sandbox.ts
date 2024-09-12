@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { SignerlessWallet } from '@aztec/aztec.js';
+import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
 import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, deployCanonicalL2FeeJuice } from '@aztec/cli/misc';
@@ -14,8 +14,6 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import {
-  AvailabilityOracleAbi,
-  AvailabilityOracleBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
   InboxAbi,
@@ -105,10 +103,6 @@ export async function deployContractsToL1(
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
     },
-    availabilityOracle: {
-      contractAbi: AvailabilityOracleAbi,
-      contractBytecode: AvailabilityOracleBytecode,
-    },
     rollup: {
       contractAbi: RollupAbi,
       contractBytecode: RollupBytecode,
@@ -166,8 +160,25 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
     aztecNodeConfig.validatorPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
 
+  let watcher: AnvilTestWatcher | undefined = undefined;
   if (!aztecNodeConfig.p2pEnabled) {
-    await deployContractsToL1(aztecNodeConfig, hdAccount);
+    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount);
+
+    const chain = aztecNodeConfig.l1RpcUrl
+      ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
+      : { chainInfo: localAnvil };
+
+    const publicClient = createPublicClient({
+      chain: chain.chainInfo,
+      transport: httpViemTransport(aztecNodeConfig.l1RpcUrl),
+    });
+
+    watcher = new AnvilTestWatcher(
+      new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
+      l1ContractAddresses.rollupAddress,
+      publicClient,
+    );
+    await watcher.start();
   }
 
   const client = await createAndStartTelemetryClient(getTelemetryClientConfig());
@@ -191,6 +202,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const stop = async () => {
     await pxe.stop();
     await node.stop();
+    await watcher?.stop();
   };
 
   return { node, pxe, aztecNodeConfig, stop };

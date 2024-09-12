@@ -69,7 +69,7 @@ bool is_operand_indirect(uint8_t ind_value, uint8_t operand_idx)
         return false;
     }
 
-    return static_cast<bool>((ind_value & (1 << operand_idx)) >> operand_idx);
+    return (ind_value & (1 << operand_idx)) != 0;
 }
 
 std::vector<std::vector<FF>> copy_public_inputs_columns(VmPublicInputs const& public_inputs,

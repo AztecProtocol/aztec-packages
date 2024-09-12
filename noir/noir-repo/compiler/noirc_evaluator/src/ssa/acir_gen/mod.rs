@@ -453,6 +453,7 @@ impl<'a> Context<'a> {
         }
 
         warnings.extend(return_warnings);
+        warnings.extend(self.acir_context.warnings.clone());
 
         // Add the warnings from the alter Ssa passes
         Ok(self.acir_context.finish(input_witness, return_witnesses, warnings))
@@ -959,6 +960,7 @@ impl<'a> Context<'a> {
             arguments,
             BrilligFunctionContext::return_values(func),
             func.id(),
+            false,
         );
         entry_point.name = func.name().to_string();
 
