@@ -1,5 +1,7 @@
-import { L2Block, type ViemSignature } from '@aztec/circuit-types';
+import { L2Block } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
+
+import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';

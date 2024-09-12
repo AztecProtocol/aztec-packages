@@ -10,7 +10,6 @@ import {
   PROVING_STATUS,
   type ProvingSuccess,
   type ProvingTicket,
-  Signature,
   type Tx,
   TxHash,
   type UnencryptedL2Log,
@@ -18,6 +17,8 @@ import {
   makeProcessedTx,
   mockTxForRollup,
 } from '@aztec/circuit-types';
+
+import { Signature } from '@aztec/foundation/eth-signature';
 import {
   AztecAddress,
   EthAddress,

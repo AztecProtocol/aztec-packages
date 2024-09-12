@@ -4,11 +4,11 @@ import {
   type L2Block,
   type L2BlockSource,
   type ProcessedTx,
-  Signature,
   Tx,
   type TxHash,
   type TxValidator,
 } from '@aztec/circuit-types';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
