@@ -1,5 +1,5 @@
 ---
-title: Authentication Witness
+title: Authentication Witness (Authwit)
 tags: [accounts, authwit]
 importance: 1
 keywords: [authwit, authentication witness, accounts]
