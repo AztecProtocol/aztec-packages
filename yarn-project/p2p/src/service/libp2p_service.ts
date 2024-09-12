@@ -241,12 +241,12 @@ export class LibP2PService implements P2PService {
         }),
         pubsub: gossipsub({
           allowPublishToZeroTopicPeers: true,
-          D: 6,
-          Dlo: 4,
-          Dhi: 12,
-          heartbeatInterval: 1_000,
-          mcacheLength: 5,
-          mcacheGossip: 3,
+          D: config.gossipsubD,
+          Dlo: config.gossipsubDlo,
+          Dhi: config.gossipsubDhi,
+          heartbeatInterval: config.gossipsubInterval,
+          mcacheLength: config.gossipsubMcacheLength,
+          mcacheGossip: config.gossipsubMcacheGossip,
           scoreParams: createPeerScoreParams({
             topics: {
               [Tx.p2pTopic]: createTopicScoreParams({
@@ -456,10 +456,12 @@ export class LibP2PService implements P2PService {
     const [___, doubleSpendInvalidTxs] = await doubleSpendValidator.validateTxs([tx]);
     if (doubleSpendInvalidTxs.length > 0) {
       // check if nullifier is older than 20 blocks
-      if (blockNumber - 20 > 0) {
+      if (blockNumber - this.config.severePeerPenaltyBlockLength > 0) {
         const snapshotValidator = new DoubleSpendTxValidator({
           getNullifierIndex: async (nullifier: Fr) => {
-            const merkleTree = this.worldStateSynchronizer.getSnapshot(blockNumber - 20);
+            const merkleTree = this.worldStateSynchronizer.getSnapshot(
+              blockNumber - this.config.severePeerPenaltyBlockLength,
+            );
             const index = await merkleTree.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
             return index;
           },

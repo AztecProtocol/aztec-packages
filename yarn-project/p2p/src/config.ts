@@ -88,6 +88,44 @@ export interface P2PConfig {
   /** How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven) */
   keepProvenTxsInPoolFor: number;
 
+  /**
+   * The interval of the gossipsub heartbeat to perform maintenance tasks.
+   */
+  gossipsubInterval: number;
+
+  /**
+   * The D parameter for the gossipsub protocol.
+   */
+  gossipsubD: number;
+
+  /**
+   * The Dlo parameter for the gossipsub protocol.
+   */
+  gossipsubDlo: number;
+
+  /**
+   * The Dhi parameter for the gossipsub protocol.
+   */
+  gossipsubDhi: number;
+
+  /**
+   * The number of gossipsub interval message cache windows to keep.
+   */
+  gossipsubMcacheLength: number;
+
+  /**
+   * How many message cache windows to include when gossiping with other pears.
+   */
+  gossipsubMcacheGossip: number;
+
+  /**
+   * The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it.
+   */
+  severePeerPenaltyBlockLength: number;
+
+  /**
+   * The chain id of the L1 chain.
+   */
   l1ChainId: number;
 }
 
@@ -171,6 +209,41 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)',
     ...numberConfigHelper(0),
+  },
+  gossipsubInterval: {
+    env: 'P2P_GOSSIPSUB_INTERVAL_MS',
+    description: 'The interval of the gossipsub heartbeat to perform maintenance tasks.',
+    ...numberConfigHelper(1_000),
+  },
+  gossipsubD: {
+    env: 'P2P_GOSSIPSUB_D',
+    description: 'The D parameter for the gossipsub protocol.',
+    ...numberConfigHelper(8),
+  },
+  gossipsubDlo: {
+    env: 'P2P_GOSSIPSUB_DLO',
+    description: 'The Dlo parameter for the gossipsub protocol.',
+    ...numberConfigHelper(4),
+  },
+  gossipsubDhi: {
+    env: 'P2P_GOSSIPSUB_DHI',
+    description: 'The Dhi parameter for the gossipsub protocol.',
+    ...numberConfigHelper(12),
+  },
+  gossipsubMcacheLength: {
+    env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
+    description: 'The number of gossipsub interval message cache windows to keep.',
+    ...numberConfigHelper(5),
+  },
+  gossipsubMcacheGossip: {
+    env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',
+    description: 'How many message cache windows to include when gossiping with other pears.',
+    ...numberConfigHelper(3),
+  },
+  severePeerPenaltyBlockLength: {
+    env: 'P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH',
+    description: 'The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it.',
+    ...numberConfigHelper(30),
   },
   l1ChainId: {
     env: 'L1_CHAIN_ID',

@@ -241,7 +241,6 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "L1_CHAIN_ID", value = var.L1_CHAIN_ID },
         { name = "DATA_DIRECTORY", value = "${local.data_dir}/prover_node_${count.index + 1}/data" },
         { name = "DEPLOY_AZTEC_CONTRACTS", value = "false" },
-        { name = "IS_DEV_NET", value = "true" },
 
         // API
         { name = "AZTEC_PORT", value = "80" },
