@@ -2,7 +2,7 @@
 set -eu
 
 # Enter repo root.
-cd $(dirname $0)/../..
+cd "$(dirname "$0")"/../..
 
 BRANCH=$1
 LABELS=$2
@@ -14,23 +14,26 @@ allow_list=()
 IFS=',' read -r -a input_labels <<< "$LABELS"
 allow_list+=("${input_labels[@]}")
 
-# Convert allow_list to items prepended with '+'
-allow_list_plus=()
-for item in "${allow_list[@]}"; do
-  allow_list_plus+=("+$item")
-done
+# Generate full list of targets on one line
+full_list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' | sed 's/+//' | xargs echo)
 
-# Generate full list of targets
-full_list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' | sed 's/+//' | jq -R . | jq -cs .)
-
-# If branch is master or allow_list contains '+e2e-all', return full list
+echo "$full_list"
+# If branch is master or allow_list contains 'bench-all', return full list
 if [[ "$BRANCH" == "master" ]] || [[ " ${allow_list[@]} " =~ "bench-all" ]]; then
-  echo "$full_list"
+  # print as JSON list
+  echo "$full_list" | jq -R 'split(" ")'
   exit 0
 fi
 
-# Filter full_list with only things inside allow_list_plus
-filtered_list=$(echo "$full_list" | jq -c ".[] | select(. as \$i | $(printf 'contains(\"%s\") or ' "${allow_list_plus[@]}" | sed 's/ or $//'))" | jq -cs .)
+# Filter the full_list to include only items in the allow_list
+filtered_list=()
+for item in $full_list; do
+  for allowed in "${allow_list[@]}"; do
+    if [[ "$item" == "$allowed" ]]; then
+      filtered_list+=("$item")
+    fi
+  done
+done
 
-# Print the filtered list
-echo "$filtered_list"
+# Print the filtered list in JSON format
+echo ${filtered_list[@]} | jq -R 'split(" ")'
