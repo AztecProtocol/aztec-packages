@@ -243,7 +243,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
         if constexpr (!IsSimulator<OuterBuilder>) {
             // inefficiently check finalized size
-            folding_circuit.finalize_circuit();
+            folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
             info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
             auto decider_pk = std::make_shared<OuterDeciderProvingKey>(folding_circuit);
             info("Dyadic size of verifier circuit: ", decider_pk->proving_key.circuit_size);
