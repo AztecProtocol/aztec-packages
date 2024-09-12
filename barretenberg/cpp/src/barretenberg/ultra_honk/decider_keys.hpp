@@ -158,16 +158,19 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     }
 
     /**
-     * @brief Get the witness commitments at a given index
-     * @details This is similar to get_precomputed_commitments_at_index, but for witness commitments.
+     * @brief Get the relation parameters at a given index
+     * @details This is similar to get_precomputed_commitments_at_index, but for relation parameters.
      */
-    std::vector<FF> get_relation_parameters_at_index(const size_t idx) const
+    std::vector<std::vector<FF>> get_relation_parameters() const
     {
-        std::vector<FF> result(NUM);
-        for (auto [elt, key] : zip_view(result, _data)) {
-            elt = key->relation_parameters.get_to_fold()[idx];
+        const size_t num_params_to_fold = _data[0]->relation_parameters.get_to_fold().size();
+        std::vector<std::vector<FF>> result(num_params_to_fold, std::vector<FF>(NUM));
+        for (size_t idx = 0; auto& params_at_idx : result) {
+            for (auto [elt, key] : zip_view(params_at_idx, _data)) {
+                elt = key->relation_parameters.get_to_fold()[idx];
+            }
+            idx++;
         }
-
         return result;
     }
 };

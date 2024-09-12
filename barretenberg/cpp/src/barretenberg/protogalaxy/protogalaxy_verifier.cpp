@@ -138,10 +138,9 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
         alpha = linear_combination(keys_to_fold.get_alphas_at_index(idx), lagranges);
         idx++;
     }
-    idx = 0;
-    for (auto& param : next_accumulator->relation_parameters.get_to_fold()) {
-        param = linear_combination(keys_to_fold.get_relation_parameters_at_index(idx), lagranges);
-        idx++;
+    for (auto [combination, to_combine] :
+         zip_view(next_accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
+        combination = linear_combination(to_combine, lagranges);
     }
 
     return next_accumulator;
