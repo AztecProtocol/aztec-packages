@@ -1,1 +1,1 @@
-export { Crs, GrumpkinCrs } from './node/index.js';
+export { Crs } from './node/index.js';

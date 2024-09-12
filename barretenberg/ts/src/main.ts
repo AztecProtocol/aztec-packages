@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { Crs, GrumpkinCrs, Barretenberg, RawBuffer } from './index.js';
+import { Crs, Barretenberg, RawBuffer } from './index.js';
+import { GrumpkinCrs } from './crs/node/index.js';
 import createDebug from 'debug';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
