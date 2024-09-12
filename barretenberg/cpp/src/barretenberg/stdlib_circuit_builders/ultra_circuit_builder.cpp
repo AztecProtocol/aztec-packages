@@ -13,7 +13,8 @@
 
 namespace bb {
 
-template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::finalize_circuit()
+template <typename Arithmetization>
+void UltraCircuitBuilder_<Arithmetization>::finalize_circuit(const bool ensure_nonzero)
 {
     /**
      * First of all, add the gates related to ROM arrays and range lists.
@@ -41,6 +42,9 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
      * our circuit is finalized, and we must not to execute these functions again.
      */
     if (!circuit_finalized) {
+        if (ensure_nonzero) {
+            add_gates_to_ensure_all_polys_are_non_zero();
+        }
         process_non_native_field_multiplications();
         process_ROM_arrays();
         process_RAM_arrays();
