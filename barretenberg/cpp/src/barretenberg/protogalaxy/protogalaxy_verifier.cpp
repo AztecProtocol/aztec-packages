@@ -138,22 +138,11 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
         alpha = linear_combination(keys_to_fold.get_alphas_at_index(idx), lagranges);
         idx++;
     }
-    auto& expected_parameters = next_accumulator->relation_parameters;
-    for (size_t vk_idx = 0; vk_idx < NUM_KEYS; vk_idx++) {
-        auto& key = keys_to_fold[vk_idx];
-        expected_parameters.eta += key->relation_parameters.eta * lagranges[vk_idx];
-        expected_parameters.eta_two += key->relation_parameters.eta_two * lagranges[vk_idx];
-        expected_parameters.eta_three += key->relation_parameters.eta_three * lagranges[vk_idx];
-        expected_parameters.beta += key->relation_parameters.beta * lagranges[vk_idx];
-        expected_parameters.gamma += key->relation_parameters.gamma * lagranges[vk_idx];
-        expected_parameters.public_input_delta += key->relation_parameters.public_input_delta * lagranges[vk_idx];
-        expected_parameters.lookup_grand_product_delta +=
-            key->relation_parameters.lookup_grand_product_delta * lagranges[vk_idx];
-    }
-
+    idx = 0;
     for (auto& param : next_accumulator->relation_parameters.get_to_fold()) {
-        info(param);
-    };
+        param = linear_combination(keys_to_fold.get_relation_parameters_at_index(idx), lagranges);
+        idx++;
+    }
 
     return next_accumulator;
 }
