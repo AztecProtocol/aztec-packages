@@ -1353,8 +1353,6 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        verbose_logging = true;
-
         std::string command = args[0];
         vinfo("bb command is: ", command);
         std::string bytecode_path = get_option(args, "-b", "./target/program.json");

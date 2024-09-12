@@ -37,7 +37,7 @@ class ClientIVCTests : public ::testing::Test {
      * proof constructed on the last accumulation round
      *
      */
-    static bool prove_and_verify(auto& ivc)
+    static bool prove_and_verify(AztecIVC& ivc)
     {
         ZoneScopedN("ClientIVC::prove_and_verify");
         auto proof = ivc.prove();
@@ -52,7 +52,7 @@ class ClientIVCTests : public ::testing::Test {
      * polynomials will bump size to next power of 2)
      *
      */
-    static Builder create_mock_circuit(auto& ivc, size_t log2_num_gates = 16)
+    static Builder create_mock_circuit(AztecIVC& ivc, size_t log2_num_gates = 16)
     {
         Builder circuit{ ivc.goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
