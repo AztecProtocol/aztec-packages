@@ -65,7 +65,7 @@ For commands which allow you to send the output to a file using `-o {filePath}`,
 
 #### Usage with UltraHonk
 
-Documented with Noir v0.32.0 <> BB v0.46.1:
+Documented with Noir v0.33.0 <> BB v0.47.1:
 
 ##### Proving and verifying
 
@@ -94,8 +94,6 @@ Documented with Noir v0.32.0 <> BB v0.46.1:
 Refer to all available `bb` commands linked above for full list of functionality.
 
 ##### Generating Solidity verifier
-
-TODO: Confirm and update this workflow after the next BB version after v0.47.0 is released, as the functionality is only available from that release onwards. 
 
 1. Follow [the Noir docs](https://noir-lang.org/docs/getting_started/hello_noir/) to compile and generate witness of your Noir program
 
