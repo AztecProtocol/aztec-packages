@@ -100,7 +100,7 @@ async function initClientIVC(bytecodePath: string, crsPath: string) {
 
   debug('loading BN254 and Grumpkin crs...');
   // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(131072 + 1, crsPath);
+  const crs = await Crs.new(2 ** 18 + 1, crsPath);
   const grumpkinCrs = await GrumpkinCrs.new(8192 + 1, crsPath);
 
   // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
