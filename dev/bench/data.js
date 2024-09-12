@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726171925620,
+  "lastUpdate": 1726179934338,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "18abf3785e0826b81417b9f99ffe9776a0213fb1",
-          "message": "docs(bb): transcript spec (#8301)\n\nfrom\r\nhttps://github.com/AztecProtocol/ignition-verification/blob/master/Transcript_spec.md",
-          "timestamp": "2024-08-30T18:50:59Z",
-          "tree_id": "520981f69c7c3f53e1c78a036eb68ace6f3b2b6d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/18abf3785e0826b81417b9f99ffe9776a0213fb1"
-        },
-        "date": 1725044604043,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13490.369242000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10318.187280999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5064.9674020000075,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4651.812673 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39422.748958,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39422748000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14687.215427999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14687216000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3745305080,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3745305080 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208534399,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 208534399 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3086968700,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3086968700 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 173619308,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 173619308 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 113856109,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 113856109 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0b46e96e8e5d05876a3700b9e50d29d6f349ea6e",
+          "message": "feat: new test programs for wasm benchmarking (#8389)\n\nThis PR creates new test programs: bench_2_to_17, which is just a\r\nprogram constructed out of poseidon hashes with around 2^17 - epsilon\r\ngates, fold_2_to_17, which is a program that has 2 2^17-eps sized\r\ncircuits that would get folded together, and single_verify_proof, which\r\nis a plonk recursive verifier which now has 2^18+eps gates.\r\n\r\nIt also reworks some of the interfaces in main.ts. In particular, it\r\ngets the foldAndVerifyProgram flow working with fold_basic (and\r\nSMALL_TEST execution trace structure).\r\n\r\nI used the fold_2_to_17 test program to benchmark memory usage of\r\nClientIVC in WASM, which came out to be 700MiB. Note that this was only\r\npossible by turning off the structure, because it would fail otherwise\r\nfrom too many poseidon gates.\r\n\r\nRunning ClientIVC on the fold_basic test program using\r\nTraceStructure::SMALL_TEST (which ends up with dyadic size of 2^18)\r\ngives 1166.56MiB in WASM. Note that the builder memory is not an actual\r\nfull 2^18 gate circuit because the circuits only had 22, 4539, 16432\r\ngates, so it should actually be close to 1250MiB or so if we had full\r\n2^18 gate circuits.",
+          "timestamp": "2024-09-12T22:08:59Z",
+          "tree_id": "681df11b71a1c3a992b8f6cfb6557e295d837d12",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0b46e96e8e5d05876a3700b9e50d29d6f349ea6e"
+        },
+        "date": 1726179927187,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 12916.929431,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9230.08279 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5095.920510999988,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4651.445372 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 38435.168302,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 38435169000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14706.829956,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14706831000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3609961846,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3609961846 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 136023527,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 136023527 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2941582330,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2941582330 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 112389636,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 112389636 ns\nthreads: 1"
           }
         ]
       }
