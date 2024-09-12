@@ -204,15 +204,30 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
 
         auto verifier =
             FoldingRecursiveVerifier{ &folding_circuit, recursive_decider_vk_1, { recursive_decider_vk_2 } };
+        std::shared_ptr<RecursiveDeciderVerificationKey> accumulator;
         for (size_t idx = 0; idx < num_verifiers; idx++) {
-            verifier.verify_folding_proof(stdlib_proof);
+            accumulator = verifier.verify_folding_proof(stdlib_proof);
+            if (idx < num_verifiers - 1) { // else the transcript is null in the test below
+                verifier = FoldingRecursiveVerifier{ &folding_circuit,
+                                                     accumulator,
+                                                     { std::make_shared<RecursiveVerificationKey>(
+                                                         &folding_circuit, decider_vk_1->verification_key) } };
+            }
         }
         info("Folding Recursive Verifier: num gates unfinalized = ", folding_circuit.num_gates);
         EXPECT_EQ(folding_circuit.failed(), false) << folding_circuit.err();
+
         // Perform native folding verification and ensure it returns the same result (either true or false) as
         // calling check_circuit on the recursive folding verifier
         InnerFoldingVerifier native_folding_verifier({ decider_vk_1, decider_vk_2 });
+        std::shared_ptr<InnerDeciderVerificationKey> native_accumulator;
         native_folding_verifier.verify_folding_proof(folding_proof.proof);
+        for (size_t idx = 0; idx < num_verifiers; idx++) {
+            native_accumulator = native_folding_verifier.verify_folding_proof(folding_proof.proof);
+            if (idx < num_verifiers - 1) { // else the transcript is null in the test below
+                native_folding_verifier = InnerFoldingVerifier{ { native_accumulator, decider_vk_1 } };
+            }
+        }
 
         // Ensure that the underlying native and recursive folding verification algorithms agree by ensuring the
         // manifestsproduced by each agree.
