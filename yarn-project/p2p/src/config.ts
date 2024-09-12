@@ -6,10 +6,12 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 
+import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './service/reqresp/config.js';
+
 /**
  * P2P client configuration values.
  */
-export interface P2PConfig {
+export interface P2PConfig extends P2PReqRespConfig {
   /**
    * A flag dictating whether the P2P subsystem should be enabled.
    */
@@ -170,6 +172,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)',
     ...numberConfigHelper(0),
   },
+  ...p2pReqRespConfigMappings,
 };
 
 /**

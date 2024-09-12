@@ -2,7 +2,6 @@ import { PedersenCommitment } from '../opcodes/commitment.js';
 import { DAGasLeft, L2GasLeft } from '../opcodes/context_getters.js';
 import { EcAdd } from '../opcodes/ec_add.js';
 import { Keccak, KeccakF1600, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
-import { Instruction } from '../opcodes/index.js';
 import {
   Add,
   Address,
@@ -24,6 +23,7 @@ import {
   FieldDiv,
   FunctionSelector,
   GetContractInstance,
+  Instruction,
   InternalCall,
   InternalReturn,
   Jump,
@@ -96,12 +96,14 @@ const INSTRUCTION_SET = () =>
     [Opcode.OR_16, Or.as(Or.wireFormat16).deserialize],
     [Opcode.XOR_8, Xor.as(Xor.wireFormat8).deserialize],
     [Opcode.XOR_16, Xor.as(Xor.wireFormat16).deserialize],
-    [Not.opcode, Instruction.deserialize.bind(Not)],
+    [Opcode.NOT_8, Not.as(Not.wireFormat8).deserialize],
+    [Opcode.NOT_16, Not.as(Not.wireFormat16).deserialize],
     [Opcode.SHL_8, Shl.as(Shl.wireFormat8).deserialize],
     [Opcode.SHL_16, Shl.as(Shl.wireFormat16).deserialize],
     [Opcode.SHR_8, Shr.as(Shr.wireFormat8).deserialize],
     [Opcode.SHR_16, Shr.as(Shr.wireFormat16).deserialize],
-    [Cast.opcode, Instruction.deserialize.bind(Cast)],
+    [Opcode.CAST_8, Cast.as(Cast.wireFormat8).deserialize],
+    [Opcode.CAST_16, Cast.as(Cast.wireFormat16).deserialize],
     [Address.opcode, Instruction.deserialize.bind(Address)],
     [StorageAddress.opcode, Instruction.deserialize.bind(StorageAddress)],
     [Sender.opcode, Instruction.deserialize.bind(Sender)],
@@ -155,7 +157,8 @@ const INSTRUCTION_SET = () =>
     [StaticCall.opcode, Instruction.deserialize.bind(StaticCall)],
     //[DelegateCall.opcode, Instruction.deserialize.bind(DelegateCall)],
     [Return.opcode, Instruction.deserialize.bind(Return)],
-    [Revert.opcode, Instruction.deserialize.bind(Revert)],
+    [Opcode.REVERT_8, Revert.as(Revert.wireFormat8).deserialize],
+    [Opcode.REVERT_16, Revert.as(Revert.wireFormat16).deserialize],
 
     // Misc
     [DebugLog.opcode, Instruction.deserialize.bind(DebugLog)],
