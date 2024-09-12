@@ -1,4 +1,5 @@
 import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
+import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type P2P } from '@aztec/p2p';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
@@ -12,7 +13,6 @@ import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { L1Publisher } from '../publisher/index.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
-import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
  * Encapsulates the full sequencer and publisher.

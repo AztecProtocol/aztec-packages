@@ -17,9 +17,9 @@ import {
   Header,
   StateReference,
 } from '@aztec/circuits.js';
-import { Signature } from '@aztec/foundation/eth-signature';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';

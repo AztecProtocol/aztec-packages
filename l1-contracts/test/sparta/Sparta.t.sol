@@ -25,7 +25,6 @@ import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
  */
 
 contract SpartaTest is DecoderBase {
-
   Registry internal registry;
   Inbox internal inbox;
   Outbox internal outbox;
