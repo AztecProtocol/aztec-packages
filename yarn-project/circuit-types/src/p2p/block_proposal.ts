@@ -1,15 +1,14 @@
-import { EthAddress, Header } from '@aztec/circuits.js';
+import { type EthAddress, Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-
-import { recoverMessageAddress } from 'viem';
 
 import { TxHash } from '../tx/tx_hash.js';
 import { get0xStringHashedSignaturePayload, getHashedSignaturePayload, getSignaturePayload } from './block_utils.js';
 import { Gossipable } from './gossipable.js';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { TopicType, createTopicString } from './topic_type.js';
+import { recoverAddress } from '@aztec/foundation/crypto';
 
 export class BlockProposalHash extends Buffer32 {
   constructor(hash: Buffer) {
@@ -54,7 +53,7 @@ export class BlockProposal extends Gossipable {
     header: Header,
     archive: Fr,
     txs: TxHash[],
-    payloadSigner: (payload: Buffer) => Promise<Signature>,
+    payloadSigner: (payload: Buffer32) => Promise<Signature>,
   ) {
     const hashed = getHashedSignaturePayload(archive, txs);
     const sig = await payloadSigner(hashed);
@@ -65,16 +64,11 @@ export class BlockProposal extends Gossipable {
   /**Get Sender
    * Lazily evaluate the sender of the proposal; result is cached
    */
-  async getSender() {
+  getSender() {
     if (!this.sender) {
-      // performance note(): this signature method requires another hash behind the scenes
-      const hashed = get0xStringHashedSignaturePayload(this.archive, this.txs);
-      const address = await recoverMessageAddress({
-        message: { raw: hashed },
-        signature: this.signature.to0xString(),
-      });
+      const hashed = getHashedSignaturePayload(this.archive, this.txs);
       // Cache the sender for later use
-      this.sender = EthAddress.fromString(address);
+      this.sender = recoverAddress(hashed, this.signature);
     }
 
     return this.sender;

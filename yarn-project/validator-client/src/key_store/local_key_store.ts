@@ -1,6 +1,6 @@
-import { Signature } from '@aztec/foundation/eth-signature';
-
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { type Signature } from '@aztec/foundation/eth-signature';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
+import { Buffer32 } from '@aztec/foundation/buffer';
 
 import { type ValidatorKeyStore } from './interface.js';
 
@@ -10,10 +10,10 @@ import { type ValidatorKeyStore } from './interface.js';
  * An implementation of the Key store using an in memory private key.
  */
 export class LocalKeyStore implements ValidatorKeyStore {
-  private signer: PrivateKeyAccount;
+  private signer: Secp256k1Signer;
 
   constructor(privateKey: string) {
-    this.signer = privateKeyToAccount(privateKey as `0x{string}`);
+    this.signer = new Secp256k1Signer(Buffer32.fromString(privateKey));
   }
 
   /**
@@ -22,10 +22,9 @@ export class LocalKeyStore implements ValidatorKeyStore {
    * @param messageBuffer - The message buffer to sign
    * @return signature
    */
-  public async sign(digestBuffer: Buffer): Promise<Signature> {
-    const digest: `0x${string}` = `0x${digestBuffer.toString('hex')}`;
-    const signature = await this.signer.signMessage({ message: { raw: digest } });
+  public sign(digest: Buffer32): Promise<Signature> {
+    const signature = this.signer.sign(digest);
 
-    return Signature.from0xString(signature);
+    return Promise.resolve(signature);
   }
 }

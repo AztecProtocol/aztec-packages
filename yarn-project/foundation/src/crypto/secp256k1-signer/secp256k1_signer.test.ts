@@ -1,5 +1,5 @@
 
-import { generatePrivateKey, PrivateKeyAccount, privateKeyToAccount, publicKeyToAddress } from "viem/accounts";
+import { generatePrivateKey, type PrivateKeyAccount, privateKeyToAccount, publicKeyToAddress } from "viem/accounts";
 import { Secp256k1Signer } from "./secp256k1_signer.js";
 import {recoverPublicKey as lightRecoverPublicKey, recoverAddress as lightRecoverAddress } from "./utils.js";
 import { EthAddress } from "@aztec/foundation/eth-address";

@@ -1,9 +1,9 @@
 import { type L2Block, type TxHash } from '@aztec/circuit-types';
-import { type Signature } from '@aztec/foundation/eth-signature';
 import { getHashedSignaturePayload } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import { ETHEREUM_SLOT_DURATION, EthAddress, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
+import { type Signature } from '@aztec/foundation/eth-signature';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';

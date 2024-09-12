@@ -1,15 +1,14 @@
-import { EthAddress, Header } from '@aztec/circuits.js';
+import { type EthAddress, Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { recoverMessageAddress } from 'viem';
-
 import { TxHash } from '../tx/tx_hash.js';
-import { get0xStringHashedSignaturePayload, getSignaturePayload } from './block_utils.js';
+import {  getHashedSignaturePayload, getSignaturePayload } from './block_utils.js';
 import { Gossipable } from './gossipable.js';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { TopicType, createTopicString } from './topic_type.js';
+import { recoverAddress } from '@aztec/foundation/crypto';
 
 export class BlockAttestationHash extends Buffer32 {
   constructor(hash: Buffer) {
@@ -56,13 +55,9 @@ export class BlockAttestation extends Gossipable {
   async getSender() {
     if (!this.sender) {
       // Recover the sender from the attestation
-      const hashed = get0xStringHashedSignaturePayload(this.archive, this.txHashes);
-      const address = await recoverMessageAddress({
-        message: { raw: hashed },
-        signature: this.signature.to0xString(),
-      });
+      const hashed = getHashedSignaturePayload(this.archive, this.txHashes);
       // Cache the sender for later use
-      this.sender = EthAddress.fromString(address);
+      this.sender = recoverAddress(hashed, this.signature);
     }
 
     return this.sender;

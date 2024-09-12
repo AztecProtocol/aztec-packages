@@ -9,15 +9,25 @@ function publicKeyToAddress(publicKey: Buffer): EthAddress {
   return new EthAddress(hash.subarray(12));
 }
 
+export function publicKeyFromPrivateKey(privateKey: Buffer): Buffer {
+    return Buffer.from(secp256k1.getPublicKey(privateKey, false));
+}
+
+export function addressFromPrivateKey(privateKey: Buffer): EthAddress {
+    const publicKey = publicKeyFromPrivateKey(privateKey);
+    return publicKeyToAddress(publicKey);
+}
+
+
 export function recoverAddress(hash: Buffer32, signature: Signature): EthAddress {
     const publicKey = recoverPublicKey(hash, signature);
     return publicKeyToAddress(publicKey);
 }
 
 function toRecoveryBit(yParityOrV: number) {
-    if (yParityOrV === 0 || yParityOrV === 1) return yParityOrV
-    if (yParityOrV === 27) return 0
-    if (yParityOrV === 28) return 1
+    if (yParityOrV === 0 || yParityOrV === 1) {return yParityOrV}
+    if (yParityOrV === 27) {return 0}
+    if (yParityOrV === 28) {return 1}
     throw new Error('Invalid yParityOrV value')
 }
 

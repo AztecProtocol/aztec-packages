@@ -1,7 +1,7 @@
 import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
-import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { AppendOnlyTreeSnapshot, Header, Proof } from '@aztec/circuits.js';
 import { type EthAddress } from '@aztec/foundation/eth-address';
+import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';

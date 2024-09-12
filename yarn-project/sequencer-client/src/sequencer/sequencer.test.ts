@@ -17,8 +17,6 @@ import {
   makeProcessedTx,
   mockTxForRollup,
 } from '@aztec/circuit-types';
-
-import { Signature } from '@aztec/foundation/eth-signature';
 import {
   AztecAddress,
   EthAddress,
@@ -30,6 +28,7 @@ import {
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';

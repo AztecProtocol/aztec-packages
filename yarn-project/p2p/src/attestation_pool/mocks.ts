@@ -1,6 +1,6 @@
 import { BlockAttestation, TxHash } from '@aztec/circuit-types';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 

@@ -8,7 +8,6 @@ import {
   type TxHash,
   type TxValidator,
 } from '@aztec/circuit-types';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
@@ -20,6 +19,7 @@ import {
   Header,
   StateReference,
 } from '@aztec/circuits.js';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
