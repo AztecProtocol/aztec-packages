@@ -6,7 +6,7 @@ mod types;
 // (tests ordering in the circuit)
 
 // you have a card (PrivateMutable). Anyone can create a bigger card. Whoever is bigger will be the leader.
-// it also has dummy methods and other examples used for documentation e.g. 
+// it also has dummy methods and other examples used for documentation e.g.
 // how to create custom notes, a custom struct for public state, a custom note that may be unencrypted
 // also has `options.nr` which shows various ways of using `NoteGetterOptions` to query notes
 // it also shows what our macros do behind the scenes!
@@ -19,7 +19,6 @@ contract DocsExample {
         PrivateSet, SharedImmutable, Deserialize
     };
     use dep::aztec::encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys};
-    use dep::aztec::note::note_getter_options::Comparator;
     use dep::aztec::keys::getters::get_current_public_keys;
     // how to import methods from other files/folders within your workspace
     use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
@@ -33,7 +32,7 @@ contract DocsExample {
         // docs:start:storage-private-mutable-declaration
         legendary_card: PrivateMutable<CardNote>,
         // docs:end:storage-private-mutable-declaration
-        // just used for docs example to show how to create a private mutable map. 
+        // just used for docs example to show how to create a private mutable map.
         profiles: Map<AztecAddress, PrivateMutable<CardNote>>,
         // docs:start:storage-set-declaration
         set: PrivateSet<CardNote>,
@@ -112,7 +111,7 @@ contract DocsExample {
     fn get_shared_immutable_constrained_private_indirect() -> pub Leader {
         // This is a private function that calls another private function
         // and returns the response.
-        // Used to test that we can retrieve values through calls and 
+        // Used to test that we can retrieve values through calls and
         // correctly return them in the simulation
         let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_private().view(&mut context);
         leader.points += 1;
@@ -123,7 +122,7 @@ contract DocsExample {
     fn get_shared_immutable_constrained_public_indirect() -> pub Leader {
         // This is a public function that calls another public function
         // and returns the response.
-        // Used to test that we can retrieve values through calls and 
+        // Used to test that we can retrieve values through calls and
         // correctly return them in the simulation
         let mut leader = DocsExample::at(context.this_address()).get_shared_immutable_constrained_public().view(&mut context);
         leader.points += 1;
@@ -213,15 +212,9 @@ contract DocsExample {
     }
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
-    unconstrained fn read_note(amount: Field, comparator: u8) -> pub BoundedVec<CardNote, 10> {
+    unconstrained fn read_note(comparator: u8, amount: Field) -> pub BoundedVec<CardNote, 10> {
         let mut options = NoteViewerOptions::new();
-        storage.set.view_notes(
-            options.select(
-                CardNote::properties().points,
-                amount,
-                Option::some(comparator)
-            )
-        )
+        storage.set.view_notes(options.select(CardNote::properties().points, comparator, amount))
     }
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
 
@@ -327,13 +320,13 @@ contract DocsExample {
 
         // Our original inputs!
         a: Field,
-        b: Field // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the 
-        // input to our kernel! 
+        b: Field // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the
+        // input to our kernel!
         // docs:start:context-example-return
     ) -> pub PrivateCircuitPublicInputs {
         // docs:end:context-example-return
         // ************************************************************
-        // The hasher is a structure used to generate a hash of the circuits inputs. 
+        // The hasher is a structure used to generate a hash of the circuits inputs.
         // docs:start:context-example-hasher
         let mut args_hasher = dep::aztec::hash::ArgsHasher::new();
         args_hasher.add(a);

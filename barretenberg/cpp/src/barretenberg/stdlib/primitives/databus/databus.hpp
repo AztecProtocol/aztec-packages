@@ -224,6 +224,7 @@ template <class Builder> class DataBusDepot {
      * @return std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT>
      */
     std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT> get_witness_indices_for_commitment(const Commitment& point)
+        requires(!IsMegaBuilder<Builder>)
     {
         return { point.x.binary_basis_limbs[0].element.normalize().witness_index,
                  point.x.binary_basis_limbs[1].element.normalize().witness_index,
@@ -233,6 +234,28 @@ template <class Builder> class DataBusDepot {
                  point.y.binary_basis_limbs[1].element.normalize().witness_index,
                  point.y.binary_basis_limbs[2].element.normalize().witness_index,
                  point.y.binary_basis_limbs[3].element.normalize().witness_index };
+    }
+
+    std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT> get_witness_indices_for_commitment(const Commitment& point)
+        requires(IsMegaBuilder<Builder>)
+    {
+        // If using a goblin-plonk compatible builder, goblin element coordinates are stored as 2 field elements not 4.
+        // We convert to stdlib::bigfield elements so data is stored in the databus uniformly regardless of flavor
+        using BigFq = stdlib::bigfield<Builder, typename Curve::BaseFieldNative::Params>;
+        const auto to_bigfield = [](Fr lo, Fr hi) {
+            BigFq r(lo, hi);
+            return std::array<uint32_t, 4>{
+                r.binary_basis_limbs[0].element.normalize().witness_index,
+                r.binary_basis_limbs[1].element.normalize().witness_index,
+                r.binary_basis_limbs[2].element.normalize().witness_index,
+                r.binary_basis_limbs[3].element.normalize().witness_index,
+            };
+        };
+        auto x = to_bigfield(point.x.limbs[0], point.x.limbs[1]);
+        auto y = to_bigfield(point.y.limbs[0], point.y.limbs[1]);
+        return {
+            x[0], x[1], x[2], x[3], y[0], y[1], y[2], y[3],
+        };
     }
 };
 

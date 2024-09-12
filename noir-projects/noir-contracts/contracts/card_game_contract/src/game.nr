@@ -23,12 +23,18 @@ impl Deserialize<PLAYER_SERIALIZED_LEN> for PlayerEntry {
         let address = AztecAddress::from_field(fields[0]);
         let deck_strength = fields[1] as u32;
         let points = fields[2] as u64;
-        
+
         PlayerEntry {
             address,
             deck_strength,
             points
         }
+    }
+}
+
+impl Eq for PlayerEntry {
+    fn eq(self, other: PlayerEntry) -> bool {
+        self.address.eq(other.address) & self.deck_strength.eq(other.deck_strength) & self.points.eq(other.points)
     }
 }
 
@@ -72,7 +78,7 @@ impl Deserialize<GAME_SERIALIZED_LEN> for Game {
     fn deserialize(fields: [Field; GAME_SERIALIZED_LEN]) -> Game {
         let player1 = PlayerEntry::deserialize([fields[0], fields[1], fields[2]]);
         let player2 = PlayerEntry::deserialize([fields[3], fields[4], fields[5]]);
-        
+
         let players = [player1, player2];
         let rounds_cards = [
             Card::from_field(fields[6]), Card::from_field(fields[7]),

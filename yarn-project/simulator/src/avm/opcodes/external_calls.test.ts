@@ -287,14 +287,17 @@ describe('External Calls', () => {
   describe('REVERT', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
-        Revert.opcode, // opcode
+        Opcode.REVERT_16, // opcode
         0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // returnOffset
-        ...Buffer.from('a2345678', 'hex'), // retSize
+        ...Buffer.from('1234', 'hex'), // returnOffset
+        ...Buffer.from('a234', 'hex'), // retSize
       ]);
-      const inst = new Revert(/*indirect=*/ 0x01, /*returnOffset=*/ 0x12345678, /*retSize=*/ 0xa2345678);
+      const inst = new Revert(/*indirect=*/ 0x01, /*returnOffset=*/ 0x1234, /*retSize=*/ 0xa234).as(
+        Opcode.REVERT_16,
+        Revert.wireFormat16,
+      );
 
-      expect(Revert.deserialize(buf)).toEqual(inst);
+      expect(Revert.as(Revert.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 

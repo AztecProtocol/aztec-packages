@@ -17,6 +17,7 @@ import { type P2PClient } from '../../client/p2p_client.js';
 import { type BootnodeConfig, type P2PConfig } from '../../config.js';
 import { type TxPool } from '../../tx_pool/index.js';
 import { createLibP2PPeerId } from '../index.js';
+import { DEFAULT_P2P_REQRESP_CONFIG } from './config.js';
 
 /**
  * Mockify helper for testing purposes.
@@ -92,6 +93,7 @@ describe('Req Resp p2p client integration', () => {
         queryForIp: false,
         dataDirectory: undefined,
         l1Contracts: { rollupAddress: EthAddress.ZERO },
+        ...DEFAULT_P2P_REQRESP_CONFIG,
       };
 
       txPool = {

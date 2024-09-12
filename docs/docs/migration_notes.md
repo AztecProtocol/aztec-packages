@@ -6,11 +6,25 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [Aztec.nr] Rework `NoteGetterOptions::select`
+
+The `select` function in both `NoteGetterOptions` and `NoteViewerOptions` no longer takes an `Option` of a comparator, but instead requires an explicit comparator to be passed. Additionally, the order of the parameters has been changed so that they are `(lhs, operator, rhs)`. These two changes should make invocations of the function easier to read:
+
+```diff
+- options.select(ValueNote::properties().value, amount, Option::none())
++ options.select(ValueNote::properties().value, Comparator.EQ, amount)
+```
+
 ## 0.53.0
+
 ### [Aztec.nr] Remove `OwnedNote` and create `UintNote`
+
 `OwnedNote` allowed having a U128 `value` in the custom note while `ValueNote` restricted to just a Field.
 
 We have removed `OwnedNote` but are introducing a more genric `UintNote` within aztec.nr
+
 ```
 #[aztec(note)]
 struct UintNote {
@@ -24,9 +38,11 @@ struct UintNote {
 ```
 
 ### [TXE] logging
+
 You can now use `debug_log()` within your contract to print logs when using the TXE
 
 Remember to set the following environment variables to activate debug logging:
+
 ```bash
 export DEBUG="aztec:*"
 export LOG_LEVEL="debug"
@@ -36,7 +52,7 @@ export LOG_LEVEL="debug"
 
 `is_valid_impl` method in account contract asserted if signature was true. Instead now we will return the verification to give flexibility to developers to handle it as they please.
 
-```diff
+````diff
 - let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
 - assert(verification == true);
 - true
@@ -57,7 +73,7 @@ Public keys (ivpk, ovpk, npk, tpk) should no longer be fetched using the old `ge
 +let owner_keys = get_current_public_keys(&mut context, owner);
 +let owner_ivpk_m = owner_keys.ivpk_m;
 +let owner_ovpk_m = owner_keys.ovpk_m;
-```
+````
 
 If using more than one key per account, this will result in very large circuit gate count reductions.
 

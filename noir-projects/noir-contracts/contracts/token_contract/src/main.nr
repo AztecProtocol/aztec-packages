@@ -25,7 +25,7 @@ contract Token {
         encrypted_note_emission::{encode_and_encrypt_note_with_keys, encode_and_encrypt_note_with_keys_unconstrained},
         encrypted_event_emission::encode_and_encrypt_event_with_keys_unconstrained
     },
-        keys::getters::get_current_public_keys
+        keys::getters::get_current_public_keys, utils::comparison::Comparator
     };
 
     // docs:start:import_authwit
@@ -305,10 +305,10 @@ contract Token {
         // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
         // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();
-        options = options.select(TransparentNote::properties().amount, amount, Option::none()).select(
+        options = options.select(TransparentNote::properties().amount, Comparator.EQ, amount).select(
             TransparentNote::properties().secret_hash,
-            secret_hash,
-            Option::none()
+            Comparator.EQ,
+            secret_hash
         ).set_limit(1);
 
         let notes = storage.pending_shields.pop_notes(options);
