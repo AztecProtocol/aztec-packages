@@ -50,37 +50,51 @@ template <typename T> struct RelationParameters {
         return RefArray{ eta, eta_two, eta_three, beta, gamma, public_input_delta, lookup_grand_product_delta };
     }
 
-    static RelationParameters get_random()
+    static RelationParameters get_random(numeric::RNG* engine = nullptr)
     {
         RelationParameters result;
-        result.eta = T::random_element();
-        result.eta_two = T::random_element();
-        result.eta_three = T::random_element();
-        result.beta = T::random_element();
+        result.eta = T::random_element(engine);
+        result.eta_two = T::random_element(engine);
+        result.eta_three = T::random_element(engine);
+        result.beta = T::random_element(engine);
         result.beta_sqr = result.beta * result.beta;
         result.beta_cube = result.beta_sqr * result.beta;
-        result.gamma = T::random_element();
-        result.public_input_delta = T::random_element();
-        result.lookup_grand_product_delta = T::random_element();
+        result.gamma = T::random_element(engine);
+        result.public_input_delta = T::random_element(engine);
+        result.lookup_grand_product_delta = T::random_element(engine);
         result.eccvm_set_permutation_delta = result.gamma * (result.gamma + result.beta_sqr) *
                                              (result.gamma + result.beta_sqr + result.beta_sqr) *
                                              (result.gamma + result.beta_sqr + result.beta_sqr + result.beta_sqr);
         result.accumulated_result = {
-            T::random_element(), T::random_element(), T::random_element(), T::random_element()
+            T::random_element(engine), T::random_element(engine), T::random_element(engine), T::random_element(engine)
         };
 
-        result.evaluation_input_x = {
-            T::random_element(), T::random_element(), T::random_element(), T::random_element(), T::random_element()
-        };
+        result.evaluation_input_x = { T::random_element(engine),
+                                      T::random_element(engine),
+                                      T::random_element(engine),
+                                      T::random_element(engine),
+                                      T::random_element(engine) };
         result.batching_challenge_v = {
-            std::array{ T::random_element(),
-                        T::random_element(),
-                        T::random_element(),
-                        T::random_element(),
-                        T::random_element() },
-            { T::random_element(), T::random_element(), T::random_element(), T::random_element(), T::random_element() },
-            { T::random_element(), T::random_element(), T::random_element(), T::random_element(), T::random_element() },
-            { T::random_element(), T::random_element(), T::random_element(), T::random_element(), T::random_element() },
+            std::array{ T::random_element(engine),
+                        T::random_element(engine),
+                        T::random_element(engine),
+                        T::random_element(engine),
+                        T::random_element(engine) },
+            { T::random_element(engine),
+              T::random_element(engine),
+              T::random_element(engine),
+              T::random_element(engine),
+              T::random_element(engine) },
+            { T::random_element(engine),
+              T::random_element(engine),
+              T::random_element(engine),
+              T::random_element(engine),
+              T::random_element(engine) },
+            { T::random_element(engine),
+              T::random_element(engine),
+              T::random_element(engine),
+              T::random_element(engine),
+              T::random_element(engine) },
         };
 
         return result;

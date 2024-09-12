@@ -25,6 +25,8 @@
 
 using namespace bb;
 
+numeric::RNG& engine = numeric::get_debug_randomness();
+
 using FF = fr;
 struct InputElements {
     static constexpr size_t NUM_ELEMENTS = 45;
@@ -33,7 +35,7 @@ struct InputElements {
     static InputElements get_random()
     {
         InputElements result;
-        std::generate(result._data.begin(), result._data.end(), [] { return FF::random_element(); });
+        std::generate(result._data.begin(), result._data.end(), [] { return FF::random_element(&engine); });
         return result;
     }
 
@@ -164,7 +166,7 @@ TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
         contribution_2 *= (q_arith - 2) * (q_arith - 1) * q_arith;
         expected_values[1] = contribution_2;
 
-        const auto parameters = RelationParameters<FF>::get_random();
+        const auto parameters = RelationParameters<FF>::get_random(&engine);
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
@@ -198,7 +200,7 @@ TEST_F(UltraRelationConsistency, UltraPermutationRelation)
 
         SumcheckArrayOfValuesOverSubrelations expected_values;
 
-        const auto parameters = RelationParameters<FF>::get_random();
+        const auto parameters = RelationParameters<FF>::get_random(&engine);
         const auto& beta = parameters.beta;
         const auto& gamma = parameters.gamma;
         const auto& public_input_delta = parameters.public_input_delta;
@@ -252,7 +254,7 @@ TEST_F(UltraRelationConsistency, DeltaRangeConstraintRelation)
         expected_values[2] = contribution_3 * q_delta_range;
         expected_values[3] = contribution_4 * q_delta_range;
 
-        const auto parameters = RelationParameters<FF>::get_random();
+        const auto parameters = RelationParameters<FF>::get_random(&engine);
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
@@ -315,7 +317,7 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
             expected_values[1] = (y_add_identity * (-q_is_double + 1) + (y_double_identity * q_is_double)) * q_elliptic;
         }
 
-        const auto parameters = RelationParameters<FF>::get_random();
+        const auto parameters = RelationParameters<FF>::get_random(&engine);
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
@@ -354,7 +356,7 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
         constexpr FF SUBLIMB_SHIFT_3(SUBLIMB_SHIFT_2 * SUBLIMB_SHIFT);
         constexpr FF SUBLIMB_SHIFT_4(SUBLIMB_SHIFT_3 * SUBLIMB_SHIFT);
 
-        const auto parameters = RelationParameters<FF>::get_random();
+        const auto parameters = RelationParameters<FF>::get_random(&engine);
         const auto& eta = parameters.eta;
         const auto& eta_two = parameters.eta_two;
         const auto& eta_three = parameters.eta_three;
@@ -553,7 +555,7 @@ TEST_F(UltraRelationConsistency, Poseidon2ExternalRelation)
         expected_values[2] = q_poseidon2_external * (v3 - w_3_shift);
         expected_values[3] = q_poseidon2_external * (v4 - w_4_shift);
 
-        const auto parameters = RelationParameters<FF>::get_random();
+        const auto parameters = RelationParameters<FF>::get_random(&engine);
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
 
         // validate_relation_execution<Relation>(expected_values, input_elements, parameters);
@@ -605,7 +607,7 @@ TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
         expected_values[2] = q_poseidon2_internal * (t2 - w_3_shift);
         expected_values[3] = q_poseidon2_internal * (t3 - w_4_shift);
 
-        const auto parameters = RelationParameters<FF>::get_random();
+        const auto parameters = RelationParameters<FF>::get_random(&engine);
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
 
         // validate_relation_execution<Relation>(expected_values, input_elements, parameters);
