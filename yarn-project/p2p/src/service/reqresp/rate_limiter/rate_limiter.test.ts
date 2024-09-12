@@ -47,19 +47,46 @@ describe('rate limiter', () => {
 
   it('Should allow requests within a peer limit', () => {
     const peerId = makePeer('peer1');
+    // Expect to allow a burst of 5, then not allow
+    for (let i = 0; i < 5; i++) {
+      expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+    }
+    expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
+
+    // Smooth requests
     for (let i = 0; i < 5; i++) {
       jest.advanceTimersByTime(200);
       expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
     }
     expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
-    jest.advanceTimersByTime(200);
-    expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+
+    // Reset after quota has passed
+    jest.advanceTimersByTime(1000);
+    // Second burst
+    for (let i = 0; i < 5; i++) {
+      expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
+    }
     expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
   });
 
   it('Should allow requests within the global limit', () => {
+    // Initial burst
     for (let i = 0; i < 10; i++) {
-      jest.advanceTimersByTime(99);
+      expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer(`peer${i}`))).toBe(true);
+    }
+    expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer('nolettoinno'))).toBe(false);
+
+    // Smooth requests
+    for (let i = 0; i < 10; i++) {
+      jest.advanceTimersByTime(100);
+      expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer(`peer${i}`))).toBe(true);
+    }
+    expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer('nolettoinno'))).toBe(false);
+
+    // Reset after quota has passed
+    jest.advanceTimersByTime(1000);
+    // Second burst
+    for (let i = 0; i < 10; i++) {
       expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer(`peer${i}`))).toBe(true);
     }
     expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer('nolettoinno'))).toBe(false);
@@ -68,7 +95,6 @@ describe('rate limiter', () => {
   it('Should reset after quota has passed', () => {
     const peerId = makePeer('peer1');
     for (let i = 0; i < 5; i++) {
-      jest.advanceTimersByTime(200);
       expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
     }
     expect(rateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
@@ -105,14 +131,12 @@ describe('rate limiter', () => {
 
     // Protocol 1
     for (let i = 0; i < 5; i++) {
-      jest.advanceTimersByTime(200);
       expect(multiProtocolRateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(true);
     }
     expect(multiProtocolRateLimiter.allow(TX_REQ_PROTOCOL, peerId)).toBe(false);
 
     // Protocol 2
     for (let i = 0; i < 2; i++) {
-      jest.advanceTimersByTime(500);
       expect(multiProtocolRateLimiter.allow(PING_PROTOCOL, peerId)).toBe(true);
     }
     expect(multiProtocolRateLimiter.allow(PING_PROTOCOL, peerId)).toBe(false);
@@ -137,6 +161,15 @@ describe('rate limiter', () => {
       }
       jest.advanceTimersByTime(5);
     }
-    expect(allowedRequests).toBe(50);
+    // With 1000 iterations of 5ms per iteration, we run over 5 seconds
+    // With the configuration of 5 requests per second per peer and 10 requests per second globally, we expect:
+    // most of the allowed request to come through the global limit
+    // This sets a floor of 50 requests per second, but allowing for the initial burst, we expect there to be upto an additional 10 requests
+
+    // (upon running a few times we actually see 59)
+    const expectedRequestsFloor = 50;
+    const expectedRequestsCeiling = 60;
+    expect(allowedRequests).toBeGreaterThan(expectedRequestsFloor);
+    expect(allowedRequests).toBeLessThan(expectedRequestsCeiling);
   });
 });

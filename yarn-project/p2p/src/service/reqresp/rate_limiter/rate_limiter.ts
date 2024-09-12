@@ -51,11 +51,8 @@ export class GCRARateLimiter {
 
   allow(): boolean {
     const now = Date.now();
-    if (now < this.vst) {
-      return false;
-    }
 
-    const newVst = this.vst + this.emissionInterval;
+    const newVst = Math.max(this.vst, now) + this.emissionInterval;
     if (newVst - now <= this.limitInterval) {
       this.vst = newVst;
       return true;
