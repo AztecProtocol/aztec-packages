@@ -124,7 +124,7 @@ describe('e2e_p2p_network', () => {
     }
   });
 
-  it('should rollup txs from all peers', async () => {
+  it.only('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');

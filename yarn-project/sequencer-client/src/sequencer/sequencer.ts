@@ -12,14 +12,14 @@ import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/cir
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
-  AztecAddress,
   ContentCommitment,
-  EthAddress,
   GENESIS_ARCHIVE_ROOT,
   Header,
   StateReference,
 } from '@aztec/circuits.js';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';

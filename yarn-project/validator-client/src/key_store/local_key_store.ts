@@ -13,6 +13,10 @@ export class LocalKeyStore implements ValidatorKeyStore {
   private signer: Secp256k1Signer;
 
   constructor(privateKey: string) {
+    // Trim 0x prefix
+    if (privateKey.startsWith('0x')) {
+      privateKey = privateKey.slice(2);
+    }
     this.signer = new Secp256k1Signer(Buffer32.fromString(privateKey));
   }
 

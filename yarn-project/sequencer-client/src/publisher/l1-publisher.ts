@@ -256,7 +256,7 @@ export class L1Publisher {
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
       await this.validateBlockForSubmission(block.header, {
-        digest,
+        digest: digest.toBuffer(),
         signatures: attestations ?? [],
       });
 

@@ -12,6 +12,7 @@ import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { L1Publisher } from '../publisher/index.js';
 import { Sequencer, type SequencerConfig } from '../sequencer/index.js';
 import { TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
 
 /**
  * Encapsulates the full sequencer and publisher.
@@ -100,7 +101,7 @@ export class SequencerClient {
     this.sequencer.restart();
   }
 
-  get coinbase() {
+  get coinbase(): EthAddress {
     return this.sequencer.coinbase;
   }
 

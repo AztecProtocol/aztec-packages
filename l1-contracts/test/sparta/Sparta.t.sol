@@ -7,7 +7,6 @@ import {DecoderBase} from "../decoders/Base.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
 import {SignatureLib} from "../../src/core/sequencer_selection/SignatureLib.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
 import {Inbox} from "../../src/core/messagebridge/Inbox.sol";
@@ -26,7 +25,6 @@ import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
  */
 
 contract SpartaTest is DecoderBase {
-  using MessageHashUtils for bytes32;
 
   Registry internal registry;
   Inbox internal inbox;
@@ -280,8 +278,7 @@ contract SpartaTest is DecoderBase {
     returns (SignatureLib.Signature memory)
   {
     uint256 privateKey = privateKeys[_signer];
-    bytes32 digestForSig = _digest.toEthSignedMessageHash();
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digestForSig);
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _digest);
 
     return SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s});
   }

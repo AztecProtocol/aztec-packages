@@ -7,7 +7,7 @@ import { type P2P } from '@aztec/p2p';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
-import { AttestationTimeoutError, TransactionsNotAvailableError } from './errors/validator.error.js';
+import { AttestationTimeoutError, InvalidValidatorPrivateKeyError, TransactionsNotAvailableError } from './errors/validator.error.js';
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 
@@ -42,6 +42,11 @@ export class ValidatorClient implements Validator {
   }
 
   static new(config: ValidatorClientConfig, p2pClient: P2P) {
+    if (!config.validatorPrivateKey) {
+      // TODO: more validation here?
+      throw new InvalidValidatorPrivateKeyError();
+    }
+
     const localKeyStore = new LocalKeyStore(config.validatorPrivateKey);
 
     const validator = new ValidatorClient(
