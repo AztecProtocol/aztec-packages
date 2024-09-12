@@ -32,13 +32,13 @@ import { type L1Published } from './structs/published.js';
  */
 export type ArchiverL1SynchPoint = {
   /** Number of the last L1 block that added a new L2 block metadata.  */
-  blocksSynchedTo: bigint;
+  blocksSynchedTo?: bigint;
   /** Number of the last L1 block that added a new L2 block body.  */
-  blockBodiesSynchedTo: bigint;
+  blockBodiesSynchedTo?: bigint;
   /** Number of the last L1 block that added L1 -> L2 messages from the Inbox. */
-  messagesSynchedTo: bigint;
+  messagesSynchedTo?: bigint;
   /** Number of the last L1 block that added a new proven block. */
-  provenLogsSynchedTo: bigint;
+  provenLogsSynchedTo?: bigint;
 };
 
 /**

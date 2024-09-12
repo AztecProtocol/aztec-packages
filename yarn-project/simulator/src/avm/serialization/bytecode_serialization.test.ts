@@ -3,7 +3,7 @@ import { strict as assert } from 'assert';
 import { Add, Address, Call, StaticCall, Sub } from '../opcodes/index.js';
 import { type BufferCursor } from './buffer_cursor.js';
 import { type InstructionSet, decodeFromBytecode, encodeToBytecode } from './bytecode_serialization.js';
-import { type Opcode } from './instruction_serialization.js';
+import { Opcode } from './instruction_serialization.js';
 
 class InstA {
   constructor(private n: number) {}
@@ -48,8 +48,8 @@ class InstB {
 describe('Bytecode Serialization', () => {
   it('Should deserialize using instruction set', () => {
     const instructionSet: InstructionSet = new Map<Opcode, any>([
-      [InstA.opcode, InstA],
-      [InstB.opcode, InstB],
+      [InstA.opcode, InstA.deserialize],
+      [InstB.opcode, InstB.deserialize],
     ]);
     const a = new InstA(0x1234);
     const b = new InstB(0x5678n);
@@ -72,8 +72,14 @@ describe('Bytecode Serialization', () => {
 
   it('Should deserialize real instructions', () => {
     const instructions = [
-      new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
-      new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
+      new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+        Opcode.ADD_8,
+        Add.wireFormat8,
+      ),
+      new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+        Opcode.SUB_8,
+        Sub.wireFormat8,
+      ),
       new Address(/*indirect=*/ 0, /*dstOffset=*/ 1),
       new Call(
         /*indirect=*/ 0x01,
@@ -107,8 +113,14 @@ describe('Bytecode Serialization', () => {
 
   it('Should serialize real instructions', () => {
     const instructions = [
-      new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
-      new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
+      new Add(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+        Opcode.ADD_8,
+        Add.wireFormat8,
+      ),
+      new Sub(/*indirect=*/ 0, /*inTag=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+        Opcode.SUB_8,
+        Sub.wireFormat8,
+      ),
       new Address(/*indirect=*/ 0, /*dstOffset=*/ 1),
       new Call(
         /*indirect=*/ 0x01,

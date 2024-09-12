@@ -7,6 +7,7 @@ import { BootstrapNode } from '../bootstrap/bootstrap.js';
 import { type P2PConfig } from '../config.js';
 import { DiscV5Service } from './discV5_service.js';
 import { createLibP2PPeerId } from './libp2p_service.js';
+import { DEFAULT_P2P_REQRESP_CONFIG } from './reqresp/config.js';
 import { PeerDiscoveryState } from './service.js';
 
 const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void> => {
@@ -135,6 +136,7 @@ describe('Discv5Service', () => {
       p2pEnabled: true,
       l2QueueSize: 100,
       keepProvenTxsInPoolFor: 0,
+      ...DEFAULT_P2P_REQRESP_CONFIG,
     };
     return new DiscV5Service(peerId, config);
   };

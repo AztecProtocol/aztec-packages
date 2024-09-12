@@ -39,15 +39,14 @@ use crate::{
 },
     contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
     hash::{
-    compute_l2_to_l1_hash, compute_tx_logs_hash, compute_tx_note_logs_hash, compute_siloed_nullifier,
-    silo_encrypted_log_hash, silo_note_hash, silo_unencrypted_log_hash, mask_encrypted_log_hash
+    compute_l2_to_l1_hash, compute_tx_logs_hash, compute_siloed_nullifier, silo_note_hash,
+    silo_unencrypted_log_hash, mask_encrypted_log_hash
 },
     header::Header, merkle_tree::membership::MembershipWitness,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     partial_state_reference::PartialStateReference, tests::fixtures,
     transaction::{tx_context::TxContext, tx_request::TxRequest}, traits::Empty,
-    recursion::{verification_key::VerificationKey, proof::{NestedRecursiveProof, RecursiveProof}},
-    point::Point
+    recursion::{verification_key::VerificationKey, proof::NestedRecursiveProof}, point::Point
 };
 
 fn subarray<T, let N: u32, let M: u32>(arr: [T; N]) -> [T; M] {
@@ -727,15 +726,15 @@ impl FixtureBuilder {
     }
 
     pub fn add_public_data_read_request(&mut self, leaf_slot: Field, value: Field) {
-        self.public_data_reads.push(PublicDataRead { leaf_slot, value });
+        self.public_data_reads.push(PublicDataRead { leaf_slot, value, counter: self.next_counter() });
     }
 
     pub fn append_public_data_read_requests(&mut self, num_reads: u32) {
         let index_offset = self.public_data_reads.len();
         for i in 0..self.public_data_reads.max_len() {
             if i < num_reads {
-                let read_request = self.mock_public_data_read(index_offset + i);
-                self.add_public_data_read_request(read_request.leaf_slot, read_request.value);
+                let (leaf_slot, value) = self.mock_public_data_read(index_offset + i);
+                self.add_public_data_read_request(leaf_slot, value);
             }
         }
     }
@@ -806,14 +805,6 @@ impl FixtureBuilder {
                 self.add_non_existent_read_request_for_nullifier(value);
             }
         }
-    }
-
-    pub fn add_read_request_for_pending_public_data(&mut self, public_date_update_request_index: u32) -> u32 {
-        let new_read_request_index = self.public_data_reads.len();
-        let public_write = self.public_data_update_requests.get(public_date_update_request_index);
-        let read_request = PublicDataRead { leaf_slot: public_write.leaf_slot, value: public_write.new_value };
-        self.public_data_reads.push(read_request);
-        new_read_request_index
     }
 
     pub fn add_request_for_key_validation(&mut self, pk_m: Point, sk_app: Field, sk_app_generator: Field) -> u32 {
@@ -1048,9 +1039,9 @@ impl FixtureBuilder {
         KeyValidationRequestAndGenerator { request, sk_app_generator: 3 + value_offset }
     }
 
-    fn mock_public_data_read(self, index: u32) -> PublicDataRead {
+    fn mock_public_data_read(self, index: u32) -> (Field, Field) {
         let value_offset = 4545 + self.value_offset + index as Field;
-        PublicDataRead { leaf_slot: value_offset, value: 1 + value_offset }
+        (value_offset, value_offset + 1)
     }
 
     fn mock_public_data_write(self, index: u32) -> (Field, Field) {

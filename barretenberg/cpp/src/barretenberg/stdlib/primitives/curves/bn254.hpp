@@ -25,8 +25,8 @@ template <typename CircuitBuilder> struct bn254 {
     // Note: its useful to have these type names match the native analog exactly so that components that digest a Curve
     // (e.g. Gemini) can be agnostic as to whether they're operating on native or stdlib types.
     using ScalarField = field_t<CircuitBuilder>;
-    using BaseField = bigfield<CircuitBuilder, bb::Bn254FqParams>;
-    using Group = element<CircuitBuilder, BaseField, ScalarField, GroupNative>;
+    using Group = element<CircuitBuilder, bigfield<CircuitBuilder, bb::Bn254FqParams>, ScalarField, GroupNative>;
+    using BaseField = Group::BaseField;
     using Element = Group;
     using AffineElement = Group;
 

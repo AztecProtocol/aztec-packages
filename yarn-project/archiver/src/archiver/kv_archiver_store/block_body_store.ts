@@ -68,7 +68,7 @@ export class BlockBodyStore {
    * Gets the last L1 block number in which a L2 block body was included
    * @returns The L1 block number
    */
-  getSynchedL1BlockNumber(): bigint {
-    return this.#lastSynchedL1Block.get() ?? 0n;
+  getSynchedL1BlockNumber(): bigint | undefined {
+    return this.#lastSynchedL1Block.get();
   }
 }

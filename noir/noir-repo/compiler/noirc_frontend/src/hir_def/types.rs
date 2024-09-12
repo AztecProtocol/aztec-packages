@@ -471,6 +471,16 @@ impl<T> Shared<T> {
     pub fn borrow_mut(&self) -> std::cell::RefMut<T> {
         self.0.borrow_mut()
     }
+
+    pub fn unwrap_or_clone(self) -> T
+    where
+        T: Clone,
+    {
+        match Rc::try_unwrap(self.0) {
+            Ok(elem) => elem.into_inner(),
+            Err(rc) => rc.as_ref().clone().into_inner(),
+        }
+    }
 }
 
 /// A restricted subset of binary operators useable on
@@ -1099,12 +1109,18 @@ impl Type {
             | Type::Unit
             | Type::Constant(_)
             | Type::Slice(_)
-            | Type::TypeVariable(_, _)
-            | Type::NamedGeneric(_, _, _)
             | Type::Function(_, _, _, _)
             | Type::FmtString(_, _)
             | Type::InfixExpr(..)
             | Type::Error => true,
+
+            Type::TypeVariable(type_var, _) | Type::NamedGeneric(type_var, _, _) => {
+                if let TypeBinding::Bound(typ) = &*type_var.borrow() {
+                    typ.is_valid_for_unconstrained_boundary()
+                } else {
+                    true
+                }
+            }
 
             // Quoted objects only exist at compile-time where the only execution
             // environment is the interpreter. In this environment, they are valid.

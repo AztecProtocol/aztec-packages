@@ -26,6 +26,7 @@ import {
 import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { isAnvilTestChain } from './ethereum_chain.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 
 /**
@@ -72,10 +73,6 @@ export interface L1ContractArtifactsForDeployment {
    * Outbox contract artifacts
    */
   outbox: ContractArtifacts;
-  /**
-   * Availability Oracle contract artifacts
-   */
-  availabilityOracle: ContractArtifacts;
   /**
    * Registry contract artifacts
    */
@@ -167,7 +164,7 @@ export const deployL1Contracts = async (
     };
     return await (await fetch(rpcUrl, content)).json();
   };
-  if (chain.id == foundry.id) {
+  if (isAnvilTestChain(chain.id)) {
     const interval = 12;
     const res = await rpcCall('anvil_setBlockTimestampInterval', [interval]);
     if (res.error) {
@@ -185,9 +182,6 @@ export const deployL1Contracts = async (
   const registryAddress = await deployer.deploy(contractsToDeploy.registry, [account.address.toString()]);
   logger.info(`Deployed Registry at ${registryAddress}`);
 
-  const availabilityOracleAddress = await deployer.deploy(contractsToDeploy.availabilityOracle);
-  logger.info(`Deployed AvailabilityOracle at ${availabilityOracleAddress}`);
-
   const feeJuiceAddress = await deployer.deploy(contractsToDeploy.feeJuice);
 
   logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
@@ -198,7 +192,6 @@ export const deployL1Contracts = async (
 
   const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
     getAddress(registryAddress.toString()),
-    getAddress(availabilityOracleAddress.toString()),
     getAddress(feeJuicePortalAddress.toString()),
     args.vkTreeRoot.toString(),
     account.address.toString(),
@@ -260,7 +253,7 @@ export const deployL1Contracts = async (
     `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
   );
 
-  if (chain.id == foundry.id) {
+  if (isAnvilTestChain(chain.id)) {
     // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
     //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
     try {
@@ -317,7 +310,6 @@ export const deployL1Contracts = async (
   logger.verbose(`All transactions for L1 deployment have been mined`);
 
   const l1Contracts: L1ContractAddresses = {
-    availabilityOracleAddress,
     rollupAddress,
     registryAddress,
     inboxAddress,

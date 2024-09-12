@@ -124,6 +124,12 @@ pub enum ResolverError {
     AssociatedConstantsMustBeNumeric { span: Span },
     #[error("Overflow in `{lhs} {op} {rhs}`")]
     OverflowInType { lhs: u32, op: crate::BinaryTypeOperator, rhs: u32, span: Span },
+    #[error("`quote` cannot be used in runtime code")]
+    QuoteInRuntimeCode { span: Span },
+    #[error("Comptime-only type `{typ}` cannot be used in runtime code")]
+    ComptimeTypeInRuntimeCode { typ: String, span: Span },
+    #[error("Comptime variable `{name}` cannot be mutated in a non-comptime context")]
+    MutatingComptimeInNonComptimeContext { name: String, span: Span },
 }
 
 impl ResolverError {
@@ -504,6 +510,27 @@ impl<'a> From<&'a ResolverError> for Diagnostic {
                     *span,
                 )
             }
+            ResolverError::QuoteInRuntimeCode { span } => {
+                Diagnostic::simple_error(
+                    "`quote` cannot be used in runtime code".to_string(),
+                    "Wrap this in a `comptime` block or function to use it".to_string(),
+                    *span,
+                )
+            },
+            ResolverError::ComptimeTypeInRuntimeCode { typ, span } => {
+                Diagnostic::simple_error(
+                    format!("Comptime-only type `{typ}` cannot be used in runtime code"),
+                    "Comptime-only type used here".to_string(),
+                    *span,
+                )
+            },
+            ResolverError::MutatingComptimeInNonComptimeContext { name, span } => {
+                Diagnostic::simple_error(
+                    format!("Comptime variable `{name}` cannot be mutated in a non-comptime context"),
+                    format!("`{name}` mutated here"),
+                    *span,
+                )
+            },
         }
     }
 }
