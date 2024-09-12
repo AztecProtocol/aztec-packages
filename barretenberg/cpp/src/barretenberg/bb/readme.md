@@ -122,6 +122,10 @@ Use `bb <command>_mega_honk`.
 
 Refer to all available `bb` commands linked above for full list of functionality.
 
+Note that MegaHonk:
+- Generates insecure recursion circuits when Goblin recursive verifiers are not present
+- Will not have a Solidity verifier, as the proving system is intended for use with apps deploying on Aztec only
+
 ### Maximum circuit size
 
 Currently the binary downloads an SRS that can be used to prove the maximum circuit size. This maximum circuit size parameter is a constant in the code and has been set to $2^{23}$ as of writing. This maximum circuit size differs from the maximum circuit size that one can prove in the browser, due to WASM limits.
