@@ -1,8 +1,8 @@
 use dep::aztec::{
     generators::{Ga1 as G_amt, Ga2 as G_npk, Ga3 as G_rnd, G_slot},
-    prelude::{NoteHeader, NoteInterface, PrivateContext},
+    prelude::{NoteInterface, PrivateContext},
     protocol_types::{
-    constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::{Point, POINT_LENGTH}, scalar::Scalar,
+    constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::{Point, POINT_LENGTH},
     hash::poseidon2_hash_with_separator, traits::Serialize
 },
     note::utils::compute_note_hash_for_nullify, oracle::unsafe_rand::unsafe_rand,

@@ -383,7 +383,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
-      await publisher.processL2Block(block);
+      await publisher.proposeL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -407,6 +407,7 @@ describe('L1Publisher integration', () => {
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
           `0x${block.header.hash().toBuffer().toString('hex')}`,
+          [],
           [],
           `0x${block.body.toBuffer().toString('hex')}`,
         ],
@@ -484,7 +485,7 @@ describe('L1Publisher integration', () => {
 
       writeJson(`empty_block_${block.number}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
-      await publisher.processL2Block(block);
+      await publisher.proposeL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
@@ -508,6 +509,7 @@ describe('L1Publisher integration', () => {
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
           `0x${block.header.hash().toBuffer().toString('hex')}`,
+          [],
           [],
           `0x${block.body.toBuffer().toString('hex')}`,
         ],

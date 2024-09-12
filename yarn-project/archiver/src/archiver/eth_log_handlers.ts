@@ -87,7 +87,7 @@ async function getBlockFromRollupTx(
   if (!(functionName === 'propose')) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [headerHex, archiveRootHex, , , bodyHex] = args! as readonly [Hex, Hex, Hex, ViemSignature[], Hex];
+  const [headerHex, archiveRootHex, , , , bodyHex] = args! as readonly [Hex, Hex, Hex, Hex[], ViemSignature[], Hex];
 
   const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
   const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));

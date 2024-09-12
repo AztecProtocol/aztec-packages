@@ -1,4 +1,5 @@
-import { type L2Block, type Signature } from '@aztec/circuit-types';
+import { type L2Block, type Signature, type TxHash } from '@aztec/circuit-types';
+import { getHashedSignaturePayload } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import { ETHEREUM_SLOT_DURATION, EthAddress, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
@@ -32,6 +33,7 @@ import type * as chains from 'viem/chains';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
+import { prettyLogVeimError } from './utils.js';
 
 /**
  * Stats for a sent transaction.
@@ -71,6 +73,8 @@ export type L1ProcessArgs = {
   blockHash: Buffer;
   /** L2 block body. */
   body: Buffer;
+  /** L2 block tx hashes */
+  txHashes: TxHash[];
   /** Attestations */
   attestations?: Signature[];
 };
@@ -221,23 +225,25 @@ export class L1Publisher {
   }
 
   /**
-   * Publishes L2 block on L1.
-   * @param block - L2 block to publish.
+   * Proposes a L2 block on L1.
+   * @param block - L2 block to propose.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(block: L2Block, attestations?: Signature[]): Promise<boolean> {
+  public async proposeL2Block(block: L2Block, attestations?: Signature[], txHashes?: TxHash[]): Promise<boolean> {
     const ctx = {
       blockNumber: block.number,
       slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
       blockHash: block.hash().toString(),
     };
 
-    const processTxArgs = {
+    const digest = getHashedSignaturePayload(block.archive.root, txHashes ?? []);
+    const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
       blockHash: block.header.hash().toBuffer(),
       body: block.body.toBuffer(),
       attestations,
+      txHashes: txHashes ?? [],
     };
 
     // Publish body and propose block (if not already published)
@@ -249,11 +255,11 @@ export class L1Publisher {
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
       await this.validateBlockForSubmission(block.header, {
-        digest: block.archive.root.toBuffer(),
+        digest,
         signatures: attestations ?? [],
       });
 
-      const txHash = await this.sendProposeTx(processTxArgs);
+      const txHash = await this.sendProposeTx(proposeTxArgs);
 
       if (!txHash) {
         this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
@@ -411,10 +417,12 @@ export class L1Publisher {
         const attestations = encodedData.attestations
           ? encodedData.attestations.map(attest => attest.toViemSignature())
           : [];
+        const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.to0xString()) : [];
         const args = [
           `0x${encodedData.header.toString('hex')}`,
           `0x${encodedData.archive.toString('hex')}`,
           `0x${encodedData.blockHash.toString('hex')}`,
+          txHashes,
           attestations,
           `0x${encodedData.body.toString('hex')}`,
         ] as const;
@@ -424,6 +432,7 @@ export class L1Publisher {
           gas: gasGuesstimate,
         });
       } catch (err) {
+        prettyLogVeimError(err, this.log);
         this.log.error(`Rollup publish failed`, err);
         return undefined;
       }
