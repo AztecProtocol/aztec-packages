@@ -1,6 +1,7 @@
 ---
 title: Using custom note types in Aztec.nr
 tags: [contracts, notes]
+keywords: [custom note]
 ---
 
 It may be useful to write a custom note type if you want to use a specific type of private data or struct that does not have a default implementation in Aztec.nr. If you create a note that uses a custom note type, you are able to nullify that note with one nullifier. This is more secure and less expensive than using multiple separate notes.
@@ -17,7 +18,11 @@ A custom note type can be defined with the macro `#[aztec(note)]` used on a stru
 
 #include_code state_vars-CardNote noir-projects/noir-contracts/contracts/docs_example_contract/src/types/card_note.nr rust
 
-In this example, we are implementing a card note that holds a number of points as `u8`.
+In this example, we are implementing a card note that holds a number of `points` as `u8`.
+
+`randomness` is are not enforced by the protocol and should be implemented by the application developer. If you do not include `randomness`, and the note preimage can be guessed by an attacker, it makes the note vulnerable to preimage attacks. 
+
+`npk_m_hash` is `nullifier public key, master, hash` which is the hash of the nullifier key owned by the user. It ensures that when the note is spent, only the owner of the `npk_m` can spend it.
 
 ## Implement NoteInterface
 
@@ -43,4 +48,6 @@ If you are also planning to be able to access the data with a note in public sta
 
 ## Further reading
 
+- [What is `#[aztec(note)]` actually doing? + functions such as serialize() and deserialize()](../../../../../aztec/smart_contracts/functions/inner_workings.md#custom-notes-aztecnote)
 - [Macros reference](../../../../../reference/developer_references/smart_contract_reference/macros.md)
+- [Keys, including npk_m_hash (nullifier public key master)](../../../../../aztec/concepts/accounts/keys.md)
