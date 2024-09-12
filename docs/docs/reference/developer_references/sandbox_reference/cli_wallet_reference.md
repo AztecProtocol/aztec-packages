@@ -1,6 +1,7 @@
 ---
 title: CLI Wallet
 tags: [sandbox, wallet, cli]
+keywords: [wallet, cli wallet]
 ---
 
 For development, it may be useful to deploy, transact, or create notes in a non-programmatic way. You can use Aztec's CLI Wallet for thing such as:

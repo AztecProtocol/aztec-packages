@@ -7,7 +7,7 @@ import Image from "@theme/IdealImage";
 
 In this guide, we will retrieving the Sandbox and deploy a pre-written contract to it using Aztec.js.
 
-This guide assumes you have followed the [quickstart](../../guides/developer_guides/getting_started/quickstart.md).
+This guide assumes you have followed the [quickstart](../../guides/developer_guides/getting_started.md).
 
 ## Prerequisites
 

@@ -1,6 +1,8 @@
 ---
 title: Authentication Witness
 tags: [accounts, authwit]
+importance: 1
+keywords: [authwit, authentication witness, accounts]
 ---
 
 Authentication Witness is a scheme for authenticating actions on Aztec, so users can allow third-parties (eg protocols or other users) to execute an action on their behalf.

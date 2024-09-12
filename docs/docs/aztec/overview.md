@@ -130,7 +130,7 @@ Explore the Concepts for a deeper understanding into the components that make up
 ### Start coding
 
 <div>
- <Card shadow='tl' link='/guides/developer_guides/getting_started/quickstart'>
+ <Card shadow='tl' link='/guides/developer_guides/getting_started'>
     <CardHeader>
       <h3>Developer quickstart</h3>
     </CardHeader>

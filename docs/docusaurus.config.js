@@ -197,6 +197,10 @@ const config = {
         appId: "CL4NK79B0W",
         apiKey: "21d89dadaa37a4d1b6bf4b17978dcf7f",
         indexName: "aztec",
+        contextualSearch: true,
+        customRanking: [
+          { asc: 'importance' },
+        ],
       },
       colorMode: {
         defaultMode: "light",
@@ -339,7 +343,7 @@ const config = {
               },
               {
                 label: "Developer Quickstart",
-                to: "/guides/developer_guides/getting_started/quickstart",
+                to: "/guides/developer_guides/getting_started",
               },
               {
                 label: "Aztec.nr",

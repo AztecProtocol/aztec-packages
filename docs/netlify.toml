@@ -8,7 +8,7 @@
 
 [[redirects]]
     from = "/getting_started"
-    to = "/guides/developer_guides/getting_started/quickstart"
+    to = "/guides/developer_guides/getting_started"
 
 [[redirects]]
     from = "/tutorials/simple_dapp/*"
@@ -64,7 +64,7 @@
 
 [[redirects]]
     from = "/developers/sandbox/*"
-    to = "/guides/developer_guides/getting_started/quickstart"
+    to = "/guides/developer_guides/getting_started"
 
 [[redirects]]
     from = "/developers/contracts/*"
@@ -72,7 +72,7 @@
 
 [[redirects]]
     from = "/dev_docs/*"
-    to = "/guides/developer_guides/getting_started/quickstart"
+    to = "/guides/developer_guides/getting_started"
 
 [[redirects]]
     from = "/aztec/cryptography/cryptography-roadmap"
@@ -136,8 +136,8 @@
 
 [[redirects]]
     from = "/reference/sandbox_reference/sandbox-reference"
-    to = "/guides/developer_guides/getting_started/quickstart" 
+    to = "/guides/developer_guides/getting_started" 
 
 [[redirects]]
     from = "/reference/sandbox_reference"
-    to = "/guides/developer_guides/getting_started/quickstart" 
+    to = "/guides/developer_guides/getting_started" 

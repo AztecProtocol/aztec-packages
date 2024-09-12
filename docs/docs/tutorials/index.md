@@ -17,7 +17,7 @@ This page includes the most popular tutorials in order of increasing complexity.
 ### Beginner: Write your first smart contract
 
 <div className="card-container full-width">
-  <Card shadow='tl' link='/guides/developer_guides/getting_started/quickstart'>
+  <Card shadow='tl' link='/tutorials/codealong/contract_tutorials/counter_contract'>
     <CardHeader>
       <h3>Simple counter contract</h3>
     </CardHeader>
@@ -33,7 +33,7 @@ This page includes the most popular tutorials in order of increasing complexity.
 It is recommended to follow these in order.
 
 <div className="card-container">
-  <Card shadow='tl' link='/tutorials/codealong/contract_tutorials/counter_contract'>
+  <Card shadow='tl' link='/tutorials/codealong/contract_tutorials/private_voting_contract'>
     <CardHeader>
       <h3>Simple private voting contract</h3>
     </CardHeader>
