@@ -110,39 +110,51 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
     };
 
     /**
-     * @brief Get the precomputed commitments at a given index
-     * @example if the row idx is 2, and there are 4 decider verification keys
-     *           VK 0  VK 1  VK 2  VK 3
-     *           q_c   q_c   q_c   q_c
-     *           *     *     *     *
-     *           a_1   b_1   c_1   d_1
-     *           *     *     *     *
-     *  then the function outputs the vector of group elements {a_1, b_1, c_1, d_1}
+     * @brief Get the precomputed commitments grouped by commitment index
+     * @example If the commitments are grouped as in
+     *           VK 0    VK 1    VK 2    VK 3
+     *           q_c_0   q_c_1   q_c_2   q_c_3
+     *           q_l_0   q_l_1   q_l_2   q_l_3
+     *             ⋮        ⋮        ⋮       ⋮
+     *
+     *  then this function output this matrix of group elements as a vector of rows,
+     *  i.e. it ouptuts {{q_c_0, q_c_1, q_c_2, q_c_3}, {q_l_0, q_l_1, q_l_2, q_l_3},...}.
+     *  The "commitment index" is the index of the row.
      */
-    std::vector<Commitment> get_precomputed_commitments_at_index(const size_t idx) const
+    std::vector<std::vector<Commitment>> get_precomputed_commitments() const
     {
-        std::vector<Commitment> result(NUM);
-        for (auto [elt, key] : zip_view(result, _data)) {
-            elt = key->verification_key->get_all()[idx];
+        const size_t num_commitments_to_fold = _data[0]->verification_key->get_all().size();
+        std::vector<std::vector<Commitment>> result(num_commitments_to_fold, std::vector<Commitment>(NUM));
+        for (size_t idx = 0; auto& commitment_at_idx : result) {
+            for (auto [elt, key] : zip_view(commitment_at_idx, _data)) {
+                elt = key->verification_key->get_all()[idx];
+            }
+            idx++;
         }
-
         return result;
     }
 
     /**
-     * @brief Get the witness commitments at a given index
-     * @details This is similar to get_precomputed_commitments_at_index, but for witness commitments.
+     * @brief Get the witness commitments grouped by commitment index
+     * @details See get_precomputed_commitments; this is essentially the same.
      */
-    std::vector<Commitment> get_witness_commitments_at_index(const size_t idx) const
+    std::vector<std::vector<Commitment>> get_witness_commitments() const
     {
-        std::vector<Commitment> result(NUM);
-        for (auto [elt, key] : zip_view(result, _data)) {
-            elt = key->witness_commitments.get_all()[idx];
+        const size_t num_commitments_to_fold = _data[0]->witness_commitments.get_all().size();
+        std::vector<std::vector<Commitment>> result(num_commitments_to_fold, std::vector<Commitment>(NUM));
+        for (size_t idx = 0; auto& commitment_at_idx : result) {
+            for (auto [elt, key] : zip_view(commitment_at_idx, _data)) {
+                elt = key->witness_commitments.get_all()[idx];
+            }
+            idx++;
         }
-
         return result;
     }
 
+    /**
+     * @brief Get the alphas grouped by commitment index
+     * @details See get_precomputed_commitments; this is essentially the same.
+     */
     std::vector<std::vector<FF>> get_alphas() const
     {
         const size_t num_alphas_to_fold = _data[0]->alphas.size();
@@ -156,6 +168,10 @@ template <typename Flavor_, size_t NUM_ = 2> struct DeciderVerificationKeys_ {
         return result;
     }
 
+    /**
+     * @brief Get the relation parameters grouped by commitment index
+     * @details See get_precomputed_commitments; this is essentially the same.
+     */
     std::vector<std::vector<FF>> get_relation_parameters() const
     {
         const size_t num_params_to_fold = _data[0]->relation_parameters.get_to_fold().size();

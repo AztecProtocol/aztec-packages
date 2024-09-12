@@ -98,8 +98,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     std::array<FF, BATCHED_EXTENDED_LENGTH - NUM_KEYS>
         combiner_quotient_evals; // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
                                  // Hence we need  k(d - 1) evaluations to represent it.
-    size_t idx = DeciderVerificationKeys::NUM;
-    for (auto& val : combiner_quotient_evals) {
+    for (size_t idx = DeciderVerificationKeys::NUM; auto& val : combiner_quotient_evals) {
         val = transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx++));
     }
 
@@ -121,15 +120,13 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // // Fold the commitments
-    idx = 0;
-    for (auto& folded_commitment : next_accumulator->verification_key->get_all()) {
-        folded_commitment = batch_mul_native(keys_to_fold.get_precomputed_commitments_at_index(idx), lagranges);
-        idx++;
+    for (auto [combination, to_combine] :
+         zip_view(next_accumulator->verification_key->get_all(), keys_to_fold.get_precomputed_commitments())) {
+        combination = batch_mul_native(to_combine, lagranges);
     }
-    idx = 0;
-    for (auto& folded_commitment : next_accumulator->witness_commitments.get_all()) {
-        folded_commitment = batch_mul_native(keys_to_fold.get_witness_commitments_at_index(idx), lagranges);
-        idx++;
+    for (auto [combination, to_combine] :
+         zip_view(next_accumulator->witness_commitments.get_all(), keys_to_fold.get_witness_commitments())) {
+        combination = batch_mul_native(to_combine, lagranges);
     }
 
     // Fold the relation parameters
