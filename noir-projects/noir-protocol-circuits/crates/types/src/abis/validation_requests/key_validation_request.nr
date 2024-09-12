@@ -1,4 +1,5 @@
-use crate::{constants::KEY_VALIDATION_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize}, point::Point};
+use crate::{traits::{Empty, Serialize, Deserialize}, point::Point};
+pub use crate::constants::KEY_VALIDATION_REQUEST_LENGTH;
 
 struct KeyValidationRequest {
     pk_m: Point,

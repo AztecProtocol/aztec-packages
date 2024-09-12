@@ -3,7 +3,7 @@ use crate::{
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_nullify}
 };
 
-use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::Point, traits::Eq};
+use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::Point};
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
 global MOCK_NOTE_LENGTH = 1;
