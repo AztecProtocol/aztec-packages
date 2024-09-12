@@ -5,7 +5,7 @@ tags: [sandbox]
 
 :::tip
 
-For a quick start, follow the [guide](../../../guides/developer_guides/getting_started.md) to install the sandbox.
+For a quick start, follow the [guide](../../../guides/developer_guides/getting_started) to install the sandbox.
 
 :::
 
@@ -168,7 +168,7 @@ If you wish to run components of the Aztec network stack separately, you can use
 aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
 ```
 
-Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. Eg if you want to run a PXE separately to a node, you can [read this guide](../local_env/run_more_than_one_pxe_sandbox.md).
+Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. Eg if you want to run a PXE separately to a node, you can [read this guide](../../../guides/developer_guides/local_env/run_more_than_one_pxe_sandbox.md).
 
 ## Update the sandbox
 

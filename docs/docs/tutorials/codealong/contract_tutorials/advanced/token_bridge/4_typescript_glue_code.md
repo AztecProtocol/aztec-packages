@@ -167,7 +167,7 @@ Note - you might have a jest error at the end of each test saying "expected 1-2 
 
 ### Follow a more detailed Aztec.js tutorial 
 
-Follow the tutorial [here](../../../aztecjs-getting-started.md).
+Follow the tutorial [here](../../../aztecjs-getting-started).
 
 ### Optional: Learn more about concepts mentioned here
 

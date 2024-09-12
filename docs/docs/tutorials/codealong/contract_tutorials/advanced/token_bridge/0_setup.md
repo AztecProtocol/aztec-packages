@@ -17,7 +17,7 @@ We recommend going through this setup to fully understand where things live.
 
 - [node v18+ (GitHub link)](https://github.com/tj/n)
 - [docker](https://docs.docker.com/)
-- [Aztec sandbox](../../../../../guides/developer_guides/getting_started.md) - you should have this running before starting the tutorial
+- [Aztec sandbox](../../../../../guides/developer_guides/getting_started) - you should have this running before starting the tutorial
 
 Start the sandbox
 

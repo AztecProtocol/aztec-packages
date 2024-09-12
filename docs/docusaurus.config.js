@@ -342,7 +342,7 @@ const config = {
                 to: "/",
               },
               {
-                label: "Developer Quickstart",
+                label: "Developer Getting Started Guide",
                 to: "/guides/developer_guides/getting_started",
               },
               {

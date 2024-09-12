@@ -13,7 +13,7 @@ Guides are step-by-step how-tos to achieve a specific goal. On this page you can
 <div className="card-container full-width">
   <Card shadow='tl' link='/guides/developer_guides/getting_started'>
     <CardHeader>
-      <h3>Quickstart</h3>
+      <h3>Getting Started</h3>
     </CardHeader>
     <CardBody>
      Get started on Aztec by installing the sandbox and playing with it

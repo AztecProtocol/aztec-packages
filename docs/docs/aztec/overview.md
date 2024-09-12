@@ -132,7 +132,7 @@ Explore the Concepts for a deeper understanding into the components that make up
 <div>
  <Card shadow='tl' link='/guides/developer_guides/getting_started'>
     <CardHeader>
-      <h3>Developer quickstart</h3>
+      <h3>Developer Getting Started Guide</h3>
     </CardHeader>
     <CardBody>
       Follow the getting started guide to start developing with the Aztec Sandbox
