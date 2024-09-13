@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <exception>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <unordered_map>
 #include <utility>
@@ -41,6 +42,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
         : name(std::move(name))
         , depth(levels)
         , dataStore(dataStore)
+        , nodes_by_index(std::vector<std::unordered_map<index_t, fr>>(depth + 1, std::unordered_map<index_t, fr>()))
     {
         initialise();
     }
@@ -67,7 +69,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     /**
      * @brief Adds the leaf at the given index, updates the leaf index if requested
      */
-    void set_at_index(const index_t& index, const IndexedLeafValueType& leaf, bool add_to_index);
+    void set_leaf_key_at_index(const index_t& index, const IndexedLeafValueType& leaf);
 
     /**
      * @brief Updates the leaf index
@@ -77,15 +79,25 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     /**
      * @brief Writes the provided data at the given node coordinates. Only writes to uncommitted data.
      */
-    void put_node(const fr& nodeHash, const NodePayload& payload);
+    void put_node_by_hash(const fr& nodeHash, const NodePayload& payload);
 
     /**
      * @brief Returns the data at the given node coordinates if available. Reads from uncommitted state if requested.
      */
-    bool get_node(const fr& nodeHash,
-                  NodePayload& payload,
-                  ReadTransaction& transaction,
-                  bool includeUncommitted) const;
+    bool get_node_by_hash(const fr& nodeHash,
+                          NodePayload& payload,
+                          ReadTransaction& transaction,
+                          bool includeUncommitted) const;
+
+    /**
+     * @brief Writes the provided data at the given node coordinates. Only writes to uncommitted data.
+     */
+    void put_cached_node_by_index(uint32_t level, index_t index, const fr& data, bool overwriteIfPresent = true);
+
+    /**
+     * @brief Returns the data at the given node coordinates if available.
+     */
+    bool get_cached_node_by_index(uint32_t level, index_t index, fr& data) const;
 
     /**
      * @brief Writes the provided meta data to uncommitted state
@@ -93,29 +105,9 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     void put_meta(const TreeMeta& m);
 
     /**
-     * @brief Writes the provided initial meta data to uncommitted state
-     */
-    // void put_initial_meta(const index_t& size, const bb::fr& root);
-
-    /**
      * @brief Reads the tree meta data, including uncommitted data if requested
      */
     void get_meta(TreeMeta& m, ReadTransaction& tx, bool includeUncommitted) const;
-
-    /**
-     * @brief Reads the tree meta data, including uncommitted data if requested
-     */
-    // void get_initial_meta(index_t& size, bb::fr& root, ReadTransaction& tx) const;
-
-    /**
-     * @brief Reads the extended tree meta data, including uncommitted data if requested
-     */
-    // void get_full_meta(index_t& size,
-    //                    bb::fr& root,
-    //                    std::string& name,
-    //                    uint32_t& depth,
-    //                    ReadTransaction& tx,
-    //                    bool includeUncommitted) const;
 
     /**
      * @brief Finds the index of the given leaf value in the tree if available. Includes uncommitted data if requested.
@@ -152,15 +144,31 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
      */
     ReadTransactionPtr create_read_transaction() const { return dataStore.create_read_transaction(); }
 
+    std::optional<IndexedLeafValueType> get_leaf_by_hash(const fr& leaf_hash,
+                                                         ReadTransaction& tx,
+                                                         bool includeUncommitted) const;
+
+    void put_leaf_by_hash(const fr& leaf_hash, const IndexedLeafValueType& leafPreImage);
+
+    std::optional<IndexedLeafValueType> get_cached_leaf_by_index(const index_t& index) const;
+
+    void put_cached_leaf_by_index(const index_t& index, const IndexedLeafValueType& leafPreImage);
+
+    fr get_current_root(ReadTransaction& tx, bool includeUncommitted) const;
+
   private:
     std::string name;
     uint32_t depth;
-    // std::vector<std::unordered_map<index_t, std::vector<uint8_t>>> nodes;
     std::map<fr, NodePayload> nodes;
     std::map<uint256_t, Indices> indices;
     std::map<fr, IndexedLeafValueType> leaves;
     PersistedStoreType& dataStore;
     TreeMeta meta;
+    mutable std::mutex mtx;
+
+    // not persisted, just cached until commit
+    std::vector<std::unordered_map<index_t, fr>> nodes_by_index;
+    std::unordered_map<index_t, IndexedLeafValueType> leaf_pre_image_by_index;
 
     void initialise();
 
@@ -213,45 +221,68 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
     return std::make_pair(false, it->first > retrieved_value ? it->second.indices[0] : db_index);
 }
 
-// template <typename LeafValueType>
-// std::optional<typename ContentAddressedCachedTreeStore<LeafValueType>::IndexedLeafValueType>
-// ContentAddressedCachedTreeStore<LeafValueType>::get_leaf(
-//     const index_t& index, ReadTransaction& tx, bool includeUncommitted) const
-// {
-//     if (includeUncommitted) {
-//         typename std::unordered_map<index_t, IndexedLeafValueType>::const_iterator it = leaves.find(index);
-//         if (it != leaves.end()) {
-//             return it->second;
-//         }
-//     }
-//     fr leafHash;
-//     bool success = dataStore.read_leaf_hash(index, leafHash, tx);
-//     if (success) {
-//         IndexedLeafValueType leafData;
-//         success = dataStore.read_leaf(leafHash, leafData, tx);
-//         if (success) {
-//             return leafData;
-//         }
-//     }
-//     return std::nullopt;
-// }
+template <typename LeafValueType>
+std::optional<typename ContentAddressedCachedTreeStore<LeafValueType>::IndexedLeafValueType>
+ContentAddressedCachedTreeStore<LeafValueType>::get_leaf_by_hash(const fr& leaf_hash,
+                                                                 ReadTransaction& tx,
+                                                                 bool includeUncommitted) const
+{
+    std::optional<typename ContentAddressedCachedTreeStore<LeafValueType>::IndexedLeafValueType> leaf = std::nullopt;
+    if (includeUncommitted) {
+        std::unique_lock lock(mtx);
+        typename std::map<fr, IndexedLeafValueType>::const_iterator it = leaves.find(leaf_hash);
+        if (it != leaves.end()) {
+            leaf = it->second;
+            return leaf;
+        }
+    }
+    IndexedLeafValueType leafData;
+    bool success = dataStore.read_leaf_by_hash(leaf_hash, leafData, tx);
+    if (success) {
+        leaf = leafData;
+    }
+    return leaf;
+}
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::set_at_index(const index_t& index,
-                                                                  const IndexedLeafValueType& leaf,
-                                                                  bool add_to_index)
+void ContentAddressedCachedTreeStore<LeafValueType>::put_leaf_by_hash(const fr& leaf_hash,
+                                                                      const IndexedLeafValueType& leafPreImage)
 {
-    leaves[index] = leaf;
-    if (add_to_index) {
-        auto it = indices.find(uint256_t(leaf.value.get_key()));
-        if (it == indices.end()) {
-            Indices ind;
-            ind.indices.push_back(index);
-            indices[uint256_t(leaf.value.get_key())] = ind;
-            return;
-        }
-        it->second.indices.push_back(index);
+    std::unique_lock lock(mtx);
+    leaves[leaf_hash] = leafPreImage;
+    // std::cout << "Put leaf by hash " << leaf_hash << ", pre image " << leafPreImage << std::endl;
+}
+
+template <typename LeafValueType>
+std::optional<typename ContentAddressedCachedTreeStore<LeafValueType>::IndexedLeafValueType>
+ContentAddressedCachedTreeStore<LeafValueType>::get_cached_leaf_by_index(const index_t& index) const
+{
+    auto it = leaf_pre_image_by_index.find(index);
+    if (it == leaf_pre_image_by_index.end()) {
+        return std::nullopt;
     }
+    return it->second;
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::put_cached_leaf_by_index(const index_t& index,
+                                                                              const IndexedLeafValueType& leafPreImage)
+{
+    leaf_pre_image_by_index[index] = leafPreImage;
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::set_leaf_key_at_index(const index_t& index,
+                                                                           const IndexedLeafValueType& leaf)
+{
+    auto it = indices.find(uint256_t(leaf.value.get_key()));
+    if (it == indices.end()) {
+        Indices ind;
+        ind.indices.push_back(index);
+        indices[uint256_t(leaf.value.get_key())] = ind;
+        return;
+    }
+    it->second.indices.push_back(index);
 }
 
 template <typename LeafValueType>
@@ -319,18 +350,20 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::put_node(const fr& nodeHash, const NodePayload& payload)
+void ContentAddressedCachedTreeStore<LeafValueType>::put_node_by_hash(const fr& nodeHash, const NodePayload& payload)
 {
+    std::unique_lock lock(mtx);
     nodes[nodeHash] = payload;
 }
 
 template <typename LeafValueType>
-bool ContentAddressedCachedTreeStore<LeafValueType>::get_node(const fr& nodeHash,
-                                                              NodePayload& payload,
-                                                              ReadTransaction& transaction,
-                                                              bool includeUncommitted) const
+bool ContentAddressedCachedTreeStore<LeafValueType>::get_node_by_hash(const fr& nodeHash,
+                                                                      NodePayload& payload,
+                                                                      ReadTransaction& transaction,
+                                                                      bool includeUncommitted) const
 {
     if (includeUncommitted) {
+        std::unique_lock lock(mtx);
         auto it = nodes.find(nodeHash);
         if (it != nodes.end()) {
             payload = it->second;
@@ -338,6 +371,38 @@ bool ContentAddressedCachedTreeStore<LeafValueType>::get_node(const fr& nodeHash
         }
     }
     return dataStore.read_node(nodeHash, payload, transaction);
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::put_cached_node_by_index(uint32_t level,
+                                                                              index_t index,
+                                                                              const fr& data,
+                                                                              bool overwriteIfPresent)
+{
+    if (!overwriteIfPresent) {
+        const auto& level_map = nodes_by_index[level];
+        auto it = level_map.find(index);
+        if (it != level_map.end()) {
+            return;
+        }
+    }
+
+    // std::cout << " Putting node by index " << level << " : " << index << ", value: " << data << std::endl;
+    nodes_by_index[level][index] = data;
+}
+
+template <typename LeafValueType>
+bool ContentAddressedCachedTreeStore<LeafValueType>::get_cached_node_by_index(uint32_t level,
+                                                                              index_t index,
+                                                                              fr& data) const
+{
+    const auto& level_map = nodes_by_index[level];
+    auto it = level_map.find(index);
+    if (it == level_map.end()) {
+        return false;
+    }
+    data = it->second;
+    return true;
 }
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::put_meta(const TreeMeta& m)
@@ -361,7 +426,6 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
 {
     {
         {
-            std::cout << "1" << std::endl;
             ReadTransactionPtr tx = create_read_transaction();
             for (auto& idx : indices) {
                 std::vector<uint8_t> value;
@@ -373,30 +437,23 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
                         idx.second.indices.begin(), persistedIndices.indices.begin(), persistedIndices.indices.end());
                 }
             }
-            std::cout << "2" << std::endl;
         }
         WriteTransactionPtr tx = create_write_transaction();
         try {
-            std::cout << "3" << std::endl;
             for (auto& item : nodes) {
                 FrKeyType key = item.first;
                 dataStore.write_node(key, item.second, *tx);
             }
-            std::cout << "4" << std::endl;
             for (auto& idx : indices) {
                 FrKeyType key = idx.first;
-                std::cout << "Second length " << idx.second.indices.size() << std::endl;
                 dataStore.write_leaf_indices(key, idx.second, *tx);
             }
-            std::cout << "5" << std::endl;
             for (const auto& leaf : leaves) {
                 FrKeyType key = leaf.first;
-                dataStore.write_leaf(key, leaf.second, *tx);
+                dataStore.write_leaf_by_hash(key, leaf.second, *tx);
             }
-            std::cout << "6" << std::endl;
             persist_meta(meta, *tx);
             tx->commit();
-            std::cout << "7" << std::endl;
         } catch (std::exception& e) {
             tx->try_abort();
             throw;
@@ -415,6 +472,8 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
     nodes = std::map<fr, NodePayload>();
     indices = std::map<uint256_t, Indices>();
     leaves = std::map<fr, IndexedLeafValueType>();
+    nodes_by_index = std::vector<std::unordered_map<index_t, fr>>(depth + 1, std::unordered_map<index_t, fr>());
+    leaf_pre_image_by_index = std::unordered_map<index_t, IndexedLeafValueType>();
 }
 
 template <typename LeafValueType>
@@ -460,6 +519,20 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         tx->try_abort();
         throw e;
     }
+}
+
+template <typename LeafValueType>
+fr ContentAddressedCachedTreeStore<LeafValueType>::get_current_root(ReadTransaction& tx, bool includeUncommitted) const
+{
+    if (includeUncommitted) {
+        fr root = fr::zero();
+        if (get_cached_node_by_index(0, 0, root)) {
+            return root;
+        }
+    }
+    TreeMeta meta;
+    get_meta(meta, tx, includeUncommitted);
+    return meta.root;
 }
 
 } // namespace bb::crypto::merkle_tree

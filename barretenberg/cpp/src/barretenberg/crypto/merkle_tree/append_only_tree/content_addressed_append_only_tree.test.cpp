@@ -33,7 +33,7 @@ class PersistedContentAddressedAppendOnlyTreeTest : public testing::Test {
         // setup with 1MB max db size, 1 max database and 2 maximum concurrent readers
         _directory = random_temp_directory();
         std::filesystem::create_directories(_directory);
-        _environment = std::make_unique<LMDBEnvironment>(_directory, 1024, 3, 2);
+        _environment = std::make_unique<LMDBEnvironment>(_directory, 1024, 4, 2);
     }
 
     void TearDown() override { std::filesystem::remove_all(_directory); }
@@ -254,7 +254,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_
     std::string name = random_string();
     std::string directory = random_temp_directory();
     std::filesystem::create_directories(directory);
-    auto environment = std::make_unique<LMDBEnvironment>(directory, 1024, 3, 2);
+    auto environment = std::make_unique<LMDBEnvironment>(directory, 1024, 4, 2);
     LMDBStoreType db(*environment, name, false, false, integer_key_cmp);
     Store store(name, depth, db);
 
@@ -282,12 +282,13 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
 {
     // We use a deep tree with a small amount of storage (100 * 1024) bytes
     constexpr size_t depth = 16;
+    constexpr uint32_t numDbs = 4;
     std::string name = random_string();
     std::string directory = random_temp_directory();
     std::filesystem::create_directories(directory);
 
     {
-        auto environment = std::make_unique<LMDBEnvironment>(directory, 50, 3, 2);
+        auto environment = std::make_unique<LMDBEnvironment>(directory, 50, numDbs, 2);
         LMDBStoreType db(*environment, name, false, false, integer_key_cmp);
         Store store(name, depth, db);
 
@@ -347,7 +348,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
     }
 
     {
-        auto environment = std::make_unique<LMDBEnvironment>(directory, 500, 3, 2);
+        auto environment = std::make_unique<LMDBEnvironment>(directory, 500, numDbs, 2);
         LMDBStoreType db(*environment, name, false, false, integer_key_cmp);
         Store store(name, depth, db);
 

@@ -106,12 +106,6 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     void get_meta_data(bool includeUncommitted, const MetaDataCallback& on_completion) const;
 
     /**
-     * @brief Returns the tree meta data
-     * @param on_completion Callback to be called on completion
-     */
-    // void get_initial_meta_data(const MetaDataCallback& on_completion) const;
-
-    /**
      * @brief Returns the leaf value at the provided index
      * @param index The index of the leaf to be retrieved
      * @param includeUncommitted Whether to include uncommitted changes
@@ -155,15 +149,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
 
     fr_sibling_path optional_sibling_path_to_full_sibling_path(const OptionalSiblingPath& optionalPath) const;
 
-    // fr get_element_or_zero(uint32_t level, const index_t& index, ReadTransaction& tx, bool includeUncommitted) const;
-
-    // void write_node(uint32_t level, const index_t& index, const fr& value);
-    // std::pair<bool, fr> read_node(uint32_t level,
-    //                               const index_t& index,
-    //                               ReadTransaction& tx,
-    //                               bool includeUncommitted) const;
-
-    void add_values_internal(std::shared_ptr<std::vector<fr>> values,
+    void add_values_internal(const std::shared_ptr<std::vector<fr>>& values,
                              fr& new_root,
                              index_t& new_size,
                              bool update_index);
@@ -177,9 +163,13 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
                                                           ReadTransaction& tx,
                                                           bool includeUncommitted) const;
 
+    std::optional<fr> find_leaf_hash(index_t leaf_index,
+                                     ReadTransaction& tx,
+                                     bool includeUncommitted,
+                                     bool updateNodesByIndexCache = false) const;
+
     Store& store_;
     uint32_t depth_;
-    std::string name_;
     uint64_t max_size_;
     std::vector<fr> zero_hashes_;
     ThreadPool& workers_;
@@ -195,17 +185,15 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
         // start by reading the meta data from the backing store
         ReadTransactionPtr tx = store_.create_read_transaction();
         store_.get_meta(meta, *tx, true);
-        // store_.get_full_meta(stored_size, stored_root, name_, depth_, *tx, false);
     }
     depth_ = meta.depth;
-    name_ = meta.name;
     zero_hashes_.resize(depth_ + 1);
 
     // Create the zero hashes for the tree
     auto current = HashingPolicy::zero_hash();
     for (size_t i = depth_; i > 0; --i) {
+        // std::cout << "Zero hash at " << i << " : " << current << std::endl;
         zero_hashes_[i] = current;
-        // std::cout << "Zero hash at level from leaf: " << current << std::endl;
         current = HashingPolicy::hash_pair(current, current);
     }
     zero_hashes_[0] = current;
@@ -216,8 +204,6 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
         meta.initialRoot = meta.root = current;
         store_.put_meta(meta);
         store_.commit();
-        // we also need to store the initial meta, this commits directly
-        // store_.put_initial_meta(0, current);
     }
     max_size_ = numeric::pow64(2, depth_);
 }
@@ -236,22 +222,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool in
     };
     workers_.enqueue(job);
 }
-
-// template <typename Store, typename HashingPolicy>
-// void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_initial_meta_data(const MetaDataCallback&
-// on_completion) const
-// {
-//     auto job = [=, this]() {
-//         execute_and_report<TreeMetaResponse>(
-//             [=, this](TypedResponse<TreeMetaResponse>& response) {
-//                 ReadTransactionPtr tx = store_.create_read_transaction();
-//                 store_.get_initial_meta(response.inner.size, response.inner.root, *tx);
-//                 response.inner.depth = depth_;
-//             },
-//             on_completion);
-//     };
-//     workers_.enqueue(job);
-// }
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t& index,
@@ -328,6 +298,64 @@ fr_sibling_path ContentAddressedAppendOnlyTree<Store, HashingPolicy>::optional_s
 }
 
 template <typename Store, typename HashingPolicy>
+std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_hash(
+    index_t leaf_index, ReadTransaction& tx, bool includeUncommitted, bool updateNodesByIndexCache) const
+{
+    fr hash = store_.get_current_root(tx, includeUncommitted);
+    // std::cout << "Finding leaf hash for root " << hash << " at index " << leaf_index << std::endl;
+    index_t mask = static_cast<index_t>(1) << (depth_ - 1);
+    index_t child_index_at_level = 0;
+    for (uint32_t i = 0; i < depth_; ++i) {
+
+        // Extract the node data
+        NodePayload nodePayload;
+        bool success = store_.get_node_by_hash(hash, nodePayload, tx, includeUncommitted);
+        if (!success) {
+            // std::cout << "No root" << std::endl;
+            return std::nullopt;
+        }
+        // std::cout << "Found root at depth " << i << " : " << hash << std::endl;
+
+        // Do we need to go right or left
+        bool is_right = static_cast<bool>(leaf_index & mask);
+        // std::cout << "Mask " << mask << " depth " << depth_ << std::endl;
+        mask >>= 1;
+
+        // If we don't have a child then this leaf isn't present
+        // If we do, then keep going down the tree
+        std::optional<fr> child = is_right ? nodePayload.right : nodePayload.left;
+
+        if (!child.has_value()) {
+            // std::cout << "No child" << std::endl;
+            return std::nullopt;
+        }
+        // std::cout << "Found child" << std::endl;
+
+        hash = child.value();
+
+        if (!updateNodesByIndexCache) {
+            continue;
+        }
+
+        child_index_at_level = is_right ? (child_index_at_level * 2) + 1 : (child_index_at_level * 2);
+        // std::cout << "Storing child " << i + 1 << " : " << child_index_at_level << " is right " << is_right
+        //           << std::endl;
+        store_.put_cached_node_by_index(i + 1, child_index_at_level, hash, false);
+        std::optional<fr> sibling = is_right ? nodePayload.left : nodePayload.right;
+        index_t sibling_index_at_level = is_right ? child_index_at_level - 1 : child_index_at_level + 1;
+        if (sibling.has_value()) {
+            // std::cout << "Storing sibling " << i + 1 << " : " << sibling_index_at_level << " is right " <<
+            // is_right
+            //           << std::endl;
+            store_.put_cached_node_by_index(i + 1, sibling_index_at_level, sibling.value(), false);
+        }
+    }
+
+    // if we have arrived here then the leaf is in 'hash'
+    return std::optional<fr>(hash);
+}
+
+template <typename Store, typename HashingPolicy>
 ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath ContentAddressedAppendOnlyTree<
     Store,
     HashingPolicy>::get_subtree_sibling_path_internal(const index_t leaf_index,
@@ -346,18 +374,22 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath Conten
     index_t mask = index_t(1) << (depth_ - 1);
     // std::cout << "Depth: " << depth_ << ", mask: " << mask << ", sub tree depth: " << subtree_depth
     //           << ", leaf index: " << leaf_index << std::endl;
-    TreeMeta meta;
-    store_.get_meta(meta, tx, includeUncommitted);
-    bb::fr hash = meta.root;
-    // std::cout << "Getting sibling path for root: " << meta.root << std::endl;
+    fr hash = store_.get_current_root(tx, includeUncommitted);
+    // std::cout << "Getting sibling path for root: " << hash << std::endl;
 
     for (uint32_t level = 0; level < depth_ - subtree_depth; ++level) {
         NodePayload nodePayload;
-        store_.get_node(hash, nodePayload, tx, includeUncommitted);
+        store_.get_node_by_hash(hash, nodePayload, tx, includeUncommitted);
         bool is_right = static_cast<bool>(leaf_index & mask);
         // std::cout << "Level: " << level << ", mask: " << mask << ", is right: " << is_right << ", parent: " << hash
         //           << ", left has value: " << nodePayload.left.has_value()
         //           << ", right has value: " << nodePayload.right.has_value() << std::endl;
+        // if (nodePayload.left.has_value()) {
+        //     std::cout << "LEFT " << nodePayload.left.value() << std::endl;
+        // }
+        // if (nodePayload.right.has_value()) {
+        //     std::cout << "RIGHT " << nodePayload.right.value() << std::endl;
+        // }
         mask >>= 1;
         std::optional<fr> sibling = is_right ? nodePayload.left : nodePayload.right;
         std::optional<fr> child = is_right ? nodePayload.right : nodePayload.left;
@@ -379,37 +411,11 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
         execute_and_report<GetLeafResponse>(
             [=, this](TypedResponse<GetLeafResponse>& response) {
                 ReadTransactionPtr tx = store_.create_read_transaction();
-                TreeMeta meta;
-                store_.get_meta(meta, *tx, includeUncommitted);
-                bb::fr hash = meta.root;
-                index_t mask = static_cast<index_t>(1) << (depth_ - 1);
-                for (uint32_t i = 0; i < depth_; ++i) {
-
-                    // Extract the node data
-                    NodePayload nodePayload;
-                    bool success = store_.get_node(hash, nodePayload, *tx, includeUncommitted);
-                    if (!success) {
-                        response.success = false;
-                        return;
-                    }
-
-                    // Do we need to go right or left
-                    bool is_right = static_cast<bool>(leaf_index & mask);
-                    mask >>= 1;
-
-                    // If we don't have a child then this leaf isn't present
-                    // If we do, then keep going down the tree
-                    std::optional<fr> child = is_right ? nodePayload.right : nodePayload.left;
-                    if (!child.has_value()) {
-                        response.success = false;
-                        return;
-                    }
-                    hash = child.value();
+                std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, *tx, includeUncommitted);
+                response.success = leaf_hash.has_value();
+                if (response.success) {
+                    response.inner.leaf = leaf_hash.value();
                 }
-
-                // if we have arrived here then the leaf is in 'hash'
-                response.success = true;
-                response.inner.leaf = hash;
             },
             on_completion);
     };
@@ -488,10 +494,8 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::rollback(const Rollba
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(std::shared_ptr<std::vector<fr>> values,
-                                                                               fr& new_root,
-                                                                               index_t& new_size,
-                                                                               bool update_index)
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
+    const std::shared_ptr<std::vector<fr>>& values, fr& new_root, index_t& new_size, bool update_index)
 {
 
     uint32_t start_level = depth_;
@@ -504,6 +508,8 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(s
     store_.get_meta(meta, *tx, true);
     index_t index = meta.size;
     new_size = meta.size + number_to_insert;
+
+    // std::cout << "Appending new leaves" << std::endl;
 
     // std::cout << "Here hash local: " << hashes_local[0] << std::endl;
 
@@ -520,9 +526,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(s
     // Add the values at the leaf nodes of the tree
     for (uint32_t i = 0; i < number_to_insert; ++i) {
         // write_node(level, index + i, hashes_local[i]);
-        NodePayload payload{ .left = std::nullopt, .right = std::nullopt, .ref = 1 };
         // std::cout << "Writing leaf hash: " << hashes_local[i] << std::endl;
-        store_.put_node(hashes_local[i], payload);
+        store_.put_node_by_hash(hashes_local[i], { .left = std::nullopt, .right = std::nullopt, .ref = 1 });
+        store_.put_cached_node_by_index(level, i + index, hashes_local[i]);
     }
 
     // std::cout << "Here 5" << std::endl;
@@ -542,21 +548,20 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(s
         number_to_insert >>= 1;
         index >>= 1;
         --level;
-        std::cout << "To INSERT " << number_to_insert << std::endl;
+        // std::cout << "To INSERT " << number_to_insert << std::endl;
         for (uint32_t i = 0; i < number_to_insert; ++i) {
             fr left = hashes_local[i * 2];
             fr right = hashes_local[i * 2 + 1];
             hashes_local[i] = HashingPolicy::hash_pair(left, right);
-            NodePayload payload{ .left = left, .right = right, .ref = 1 };
             // std::cout << "Left: " << left << ", right: " << right << ", parent: " << hashes_local[i] << std::endl;
-            store_.put_node(hashes_local[i], payload);
-            // write_node(level, index + i, hashes_local[i]);
+            store_.put_node_by_hash(hashes_local[i], { .left = left, .right = right, .ref = 1 });
+            store_.put_cached_node_by_index(level, index + i, hashes_local[i]);
         }
     }
 
     fr new_hash = hashes_local[0];
 
-    std::cout << "LEVEL: " << level << std::endl;
+    // std::cout << "LEVEL: " << level << " hash " << new_hash << std::endl;
 
     OptionalSiblingPath optional_sibling_path_to_root =
         get_subtree_sibling_path_internal(meta.size, depth_ - level, *tx, true);
@@ -568,8 +573,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(s
     // std::cout << "Root hash: " << new_hash << std::endl;
     while (level > 0) {
         bool is_right = static_cast<bool>(index & 0x01);
-        std::cout << "index: " << index << " sibling path index: " << sibling_path_index << ", is right: " << is_right
-                  << std::endl;
+        // std::cout << "index: " << index << " sibling path index: " << sibling_path_index << ", is right: " <<
+        // is_right
+        //           << std::endl;
         fr left_hash = is_right ? sibling_path_to_root[sibling_path_index] : new_hash;
         fr right_hash = is_right ? new_hash : sibling_path_to_root[sibling_path_index];
 
@@ -577,62 +583,21 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(s
         std::optional<fr> right_op = is_right ? new_hash : optional_sibling_path_to_root[sibling_path_index];
 
         new_hash = HashingPolicy::hash_pair(left_hash, right_hash);
-        std::cout << "Left: " << left_hash << ", right: " << right_hash << ", parent: " << new_hash << std::endl;
+        // std::cout << "Left: " << left_hash << ", right: " << right_hash << ", parent: " << new_hash << std::endl;
 
-        NodePayload payload{ .left = left_op, .right = right_op, .ref = 1 };
-        store_.put_node(new_hash, payload);
         index >>= 1;
         --level;
         ++sibling_path_index;
-        // if (level > 0) {
-        //     write_node(level, index, new_hash);
-        // }
+        store_.put_cached_node_by_index(level, index, new_hash);
+        store_.put_node_by_hash(new_hash, { .left = left_op, .right = right_op, .ref = 1 });
     }
 
     // std::cout << "Here 9" << std::endl;
     new_root = new_hash;
     meta.root = new_hash;
     meta.size = new_size;
-    std::cout << "New size: " << meta.size << std::endl;
+    // std::cout << "New size: " << meta.size << std::endl;
     store_.put_meta(meta);
 }
-
-// Retrieves the value at the given level and index or the 'zero' tree hash if not present
-// template <typename Store, typename HashingPolicy>
-// fr ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_element_or_zero(uint32_t level,
-//                                                               const index_t& index,
-//                                                               ReadTransaction& tx,
-//                                                               bool includeUncommitted) const
-// {
-//     const std::pair<bool, fr> read_data = read_node(level, index, tx, includeUncommitted);
-//     if (read_data.first) {
-//         return read_data.second;
-//     }
-//     return zero_hashes_[level];
-// }
-
-// template <typename Store, typename HashingPolicy>
-// void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::write_node(uint32_t level, const index_t& index, const fr&
-// value)
-// {
-//     std::vector<uint8_t> buf;
-//     write(buf, value);
-//     store_.put_node(level, index, buf);
-// }
-
-// template <typename Store, typename HashingPolicy>
-// std::pair<bool, fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::read_node(uint32_t level,
-//                                                                      const index_t& index,
-//                                                                      ReadTransaction& tx,
-//                                                                      bool includeUncommitted) const
-// {
-//     std::vector<uint8_t> buf;
-//     bool available = store_.get_node(level, index, buf, tx, includeUncommitted);
-//     if (!available) {
-//         return std::make_pair(false, fr::zero());
-//     }
-//     fr value = from_buffer<fr>(buf, 0);
-//     return std::make_pair(true, value);
-// }
 
 } // namespace bb::crypto::merkle_tree

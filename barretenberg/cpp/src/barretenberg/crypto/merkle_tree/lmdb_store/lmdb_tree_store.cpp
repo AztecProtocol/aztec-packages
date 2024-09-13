@@ -37,8 +37,15 @@ LMDBTreeStore::LMDBTreeStore(
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
-        _leafValueDatabase = std::make_unique<LMDBDatabase>(
-            _environment, tx, _name + std::string("leaf values"), integerKeys, reverseKeys, cmp);
+        _leafValueToIndexDatabase = std::make_unique<LMDBDatabase>(
+            _environment, tx, _name + std::string("leaf indices"), integerKeys, reverseKeys, cmp);
+        tx.commit();
+    }
+
+    {
+        LMDBDatabaseCreationTransaction tx(_environment);
+        _leafHashToPreImageDatabase = std::make_unique<LMDBDatabase>(
+            _environment, tx, _name + std::string("leaf pre-images"), integerKeys, reverseKeys, cmp);
         tx.commit();
     }
 }
@@ -99,7 +106,7 @@ bool LMDBTreeStore::read_leaf_indices(const fr& leafValue, Indices& indices, LMD
 {
     FrKeyType key(leafValue);
     std::vector<uint8_t> data;
-    bool success = tx.get_value<FrKeyType>(key, data, *_leafValueDatabase);
+    bool success = tx.get_value<FrKeyType>(key, data, *_leafValueToIndexDatabase);
     if (success) {
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
     }
@@ -112,7 +119,7 @@ void LMDBTreeStore::write_leaf_indices(const fr& leafValue, const Indices& indic
     msgpack::pack(buffer, indices);
     std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
     FrKeyType key(leafValue);
-    tx.put_value<FrKeyType>(key, encoded, *_leafValueDatabase);
+    tx.put_value<FrKeyType>(key, encoded, *_leafValueToIndexDatabase);
 }
 
 // bool LMDBTreeStore::read_leaf_hash(const index_t& leafIndex, fr& hash, LMDBTreeStore::ReadTransaction& tx)
@@ -158,7 +165,7 @@ fr LMDBTreeStore::find_low_leaf(const fr& leafValue, Indices& indices, ReadTrans
 {
     std::vector<uint8_t> data;
     FrKeyType key(leafValue);
-    tx.get_value_or_previous(key, data, *_leafValueDatabase);
+    tx.get_value_or_previous(key, data, *_leafValueToIndexDatabase);
     msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
     return key;
 }

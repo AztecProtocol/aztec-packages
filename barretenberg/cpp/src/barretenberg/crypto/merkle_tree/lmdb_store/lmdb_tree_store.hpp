@@ -78,23 +78,26 @@ class LMDBTreeStore {
 
     void write_node(const fr& nodeHash, const NodePayload& nodeData, WriteTransaction& tx);
 
-    template <typename LeafType> bool read_leaf(const fr& leafHash, LeafType& leafData, ReadTransaction& tx);
+    template <typename LeafType> bool read_leaf_by_hash(const fr& leafHash, LeafType& leafData, ReadTransaction& tx);
 
-    template <typename LeafType> void write_leaf(const fr& leafHash, const LeafType& leafData, WriteTransaction& tx);
+    template <typename LeafType>
+    void write_leaf_by_hash(const fr& leafHash, const LeafType& leafData, WriteTransaction& tx);
 
   private:
     LMDBEnvironment& _environment;
     const std::string _name;
     LMDBDatabase::Ptr _blockDatabase;
     LMDBDatabase::Ptr _nodeDatabase;
-    LMDBDatabase::Ptr _leafValueDatabase;
+    LMDBDatabase::Ptr _leafValueToIndexDatabase;
+    LMDBDatabase::Ptr _leafHashToPreImageDatabase;
 };
 
-template <typename LeafType> bool LMDBTreeStore::read_leaf(const fr& leafHash, LeafType& leafData, ReadTransaction& tx)
+template <typename LeafType>
+bool LMDBTreeStore::read_leaf_by_hash(const fr& leafHash, LeafType& leafData, ReadTransaction& tx)
 {
     FrKeyType key(leafHash);
     std::vector<uint8_t> data;
-    bool success = tx.get_value<FrKeyType>(key, data, *_nodeDatabase);
+    bool success = tx.get_value<FrKeyType>(key, data, *_leafHashToPreImageDatabase);
     if (success) {
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(leafData);
     }
@@ -102,12 +105,12 @@ template <typename LeafType> bool LMDBTreeStore::read_leaf(const fr& leafHash, L
 }
 
 template <typename LeafType>
-void LMDBTreeStore::write_leaf(const fr& leafHash, const LeafType& leafData, WriteTransaction& tx)
+void LMDBTreeStore::write_leaf_by_hash(const fr& leafHash, const LeafType& leafData, WriteTransaction& tx)
 {
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, leafData);
     std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
     FrKeyType key(leafHash);
-    tx.put_value<FrKeyType>(key, encoded, *_nodeDatabase);
+    tx.put_value<FrKeyType>(key, encoded, *_leafHashToPreImageDatabase);
 }
 } // namespace bb::crypto::merkle_tree
