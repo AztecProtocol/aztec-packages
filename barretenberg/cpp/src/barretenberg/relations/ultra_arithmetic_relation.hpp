@@ -31,34 +31,34 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
      * The following description is reproduced from the Plonk analog 'plookup_arithmetic_widget':
      * The whole formula is:
      *
-     * q_arith * ( ( (-1/2) * (q_arith - 3) * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c ) +
-     * (q_arith - 1)*( α * (q_arith - 2) * (w_1 + w_4 - w_1_omega + q_m) + w_4_omega) ) = 0
+     * q_arith * ( ( (-1/2) * (q_arith - 3) * q_m * w_l * w_r + q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c ) +
+     * (q_arith - 1)*( α * (q_arith - 2) * (w_l + w_4 - w_l_shift + q_m) + w_4_shift) ) = 0
      *
      * This formula results in several cases depending on q_arith:
      * 1. q_arith == 0: Arithmetic gate is completely disabled
      *
      * 2. q_arith == 1: Everything in the minigate on the right is disabled. The equation is just a standard plonk
-     * equation with extra wires: q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c = 0
+     * equation with extra wires: q_m * w_l * w_r + q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c = 0
      *
-     * 3. q_arith == 2: The (w_1 + w_4 - ...) term is disabled. THe equation is:
-     * (1/2) * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + w_4_omega = 0
-     * It allows defining w_4 at next index (w_4_omega) in terms of current wire values
+     * 3. q_arith == 2: The (w_l + w_4 - ...) term is disabled. THe equation is:
+     * (1/2) * q_m * w_l * w_r + q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c + w_4_shift = 0
+     * It allows defining w_4 at next index (w_4_shift) in terms of current wire values
      *
-     * 4. q_arith == 3: The product of w_1 and w_2 is disabled, but a mini addition gate is enabled. α² allows us to
+     * 4. q_arith == 3: The product of w_l and w_r is disabled, but a mini addition gate is enabled. α² allows us to
      * split the equation into two:
      *
-     * q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + 2 * w_4_omega = 0
+     * q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c + 2 * w_4_shift = 0
      *
-     * w_1 + w_4 - w_1_omega + q_m = 0  (we are reusing q_m here)
+     * w_l + w_4 - w_l_shift + q_m = 0  (we are reusing q_m here)
      *
-     * 5. q_arith > 3: The product of w_1 and w_2 is scaled by (q_arith - 3), while the w_4_omega term is scaled by
+     * 5. q_arith > 3: The product of w_l and w_r is scaled by (q_arith - 3), while the w_4_shift term is scaled by
      * (q_arith
      * - 1). The equation can be split into two:
      *
-     * (q_arith - 3)* q_m * w_1 * w_ 2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + (q_arith - 1) * w_4_omega
+     * (q_arith - 3)* q_m * w_l * w_ 2 + q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c + (q_arith - 1) * w_4_shift
      * = 0
      *
-     * w_1 + w_4 - w_1_omega + q_m = 0
+     * w_l + w_4 - w_l_shift + q_m = 0
      *
      * The problem that q_m is used both in both equations can be dealt with by appropriately changing selector values
      * at the next gate. Then we can treat (q_arith - 1) as a simulated q_6 selector and scale q_m to handle (q_arith -
@@ -102,12 +102,15 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
             static const FF neg_half = FF(-2).invert();
 
             if constexpr (HOMOGENIZED) {
-                decltype(q_arith) h = 1;
-                auto tmp = w_l * w_r * q_m * q_arith.pow(2) * neg_half - w_l * w_r * q_m * q_arith * neg_half * h * 3 +
-                           w_l * q_l * q_arith * h.pow(3) + w_r * q_r * q_arith * h.pow(3) +
-                           w_o * q_o * q_arith * h.pow(3) + w_4 * q_4 * q_arith * h.pow(3) +
-                           w_4_shift * q_arith.pow(2) * h.pow(3) - w_4_shift * q_arith * h.pow(4) +
-                           q_c * q_arith * h.pow(4);
+                auto q_arith_to_2 = q_arith.sqr();
+                auto& h = q_arith;
+                auto& h_to_2 = q_arith_to_2;
+                auto h_to_3 = h * h.sqr();
+                auto h_to_4 = h_to_2.sqr();
+                auto tmp = w_l * w_r * q_m * q_arith_to_2 * neg_half - w_l * w_r * q_m * q_arith * neg_half * h * 3 +
+                           w_l * q_l * q_arith * h_to_3 + w_r * q_r * q_arith * h_to_3 + w_o * q_o * q_arith * h_to_3 +
+                           w_4 * q_4 * q_arith * h_to_3 + w_4_shift * q_arith_to_2 * h_to_3 -
+                           w_4_shift * q_arith * h_to_4 + q_c * q_arith * h_to_4;
                 tmp *= scaling_factor;
                 std::get<0>(evals) += tmp;
             } else {
@@ -129,7 +132,7 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
             auto q_arith = View(in.q_arith);
 
             if constexpr (HOMOGENIZED) {
-                decltype(q_arith) h = 1;
+                auto& h = q_arith;
                 auto tmp = (w_l + w_4 - w_l_shift + q_m) * q_arith;
                 auto prod = q_arith * h;
                 auto term = tmp * (q_arith * q_arith - prod - prod - prod);
