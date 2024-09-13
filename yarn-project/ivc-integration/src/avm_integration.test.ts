@@ -42,7 +42,7 @@ describe('AVM Integration', () => {
     const provingResult = await generateProof(
       bbBinaryPath,
       bbWorkingDirectory,
-      'mock-public-kernel', // TODO: use a constant
+      'mock-public-kernel',
       Buffer.from(bytecode, 'base64'),
       witnessFileName,
       'ultra_honk',

@@ -1,14 +1,14 @@
-#include "barretenberg/constants.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
 #ifndef DISABLE_AZTEC_VM
 
 #include "avm_recursion_constraint.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/vm/avm/recursion/avm_recursive_flavor.hpp"
 #include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 #include "proof_surgeon.hpp"
 #include <cstddef>
 
