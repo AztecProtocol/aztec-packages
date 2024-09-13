@@ -50,3 +50,12 @@ TEST_F(MegaMockCircuitsPinning, AppCircuitSizes)
     run_test(true);
     run_test(false);
 }
+
+TEST_F(MegaMockCircuitsPinning, StructuredAztecIVCBenchSizes)
+{
+    GoblinProver goblin;
+    MegaCircuitBuilder app_circuit{ goblin.op_queue };
+    GoblinMockCircuits::construct_mock_app_circuit(app_circuit);
+    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit);
+    EXPECT_EQ(proving_key->proving_key.log_circuit_size, 19);
+}
