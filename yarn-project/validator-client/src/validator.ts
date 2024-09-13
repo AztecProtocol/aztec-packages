@@ -36,8 +36,7 @@ export class ValidatorClient implements Validator {
   constructor(
     keyStore: ValidatorKeyStore,
     private p2pClient: P2P,
-    private attestationPoolingIntervalMs: number,
-    private attestationWaitTimeoutMs: number,
+    private config: ValidatorClientConfig,
     private log = createDebugLogger('aztec:validator'),
   ) {
     //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
@@ -57,8 +56,7 @@ export class ValidatorClient implements Validator {
     const validator = new ValidatorClient(
       localKeyStore,
       p2pClient,
-      config.attestationPoolingIntervalMs,
-      config.attestationWaitTimeoutMs,
+      config,
     );
     validator.registerBlockProposalHandler();
     return validator;
@@ -83,6 +81,12 @@ export class ValidatorClient implements Validator {
     // Check that all of the tranasctions in the proposal are available in the tx pool before attesting
     try {
       await this.ensureTransactionsAreAvailable(proposal);
+
+      if (this.config.validatorReEx) {
+        this.log.debug(`Re-executing transactions in the proposal before attesting`);
+        // await this.reExecuteTransactions(proposal);
+      }
+
     } catch (error: any) {
       if (error instanceof TransactionsNotAvailableError) {
         this.log.error(`Transactions not available, skipping attestation ${error.message}`);
@@ -152,15 +156,15 @@ export class ValidatorClient implements Validator {
       }
 
       const elapsedTime = Date.now() - startTime;
-      if (elapsedTime > this.attestationWaitTimeoutMs) {
+      if (elapsedTime > this.config.attestationWaitTimeoutMs) {
         this.log.error(`Timeout waiting for ${numberOfRequiredAttestations} attestations for slot, ${slot}`);
         throw new AttestationTimeoutError(numberOfRequiredAttestations, slot);
       }
 
       this.log.verbose(
-        `Collected ${attestations.length} attestations so far, waiting ${this.attestationPoolingIntervalMs}ms for more...`,
+        `Collected ${attestations.length} attestations so far, waiting ${this.config.attestationPoolingIntervalMs}ms for more...`,
       );
-      await sleep(this.attestationPoolingIntervalMs);
+      await sleep(this.config.attestationPoolingIntervalMs);
     }
   }
 }
