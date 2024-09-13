@@ -30,6 +30,13 @@ mod append;
 mod mem;
 mod panic;
 
+// Keep following constants in sync with the enum acir_format::PROOF_TYPE in recursion_constraint.hpp
+global PROOF_TYPE_PLONK : u32 = 0;
+global PROOF_TYPE_HONK : u32 = 1;
+global PROOF_TYPE_OINK : u32 = 2;
+global PROOF_TYPE_PG : u32 = 3;
+global PROOF_TYPE_AVM : u32 = 4;
+
 // Oracle calls are required to be wrapped in an unconstrained function
 // Thus, the only argument to the `println` oracle is expected to always be an ident
 #[oracle(print)]
@@ -57,7 +64,13 @@ pub fn verify_proof<let N: u32, let M: u32, let K: u32>(
     public_inputs: [Field; K],
     key_hash: Field
 ) {
-    verify_proof_internal(verification_key, proof, public_inputs, key_hash, 0);
+    verify_proof_internal(
+        verification_key,
+        proof,
+        public_inputs,
+        key_hash,
+        PROOF_TYPE_PLONK
+    );
 }
 
 pub fn verify_proof_with_type<let N: u32, let M: u32, let K: u32>(
