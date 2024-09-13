@@ -67,7 +67,11 @@ export class L1NotePayload extends L1Payload {
   }
 
   public encrypt(ephSk: GrumpkinScalar, recipient: AztecAddress, ivpk: PublicKey, ovKeys: KeyValidationRequest) {
-    return super._encrypt(
+    // TODO(benesjan): numPubliclyDeliveredValues could occupy just a single bit if we store info about partial fields
+    // in the ABI
+    // We always set the value to 0 here as we don't need partial notes encryption support in TS
+    const numPubliclyDeliveredValues = 0;
+    const encryptedPayload = super._encrypt(
       this.contractAddress,
       ephSk,
       recipient,
@@ -75,6 +79,7 @@ export class L1NotePayload extends L1Payload {
       ovKeys,
       new EncryptedNoteLogIncomingBody(this.storageSlot, this.noteTypeId, this.note),
     );
+    return Buffer.concat([Buffer.alloc(1, numPubliclyDeliveredValues), encryptedPayload]);
   }
 
   /**
@@ -92,6 +97,9 @@ export class L1NotePayload extends L1Payload {
   public static decryptAsIncoming(ciphertext: Buffer | bigint[], ivsk: GrumpkinScalar) {
     const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
     const reader = BufferReader.asReader(input);
+
+    // TODO(benesjan): implement pub values extraction.
+    const _numPubliclyDeliveredValues = reader.readUInt8();
 
     const [address, incomingBody] = super._decryptAsIncoming(
       reader.readToEnd(),
@@ -118,6 +126,9 @@ export class L1NotePayload extends L1Payload {
   public static decryptAsOutgoing(ciphertext: Buffer | bigint[], ovsk: GrumpkinScalar) {
     const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
     const reader = BufferReader.asReader(input);
+
+    // TODO(benesjan): implement pub values extraction.
+    const _numPubliclyDeliveredValues = reader.readUInt8();
 
     const [address, incomingBody] = super._decryptAsOutgoing(
       reader.readToEnd(),

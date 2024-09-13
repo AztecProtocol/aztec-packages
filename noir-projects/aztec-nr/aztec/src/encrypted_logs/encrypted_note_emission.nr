@@ -30,7 +30,8 @@ fn compute_raw_note_log<Note, let N: u32, let NB: u32, let M: u32>(
         ovpk,
         ivpk,
         recipient,
-        note
+        note,
+        0
     );
     let log_hash = sha256_to_field(encrypted_log);
 
