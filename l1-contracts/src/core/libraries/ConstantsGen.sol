@@ -246,4 +246,9 @@ library Constants {
   uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 144;
   uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 160;
   uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 162;
+  uint256 internal constant PROOF_TYPE_PLONK = 0;
+  uint256 internal constant PROOF_TYPE_HONK = 1;
+  uint256 internal constant PROOF_TYPE_OINK = 2;
+  uint256 internal constant PROOF_TYPE_PG = 3;
+  uint256 internal constant PROOF_TYPE_AVM = 4;
 }

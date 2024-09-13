@@ -356,6 +356,11 @@ export const AVM_PEDERSENCOMMITMENT_DYN_L2_GAS = 0;
 export const AVM_TORADIXLE_DYN_L2_GAS = 200;
 export const AVM_SHA256COMPRESSION_DYN_L2_GAS = 0;
 export const AVM_KECCAKF1600_DYN_L2_GAS = 0;
+export const PROOF_TYPE_PLONK = 0;
+export const PROOF_TYPE_HONK = 1;
+export const PROOF_TYPE_OINK = 2;
+export const PROOF_TYPE_PG = 3;
+export const PROOF_TYPE_AVM = 4;
 export enum GeneratorIndex {
   NOTE_HASH = 1,
   NOTE_HASH_NONCE = 2,
