@@ -1,4 +1,4 @@
-import { createArchiver } from '@aztec/archiver';
+import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
@@ -71,7 +71,6 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import {
   type ContractClassPublic,
-  type ContractDataSource,
   type ContractInstanceWithAddress,
   type ProtocolContractAddresses,
 } from '@aztec/types/contracts';
@@ -93,11 +92,7 @@ export class AztecNodeService implements AztecNode {
   constructor(
     protected config: AztecNodeConfig,
     protected readonly p2pClient: P2P,
-    protected readonly blockSource: L2BlockSource,
-    protected readonly encryptedLogsSource: L2LogsSource,
-    protected readonly unencryptedLogsSource: L2LogsSource,
-    protected readonly contractDataSource: ContractDataSource,
-    protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
+    protected readonly archiver: Archiver,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
     protected readonly l1ChainId: number,
@@ -138,7 +133,9 @@ export class AztecNodeService implements AztecNode {
       );
     }
 
-    const archiver = await createArchiver(config, telemetry, { blockUntilSync: true });
+    // TODO(MD): I have forced the type to be archiver here as there is a factory functoin in here that is being used.
+    // There is no need to use this factory when we are NOT going to be using a remote archiver in the sequencer.
+    const archiver = await createArchiver(config, telemetry, { blockUntilSync: true }) as Archiver;
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
@@ -168,8 +165,6 @@ export class AztecNodeService implements AztecNode {
           p2pClient,
           worldStateSynchronizer,
           archiver,
-          archiver,
-          archiver,
           simulationProvider,
           telemetry,
         );
@@ -177,10 +172,6 @@ export class AztecNodeService implements AztecNode {
     return new AztecNodeService(
       config,
       p2pClient,
-      archiver,
-      archiver,
-      archiver,
-      archiver,
       archiver,
       worldStateSynchronizer,
       sequencer,
@@ -202,7 +193,7 @@ export class AztecNodeService implements AztecNode {
   }
 
   public getBlockSource(): L2BlockSource {
-    return this.blockSource;
+    return this.archiver;
   }
 
   /**
@@ -231,7 +222,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The requested block.
    */
   public async getBlock(number: number): Promise<L2Block | undefined> {
-    return await this.blockSource.getBlock(number);
+    return await this.archiver.getBlock(number);
   }
 
   /**
@@ -241,7 +232,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The blocks requested.
    */
   public async getBlocks(from: number, limit: number): Promise<L2Block[]> {
-    return (await this.blockSource.getBlocks(from, limit)) ?? [];
+    return (await this.archiver.getBlocks(from, limit)) ?? [];
   }
 
   /**
@@ -249,11 +240,11 @@ export class AztecNodeService implements AztecNode {
    * @returns The block number.
    */
   public async getBlockNumber(): Promise<number> {
-    return await this.blockSource.getBlockNumber();
+    return await this.archiver.getBlockNumber();
   }
 
   public async getProvenBlockNumber(): Promise<number> {
-    return await this.blockSource.getProvenBlockNumber();
+    return await this.archiver.getProvenBlockNumber();
   }
 
   /**
@@ -281,11 +272,11 @@ export class AztecNodeService implements AztecNode {
   }
 
   public getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
-    return this.contractDataSource.getContractClass(id);
+    return this.archiver.getContractClass(id);
   }
 
   public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return this.contractDataSource.getContract(address);
+    return this.archiver.getContract(address);
   }
 
   /**
@@ -300,8 +291,7 @@ export class AztecNodeService implements AztecNode {
     limit: number,
     logType: LogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
-    const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
-    return logSource.getLogs(from, limit, logType) as Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
+    return this.archiver.getLogs(from, limit, logType) as Promise<L2BlockL2Logs<FromLogType<TLogType>>[]>;
   }
 
   /**
@@ -310,7 +300,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The requested logs.
    */
   getUnencryptedLogs(filter: LogFilter): Promise<GetUnencryptedLogsResponse> {
-    return this.unencryptedLogsSource.getUnencryptedLogs(filter);
+    return this.archiver.getUnencryptedLogs(filter);
   }
 
   /**
@@ -340,7 +330,7 @@ export class AztecNodeService implements AztecNode {
       txReceipt = new TxReceipt(txHash, TxStatus.PENDING, '');
     }
 
-    const settledTxReceipt = await this.blockSource.getSettledTxReceipt(txHash);
+    const settledTxReceipt = await this.archiver.getSettledTxReceipt(txHash);
     if (settledTxReceipt) {
       txReceipt = settledTxReceipt;
     }
@@ -349,7 +339,7 @@ export class AztecNodeService implements AztecNode {
   }
 
   public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
-    return this.blockSource.getTxEffect(txHash);
+    return this.archiver.getTxEffect(txHash);
   }
 
   /**
@@ -360,7 +350,7 @@ export class AztecNodeService implements AztecNode {
     await this.sequencer?.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
-    await this.blockSource.stop();
+    await this.archiver.stop();
     this.log.info(`Stopped`);
   }
 
@@ -441,7 +431,7 @@ export class AztecNodeService implements AztecNode {
     l1ToL2Message: Fr,
     startIndex = 0n,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    const index = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message, startIndex);
+    const index = await this.archiver.getL1ToL2MessageIndex(l1ToL2Message, startIndex);
     if (index === undefined) {
       return undefined;
     }
@@ -464,7 +454,7 @@ export class AztecNodeService implements AztecNode {
    */
   public async isL1ToL2MessageSynced(l1ToL2Message: Fr, startL2BlockNumber = INITIAL_L2_BLOCK_NUM): Promise<boolean> {
     const startIndex = BigInt(startL2BlockNumber - INITIAL_L2_BLOCK_NUM) * BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
-    return (await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message, startIndex)) !== undefined;
+    return (await this.archiver.getL1ToL2MessageIndex(l1ToL2Message, startIndex)) !== undefined;
   }
 
   /**
@@ -481,7 +471,7 @@ export class AztecNodeService implements AztecNode {
     blockNumber: L2BlockNumber,
     l2ToL1Message: Fr,
   ): Promise<[bigint, SiblingPath<number>]> {
-    const block = await this.blockSource.getBlock(blockNumber === 'latest' ? await this.getBlockNumber() : blockNumber);
+    const block = await this.archiver.getBlock(blockNumber === 'latest' ? await this.getBlockNumber() : blockNumber);
 
     if (block === undefined) {
       throw new Error('Block is not defined');
@@ -700,7 +690,7 @@ export class AztecNodeService implements AztecNode {
    **/
   public async simulatePublicCalls(tx: Tx): Promise<PublicSimulationOutput> {
     this.log.info(`Simulating tx ${tx.getTxHash()}`);
-    const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
+    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
     const coinbase = this.sequencer?.coinbase || EthAddress.ZERO;
@@ -711,11 +701,11 @@ export class AztecNodeService implements AztecNode {
       coinbase,
       feeRecipient,
     );
-    const prevHeader = (await this.blockSource.getBlock(-1))?.header;
+    const prevHeader = (await this.archiver.getBlock(-1))?.header;
 
     const publicProcessorFactory = new PublicProcessorFactory(
       await this.worldStateSynchronizer.ephemeralFork(),
-      this.contractDataSource,
+      this.archiver,
       new WASMSimulator(),
       this.telemetry,
     );
@@ -747,7 +737,7 @@ export class AztecNodeService implements AztecNode {
   }
 
   public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<boolean> {
-    const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
+    const blockNumber = (await this.archiver.getBlockNumber()) + 1;
 
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
       new Fr(blockNumber),
@@ -803,7 +793,7 @@ export class AztecNodeService implements AztecNode {
   }
 
   public addContractArtifact(address: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    return this.contractDataSource.addContractArtifact(address, artifact);
+    return this.archiver.addContractArtifact(address, artifact);
   }
 
   public flushTxs(): Promise<void> {
@@ -849,7 +839,7 @@ export class AztecNodeService implements AztecNode {
    * @returns A promise that fulfils once the world state is synced
    */
   async #syncWorldState(): Promise<number> {
-    const blockSourceHeight = await this.blockSource.getBlockNumber();
+    const blockSourceHeight = await this.archiver.getBlockNumber();
     return this.worldStateSynchronizer.syncImmediate(blockSourceHeight);
   }
 }

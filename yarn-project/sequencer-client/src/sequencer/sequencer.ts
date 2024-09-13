@@ -9,6 +9,7 @@ import {
   type TxHash,
   type TxValidator,
 } from '@aztec/circuit-types';
+import {Archiver} from "@aztec/archiver";
 import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
@@ -78,8 +79,7 @@ export class Sequencer {
     private p2pClient: P2P,
     private worldState: WorldStateSynchronizer,
     private blockBuilderFactory: BlockBuilderFactory,
-    private l2BlockSource: L2BlockSource,
-    private l1ToL2MessageSource: L1ToL2MessageSource,
+    private archiver: Archiver,
     private publicProcessorFactory: PublicProcessorFactory,
     private txValidatorFactory: TxValidatorFactory,
     telemetry: TelemetryClient,
@@ -203,12 +203,12 @@ export class Sequencer {
       this.state = SequencerState.IDLE;
     }
 
-    const chainTip = await this.l2BlockSource.getBlock(-1);
+    const chainTip = await this.archiver.getBlock(-1);
     const historicalHeader = chainTip?.header;
 
     const newBlockNumber =
       (historicalHeader === undefined
-        ? await this.l2BlockSource.getBlockNumber()
+        ? await this.archiver.getBlockNumber()
         : Number(historicalHeader.globalVariables.blockNumber.toBigInt())) + 1;
 
     // If we cannot find a tip archive, assume genesis.
@@ -410,7 +410,7 @@ export class Sequencer {
 
     // Get l1 to l2 messages from the contract
     this.log.debug('Requesting L1 to L2 messages from contract');
-    const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(newGlobalVariables.blockNumber.toBigInt());
+    const l1ToL2Messages = await this.archiver.getL1ToL2Messages(newGlobalVariables.blockNumber.toBigInt());
     this.log.verbose(
       `Retrieved ${l1ToL2Messages.length} L1 to L2 messages for block ${newGlobalVariables.blockNumber.toNumber()}`,
     );
@@ -424,6 +424,7 @@ export class Sequencer {
     const blockBuildingTimer = new Timer();
     const blockBuilder = this.blockBuilderFactory.create(this.worldState.getLatest());
     const blockTicket = await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+
 
     const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
       processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs()),
@@ -596,17 +597,15 @@ export class Sequencer {
     const syncedBlocks = await Promise.all([
       this.worldState.status().then((s: WorldStateStatus) => s.syncedToL2Block),
       this.p2pClient.getStatus().then(s => s.syncedToL2Block),
-      this.l2BlockSource.getBlockNumber(),
-      this.l1ToL2MessageSource.getBlockNumber(),
+      this.archiver.getBlockNumber(),
     ]);
     const min = Math.min(...syncedBlocks);
-    const [worldState, p2p, l2BlockSource, l1ToL2MessageSource] = syncedBlocks;
+    const [worldState, p2p, l2BlockSource] = syncedBlocks;
     const result = min >= this.lastPublishedBlock;
     this.log.debug(`Sync check to last published block ${this.lastPublishedBlock} ${result ? 'succeeded' : 'failed'}`, {
       worldState,
       p2p,
       l2BlockSource,
-      l1ToL2MessageSource,
     });
     return result;
   }

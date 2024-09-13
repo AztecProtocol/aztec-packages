@@ -11,11 +11,12 @@ import { DoubleSpendTxValidator } from './double_spend_validator.js';
 import { GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { PhasesTxValidator } from './phases_validator.js';
+import { Archiver } from '@aztec/archiver';
 
 export class TxValidatorFactory {
   constructor(
     private merkleTreeDb: MerkleTreeOperations,
-    private contractDataSource: ContractDataSource,
+    private archiver: Archiver,
     private enforceFees: boolean,
   ) {}
 
@@ -24,7 +25,7 @@ export class TxValidatorFactory {
       new DataTxValidator(),
       new MetadataTxValidator(globalVariables),
       new DoubleSpendTxValidator(new WorldStateDB(this.merkleTreeDb)),
-      new PhasesTxValidator(this.contractDataSource, setupAllowList),
+      new PhasesTxValidator(this.archiver, setupAllowList),
       new GasTxValidator(new WorldStatePublicDB(this.merkleTreeDb), FeeJuiceAddress, this.enforceFees),
     );
   }
