@@ -1,6 +1,6 @@
 // docs:start:token_types_all
 use dep::aztec::{
-    note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_nullify},
+    utils::compute_note_hash_for_nullify},
     prelude::{NoteHeader, NoteInterface, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator}
 };
@@ -50,7 +50,7 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN, TRANSPARENT_NOTE_BYTES_LEN> for Transpa
     //      1) We pass the secret as an argument to the function and use it to compute a secret hash,
     //      2) we fetch a note via the "get_notes" oracle which accepts the secret hash as an argument,
     //      3) the "get_notes" oracle constrains that the secret hash in the returned note matches the one computed in
-    //         circuit. 
+    //         circuit.
     // This achieves that the note can only be spent by the party that knows the secret.
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);

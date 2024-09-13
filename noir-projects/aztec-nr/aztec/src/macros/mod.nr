@@ -5,7 +5,7 @@ mod storage;
 
 use functions::STUBS;
 use storage::STORAGE_LAYOUT_NAME;
-use notes::NOTES;
+use notes::{NOTES, generate_note_export};
 
 use functions::transform_unconstrained;
 
@@ -79,11 +79,11 @@ pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quote
             [0, 0, 0, 0]
         }
     } else {
-        max_note_length = NOTES.fold(0, | acc, (_, len): (StructDefinition, u32) | {
+        max_note_length = NOTES.fold(0, | acc, (_, len, _): (StructDefinition, u32, Field) | {
             acc + len
         });
         let if_statements = NOTES.map(
-            | (note, _): (StructDefinition, u32) | {
+            | (note, _, _): (StructDefinition, u32, Field) | {
                 let note_name = note.name();
                 quote {
                     if note_type_id == $note_name::get_note_type_id() {
@@ -117,15 +117,29 @@ pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quote
     }
 }
 
-pub comptime fn aztec_contract(m: Module) -> Quoted {
+pub comptime fn generate_note_exports() -> Quoted {
+    let note_exports = NOTES.map(
+        | (s, _, note_type_id): (StructDefinition, u32, Field) | {
+            generate_note_export(s, note_type_id)
+        }
+    ).join(quote {});
+
+    quote {
+        $note_exports
+    }
+}
+
+pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
-    let unconstrained_functions = m.functions().filter(| f: FunctionDefinition | f.is_unconstrained() & !f.has_named_attribute(quote { test }));
+    let unconstrained_functions = m.functions().filter(| f: FunctionDefinition | f.is_unconstrained() & !f.has_named_attribute("test"));
     let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
+    let note_exports = generate_note_exports();
     for f in unconstrained_functions {
         transform_unconstrained(f);
     }
     quote {
         $interface
         $compute_note_hash_and_optionally_a_nullifier
+        $note_exports
     }
 }

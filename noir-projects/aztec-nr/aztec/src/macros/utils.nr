@@ -1,7 +1,7 @@
 use std::meta::{typ::fresh_type_variable, unquote};
 
 pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
-    if f.has_named_attribute(quote { private }) {
+    if f.has_named_attribute("private") {
         quote { private }
     } else {
         quote { public }
@@ -9,15 +9,27 @@ pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
 }
 
 pub(crate) comptime fn is_fn_private(f: FunctionDefinition) -> bool {
-    f.has_named_attribute(quote { private })
+    f.has_named_attribute("private")
 }
 
 pub(crate) comptime fn is_fn_public(f: FunctionDefinition) -> bool {
-    f.has_named_attribute(quote { public })
+    f.has_named_attribute("public")
 }
 
 pub(crate) comptime fn is_fn_view(f: FunctionDefinition) -> bool {
-    f.has_named_attribute(quote { view })
+    f.has_named_attribute("view")
+}
+
+pub(crate) comptime fn is_fn_internal(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("internal")
+}
+
+pub(crate) comptime fn is_fn_initializer(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("initializer")
+}
+
+pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("noinitcheck")
 }
 
 pub(crate) comptime fn fn_body_as_quoted(f: FunctionDefinition) -> Quoted {

@@ -31,7 +31,7 @@ pub comptime fn generate_storage_field_constructor(typ: Type, slot: Quoted, pare
         (quote { $struct_name::new(context, $slot, | context, slot | { $value_constructor }) }, 1)
     } else {
         let (container_struct, _) = typ.as_struct().unwrap();
-        let serialized_size = if parent_is_map | container_struct.has_named_attribute(quote { note }) {
+        let serialized_size = if parent_is_map | container_struct.has_named_attribute("note") {
             1
         } else {
             assert(

@@ -40,7 +40,7 @@ mod test {
     };
 
     use crate::{
-        note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}},
+        note::{note_header::NoteHeader, note_interface::{NoteInterface, PartialNote, NullifiableNote}},
         encrypted_logs::incoming_body::EncryptedLogIncomingBody, event::event_interface::EventInterface,
         context::PrivateContext, keys::public_keys::IvpkM
     };
@@ -68,10 +68,17 @@ mod test {
         }
     }
 
-    impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
+    struct AddressNoteHidingPoint {
+        inner: Point
+    }
+
+    impl PartialNote for AddressNote {
         fn compute_note_hiding_point(_self: Self) -> Point {
             crate::generators::Ga1
         }
+    }
+
+    impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
         fn get_note_type_id() -> Field {
             1

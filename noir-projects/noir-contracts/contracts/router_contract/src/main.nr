@@ -1,12 +1,12 @@
 mod test;
 mod utils;
 
-use aztec::macros::aztec_contract;
+use dep::aztec::macros::aztec;
 
 /// The purpose of this contract is to perform a check in public without revealing what contract enqued the public
 /// call. This is achieved by having a private function on this contract that enques the public call and hence
 /// the `msg_sender` in the public call is the address of this contract.
-#[aztec_contract]
+#[aztec]
 contract Router {
     use aztec::{macros::functions::{private, public}, utils::comparison::compare};
 

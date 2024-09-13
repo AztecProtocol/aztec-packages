@@ -1,6 +1,6 @@
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
-    note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote},
+    note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote, FinalizedNote},
     utils::{compute_note_hash_for_read_request, compute_note_hash_for_nullify_internal},
     note_emission::NoteEmission
 };
@@ -10,14 +10,13 @@ pub fn create_note<Note, N>(
     context: &mut PrivateContext,
     storage_slot: Field,
     note: &mut Note
-) -> NoteEmission<Note> where Note: NoteInterface<N> + NullifiableNote {
+) -> NoteEmission<Note> where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
     let contract_address = (*context).this_address();
     let note_hash_counter = context.side_effect_counter;
 
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
     note.set_header(header);
-    // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
-    let note_hash = note.compute_note_hiding_point().x;
+    let note_hash = note.compute_note_hash();
 
     let serialized_note = Note::serialize_content(*note);
     assert(
@@ -40,13 +39,12 @@ pub fn create_note_hash_from_public<Note, N>(
     context: &mut PublicContext,
     storage_slot: Field,
     note: &mut Note
-) where Note: NoteInterface<N> + NullifiableNote {
+) where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
     let contract_address = (*context).this_address();
     // Public note hashes are transient, but have no side effect counters, so we just need note_hash_counter != 0
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter: 1 };
     note.set_header(header);
-    // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
-    let note_hash = note.compute_note_hiding_point().x;
+    let note_hash = note.compute_note_hash();
 
     context.push_note_hash(note_hash);
 }
@@ -55,7 +53,7 @@ pub fn create_note_hash_from_public<Note, N>(
 pub fn destroy_note<Note, N>(
     context: &mut PrivateContext,
     note: Note
-) where Note: NoteInterface<N> + NullifiableNote {
+) where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
     let note_hash_for_read_request = compute_note_hash_for_read_request(note);
 
     destroy_note_unsafe(context, note, note_hash_for_read_request)
@@ -65,7 +63,7 @@ pub fn destroy_note_unsafe<Note, N>(
     context: &mut PrivateContext,
     note: Note,
     note_hash_for_read_request: Field
-) where Note: NoteInterface<N> + NullifiableNote {
+) where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
     let note_hash_for_nullify = compute_note_hash_for_nullify_internal(note, note_hash_for_read_request);
     let nullifier = note.compute_nullifier(context, note_hash_for_nullify);
 

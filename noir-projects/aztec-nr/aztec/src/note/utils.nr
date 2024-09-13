@@ -1,6 +1,6 @@
 use crate::{
     context::PrivateContext,
-    note::{note_header::NoteHeader, note_interface::{NullifiableNote, NoteInterface}}
+    note::{note_header::NoteHeader, note_interface::{NullifiableNote, NoteInterface, FinalizedNote}}
 };
 
 use dep::protocol_types::{
@@ -14,7 +14,7 @@ use dep::protocol_types::{
 pub fn compute_siloed_nullifier<Note, let N: u32>(
     note_with_header: Note,
     context: &mut PrivateContext
-) -> Field where Note: NoteInterface<N> + NullifiableNote {
+) -> Field where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
     let header = note_with_header.get_header();
     let note_hash_for_nullify = compute_note_hash_for_nullify(note_with_header);
     let inner_nullifier = note_with_header.compute_nullifier(context, note_hash_for_nullify);
@@ -23,9 +23,8 @@ pub fn compute_siloed_nullifier<Note, let N: u32>(
 }
 
 // TODO(#7775): make this not impossible to understand
-pub fn compute_note_hash_for_read_request<Note, let N: u32>(note: Note) -> Field where Note: NoteInterface<N> + NullifiableNote {
-    // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
-    let note_hash = note.compute_note_hiding_point().x;
+pub fn compute_note_hash_for_read_request<Note, let N: u32>(note: Note) -> Field where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
+    let note_hash = note.compute_note_hash();
     let nonce = note.get_header().nonce;
     let counter = note.get_header().note_hash_counter;
 
@@ -69,7 +68,6 @@ pub fn compute_note_hash_for_nullify_internal<Note, let N: u32>(
 //     //    the same transaction: (note_hash_counter != 0) & (nonce != 0)
 //     // 3. The note was inserted in a previous transaction: (note_hash_counter == 0) & (nonce != 0)
 
-//     // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
 //     let note_hash = note.compute_note_hiding_point().x;
 
 //     if header.nonce == 0 {
@@ -102,7 +100,7 @@ pub fn compute_note_hash_for_nullify_internal<Note, let N: u32>(
 //     }
 // }
 
-pub fn compute_note_hash_for_nullify<Note, let N: u32>(note: Note) -> Field where Note: NoteInterface<N> + NullifiableNote {
+pub fn compute_note_hash_for_nullify<Note, let N: u32>(note: Note) -> Field where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
     let note_hash_for_read_request = compute_note_hash_for_read_request(note);
     compute_note_hash_for_nullify_internal(note, note_hash_for_read_request)
 }
@@ -112,12 +110,11 @@ pub fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let S: u32>(
     note_header: NoteHeader,
     compute_nullifier: bool,
     serialized_note: [Field; S]
-) -> [Field; 4] where T: NoteInterface<N> + NullifiableNote {
+) -> [Field; 4] where T: NoteInterface<N> + NullifiableNote + FinalizedNote {
     let mut note = deserialize_content(arr_copy_slice(serialized_note, [0; N], 0));
     note.set_header(note_header);
 
-    // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
-    let note_hash = note.compute_note_hiding_point().x;
+    let note_hash = note.compute_note_hash();
     let unique_note_hash = compute_unique_note_hash(note_header.nonce, note_hash);
     let siloed_note_hash = compute_siloed_note_hash(note_header.contract_address, unique_note_hash);
 

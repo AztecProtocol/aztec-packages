@@ -1,25 +1,291 @@
-use std::meta::typ::fresh_type_variable;
+use std::meta::{type_of, unquote};
+use protocol_types::{meta::flatten_to_fields, utils::field::field_from_bytes};
+use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector};
 
 comptime mut global NOTES = &[];
 
-pub comptime fn note(s: StructDefinition) {
-    // Automatically inject header if not present
-    // let filtered_header = s.fields().filter(
-    //     | (_, typ): (Quoted, Type) | typ.eq(quote { dep::aztec::note::note_header::NoteHeader}.as_type())
-    // );
-    // if (filtered_header.len() == 0) {
-    //     let new_fields = s.fields().push_back((quote { header }, quote { dep::aztec::note::note_header::NoteHeader}.as_type()));
-    //     s.set_fields(new_fields);
-    // }
+comptime fn compute_note_type_id(name: Quoted) -> Field {
+    let name_as_str_quote = name.as_str_quote();
 
-    let serialized_len_generic = fresh_type_variable();
-    let maybe_note_interface_impl = s.as_type().get_trait_impl(
-        quote { crate::note::note_interface::NoteInterface<$serialized_len_generic> }.as_trait_constraint()
+    let hash: [u8; 32] = unquote!(
+        quote {
+            let bytes = $name_as_str_quote.as_bytes();
+            std::hash::keccak256(bytes, bytes.len() as u32)
+        }
     );
-    assert(maybe_note_interface_impl.is_some(), "Note must implement NoteInterface");
-    let note_interface_impl = maybe_note_interface_impl.unwrap();
-    let note_serialized_len = note_interface_impl.trait_generic_args()[0].as_constant().unwrap();
+
+    let mut selector_be_bytes = [0; 4];
+    for i in 0..4 {
+        selector_be_bytes[i] = hash[i];
+    }
+
+    field_from_bytes(selector_be_bytes, true)
+}
+
+comptime fn generate_note_interface(s: StructDefinition) -> (Quoted, u32, Field) {
+    let name = s.name();
+    let typ = s.as_type();
+    let (fields, aux_vars) = flatten_to_fields(quote { self }, typ, &[quote {self.header}]);
+    let aux_vars_for_serialization = if aux_vars.len() > 0 {
+        let joint = aux_vars.join(quote {;});
+        quote { $joint; }
+    } else {
+        quote {}
+    };
+    let serialized_fields = fields.join(quote {,});
+    let content_len = fields.len();
+
+    let mut deserialized_fields = &[];
+
+    let note_header_type = quote { crate::note::note_header::NoteHeader}.as_type();
+    let mut field_counter: u64 = 0;
+    for field in s.fields() {
+        let (name, typ) = field;
+        if typ != note_header_type {
+            deserialized_fields = deserialized_fields.push_back(quote { $name: fields[$field_counter] });
+        }
+        field_counter+= 1;
+    }
+
+    let deserialized_content = deserialized_fields.join(quote {,});
+
+    let note_type_id = compute_note_type_id(name);
+
+    (quote {
+        impl aztec::note::note_interface::NoteInterface<$content_len> for ValueNote {
+            fn to_be_bytes(self, storage_slot: Field) -> [u8; $content_len * 32 + 64] {
+                let serialized_note = self.serialize_content();
+
+                let mut buffer: [u8; $content_len * 32 + 64] = [0; $content_len * 32 + 64];
+
+                let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
+                let note_type_id_bytes: [u8; 32] = $name::get_note_type_id().to_be_bytes();
+
+                for i in 0..32 {
+                    buffer[i] = storage_slot_bytes[i];
+                    buffer[32 + i] = note_type_id_bytes[i];
+                }
+
+                for i in 0..serialized_note.len() {
+                    let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
+                    for j in 0..32 {
+                        buffer[64 + i * 32 + j] = bytes[j];
+                    }
+                }
+                buffer
+            }
+
+            fn deserialize_content(fields: [Field; $content_len]) -> Self {
+                $name {
+                    $deserialized_content,
+                    header: NoteHeader::empty()
+                }
+            }
+
+            fn serialize_content(self) -> [Field; $content_len] {
+                $aux_vars_for_serialization
+                [$serialized_fields]
+            }
+
+            fn get_note_type_id() -> Field {
+                $note_type_id
+            }
+
+            fn set_header(&mut self, header: $note_header_type) {
+                self.header = header;
+            }
+
+            fn get_header(self) -> $note_header_type {
+                self.header
+            }
+
+        }
+    }, content_len, note_type_id)
+}
+
+comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
+    let name = s.name();
+
+    let struct_name = f"{name}Properties".quoted_contents();
+
+    let property_selector_type = type_of(PropertySelector { index: 0, offset: 0, length: 0 });
+    let note_header_type: Type = type_of(NoteHeader::empty());
+
+    let non_header_fields = s.fields().filter(| (_, typ): (Quoted, Type) | typ != note_header_type);
+
+    let properties_types = non_header_fields.map(
+        | (name, _): (Quoted, Type) | {
+           quote { $name: $property_selector_type }
+        }
+    ).join(quote {,});
+
+    // TODO: Properly handle non-field types
+    let mut properties_list = &[];
+    for i in 0..non_header_fields.len() {
+        let (name, _) = non_header_fields[i];
+        properties_list = properties_list.push_back(quote { $name: aztec::note::note_getter_options::PropertySelector { index: $i, offset: 0, length: 32 } });
+    }
+
+    let properties = properties_list.join(quote {,});
+
+    quote {
+        struct $struct_name {
+            $properties_types
+        }
+
+        impl aztec::note::note_interface::NoteProperties<$struct_name> for $name {
+            fn properties() -> $struct_name {
+                $struct_name {
+                    $properties
+                }
+            }
+        }
+    }
+}
+
+pub(crate) comptime fn generate_note_export(s: StructDefinition, note_type_id: Field) -> Quoted {
+    let name = s.name();
+    let global_export_name = f"{name}_EXPORTS".quoted_contents();
+    let note_name_as_str = name.as_str_quote();
+    let note_name_str_len = unquote!(quote { $note_name_as_str.as_bytes().len() });
+    let note_type_id_hex = f"0x{note_type_id}".quoted_contents();
+    quote {
+        #[abi(notes)]
+        global $global_export_name: (Field, str<$note_name_str_len>) = ($note_type_id_hex,$note_name_as_str);
+    }
+}
+
+comptime fn generate_note_hiding_point(s: StructDefinition, nullable_fields: [Quoted]) -> (Quoted, Quoted) {
+    let name = s.name();
+    let hiding_point_name = f"{name}HidingPoint".quoted_contents();
+    let note_header_type: Type = type_of(NoteHeader::empty());
+
+    let fixed_fields = s.fields().filter(
+        | (name, typ): (Quoted, Type) | (typ != note_header_type) & nullable_fields.all(| field | field != name)
+    );
+
+    let mut new_generators_list = &[];
+    let mut new_scalars_list = &[];
+    for i in 0..fixed_fields.len() {
+        let (field_name, _) = fixed_fields[i];
+        let generator_index = i + 1;
+        new_generators_list = new_generators_list.push_back(f"aztec::generators::Ga{generator_index}".quoted_contents());
+        new_scalars_list = new_scalars_list.push_back(quote { std::hash::from_field_unsafe(note.$field_name.to_field()) });
+    }
+    let new_generators = new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
+    let new_scalars = new_scalars_list.push_back(quote { std::hash::from_field_unsafe(note.get_header().storage_slot) }).join(quote {,});
+
+    let mut finalize_generators_list = &[];
+    let mut finalize_scalars_list = &[];
+    let mut finalize_args_list = &[];
+    let mut finalize_generics_list = &[];
+    let mut finalize_trait_bounds_list = &[];
+
+    for i in 0..nullable_fields.len() {
+        let field_name = nullable_fields[i];
+        let arg_type = f"N{i}".quoted_contents();
+        finalize_args_list = finalize_args_list.push_back(quote { $field_name: $arg_type });
+        let generator_index = i + 1;
+        finalize_generators_list = finalize_generators_list.push_back(f"aztec::generators::Ga{generator_index}".quoted_contents());
+        finalize_scalars_list = finalize_scalars_list.push_back(quote { std::hash::from_field_unsafe($field_name.to_field()) });
+        finalize_generics_list = finalize_generics_list.push_back(quote { $arg_type });
+        finalize_trait_bounds_list = finalize_trait_bounds_list.push_back(quote { $arg_type: aztec::protocol_types::traits::ToField });
+    }
+
+    let finalize_args = if finalize_args_list.len() > 0 {
+        &[quote {self}].append(finalize_args_list).join(quote {,})
+    } else {
+        quote {self}
+    };
+
+    let finalize_body = if nullable_fields.len() > 0 {
+        let finalize_generators = finalize_generators_list.join(quote {,});
+        let finalize_scalars = finalize_scalars_list.join(quote {,});
+        quote {
+            let point = std::embedded_curve_ops::multi_scalar_mul(
+                [$finalize_generators],
+                [$finalize_scalars]
+            ) + self.inner.x;
+            point.x
+        }
+    } else {
+        quote { self.inner.x }
+    };
+
+    let finalize_name = if finalize_generics_list.len() > 0 {
+        let generics = finalize_generics_list.join(quote {,});
+        quote {finalize<$generics>}
+    } else {
+        quote {finalize}
+    };
+
+    let finalize_trait_bounds = if finalize_trait_bounds_list.len() > 0 {
+        let bounds = finalize_trait_bounds_list.join(quote {,});
+        quote {where $bounds}
+    } else {
+        quote {}
+    };
+
+    (quote {
+        struct $hiding_point_name {
+            inner: aztec::protocol_types::point::Point
+        }
+
+        impl $hiding_point_name {
+            fn new(note: $name) -> $hiding_point_name {
+                let generators = [$new_generators];
+                let point = std::embedded_curve_ops::multi_scalar_mul(
+                    [$new_generators],
+                    [$new_scalars]
+                );
+                $hiding_point_name { inner: point }
+            }
+
+            fn $finalize_name($finalize_args) -> Field $finalize_trait_bounds {
+                $finalize_body
+            }
+        }
+
+        impl aztec::protocol_types::traits::Serialize<aztec::protocol_types::point::POINT_LENGTH> for $hiding_point_name {
+            fn serialize(self) -> [Field; aztec::protocol_types::point::POINT_LENGTH] {
+                self.inner.serialize()
+            }
+        }
+    }, hiding_point_name)
+}
+
+pub comptime fn generate_finalized_note_for_complete_note(s: StructDefinition, hiding_point_name: Quoted) -> Quoted {
+    let name = s.name();
+    quote {
+        impl aztec::note::note_interface::FinalizedNote for $name {
+            fn compute_note_hash(self) -> Field {
+                $hiding_point_name::new(self).finalize()
+            }
+        }
+    }
+}
+
+pub comptime fn note(s: StructDefinition) -> Quoted {
+    // Automatically inject header if not present
+    let note_header_type = type_of(NoteHeader::empty());
+    let filtered_header = s.fields().filter(| (_, typ): (Quoted, Type) | typ == note_header_type);
+    if (filtered_header.len() == 0) {
+        let new_fields = s.fields().push_back((quote { header }, note_header_type));
+        s.set_fields(new_fields);
+    }
+
+    let (note_interface_impl, note_serialized_len, note_type_id) = generate_note_interface(s);
+    let note_properties = generate_note_properties(s);
+    let (note_hiding_point, hiding_point_name) = generate_note_hiding_point(s, &[]);
+    let finalized_note = generate_finalized_note_for_complete_note(s, hiding_point_name);
+
     // Register note here
-    NOTES = NOTES.push_back((s, note_serialized_len));
-    //note_interface_impl.
+    NOTES = NOTES.push_back((s, note_serialized_len, note_type_id));
+
+    quote {
+        $note_interface_impl
+        $note_properties
+        $note_hiding_point
+        $finalized_note
+    }
 }

@@ -3,7 +3,7 @@ use dep::protocol_types::header::Header;
 
 use crate::{
     context::PrivateContext, oracle::get_nullifier_membership_witness::get_nullifier_membership_witness,
-    note::{utils::compute_siloed_nullifier, note_interface::{NoteInterface, NullifiableNote}}
+    note::{utils::compute_siloed_nullifier, note_interface::{NoteInterface, NullifiableNote, FinalizedNote}}
 };
 
 trait ProveNullifierInclusion {
@@ -32,12 +32,16 @@ impl ProveNullifierInclusion for Header {
 }
 
 trait ProveNoteIsNullified {
-    fn prove_note_is_nullified<Note, N, M>(header: Header, note: Note, context: &mut PrivateContext) where Note: NoteInterface<N> + NullifiableNote;
+    fn prove_note_is_nullified<Note, N, M>(header: Header, note: Note, context: &mut PrivateContext) where Note: NoteInterface<N> + NullifiableNote + FinalizedNote;
 }
 
 impl ProveNoteIsNullified for Header {
     // docs:start:prove_note_is_nullified
-    fn prove_note_is_nullified<Note, N, M>(self, note: Note, context: &mut PrivateContext) where Note: NoteInterface<N> + NullifiableNote {
+    fn prove_note_is_nullified<Note, N, M>(
+        self,
+        note: Note,
+        context: &mut PrivateContext
+    ) where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
         let nullifier = compute_siloed_nullifier(note, context);
 
         self.prove_nullifier_inclusion(nullifier);

@@ -1,6 +1,6 @@
-use dep::aztec::macros::aztec_contract;
+use dep::aztec::macros::aztec;
 
-#[aztec_contract]
+#[aztec]
 contract Counter {
     // docs:start:imports
     use aztec::prelude::{AztecAddress, Map};

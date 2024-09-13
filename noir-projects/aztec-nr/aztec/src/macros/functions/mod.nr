@@ -1,10 +1,9 @@
 use std::meta::{unquote, type_of};
 
 use super::utils::{
-    modify_fn_body, is_fn_private, get_fn_visibility, is_fn_view, compute_fn_selector,
-    add_to_field_slice, add_to_hasher
+    modify_fn_body, is_fn_private, get_fn_visibility, is_fn_view, is_fn_initializer, is_fn_internal,
+    fn_has_noinitcheck, compute_fn_selector, add_to_field_slice, add_to_hasher
 };
-use super::storage::STORAGE_LAYOUT_NAME;
 use super::utils::is_fn_public;
 
 comptime mut global STUBS: [Quoted] = &[];
@@ -92,8 +91,8 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     let fn_stub = stub_fn(f);
     STUBS = STUBS.push_back(fn_stub);
 
-    let module_has_initializer = f.module().functions().any(|f: FunctionDefinition| f.has_named_attribute(quote { initializer }));
-    let module_has_storage = STORAGE_LAYOUT_NAME != quote { };
+    let module_has_initializer = f.module().functions().any(|f: FunctionDefinition| is_fn_initializer(f));
+    let module_has_storage = f.module().structs().any(|s: StructDefinition| s.has_named_attribute("storage"));
 
     let current_params = f.parameters();
     f.set_parameters(
@@ -119,17 +118,17 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     }
     );
     let context_creation = quote { let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hasher.hash()); };
-    let internal_check = if f.has_named_attribute(quote { internal }) {
+    let internal_check = if is_fn_internal(f) {
         create_internal_check(f)
     } else {
         quote {}
     };
-    let view_check = if f.has_named_attribute(quote { view }) {
+    let view_check = if is_fn_view(f) {
         create_view_check(f)
     } else {
         quote {}
     };
-    let (assert_initializer, mark_as_initialized) = if f.has_named_attribute(quote { initializer }) {
+    let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {
         (create_assert_initializer(f), create_mark_as_initialized(f))
     } else {
         (quote {}, quote {})
@@ -139,7 +138,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     } else {
         quote {}
     };
-    let init_check = if module_has_initializer & !f.has_named_attribute(quote { no_init_check }) {
+    let init_check = if module_has_initializer & !fn_has_noinitcheck(f) {
         create_init_check(f)
     } else {
         quote {}
@@ -196,8 +195,8 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
     let fn_stub = stub_fn(f);
     STUBS = STUBS.push_back(fn_stub);
 
-    let module_has_initializer = f.module().functions().any(|f: FunctionDefinition| f.has_named_attribute(quote { initializer }));
-    let module_has_storage = STORAGE_LAYOUT_NAME != quote { };
+    let module_has_initializer = f.module().functions().any(|f: FunctionDefinition| is_fn_initializer(f));
+    let module_has_storage = f.module().structs().any(|s: StructDefinition| s.has_named_attribute("storage"));
 
     let current_params = f.parameters();
     f.set_parameters(
@@ -208,12 +207,27 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
     ].append(current_params)
     );
     let context_creation = quote { let mut context = dep::aztec::context::public_context::PublicContext::new(inputs); };
+    let internal_check = if is_fn_internal(f) {
+        create_internal_check(f)
+    } else {
+        quote {}
+    };
+    let view_check = if is_fn_view(f) {
+        create_view_check(f)
+    } else {
+        quote {}
+    };
+    let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {
+        (create_assert_initializer(f), create_mark_as_initialized(f))
+    } else {
+        (quote {}, quote {})
+    };
     let storage_init = if module_has_storage {
         quote { let storage = Storage::init(&mut context); }
     } else {
         quote {}
     };
-    let init_check = if module_has_initializer & !f.has_named_attribute(quote { no_init_check }) {
+    let init_check = if module_has_initializer & !fn_has_noinitcheck(f) {
         create_init_check(f)
     } else {
         quote {}
@@ -221,11 +235,16 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
 
     let to_prepend = quote {
         $context_creation
-        $storage_init
+        $assert_initializer
         $init_check
+        $internal_check
+        $view_check
+        $storage_init
     };
 
-    let to_append = quote {};
+    let to_append = quote {
+        $mark_as_initialized
+    };
 
     modify_fn_body(f, to_prepend, to_append);
     f.set_unconstrained(true);
@@ -235,7 +254,7 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
 
 pub comptime fn transform_unconstrained(f: FunctionDefinition) {
     let context_creation = quote { let mut context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new(); };
-    let module_has_storage = STORAGE_LAYOUT_NAME != quote { };
+    let module_has_storage = f.module().structs().any(|s: StructDefinition| s.has_named_attribute("storage"));
 
     let storage_init = if module_has_storage {
         quote { let storage = Storage::init(context); }
