@@ -1,9 +1,9 @@
+import { type Archiver } from '@aztec/archiver';
 import { type P2P } from '@aztec/p2p';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 import { type WorldStateSynchronizer } from '@aztec/world-state';
-import {Archiver} from "@aztec/archiver";
 
 import { BlockBuilderFactory } from '../block_builder/index.js';
 import { type SequencerClientConfig } from '../config.js';

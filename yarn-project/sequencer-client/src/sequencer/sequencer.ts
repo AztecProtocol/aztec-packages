@@ -1,15 +1,13 @@
+import { type Archiver } from '@aztec/archiver';
 import {
   type BlockAttestation,
-  type L1ToL2MessageSource,
   type L2Block,
-  type L2BlockSource,
   type ProcessedTx,
   Signature,
   Tx,
   type TxHash,
   type TxValidator,
 } from '@aztec/circuit-types';
-import {Archiver} from "@aztec/archiver";
 import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
@@ -424,7 +422,6 @@ export class Sequencer {
     const blockBuildingTimer = new Timer();
     const blockBuilder = this.blockBuilderFactory.create(this.worldState.getLatest());
     const blockTicket = await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
-
 
     const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
       processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs()),

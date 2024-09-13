@@ -19,6 +19,7 @@ import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService } from './server.js';
+import { type Archiver } from '@aztec/archiver';
 
 describe('aztec node', () => {
   let p2p: MockProxy<P2P>;
@@ -47,16 +48,9 @@ describe('aztec node', () => {
       getLatest: () => merkleTreeOps,
     });
 
-    const l2BlockSource = mock<L2BlockSource>({
+    const archiver = mock<Archiver>({
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
     });
-
-    const l2LogsSource = mock<L2LogsSource>();
-
-    const l1ToL2MessageSource = mock<L1ToL2MessageSource>();
-
-    // all txs use the same allowed FPC class
-    const contractSource = mock<ContractDataSource>();
 
     const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
 
@@ -72,11 +66,7 @@ describe('aztec node', () => {
         },
       },
       p2p,
-      l2BlockSource,
-      l2LogsSource,
-      l2LogsSource,
-      contractSource,
-      l1ToL2MessageSource,
+      archiver,
       worldState,
       undefined,
       31337,

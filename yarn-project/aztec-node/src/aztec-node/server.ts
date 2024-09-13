@@ -1,4 +1,4 @@
-import { Archiver, createArchiver } from '@aztec/archiver';
+import { type Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
@@ -12,7 +12,7 @@ import {
   type L2BlockSource,
   type L2LogsSource,
   type LogFilter,
-  LogType,
+  type LogType,
   MerkleTreeId,
   NullifierMembershipWitness,
   type ProcessedTx,

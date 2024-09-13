@@ -1,8 +1,8 @@
+import { type Archiver } from '@aztec/archiver';
 import { type AllowedElement, type ProcessedTx, type Tx, type TxValidator } from '@aztec/circuit-types';
 import { type GlobalVariables } from '@aztec/circuits.js';
 import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
 import { WorldStateDB, WorldStatePublicDB } from '@aztec/simulator';
-import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { AggregateTxValidator } from './aggregate_tx_validator.js';
@@ -11,14 +11,9 @@ import { DoubleSpendTxValidator } from './double_spend_validator.js';
 import { GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { PhasesTxValidator } from './phases_validator.js';
-import { Archiver } from '@aztec/archiver';
 
 export class TxValidatorFactory {
-  constructor(
-    private merkleTreeDb: MerkleTreeOperations,
-    private archiver: Archiver,
-    private enforceFees: boolean,
-  ) {}
+  constructor(private merkleTreeDb: MerkleTreeOperations, private archiver: Archiver, private enforceFees: boolean) {}
 
   validatorForNewTxs(globalVariables: GlobalVariables, setupAllowList: AllowedElement[]): TxValidator<Tx> {
     return new AggregateTxValidator(

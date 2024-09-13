@@ -1,10 +1,9 @@
+import { type Archiver } from '@aztec/archiver';
 import {
   BlockAttestation,
   BlockProposal,
   type BlockSimulator,
-  type L1ToL2MessageSource,
   L2Block,
-  type L2BlockSource,
   type MerkleTreeAdminOperations,
   MerkleTreeId,
   PROVING_STATUS,
@@ -33,7 +32,6 @@ import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
 import { WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
@@ -54,8 +52,7 @@ describe('sequencer', () => {
   let blockSimulator: MockProxy<BlockSimulator>;
   let merkleTreeOps: MockProxy<MerkleTreeAdminOperations>;
   let publicProcessor: MockProxy<PublicProcessor>;
-  let l2BlockSource: MockProxy<L2BlockSource>;
-  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
+  let archiver: MockProxy<Archiver>;
   let publicProcessorFactory: MockProxy<PublicProcessorFactory>;
 
   let lastBlockNumber: number;
@@ -137,18 +134,11 @@ describe('sequencer', () => {
       create: (_a, _b) => publicProcessor,
     });
 
-    l2BlockSource = mock<L2BlockSource>({
-      getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
-    });
-
-    l1ToL2MessageSource = mock<L1ToL2MessageSource>({
-      getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
-      getBlockNumber: () => Promise.resolve(lastBlockNumber),
-    });
-
     // all txs use the same allowed FPC class
     const fpcClassId = Fr.random();
-    const contractSource = mock<ContractDataSource>({
+    archiver = mock<Archiver>({
+      getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
+      getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getContractClass: mockFn().mockResolvedValue(fpcClassId),
     });
 
@@ -169,10 +159,9 @@ describe('sequencer', () => {
       p2p,
       worldState,
       blockBuilderFactory,
-      l2BlockSource,
-      l1ToL2MessageSource,
+      archiver,
       publicProcessorFactory,
-      new TxValidatorFactory(merkleTreeOps, contractSource, false),
+      new TxValidatorFactory(merkleTreeOps, archiver, false),
       new NoopTelemetryClient(),
     );
   });
