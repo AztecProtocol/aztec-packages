@@ -1,10 +1,12 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type AccountWallet, BatchCall, createDebugLogger, createPXEClient } from '@aztec/aztec.js';
+import { type AccountWallet, BatchCall, DeployMethod, createDebugLogger, createPXEClient } from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { Fr, deriveSigningKey } from '@aztec/circuits.js';
+import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { type BotConfig } from './config.js';
+import { DeployOptions } from '../../aztec.js/src/contract/deploy_method.js';
+import { type BotConfig, SupportedTokenContracts } from './config.js';
 import { getBalances } from './utils.js';
 
 const MINT_BALANCE = 1e12;
@@ -86,9 +88,23 @@ export class BotFactory {
    * @param wallet - Wallet to deploy the token contract from.
    * @returns The TokenContract instance.
    */
-  private async setupToken(wallet: AccountWallet): Promise<TokenContract> {
-    const deploy = TokenContract.deploy(wallet, wallet.getAddress(), 'BotToken', 'BOT', 18);
-    const deployOpts = { contractAddressSalt: this.config.tokenSalt, universalDeploy: true };
+  private async setupToken(wallet: AccountWallet): Promise<TokenContract | EasyPrivateTokenContract> {
+    let deploy: DeployMethod<TokenContract | EasyPrivateTokenContract>;
+    const deployOpts: DeployOptions = { contractAddressSalt: this.config.tokenSalt, universalDeploy: true };
+    if (this.config.contract === SupportedTokenContracts.TokenContract) {
+      deploy = TokenContract.deploy(wallet, wallet.getAddress(), 'BotToken', 'BOT', 18);
+      deployOpts.skipPublicDeployment = true;
+      deployOpts.skipClassRegistration = true;
+      deployOpts.skipInitialization = false;
+      deployOpts.skipPublicSimulation = true;
+    } else if (this.config.contract === SupportedTokenContracts.EasyPrivateTokenContract) {
+      deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, wallet.getAddress(), wallet.getAddress());
+    } else {
+      throw new Error(`Unsupported token contract type: ${this.config.contract}`);
+    }
+
+    // const deploy = TokenContract.deploy(wallet, wallet.getAddress(), 'BotToken', 'BOT', 18);
+    // const deployOpts = { contractAddressSalt: this.config.tokenSalt, universalDeploy: true };
     const address = deploy.getInstance(deployOpts).address;
     if (await this.pxe.isContractPubliclyDeployed(address)) {
       this.log.info(`Token at ${address.toString()} already deployed`);
@@ -111,7 +127,7 @@ export class BotFactory {
    * Mints private and public tokens for the sender if their balance is below the minimum.
    * @param token - Token contract.
    */
-  private async mintTokens(token: TokenContract) {
+  private async mintTokens(token: TokenContract | EasyPrivateTokenContract) {
     const sender = token.wallet.getAddress();
     const { privateBalance, publicBalance } = await getBalances(token, sender);
     const calls: FunctionCall[] = [];
