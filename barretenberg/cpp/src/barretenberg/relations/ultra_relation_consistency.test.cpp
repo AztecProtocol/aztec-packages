@@ -108,6 +108,24 @@ class UltraRelationConsistency : public testing::Test {
         Relation::accumulate(accumulator, input_elements, parameters, 1);
         EXPECT_EQ(accumulator, expected_values);
     };
+    template <template <typename, bool> typename Relation>
+    static void validate_homogenization_consistency(const bool random_inputs)
+    {
+        const auto parameters = RelationParameters<FF>::get_random(&engine);
+        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
+
+        using Rel = Relation<FF, /* HOMOGENIZED= */ false>;
+        using RelHomog = Relation<FF, /* HOMOGENIZED= */ true>;
+
+        typename Rel::SumcheckArrayOfValuesOverSubrelations accumulator;
+        std::fill(accumulator.begin(), accumulator.end(), FF(0));
+        typename RelHomog::SumcheckArrayOfValuesOverSubrelations accumulator_homog;
+        std::fill(accumulator_homog.begin(), accumulator_homog.end(), FF(0));
+
+        Rel::accumulate(accumulator, input_elements, parameters, 1);
+        RelHomog::accumulate(accumulator_homog, input_elements, parameters, 1);
+        EXPECT_EQ(accumulator, accumulator_homog);
+    };
 };
 
 TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
@@ -594,4 +612,10 @@ TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
     };
     run_test(/*random_inputs=*/false);
     run_test(/*random_inputs=*/true);
+};
+
+TEST_F(UltraRelationConsistency, HomogenizedArithmetic)
+{
+    validate_homogenization_consistency<UltraArithmeticRelation>(/* random_inputs = */ false);
+    validate_homogenization_consistency<UltraArithmeticRelation>(/* random_inputs = */ true);
 };

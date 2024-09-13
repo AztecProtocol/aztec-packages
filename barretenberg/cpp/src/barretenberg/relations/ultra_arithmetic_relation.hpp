@@ -3,7 +3,7 @@
 
 namespace bb {
 
-template <typename FF_> class UltraArithmeticRelationImpl {
+template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
   public:
     using FF = FF_;
 
@@ -101,12 +101,23 @@ template <typename FF_> class UltraArithmeticRelationImpl {
 
             static const FF neg_half = FF(-2).invert();
 
-            auto tmp = (q_arith - 3) * (q_m * w_r * w_l) * neg_half;
-            tmp += (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + (q_4 * w_4) + q_c;
-            tmp += (q_arith - 1) * w_4_shift;
-            tmp *= q_arith;
-            tmp *= scaling_factor;
-            std::get<0>(evals) += tmp;
+            if constexpr (HOMOGENIZED) {
+                decltype(q_arith) h = 1;
+                auto tmp = w_l * w_r * q_m * q_arith.pow(2) * neg_half - w_l * w_r * q_m * q_arith * neg_half * h * 3 +
+                           w_l * q_l * q_arith * h.pow(3) + w_r * q_r * q_arith * h.pow(3) +
+                           w_o * q_o * q_arith * h.pow(3) + w_4 * q_4 * q_arith * h.pow(3) +
+                           w_4_shift * q_arith.pow(2) * h.pow(3) - w_4_shift * q_arith * h.pow(4) +
+                           q_c * q_arith * h.pow(4);
+                tmp *= scaling_factor;
+                std::get<0>(evals) += tmp;
+            } else {
+                auto tmp = (q_arith - 3) * (q_m * w_r * w_l) * neg_half;
+                tmp += (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + (q_4 * w_4) + q_c;
+                tmp += (q_arith - 1) * w_4_shift;
+                tmp *= q_arith;
+                tmp *= scaling_factor;
+                std::get<0>(evals) += tmp;
+            }
         }
         {
             using Accumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
@@ -117,15 +128,28 @@ template <typename FF_> class UltraArithmeticRelationImpl {
             auto q_m = View(in.q_m);
             auto q_arith = View(in.q_arith);
 
-            auto tmp = w_l + w_4 - w_l_shift + q_m;
-            tmp *= (q_arith - 2);
-            tmp *= (q_arith - 1);
-            tmp *= q_arith;
-            tmp *= scaling_factor;
-            std::get<1>(evals) += tmp;
+            if constexpr (HOMOGENIZED) {
+                decltype(q_arith) h = 1;
+                auto tmp = (w_l + w_4 - w_l_shift + q_m) * q_arith;
+                auto prod = q_arith * h;
+                auto term = tmp * (q_arith * q_arith - prod - prod - prod);
+                tmp += tmp;
+                tmp *= h * h;
+                term += tmp;
+                term *= scaling_factor;
+                std::get<1>(evals) += term;
+            } else {
+                auto tmp = w_l + w_4 - w_l_shift + q_m;
+                tmp *= (q_arith - 2);
+                tmp *= (q_arith - 1);
+                tmp *= q_arith;
+                tmp *= scaling_factor;
+                std::get<1>(evals) += tmp;
+            }
         };
     };
 };
 
-template <typename FF> using UltraArithmeticRelation = Relation<UltraArithmeticRelationImpl<FF>>;
+template <typename FF, bool HOMOGENIZED = false>
+using UltraArithmeticRelation = Relation<UltraArithmeticRelationImpl<FF, HOMOGENIZED>>;
 } // namespace bb
