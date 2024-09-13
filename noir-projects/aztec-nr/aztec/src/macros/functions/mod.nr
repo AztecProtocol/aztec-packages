@@ -51,7 +51,7 @@ comptime fn create_mark_as_initialized(f: FunctionDefinition) -> Quoted {
 comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
     // Remove first arg (inputs)
-    let mut parameters = f.parameters().pop_front().1.map(
+    let mut parameters = f.parameters().map(
         | (name, typ): (Quoted, Type) | {
         quote { $name: $typ }
     }
@@ -90,7 +90,6 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     let fn_abi = create_fn_abi_export(f);
     let fn_stub = stub_fn(f);
     STUBS = STUBS.push_back(fn_stub);
-
     let module_has_initializer = f.module().functions().any(|f: FunctionDefinition| is_fn_initializer(f));
     let module_has_storage = f.module().structs().any(|s: StructDefinition| s.has_named_attribute("storage"));
 
@@ -149,13 +148,16 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     let return_value = if return_value_type != type_of(()) {
         let (body_without_return, return_value) = body.pop_back();
         let return_value = return_value.quoted();
+        let return_value_var_name = quote { macro__returned__values };
+        let return_value_assignment = quote { let $return_value_var_name = $return_value; };
         let return_hasher_name = quote { return_hasher };
-        let return_value_into_hasher = add_to_hasher(return_hasher_name, return_value, return_value_type);
+        let return_value_into_hasher = add_to_hasher(return_hasher_name, return_value_var_name, return_value_type);
 
         body = body_without_return;
 
         quote {
-            let $return_hasher_name = dep::aztec::hash::ArgsHasher::new();
+            let mut $return_hasher_name = dep::aztec::hash::ArgsHasher::new();
+            $return_value_assignment
             $return_value_into_hasher
             context.set_return_hash($return_hasher_name);
         }
@@ -180,13 +182,14 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
         $mark_as_initialized
         $context_finish
     };
-
-    modify_fn_body(f, to_prepend, to_append);
+    let modified_body = modify_fn_body(body, to_prepend, to_append);
+    f.set_body(modified_body);
     f.add_attribute("recursive");
     f.set_return_public(true);
     f.set_return_type(
         quote { dep::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }.as_type()
     );
+
     fn_abi
 }
 
@@ -194,7 +197,6 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
     let fn_abi = create_fn_abi_export(f);
     let fn_stub = stub_fn(f);
     STUBS = STUBS.push_back(fn_stub);
-
     let module_has_initializer = f.module().functions().any(|f: FunctionDefinition| is_fn_initializer(f));
     let module_has_storage = f.module().structs().any(|s: StructDefinition| s.has_named_attribute("storage"));
 
@@ -246,9 +248,13 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
         $mark_as_initialized
     };
 
-    modify_fn_body(f, to_prepend, to_append);
+    let body = f.body().as_block().unwrap();
+    let modified_body = modify_fn_body(body, to_prepend, to_append);
+    f.set_body(modified_body);
+
     f.set_unconstrained(true);
     f.set_return_public(true);
+
     fn_abi
 }
 
@@ -265,8 +271,9 @@ pub comptime fn transform_unconstrained(f: FunctionDefinition) {
         $context_creation
         $storage_init
     };
-
-    modify_fn_body(f, to_prepend, quote {});
+    let body = f.body().as_block().unwrap();
+    let modified_body = modify_fn_body(body, to_prepend, quote {});
+    f.set_body(modified_body);
 }
 
 pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {

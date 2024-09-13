@@ -28,12 +28,23 @@ contract Counter {
 
     // docs:start:increment
     #[private]
-    fn increment(owner: AztecAddress, outgoing_viewer: AztecAddress) {
+    fn increment(owner: AztecAddress, outgoing_viewer: AztecAddress) -> Field {
+        let mut args_hasher = dep::aztec::hash::ArgsHasher::new();
+        args_hasher.add_multiple(owner.serialize());
+        args_hasher.add_multiple(outgoing_viewer.serialize());
+        let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hasher.hash());
+        dep::aztec::initializer::assert_is_initialized_private(&mut context);
+        let storage = Storage::init(&mut context);
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
         }
-        let counters = storage.counters;
+        let counters: unspecified = (storage.counters);
         counters.at(owner).add(1, owner, outgoing_viewer);
+        let mut return_hasher = dep::aztec::hash::ArgsHasher::new();
+        let macro__returned__values = 1;
+        return_hasher.add(macro__returned__values as Field);
+        context.set_return_hash(return_hasher);
+        context.finish()
     }
     // docs:end:increment
 

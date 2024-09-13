@@ -21,7 +21,7 @@ pub comptime fn is_storage_map(typ: Type) -> bool {
 
 pub comptime fn generate_storage_field_constructor(typ: Type, slot: Quoted, parent_is_map: bool) -> (Quoted, u32) {
     assert(
-        typ.as_struct().is_some(), "Storage containers must be generic structs of the form `Container<Context, _>`, or Map<Context, Key, _>"
+        typ.as_struct().is_some(), "Storage containers must be generic structs of the form `Container<_, Context>`, or Map<Key, _, Context>"
     );
     let (container_struct, generics) = typ.as_struct().unwrap();
     let struct_name = container_struct.name();
@@ -30,16 +30,28 @@ pub comptime fn generate_storage_field_constructor(typ: Type, slot: Quoted, pare
         let (value_constructor, _) = generate_storage_field_constructor(generics[1], quote { slot }, true);
         (quote { $struct_name::new(context, $slot, | context, slot | { $value_constructor }) }, 1)
     } else {
-        let (container_struct, _) = typ.as_struct().unwrap();
-        let serialized_size = if parent_is_map | container_struct.has_named_attribute("note") {
+        let (container_struct, container_struct_generics) = typ.as_struct().unwrap();
+        let container_struct_name = container_struct.name();
+        // Whatever's stored in a map occupies "a single slot"
+        let serialized_size = if parent_is_map {
             1
         } else {
             assert(
-                container_struct.generics().len() != 2, "Storable containers must be generic over a serializable type and Context"
+                container_struct_generics.len() == 2, f"Failed to process {container_struct_name}: Storable containers must be generic over a serializable type and Context"
             );
-            let stored_struct = container_struct.generics()[0];
-            assert(stored_struct.as_struct().is_some(), "Storable items must be Serializable structs");
-            get_serialized_size(stored_struct)
+            let stored_struct = container_struct_generics[0];
+            let is_note = if stored_struct.as_struct().is_some() {
+                let (def, _) = stored_struct.as_struct().unwrap();
+                def.has_named_attribute("note")
+            } else {
+                false
+            };
+            // Private notes always occupy a single slot. Someone could store a Note in PublicMutable for whatever reason though.
+            if is_note & (container_struct_name != quote { PublicMutable }) {
+                1
+            } else {
+                get_serialized_size(stored_struct)
+            }
         };
         (quote { $struct_name::new(context, $slot)}, serialized_size)
     }
@@ -80,7 +92,7 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
         storage_layout_constructors = storage_layout_constructors.push_back(quote { $name: dep::aztec::prelude::Storable { slot: $slot } });
         //let with_context_generic = add_context_generic(typ, context_generic);
         //println(with_context_generic);
-        //new_storage_fields = new_storage_fields.push_back((name,  with_context_generic ));
+        //new_storage_fields = new_storage_fields.push_back((name,  with_context_generic ));ç
         slot += serialized_size;
     }
 

@@ -1,5 +1,76 @@
-use super::traits::Serialize;
-use std::meta::type_of;
+use super::traits::{Serialize, Deserialize};
+
+// TODO: This is bad and incomplete. Fix it!
+pub comptime fn pack_from_fields<N>(
+    name: Quoted,
+    typ: Type,
+    buffer: Quoted,
+    already_consumed: u32,
+    replacements: [(Quoted, Quoted)]
+) -> (Quoted, u32) {
+    let mut result = quote {};
+    let mut consumed: u32 = already_consumed;
+
+    let found_replacements = replacements.filter(| (to_omit, _): (Quoted, Quoted) | to_omit == name);
+
+    let replacement = if found_replacements.len() == 1 {
+        replacements[0].1
+    } else {
+        quote {}
+    };
+
+    if replacement == quote {} {
+        if typ.is_field() | typ.as_integer().is_some() {
+            result = quote { $buffer[$consumed] as Field };
+            consumed = 1;
+        } else if typ.as_struct().is_some() {
+            let (nested_def, _) = typ.as_struct().unwrap();
+            let nested_name = nested_def.name();
+            let mut deserialized_fields_list = &[];
+            for field in nested_def.fields() {
+                let (field_name, field_type) = field;
+                let (deserialized_field, consumed_by_field) = pack_from_fields(
+                    quote { $field_name },
+                    field_type,
+                    quote { $buffer },
+                    consumed,
+                    replacements
+                );
+                consumed += consumed_by_field;
+                deserialized_fields_list = deserialized_fields_list.push_back(quote { $field_name: $deserialized_field });
+            }
+            let deserialized_fields = deserialized_fields_list.join(quote {,});
+            result = quote {
+                $nested_name {
+                    $deserialized_fields
+                }
+            };
+        } else if typ.as_array().is_some() {
+            let (element_type, array_len) = typ.as_array().unwrap();
+            let array_len = array_len.as_constant().unwrap();
+            let mut array_fields_list = &[];
+            for i in 0..array_len {
+                let (deserialized_field, consumed_by_field) = pack_from_fields(
+                    quote { $name },
+                    element_type,
+                    quote { $buffer },
+                    consumed,
+                    replacements
+                );
+                array_fields_list = array_fields_list.push_back(deserialized_field);
+                consumed += consumed_by_field;
+            }
+            let array_fields = array_fields_list.join(quote {,});
+            result = quote { [ $array_fields ] };
+        } else {
+            assert(false, f"Unsupported type for serialization of argument {name} and type {typ}");
+            std::mem::zeroed()
+        }
+    } else {
+        result = replacement;
+    }
+    (result, consumed)
+}
 
 pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([Quoted], [Quoted]) {
     let mut fields = &[];
@@ -72,7 +143,21 @@ pub(crate) comptime fn derive_serialize(s: StructDefinition) -> Quoted {
     }
 }
 
-#[derive(Serialize)]
+pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
+    let typ = s.as_type();
+    let (fields, _) = flatten_to_fields(quote { self }, typ, &[]);
+    let serialized_len = fields.len();
+    let (deserialized, _) = pack_from_fields(quote { self }, typ, quote { value }, 0, &[]);
+    quote {
+        impl Deserialize<$serialized_len> for $typ {
+            fn deserialize(value: [Field; $serialized_len]) -> Self {
+                $deserialized
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Eq)]
 struct Smol {
     a: Field,
     b: Field,
@@ -95,6 +180,8 @@ fn smol_test() {
     let smol = Smol { a: 1, b: 2 };
     let serialized = smol.serialize();
     assert(serialized == [1, 2], serialized);
+    let deserialized = Smol::deserialize(serialized);
+    assert(deserialized == smol);
 }
 
 #[test]

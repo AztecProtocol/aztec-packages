@@ -32,10 +32,8 @@ pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
     f.has_named_attribute("noinitcheck")
 }
 
-pub(crate) comptime fn fn_body_as_quoted(f: FunctionDefinition) -> Quoted {
-    let body = f.body().as_block();
-    assert(body.is_some(), "Function body must be a block");
-    body.unwrap().fold(
+pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quoted) -> Expr {
+    let mut body_quote = body.fold(
         quote {},
         |body_quote, expr: Expr| {
         let expr_quote = expr.quoted();
@@ -44,11 +42,7 @@ pub(crate) comptime fn fn_body_as_quoted(f: FunctionDefinition) -> Quoted {
             $expr_quote
         }
      }
-    )
-}
-
-pub(crate) comptime fn modify_fn_body(f: FunctionDefinition, prepend: Quoted, append: Quoted) {
-    let mut body_quote = fn_body_as_quoted(f);
+    );
     body_quote = quote {
         {
             $prepend
@@ -57,8 +51,11 @@ pub(crate) comptime fn modify_fn_body(f: FunctionDefinition, prepend: Quoted, ap
         }
     };
     let body_expr = body_quote.as_expr();
+    if !body_expr.is_some() {
+        println(body_quote);
+    }
     assert(body_expr.is_some(), "Body is not an expression");
-    f.set_body(body_expr.unwrap());
+    body_expr.unwrap()
 }
 
 pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ: Type) -> Quoted {
@@ -77,7 +74,7 @@ pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ:
             }
     } else if typ.as_str().is_some() {
         quote {
-                $slice_name = $slice_name.append($name.to_bytes());
+                $slice_name = $slice_name.append($name.as_bytes().map(| byte: u8 | byte as Field).as_slice());
             }
     } else {
         assert(false, f"Cannot add to slice: unsupported type {typ} variable {name}");
@@ -96,12 +93,12 @@ pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Typ
         quote {
                 let $serialized_name = $name.map(|x: $element_type | x.serialize());
                 for i in 0..$name.len() {
-                    args_acc = args_acc.append($serialized_name[i].as_slice());
+                    $hasher_name.add_multiple($serialized_name[i]);
                 }
             }
     } else if typ.as_str().is_some() {
         quote {
-                $hasher_name.add_multiple($name.to_bytes());
+                $hasher_name.add_multiple($name.as_bytes().map(| byte: u8 | byte as Field));
             }
     } else {
         assert(false, f"Cannot add to hasher: unsupported type {typ} of variable {name}");
@@ -144,6 +141,8 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         }
         ).join(quote {,});
         f"({field_signatures})".quoted_contents()
+    } else if typ.is_bool() {
+        quote {bool}
     } else {
         assert(false, f"Unsupported type {typ}");
         std::mem::zeroed()
@@ -196,8 +195,10 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
 
 pub(crate) comptime fn get_serialized_size(typ: Type) -> u32 {
     let any = fresh_type_variable();
-    let maybe_serialize_impl = typ.get_trait_impl(quote { Serialize<$any> }.as_trait_constraint());
-    assert(maybe_serialize_impl.is_some(), "Storable items must implement Serialize");
+    let maybe_serialize_impl = typ.get_trait_impl(quote { protocol_types::traits::Serialize<$any> }.as_trait_constraint());
+    assert(
+        maybe_serialize_impl.is_some(), f"Storable items must implement Serialize. Trait impl not found for {typ}"
+    );
     let serialize_impl = maybe_serialize_impl.unwrap();
     serialize_impl.trait_generic_args()[0].as_constant().unwrap()
 }

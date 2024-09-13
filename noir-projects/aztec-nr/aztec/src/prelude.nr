@@ -11,8 +11,8 @@ pub use crate::{
 },
     context::{PrivateContext, PackedReturns, FunctionReturns},
     note::{
-    note_header::NoteHeader, note_interface::NoteInterface, note_getter_options::NoteGetterOptions,
-    note_viewer_options::NoteViewerOptions,
+    note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote},
+    note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_and_optionally_a_nullifier as utils_compute_note_hash_and_optionally_a_nullifier
 }
 };

@@ -1,5 +1,5 @@
 use crate::utils::field::field_from_bytes;
-use crate::meta::derive_serialize;
+use crate::meta::{derive_deserialize, derive_serialize};
 
 // Trait: is_empty
 //
@@ -173,6 +173,7 @@ impl<let N: u32> Serialize<N> for str<N> {
 }
 
 // docs:start:deserialize
+#[derive_via(derive_deserialize)]
 trait Deserialize<let N: u32> {
     fn deserialize(fields: [Field; N]) -> Self;
 }

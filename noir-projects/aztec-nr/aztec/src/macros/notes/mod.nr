@@ -1,6 +1,7 @@
 use std::meta::{type_of, unquote};
 use protocol_types::{meta::flatten_to_fields, utils::field::field_from_bytes};
 use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector};
+use protocol_types::meta::pack_from_fields;
 
 comptime mut global NOTES = &[];
 
@@ -35,24 +36,20 @@ comptime fn generate_note_interface(s: StructDefinition) -> (Quoted, u32, Field)
     let serialized_fields = fields.join(quote {,});
     let content_len = fields.len();
 
-    let mut deserialized_fields = &[];
-
     let note_header_type = quote { crate::note::note_header::NoteHeader}.as_type();
-    let mut field_counter: u64 = 0;
-    for field in s.fields() {
-        let (name, typ) = field;
-        if typ != note_header_type {
-            deserialized_fields = deserialized_fields.push_back(quote { $name: fields[$field_counter] });
-        }
-        field_counter+= 1;
-    }
 
-    let deserialized_content = deserialized_fields.join(quote {,});
+    let (deserialized_content, _) = pack_from_fields(
+        quote { self },
+        typ,
+        quote { value },
+        0,
+        &[(quote {header}, quote { NoteHeader::empty() })]
+    );
 
     let note_type_id = compute_note_type_id(name);
 
     (quote {
-        impl aztec::note::note_interface::NoteInterface<$content_len> for ValueNote {
+        impl aztec::note::note_interface::NoteInterface<$content_len> for $name {
             fn to_be_bytes(self, storage_slot: Field) -> [u8; $content_len * 32 + 64] {
                 let serialized_note = self.serialize_content();
 
@@ -75,11 +72,8 @@ comptime fn generate_note_interface(s: StructDefinition) -> (Quoted, u32, Field)
                 buffer
             }
 
-            fn deserialize_content(fields: [Field; $content_len]) -> Self {
-                $name {
-                    $deserialized_content,
-                    header: NoteHeader::empty()
-                }
+            fn deserialize_content(value: [Field; $content_len]) -> Self {
+                $deserialized_content
             }
 
             fn serialize_content(self) -> [Field; $content_len] {
