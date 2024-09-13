@@ -2,7 +2,7 @@
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 
-namespace bb::stdlib {
+namespace bb::stdlib::element_default {
 
 /**
  * Split a secp256k1 Fr element into two 129 bit scalars `klo, khi`, where `scalar = klo + \lambda * khi mod n`
@@ -583,4 +583,4 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
     }
     return naf_entries;
 }
-} // namespace bb::stdlib
+} // namespace bb::stdlib::element_default

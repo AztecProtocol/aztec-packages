@@ -15,7 +15,7 @@ set(DSL_DEPENDENCIES
     stdlib_honk_verifier)
 
 if (NOT WASM)
-    list(APPEND DSL_DEPENDENCIES libdeflate::libdeflate_static)
+    list(APPEND DSL_DEPENDENCIES libdeflate::libdeflate_static vm)
 endif()
 
 barretenberg_module(

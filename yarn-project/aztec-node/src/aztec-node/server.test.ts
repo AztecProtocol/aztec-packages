@@ -65,7 +65,6 @@ describe('aztec node', () => {
           registryAddress: EthAddress.ZERO,
           inboxAddress: EthAddress.ZERO,
           outboxAddress: EthAddress.ZERO,
-          availabilityOracleAddress: EthAddress.ZERO,
         },
       },
       p2p,

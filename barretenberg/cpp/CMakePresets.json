@@ -22,6 +22,23 @@
       }
     },
     {
+      "name": "default-pic",
+      "displayName": "Build with Clang with Position Independent Code",
+      "description": "Build with globally installed Clang with Position Independent Code",
+      "binaryDir": "build-pic",
+      "generator": "Ninja",
+      "environment": {
+        "CC": "clang",
+        "CXX": "clang++",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
+      },
+      "cacheVariables": {
+        "TARGET_ARCH": "skylake",
+        "ENABLE_PIC": "ON"
+      }
+    },
+    {
       "name": "homebrew",
       "displayName": "Homebrew + Clang",
       "description": "Build with Clang installed via Homebrew",
@@ -64,6 +81,16 @@
       "environment": {
         "CC": "clang-16",
         "CXX": "clang++-16"
+      }
+    },
+    {
+      "name": "clang16-pic",
+      "displayName": "Release build with Position Independent Code",
+      "description": "Build with globally installed Clang-16 using Position Independent Code",
+      "inherits": "clang16",
+      "binaryDir": "build-pic",
+      "cacheVariables": {
+        "ENABLE_PIC": "ON"
       }
     },
     {
@@ -445,6 +472,16 @@
       "name": "tracy",
       "inherits": "default",
       "configurePreset": "tracy"
+    },
+    {
+      "name": "clang16-pic",
+      "inherits": "default",
+      "configurePreset": "clang16-pic"
+    },
+    {
+      "name": "default-pic",
+      "inherits": "default",
+      "configurePreset": "default-pic"
     },
     {
       "name": "tracy-gates",

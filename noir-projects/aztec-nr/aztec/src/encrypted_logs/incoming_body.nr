@@ -1,6 +1,6 @@
 use crate::note::note_interface::NoteInterface;
 use crate::event::event_interface::EventInterface;
-use dep::protocol_types::{scalar::Scalar, point::Point};
+use dep::protocol_types::{scalar::Scalar};
 
 use std::aes128::aes128_encrypt;
 use crate::keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::IvpkM};
@@ -137,12 +137,12 @@ mod test {
             }
         };
 
-        /// 1. `EncryptedLogIncomingBody::from_note` calls `note.to_be_bytes(storage_slot)` function which serializes
-        /// the note to bytes - note that in the case of `AddressNote` the `to_be_bytes` function was automatically
-        /// implemented by Aztec macros.
+        // 1. `EncryptedLogIncomingBody::from_note` calls `note.to_be_bytes(storage_slot)` function which serializes
+        // the note to bytes - note that in the case of `AddressNote` the `to_be_bytes` function was automatically
+        // implemented by Aztec macros.
         let body = EncryptedLogIncomingBody::from_note(note, storage_slot);
 
-        /// 2. `body.compute_ciphertext(...)` function then derives symmetric key from `eph_sk` and `ivpk` and encrypts
+        // 2. `body.compute_ciphertext(...)` function then derives symmetric key from `eph_sk` and `ivpk` and encrypts
         // the note plaintext using AES-128.
         let ciphertext = body.compute_ciphertext(eph_sk, ivpk);
 

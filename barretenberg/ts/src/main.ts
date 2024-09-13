@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { Crs, Barretenberg, RawBuffer } from './index.js';
+import { GrumpkinCrs } from './crs/node/index.js';
 import createDebug from 'debug';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
@@ -9,13 +10,13 @@ import path from 'path';
 createDebug.log = console.error.bind(console);
 const debug = createDebug('bb.js');
 
-// Maximum we support in node and the browser is 2^19.
-// This is because both node and browser use barretenberg.wasm.
+// Maximum circuit size for plonk we support in node and the browser is 2^19.
+// This is because both node and browser use barretenberg.wasm which has a 4GB memory limit.
 //
 // This is not a restriction in the bb binary and one should be
 // aware of this discrepancy, when creating proofs in bb versus
 // creating the same proofs in the node CLI.
-const MAX_CIRCUIT_SIZE = 2 ** 19;
+const MAX_ULTRAPLONK_CIRCUIT_SIZE_IN_WASM = 2 ** 19;
 const threads = +process.env.HARDWARE_CONCURRENCY! || undefined;
 
 function getBytecode(bytecodePath: string) {
@@ -32,7 +33,7 @@ function getBytecode(bytecodePath: string) {
   return decompressed;
 }
 
-async function getGates(bytecodePath: string, honkRecursion: boolean, api: Barretenberg) {
+async function getGatesUltra(bytecodePath: string, honkRecursion: boolean, api: Barretenberg) {
   const { total } = await computeCircuitSize(bytecodePath, honkRecursion, api);
   return total;
 }
@@ -50,31 +51,64 @@ async function computeCircuitSize(bytecodePath: string, honkRecursion: boolean, 
   return { exact, total, subgroup };
 }
 
-async function init(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1, honkRecursion = false) {
+async function initUltraPlonk(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1, honkRecursion = false) {
   const api = await Barretenberg.new({ threads });
 
-  const circuitSize = await getGates(bytecodePath, honkRecursion, api);
+  const circuitSize = await getGatesUltra(bytecodePath, honkRecursion, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
   const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
-  if (subgroupSize > MAX_CIRCUIT_SIZE) {
-    throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_CIRCUIT_SIZE}`);
-  }
 
+  if (subgroupSize > MAX_ULTRAPLONK_CIRCUIT_SIZE_IN_WASM) {
+    throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_ULTRAPLONK_CIRCUIT_SIZE_IN_WASM}`);
+  }
   debug(`circuit size: ${circuitSize}`);
   debug(`subgroup size: ${subgroupSize}`);
   debug('loading crs...');
   // Plus 1 needed! (Move +1 into Crs?)
   const crs = await Crs.new(subgroupSize + 1, crsPath);
 
-  // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
+  // Important to init slab allocator as first thing, to ensure maximum memory efficiency for Plonk.
   await api.commonInitSlabAllocator(subgroupSize);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
   await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
-
   const acirComposer = await api.acirNewAcirComposer(subgroupSize);
   return { api, acirComposer, circuitSize, subgroupSize };
+}
+
+async function initUltraHonk(bytecodePath: string, crsPath: string) {
+  const api = await Barretenberg.new({ threads });
+
+  const circuitSize = await getGatesUltra(bytecodePath, /*honkRecursion=*/ true, api);
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
+  const dyadicCircuitSize = Math.pow(2, Math.ceil(Math.log2(circuitSize)));
+
+  debug(`circuit size: ${circuitSize}`);
+  debug(`dyadic circuit size size: ${dyadicCircuitSize}`);
+  debug('loading crs...');
+  // Plus 1 needed! (Move +1 into Crs?)
+  const crs = await Crs.new(dyadicCircuitSize + 1, crsPath);
+
+  // Load CRS into wasm global CRS state.
+  // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
+  await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
+  return { api, circuitSize, dyadicCircuitSize };
+}
+
+async function initClientIVC(bytecodePath: string, crsPath: string) {
+  const api = await Barretenberg.new({ threads });
+
+  debug('loading BN254 and Grumpkin crs...');
+  // Plus 1 needed! (Move +1 into Crs?)
+  const crs = await Crs.new(2 ** 18 + 1, crsPath);
+  const grumpkinCrs = await GrumpkinCrs.new(8192 + 1, crsPath);
+
+  // Load CRS into wasm global CRS state.
+  // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
+  await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
+  await api.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
+  return { api };
 }
 
 async function initLite() {
@@ -94,7 +128,7 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
   /* eslint-disable camelcase */
   const acir_test = path.basename(process.cwd());
 
-  const { api, acirComposer, circuitSize, subgroupSize } = await init(bytecodePath, crsPath);
+  const { api, acirComposer, circuitSize, subgroupSize } = await initUltraPlonk(bytecodePath, crsPath);
   try {
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
@@ -122,7 +156,7 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
 
 export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
-  const { api } = await init(bytecodePath, crsPath, -1, true);
+  const { api } = await initUltraHonk(bytecodePath, crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
@@ -137,7 +171,7 @@ export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath:
 
 export async function proveAndVerifyMegaHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
-  const { api } = await init(bytecodePath, crsPath);
+  const { api } = await initUltraPlonk(bytecodePath, crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
@@ -152,12 +186,13 @@ export async function proveAndVerifyMegaHonk(bytecodePath: string, witnessPath: 
 
 export async function foldAndVerifyProgram(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
-  const { api } = await init(bytecodePath, crsPath);
+  const { api } = await initClientIVC(bytecodePath, crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
 
     const verified = await api.acirFoldAndVerifyProgramStack(bytecode, witness);
+    debug(`verified: ${verified}`);
     return verified;
   } finally {
     await api.destroy();
@@ -166,7 +201,7 @@ export async function foldAndVerifyProgram(bytecodePath: string, witnessPath: st
 }
 
 export async function prove(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
-  const { api, acirComposer } = await init(bytecodePath, crsPath);
+  const { api, acirComposer } = await initUltraPlonk(bytecodePath, crsPath);
   try {
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
@@ -186,10 +221,10 @@ export async function prove(bytecodePath: string, witnessPath: string, crsPath: 
   }
 }
 
-export async function gateCount(bytecodePath: string, honkRecursion: boolean) {
+export async function gateCountUltra(bytecodePath: string, honkRecursion: boolean) {
   const api = await Barretenberg.new({ threads: 1 });
   try {
-    const numberOfGates = await getGates(bytecodePath, honkRecursion, api);
+    const numberOfGates = await getGatesUltra(bytecodePath, honkRecursion, api);
     debug(`number of gates: : ${numberOfGates}`);
     // Create an 8-byte buffer and write the number into it.
     // Writing number directly to stdout will result in a variable sized
@@ -234,7 +269,7 @@ export async function contract(outputPath: string, vkPath: string) {
 }
 
 export async function writeVk(bytecodePath: string, crsPath: string, outputPath: string) {
-  const { api, acirComposer } = await init(bytecodePath, crsPath);
+  const { api, acirComposer } = await initUltraPlonk(bytecodePath, crsPath);
   try {
     debug('initing proving key...');
     const bytecode = getBytecode(bytecodePath);
@@ -256,7 +291,7 @@ export async function writeVk(bytecodePath: string, crsPath: string, outputPath:
 }
 
 export async function writePk(bytecodePath: string, crsPath: string, outputPath: string) {
-  const { api, acirComposer } = await init(bytecodePath, crsPath);
+  const { api, acirComposer } = await initUltraPlonk(bytecodePath, crsPath);
   try {
     debug('initing proving key...');
     const bytecode = getBytecode(bytecodePath);
@@ -326,7 +361,7 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
 }
 
 export async function proveUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
-  const { api } = await init(bytecodePath, crsPath, -1, /* honkRecursion= */ true);
+  const { api } = await initUltraHonk(bytecodePath, crsPath);
   try {
     debug(`creating proof...`);
     const bytecode = getBytecode(bytecodePath);
@@ -347,7 +382,7 @@ export async function proveUltraHonk(bytecodePath: string, witnessPath: string, 
 }
 
 export async function writeVkUltraHonk(bytecodePath: string, crsPath: string, outputPath: string) {
-  const { api } = await init(bytecodePath, crsPath, -1, true);
+  const { api } = await initUltraHonk(bytecodePath, crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
     debug('initing verification key...');
@@ -487,12 +522,12 @@ program
 
 program
   .command('gates')
-  .description('Print gate count to standard output.')
+  .description('Print Ultra Builder gate count to standard output.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-hr, --honk-recursion', 'Specify whether to use UltraHonk recursion', false)
   .action(async ({ bytecodePath: bytecodePath, honkRecursion: honkRecursion }) => {
     handleGlobalOptions();
-    await gateCount(bytecodePath, honkRecursion);
+    await gateCountUltra(bytecodePath, honkRecursion);
   });
 
 program

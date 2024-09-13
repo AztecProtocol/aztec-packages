@@ -32,7 +32,10 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
     auto sumcheck = Sumcheck(polynomial_size, transcript);
     {
         ZoneScopedN("sumcheck.prove");
-        sumcheck_output = sumcheck.prove(proving_key);
+        sumcheck_output = sumcheck.prove(proving_key->proving_key.polynomials,
+                                         proving_key->relation_parameters,
+                                         proving_key->alphas,
+                                         proving_key->gate_challenges);
     }
 }
 

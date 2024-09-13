@@ -1,6 +1,8 @@
 use std::fmt::{self, Display};
 use std::fmt::{Debug, Formatter};
 
+use acvm::{AcirField, FieldElement};
+
 use crate::opcodes::AvmOpcode;
 
 /// Common values of the indirect instruction flag
@@ -78,7 +80,7 @@ impl Debug for AvmInstruction {
 impl Default for AvmInstruction {
     fn default() -> Self {
         AvmInstruction {
-            opcode: AvmOpcode::ADD,
+            opcode: AvmOpcode::ADD_8,
             // TODO(4266): default to Some(0), since all instructions have indirect flag except jumps
             indirect: None,
             tag: None,
@@ -110,6 +112,7 @@ pub enum AvmOperand {
     U32 { value: u32 },
     U64 { value: u64 },
     U128 { value: u128 },
+    FF { value: FieldElement },
 }
 
 impl Display for AvmOperand {
@@ -120,6 +123,7 @@ impl Display for AvmOperand {
             AvmOperand::U32 { value } => write!(f, " U32:{}", value),
             AvmOperand::U64 { value } => write!(f, " U64:{}", value),
             AvmOperand::U128 { value } => write!(f, " U128:{}", value),
+            AvmOperand::FF { value } => write!(f, " FF:{}", value),
         }
     }
 }
@@ -132,6 +136,7 @@ impl AvmOperand {
             AvmOperand::U32 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U64 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U128 { value } => value.to_be_bytes().to_vec(),
+            AvmOperand::FF { value } => value.to_be_bytes(),
         }
     }
 }

@@ -6,6 +6,7 @@ import {
   type ProcessedTx,
   Signature,
   Tx,
+  type TxHash,
   type TxValidator,
   type WorldStateStatus,
   type WorldStateSynchronizer,
@@ -30,11 +31,10 @@ import { type PublicProcessorFactory } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
 
-import { BaseError, ContractFunctionRevertedError } from 'viem';
-
 import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { prettyLogVeimError } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -311,17 +311,7 @@ export class Sequencer {
       this.log.debug(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
-      if (err instanceof BaseError) {
-        const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
-        if (revertError instanceof ContractFunctionRevertedError) {
-          const errorName = revertError.data?.errorName ?? '';
-          const args =
-            revertError.metaMessages && revertError.metaMessages?.length > 1
-              ? revertError.metaMessages[1].trimStart()
-              : '';
-          this.log.debug(`canProposeAtTime failed with "${errorName}${args}"`);
-        }
-      }
+      prettyLogVeimError(err, this.log);
       throw err;
     }
   }
@@ -491,11 +481,15 @@ export class Sequencer {
       this.log.verbose(`Flushing completed`);
     }
 
+    const txHashes = validTxs.map(tx => tx.getTxHash());
+
     this.isFlushing = false;
-    const attestations = await this.collectAttestations(block);
+    this.log.verbose('Collecting attestations');
+    const attestations = await this.collectAttestations(block, txHashes);
+    this.log.verbose('Attestations collected');
 
     try {
-      await this.publishL2Block(block, attestations);
+      await this.publishL2Block(block, attestations, txHashes);
       this.metrics.recordPublishedBlock(workDuration);
       this.log.info(
         `Submitted rollup block ${block.number} with ${
@@ -513,11 +507,13 @@ export class Sequencer {
     this.isFlushing = true;
   }
 
-  protected async collectAttestations(block: L2Block): Promise<Signature[] | undefined> {
+  protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<Signature[] | undefined> {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
     const committee = await this.publisher.getCurrentEpochCommittee();
+    this.log.debug(`Attesting committee length ${committee.length}`);
 
     if (committee.length === 0) {
+      this.log.debug(`Attesting committee length is 0, skipping`);
       return undefined;
     }
 
@@ -529,16 +525,16 @@ export class Sequencer {
 
     const numberOfRequiredAttestations = Math.floor((committee.length * 2) / 3) + 1;
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7974): we do not have transaction[] lists in the block for now
-    // Dont do anything with the proposals for now - just collect them
-
-    const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, []);
+    this.log.verbose('Creating block proposal');
+    const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
 
     this.state = SequencerState.PUBLISHING_BLOCK_TO_PEERS;
+    this.log.verbose('Broadcasting block proposal to validators');
     this.validatorClient.broadcastBlockProposal(proposal);
 
     this.state = SequencerState.WAITING_FOR_ATTESTATIONS;
     const attestations = await this.validatorClient.collectAttestations(proposal, numberOfRequiredAttestations);
+    this.log.verbose(`Collected attestations from validators, number of attestations: ${attestations.length}`);
 
     // note: the smart contract requires that the signatures are provided in the order of the committee
     return await orderAttestations(attestations, committee);
@@ -551,11 +547,11 @@ export class Sequencer {
   @trackSpan('Sequencer.publishL2Block', block => ({
     [Attributes.BLOCK_NUMBER]: block.number,
   }))
-  protected async publishL2Block(block: L2Block, attestations?: Signature[]) {
+  protected async publishL2Block(block: L2Block, attestations?: Signature[], txHashes?: TxHash[]) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
 
-    const publishedL2Block = await this.publisher.processL2Block(block, attestations);
+    const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes);
     if (publishedL2Block) {
       this.lastPublishedBlock = block.number;
     } else {

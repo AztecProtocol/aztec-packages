@@ -113,8 +113,8 @@ TEST_P(AvmCmpTestsLT, ParamTest)
         trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
         trace_builder.op_calldata_copy(0, 0, 2, 0);
     } else {
-        trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
-        trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
+        trace_builder.op_set(0, a, 0, mem_tag);
+        trace_builder.op_set(0, b, 1, mem_tag);
     }
     trace_builder.op_lt(0, 0, 1, 2, mem_tag);
     trace_builder.op_return(0, 0, 0);
@@ -149,8 +149,8 @@ TEST_P(AvmCmpTestsLTE, ParamTest)
         trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
         trace_builder.op_calldata_copy(0, 0, 2, 0);
     } else {
-        trace_builder.op_set(0, uint128_t(a), 0, mem_tag);
-        trace_builder.op_set(0, uint128_t(b), 1, mem_tag);
+        trace_builder.op_set(0, a, 0, mem_tag);
+        trace_builder.op_set(0, b, 1, mem_tag);
     }
     trace_builder.op_lte(0, 0, 1, 2, mem_tag);
     trace_builder.op_return(0, 0, 0);

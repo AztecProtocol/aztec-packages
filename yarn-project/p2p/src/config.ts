@@ -6,10 +6,12 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 
+import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './service/reqresp/config.js';
+
 /**
  * P2P client configuration values.
  */
-export interface P2PConfig {
+export interface P2PConfig extends P2PReqRespConfig {
   /**
    * A flag dictating whether the P2P subsystem should be enabled.
    */
@@ -250,6 +252,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The chain id of the L1 chain.',
     ...numberConfigHelper(31337),
   },
+  ...p2pReqRespConfigMappings,
 };
 
 /**

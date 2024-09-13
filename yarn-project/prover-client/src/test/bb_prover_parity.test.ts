@@ -32,7 +32,7 @@ describe('prover/bb_prover/parity', () => {
       bbProver = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
       return bbProver;
     };
-    context = await TestContext.new(logger, 1, buildProver);
+    context = await TestContext.new(logger, 'legacy', 1, buildProver);
   });
 
   afterAll(async () => {

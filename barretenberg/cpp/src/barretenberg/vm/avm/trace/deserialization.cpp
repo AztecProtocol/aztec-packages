@@ -14,8 +14,11 @@ namespace bb::avm_trace {
 
 namespace {
 
-const std::vector<OperandType> three_operand_format = {
-    OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32,
+const std::vector<OperandType> three_operand_format8 = {
+    OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT8, OperandType::UINT8,
+};
+const std::vector<OperandType> three_operand_format16 = {
+    OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16,
 };
 const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT, OperandType::UINT32 };
 
@@ -39,24 +42,39 @@ const std::vector<OperandType> external_call_format = { OperandType::INDIRECT,
 const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = {
     // Compute
     // Compute - Arithmetic
-    { OpCode::ADD, three_operand_format },
-    { OpCode::SUB, three_operand_format },
-    { OpCode::MUL, three_operand_format },
-    { OpCode::DIV, three_operand_format },
-    { OpCode::FDIV, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
-    // Compute - Comparators
-    { OpCode::EQ, three_operand_format },
-    { OpCode::LT, three_operand_format },
-    { OpCode::LTE, three_operand_format },
+    { OpCode::ADD_8, three_operand_format8 },
+    { OpCode::ADD_16, three_operand_format16 },
+    { OpCode::SUB_8, three_operand_format8 },
+    { OpCode::SUB_16, three_operand_format16 },
+    { OpCode::MUL_8, three_operand_format8 },
+    { OpCode::MUL_16, three_operand_format16 },
+    { OpCode::DIV_8, three_operand_format8 },
+    { OpCode::DIV_16, three_operand_format16 },
+    { OpCode::FDIV_8, three_operand_format8 },
+    { OpCode::FDIV_16, three_operand_format16 },
+    // Compute - Comparison
+    { OpCode::EQ_8, three_operand_format8 },
+    { OpCode::EQ_16, three_operand_format16 },
+    { OpCode::LT_8, three_operand_format8 },
+    { OpCode::LT_16, three_operand_format16 },
+    { OpCode::LTE_8, three_operand_format8 },
+    { OpCode::LTE_16, three_operand_format16 },
     // Compute - Bitwise
-    { OpCode::AND, three_operand_format },
-    { OpCode::OR, three_operand_format },
-    { OpCode::XOR, three_operand_format },
-    { OpCode::NOT, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::SHL, three_operand_format },
-    { OpCode::SHR, three_operand_format },
+    { OpCode::AND_8, three_operand_format8 },
+    { OpCode::AND_16, three_operand_format16 },
+    { OpCode::OR_8, three_operand_format8 },
+    { OpCode::OR_16, three_operand_format16 },
+    { OpCode::XOR_8, three_operand_format8 },
+    { OpCode::XOR_16, three_operand_format16 },
+    { OpCode::NOT_8, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT8 } },
+    { OpCode::NOT_16, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT16 } },
+    { OpCode::SHL_8, three_operand_format8 },
+    { OpCode::SHL_16, three_operand_format16 },
+    { OpCode::SHR_8, three_operand_format8 },
+    { OpCode::SHR_16, three_operand_format16 },
     // Compute - Type Conversions
-    { OpCode::CAST, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::CAST_8, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT8 } },
+    { OpCode::CAST_16, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT16 } },
 
     // Execution Environment - Globals
     { OpCode::ADDRESS, getter_format },
@@ -81,14 +99,20 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::DAGASLEFT, getter_format },
 
     // Machine State - Internal Control Flow
-    { OpCode::JUMP, { OperandType::UINT32 } },
-    { OpCode::JUMPI, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::JUMP_16, { OperandType::UINT16 } },
+    { OpCode::JUMPI_16, { OperandType::INDIRECT, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::INTERNALCALL, { OperandType::UINT32 } },
     { OpCode::INTERNALRETURN, {} },
 
     // Machine State - Memory
-    // OpCode::SET is handled differently
-    { OpCode::MOV, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SET_8, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT8 } },
+    { OpCode::SET_16, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT16 } },
+    { OpCode::SET_32, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT16 } },
+    { OpCode::SET_64, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT64, OperandType::UINT16 } },
+    { OpCode::SET_128, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT128, OperandType::UINT16 } },
+    { OpCode::SET_FF, { OperandType::INDIRECT, OperandType::TAG, OperandType::FF, OperandType::UINT16 } },
+    { OpCode::MOV_8, { OperandType::INDIRECT, OperandType::UINT8, OperandType::UINT8 } },
+    { OpCode::MOV_16, { OperandType::INDIRECT, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::CMOV,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
 
@@ -138,7 +162,8 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     // DELEGATECALL, -- not in simulator
     { OpCode::RETURN, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     // REVERT,
-    { OpCode::REVERT, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::REVERT_8, { OperandType::INDIRECT, OperandType::UINT8, OperandType::UINT8 } },
+    { OpCode::REVERT_16, { OperandType::INDIRECT, OperandType::UINT16, OperandType::UINT16 } },
 
     // Misc
     { OpCode::DEBUGLOG,
@@ -176,7 +201,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
 
 const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {
     { OperandType::INDIRECT, 1 }, { OperandType::TAG, 1 },    { OperandType::UINT8, 1 },    { OperandType::UINT16, 2 },
-    { OperandType::UINT32, 4 },   { OperandType::UINT64, 8 }, { OperandType::UINT128, 16 },
+    { OperandType::UINT32, 4 },   { OperandType::UINT64, 8 }, { OperandType::UINT128, 16 }, { OperandType::FF, 32 }
 };
 
 } // Anonymous namespace
@@ -207,58 +232,11 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
         pos++;
 
         auto const opcode = static_cast<OpCode>(opcode_byte);
-        std::vector<OperandType> inst_format;
-
-        if (opcode == OpCode::SET) {
-            // Small hack here because of the structure of SET (where Indirect is the first flag).
-            // Right now pos is pointing to the indirect flag, but we want it to point to the memory tag.
-            // We cannot increment pos again because we need to read from pos later when parsing the SET opcode
-            // So we effectively peek at the next pos
-            if (pos + 1 == length) {
-                throw_or_abort("Operand for SET opcode is missing at position " + std::to_string(pos));
-            }
-
-            std::set<uint8_t> const valid_tags = { static_cast<uint8_t>(AvmMemoryTag::U8),
-                                                   static_cast<uint8_t>(AvmMemoryTag::U16),
-                                                   static_cast<uint8_t>(AvmMemoryTag::U32),
-                                                   static_cast<uint8_t>(AvmMemoryTag::U64),
-                                                   static_cast<uint8_t>(AvmMemoryTag::U128) };
-            // Peek again here for the mem tag
-            uint8_t set_tag_u8 = bytecode.at(pos + 1);
-
-            if (!valid_tags.contains(set_tag_u8)) {
-                throw_or_abort("Instruction tag for SET opcode is invalid at position " + std::to_string(pos + 1) +
-                               " value: " + std::to_string(set_tag_u8));
-            }
-
-            auto in_tag = static_cast<AvmMemoryTag>(set_tag_u8);
-            switch (in_tag) {
-            case AvmMemoryTag::U8:
-                inst_format = { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT32 };
-                break;
-            case AvmMemoryTag::U16:
-                inst_format = { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT32 };
-                break;
-            case AvmMemoryTag::U32:
-                inst_format = { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT32, OperandType::UINT32 };
-                break;
-            case AvmMemoryTag::U64:
-                inst_format = { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT64, OperandType::UINT32 };
-                break;
-            case AvmMemoryTag::U128:
-                inst_format = { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT128, OperandType::UINT32 };
-                break;
-            default: // This branch is guarded above.
-                throw_or_abort("Error processing wire format of SET opcode.");
-            }
-        } else {
-            auto const iter = OPCODE_WIRE_FORMAT.find(opcode);
-            if (iter == OPCODE_WIRE_FORMAT.end()) {
-                throw_or_abort("Opcode not found in OPCODE_WIRE_FORMAT: " + to_hex(opcode) + " name " +
-                               to_string(opcode));
-            }
-            inst_format = iter->second;
+        auto const iter = OPCODE_WIRE_FORMAT.find(opcode);
+        if (iter == OPCODE_WIRE_FORMAT.end()) {
+            throw_or_abort("Opcode not found in OPCODE_WIRE_FORMAT: " + to_hex(opcode) + " name " + to_string(opcode));
         }
+        std::vector<OperandType> inst_format = iter->second;
 
         std::vector<Operand> operands;
         for (OperandType const& opType : inst_format) {
@@ -313,6 +291,12 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
                 serialize::read(pos_ptr, operand_u128);
                 operands.emplace_back(operand_u128);
                 break;
+            }
+            case OperandType::FF: {
+                FF operand_ff;
+                uint8_t const* pos_ptr = &bytecode.at(pos);
+                read(pos_ptr, operand_ff);
+                operands.emplace_back(operand_ff);
             }
             }
             pos += OPERAND_TYPE_SIZE.at(opType);

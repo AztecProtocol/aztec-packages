@@ -1,7 +1,4 @@
-use crate::{
-    constants::CONTENT_COMMITMENT_LENGTH, traits::{Deserialize, Empty, Hash, Serialize},
-    utils::arr_copy_slice
-};
+use crate::{constants::CONTENT_COMMITMENT_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 struct ContentCommitment {
   num_txs: Field,

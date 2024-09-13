@@ -249,6 +249,7 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
 
         // Archiver
         { name = "ARCHIVER_POLLING_INTERVAL", value = "10000" },
+        { name = "ARCHIVER_L1_START_BLOCK", value = "15918000" },
 
         // Aztec node to pull clientivc proofs from (to be replaced with a p2p connection)
         { name = "TX_PROVIDER_NODE_URL", value = "http://${var.DEPLOY_TAG}-aztec-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}" },
@@ -271,7 +272,6 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "INBOX_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address },
         { name = "OUTBOX_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.outbox_contract_address },
         { name = "REGISTRY_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.registry_contract_address },
-        { name = "AVAILABILITY_ORACLE_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.availability_oracle_contract_address },
         { name = "FEE_JUICE_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.fee_juice_contract_address },
         { name = "FEE_JUICE_PORTAL_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.FEE_JUICE_PORTAL_CONTRACT_ADDRESS },
 

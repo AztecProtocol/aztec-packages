@@ -3,7 +3,6 @@ use dep::protocol_types::{
     hash::poseidon2_hash_with_separator, point::{Point, POINT_LENGTH},
     traits::{Deserialize, Serialize, Empty, is_empty, Hash}
 };
-use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX};
 
 global PUBLIC_KEYS_LENGTH: u32 = 12;
 
