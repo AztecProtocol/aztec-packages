@@ -3465,8 +3465,11 @@ void AvmTraceBuilder::op_keccakf1600(uint8_t indirect,
  *
  * @return The main trace
  */
-std::vector<Row> AvmTraceBuilder::finalize(bool range_check_required)
+std::vector<Row> AvmTraceBuilder::finalize()
 {
+    vinfo("range_check_required: ", range_check_required);
+    vinfo("full_precomputed_tables: ", full_precomputed_tables);
+
     auto mem_trace = mem_trace_builder.finalize();
     auto conv_trace = conversion_trace_builder.finalize();
     auto sha256_trace = sha256_trace_builder.finalize();
@@ -3745,7 +3748,7 @@ std::vector<Row> AvmTraceBuilder::finalize(bool range_check_required)
      **********************************************************************************************/
 
     // Only generate precomputed byte tables if we are actually going to use them in this main trace.
-    if (bin_trace_size > 0) {
+    if (bin_trace_size > 0 || full_precomputed_tables) {
         if (!range_check_required) {
             FixedBytesTable::get().finalize_for_testing(main_trace, bin_trace_builder.byte_operation_counter);
             bin_trace_builder.finalize_lookups_for_testing(main_trace);
@@ -3915,6 +3918,7 @@ std::vector<Row> AvmTraceBuilder::finalize(bool range_check_required)
 void AvmTraceBuilder::reset()
 {
     main_trace.clear();
+    main_trace.shrink_to_fit(); // Reclaim memory.
     mem_trace_builder.reset();
     alu_trace_builder.reset();
     bin_trace_builder.reset();

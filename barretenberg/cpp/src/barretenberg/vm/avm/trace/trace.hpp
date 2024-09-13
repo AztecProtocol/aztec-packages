@@ -189,8 +189,20 @@ class AvmTraceBuilder {
     void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t h_init_offset, uint32_t input_offset);
     void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
 
-    std::vector<Row> finalize(bool range_check_required = ENABLE_PROVING);
+    std::vector<Row> finalize();
     void reset();
+
+    // These are used for testing only.
+    AvmTraceBuilder& set_range_check_required(bool required)
+    {
+        range_check_required = required;
+        return *this;
+    }
+    AvmTraceBuilder& set_full_precomputed_tables(bool required)
+    {
+        full_precomputed_tables = required;
+        return *this;
+    }
 
     struct MemOp {
         bool is_indirect;
@@ -210,6 +222,10 @@ class AvmTraceBuilder {
     uint32_t side_effect_counter = 0;
     uint32_t external_call_counter = 0;
     ExecutionHints execution_hints;
+
+    // These exist due to testing only.
+    bool range_check_required = true;
+    bool full_precomputed_tables = true;
 
     AvmMemTraceBuilder mem_trace_builder;
     AvmAluTraceBuilder alu_trace_builder;
