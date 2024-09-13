@@ -105,7 +105,7 @@ pub fn compute_encrypted_note_log<Note, let N: u32, let NB: u32, let M: u32>(
     let size = M - 337;
     assert_eq(size, incoming_body_ciphertext.len(), "ciphertext length mismatch");
     for i in 0..size {
-        encrypted_bytes[336 + i] = incoming_body_ciphertext[i];
+        encrypted_bytes[337 + i] = incoming_body_ciphertext[i];
     }
 
     // Current unoptimized size of the encrypted log
