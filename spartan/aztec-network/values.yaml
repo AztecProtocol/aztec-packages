@@ -67,6 +67,8 @@ proverNode:
   resources: {}
 
 pxe:
+  logLevel: "debug"
+  debug: "aztec:*"
   replicas: 1
   service:
     type: ClusterIP

@@ -17,3 +17,9 @@ spec:
           value: {{ .Values.scenario }}
         - name: PXE_URL
           value: {{ include "aztec-network.pxeUrl" . | quote }}
+        - name: DEBUG
+          value: "aztec:*"
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: LOG_JSON
+          value: "1"
