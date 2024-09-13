@@ -14,10 +14,7 @@ struct AppPublicInputs {
 
 impl Default for AppPublicInputs {
     fn default() -> Self {
-        Self {
-            commitments: [0; MAX_COMMITMENTS_PER_CALL],
-            read_requests: [0; MAX_COMMITMENT_READ_REQUESTS_PER_CALL],
-        }
+        Self { commitments: [0; MAX_COMMITMENTS_PER_CALL], read_requests: [0; MAX_COMMITMENT_READ_REQUESTS_PER_CALL] }
     }
 }
 
@@ -32,7 +29,7 @@ impl Default for PrivateKernelPublicInputs {
         Self {
             remaining_calls: 0,
             commitments: [0; MAX_COMMITMENTS_PER_TX],
-            read_requests: [0; MAX_COMMITMENT_READ_REQUESTS_PER_TX],
+            read_requests: [0; MAX_COMMITMENT_READ_REQUESTS_PER_TX]
         }
     }
 }
@@ -98,9 +95,7 @@ struct KernelPublicInputs {
 
 impl Default for KernelPublicInputs {
     fn default() -> Self {
-        Self {
-            commitments: [0; MAX_COMMITMENTS_PER_TX],
-        }
+        Self { commitments: [0; MAX_COMMITMENTS_PER_TX] }
     }
 }
 

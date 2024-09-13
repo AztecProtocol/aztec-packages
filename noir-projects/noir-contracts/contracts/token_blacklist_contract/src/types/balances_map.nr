@@ -1,11 +1,10 @@
-use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteHeader, NoteInterface, PrivateSet, Map};
+use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, NoteViewerOptions, NoteInterface, PrivateSet, Map};
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
     protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    note::{note_getter::view_notes, note_getter_options::SortOrder, note_emission::OuterNoteEmission},
-    keys::getters::get_current_public_keys
+    note::{note_emission::OuterNoteEmission}, keys::getters::get_current_public_keys
 };
-use crate::types::{token_note::{TokenNote, OwnedNote}};
+use crate::types::{token_note::OwnedNote};
 
 struct BalancesMap<T, Context> {
     map: Map<AztecAddress, PrivateSet<T, Context>, Context>

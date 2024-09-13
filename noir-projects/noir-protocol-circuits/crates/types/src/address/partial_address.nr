@@ -25,7 +25,7 @@ impl Serialize<PARTIAL_ADDRESS_LENGTH> for PartialAddress {
 
 impl Deserialize<PARTIAL_ADDRESS_LENGTH> for PartialAddress {
     fn deserialize(fields: [Field; PARTIAL_ADDRESS_LENGTH]) -> Self {
-       PartialAddress { inner: fields[0] }
+        PartialAddress { inner: fields[0] }
     }
 }
 

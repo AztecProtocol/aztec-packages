@@ -52,7 +52,7 @@ impl Empty for PrivateAccumulatedDataBuilder {
             encrypted_logs_hashes: BoundedVec::new(),
             unencrypted_logs_hashes: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
-            private_call_stack: BoundedVec::new(),
+            private_call_stack: BoundedVec::new()
         }
     }
 }

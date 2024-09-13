@@ -1,5 +1,3 @@
-use dep::protocol_types::traits::Eq;
-
 // Collapses an array of Options with sparse Some values into a BoundedVec, essentially unwrapping the Options and
 // removing the None values. For example, given:
 //   input: [some(3), none(), some(1)]
@@ -18,7 +16,7 @@ pub fn collapse_array<T, let N: u32>(input: [Option<T>; N]) -> BoundedVec<T, N> 
     collapsed
 }
 
-fn verify_collapse_hints<T, let N: u32>(
+pub(crate) fn verify_collapse_hints<T, let N: u32>(
     input: [Option<T>; N],
     collapsed: BoundedVec<T, N>,
     collapsed_to_input_index_mapping: BoundedVec<u32, N>

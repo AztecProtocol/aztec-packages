@@ -11,9 +11,7 @@ struct NoteHashLeafPreimage {
 
 impl Empty for NoteHashLeafPreimage {
     fn empty() -> Self {
-        Self {
-            value : 0,
-        }
+        Self { value: 0 }
     }
 }
 
@@ -48,10 +46,10 @@ impl NoteHashLeafPreimage {
     }
 }
 
-impl Eq for NoteHashLeafPreimage{
-  fn eq(self, other: Self) -> bool {
-    self.value == other.value
-  }
+impl Eq for NoteHashLeafPreimage {
+    fn eq(self, other: Self) -> bool {
+        self.value == other.value
+    }
 }
 
 #[test]
