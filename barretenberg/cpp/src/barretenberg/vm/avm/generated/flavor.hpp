@@ -230,22 +230,18 @@ class AvmFlavor {
     static_assert(AVM_PROOF_LENGTH_IN_FIELDS ==
                       (NUM_WITNESS_ENTITIES + 2) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
                           CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * BATCHED_RELATION_PARTIAL_LENGTH),
-                  "\n*********************************************************************\n"
-                  "Unexpected AVM proof length. This might be due to some changes in the\n"
+                  "\nUnexpected AVM proof length. This might be due to some changes in the\n"
                   "AVM circuit layout. In this case, modify AVM_PROOF_LENGTH_IN_FIELDS \n"
-                  "in constants.nr accordingly. \n"
-                  "*********************************************************************");
+                  "in constants.nr accordingly.");
 
     // VK is composed of
     // - circuit size encoded as a fr field element
     // - num of inputs encoded as a fr field element
     // - NUM_PRECOMPUTED_ENTITIES commitments
     static_assert(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS == 2 * NUM_FRS_FR + NUM_PRECOMPUTED_ENTITIES * NUM_FRS_COM,
-                  "\n*********************************************************************\n"
-                  "Unexpected AVM VK length. This might be due to some changes in the\n"
+                  "\nUnexpected AVM VK length. This might be due to some changes in the\n"
                   "AVM circuit. In this case, modify AVM_VERIFICATION_LENGTH_IN_FIELDS \n"
-                  "in constants.nr accordingly. \n"
-                  "*********************************************************************");
+                  "in constants.nr accordingly.");
 
     template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:

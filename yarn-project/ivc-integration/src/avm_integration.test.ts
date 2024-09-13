@@ -21,11 +21,11 @@ import { MockPublicKernelCircuit, witnessGenMockPublicKernelCircuit } from './in
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
 
-const logger = createDebugLogger('aztec:avm-integration');
-
 jest.setTimeout(120_000);
 
 describe('AVM Integration', () => {
+  const logger = createDebugLogger('aztec:avm-integration');
+
   let bbWorkingDirectory: string;
   let bbBinaryPath: string;
 
