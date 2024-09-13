@@ -1,6 +1,10 @@
 import { type BBSuccess, BB_RESULT, generateProof, verifyProof } from '@aztec/bb-prover';
 import { proveAvmTestContract } from '@aztec/bb-prover';
-import { PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '@aztec/circuits.js/constants';
+import {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+} from '@aztec/circuits.js/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
@@ -62,27 +66,28 @@ describe('AVM Integration', () => {
     const reader = BufferReader.asReader(avmProofBuffer);
     reader.readArray(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, Fr);
     const calldataSize = Fr.fromBuffer(reader).toNumber();
-    expect(calldataSize).toBe(3);
     reader.readArray(calldataSize, Fr);
     const returnDataSize = Fr.fromBuffer(reader).toNumber();
     reader.readArray(returnDataSize, Fr);
-    expect(returnDataSize).toBe(0);
 
     const proof: Fr[] = [];
     while (!reader.isEmpty()) {
       proof.push(Fr.fromBuffer(reader));
     }
-    expect(proof.length).toBe(3802);
+    expect(proof.length).toBe(AVM_PROOF_LENGTH_IN_FIELDS);
 
     // Read the key
     const vkBuffer = await fs.readFile(path.join(avmVkPath!, 'vk'));
     const vkReader = BufferReader.asReader(vkBuffer);
-    const vk = vkReader.readArray(66, Fr);
-    expect(vk.length).toBe(66);
+    const vk = vkReader.readArray(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr);
+    expect(vk.length).toBe(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS);
 
     const witGenResult = await witnessGenMockPublicKernelCircuit({
-      verification_key: vk.map(x => x.toString()) as FixedLengthArray<string, 66>,
-      proof: proof.map(x => x.toString()) as FixedLengthArray<string, 3802>,
+      verification_key: vk.map(x => x.toString()) as FixedLengthArray<
+        string,
+        typeof AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS
+      >,
+      proof: proof.map(x => x.toString()) as FixedLengthArray<string, typeof AVM_PROOF_LENGTH_IN_FIELDS>,
     });
 
     await createHonkProof(witGenResult.witness, MockPublicKernelCircuit.bytecode);

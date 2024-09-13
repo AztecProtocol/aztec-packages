@@ -289,13 +289,9 @@ global NESTED_RECURSIVE_PROOF_LENGTH = 439;
 global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
 global VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
-// VK is composed of
-// - circuit size encoded as a fr field element (32 bytes)
-// - num of inputs encoded as a fr field element (32 bytes)
-// - 16 affine elements (curve base field fq) encoded as fr elements takes (16 * 4 * 32 bytes)
-// 16 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
-global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS = 2 + 16 * 4;
 
+global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS = 2 + 16 * 4;
+global AVM_PROOF_LENGTH_IN_FIELDS = 3802;
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
  * We start from 1 to avoid the default generators. The generator indices are listed
