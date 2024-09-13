@@ -14,7 +14,7 @@ import { BootstrapNode } from '../../bootstrap/bootstrap.js';
 import { createP2PClient } from '../../client/index.js';
 import { MockBlockSource } from '../../client/mocks.js';
 import { type P2PClient } from '../../client/p2p_client.js';
-import { type BootnodeConfig, type P2PConfig } from '../../config.js';
+import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import { type TxPool } from '../../tx_pool/index.js';
 import { createLibP2PPeerId } from '../index.js';
 import { DEFAULT_P2P_REQRESP_CONFIG } from './config.js';
@@ -78,6 +78,7 @@ describe('Req Resp p2p client integration', () => {
       const addr = `127.0.0.1:${i + 1 + BOOT_NODE_UDP_PORT}`;
       const listenAddr = `0.0.0.0:${i + 1 + BOOT_NODE_UDP_PORT}`;
       const config: P2PConfig & DataStoreConfig = {
+        ...getP2PDefaultConfig(),
         p2pEnabled: true,
         peerIdPrivateKey: peerIdPrivateKeys[i],
         tcpListenAddress: listenAddr, // run on port 0
@@ -96,7 +97,6 @@ describe('Req Resp p2p client integration', () => {
         l1ChainId: 31337,
         dataDirectory: undefined,
         l1Contracts: { rollupAddress: EthAddress.ZERO },
-        ...DEFAULT_P2P_REQRESP_CONFIG,
       };
 
       txPool = {

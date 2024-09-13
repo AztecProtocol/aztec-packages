@@ -263,6 +263,18 @@ export function getP2PConfigEnvVars(): P2PConfig {
   return getConfigFromMappings<P2PConfig>(p2pConfigMappings);
 }
 
+export function getP2PDefaultConfig(): P2PConfig {
+  const result: Partial<P2PConfig> = {};
+
+  for (const [key, mapping] of Object.entries(p2pConfigMappings)) {
+    if (mapping.defaultValue !== undefined) {
+      result[key as keyof P2PConfig] = mapping.defaultValue;
+    }
+  }
+
+  return result as P2PConfig;
+}
+
 /**
  * Required P2P config values for a bootstrap node.
  */
