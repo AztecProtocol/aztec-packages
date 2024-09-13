@@ -46,24 +46,24 @@ describe('ValidationService', () => {
     expect(blockProposal).toBeDefined();
 
     const validatorAddress = EthAddress.fromString(validatorAccount.address);
-    expect(await blockProposal.getSender()).toEqual(validatorAddress);
+    expect(blockProposal.getSender()).toEqual(validatorAddress);
   });
 
-  it('Should a timeout if we do not collect enough attestations in time', async () => {
-    const proposal = await makeBlockProposal();
+  it('Should a timeout if we do not collect enough attestations in time', () => {
+    const proposal = makeBlockProposal();
 
-    await expect(validatorClient.collectAttestations(proposal, 2)).rejects.toThrow(AttestationTimeoutError);
+    expect(validatorClient.collectAttestations(proposal, 2)).rejects.toThrow(AttestationTimeoutError);
   });
 
-  it('Should throw an error if the transactions are not available', async () => {
-    const proposal = await makeBlockProposal();
+  it('Should throw an error if the transactions are not available', () => {
+    const proposal = makeBlockProposal();
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockImplementation(() => undefined);
     // Mock the p2pClient.requestTxs to return undefined for all transactions
     p2pClient.requestTxs.mockImplementation(() => Promise.resolve([undefined]));
 
-    await expect(validatorClient.ensureTransactionsAreAvailable(proposal)).rejects.toThrow(
+    expect(validatorClient.ensureTransactionsAreAvailable(proposal)).rejects.toThrow(
       TransactionsNotAvailableError,
     );
   });

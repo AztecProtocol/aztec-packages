@@ -19,18 +19,19 @@ export class InMemoryAttestationPool implements AttestationPool {
     }
   }
 
-  public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
+  public addAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
       // Perf: order and group by slot before insertion
       const slotNumber = attestation.header.globalVariables.slotNumber;
 
-      const address = await attestation.getSender();
+      const address = attestation.getSender();
 
       const slotAttestationMap = getSlotOrDefault(this.attestations, slotNumber.toBigInt());
       slotAttestationMap.set(address.toString(), attestation);
 
       this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
     }
+    return Promise.resolve();
   }
 
   public deleteAttestationsForSlot(slot: bigint): Promise<void> {
@@ -45,7 +46,7 @@ export class InMemoryAttestationPool implements AttestationPool {
       const slotNumber = attestation.header.globalVariables.slotNumber;
       const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());
       if (slotAttestationMap) {
-        const address = await attestation.getSender();
+        const address = attestation.getSender();
         slotAttestationMap.delete(address.toString());
         this.log.verbose(`Deleted attestation for slot ${slotNumber} from ${address}`);
       }
