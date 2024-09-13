@@ -37,7 +37,9 @@ impl Empty for TestTwoValues {
 
 impl Eq for TestTwoValues {
     fn eq(self, other: Self) -> bool {
-        (self.value_1 == other.value_1) & (self.value_2 == other.value_2) & (self.counter == other.counter)
+        (self.value_1 == other.value_1)
+            & (self.value_2 == other.value_2)
+            & (self.counter == other.counter)
     }
 }
 

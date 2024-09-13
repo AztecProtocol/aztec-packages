@@ -60,7 +60,7 @@ impl Empty for PublicValidationRequestsBuilder {
             nullifier_read_requests: BoundedVec::new(),
             nullifier_non_existent_read_requests: BoundedVec::new(),
             public_data_reads: BoundedVec::new(),
-            l1_to_l2_msg_read_requests: BoundedVec::new(),
+            l1_to_l2_msg_read_requests: BoundedVec::new()
         }
     }
 }

@@ -133,8 +133,7 @@ impl<INITIAL_DELAY> Serialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
         // Low limb: [ pre_inner: u32 | post_inner: u32 ]
         // High limb: [ empty | pre_is_some: u8 |  post_is_some: u8 | block_of_change: u32 ]
 
-        let lo = ((self.pre.unwrap_unchecked() as u64) * (1 << 32))
-            + (self.post.unwrap_unchecked() as u64);
+        let lo = ((self.pre.unwrap_unchecked() as u64) * (1 << 32)) + (self.post.unwrap_unchecked() as u64);
 
         let hi = (self.pre.is_some() as u64) * (1 << 33)
             + (self.post.is_some() as u64 * (1 << 32))
@@ -161,15 +160,25 @@ impl<INITIAL_DELAY> Deserialize<1> for ScheduledDelayChange<INITIAL_DELAY> {
         let block_of_change = ((packed.hi as u64) % (1 << 32)) as u32;
 
         Self {
-            pre: if pre_is_some { Option::some(pre_inner) } else { Option::none() },
-            post: if post_is_some { Option::some(post_inner) } else { Option::none() },
-            block_of_change,
+            pre: if pre_is_some {
+                Option::some(pre_inner)
+            } else {
+                Option::none()
+            },
+            post: if post_is_some {
+                Option::some(post_inner)
+            } else {
+                Option::none()
+            },
+            block_of_change
         }
     }
 }
 
 impl<INITIAL_DELAY> Eq for ScheduledDelayChange<INITIAL_DELAY> {
     fn eq(self, other: Self) -> bool {
-        (self.pre == other.pre) & (self.post == other.post) & (self.block_of_change == other.block_of_change)
+        (self.pre == other.pre)
+            & (self.post == other.post)
+            & (self.block_of_change == other.block_of_change)
     }
 }

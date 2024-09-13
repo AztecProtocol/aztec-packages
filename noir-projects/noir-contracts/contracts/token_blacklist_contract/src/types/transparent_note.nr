@@ -33,11 +33,7 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN, TRANSPARENT_NOTE_BYTES_LEN> for Transpa
 
     // Custom deserialization since we don't have access to the secret plaintext
     fn deserialize_content(serialized_note: [Field; TRANSPARENT_NOTE_LEN]) -> Self {
-        TransparentNote {
-            amount: serialized_note[0],
-            secret_hash: serialized_note[1],
-            header: NoteHeader::empty(),
-        }
+        TransparentNote { amount: serialized_note[0], secret_hash: serialized_note[1], header: NoteHeader::empty() }
     }
 
     fn compute_nullifier(self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
@@ -54,10 +50,9 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN, TRANSPARENT_NOTE_BYTES_LEN> for Transpa
     // This achieves that the note can only be spent by the party that knows the secret.
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
-        poseidon2_hash_with_separator([
-            note_hash_for_nullify,
-        ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+        poseidon2_hash_with_separator(
+            [note_hash_for_nullify],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 }
