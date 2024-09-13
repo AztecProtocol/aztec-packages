@@ -40,8 +40,8 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
      * 2. q_arith == 1: Everything in the minigate on the right is disabled. The equation is just a standard plonk
      * equation with extra wires: q_m * w_l * w_r + q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c = 0
      *
-     * 3. q_arith == 2: The (w_l + w_4 - ...) term is disabled. THe equation is:
-     * (1/2) * q_m * w_l * w_r + q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c + w_4_shift = 0
+     * 3. q_arith == 2: The (w_l + w_4 - ...) term is disabled. The equation is:
+     * 2 * ((1/2) * q_m * w_l * w_r + q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c + w_4_shift) = 0
      * It allows defining w_4 at next index (w_4_shift) in terms of current wire values
      *
      * 4. q_arith == 3: The product of w_l and w_r is disabled, but a mini addition gate is enabled. α² allows us to

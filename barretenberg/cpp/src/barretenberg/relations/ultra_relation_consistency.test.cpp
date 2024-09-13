@@ -111,10 +111,9 @@ class UltraRelationConsistency : public testing::Test {
         EXPECT_EQ(accumulator, expected_values);
     };
     template <template <typename, bool> typename Relation>
-    static void validate_homogenization_consistency(const bool random_inputs)
+    static void validate_homogenization_consistency(const InputElements& input_elements)
     {
         const auto parameters = RelationParameters<FF>::get_random(&engine);
-        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
 
         using Rel = Relation<FF, /* HOMOGENIZED= */ false>;
         using RelHomog = Relation<FF, /* HOMOGENIZED= */ true>;
@@ -618,6 +617,15 @@ TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
 
 TEST_F(UltraRelationConsistency, HomogenizedArithmetic)
 {
-    validate_homogenization_consistency<UltraArithmeticRelation>(/* random_inputs = */ false);
-    validate_homogenization_consistency<UltraArithmeticRelation>(/* random_inputs = */ true);
+    const auto run_test = [](const bool random_inputs) {
+        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
+
+        std::vector<FF> valid_selector_values = { 0, 1 };
+        for (const auto& val : valid_selector_values) {
+            input_elements.q_arith = val;
+            validate_homogenization_consistency<UltraArithmeticRelation>(input_elements);
+        }
+    };
+    run_test(/* random_inputs = */ false);
+    run_test(/* random_inputs = */ true);
 };
