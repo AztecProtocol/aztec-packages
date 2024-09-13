@@ -52,7 +52,7 @@ export class BlockAttestation extends Gossipable {
    * Lazily evaluate and cache the sender of the attestation
    * @returns The sender of the attestation
    */
-  async getSender() {
+  getSender() {
     if (!this.sender) {
       // Recover the sender from the attestation
       const hashed = getHashedSignaturePayload(this.archive, this.txHashes);

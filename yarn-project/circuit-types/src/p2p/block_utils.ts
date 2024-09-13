@@ -2,7 +2,7 @@ import { keccak256 as keccak256Buffer } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 import { Buffer32 } from '@aztec/foundation/buffer';
 
-import { encodeAbiParameters, keccak256 as keccak2560xString, parseAbiParameters } from 'viem';
+import { encodeAbiParameters, parseAbiParameters } from 'viem';
 
 import { type TxHash } from '../tx/tx_hash.js';
 
@@ -28,8 +28,4 @@ export function getSignaturePayload(archive: Fr, txs: TxHash[]) {
  */
 export function getHashedSignaturePayload(archive: Fr, txs: TxHash[]): Buffer32 {
   return Buffer32.fromBuffer(keccak256Buffer(getSignaturePayload(archive, txs)));
-}
-
-export function get0xStringHashedSignaturePayload(archive: Fr, txs: TxHash[]): `0x${string}` {
-  return keccak2560xString(getSignaturePayload(archive, txs));
 }

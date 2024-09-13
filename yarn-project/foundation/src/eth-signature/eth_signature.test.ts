@@ -1,14 +1,13 @@
-
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { Secp256k1Signer, recoverAddress } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import { Signature } from './eth_signature.js';
-import { Secp256k1Signer, recoverAddress } from '@aztec/foundation/crypto';
-import { Buffer32 } from '@aztec/foundation/buffer';
 
 const randomSigner = () => {
-    const pk = Buffer32.random();
-    return new Secp256k1Signer(pk);
-}
+  const pk = Buffer32.random();
+  return new Secp256k1Signer(pk);
+};
 
 describe('Signature serialization / deserialization', () => {
   it('Should serialize / deserialize', () => {
@@ -18,8 +17,6 @@ describe('Signature serialization / deserialization', () => {
     const message = Buffer32.fromField(originalMessage);
 
     const signature = signer.sign(message);
-
-    console.log(signature);
 
     // Serde
     const serialized = signature.toBuffer();
