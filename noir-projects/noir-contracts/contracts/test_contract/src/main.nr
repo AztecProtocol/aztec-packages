@@ -34,7 +34,7 @@ contract Test {
         note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
-        oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}
+        oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}, utils::comparison::Comparator
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::value_note::value_note::ValueNote;
@@ -473,7 +473,7 @@ contract Test {
         let notes_set = storage.example_set;
         let secret_hash = compute_secret_hash(secret);
         let mut options = NoteGetterOptions::new();
-        options = options.select(TestNote::properties().value, secret_hash, Option::none()).set_limit(1);
+        options = options.select(TestNote::properties().value, Comparator.EQ, secret_hash).set_limit(1);
         let notes = notes_set.pop_notes(options);
         assert(notes.len() == 1, "note not popped");
     }

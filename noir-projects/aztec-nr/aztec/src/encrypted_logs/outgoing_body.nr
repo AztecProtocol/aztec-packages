@@ -59,13 +59,8 @@ impl EncryptedLogOutgoingBody {
 
 mod test {
     use crate::{encrypted_logs::outgoing_body::EncryptedLogOutgoingBody, keys::public_keys::IvpkM};
-    use dep::protocol_types::{
-        address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        scalar::Scalar, point::Point, hash::poseidon2_hash_with_separator
-    };
+    use dep::protocol_types::{address::AztecAddress, scalar::Scalar};
     use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
-
-    use crate::context::PrivateContext;
 
     #[test]
     fn test_encrypted_log_outgoing_body_matches_typescript() {
