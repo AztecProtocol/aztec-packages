@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726228146468,
+  "lastUpdate": 1726233077895,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "104ea85667b4be03dd52cd20812907e0b85bcdd8",
-          "message": "refactor(bb): more graceful pippenger on non-powers-of-2 (#8279)\n\nPippenger was 50% slow if you had a power of 2 minus 1 vs the same power\r\nof 2\r\nBefore\r\n```\r\n----------------------------------------------------------------------------------------------\r\nBenchmark                                                    Time             CPU   Iterations\r\n----------------------------------------------------------------------------------------------\r\nbench_commit_random<curve::BN254>/22                      1438 ms         1313 ms            1\r\nbench_commit_random_non_power_of_2<curve::BN254>/22       1583 ms         1422 ms            1\r\n```\r\n\r\nAfter\r\n```\r\n----------------------------------------------------------------------------------------------\r\nBenchmark                                                    Time             CPU   Iterations\r\n----------------------------------------------------------------------------------------------\r\nbench_commit_random<curve::BN254>/22                      1436 ms         1303 ms            1\r\nbench_commit_random_non_power_of_2<curve::BN254>/22       1438 ms         1266 ms            1\r\n```",
-          "timestamp": "2024-08-31T10:31:38+01:00",
-          "tree_id": "0dfd1055c14c559fdf5e9d6fb4b0bbcba44f1ce0",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/104ea85667b4be03dd52cd20812907e0b85bcdd8"
-        },
-        "date": 1725097608855,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13476.275716999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10354.470989000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5131.195473999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4739.8871739999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39656.00705099999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39656007000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14690.214987,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14690215000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3689985920,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3689985920 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 144445536,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 144445536 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3040806686,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3040806686 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 119554360,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 119554360 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 113358571,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 113358571 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "58882b199081b18e33fb65f8d05cfce7fe458f1e",
+          "message": "refactor: Protogalaxy verifier matches prover 2 (#8477)\n\nThis PR reorganizes the native folding verifier to better match the\r\nfolding prover. This amounts to encapsulating some logic in functions\r\nand a mild reshuffling. It's tempting to also implement the verifier as\r\na series of pure-ish round functions, but I don't do that for lack of\r\ntime.",
+          "timestamp": "2024-09-13T08:58:38-04:00",
+          "tree_id": "d4ded2c47bac57ee3ca88ecbf008431d14d6aa9e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/58882b199081b18e33fb65f8d05cfce7fe458f1e"
+        },
+        "date": 1726233071069,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 12839.47444399999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9257.314761000001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5099.0555279999935,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4671.22544 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 38559.83670000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 38559836000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14635.617216,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14635618000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3578589660,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3578589660 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 135264683,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 135264683 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2925339164,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2925339164 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 113281775,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 113281775 ns\nthreads: 1"
           }
         ]
       }
