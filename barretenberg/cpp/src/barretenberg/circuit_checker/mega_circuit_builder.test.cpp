@@ -1,5 +1,6 @@
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include <gtest/gtest.h>
 
@@ -154,6 +155,46 @@ TEST(MegaCircuitBuilder, GoblinEccOpQueueUltraOps)
             auto op_wire_val = builder.variables[builder.blocks.ecc_op.wires[i][j]];
             auto ultra_op_val = ultra_ops[i][j];
             ASSERT_EQ(op_wire_val, ultra_op_val);
+        }
+    }
+}
+
+TEST(MegaCircuitBuilder, CompleteSelectorPartitioningCheck)
+{
+    auto builder = MegaCircuitBuilder();
+    GoblinMockCircuits::construct_simple_circuit(builder);
+    bool result = CircuitChecker::check(builder);
+    EXPECT_EQ(result, true);
+
+    // Check that for the blocks arithmetic, delta_range, elliptic, aux, lookup, busread, poseidon2_external,
+    // poseidon2_internal the corresponding selector polynomial is non-zero on the appropriate rows and the other
+    // selectors are zero get the trace blocks
+    for (auto& block : builder.blocks.get()) {
+        for (size_t i = 0; i < block.size(); ++i) {
+            if (&block != &builder.blocks.arithmetic) {
+                EXPECT_EQ(block.q_arith()[i], 0);
+            }
+            if (&block != &builder.blocks.delta_range) {
+                EXPECT_EQ(block.q_delta_range()[i], 0);
+            }
+            if (&block != &builder.blocks.elliptic) {
+                EXPECT_EQ(block.q_elliptic()[i], 0);
+            }
+            if (&block != &builder.blocks.aux) {
+                EXPECT_EQ(block.q_aux()[i], 0);
+            }
+            if (&block != &builder.blocks.lookup) {
+                EXPECT_EQ(block.q_lookup_type()[i], 0);
+            }
+            if (&block != &builder.blocks.busread) {
+                EXPECT_EQ(block.q_busread()[i], 0);
+            }
+            if (&block != &builder.blocks.poseidon2_external) {
+                EXPECT_EQ(block.q_poseidon2_external()[i], 0);
+            }
+            if (&block != &builder.blocks.poseidon2_internal) {
+                EXPECT_EQ(block.q_poseidon2_internal()[i], 0);
+            }
         }
     }
 }
