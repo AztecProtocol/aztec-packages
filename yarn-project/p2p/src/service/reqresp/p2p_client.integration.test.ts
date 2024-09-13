@@ -17,7 +17,6 @@ import { type P2PClient } from '../../client/p2p_client.js';
 import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import { type TxPool } from '../../tx_pool/index.js';
 import { createLibP2PPeerId } from '../index.js';
-import { DEFAULT_P2P_REQRESP_CONFIG } from './config.js';
 
 /**
  * Mockify helper for testing purposes.
