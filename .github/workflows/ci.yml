@@ -135,13 +135,21 @@ jobs:
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
         run: |
-          LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
+          else
+            LABELS=""
+          fi
           echo Labels: $LABELS
           echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
         run: |
-          LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
+          else
+            LABELS=""
+          fi
           echo Labels: $LABELS
           echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
 
