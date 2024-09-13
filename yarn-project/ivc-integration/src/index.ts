@@ -18,6 +18,7 @@ import type {
   MockPrivateKernelTailInputType,
   MockPublicKernelInputType,
   PrivateKernelPublicInputs,
+  u8,
 } from './types/index.js';
 
 // Re export the circuit jsons
@@ -110,11 +111,11 @@ export async function witnessGenMockPrivateKernelTailCircuit(
 
 export async function witnessGenMockPublicKernelCircuit(
   args: MockPublicKernelInputType,
-): Promise<WitnessGenResult<null>> {
+): Promise<WitnessGenResult<u8>> {
   const program = new Noir(MockPublicKernelCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {
     witness,
-    publicInputs: returnValue as null,
+    publicInputs: returnValue as u8,
   };
 }

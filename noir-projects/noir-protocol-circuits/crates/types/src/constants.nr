@@ -526,3 +526,11 @@ global AVM_PEDERSENCOMMITMENT_DYN_L2_GAS: u16 = 0;
 global AVM_TORADIXLE_DYN_L2_GAS: u16 = 200;
 global AVM_SHA256COMPRESSION_DYN_L2_GAS: u16 = 0;
 global AVM_KECCAKF1600_DYN_L2_GAS: u16 = 0;
+
+// Constants related to proof type of a recursive proof verification.
+// Keep following constants in sync with the enum acir_format::PROOF_TYPE in recursion_constraint.hpp
+global PROOF_TYPE_PLONK : u32 = 0;
+global PROOF_TYPE_HONK : u32 = 1;
+global PROOF_TYPE_OINK : u32 = 2;
+global PROOF_TYPE_PG : u32 = 3;
+global PROOF_TYPE_AVM : u32 = 4;
