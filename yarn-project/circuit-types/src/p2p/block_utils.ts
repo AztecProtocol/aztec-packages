@@ -1,5 +1,5 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { keccak256 as keccak256Buffer } from '@aztec/foundation/crypto';
+import { keccak256 } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
 
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
@@ -27,5 +27,5 @@ export function getSignaturePayload(archive: Fr, txs: TxHash[]) {
  * @returns The hashed payload for the signature of the block proposal
  */
 export function getHashedSignaturePayload(archive: Fr, txs: TxHash[]): Buffer32 {
-  return Buffer32.fromBuffer(keccak256Buffer(getSignaturePayload(archive, txs)));
+  return Buffer32.fromBuffer(keccak256(getSignaturePayload(archive, txs)));
 }
