@@ -7,30 +7,30 @@
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp"
+#include "barretenberg/ultra_honk/decider_keys.hpp"
 
 namespace bb::stdlib::recursion::honk {
 template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
   public:
     using Flavor = typename DeciderVerificationKeys::Flavor;
-    using NativeFlavor = typename Flavor::NativeFlavor;
+    // using NativeFlavor = typename Flavor::NativeFlavor;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
-    using GroupElement = typename Flavor::GroupElement;
+    // using GroupElement = typename Flavor::GroupElement;
     using DeciderVK = typename DeciderVerificationKeys::DeciderVK;
-    using NativeDeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;
+    // using NativeDeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Builder = typename Flavor::CircuitBuilder;
     using RelationSeparator = typename Flavor::RelationSeparator;
-    using PairingPoints = std::array<GroupElement, 2>;
     static constexpr size_t NUM = DeciderVerificationKeys::NUM;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using OinkVerifier = OinkRecursiveVerifier_<Flavor>;
     struct VerifierInput {
       public:
-        using DeciderVK = NativeDeciderVK;
+        // using DeciderVK = NativeDeciderVK;
         std::shared_ptr<DeciderVK> accumulator;
         std::vector<std::shared_ptr<NativeVerificationKey>> decider_vks;
     };
@@ -76,26 +76,18 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
         return next_gate_challenges;
     }
 
-    std::shared_ptr<DeciderVK> get_accumulator() { return keys_to_fold[0]; }
-
     /**
      * @brief Instatiate the decider verification keys and the transcript.
      *
      * @param fold_data The data transmitted via the transcript by the prover.
      */
-    void prepare_for_folding();
-
-    /**
-     * @brief Instantiate the accumulator from the transcript.
-     *
-     */
-    void receive_accumulator(const std::shared_ptr<DeciderVK>&, const std::string&);
+    void run_oink_verifier_on_each_incomplete_key(const std::vector<FF>&);
 
     /**
      * @brief Process the public data ϕ for the keys to be folded.
      *
      */
-    void receive_and_finalise_key(const std::shared_ptr<DeciderVK>&, std::string&);
+    void run_oink_verifier_on_one_incomplete_key(const std::shared_ptr<DeciderVK>&, std::string&);
 
     /**
      * @brief Run the folding protocol on the verifier side to establish whether the public data ϕ of the new
@@ -128,41 +120,6 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
         }
         return result;
     };
-
-    /**
-     * @brief Folds the witness commitments and verification key (part of ϕ) and stores the values in the accumulator.
-     *
-     *
-     */
-
-    void fold_commitments(std::vector<FF> lagranges,
-                          DeciderVerificationKeys& keys,
-                          std::shared_ptr<DeciderVK>& accumulator)
-    {
-        size_t vk_idx = 0;
-        for (auto& expected_vk : accumulator->verification_key->get_all()) {
-            std::vector<Commitment> commitments;
-            for (auto& key : keys) {
-                commitments.emplace_back(key->verification_key->get_all()[vk_idx]);
-            }
-            // For ultra we need to enable edgecase prevention
-            expected_vk = Commitment::batch_mul(
-                commitments, lagranges, /*max_num_bits=*/0, /*with_edgecases=*/IsUltraBuilder<Builder>);
-            vk_idx++;
-        }
-
-        size_t comm_idx = 0;
-        for (auto& comm : accumulator->witness_commitments.get_all()) {
-            std::vector<Commitment> commitments;
-            for (auto& key : keys) {
-                commitments.emplace_back(key->witness_commitments.get_all()[comm_idx]);
-            }
-            // For ultra we need to enable edgecase prevention
-            comm = Commitment::batch_mul(
-                commitments, lagranges, /*max_num_bits=*/0, /*with_edgecases=*/IsUltraBuilder<Builder>);
-            comm_idx++;
-        }
-    }
 };
 
 } // namespace bb::stdlib::recursion::honk

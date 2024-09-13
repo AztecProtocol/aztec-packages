@@ -119,7 +119,7 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     next_accumulator->gate_challenges = // note: known already in previous round
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
-    // // Fold the commitments
+    // Fold the commitments
     for (auto [combination, to_combine] :
          zip_view(next_accumulator->verification_key->get_all(), keys_to_fold.get_precomputed_commitments())) {
         combination = batch_mul_native(to_combine, lagranges);
