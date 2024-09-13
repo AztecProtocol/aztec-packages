@@ -1,14 +1,14 @@
 import { type EthAddress, Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { recoverAddress } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { TxHash } from '../tx/tx_hash.js';
-import {  getHashedSignaturePayload, getSignaturePayload } from './block_utils.js';
+import { getHashedSignaturePayload, getSignaturePayload } from './block_utils.js';
 import { Gossipable } from './gossipable.js';
 import { TopicType, createTopicString } from './topic_type.js';
-import { recoverAddress } from '@aztec/foundation/crypto';
 
 export class BlockAttestationHash extends Buffer32 {
   constructor(hash: Buffer) {

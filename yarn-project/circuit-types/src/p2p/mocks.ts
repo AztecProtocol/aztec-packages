@@ -1,12 +1,12 @@
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import { TxHash } from '../tx/tx_hash.js';
 import { BlockAttestation } from './block_attestation.js';
 import { BlockProposal } from './block_proposal.js';
 import { getHashedSignaturePayload } from './block_utils.js';
-import { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Buffer32 } from '@aztec/foundation/buffer';
 
 export const makeBlockProposal = (signer?: Secp256k1Signer): BlockProposal => {
   signer = signer || randomSigner();

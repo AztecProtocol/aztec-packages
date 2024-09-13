@@ -1,6 +1,6 @@
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 as keccak256Buffer } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
-import { Buffer32 } from '@aztec/foundation/buffer';
 
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 

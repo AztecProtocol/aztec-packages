@@ -536,7 +536,7 @@ export class Sequencer {
     this.log.verbose(`Collected attestations from validators, number of attestations: ${attestations.length}`);
 
     // note: the smart contract requires that the signatures are provided in the order of the committee
-    return await orderAttestations(attestations, committee);
+    return orderAttestations(attestations, committee);
   }
 
   /**
@@ -665,12 +665,12 @@ export enum SequencerState {
  *
  * @todo: perform this logic within the memory attestation store instead?
  */
-async function orderAttestations(attestations: BlockAttestation[], orderAddresses: EthAddress[]): Promise<Signature[]> {
+function orderAttestations(attestations: BlockAttestation[], orderAddresses: EthAddress[]): Signature[] {
   // Create a map of sender addresses to BlockAttestations
   const attestationMap = new Map<string, BlockAttestation>();
 
   for (const attestation of attestations) {
-    const sender = await attestation.getSender();
+    const sender = attestation.getSender();
     if (sender) {
       attestationMap.set(sender.toString(), attestation);
     }
