@@ -2273,14 +2273,8 @@ AvmFlavor::ProvingKey::ProvingKey(const size_t circuit_size, const size_t num_pu
     this->log_circuit_size = numeric::get_msb(circuit_size);
     this->num_public_inputs = num_public_inputs;
 
-    // Allocate memory for precomputed polynomials
-    for (auto& poly : PrecomputedEntities<Polynomial>::get_all()) {
-        poly = Polynomial(circuit_size);
-    }
-    // Allocate memory for witness polynomials
-    for (auto& poly : WitnessEntities<Polynomial>::get_all()) {
-        poly = Polynomial(circuit_size);
-    }
+    // The proving key's polynomials are not allocated here because they are later overwritten
+    // AvmComposer::compute_witness(). We should probably refactor this flow.
 };
 
 /**

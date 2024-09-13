@@ -1,13 +1,14 @@
 use dep::aztec::{
     generators::{Ga1 as G_amt, Ga2 as G_npk, Ga3 as G_rnd, G_slot},
     protocol_types::{
-    address::AztecAddress, traits::{Deserialize, Serialize}, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-    hash::poseidon2_hash_with_separator, point::{Point, POINT_LENGTH}
+    traits::Serialize, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator,
+    point::{Point, POINT_LENGTH}
 },
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_nullify},
     oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
 };
-use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
+use dep::std::{embedded_curve_ops::multi_scalar_mul};
+use std::hash::from_field_unsafe;
 
 global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.
 // VALUE_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)

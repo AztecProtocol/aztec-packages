@@ -771,7 +771,6 @@ jobs:
           ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ env.API_KEY }}
 
       - name: Deploy verifier (allow failure)
-        continue-on-error: true
         working-directory: ./yarn-project/aztec/terraform/pxe
         run: |
           set -eo pipefail

@@ -456,10 +456,10 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
         auto stack_item = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
-        auto circuit = acir_format::create_circuit<Builder>(
-            stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
+        auto builder = acir_format::create_circuit<Builder>(
+            stack_item.constraints, 0, stack_item.witness, /*honk_recursion=*/false, ivc.goblin.op_queue);
 
-        ivc.accumulate(circuit);
+        ivc.accumulate(builder);
 
         program_stack.pop_back();
     }

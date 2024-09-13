@@ -1,5 +1,4 @@
 use crate::context::{PublicContext, UnconstrainedContext};
-use crate::oracle::storage::storage_read;
 use dep::protocol_types::traits::{Deserialize, Serialize};
 use crate::state_vars::storage::Storage;
 

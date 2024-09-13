@@ -171,14 +171,17 @@ contract SpartaTest is DecoderBase {
 
     rollup.setupEpoch();
 
+    bytes32[] memory txHashes = new bytes32[](0);
+
     if (_signatureCount > 0 && ree.proposer != address(0)) {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
       ree.needed = validators.length * 2 / 3 + 1;
 
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](_signatureCount);
 
+      bytes32 digest = keccak256(abi.encode(archive, txHashes));
       for (uint256 i = 0; i < _signatureCount; i++) {
-        signatures[i] = createSignature(validators[i], archive);
+        signatures[i] = createSignature(validators[i], digest);
       }
 
       if (_expectRevert) {
@@ -208,7 +211,7 @@ contract SpartaTest is DecoderBase {
       }
 
       vm.prank(ree.proposer);
-      rollup.propose(header, archive, bytes32(0), signatures, body);
+      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
 
       if (ree.shouldRevert) {
         return;
@@ -216,7 +219,7 @@ contract SpartaTest is DecoderBase {
     } else {
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
 
-      rollup.propose(header, archive, bytes32(0), signatures, body);
+      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");

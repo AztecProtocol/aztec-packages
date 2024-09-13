@@ -39,6 +39,7 @@ interface IRollup {
     bytes calldata _header,
     bytes32 _archive,
     bytes32 _blockHash,
+    bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body
   ) external;

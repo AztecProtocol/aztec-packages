@@ -6,22 +6,23 @@
 namespace bb {
 
 template <class DeciderVerificationKeys>
-void ProtogalaxyVerifier_<DeciderVerificationKeys>::receive_and_finalise_key(const std::shared_ptr<DeciderVK>& keys,
-                                                                             const std::string& domain_separator)
+void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_one_incomplete_key(
+    const std::shared_ptr<DeciderVK>& keys, const std::string& domain_separator)
 {
     OinkVerifier<Flavor> oink_verifier{ keys, transcript, domain_separator + '_' };
     oink_verifier.verify();
 }
 
 template <class DeciderVerificationKeys>
-void ProtogalaxyVerifier_<DeciderVerificationKeys>::prepare_for_folding(const std::vector<FF>& fold_data)
+void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_incomplete_key(
+    const std::vector<FF>& proof)
 {
-    transcript = std::make_shared<Transcript>(fold_data);
+    transcript = std::make_shared<Transcript>(proof);
     size_t index = 0;
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(index);
     if (!key->is_accumulator) {
-        receive_and_finalise_key(key, domain_separator);
+        run_oink_verifier_on_one_incomplete_key(key, domain_separator);
         key->target_sum = 0;
         key->gate_challenges = std::vector<FF>(static_cast<size_t>(key->verification_key->log_circuit_size), 0);
     }
@@ -30,33 +31,34 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::prepare_for_folding(const st
     for (auto it = keys_to_fold.begin() + 1; it != keys_to_fold.end(); it++, index++) {
         auto key = *it;
         auto domain_separator = std::to_string(index);
-        receive_and_finalise_key(key, domain_separator);
+        run_oink_verifier_on_one_incomplete_key(key, domain_separator);
     }
 }
 
 template <class DeciderVerificationKeys>
 std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier_<
-    DeciderVerificationKeys>::verify_folding_proof(const std::vector<FF>& fold_data)
+    DeciderVerificationKeys>::verify_folding_proof(const std::vector<FF>& proof)
 {
-    prepare_for_folding(fold_data);
+    run_oink_verifier_on_each_incomplete_key(proof);
 
-    auto delta = transcript->template get_challenge<FF>("delta");
-    auto accumulator = get_accumulator();
-    auto deltas =
-        compute_round_challenge_pows(static_cast<size_t>(accumulator->verification_key->log_circuit_size), delta);
+    const FF delta = transcript->template get_challenge<FF>("delta");
+    const std::shared_ptr<const DeciderVK>& accumulator = keys_to_fold[0]; // WORKTODO: move
 
-    std::vector<FF> perturbator_coeffs(static_cast<size_t>(accumulator->verification_key->log_circuit_size) + 1, 0);
+    const size_t log_circuit_size = static_cast<size_t>(accumulator->verification_key->log_circuit_size);
+    const std::vector<FF> deltas = compute_round_challenge_pows(log_circuit_size, delta);
+
+    std::vector<FF> perturbator_coeffs(log_circuit_size + 1, 0);
     if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= static_cast<size_t>(accumulator->verification_key->log_circuit_size); idx++) {
+        for (size_t idx = 1; idx <= log_circuit_size; idx++) {
             perturbator_coeffs[idx] =
                 transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
         }
     }
 
     perturbator_coeffs[0] = accumulator->target_sum;
-    Polynomial<FF> perturbator(perturbator_coeffs);
-    FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
-    auto perturbator_at_challenge = perturbator.evaluate(perturbator_challenge);
+    const Polynomial<FF> perturbator(perturbator_coeffs);
+    const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
+    const FF perturbator_evaluation = perturbator.evaluate(perturbator_challenge);
 
     // The degree of K(X) is dk - k - 1 = k(d - 1) - 1. Hence we need  k(d - 1) evaluations to represent it.
     std::array<FF, DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH - DeciderVerificationKeys::NUM>
@@ -65,10 +67,10 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
         combiner_quotient_evals[idx] = transcript->template receive_from_prover<FF>(
             "combiner_quotient_" + std::to_string(idx + DeciderVerificationKeys::NUM));
     }
-    Univariate<FF, DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH, DeciderVerificationKeys::NUM> combiner_quotient(
-        combiner_quotient_evals);
-    FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
-    auto combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
+    const Univariate<FF, DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH, DeciderVerificationKeys::NUM>
+        combiner_quotient(combiner_quotient_evals);
+    const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
+    const FF combiner_quotient_evaluation = combiner_quotient.evaluate(combiner_challenge);
 
     constexpr FF inverse_two = FF(2).invert();
     FF vanishing_polynomial_at_challenge;
@@ -95,20 +97,9 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     static_assert(DeciderVerificationKeys::NUM < 5);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
-    auto next_accumulator = std::make_shared<DeciderVK>(accumulator->verification_key);
-    next_accumulator->verification_key = std::make_shared<VerificationKey>(
-        accumulator->verification_key->circuit_size, accumulator->verification_key->num_public_inputs);
-    next_accumulator->verification_key->pcs_verification_key = accumulator->verification_key->pcs_verification_key;
-    next_accumulator->verification_key->pub_inputs_offset = accumulator->verification_key->pub_inputs_offset;
-    next_accumulator->verification_key->contains_recursive_proof =
-        accumulator->verification_key->contains_recursive_proof;
-    next_accumulator->verification_key->recursive_proof_public_input_indices =
-        accumulator->verification_key->recursive_proof_public_input_indices;
-
-    if constexpr (IsGoblinFlavor<Flavor>) { // Databus commitment propagation data
-        next_accumulator->verification_key->databus_propagation_data =
-            accumulator->verification_key->databus_propagation_data;
-    }
+    auto next_accumulator = std::make_shared<DeciderVK>();
+    next_accumulator->verification_key = std::make_shared<VerificationKey>(*accumulator->verification_key);
+    next_accumulator->is_accumulator = true;
 
     size_t commitment_idx = 0;
     for (auto& expected_vk : next_accumulator->verification_key->get_all()) {
@@ -120,15 +111,10 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
         }
         commitment_idx++;
     }
-    next_accumulator->verification_key->num_public_inputs = accumulator->verification_key->num_public_inputs;
-    next_accumulator->public_inputs =
-        std::vector<FF>(static_cast<size_t>(next_accumulator->verification_key->num_public_inputs), 0);
-
-    next_accumulator->is_accumulator = true;
 
     // Compute next folding parameters
     next_accumulator->target_sum =
-        perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
+        perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_evaluation;
     next_accumulator->gate_challenges =
         update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 

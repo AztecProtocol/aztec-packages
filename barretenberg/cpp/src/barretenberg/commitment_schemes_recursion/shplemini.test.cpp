@@ -125,9 +125,9 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         std::string label = "Gemini:a_" + std::to_string(l);
         const auto& evaluation = gemini_opening_pairs[l + 1].evaluation;
         prover_transcript->send_to_verifier(label, evaluation);
-        opening_claims.emplace_back(gemini_witnesses[l], gemini_opening_pairs[l]);
+        opening_claims.push_back({ gemini_witnesses[l], gemini_opening_pairs[l] });
     }
-    opening_claims.emplace_back(gemini_witnesses[log_circuit_size], gemini_opening_pairs[log_circuit_size]);
+    opening_claims.push_back({ gemini_witnesses[log_circuit_size], gemini_opening_pairs[log_circuit_size] });
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)

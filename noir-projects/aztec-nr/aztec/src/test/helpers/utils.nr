@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     traits::{Deserialize, Serialize}, address::AztecAddress,
-    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
+    abis::{private_circuit_public_inputs::PrivateCircuitPublicInputs},
     contract_instance::ContractInstance
 };
 
@@ -8,9 +8,8 @@ use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::context::call_interfaces::CallInterface;
 use crate::test::helpers::cheatcodes;
 use crate::keys::public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys};
-use crate::hash::hash_args;
 
-use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_nullified_note};
+use crate::oracle::{execution::{get_block_number, get_contract_address}};
 
 pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
     let mut nullifiers = &[];
