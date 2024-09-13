@@ -19,23 +19,24 @@ impl Eq for OverridablePublicDataWrite {
 
 impl Empty for OverridablePublicDataWrite {
     fn empty() -> Self {
-        Self {
-            write: PublicDataUpdateRequest::empty(),
-            override_counter: 0,
-        }
+        Self { write: PublicDataUpdateRequest::empty(), override_counter: 0 }
     }
 }
 
 impl Ordered for OverridablePublicDataWrite {
-    fn counter(self)-> u32{
+    fn counter(self) -> u32 {
         self.write.counter()
     }
 }
 
 impl Readable<PublicDataRead> for OverridablePublicDataWrite {
     fn assert_match_read_request(self, read_request: PublicDataRead) {
-        assert_eq(self.write.leaf_slot, read_request.leaf_slot, "leaf_slot in OverridablePublicDataWrite does not match read request");
-        assert_eq(self.write.new_value, read_request.value, "value in OverridablePublicDataWrite does not match read request");
+        assert_eq(
+            self.write.leaf_slot, read_request.leaf_slot, "leaf_slot in OverridablePublicDataWrite does not match read request"
+        );
+        assert_eq(
+            self.write.new_value, read_request.value, "value in OverridablePublicDataWrite does not match read request"
+        );
     }
 }
 

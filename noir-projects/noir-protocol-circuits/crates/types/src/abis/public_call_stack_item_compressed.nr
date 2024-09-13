@@ -49,7 +49,7 @@ impl Empty for PublicCallStackItemCompressed {
             returns_hash: 0,
             revert_code: 0,
             start_gas_left: Gas::empty(),
-            end_gas_left: Gas::empty(),
+            end_gas_left: Gas::empty()
         }
     }
 }
@@ -73,19 +73,19 @@ impl Serialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackItem
 }
 
 impl Deserialize<PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH> for PublicCallStackItemCompressed {
-  fn deserialize(fields: [Field; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH]) -> PublicCallStackItemCompressed {
-    let mut reader = Reader::new(fields);
+    fn deserialize(fields: [Field; PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH]) -> PublicCallStackItemCompressed {
+        let mut reader = Reader::new(fields);
 
-    let item = PublicCallStackItemCompressed {
-      contract_address: reader.read_struct(AztecAddress::deserialize),
-      call_context: reader.read_struct(CallContext::deserialize),
-      args_hash: reader.read(),
-      returns_hash: reader.read(),
-      revert_code: reader.read() as u8,
-      start_gas_left: reader.read_struct(Gas::deserialize),
-      end_gas_left: reader.read_struct(Gas::deserialize),
-    };
-    reader.finish();
-    item
-  }
+        let item = PublicCallStackItemCompressed {
+            contract_address: reader.read_struct(AztecAddress::deserialize),
+            call_context: reader.read_struct(CallContext::deserialize),
+            args_hash: reader.read(),
+            returns_hash: reader.read(),
+            revert_code: reader.read() as u8,
+            start_gas_left: reader.read_struct(Gas::deserialize),
+            end_gas_left: reader.read_struct(Gas::deserialize)
+        };
+        reader.finish();
+        item
+    }
 }
