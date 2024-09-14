@@ -9,7 +9,7 @@ use crate::{
     MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
     MAX_PUBLIC_DATA_READS_PER_TX, PUBLIC_VALIDATION_REQUESTS_LENGTH
 },
-    traits::{Serialize, Deserialize, Empty}, utils::reader::Reader
+    traits::{Serialize, Deserialize, Empty}, utils::{arrays::array_length, reader::Reader}
 };
 
 struct PublicValidationRequests {
@@ -92,6 +92,26 @@ impl Eq for PublicValidationRequests {
         (self.nullifier_non_existent_read_requests == other.nullifier_non_existent_read_requests) &
         (self.l1_to_l2_msg_read_requests == other.l1_to_l2_msg_read_requests) &
         (self.public_data_reads == other.public_data_reads)
+    }
+}
+
+struct PublicValidationRequestsArrayLengths {
+    note_hash_read_requests: u32,
+    nullifier_read_requests: u32,
+    nullifier_non_existent_read_requests: u32,
+    l1_to_l2_msg_read_requests: u32,
+    public_data_reads: u32,
+}
+
+impl PublicValidationRequestsArrayLengths {
+    pub fn new(requests: PublicValidationRequests) -> Self {
+        PublicValidationRequestsArrayLengths {
+            note_hash_read_requests: array_length(requests.note_hash_read_requests),
+            nullifier_read_requests: array_length(requests.nullifier_read_requests),
+            nullifier_non_existent_read_requests: array_length(requests.nullifier_non_existent_read_requests),
+            l1_to_l2_msg_read_requests: array_length(requests.l1_to_l2_msg_read_requests),
+            public_data_reads: array_length(requests.public_data_reads)
+        }
     }
 }
 

@@ -1,3 +1,5 @@
+mod assert_array_appended;
+mod assert_array_prepended;
 mod assert_combined_array;
 mod assert_combined_sorted_transformed_value_array;
 mod assert_combined_transformed_array;
@@ -13,6 +15,8 @@ mod sort_by;
 mod sort_by_counter;
 
 // Re-exports.
+pub use assert_array_appended::{assert_array_appended, assert_array_appended_reversed, assert_array_appended_scoped};
+pub use assert_array_prepended::assert_array_prepended;
 pub use assert_combined_array::{assert_combined_array, combine_arrays};
 pub use assert_combined_sorted_transformed_value_array::{
     assert_combined_sorted_transformed_value_array_asc,

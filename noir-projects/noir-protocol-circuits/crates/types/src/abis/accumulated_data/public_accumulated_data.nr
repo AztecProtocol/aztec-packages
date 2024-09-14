@@ -9,7 +9,7 @@ use crate::{
     MAX_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
     MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, PUBLIC_ACCUMULATED_DATA_LENGTH
 },
-    traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
+    traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_length, reader::Reader}
 };
 
 struct PublicAccumulatedData {
@@ -120,6 +120,47 @@ impl Eq for PublicAccumulatedData {
     (self.public_call_stack == other.public_call_stack) &
     (self.gas_used == other.gas_used)
   }
+}
+
+struct PublicAccumulatedDataArrayLengths {
+    note_hashes: u32,
+    nullifiers: u32,
+    l2_to_l1_msgs: u32,
+    note_encrypted_logs_hashes: u32,
+    encrypted_logs_hashes: u32,
+    unencrypted_logs_hashes: u32,
+    public_data_update_requests: u32,
+    public_call_stack: u32,
+}
+
+impl PublicAccumulatedDataArrayLengths {
+    pub fn new(data: PublicAccumulatedData) -> Self {
+        PublicAccumulatedDataArrayLengths {
+            note_hashes: array_length(data.note_hashes),
+            nullifiers: array_length(data.nullifiers),
+            l2_to_l1_msgs: array_length(data.l2_to_l1_msgs),
+            note_encrypted_logs_hashes: array_length(data.note_encrypted_logs_hashes),
+            encrypted_logs_hashes: array_length(data.encrypted_logs_hashes),
+            unencrypted_logs_hashes: array_length(data.unencrypted_logs_hashes),
+            public_data_update_requests: array_length(data.public_data_update_requests),
+            public_call_stack: array_length(data.public_call_stack)
+        }
+    }
+}
+
+impl Empty for PublicAccumulatedDataArrayLengths {
+    fn empty() -> Self {
+        PublicAccumulatedDataArrayLengths {
+            note_hashes: 0,
+            nullifiers: 0,
+            l2_to_l1_msgs: 0,
+            note_encrypted_logs_hashes: 0,
+            encrypted_logs_hashes: 0,
+            unencrypted_logs_hashes: 0,
+            public_data_update_requests: 0,
+            public_call_stack: 0,
+        }
+    }
 }
 
 #[test]
