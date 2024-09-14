@@ -60,11 +60,10 @@ mod affine {
 
     impl Eq for Point {
         fn eq(self, p: Self) -> bool {
-             let Self {x: x1, y: y1, infty: inf1} = self;
+            let Self {x: x1, y: y1, infty: inf1} = self;
             let Self {x: x2, y: y2, infty: inf2} = p;
 
-            (inf1 & inf2)
-                | (!inf1 & !inf2 & (x1 == x2) & (y1 == y2))
+            (inf1 & inf2) | (!inf1 & !inf2 & (x1 == x2) & (y1 == y2))
         }
     }
 
@@ -245,10 +244,13 @@ mod curvegroup {
 
     impl Eq for Point {
         fn eq(self, p: Self) -> bool {
-               let Self {x: x1, y: y1, z: z1} = self;
+            let Self {x: x1, y: y1, z: z1} = self;
             let Self {x: x2, y: y2, z: z2} = p;
 
-            ((z1 == 0) & (z2 == 0)) | ((z1 != 0) & (z2 != 0) & (x1*z2*z2 == x2*z1*z1) & (y1*z2*z2*z2 == y2*z1*z1*z1))
+            ((z1 == 0) & (z2 == 0)) | ((z1 != 0)
+                    & (z2 != 0)
+                    & (x1 * z2 * z2 == x2 * z1 * z1)
+                    & (y1 * z2 * z2 * z2 == y2 * z1 * z1 * z1))
         }
     }
 
@@ -350,11 +352,9 @@ mod curvegroup {
 
         // Scalar multiplication (p + ... + p n times)
         pub fn mul(self, n: Field, p: Point) -> Point {
-            let N_BITS = crate::field::modulus_num_bits();
-
             // TODO: temporary workaround until issue 1354 is solved
             let mut n_as_bits: [u1; 254] = [0; 254];
-            let tmp = n.to_le_bits(N_BITS as u32);
+            let tmp: [u1; 254] = n.to_le_bits();
             for i in 0..254 {
                 n_as_bits[i] = tmp[i];
             }

@@ -19,13 +19,13 @@ contract Token {
         context::{PrivateContext, PrivateCallInterface}, hash::compute_secret_hash,
         prelude::{
         NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress,
-        FunctionSelector, NoteHeader, Point
+        FunctionSelector, NoteHeader
     },
         encrypted_logs::{
         encrypted_note_emission::{encode_and_encrypt_note_with_keys, encode_and_encrypt_note_with_keys_unconstrained},
-        encrypted_event_emission::{encode_and_encrypt_event, encode_and_encrypt_event_with_keys_unconstrained}
+        encrypted_event_emission::encode_and_encrypt_event_with_keys_unconstrained
     },
-        keys::getters::get_current_public_keys
+        keys::getters::get_current_public_keys, utils::comparison::Comparator
     };
 
     // docs:start:import_authwit
@@ -33,8 +33,8 @@ contract Token {
     // docs:end:import_authwit
 
     use crate::types::{
-        transparent_note::TransparentNote,
-        token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteHidingPoint}, balance_set::BalanceSet
+        transparent_note::TransparentNote, token_note::{TokenNote, TokenNoteHidingPoint},
+        balance_set::BalanceSet
     };
     // docs:end::imports
 
@@ -305,10 +305,10 @@ contract Token {
         // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
         // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();
-        options = options.select(TransparentNote::properties().amount, amount, Option::none()).select(
+        options = options.select(TransparentNote::properties().amount, Comparator.EQ, amount).select(
             TransparentNote::properties().secret_hash,
-            secret_hash,
-            Option::none()
+            Comparator.EQ,
+            secret_hash
         ).set_limit(1);
 
         let notes = storage.pending_shields.pop_notes(options);
@@ -572,7 +572,9 @@ contract Token {
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
-            FunctionSelector::from_signature("complete_refund(((Field,Field,bool)),((Field,Field,bool)),Field)"),
+            comptime {
+            FunctionSelector::from_signature("complete_refund(((Field,Field,bool)),((Field,Field,bool)),Field)")
+        },
             [
             fee_payer_point.inner.x, fee_payer_point.inner.y, fee_payer_point.inner.is_infinite as Field, user_point.inner.x, user_point.inner.y, user_point.inner.is_infinite as Field, funded_amount
         ]
@@ -647,7 +649,7 @@ contract Token {
     /// Unconstrained ///
 
     // docs:start:balance_of_private
-    unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
+    unconstrained pub(crate) fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.at(owner).balance_of().to_field()
     }
     // docs:end:balance_of_private

@@ -1,4 +1,3 @@
-import { type Fr } from '@aztec/aztec.js';
 import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
 
 import { FullProverTest } from './e2e_prover_test.js';
@@ -18,7 +17,7 @@ describe('full_prover', () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
-    // await t.deployVerifier();
+    await t.deployVerifier();
     ({ provenAssets, accounts, tokenSim, logger } = t);
   });
 
@@ -79,16 +78,7 @@ describe('full_prover', () => {
           // fail the test. User asked for fixtures but we don't have any
           throw new Error('No block result found in test data');
         }
-        // TODO(#6624): Note that with honk proofs the below writes incorrect test data to file.
-        // The serialisation does not account for the prepended fields (circuit size, PI size, PI offset) in new Honk proofs, so the written data is shifted.
-        writeTestData(
-          'yarn-project/end-to-end/src/fixtures/dumps/block_result.json',
-          JSON.stringify({
-            block: blockResult.block.toString(),
-            proof: blockResult.proof.toString(),
-            aggregationObject: blockResult.aggregationObject.map((x: Fr) => x.toString()),
-          }),
-        );
+        writeTestData('yarn-project/end-to-end/src/fixtures/dumps/block_result.json', JSON.stringify(blockResult));
       }
     },
     TIMEOUT,

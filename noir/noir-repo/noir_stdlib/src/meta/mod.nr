@@ -1,4 +1,6 @@
+mod ctstring;
 mod expr;
+mod format_string;
 mod function_def;
 mod module;
 mod op;
@@ -7,6 +9,7 @@ mod trait_constraint;
 mod trait_def;
 mod trait_impl;
 mod typ;
+mod typed_expr;
 mod quoted;
 mod unresolved_type;
 
@@ -120,6 +123,7 @@ mod tests {
         quote { 1 }
     }
 
+    #[test]
     fn returning_versus_macro_insertion() {
         comptime
         {

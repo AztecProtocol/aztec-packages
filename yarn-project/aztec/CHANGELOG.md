@@ -1,5 +1,53 @@
 # Changelog
 
+## [0.55.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.54.0...aztec-package-v0.55.0) (2024-09-13)
+
+
+### Bug Fixes
+
+* Load prover node config from env ([#8525](https://github.com/AztecProtocol/aztec-packages/issues/8525)) ([7065962](https://github.com/AztecProtocol/aztec-packages/commit/7065962bb507555bcbb25cb3bbfc2a0a90687000))
+
+
+### Miscellaneous
+
+* Remove unneeded propose and da oracle ([#8474](https://github.com/AztecProtocol/aztec-packages/issues/8474)) ([274a6b7](https://github.com/AztecProtocol/aztec-packages/commit/274a6b73281e5b9a7bc037aaf8888230de7b99a9))
+
+## [0.54.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.53.0...aztec-package-v0.54.0) (2024-09-10)
+
+
+### Features
+
+* Archiver fork block num ([#8425](https://github.com/AztecProtocol/aztec-packages/issues/8425)) ([a9f2364](https://github.com/AztecProtocol/aztec-packages/commit/a9f2364264e5cba4d01f09ef18801dd5ff39ae87))
+
+
+### Miscellaneous
+
+* Merge devnet to master ([#8472](https://github.com/AztecProtocol/aztec-packages/issues/8472)) ([26706e9](https://github.com/AztecProtocol/aztec-packages/commit/26706e9d4339e6cf7603b6c86f1e7a1d3942bd63))
+
+## [0.53.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.52.0...aztec-package-v0.53.0) (2024-09-09)
+
+
+### Bug Fixes
+
+* Do not reuse anvil admin key ([#8304](https://github.com/AztecProtocol/aztec-packages/issues/8304)) ([6863fe5](https://github.com/AztecProtocol/aztec-packages/commit/6863fe5094193ce29118c8a315e38b7b3aea69ca))
+* Split stores per component and split merkle tree operations ([#8299](https://github.com/AztecProtocol/aztec-packages/issues/8299)) ([4ee69ac](https://github.com/AztecProtocol/aztec-packages/commit/4ee69acf8588adb46d2e9369d5541fb04380c652))
+
+
+### Miscellaneous
+
+* Change efs volumes to use bursting throughput ([#8370](https://github.com/AztecProtocol/aztec-packages/issues/8370)) ([d6ebe3e](https://github.com/AztecProtocol/aztec-packages/commit/d6ebe3e674ea59acf810c9736aa908c63b5a9b85))
+* Fix spartan test nightly runner ([#8433](https://github.com/AztecProtocol/aztec-packages/issues/8433)) ([a34f353](https://github.com/AztecProtocol/aztec-packages/commit/a34f35311ace0f06e22da111d72467dd976fdd8d))
+* Increase AZTEC_SLOT_DURATION ([#8331](https://github.com/AztecProtocol/aztec-packages/issues/8331)) ([5d48500](https://github.com/AztecProtocol/aztec-packages/commit/5d485006cf9fdf20b4081da1b203edf7abe1675f))
+* Merge provernet to master ([#8373](https://github.com/AztecProtocol/aztec-packages/issues/8373)) ([e1dc987](https://github.com/AztecProtocol/aztec-packages/commit/e1dc9878de06a1f3d4cde9bbcf652ac342951d52))
+* Pw/devnet fixes ([#8385](https://github.com/AztecProtocol/aztec-packages/issues/8385)) ([4fb4e17](https://github.com/AztecProtocol/aztec-packages/commit/4fb4e178d7cd6de999455b624ec4d3b6b63fceb7))
+
+## [0.52.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.51.1...aztec-package-v0.52.0) (2024-09-01)
+
+
+### Miscellaneous
+
+* **aztec-package:** Synchronize aztec-packages versions
+
 ## [0.51.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.51.0...aztec-package-v0.51.1) (2024-08-29)
 
 

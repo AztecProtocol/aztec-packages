@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.51.1 # x-release-please-version
+    VERSION 0.55.0 # x-release-please-version
     LANGUAGES CXX C
 )
 # Insert version into `bb` config file
@@ -38,6 +38,7 @@ option(ENABLE_HEAVY_TESTS "Enable heavy tests when collecting coverage" OFF)
 # Note: Must do 'sudo apt-get install libdw-dev' or equivalent
 option(CHECK_CIRCUIT_STACKTRACES "Enable (slow) stack traces for check circuit" OFF)
 option(ENABLE_TRACY "Enable low-medium overhead profiling for memory and performance with tracy" OFF)
+option(ENABLE_PIC "Builds with position independent code" OFF)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
     message(STATUS "Compiling for ARM.")

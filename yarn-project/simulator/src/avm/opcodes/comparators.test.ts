@@ -2,6 +2,7 @@ import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32 } from '../avm_memory_types.js';
 import { TagCheckError } from '../errors.js';
 import { initContext } from '../fixtures/index.js';
+import { Opcode } from '../serialization/instruction_serialization.js';
 import { Eq, Lt, Lte } from './comparators.js';
 
 describe('Comparators', () => {
@@ -14,22 +15,22 @@ describe('Comparators', () => {
   describe('Eq', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        Eq.opcode, // opcode
+        Opcode.EQ_16, // opcode
         0x01, // indirect
         TypeTag.UINT64, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // aOffset
+        ...Buffer.from('2345', 'hex'), // bOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new Eq(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.UINT64,
-        /*aOffset=*/ 0x12345678,
-        /*bOffset=*/ 0x23456789,
-        /*dstOffset=*/ 0x3456789a,
-      );
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.EQ_16, Eq.wireFormat16);
 
-      expect(Eq.deserialize(buf)).toEqual(inst);
+      expect(Eq.as(Eq.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
@@ -86,22 +87,22 @@ describe('Comparators', () => {
   describe('Lt', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        Lt.opcode, // opcode
+        Opcode.LT_16, // opcode
         0x01, // indirect
         TypeTag.UINT64, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // aOffset
+        ...Buffer.from('2345', 'hex'), // bOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new Lt(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.UINT64,
-        /*aOffset=*/ 0x12345678,
-        /*bOffset=*/ 0x23456789,
-        /*dstOffset=*/ 0x3456789a,
-      );
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.LT_16, Lt.wireFormat16);
 
-      expect(Lt.deserialize(buf)).toEqual(inst);
+      expect(Lt.as(Lt.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 
@@ -158,22 +159,22 @@ describe('Comparators', () => {
   describe('Lte', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        Lte.opcode, // opcode
+        Opcode.LTE_16, // opcode
         0x01, // indirect
         TypeTag.UINT64, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('23456789', 'hex'), // bOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // aOffset
+        ...Buffer.from('2345', 'hex'), // bOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new Lte(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.UINT64,
-        /*aOffset=*/ 0x12345678,
-        /*bOffset=*/ 0x23456789,
-        /*dstOffset=*/ 0x3456789a,
-      );
+        /*aOffset=*/ 0x1234,
+        /*bOffset=*/ 0x2345,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.LTE_16, Lte.wireFormat16);
 
-      expect(Lte.deserialize(buf)).toEqual(inst);
+      expect(Lte.as(Lte.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 

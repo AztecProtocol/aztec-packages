@@ -1,9 +1,9 @@
 use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::{AztecAddress, PartialAddress},
+    abis::function_selector::FunctionSelector, address::AztecAddress,
     constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance
 };
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
-use crate::test::helpers::utils::{Deployer, TestAccount};
+use crate::test::helpers::utils::TestAccount;
 use crate::keys::public_keys::PublicKeys;
 
 unconstrained pub fn reset() {
@@ -55,6 +55,10 @@ unconstrained pub fn derive_keys(secret: Field) -> PublicKeys {
 
 unconstrained pub fn set_msg_sender(msg_sender: AztecAddress) {
     oracle_set_msg_sender(msg_sender)
+}
+
+unconstrained pub fn set_calldata(calldata: [Field]) {
+    oracle_set_calldata(calldata)
 }
 
 unconstrained pub fn get_msg_sender() -> AztecAddress {
@@ -187,3 +191,6 @@ unconstrained fn oracle_get_function_selector() -> FunctionSelector {}
 
 #[oracle(setFunctionSelector)]
 unconstrained fn oracle_set_function_selector(selector: FunctionSelector) {}
+
+#[oracle(setCalldata)]
+unconstrained fn oracle_set_calldata(calldata: [Field]) {}

@@ -180,8 +180,8 @@ export class BlockStore {
    * Gets the most recent L1 block processed.
    * @returns The L1 block that published the latest L2 block
    */
-  getSynchedL1BlockNumber(): bigint {
-    return this.#lastSynchedL1Block.get() ?? 0n;
+  getSynchedL1BlockNumber(): bigint | undefined {
+    return this.#lastSynchedL1Block.get();
   }
 
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {

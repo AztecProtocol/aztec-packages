@@ -13,7 +13,7 @@ use crate::{
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     recursion::verification_key::VerificationKey, traits::{is_empty, ToField},
-    utils::field::field_from_bytes_32_trunc, point::Point
+    utils::field::field_from_bytes_32_trunc
 };
 use super::utils::field::field_from_bytes;
 
@@ -151,7 +151,7 @@ pub fn compute_l2_to_l1_hash(
     let inputs = [contract_address.to_field(), rollup_version_id, recipient.to_field(), chain_id, content];
     for i in 0..inputs.len() {
         // TODO are bytes be in fr.to_buffer() ?
-        let item_bytes = inputs[i].to_be_bytes(32);
+        let item_bytes: [u8; 32] = inputs[i].to_be_bytes();
         for j in 0..32 {
             bytes.push(item_bytes[j]);
         }
@@ -196,7 +196,7 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // accumulate_sha256 assumes that the inputs are pre-truncated 31 byte numbers
     let mut hash_input_flattened = [0; 64];
     for offset in 0..input.len() {
-        let input_as_bytes = input[offset].to_be_bytes(32);
+        let input_as_bytes: [u8; 32] = input[offset].to_be_bytes();
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
@@ -212,7 +212,7 @@ pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
     for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
-        let input_as_bytes = logs[offset].value.to_be_bytes(32);
+        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_bytes();
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
@@ -233,7 +233,7 @@ pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32];
     for offset in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
-        let input_as_bytes = logs[offset].value.to_be_bytes(32);
+        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_bytes();
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
@@ -313,10 +313,6 @@ pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> [u8; 32] {
         result[i] = hashed_field_bytes[i];
     }
     result
-}
-
-pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
-    std::hash::pedersen_commitment_with_separator(inputs, hash_index)
 }
 
 #[test]

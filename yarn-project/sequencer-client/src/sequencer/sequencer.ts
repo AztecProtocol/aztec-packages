@@ -6,6 +6,7 @@ import {
   type ProcessedTx,
   Signature,
   Tx,
+  type TxHash,
   type TxValidator,
 } from '@aztec/circuit-types';
 import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
@@ -17,7 +18,6 @@ import {
   EthAddress,
   GENESIS_ARCHIVE_ROOT,
   Header,
-  IS_DEV_NET,
   StateReference,
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
@@ -30,11 +30,10 @@ import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec
 import { type ValidatorClient } from '@aztec/validator-client';
 import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
-import { BaseError, ContractFunctionRevertedError } from 'viem';
-
 import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type L1Publisher } from '../publisher/l1-publisher.js';
+import { prettyLogVeimError } from '../publisher/utils.js';
 import { type TxValidatorFactory } from '../tx_validator/tx_validator_factory.js';
 import { type SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -183,91 +182,99 @@ export class Sequencer {
   }
 
   /**
-   * Grabs up to maxTxsPerBlock from the p2p client, constructs a block, and pushes it to L1.
+   * @notice  Performs most of the sequencer duties:
+   *          - Checks if we are up to date
+   *          - If we are and we are the sequencer, collect txs and build a block
+   *          - Collect attestations for the block
+   *          - Submit block
+   *          - If our block for some reason is not included, revert the state
    */
   protected async work() {
+    // Update state when the previous block has been synced
+    const prevBlockSynced = await this.isBlockSynced();
+    // Do not go forward with new block if the previous one has not been mined and processed
+    if (!prevBlockSynced) {
+      this.log.debug('Previous block has not been mined and processed yet');
+      return;
+    }
+
+    if (prevBlockSynced && this.state === SequencerState.PUBLISHING_BLOCK) {
+      this.log.debug(`Block has been synced`);
+      this.state = SequencerState.IDLE;
+    }
+
+    const chainTip = await this.l2BlockSource.getBlock(-1);
+    const historicalHeader = chainTip?.header;
+
+    const newBlockNumber =
+      (historicalHeader === undefined
+        ? await this.l2BlockSource.getBlockNumber()
+        : Number(historicalHeader.globalVariables.blockNumber.toBigInt())) + 1;
+
+    // If we cannot find a tip archive, assume genesis.
+    const chainTipArchive =
+      chainTip == undefined ? new Fr(GENESIS_ARCHIVE_ROOT).toBuffer() : chainTip?.archive.root.toBuffer();
+
+    let slot: bigint;
     try {
-      // Update state when the previous block has been synced
-      const prevBlockSynced = await this.isBlockSynced();
-      // Do not go forward with new block if the previous one has not been mined and processed
-      if (!prevBlockSynced) {
-        this.log.debug('Previous block has not been mined and processed yet');
-        return;
-      }
+      slot = await this.mayProposeBlock(chainTipArchive, BigInt(newBlockNumber));
+    } catch (err) {
+      this.log.debug(`Cannot propose for block ${newBlockNumber}`);
+      return;
+    }
 
-      if (prevBlockSynced && this.state === SequencerState.PUBLISHING_BLOCK) {
-        this.log.debug(`Block has been synced`);
-        this.state = SequencerState.IDLE;
-      }
+    if (!this.shouldProposeBlock(historicalHeader, {})) {
+      return;
+    }
 
-      const chainTip = await this.l2BlockSource.getBlock(-1);
-      const historicalHeader = chainTip?.header;
+    this.state = SequencerState.WAITING_FOR_TXS;
 
-      const newBlockNumber =
-        (historicalHeader === undefined
-          ? await this.l2BlockSource.getBlockNumber()
-          : Number(historicalHeader.globalVariables.blockNumber.toBigInt())) + 1;
+    // Get txs to build the new block.
+    const pendingTxs = this.p2pClient.getTxs('pending');
 
-      // If we cannot find a tip archive, assume genesis.
-      const chainTipArchive =
-        chainTip == undefined ? new Fr(GENESIS_ARCHIVE_ROOT).toBuffer() : chainTip?.archive.root.toBuffer();
+    if (!this.shouldProposeBlock(historicalHeader, { pendingTxsCount: pendingTxs.length })) {
+      return;
+    }
+    this.log.debug(`Retrieved ${pendingTxs.length} txs from P2P pool`);
 
-      let slot: bigint;
-      try {
-        slot = await this.mayProposeBlock(chainTipArchive, BigInt(newBlockNumber));
-      } catch (err) {
-        this.log.debug(`Cannot propose for block ${newBlockNumber}`);
-        return;
-      }
+    const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
+      new Fr(newBlockNumber),
+      this._coinbase,
+      this._feeRecipient,
+      slot,
+    );
 
-      if (!this.shouldProposeBlock(historicalHeader, {})) {
-        return;
-      }
+    // If I created a "partial" header here that should make our job much easier.
+    const proposalHeader = new Header(
+      new AppendOnlyTreeSnapshot(Fr.fromBuffer(chainTipArchive), 1),
+      ContentCommitment.empty(),
+      StateReference.empty(),
+      newGlobalVariables,
+      Fr.ZERO,
+    );
 
-      this.state = SequencerState.WAITING_FOR_TXS;
+    // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
+    const allValidTxs = await this.takeValidTxs(
+      pendingTxs,
+      this.txValidatorFactory.validatorForNewTxs(newGlobalVariables, this.allowedInSetup),
+    );
 
-      // Get txs to build the new block.
-      const pendingTxs = this.p2pClient.getTxs('pending');
+    // TODO: We are taking the size of the tx from private-land, but we should be doing this after running
+    // public functions. Only reason why we do it here now is because the public processor and orchestrator
+    // are set up such that they require knowing the total number of txs in advance. Still, main reason for
+    // exceeding max block size in bytes is contract class registration, which happens in private-land. This
+    // may break if we start emitting lots of log data from public-land.
+    const validTxs = this.takeTxsWithinMaxSize(allValidTxs);
 
-      if (!this.shouldProposeBlock(historicalHeader, { pendingTxsCount: pendingTxs.length })) {
-        return;
-      }
-      this.log.debug(`Retrieved ${pendingTxs.length} txs from P2P pool`);
+    // Bail if we don't have enough valid txs
+    if (!this.shouldProposeBlock(historicalHeader, { validTxsCount: validTxs.length })) {
+      return;
+    }
 
-      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
-        new Fr(newBlockNumber),
-        this._coinbase,
-        this._feeRecipient,
-        slot,
-      );
-
-      // If I created a "partial" header here that should make our job much easier.
-      const proposalHeader = new Header(
-        new AppendOnlyTreeSnapshot(Fr.fromBuffer(chainTipArchive), 1),
-        ContentCommitment.empty(),
-        StateReference.empty(),
-        newGlobalVariables,
-        Fr.ZERO,
-      );
-
-      // TODO: It should be responsibility of the P2P layer to validate txs before passing them on here
-      const allValidTxs = await this.takeValidTxs(
-        pendingTxs,
-        this.txValidatorFactory.validatorForNewTxs(newGlobalVariables, this.allowedInSetup),
-      );
-
-      // TODO: We are taking the size of the tx from private-land, but we should be doing this after running
-      // public functions. Only reason why we do it here now is because the public processor and orchestrator
-      // are set up such that they require knowing the total number of txs in advance. Still, main reason for
-      // exceeding max block size in bytes is contract class registration, which happens in private-land. This
-      // may break if we start emitting lots of log data from public-land.
-      const validTxs = this.takeTxsWithinMaxSize(allValidTxs);
-
-      // Bail if we don't have enough valid txs
-      if (!this.shouldProposeBlock(historicalHeader, { validTxsCount: validTxs.length })) {
-        return;
-      }
-
+    try {
+      // @note  It is very important that the following function will FAIL and not just return early
+      //        if it have made any state changes. If not, we won't rollback the state, and you will
+      //        be in for a world of pain.
       await this.buildBlockAndPublish(validTxs, proposalHeader, historicalHeader);
     } catch (err) {
       if (BlockProofError.isBlockProofError(err)) {
@@ -300,15 +307,10 @@ export class Sequencer {
         throw new Error(msg);
       }
 
+      this.log.debug(`Can propose block ${proposalBlockNumber} at slot ${slot}`);
       return slot;
     } catch (err) {
-      if (err instanceof BaseError) {
-        const revertError = err.walk(err => err instanceof ContractFunctionRevertedError);
-        if (revertError instanceof ContractFunctionRevertedError) {
-          const errorName = revertError.data?.errorName ?? '';
-          this.log.debug(`canProposeAtTime failed with "${errorName}"`);
-        }
-      }
+      prettyLogVeimError(err, this.log);
       throw err;
     }
   }
@@ -319,23 +321,21 @@ export class Sequencer {
       return true;
     }
 
-    if (IS_DEV_NET) {
-      // Compute time elapsed since the previous block
-      const lastBlockTime = historicalHeader?.globalVariables.timestamp.toNumber() || 0;
-      const currentTime = Math.floor(Date.now() / 1000);
-      const elapsedSinceLastBlock = currentTime - lastBlockTime;
-      this.log.debug(
-        `Last block mined at ${lastBlockTime} current time is ${currentTime} (elapsed ${elapsedSinceLastBlock})`,
-      );
+    // Compute time elapsed since the previous block
+    const lastBlockTime = historicalHeader?.globalVariables.timestamp.toNumber() || 0;
+    const currentTime = Math.floor(Date.now() / 1000);
+    const elapsedSinceLastBlock = currentTime - lastBlockTime;
+    this.log.debug(
+      `Last block mined at ${lastBlockTime} current time is ${currentTime} (elapsed ${elapsedSinceLastBlock})`,
+    );
 
-      // If we haven't hit the maxSecondsBetweenBlocks, we need to have at least minTxsPerBLock txs.
-      // Do not go forward with new block if not enough time has passed since last block
-      if (this.minSecondsBetweenBlocks > 0 && elapsedSinceLastBlock < this.minSecondsBetweenBlocks) {
-        this.log.debug(
-          `Not creating block because not enough time ${this.minSecondsBetweenBlocks} has passed since last block`,
-        );
-        return false;
-      }
+    // If we haven't hit the maxSecondsBetweenBlocks, we need to have at least minTxsPerBLock txs.
+    // Do not go forward with new block if not enough time has passed since last block
+    if (this.minSecondsBetweenBlocks > 0 && elapsedSinceLastBlock < this.minSecondsBetweenBlocks) {
+      this.log.debug(
+        `Not creating block because not enough time ${this.minSecondsBetweenBlocks} has passed since last block`,
+      );
+      return false;
     }
 
     const skipCheck = this.skipMinTxsPerBlockCheck(historicalHeader);
@@ -381,6 +381,16 @@ export class Sequencer {
     return true;
   }
 
+  /**
+   * @notice  Build and propose a block to the chain
+   *
+   * @dev     MUST throw instead of exiting early to ensure that world-state
+   *          is being rolled back if the block is dropped.
+   *
+   * @param validTxs - The valid transactions to construct the block from
+   * @param proposalHeader - The partial header constructed for the proposal
+   * @param historicalHeader - The historical header of the parent
+   */
   @trackSpan('Sequencer.buildBlockAndPublish', (_validTxs, proposalHeader, _historicalHeader) => ({
     [Attributes.BLOCK_NUMBER]: proposalHeader.globalVariables.blockNumber.toNumber(),
   }))
@@ -389,9 +399,7 @@ export class Sequencer {
     proposalHeader: Header,
     historicalHeader: Header | undefined,
   ): Promise<void> {
-    if (!(await this.publisher.validateBlockForSubmission(proposalHeader))) {
-      return;
-    }
+    await this.publisher.validateBlockForSubmission(proposalHeader);
 
     const newGlobalVariables = proposalHeader.globalVariables;
 
@@ -426,15 +434,16 @@ export class Sequencer {
       await this.p2pClient.deleteTxs(Tx.getHashes(failedTxData));
     }
 
+    await this.publisher.validateBlockForSubmission(proposalHeader);
+
     if (
-      !(await this.publisher.validateBlockForSubmission(proposalHeader)) ||
       !this.shouldProposeBlock(historicalHeader, {
         validTxsCount: validTxs.length,
         processedTxsCount: processedTxs.length,
       })
     ) {
       blockBuilder.cancelBlock();
-      return;
+      throw new Error('Should not propose the block');
     }
 
     // All real transactions have been added, set the block as full and complete the proving.
@@ -451,9 +460,7 @@ export class Sequencer {
     // Block is ready, now finalise
     const { block } = await blockBuilder.finaliseBlock();
 
-    if (!(await this.publisher.validateBlockForSubmission(block.header))) {
-      return;
-    }
+    await this.publisher.validateBlockForSubmission(block.header);
 
     const workDuration = workTimer.ms();
     this.log.verbose(
@@ -473,11 +480,15 @@ export class Sequencer {
       this.log.verbose(`Flushing completed`);
     }
 
+    const txHashes = validTxs.map(tx => tx.getTxHash());
+
     this.isFlushing = false;
-    const attestations = await this.collectAttestations(block);
+    this.log.verbose('Collecting attestations');
+    const attestations = await this.collectAttestations(block, txHashes);
+    this.log.verbose('Attestations collected');
 
     try {
-      await this.publishL2Block(block, attestations);
+      await this.publishL2Block(block, attestations, txHashes);
       this.metrics.recordPublishedBlock(workDuration);
       this.log.info(
         `Submitted rollup block ${block.number} with ${
@@ -495,44 +506,34 @@ export class Sequencer {
     this.isFlushing = true;
   }
 
-  protected async collectAttestations(block: L2Block): Promise<Signature[] | undefined> {
-    // @todo  This should collect attestations properly and fix the ordering of them to make sense
-    //        the current implementation is a PLACEHOLDER and should be nuked from orbit.
-    //        It is assuming that there will only be ONE (1) validator, so only one attestation
-    //        is needed.
-    // @note  This is quite a sin, but I'm committing war crimes in this code already.
-    //            _ ._  _ , _ ._
-    //          (_ ' ( `  )_  .__)
-    //       ( (  (    )   `)  ) _)
-    //      (__ (_   (_ . _) _) ,__)
-    //           `~~`\ ' . /`~~`
-    //                ;   ;
-    //                /   \
-    //  _____________/_ __ \_____________
+  protected async collectAttestations(block: L2Block, txHashes: TxHash[]): Promise<Signature[] | undefined> {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
+    const committee = await this.publisher.getCurrentEpochCommittee();
+    this.log.debug(`Attesting committee length ${committee.length}`);
 
-    if (IS_DEV_NET || !this.validatorClient) {
+    if (committee.length === 0) {
+      this.log.debug(`Attesting committee length is 0, skipping`);
       return undefined;
     }
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7962): inefficient to have a round trip in here - this should be cached
-    const committee = await this.publisher.getCurrentEpochCommittee();
-
-    if (committee.length === 0) {
-      return undefined;
+    if (!this.validatorClient) {
+      const msg = 'Missing validator client: Cannot collect attestations';
+      this.log.error(msg);
+      throw new Error(msg);
     }
 
     const numberOfRequiredAttestations = Math.floor((committee.length * 2) / 3) + 1;
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7974): we do not have transaction[] lists in the block for now
-    // Dont do anything with the proposals for now - just collect them
-
-    const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, []);
+    this.log.verbose('Creating block proposal');
+    const proposal = await this.validatorClient.createBlockProposal(block.header, block.archive.root, txHashes);
 
     this.state = SequencerState.PUBLISHING_BLOCK_TO_PEERS;
+    this.log.verbose('Broadcasting block proposal to validators');
     this.validatorClient.broadcastBlockProposal(proposal);
 
     this.state = SequencerState.WAITING_FOR_ATTESTATIONS;
     const attestations = await this.validatorClient.collectAttestations(proposal, numberOfRequiredAttestations);
+    this.log.verbose(`Collected attestations from validators, number of attestations: ${attestations.length}`);
 
     // note: the smart contract requires that the signatures are provided in the order of the committee
     return await orderAttestations(attestations, committee);
@@ -545,15 +546,15 @@ export class Sequencer {
   @trackSpan('Sequencer.publishL2Block', block => ({
     [Attributes.BLOCK_NUMBER]: block.number,
   }))
-  protected async publishL2Block(block: L2Block, attestations?: Signature[]) {
+  protected async publishL2Block(block: L2Block, attestations?: Signature[], txHashes?: TxHash[]) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
 
-    const publishedL2Block = await this.publisher.processL2Block(block, attestations);
+    const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes);
     if (publishedL2Block) {
       this.lastPublishedBlock = block.number;
     } else {
-      throw new Error(`Failed to publish block`);
+      throw new Error(`Failed to publish block ${block.number}`);
     }
   }
 

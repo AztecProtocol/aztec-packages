@@ -19,6 +19,7 @@ noirc_errors.workspace = true
 iter-extended.workspace = true
 bn254_blackbox_solver.workspace = true
 convert_case = "0.6.0"
+im.workspace = true
 regex = "1.10"
 tiny-keccak = { version = "2.0.0", features = ["keccak"] }
 itertools = "^0.10"

@@ -1,4 +1,4 @@
-use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+pub use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 use crate::{traits::{Empty, Hash, Serialize}, hash::poseidon2_hash};
 
 global POINT_LENGTH: Field = 3;
@@ -19,10 +19,6 @@ impl Empty for Point {
     /// Note: Does not return a valid point on curve - instead represents an empty/"unpopulated" point struct (e.g.
     /// empty/unpopulated value in an array of points).
     fn empty() -> Self {
-        Point {
-            x: 0,
-            y: 0,
-            is_infinite: false
-        }
+        Point { x: 0, y: 0, is_infinite: false }
     }
 }

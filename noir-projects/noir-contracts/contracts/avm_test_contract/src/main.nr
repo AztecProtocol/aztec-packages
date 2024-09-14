@@ -13,7 +13,7 @@ impl Serialize<2> for Note {
 
 impl Deserialize<2> for Note {
     fn deserialize(wire: [Field; 2]) -> Note {
-        Note {a: wire[0], b: wire[1]}
+        Note { a: wire[0], b: wire[1] }
     }
 }
 
@@ -22,13 +22,14 @@ contract AvmTest {
 
     global big_field_128_bits: Field = 0x001234567890abcdef1234567890abcdef;
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
+    global big_field_254_bits: Field = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
 
     // Libs
     use std::embedded_curve_ops::{multi_scalar_mul, EmbeddedCurvePoint};
     use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
-    use dep::aztec::prelude::{Map, Deserialize};
+    use dep::aztec::prelude::Map;
     use dep::aztec::state_vars::PublicMutable;
-    use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH, point::Point, scalar::Scalar};
+    use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar};
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map};
     use dep::aztec::context::gas::GasOpts;
@@ -126,6 +127,11 @@ contract AvmTest {
     }
 
     #[aztec(public)]
+    fn set_opcode_really_big_field() -> Field {
+        big_field_254_bits
+    }
+
+    #[aztec(public)]
     fn add_u128(a: U128, b: U128) -> U128 {
         a + b
     }
@@ -160,7 +166,7 @@ contract AvmTest {
     }
 
     /************************************************************************
-     * Misc 
+     * Misc
      ************************************************************************/
 
     #[aztec(public)]
@@ -178,8 +184,7 @@ contract AvmTest {
 
     #[aztec(public)]
     fn to_radix_le(input: Field) -> [u8; 10] {
-        let result: [u8] = input.to_le_radix(/*base=*/ 2, /*limbs=*/ 10);
-        result.as_array()
+        input.to_le_radix(/*base=*/ 2)
     }
 
     // Helper functions to demonstrate an internal call stack in error messages
@@ -342,7 +347,9 @@ contract AvmTest {
     #[aztec(public)]
     fn check_selector() {
         assert(
-            context.selector() == FunctionSelector::from_signature("check_selector()"), "Unexpected selector!"
+            context.selector() == comptime {
+                FunctionSelector::from_signature("check_selector()")
+            }, "Unexpected selector!"
         );
     }
 

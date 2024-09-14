@@ -26,7 +26,21 @@ static void construct_proof_megahonk_power_of_2(State& state) noexcept
         state, &bb::mock_circuits::generate_basic_arithmetic_circuit<MegaCircuitBuilder>, log2_of_gates);
 }
 
+static void get_row_power_of_2(State& state) noexcept
+{
+    auto log2_of_gates = static_cast<size_t>(state.range(0));
+    size_t gates = 1 << log2_of_gates;
+    MegaFlavor::ProverPolynomials polynomials{ gates };
+    for (auto _ : state) {
+        for (size_t i = 0; i < gates; i++) {
+            benchmark::DoNotOptimize(polynomials.get_row(i));
+        }
+    }
+}
+
 // Define benchmarks
+
+// This exists due to an issue where get_row was blowing up in time
 BENCHMARK_CAPTURE(construct_proof_megahonk, sha256, &stdlib::generate_sha256_test_circuit<MegaCircuitBuilder>)
     ->Unit(kMillisecond);
 BENCHMARK_CAPTURE(construct_proof_megahonk, keccak, &stdlib::generate_keccak_test_circuit<MegaCircuitBuilder>)
@@ -38,6 +52,11 @@ BENCHMARK_CAPTURE(construct_proof_megahonk,
 BENCHMARK_CAPTURE(construct_proof_megahonk,
                   merkle_membership,
                   &stdlib::generate_merkle_membership_test_circuit<MegaCircuitBuilder>)
+    ->Unit(kMillisecond);
+
+BENCHMARK(get_row_power_of_2)
+    // 2**15 gates to 2**20 gates
+    ->DenseRange(15, 20)
     ->Unit(kMillisecond);
 
 BENCHMARK(construct_proof_megahonk_power_of_2)

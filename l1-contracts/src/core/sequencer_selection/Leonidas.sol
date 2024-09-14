@@ -62,7 +62,7 @@ contract Leonidas is Ownable, ILeonidas {
 
   // The target number of validators in a committee
   // @todo #8021
-  uint256 public constant TARGET_COMMITTEE_SIZE = EPOCH_DURATION;
+  uint256 public constant TARGET_COMMITTEE_SIZE = Constants.AZTEC_TARGET_COMMITTEE_SIZE;
 
   // The time that the contract was deployed
   uint256 public immutable GENESIS_TIME;
@@ -152,9 +152,6 @@ contract Leonidas is Ownable, ILeonidas {
 
   /**
    * @notice  Get the validator set for the current epoch
-   *
-   * @dev Makes a call to setupEpoch under the hood, this should ONLY be called as a view function, and not from within
-   *      this contract.
    * @return The validator set for the current epoch
    */
   function getCurrentEpochCommittee() external view override(ILeonidas) returns (address[] memory) {
@@ -344,7 +341,7 @@ contract Leonidas is Ownable, ILeonidas {
    * @param _signatures - The signatures of the committee members
    * @param _digest - The digest of the block
    */
-  function _proposePendingBlock(
+  function _validateLeonidas(
     uint256 _slot,
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,

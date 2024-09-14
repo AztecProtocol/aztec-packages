@@ -15,7 +15,6 @@ import {Outbox} from "../../src/core/messagebridge/Outbox.sol";
 import {Errors} from "../../src/core/libraries/Errors.sol";
 import {Rollup} from "../../src/core/Rollup.sol";
 import {Leonidas} from "../../src/core/sequencer_selection/Leonidas.sol";
-import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {PortalERC20} from "../portals/PortalERC20.sol";
@@ -24,8 +23,6 @@ import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
 /**
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
- *
- * We will skip these test if we are running with IS_DEV_NET = true
  */
 
 contract SpartaTest is DecoderBase {
@@ -38,8 +35,6 @@ contract SpartaTest is DecoderBase {
   MerkleTestUtil internal merkleTestUtil;
   TxsDecoderHelper internal txsHelper;
   PortalERC20 internal portalERC20;
-
-  AvailabilityOracle internal availabilityOracle;
 
   mapping(address validator => uint256 privateKey) internal privateKeys;
 
@@ -68,15 +63,9 @@ contract SpartaTest is DecoderBase {
     }
 
     registry = new Registry(address(this));
-    availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
     rollup = new Rollup(
-      registry,
-      availabilityOracle,
-      IFeeJuicePortal(address(0)),
-      bytes32(0),
-      address(this),
-      initialValidators
+      registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), initialValidators
     );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
@@ -111,10 +100,6 @@ contract SpartaTest is DecoderBase {
   }
 
   function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
     uint256 pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_DURATION() * rollup.SLOT_DURATION()
@@ -132,10 +117,6 @@ contract SpartaTest is DecoderBase {
   }
 
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
     assertGt(rollup.getValidators().length, rollup.TARGET_COMMITTEE_SIZE(), "Not enough validators");
     uint256 committeSize = rollup.TARGET_COMMITTEE_SIZE() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 
@@ -149,27 +130,15 @@ contract SpartaTest is DecoderBase {
   }
 
   function testHappyPath() public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
     _testBlock("mixed_block_1", false, 3, false);
     _testBlock("mixed_block_2", false, 3, false);
   }
 
   function testInvalidProposer() public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
     _testBlock("mixed_block_1", true, 3, true);
   }
 
   function testInsufficientSigs() public setup(4) {
-    if (Constants.IS_DEV_NET == 1) {
-      return;
-    }
-
     _testBlock("mixed_block_1", true, 2, false);
   }
 
@@ -197,12 +166,12 @@ contract SpartaTest is DecoderBase {
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
-    availabilityOracle.publish(body);
-
     ree.proposer = rollup.getCurrentProposer();
     ree.shouldRevert = false;
 
     rollup.setupEpoch();
+
+    bytes32[] memory txHashes = new bytes32[](0);
 
     if (_signatureCount > 0 && ree.proposer != address(0)) {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
@@ -210,8 +179,9 @@ contract SpartaTest is DecoderBase {
 
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](_signatureCount);
 
+      bytes32 digest = keccak256(abi.encode(archive, txHashes));
       for (uint256 i = 0; i < _signatureCount; i++) {
-        signatures[i] = createSignature(validators[i], archive);
+        signatures[i] = createSignature(validators[i], digest);
       }
 
       if (_expectRevert) {
@@ -241,13 +211,15 @@ contract SpartaTest is DecoderBase {
       }
 
       vm.prank(ree.proposer);
-      rollup.propose(header, archive, bytes32(0), signatures);
+      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
-      rollup.propose(header, archive, bytes32(0));
+      SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
+
+      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");

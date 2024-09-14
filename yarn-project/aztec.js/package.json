@@ -77,10 +77,12 @@
     "@aztec/circuits.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/l1-artifacts": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/types": "workspace:^",
     "axios": "^1.7.2",
-    "tslib": "^2.4.0"
+    "tslib": "^2.4.0",
+    "viem": "^2.7.15"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

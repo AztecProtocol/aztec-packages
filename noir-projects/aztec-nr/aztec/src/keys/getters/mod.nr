@@ -1,19 +1,12 @@
 use dep::protocol_types::{
-    header::Header, abis::validation_requests::KeyValidationRequest, address::AztecAddress,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point, storage::map::derive_storage_slot_in_map,
-    traits::is_empty
+    header::Header, address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS,
+    storage::map::derive_storage_slot_in_map
 };
 use crate::{
     context::{PrivateContext, UnconstrainedContext},
     oracle::{keys::get_public_keys_and_partial_address, key_validation_request::get_key_validation_request},
-    keys::{
-    public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH}, stored_keys::StoredKeys,
-    constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX}
-},
-    state_vars::{
-    shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter,
-    public_mutable::PublicMutable, map::Map
-}
+    keys::{public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH}, stored_keys::StoredKeys, constants::NULLIFIER_INDEX},
+    state_vars::{public_mutable::PublicMutable, map::Map}
 };
 
 mod test;
@@ -24,9 +17,7 @@ global KEY_REGISTRY_UPDATE_BLOCKS = 5;
 
 global KEY_REGISTRY_STORAGE_SLOT = 1;
 
-// A helper function since requesting nsk_app is very common
-// TODO(#6543)
-pub fn get_nsk_app(npk_m_hash: Field) -> Field {
+unconstrained pub fn get_nsk_app(npk_m_hash: Field) -> Field {
     get_key_validation_request(npk_m_hash, NULLIFIER_INDEX).sk_app
 }
 

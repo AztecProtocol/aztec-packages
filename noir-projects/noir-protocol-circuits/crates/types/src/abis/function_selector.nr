@@ -22,9 +22,7 @@ impl Serialize<1> for FunctionSelector {
 
 impl Deserialize<1> for FunctionSelector {
     fn deserialize(fields: [Field; 1]) -> Self {
-        Self {
-            inner: fields[0] as u32
-        }
+        Self { inner: fields[0] as u32 }
     }
 }
 

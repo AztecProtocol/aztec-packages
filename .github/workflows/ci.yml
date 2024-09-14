@@ -3,6 +3,12 @@ on:
   push:
     branches: [master, provernet]
   pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - labeled
     branches-ignore: [devnet]
   workflow_dispatch:
     inputs: {}
@@ -28,6 +34,7 @@ env:
 
 jobs:
   setup:
+    if: github.event.pull_request.draft == false
     uses: ./.github/workflows/setup-runner.yml
     with:
       username: ${{ github.event.pull_request.user.login || github.actor }}
@@ -36,6 +43,7 @@ jobs:
 
   changes:
     runs-on: ubuntu-20.04
+    if: github.event.pull_request.draft == false
     # Required permissions.
     permissions:
       pull-requests: read
@@ -92,21 +100,21 @@ jobs:
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     steps:
       - uses: actions/checkout@v4
-        if: ${{ needs.changes.outputs.build-images == 'true' }}
+        if: needs.changes.outputs.build-images == 'true'
         with: { ref: "${{ env.GIT_COMMIT }}" }
       - uses: ./.github/ci-setup-action
-        if: ${{ needs.changes.outputs.build-images == 'true' }}
+        if: needs.changes.outputs.build-images == 'true'
         with:
           concurrency_key: build-images-x86
       - name: "Push Build Images If Changed"
-        if: ${{ needs.changes.outputs.build-images == 'true' }}
+        if: needs.changes.outputs.build-images == 'true'
         timeout-minutes: 40
         run: |
           earthly-ci --push ./build-images/+build
 
   build:
     needs: [build-images, changes]
-    if: ${{ needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
@@ -126,15 +134,29 @@ jobs:
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' | grep -v "+network" | grep -v 'devnet' | sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
+          else
+            LABELS=""
+          fi
+          echo Labels: $LABELS
+          echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
+          else
+            LABELS=""
+          fi
+          echo Labels: $LABELS
+          echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:
     needs: [build, changes]
-    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -161,41 +183,10 @@ jobs:
             export FORCE_COLOR=1
             ../../scripts/earthly-ci -P --no-output +${{ matrix.test }}
 
-  network-e2e:
-    needs: [build, changes]
-    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        values_file: ["default.yaml", "3-validators.yaml"]
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
-      - name: Setup and Test
-        uses: ./.github/ensure-tester-with-images
-        timeout-minutes: 45
-        with:
-          runner_type: ${{ contains(matrix.test, 'prover') && '64core-tester-x86' || '16core-tester-x86' }}
-          builder_type: builder-x86
-          # these are copied to the tester and expected by the earthly command below
-          # if they fail to copy, it will try to build them on the tester and fail
-          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
-          # command to produce the images in case they don't exist
-          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
-          tester_ttl: 40
-          run: |
-            set -eux
-            cd ./yarn-project/end-to-end/
-            ./scripts/setup_local_k8s.sh
-            export FORCE_COLOR=1
-            export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            ../../scripts/earthly-ci --exec-stats -P --no-output ./+network-transfer --values-file=${{ matrix.values_file }}
-
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
     needs: [build, changes]
-    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench')
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -228,7 +219,7 @@ jobs:
     runs-on: ubuntu-20.04
     needs: [build-images, changes]
     # Note: not fully accurate, but to work with bench-summary needs to be the same as bench-e2e
-    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.non-barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -270,7 +261,7 @@ jobs:
         run: |
           earthly-ci -P +bench-aggregate
       - name: "Download base benchmark and package into earthly"
-        if: ${{ github.event_name == 'pull_request' }}
+        if: github.event_name == 'pull_request'
         run: |
           # Download the base benchmark locally (requires AWS creds and .git history)
           mkdir -p $BENCH_FOLDER
@@ -283,7 +274,7 @@ jobs:
           BENCH_FOLDER: "./scripts/logs/tmp/bench"
           PULL_REQUEST: "${{ github.event.pull_request.number }}"
       - name: "Generate summary comment if pull request"
-        if: ${{ github.event_name == 'pull_request' }}
+        if: github.event_name == 'pull_request'
         working-directory: ./yarn-project/scripts
         run: |
           earthly-ci -P +bench-comment
@@ -293,7 +284,7 @@ jobs:
   bb-gcc:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -313,7 +304,7 @@ jobs:
   bb-native-tests:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -331,7 +322,7 @@ jobs:
   bb-js-test:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -346,7 +337,7 @@ jobs:
   noir-build-acir-tests:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -360,7 +351,7 @@ jobs:
   bb-acir-tests-bb:
     needs: [noir-build-acir-tests, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -375,7 +366,7 @@ jobs:
   bb-acir-tests-sol:
     needs: [noir-build-acir-tests, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -390,7 +381,7 @@ jobs:
   bb-acir-tests-sol-honk:
     needs: [noir-build-acir-tests, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -405,7 +396,7 @@ jobs:
   bb-acir-tests-bb-js:
     needs: [noir-build-acir-tests, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -420,7 +411,7 @@ jobs:
   noir-format:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true' }}
+    if: needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -440,7 +431,7 @@ jobs:
   noir-test:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -453,7 +444,7 @@ jobs:
   noir-examples:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -466,7 +457,7 @@ jobs:
   noir-packages-test:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -480,7 +471,7 @@ jobs:
   noir-projects:
     needs: [build-images, changes, build]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true' }}
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -495,7 +486,7 @@ jobs:
   avm-format:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.avm-transpiler == 'true' || needs.changes.outputs.noir == 'true' }}
+    if: needs.changes.outputs.avm-transpiler == 'true' || needs.changes.outputs.noir == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -549,7 +540,7 @@ jobs:
   l1-contracts-test:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.l1-contracts == 'true' }}
+    if: needs.changes.outputs.l1-contracts == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -562,7 +553,7 @@ jobs:
   docs-preview:
     needs: [build-images, changes]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: ${{ needs.changes.outputs.non-barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.non-barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -582,7 +573,7 @@ jobs:
   bb-bench:
     runs-on: ubuntu-20.04
     needs: [build-images, changes]
-    if: ${{ needs.changes.outputs.barretenberg-cpp == 'true' }}
+    if: needs.changes.outputs.barretenberg-cpp == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -610,7 +601,7 @@ jobs:
       # https://aztecprotocol.github.io/aztec-packages/dev/bench/ with new benchmark data.
       # This also creates an alert if benchmarks exceed the threshold specified below.
       - name: Store benchmark result
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: github.ref == 'refs/heads/master'
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: C++ Benchmark
@@ -666,7 +657,7 @@ jobs:
 
   protocol-circuits-gates-report:
     needs: [build-images, changes]
-    if: ${{ needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' }}
+    if: needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true'
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     permissions:
       pull-requests: write
@@ -736,7 +727,8 @@ jobs:
       # - protocol-circuits-gates-report # non-blocking
     if: always()
     steps:
-      - name: Report overall success
+      - name: Report overall success (non-draft)
+        if: github.event.pull_request.draft == false
         env:
           # We treat any skipped or failing jobs as a failure for the workflow as a whole.
           FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
@@ -748,6 +740,9 @@ jobs:
               echo "All jobs succeeded, merge allowed."
               exit 0
           fi
+      - name: Block merge (draft)
+        if: github.event.pull_request.draft
+        run: echo "Can't merge drafts." && exit 1
 
   rerun-check:
     runs-on: ubuntu-20.04
@@ -785,7 +780,7 @@ jobs:
       - boxes
       - boxes-test
       # - protocol-circuits-gates-report # non-blocking
-    if: ${{ !cancelled() }}
+    if: github.event.pull_request.draft == false && !cancelled()
     steps:
       - name: Check for Rerun
         env:
@@ -804,7 +799,7 @@ jobs:
     needs:
       - merge-check
     runs-on: ubuntu-20.04
-    if: ${{ github.ref == 'refs/heads/master' && failure() && github.run_attempt >= 2 }}
+    if: github.event.pull_request.draft == false && github.ref == 'refs/heads/master' && failure() && github.run_attempt >= 2
     steps:
       - name: Send notification to aztec3-ci channel if workflow failed on master
         uses: slackapi/slack-github-action@v1.25.0

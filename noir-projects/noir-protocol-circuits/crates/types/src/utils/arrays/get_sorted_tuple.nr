@@ -5,10 +5,7 @@ struct SortedTuple<T> {
     original_index: u32,
 }
 
-pub fn get_sorted_tuple<T, let N: u32, Env>(
-    array: [T; N],
-    ordering: fn[Env](T, T) -> bool
-) -> [SortedTuple<T>; N] {
+unconstrained pub fn get_sorted_tuple<T, let N: u32, Env>(array: [T; N], ordering: fn[Env](T, T) -> bool) -> [SortedTuple<T>; N] {
     let mut tuples = [SortedTuple { elem: array[0], original_index: 0 }; N];
     for i in 0..N {
         tuples[i] = SortedTuple {
@@ -31,7 +28,9 @@ fn get_sorted_tuple_asc() {
         SortedTuple { elem: 5, original_index: 3 },
         SortedTuple { elem: 9, original_index: 2 }
     ];
-    let sorted = get_sorted_tuple(original, |a: u64, b: u64| a < b);
+    let sorted = unsafe {
+        get_sorted_tuple(original, |a: u64, b: u64| a < b)
+    };
     for i in 0..4 {
         assert_eq(sorted[i].elem, expected[i].elem);
         assert_eq(sorted[i].original_index, expected[i].original_index);

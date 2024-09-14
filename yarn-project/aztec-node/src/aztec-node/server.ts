@@ -50,10 +50,9 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type AztecKVStore } from '@aztec/kv-store';
-import { createStore, openTmpStore } from '@aztec/kv-store/utils';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
-import { AztecKVTxPool, InMemoryAttestationPool, type P2P, createP2PClient } from '@aztec/p2p';
+import { InMemoryAttestationPool, type P2P, createP2PClient } from '@aztec/p2p';
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
@@ -77,7 +76,7 @@ import {
   type ProtocolContractAddresses,
 } from '@aztec/types/contracts';
 import { createValidatorClient } from '@aztec/validator-client';
-import { MerkleTrees, type WorldStateSynchronizer, createWorldStateSynchronizer } from '@aztec/world-state';
+import { type WorldStateSynchronizer, createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { type AztecNodeConfig, getPackageInfo } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
@@ -104,7 +103,6 @@ export class AztecNodeService implements AztecNode {
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
-    protected readonly merkleTreesDb: AztecKVStore,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private telemetry: TelemetryClient,
     private log = createDebugLogger('aztec:node'),
@@ -117,8 +115,7 @@ export class AztecNodeService implements AztecNode {
       `Rollup: ${config.l1Contracts.rollupAddress.toString()}\n` +
       `Registry: ${config.l1Contracts.registryAddress.toString()}\n` +
       `Inbox: ${config.l1Contracts.inboxAddress.toString()}\n` +
-      `Outbox: ${config.l1Contracts.outboxAddress.toString()}\n` +
-      `Availability Oracle: ${config.l1Contracts.availabilityOracleAddress.toString()}`;
+      `Outbox: ${config.l1Contracts.outboxAddress.toString()}`;
     this.log.info(message);
   }
 
@@ -131,7 +128,6 @@ export class AztecNodeService implements AztecNode {
     config: AztecNodeConfig,
     telemetry?: TelemetryClient,
     log = createDebugLogger('aztec:node'),
-    storeLog = createDebugLogger('aztec:node:lmdb'),
   ): Promise<AztecNodeService> {
     telemetry ??= new NoopTelemetryClient();
     const ethereumChain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
@@ -142,25 +138,17 @@ export class AztecNodeService implements AztecNode {
       );
     }
 
-    const store = await createStore(config, config.l1Contracts.rollupAddress, storeLog);
-
-    const archiver = await createArchiver(config, store, telemetry, { blockUntilSync: true });
+    const archiver = await createArchiver(config, telemetry, { blockUntilSync: true });
 
     // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
     config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress.toString()}`;
 
     // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(
-      config,
-      store,
-      new AztecKVTxPool(store, telemetry),
-      new InMemoryAttestationPool(),
-      archiver,
-    );
+    const p2pClient = await createP2PClient(config, new InMemoryAttestationPool(), archiver, telemetry);
 
     // now create the merkle trees and the world state synchronizer
-    const worldStateSynchronizer = await createWorldStateSynchronizer(config, store, archiver, telemetry);
+    const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
@@ -199,7 +187,6 @@ export class AztecNodeService implements AztecNode {
       ethereumChain.chainInfo.id,
       config.version,
       new GlobalVariableBuilder(config),
-      store,
       proofVerifier,
       telemetry,
       log,
@@ -726,13 +713,8 @@ export class AztecNodeService implements AztecNode {
     );
     const prevHeader = (await this.blockSource.getBlock(-1))?.header;
 
-    // Instantiate merkle trees so uncommitted updates by this simulation are local to it.
-    // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
-    // So simulation of public functions doesn't affect the merkle trees.
-    const merkleTrees = await MerkleTrees.new(this.merkleTreesDb, new NoopTelemetryClient(), this.log);
-
     const publicProcessorFactory = new PublicProcessorFactory(
-      merkleTrees.asLatest(),
+      await this.worldStateSynchronizer.ephemeralFork(),
       this.contractDataSource,
       new WASMSimulator(),
       this.telemetry,

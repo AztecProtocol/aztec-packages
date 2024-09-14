@@ -18,10 +18,10 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::verify()
     execute_log_derivative_inverse_round();
     execute_grand_product_computation_round();
 
-    instance->witness_commitments = witness_comms;
-    instance->relation_parameters = relation_parameters;
-    instance->public_inputs = public_inputs;
-    instance->alphas = generate_alphas_round();
+    verification_key->witness_commitments = witness_comms;
+    verification_key->relation_parameters = relation_parameters;
+    verification_key->public_inputs = public_inputs;
+    verification_key->alphas = generate_alphas_round();
 }
 
 /**
@@ -37,13 +37,13 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_roun
     const auto pub_inputs_offset =
         transcript->template receive_from_prover<uint32_t>(domain_separator + "pub_inputs_offset");
 
-    if (circuit_size != instance->verification_key->circuit_size) {
+    if (circuit_size != verification_key->verification_key->circuit_size) {
         throw_or_abort("OinkVerifier::execute_preamble_round: proof circuit size does not match verification key!");
     }
-    if (public_input_size != instance->verification_key->num_public_inputs) {
+    if (public_input_size != verification_key->verification_key->num_public_inputs) {
         throw_or_abort("OinkVerifier::execute_preamble_round: public inputs size does not match verification key!");
     }
-    if (pub_inputs_offset != instance->verification_key->pub_inputs_offset) {
+    if (pub_inputs_offset != verification_key->verification_key->pub_inputs_offset) {
         throw_or_abort("OinkVerifier::execute_preamble_round: public inputs offset does not match verification key!");
     }
 
@@ -135,8 +135,8 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_grand_product
         compute_public_input_delta<Flavor>(public_inputs,
                                            relation_parameters.beta,
                                            relation_parameters.gamma,
-                                           instance->verification_key->circuit_size,
-                                           static_cast<size_t>(instance->verification_key->pub_inputs_offset));
+                                           verification_key->verification_key->circuit_size,
+                                           static_cast<size_t>(verification_key->verification_key->pub_inputs_offset));
 
     relation_parameters.public_input_delta = public_input_delta;
 
@@ -148,10 +148,11 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<
 {
     // Get the relation separation challenges for sumcheck/combiner computation
     RelationSeparator alphas;
-    for (size_t idx = 0; idx < alphas.size(); idx++) {
-        alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "alpha_" + std::to_string(idx));
+    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> args;
+    for (size_t idx = 0; idx < alphas.size(); ++idx) {
+        args[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
-    return alphas;
+    return transcript->template get_challenges<FF>(args);
 }
 
 template class OinkVerifier<UltraFlavor>;
