@@ -62,5 +62,5 @@ ENV COMMIT_TAG=$COMMIT_TAG
 COPY --from=builder /usr/src /usr/src
 WORKDIR /usr/src/yarn-project
 # add curl to be able to download CRS file
-RUN apt update && apt install -y curl
+RUN apt update && apt install -y curl jq
 ENTRYPOINT ["yarn"]
