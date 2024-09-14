@@ -99,7 +99,7 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
             auto q_c = View(in.q_c);
             auto q_arith = View(in.q_arith);
 
-            static const FF neg_half = FF(-2).invert();
+            static constexpr FF neg_half = FF(-2).invert();
 
             if constexpr (HOMOGENIZED) {
                 auto hom = View(in.homogenizer);
