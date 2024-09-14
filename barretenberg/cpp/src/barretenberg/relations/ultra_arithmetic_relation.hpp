@@ -102,15 +102,17 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
             static const FF neg_half = FF(-2).invert();
 
             if constexpr (HOMOGENIZED) {
+                auto hom = View(in.homogenizer);
+                auto hom_to_2 = hom.sqr();
+                auto hom_to_3 = hom * hom_to_2;
+                auto hom_to_4 = hom_to_2.sqr();
                 auto q_arith_to_2 = q_arith.sqr();
-                auto& h = q_arith;
-                auto& h_to_2 = q_arith_to_2;
-                auto h_to_3 = h * h.sqr();
-                auto h_to_4 = h_to_2.sqr();
-                auto tmp = w_l * w_r * q_m * q_arith_to_2 * neg_half - w_l * w_r * q_m * q_arith * neg_half * h * 3 +
-                           w_l * q_l * q_arith * h_to_3 + w_r * q_r * q_arith * h_to_3 + w_o * q_o * q_arith * h_to_3 +
-                           w_4 * q_4 * q_arith * h_to_3 + w_4_shift * q_arith_to_2 * h_to_3 -
-                           w_4_shift * q_arith * h_to_4 + q_c * q_arith * h_to_4;
+
+                auto tmp = w_l * w_r * q_m * q_arith_to_2 * neg_half - w_l * w_r * q_m * q_arith * neg_half * hom * 3 +
+                           w_l * q_l * q_arith * hom_to_3 + w_r * q_r * q_arith * hom_to_3 +
+                           w_o * q_o * q_arith * hom_to_3 + w_4 * q_4 * q_arith * hom_to_3 +
+                           w_4_shift * q_arith_to_2 * hom_to_3 - w_4_shift * q_arith * hom_to_4 +
+                           q_c * q_arith * hom_to_4;
                 tmp *= scaling_factor;
                 std::get<0>(evals) += tmp;
             } else {
@@ -132,12 +134,13 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
             auto q_arith = View(in.q_arith);
 
             if constexpr (HOMOGENIZED) {
-                auto& h = q_arith;
+                auto hom = View(in.homogenizer);
+
                 auto tmp = (w_l + w_4 - w_l_shift + q_m) * q_arith;
-                auto prod = q_arith * h;
+                auto prod = q_arith * hom;
                 auto term = tmp * (q_arith * q_arith - prod - prod - prod);
                 tmp += tmp;
-                tmp *= h * h;
+                tmp *= hom * hom;
                 term += tmp;
                 term *= scaling_factor;
                 std::get<1>(evals) += term;

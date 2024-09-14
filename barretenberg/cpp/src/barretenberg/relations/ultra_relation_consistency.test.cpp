@@ -29,7 +29,7 @@ numeric::RNG& engine = numeric::get_debug_randomness();
 
 using FF = fr;
 struct InputElements {
-    static constexpr size_t NUM_ELEMENTS = 45;
+    static constexpr size_t NUM_ELEMENTS = 46;
     std::array<FF, NUM_ELEMENTS> _data;
 
     static InputElements get_random()
@@ -95,6 +95,7 @@ struct InputElements {
     FF& sorted_accum_shift = std::get<42>(_data);
     FF& z_perm_shift = std::get<43>(_data);
     FF& z_lookup_shift = std::get<44>(_data);
+    FF& homogenizer = std::get<45>(_data);
 };
 
 class UltraRelationConsistency : public testing::Test {
@@ -123,8 +124,9 @@ class UltraRelationConsistency : public testing::Test {
         typename RelHomog::SumcheckArrayOfValuesOverSubrelations accumulator_homog;
         std::fill(accumulator_homog.begin(), accumulator_homog.end(), FF(0));
 
-        Rel::accumulate(accumulator, input_elements, parameters, 1);
-        RelHomog::accumulate(accumulator_homog, input_elements, parameters, 1);
+        FF scaling_factor{ 1 };
+        Rel::accumulate(accumulator, input_elements, parameters, scaling_factor);
+        RelHomog::accumulate(accumulator_homog, input_elements, parameters, scaling_factor);
         EXPECT_EQ(accumulator, accumulator_homog);
     };
 };
@@ -620,9 +622,10 @@ TEST_F(UltraRelationConsistency, HomogenizedArithmetic)
     const auto run_test = [](const bool random_inputs) {
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
 
-        std::vector<FF> valid_selector_values = { 0, 1 };
+        std::vector<FF> valid_selector_values = { 0, 1, 2, 3, 4 };
         for (const auto& val : valid_selector_values) {
             input_elements.q_arith = val;
+            input_elements.homogenizer = 1;
             validate_homogenization_consistency<UltraArithmeticRelation>(input_elements);
         }
     };
