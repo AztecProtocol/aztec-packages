@@ -146,13 +146,18 @@ import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
+  EnqueuedCallData,
   PublicDataLeafHint,
   PublicInnerCallRequest,
+  PublicKernelCircuitPrivateInputs,
+  PublicKernelInnerCircuitPrivateInputs,
+  PublicKernelInnerData,
   PublicValidationRequests,
   ScopedL2ToL1Message,
   ScopedNoteHash,
   TreeLeafReadRequest,
   TreeLeafReadRequestHint,
+  VMCircuitPublicInputs,
 } from '../structs/index.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
 import { KernelData } from '../structs/kernel/kernel_data.js';
@@ -551,6 +556,19 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
   );
 }
 
+export function makeVMCircuitPublicInputs(seed = 1) {
+  return new VMCircuitPublicInputs(
+    makeCombinedConstantData(seed),
+    makePublicCallRequest(seed + 0x100),
+    makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicInnerCallRequest, seed + 0x200),
+    makePublicValidationRequests(seed + 0x300),
+    makePublicAccumulatedData(seed + 0x400),
+    makeGas(seed + 0x500),
+    fr(seed + 0x600),
+    false,
+  );
+}
+
 function makeSiblingPath<N extends number>(seed: number, size: N) {
   return makeTuple(size, fr, seed);
 }
@@ -698,6 +716,31 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
   const publicCallData = new PublicCallData(makePublicCallStackItem(seed, full), makeProof(), fr(seed + 1));
 
   return publicCallData;
+}
+
+function makePublicKernelInnerData(seed = 1) {
+  return new PublicKernelInnerData(
+    makeVMCircuitPublicInputs(seed),
+    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x100),
+    VerificationKeyData.makeFake(),
+  );
+}
+
+export function makePublicKernelInnerCircuitPrivateInputs(seed = 1) {
+  return new PublicKernelInnerCircuitPrivateInputs(makePublicKernelInnerData(seed), makePublicCallData(seed + 0x1000));
+}
+
+function makeEnqueuedCallData(seed = 1) {
+  return new EnqueuedCallData(makeVMCircuitPublicInputs(seed), makeProof());
+}
+
+/**
+ * Makes arbitrary public kernel inputs.
+ * @param seed - The seed to use for generating the public kernel inputs.
+ * @returns Public kernel inputs.
+ */
+export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCircuitPrivateInputs {
+  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makeEnqueuedCallData(seed + 0x1000));
 }
 
 /**
