@@ -31,6 +31,7 @@ import {
   getNonNullifiedL1ToL2MessageWitness,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
+import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
   AztecAddress,
   type CompleteAddress,
@@ -888,7 +889,7 @@ export class PXEService implements PXE {
     return Promise.resolve(this.synchronizer.getSyncStatus());
   }
 
-  public getSyncStats() {
+  public getSyncStats(): Promise<{ [address: string]: NoteProcessorStats }> {
     return Promise.resolve(this.synchronizer.getSyncStats());
   }
 
