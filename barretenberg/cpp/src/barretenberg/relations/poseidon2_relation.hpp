@@ -1,8 +1,10 @@
 #pragma once
+#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+
 namespace bb {
 
-template <typename FF_> class Poseidon2ExternalRelationImpl {
+template <typename FF_> class Poseidon2RelationImpl {
   public:
     using FF = FF_;
 
@@ -30,7 +32,7 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.q_poseidon2_external.is_zero();
+        return in.q_poseidon2_external.is_zero() && in.q_poseidon2_internal.is_zero();
     }
 
     /**
@@ -79,7 +81,20 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto q_o = View(in.q_o);
         auto q_4 = View(in.q_4);
         auto q_poseidon2_external = View(in.q_poseidon2_external);
+        auto q_poseidon2_internal = View(in.q_poseidon2_internal);
 
+        /*
+         * q_poseidon2_internal * ( (v1 - w_1_shift) + \alpha * (v2 - w_2_shift) +
+         * \alpha^2 * (v3 - w_3_shift) + \alpha^3 * (v4 - w_4_shift) ) = 0 where:
+         *      u1 := (w_1 + q_1)^5
+         *      sum := u1 + w_2 + w_3 + w_4
+         *      v1 := u1 * D1 + sum
+         *      v2 := w_2 * D2 + sum
+         *      v3 := w_3 * D3 + sum
+         *      v4 := w_4 * D4 + sum
+         *      Di is the ith internal diagonal value - 1 of the internal matrix M_I
+         *
+         */
         // add round constants which are loaded in selectors
         auto s1 = w_l + q_l;
         auto s2 = w_r + q_r;
@@ -100,6 +115,28 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         u4 = u4.sqr();
         u4 *= s4;
 
+        auto u1_internal = u1;
+        auto u2_internal = w_r;
+        auto u3_internal = w_o;
+        auto u4_internal = w_4;
+        auto sum_internal = u1_internal + u2_internal + u3_internal + u4_internal;
+
+        auto v1_internal =
+            u1_internal * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[0] + sum_internal;
+        v1_internal = q_poseidon2_internal * (v1_internal - w_l_shift);
+
+        auto v2_internal =
+            u2_internal * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[1] + sum_internal;
+        v2_internal = q_poseidon2_internal * (v2_internal - w_r_shift);
+
+        auto v3_internal =
+            u3_internal * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[2] + sum_internal;
+        v3_internal = q_poseidon2_internal * (v3_internal - w_o_shift);
+
+        auto v4_internal =
+            u4_internal * crypto::Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal[3] + sum_internal;
+        v4_internal = q_poseidon2_internal * (v4_internal - w_4_shift);
+
         // matrix mul v = M_E * u with 14 additions
         auto t0 = u1 + u2; // u_1 + u_2
         auto t1 = u3 + u4; // u_3 + u_4
@@ -116,20 +153,17 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto v1 = t3 + v2; // 5u_1 + 7u_2 + u_3 + 3u_4
         auto v3 = t2 + v4; // u_1 + 3u_2 + 5u_3 + 7u_4
 
-        auto q_pos_by_scaling = q_poseidon2_external * scaling_factor;
-        auto tmp = q_pos_by_scaling * (v1 - w_l_shift);
-        std::get<0>(evals) += tmp;
+        auto v1_external = q_poseidon2_external * (v1 - w_l_shift);
+        auto v2_external = q_poseidon2_external * (v2 - w_r_shift);
+        auto v3_external = q_poseidon2_external * (v3 - w_o_shift);
+        auto v4_external = q_poseidon2_external * (v4 - w_4_shift);
 
-        tmp = q_pos_by_scaling * (v2 - w_r_shift);
-        std::get<1>(evals) += tmp;
-
-        tmp = q_pos_by_scaling * (v3 - w_o_shift);
-        std::get<2>(evals) += tmp;
-
-        tmp = q_pos_by_scaling * (v4 - w_4_shift);
-        std::get<3>(evals) += tmp;
+        std::get<0>(evals) += (v1_internal + v1_external) * scaling_factor;
+        std::get<1>(evals) += (v2_internal + v2_external) * scaling_factor;
+        std::get<2>(evals) += (v3_internal + v3_external) * scaling_factor;
+        std::get<3>(evals) += (v4_internal + v4_external) * scaling_factor;
     };
 };
 
-template <typename FF> using Poseidon2ExternalRelation = Relation<Poseidon2ExternalRelationImpl<FF>>;
+template <typename FF> using Poseidon2Relation = Relation<Poseidon2RelationImpl<FF>>;
 } // namespace bb
