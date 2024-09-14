@@ -55,8 +55,9 @@ class MegaFlavor {
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
+    static constexpr bool HOMOGENIZED{ true };
     template <typename FF>
-    using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
+    using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF, HOMOGENIZED>,
                                   bb::UltraPermutationRelation<FF>,
                                   bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
