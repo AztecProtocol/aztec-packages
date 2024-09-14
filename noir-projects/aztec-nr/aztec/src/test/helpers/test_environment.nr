@@ -1,16 +1,15 @@
 use dep::protocol_types::{
     abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
-    address::{AztecAddress, PartialAddress}, storage::map::derive_storage_slot_in_map,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, traits::Deserialize
+    address::AztecAddress, traits::Deserialize
 };
 
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
 
-use crate::context::{PrivateContext, PublicContext, UnconstrainedContext, PrivateVoidCallInterface};
-use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer, TestAccount}, keys};
+use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
+use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer}, keys};
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
-use crate::hash::{hash_args, hash_args_array};
+use crate::hash::hash_args;
 
 use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
 use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_created_note};

@@ -19,21 +19,16 @@ impl Ordered for PublicCallRequest {
 
 impl Eq for PublicCallRequest {
     fn eq(self, other: PublicCallRequest) -> bool {
-        (self.contract_address == other.contract_address) &
-        (self.call_context == other.call_context) &
-        (self.args_hash == other.args_hash) &
-        (self.counter == other.counter)
+        (self.contract_address == other.contract_address)
+            & (self.call_context == other.call_context)
+            & (self.args_hash == other.args_hash)
+            & (self.counter == other.counter)
     }
 }
 
 impl Empty for PublicCallRequest {
     fn empty() -> Self {
-        PublicCallRequest {
-            contract_address: AztecAddress::empty(),
-            call_context: CallContext::empty(),
-            args_hash: 0,
-            counter: 0,
-        }
+        PublicCallRequest { contract_address: AztecAddress::empty(), call_context: CallContext::empty(), args_hash: 0, counter: 0 }
     }
 }
 
@@ -49,33 +44,33 @@ impl PublicCallRequest {
 }
 
 impl Serialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
-  fn serialize(self) -> [Field; PUBLIC_CALL_REQUEST_LENGTH] {
-    let mut fields: BoundedVec<Field, PUBLIC_CALL_REQUEST_LENGTH> = BoundedVec::new();
+    fn serialize(self) -> [Field; PUBLIC_CALL_REQUEST_LENGTH] {
+        let mut fields: BoundedVec<Field, PUBLIC_CALL_REQUEST_LENGTH> = BoundedVec::new();
 
-    fields.push(self.contract_address.to_field());
-    fields.extend_from_array(self.call_context.serialize());
-    fields.push(self.args_hash);
-    fields.push(self.counter as Field);
+        fields.push(self.contract_address.to_field());
+        fields.extend_from_array(self.call_context.serialize());
+        fields.push(self.args_hash);
+        fields.push(self.counter as Field);
 
-    assert_eq(fields.len(), PUBLIC_CALL_REQUEST_LENGTH);
+        assert_eq(fields.len(), PUBLIC_CALL_REQUEST_LENGTH);
 
-    fields.storage
-  }
+        fields.storage
+    }
 }
 
 impl Deserialize<PUBLIC_CALL_REQUEST_LENGTH> for PublicCallRequest {
-  fn deserialize(fields: [Field; PUBLIC_CALL_REQUEST_LENGTH]) -> PublicCallRequest {
-    let mut reader = Reader::new(fields);
+    fn deserialize(fields: [Field; PUBLIC_CALL_REQUEST_LENGTH]) -> PublicCallRequest {
+        let mut reader = Reader::new(fields);
 
-    let request = PublicCallRequest {
-      contract_address: reader.read_struct(AztecAddress::deserialize),
-      call_context: reader.read_struct(CallContext::deserialize),
-      args_hash: reader.read(),
-      counter: reader.read_u32(),
-    };
-    reader.finish();
-    request
-  }
+        let request = PublicCallRequest {
+            contract_address: reader.read_struct(AztecAddress::deserialize),
+            call_context: reader.read_struct(CallContext::deserialize),
+            args_hash: reader.read(),
+            counter: reader.read_u32()
+        };
+        reader.finish();
+        request
+    }
 }
 
 #[test]

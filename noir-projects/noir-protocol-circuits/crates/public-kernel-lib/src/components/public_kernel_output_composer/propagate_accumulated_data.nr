@@ -32,7 +32,10 @@ fn propagate_nullifiers(data: &mut PublicAccumulatedDataBuilder, from_data: Publ
     }
 }
 
-fn propagate_l2_to_l1_messages(data: &mut PublicAccumulatedDataBuilder, from_data: PublicAccumulatedData) {
+fn propagate_l2_to_l1_messages(
+    data: &mut PublicAccumulatedDataBuilder,
+    from_data: PublicAccumulatedData
+) {
     let msgs = from_data.l2_to_l1_msgs;
     for i in 0..msgs.len() {
         let msg = msgs[i];
@@ -42,7 +45,10 @@ fn propagate_l2_to_l1_messages(data: &mut PublicAccumulatedDataBuilder, from_dat
     }
 }
 
-fn propagate_unencrypted_logs(data: &mut PublicAccumulatedDataBuilder, from_data: PublicAccumulatedData) {
+fn propagate_unencrypted_logs(
+    data: &mut PublicAccumulatedDataBuilder,
+    from_data: PublicAccumulatedData
+) {
     let logs = from_data.unencrypted_logs_hashes;
     for i in 0..logs.len() {
         let log = logs[i];
@@ -52,7 +58,10 @@ fn propagate_unencrypted_logs(data: &mut PublicAccumulatedDataBuilder, from_data
     }
 }
 
-fn propagate_public_data_writes(data: &mut PublicAccumulatedDataBuilder, from_data: PublicAccumulatedData) {
+fn propagate_public_data_writes(
+    data: &mut PublicAccumulatedDataBuilder,
+    from_data: PublicAccumulatedData
+) {
     let writes = from_data.public_data_update_requests;
     for i in 0..writes.len() {
         let write = writes[i];

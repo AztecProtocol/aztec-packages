@@ -10,13 +10,8 @@ struct PublicKernelInnerData {
 }
 
 impl Verifiable for PublicKernelInnerData {
-  fn verify(self) {
-    let inputs = VMCircuitPublicInputs::serialize(self.public_inputs);
-    std::verify_proof(
-        self.vk.key,
-        self.proof.fields,
-        inputs,
-        self.vk.hash
-    );
-  }
+    fn verify(self) {
+        let inputs = VMCircuitPublicInputs::serialize(self.public_inputs);
+        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+    }
 }

@@ -1,6 +1,6 @@
 use crate::note::note_interface::NoteInterface;
 use crate::event::event_interface::EventInterface;
-use dep::protocol_types::{scalar::Scalar, point::Point};
+use dep::protocol_types::{scalar::Scalar};
 
 use std::aes128::aes128_encrypt;
 use crate::keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::IvpkM};
@@ -67,11 +67,19 @@ mod test {
             1
         }
 
-        fn get_header(self) -> NoteHeader { self.header}
+        fn get_header(self) -> NoteHeader {
+            self.header
+        }
 
-        fn set_header(&mut self, header: NoteHeader) {self.header = header; }
+        fn set_header(&mut self, header: NoteHeader) {
+            self.header = header;
+        }
 
-        fn compute_nullifier(_self: Self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
+        fn compute_nullifier(
+            _self: Self,
+            _context: &mut PrivateContext,
+            _note_hash_for_nullify: Field
+        ) -> Field {
             1
         }
 
@@ -79,10 +87,17 @@ mod test {
             1
         }
 
-        fn serialize_content(self) -> [Field; ADDRESS_NOTE_LEN] { [self.address.to_field(), self.owner.to_field(), self.randomness]}
+        fn serialize_content(self) -> [Field; ADDRESS_NOTE_LEN] {
+            [self.address.to_field(), self.owner.to_field(), self.randomness]
+        }
 
         fn deserialize_content(fields: [Field; ADDRESS_NOTE_LEN]) -> Self {
-            AddressNote { address: AztecAddress::from_field(fields[0]), owner: AztecAddress::from_field(fields[1]), randomness: fields[2], header: NoteHeader::empty() }
+            AddressNote {
+                address: AztecAddress::from_field(fields[0]),
+                owner: AztecAddress::from_field(fields[1]),
+                randomness: fields[2],
+                header: NoteHeader::empty()
+            }
         }
 
         fn to_be_bytes(self, storage_slot: Field) -> [u8; ADDRESS_NOTE_BYTES_LEN] {
@@ -177,7 +192,10 @@ mod test {
 
     impl EventInterface<TEST_EVENT_BYTES_LEN, TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS> for TestEvent {
         fn get_event_type_id() -> EventSelector {
-            comptime { EventSelector::from_signature("TestEvent(Field,Field,Field)") }
+            comptime
+            {
+                EventSelector::from_signature("TestEvent(Field,Field,Field)")
+            }
         }
 
         fn private_to_be_bytes(self, randomness: Field) -> [u8; TEST_EVENT_BYTES_LEN] {
@@ -204,24 +222,24 @@ mod test {
         }
 
         fn to_be_bytes(self) -> [u8; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS] {
-             let mut buffer: [u8; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS] = [0; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS];
+            let mut buffer: [u8; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS] = [0; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS];
 
-             let event_type_id_bytes: [u8; 32] = TestEvent::get_event_type_id().to_field().to_be_bytes();
+            let event_type_id_bytes: [u8; 32] = TestEvent::get_event_type_id().to_field().to_be_bytes();
 
-             for i in 0..32 {
-                 buffer[i] = event_type_id_bytes[i];
+            for i in 0..32 {
+                buffer[i] = event_type_id_bytes[i];
             }
 
-             let serialized_event = self.serialize();
+            let serialized_event = self.serialize();
 
-             for i in 0..serialized_event.len() {
-                 let bytes: [u8; 32] = serialized_event[i].to_be_bytes();
-                 for j in 0..32 {
-                     buffer[32 + i * 32 + j] = bytes[j];
+            for i in 0..serialized_event.len() {
+                let bytes: [u8; 32] = serialized_event[i].to_be_bytes();
+                for j in 0..32 {
+                    buffer[32 + i * 32 + j] = bytes[j];
                 }
             }
 
-             buffer
+            buffer
         }
 
         fn emit<Env>(self, _emit: fn[Env](Self) -> ()) {

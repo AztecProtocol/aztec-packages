@@ -10,9 +10,12 @@ struct ContractClassFunctionLeafPreimage {
 
 impl Hash for ContractClassFunctionLeafPreimage {
     fn hash(self) -> Field {
-        poseidon2_hash_with_separator([
+        poseidon2_hash_with_separator(
+            [
             self.selector.to_field(),
-            self.vk_hash,
-        ], GENERATOR_INDEX__FUNCTION_LEAF)
+            self.vk_hash
+        ],
+            GENERATOR_INDEX__FUNCTION_LEAF
+        )
     }
 }

@@ -1202,7 +1202,7 @@ impl Empty for FixtureBuilder {
             start_gas_left: Gas::empty(),
             end_gas_left: Gas::empty(),
             transaction_fee: 0,
-            value_offset: 0,
+            value_offset: 0
         }
     }
 }

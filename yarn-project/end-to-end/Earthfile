@@ -92,10 +92,10 @@ NETWORK_TEST:
     RUN kubectl delete namespace $namespace --ignore-not-found=true --wait=true --now --timeout=10m
   END
 
-  RUN helm install spartan ../../helm-charts/aztec-network \
+  RUN helm install spartan ../../spartan/aztec-network/ \
         --namespace $namespace \
         --create-namespace \
-        --values ../../helm-charts/aztec-network/values/$values_file \
+        --values ../../spartan/aztec-network/values/$values_file \
         --set images.test.image="aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG" \
         --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
         --set test="$test" \

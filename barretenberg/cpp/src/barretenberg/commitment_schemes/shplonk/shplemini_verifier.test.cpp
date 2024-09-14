@@ -33,7 +33,6 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     using GroupElement = typename TypeParam::Element;
     using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
-    using Utils = CommitmentSchemesUtils<TypeParam>;
 
     const size_t n = 16;
     const size_t log_n = 4;
@@ -111,7 +110,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
                                                          verifier_batched_evaluation);
 
     // Final pairing check
-    GroupElement shplemini_result = Utils::batch_mul_native(commitments, scalars);
+    GroupElement shplemini_result = batch_mul_native(commitments, scalars);
 
     EXPECT_EQ(commitments.size(), unshifted_commitments.size() + shifted_commitments.size());
     EXPECT_EQ(batched_evaluation, verifier_batched_evaluation);
@@ -127,7 +126,6 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     using GroupElement = typename TypeParam::Element;
     using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
-    using Utils = CommitmentSchemesUtils<TypeParam>;
 
     const size_t n = 16;
     const size_t log_n = 4;
@@ -221,7 +219,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 
     EXPECT_EQ(commitments.size(), prover_commitments.size());
     // Compute the group element using the output of Shplemini method
-    GroupElement shplemini_result = Utils::batch_mul_native(commitments, scalars);
+    GroupElement shplemini_result = batch_mul_native(commitments, scalars);
 
     EXPECT_EQ(shplemini_result, expected_result);
 }

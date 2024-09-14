@@ -18,44 +18,37 @@ impl Ordered for PublicInnerCallRequest {
 
 impl Eq for PublicInnerCallRequest {
     fn eq(self, other: PublicInnerCallRequest) -> bool {
-        (other.item == self.item)
-            & (other.counter == self.counter)
+        (other.item == self.item) & (other.counter == self.counter)
     }
 }
 
 impl Empty for PublicInnerCallRequest {
     fn empty() -> Self {
-        PublicInnerCallRequest {
-            item: PublicCallStackItemCompressed::empty(),
-            counter: 0,
-        }
+        PublicInnerCallRequest { item: PublicCallStackItemCompressed::empty(), counter: 0 }
     }
 }
 
 impl Serialize<PUBLIC_INNER_CALL_REQUEST_LENGTH> for PublicInnerCallRequest {
-  fn serialize(self) -> [Field; PUBLIC_INNER_CALL_REQUEST_LENGTH] {
-    let mut fields: BoundedVec<Field, PUBLIC_INNER_CALL_REQUEST_LENGTH> = BoundedVec::new();
+    fn serialize(self) -> [Field; PUBLIC_INNER_CALL_REQUEST_LENGTH] {
+        let mut fields: BoundedVec<Field, PUBLIC_INNER_CALL_REQUEST_LENGTH> = BoundedVec::new();
 
-    fields.extend_from_array(self.item.serialize());
-    fields.push(self.counter as Field);
+        fields.extend_from_array(self.item.serialize());
+        fields.push(self.counter as Field);
 
-    assert_eq(fields.len(), PUBLIC_INNER_CALL_REQUEST_LENGTH);
+        assert_eq(fields.len(), PUBLIC_INNER_CALL_REQUEST_LENGTH);
 
-    fields.storage
-  }
+        fields.storage
+    }
 }
 
 impl Deserialize<PUBLIC_INNER_CALL_REQUEST_LENGTH> for PublicInnerCallRequest {
-  fn deserialize(fields: [Field; PUBLIC_INNER_CALL_REQUEST_LENGTH]) -> PublicInnerCallRequest {
-    let mut reader = Reader::new(fields);
+    fn deserialize(fields: [Field; PUBLIC_INNER_CALL_REQUEST_LENGTH]) -> PublicInnerCallRequest {
+        let mut reader = Reader::new(fields);
 
-    let request = PublicInnerCallRequest {
-      item: reader.read_struct(PublicCallStackItemCompressed::deserialize),
-      counter: reader.read_u32(),
-    };
-    reader.finish();
-    request
-  }
+        let request = PublicInnerCallRequest { item: reader.read_struct(PublicCallStackItemCompressed::deserialize), counter: reader.read_u32() };
+        reader.finish();
+        request
+    }
 }
 
 #[test]

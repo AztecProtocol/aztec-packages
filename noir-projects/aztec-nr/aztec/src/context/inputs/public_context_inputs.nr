@@ -9,9 +9,6 @@ struct PublicContextInputs {
 
 impl Empty for PublicContextInputs {
     fn empty() -> Self {
-        PublicContextInputs {
-            calldata_length: 0,
-            is_static_call: false
-        }
+        PublicContextInputs { calldata_length: 0, is_static_call: false }
     }
 }
