@@ -42,10 +42,10 @@ class MegaFlavor {
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
-    static constexpr size_t NUM_ALL_ENTITIES = 63;
+    static constexpr size_t NUM_ALL_ENTITIES = 64;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 30;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 31;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 24;
     // Total number of folded polynomials, which is just all polynomials except the shifts
@@ -137,7 +137,8 @@ class MegaFlavor {
                               lagrange_first,       // column 26
                               lagrange_last,        // column 27
                               lagrange_ecc_op,      // column 28 // indicator poly for ecc op gates
-                              databus_id            // column 29 // id polynomial, i.e. id_i = i
+                              databus_id,           // column 29 // id polynomial, i.e. id_i = i
+                              homogenizer           // column 30 // used to homogenize the relations
         )
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
