@@ -111,6 +111,11 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     void get_meta(TreeMeta& m, ReadTransaction& tx, bool includeUncommitted) const;
 
     /**
+     * @brief Reads the tree meta data, including uncommitted data if requested
+     */
+    bool get_block_data(const index_t& blockNumber, BlockPayload& m, ReadTransaction& tx) const;
+
+    /**
      * @brief Finds the index of the given leaf value in the tree if available. Includes uncommitted data if requested.
      */
     std::optional<index_t> find_leaf_index(const LeafValueType& leaf,
@@ -439,6 +444,14 @@ void ContentAddressedCachedTreeStore<LeafValueType>::get_meta(TreeMeta& m,
         return;
     }
     read_persisted_meta(m, tx);
+}
+
+template <typename LeafValueType>
+bool ContentAddressedCachedTreeStore<LeafValueType>::get_block_data(const index_t& blockNumber,
+                                                                    BlockPayload& blockData,
+                                                                    ReadTransaction& tx) const
+{
+    return dataStore.read_block_data(blockNumber, blockData, tx);
 }
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit(bool asBlock)

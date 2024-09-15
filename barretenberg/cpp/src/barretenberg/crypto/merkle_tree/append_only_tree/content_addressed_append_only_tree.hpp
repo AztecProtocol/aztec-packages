@@ -75,6 +75,18 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     void get_sibling_path(const index_t& index, const HashPathCallback& on_completion, bool includeUncommitted) const;
 
     /**
+     * @brief Returns the sibling path from the leaf at the given index to the root
+     * @param blockNumber The block number of the tree to use as a reference
+     * @param index The index at which to read the sibling path
+     * @param on_completion Callback to be called on completion
+     * @param includeUncommitted Whether to include uncommitted changes
+     */
+    void get_sibling_path(const index_t& blockNumber,
+                          const index_t& index,
+                          const HashPathCallback& on_completion,
+                          bool includeUncommitted) const;
+
+    /**
      * @brief Get the subtree sibling path object
      *
      * @param subtree_depth The depth of the subtree
@@ -158,8 +170,9 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
                              const AppendCompletionCallback& on_completion,
                              bool update_index);
 
-    OptionalSiblingPath get_subtree_sibling_path_internal(index_t leaf_index,
+    OptionalSiblingPath get_subtree_sibling_path_internal(const index_t& leaf_index,
                                                           uint32_t subtree_depth,
+                                                          const RequestContext& requestContext,
                                                           ReadTransaction& tx,
                                                           bool includeUncommitted) const;
 
@@ -229,12 +242,48 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
                                                                             const HashPathCallback& on_completion,
                                                                             bool includeUncommitted) const
 {
+    get_subtree_sibling_path(index, 0, on_completion, includeUncommitted);
+    // auto job = [=, this]() {
+    //     execute_and_report<GetSiblingPathResponse>(
+    //         [=, this](TypedResponse<GetSiblingPathResponse>& response) {
+    //             ReadTransactionPtr tx = store_.create_read_transaction();
+    //             RequestContext requestContext;
+    //             requestContext.includeCommitted = includeUncommitted;
+    //             requestContext.latestBlock = true;
+    //             requestContext.root = store_.get_current_root(*tx, includeUncommitted);
+    //             OptionalSiblingPath optional_path =
+    //                 get_subtree_sibling_path_internal(index, 0, requestContext, *tx, includeUncommitted);
+    //             response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
+    //         },
+    //         on_completion);
+    // };
+    // workers_.enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t& index,
+                                                                            const index_t& blockNumber,
+                                                                            const HashPathCallback& on_completion,
+                                                                            bool includeUncommitted) const
+{
     auto job = [=, this]() {
         execute_and_report<GetSiblingPathResponse>(
             [=, this](TypedResponse<GetSiblingPathResponse>& response) {
                 ReadTransactionPtr tx = store_.create_read_transaction();
+                TreeMeta m;
+                store_.get_meta(m, *tx, includeUncommitted);
+                BlockPayload blockData;
+                if (!store_.get_block_data(blockNumber, blockData, *tx)) {
+                    throw std::runtime_error("Data for block unavailable");
+                }
+
+                RequestContext requestContext;
+                requestContext.includeCommitted = includeUncommitted;
+                requestContext.latestBlock = true;
+                requestContext.root = blockData.root;
+                requestContext.sizeAtBlock = blockData.size;
                 OptionalSiblingPath optional_path =
-                    get_subtree_sibling_path_internal(index, 0, *tx, includeUncommitted);
+                    get_subtree_sibling_path_internal(index, 0, requestContext, *tx, includeUncommitted);
                 response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
             },
             on_completion);
@@ -252,8 +301,12 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_p
                 ReadTransactionPtr tx = store_.create_read_transaction();
                 TreeMeta meta;
                 store_.get_meta(meta, *tx, includeUncommitted);
-                OptionalSiblingPath optional_path =
-                    get_subtree_sibling_path_internal(meta.size, subtree_depth, *tx, includeUncommitted);
+                RequestContext requestContext;
+                requestContext.includeCommitted = includeUncommitted;
+                requestContext.latestBlock = true;
+                requestContext.root = store_.get_current_root(*tx, includeUncommitted);
+                OptionalSiblingPath optional_path = get_subtree_sibling_path_internal(
+                    meta.size, subtree_depth, requestContext, *tx, includeUncommitted);
                 response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
             },
             on_completion);
@@ -272,8 +325,12 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_p
         execute_and_report<GetSiblingPathResponse>(
             [=, this](TypedResponse<GetSiblingPathResponse>& response) {
                 ReadTransactionPtr tx = store_.create_read_transaction();
-                OptionalSiblingPath optional_path =
-                    get_subtree_sibling_path_internal(leaf_index, subtree_depth, *tx, includeUncommitted);
+                RequestContext requestContext;
+                requestContext.includeCommitted = includeUncommitted;
+                requestContext.latestBlock = true;
+                requestContext.root = store_.get_current_root(*tx, includeUncommitted);
+                OptionalSiblingPath optional_path = get_subtree_sibling_path_internal(
+                    leaf_index, subtree_depth, requestContext, *tx, includeUncommitted);
                 response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
             },
             on_completion);
@@ -356,11 +413,60 @@ std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_lea
     return std::optional<fr>(hash);
 }
 
+// template <typename Store, typename HashingPolicy>
+// ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath ContentAddressedAppendOnlyTree<
+//     Store,
+//     HashingPolicy>::get_subtree_sibling_path_internal(const index_t leaf_index,
+//                                                       const uint32_t subtree_depth,
+//                                                       ReadTransaction& tx,
+//                                                       bool includeUncommitted) const
+// {
+//     // skip the first levels, all the way to the subtree_root
+//     OptionalSiblingPath path;
+//     if (subtree_depth >= depth_) {
+//         return path;
+//     }
+//     path.resize(depth_ - subtree_depth);
+//     size_t path_index = path.size() - 1;
+
+//     index_t mask = index_t(1) << (depth_ - 1);
+//     // std::cout << "Depth: " << depth_ << ", mask: " << mask << ", sub tree depth: " << subtree_depth
+//     //           << ", leaf index: " << leaf_index << std::endl;
+//     fr hash = store_.get_current_root(tx, includeUncommitted);
+//     // std::cout << "Getting sibling path for root: " << hash << std::endl;
+
+//     for (uint32_t level = 0; level < depth_ - subtree_depth; ++level) {
+//         NodePayload nodePayload;
+//         store_.get_node_by_hash(hash, nodePayload, tx, includeUncommitted);
+//         bool is_right = static_cast<bool>(leaf_index & mask);
+//         // std::cout << "Level: " << level << ", mask: " << mask << ", is right: " << is_right << ", parent: " <<
+//         hash
+//         //           << ", left has value: " << nodePayload.left.has_value()
+//         //           << ", right has value: " << nodePayload.right.has_value() << std::endl;
+//         // if (nodePayload.left.has_value()) {
+//         //     std::cout << "LEFT " << nodePayload.left.value() << std::endl;
+//         // }
+//         // if (nodePayload.right.has_value()) {
+//         //     std::cout << "RIGHT " << nodePayload.right.value() << std::endl;
+//         // }
+//         mask >>= 1;
+//         std::optional<fr> sibling = is_right ? nodePayload.left : nodePayload.right;
+//         std::optional<fr> child = is_right ? nodePayload.right : nodePayload.left;
+//         hash = child.has_value() ? child.value() : zero_hashes_[level + 1];
+//         // fr sib = (sibling.has_value() ? sibling.value() : zero_hashes_[level + 1]);
+//         // std::cout << "Pushed sibling: " << sib << ", hash: " << hash << ", path index " << path_index <<
+//         std::endl; path[path_index--] = sibling;
+//     }
+
+//     return path;
+// }
+
 template <typename Store, typename HashingPolicy>
 ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath ContentAddressedAppendOnlyTree<
     Store,
-    HashingPolicy>::get_subtree_sibling_path_internal(const index_t leaf_index,
+    HashingPolicy>::get_subtree_sibling_path_internal(const index_t& leaf_index,
                                                       const uint32_t subtree_depth,
+                                                      const RequestContext& requestContext,
                                                       ReadTransaction& tx,
                                                       bool includeUncommitted) const
 {
@@ -375,7 +481,7 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath Conten
     index_t mask = index_t(1) << (depth_ - 1);
     // std::cout << "Depth: " << depth_ << ", mask: " << mask << ", sub tree depth: " << subtree_depth
     //           << ", leaf index: " << leaf_index << std::endl;
-    fr hash = store_.get_current_root(tx, includeUncommitted);
+    fr hash = requestContext.root;
     // std::cout << "Getting sibling path for root: " << hash << std::endl;
 
     for (uint32_t level = 0; level < depth_ - subtree_depth; ++level) {
@@ -565,9 +671,10 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
     fr new_hash = hashes_local[0];
 
     // std::cout << "LEVEL: " << level << " hash " << new_hash << std::endl;
-
+    RequestContext requestContext;
+    requestContext.root = store_.get_current_root(*tx, true);
     OptionalSiblingPath optional_sibling_path_to_root =
-        get_subtree_sibling_path_internal(meta.size, depth_ - level, *tx, true);
+        get_subtree_sibling_path_internal(meta.size, depth_ - level, requestContext, *tx, true);
     fr_sibling_path sibling_path_to_root = optional_sibling_path_to_full_sibling_path(optional_sibling_path_to_root);
     size_t sibling_path_index = 0;
 

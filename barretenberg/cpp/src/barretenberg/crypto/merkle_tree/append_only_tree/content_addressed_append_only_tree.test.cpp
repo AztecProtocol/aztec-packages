@@ -97,6 +97,21 @@ void check_sibling_path(TreeType& tree,
     signal.wait_for_level();
 }
 
+void check_historic_sibling_path(TreeType& tree,
+                                 index_t index,
+                                 fr_sibling_path expected_sibling_path,
+                                 index_t blockNumber)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<GetSiblingPathResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        EXPECT_EQ(response.inner.path, expected_sibling_path);
+        signal.signal_level();
+    };
+    tree.get_sibling_path(index, blockNumber, completion, false);
+    signal.wait_for_level();
+}
+
 void commit_tree(TreeType& tree)
 {
     Signal signal;
@@ -654,6 +669,49 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_multiple_blocks)
         check(expected_size, i);
         commit_tree(tree);
         check(expected_size, i + 1);
+    }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_sibling_paths)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    Store store(name, depth, db);
+    ThreadPool pool(1);
+    TreeType tree(store, pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    std::vector<fr_sibling_path> historicPaths;
+
+    auto check = [&](index_t expected_size, index_t expected_unfinalised_block_height) {
+        check_size(tree, expected_size);
+        check_unfinalised_block_height(tree, expected_unfinalised_block_height);
+        check_root(tree, memdb.root());
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree, expected_size - 1, memdb.get_sibling_path(expected_size - 1));
+
+        for (uint32_t i = 0; i < historicPaths.size(); i++) {
+            check_historic_sibling_path(tree, 0, historicPaths[i], i + 1);
+        }
+    };
+
+    constexpr uint32_t num_blocks = 10;
+    constexpr uint32_t batch_size = 4;
+    for (uint32_t i = 0; i < num_blocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < batch_size; ++j) {
+            size_t ind = i * batch_size + j;
+            memdb.update_element(ind, VALUES[ind]);
+            to_add.push_back(VALUES[ind]);
+        }
+        index_t expected_size = (i + 1) * batch_size;
+        add_values(tree, to_add);
+        check(expected_size, i);
+        commit_tree(tree);
+        check(expected_size, i + 1);
+        historicPaths.push_back(memdb.get_sibling_path(0));
     }
 }
 
