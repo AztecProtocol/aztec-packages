@@ -14,12 +14,12 @@ pub fn get_mint_public_content_hash(owner: AztecAddress, amount: Field) -> Field
         hash_bytes[i + 36] = amount_bytes[i];
     }
 
-    // Function selector: 0x63f44968 keccak256('claim(bytes32,uint256)')
-    hash_bytes[0] = 0x63;
-    hash_bytes[1] = 0xf4;
-    hash_bytes[2] = 0x49;
-    hash_bytes[3] = 0x68;
-    
+    // Function selector: 0x3e87b9be keccak256('mint_public(bytes32,uint256)')
+    hash_bytes[0] = 0x3e;
+    hash_bytes[1] = 0x87;
+    hash_bytes[2] = 0xb9;
+    hash_bytes[3] = 0xbe;
+
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
 }

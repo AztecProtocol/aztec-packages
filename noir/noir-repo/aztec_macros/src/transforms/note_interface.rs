@@ -751,7 +751,7 @@ fn generate_note_deserialize_content_source(
 // Utility function to generate the note type id as a Field
 fn compute_note_type_id(note_type: &str) -> u32 {
     // TODO(#4519) Improve automatic note id generation and assignment
-    hash_to_selector(&note_type)
+    hash_to_selector(note_type)
 }
 
 pub fn inject_note_exports(
