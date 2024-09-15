@@ -8,25 +8,27 @@ use crate::{
 };
 
 struct PublicKernelCircuitPublicInputs {
+    constants: CombinedConstantData,
     validation_requests: PublicValidationRequests,
     end_non_revertible: PublicAccumulatedData,
     end: PublicAccumulatedData,
-    constants: CombinedConstantData,
-    revert_code: u8,
+    end_side_effect_counter: u32,
     public_teardown_call_request: PublicCallRequest,
-    fee_payer: AztecAddress
+    fee_payer: AztecAddress,
+    revert_code: u8,
 }
 
 impl Empty for PublicKernelCircuitPublicInputs {
     fn empty() -> Self {
         PublicKernelCircuitPublicInputs {
+            constants: CombinedConstantData::empty(),
             validation_requests: PublicValidationRequests::empty(),
             end_non_revertible: PublicAccumulatedData::empty(),
             end: PublicAccumulatedData::empty(),
-            constants: CombinedConstantData::empty(),
-            revert_code: 0,
+            end_side_effect_counter: 0,
             public_teardown_call_request: PublicCallRequest::empty(),
-            fee_payer: AztecAddress::empty()
+            fee_payer: AztecAddress::empty(),
+            revert_code: 0
         }
     }
 }
@@ -35,13 +37,14 @@ impl Serialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCircu
     fn serialize(self) -> [Field; PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
         let mut fields: BoundedVec<Field, PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
 
+        fields.extend_from_array(self.constants.serialize());
         fields.extend_from_array(self.validation_requests.serialize());
         fields.extend_from_array(self.end_non_revertible.serialize());
         fields.extend_from_array(self.end.serialize());
-        fields.extend_from_array(self.constants.serialize());
-        fields.push(self.revert_code as Field);
+        fields.push(self.end_side_effect_counter as Field);
         fields.extend_from_array(self.public_teardown_call_request.serialize());
         fields.extend_from_array(self.fee_payer.serialize());
+        fields.push(self.revert_code as Field);
 
         assert_eq(fields.len(), PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
@@ -54,13 +57,14 @@ impl Deserialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCir
         let mut reader = Reader::new(fields);
 
         let item = PublicKernelCircuitPublicInputs {
+            constants: reader.read_struct(CombinedConstantData::deserialize),
             validation_requests: reader.read_struct(PublicValidationRequests::deserialize),
             end_non_revertible: reader.read_struct(PublicAccumulatedData::deserialize),
             end: reader.read_struct(PublicAccumulatedData::deserialize),
-            constants: reader.read_struct(CombinedConstantData::deserialize),
-            revert_code: reader.read() as u8,
+            end_side_effect_counter: reader.read_u32(),
             public_teardown_call_request: reader.read_struct(PublicCallRequest::deserialize),
-            fee_payer: reader.read_struct(AztecAddress::deserialize)
+            fee_payer: reader.read_struct(AztecAddress::deserialize),
+            revert_code: reader.read() as u8
         };
         reader.finish();
         item
@@ -69,13 +73,14 @@ impl Deserialize<PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for PublicKernelCir
 
 impl Eq for PublicKernelCircuitPublicInputs {
     fn eq(self, other: Self) -> bool {
-        (self.validation_requests == other.validation_requests)
+        (self.constants == other.constants)
+            & (self.validation_requests == other.validation_requests)
             & (self.end_non_revertible == other.end_non_revertible)
             & (self.end == other.end)
-            & (self.constants == other.constants)
-            & (self.revert_code == other.revert_code)
+            & (self.end_side_effect_counter == other.end_side_effect_counter)
             & (self.public_teardown_call_request == other.public_teardown_call_request)
             & (self.fee_payer == other.fee_payer)
+            & (self.revert_code == other.revert_code)
     }
 }
 

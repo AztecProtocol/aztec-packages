@@ -17,6 +17,8 @@ struct VMCircuitPublicInputs {
 
     validation_requests: PublicValidationRequests,
     accumulated_data: PublicAccumulatedData,
+    start_side_effect_counter: u32,
+    end_side_effect_counter: u32,
     start_gas_left: Gas,
     transaction_fee: Field,
     reverted: bool,
@@ -30,6 +32,8 @@ impl Empty for VMCircuitPublicInputs {
             public_call_stack: [PublicInnerCallRequest::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX],
             validation_requests: PublicValidationRequests::empty(),
             accumulated_data: PublicAccumulatedData::empty(),
+            start_side_effect_counter: 0,
+            end_side_effect_counter: 0,
             start_gas_left: Gas::empty(),
             transaction_fee: 0,
             reverted: false
@@ -44,6 +48,8 @@ impl Eq for VMCircuitPublicInputs {
             & (self.public_call_stack == other.public_call_stack)
             & (self.validation_requests == other.validation_requests)
             & (self.accumulated_data == other.accumulated_data)
+            & (self.start_side_effect_counter == other.start_side_effect_counter)
+            & (self.end_side_effect_counter == other.end_side_effect_counter)
             & (self.start_gas_left == other.start_gas_left)
             & (self.transaction_fee == other.transaction_fee)
             & (self.reverted == other.reverted)
@@ -61,6 +67,8 @@ impl Serialize<VM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for VMCircuitPublicInputs {
         }
         fields.extend_from_array(self.validation_requests.serialize());
         fields.extend_from_array(self.accumulated_data.serialize());
+        fields.push(self.start_side_effect_counter as Field);
+        fields.push(self.end_side_effect_counter as Field);
         fields.extend_from_array(self.start_gas_left.serialize());
         fields.push(self.transaction_fee);
         fields.push(self.reverted as Field);
@@ -83,6 +91,8 @@ impl Deserialize<VM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for VMCircuitPublicInputs {
             ),
             validation_requests: reader.read_struct(PublicValidationRequests::deserialize),
             accumulated_data: reader.read_struct(PublicAccumulatedData::deserialize),
+            start_side_effect_counter: reader.read_u32(),
+            end_side_effect_counter: reader.read_u32(),
             start_gas_left: reader.read_struct(Gas::deserialize),
             transaction_fee: reader.read(),
             reverted: reader.read() as bool

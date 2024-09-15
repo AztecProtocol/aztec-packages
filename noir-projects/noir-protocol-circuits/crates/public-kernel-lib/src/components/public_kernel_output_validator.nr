@@ -29,11 +29,12 @@ impl PublicKernelOutputValidator {
 
     pub fn validate(self) {
         self.validate_constants();
-        self.validate_revert_code();
-        self.validate_public_teardown_call_request();
-        self.validate_fee_payer();
         self.validate_validation_requests();
         self.validate_accumulated_data();
+        self.validate_end_side_effect_counter();
+        self.validate_public_teardown_call_request();
+        self.validate_fee_payer();
+        self.validate_revert_code();
     }
 
     fn validate_constants(self) {
@@ -45,33 +46,6 @@ impl PublicKernelOutputValidator {
         assert_eq(
             out.global_variables, self.enqueued_call.constants.global_variables, "mismatch global_variables"
         );
-    }
-
-    fn validate_revert_code(self) {
-        if self.phase == PublicKernelPhase.SETUP {
-            // enqueued_call.reverted should be false. If not, EnqueuedCallDataValidator > validate_revert_flag will fail.
-            assert_eq(self.output.revert_code, 0, "expected revert code to be 0");
-        }
-
-        let prev = self.previous_kernel.revert_code;
-        let out = self.output.revert_code;
-        if !self.enqueued_call.reverted {
-            assert_eq(out, prev, "mismatch revert code");
-        } else {
-            if self.phase == PublicKernelPhase.APP_LOGIC {
-                assert_eq(out, 1, "expected revert code to be 1");
-            }
-            if self.phase == PublicKernelPhase.TEARDOWN {
-                // See https://docs.aztec.network/protocol-specs/gas-and-fees/kernel-tracking#handling-reverts
-                if prev == 0 {
-                    // Case where there is a new error in teardown
-                    assert_eq(out, 2, "expected revert code to be 2");
-                } else {
-                    // Case where there is an error in both app logic and teardown
-                    assert_eq(out, 3, "expected revert code to be 3");
-                };
-            }
-        }
     }
 
     fn validate_public_teardown_call_request(self) {
@@ -194,17 +168,29 @@ impl PublicKernelOutputValidator {
     fn validate_accumulated_data_from_private(self, revert_in_phase: bool) {
         let out = self.output.end_non_revertible;
         let prev = self.previous_kernel.end_non_revertible;
-        assert_eq(out.note_encrypted_logs_hashes, prev.note_encrypted_logs_hashes);
-        assert_eq(out.encrypted_logs_hashes, prev.encrypted_logs_hashes);
+        assert_eq(
+            out.note_encrypted_logs_hashes, prev.note_encrypted_logs_hashes, "mismatch non-revertible note_encrypted_logs_hashes"
+        );
+        assert_eq(
+            out.encrypted_logs_hashes, prev.encrypted_logs_hashes, "mismatch non-revertible encrypted_logs_hashes"
+        );
 
         let out = self.output.end;
         let prev = self.previous_kernel.end;
         if revert_in_phase {
-            assert_eq(array_length(out.note_encrypted_logs_hashes), 0);
-            assert_eq(array_length(out.encrypted_logs_hashes), 0);
+            assert_eq(
+                array_length(out.note_encrypted_logs_hashes), 0, "revertible note_encrypted_logs_hashes must be cleared after revert"
+            );
+            assert_eq(
+                array_length(out.encrypted_logs_hashes), 0, "revertible encrypted_logs_hashes must be cleared after revert"
+            );
         } else {
-            assert_eq(out.note_encrypted_logs_hashes, prev.note_encrypted_logs_hashes);
-            assert_eq(out.encrypted_logs_hashes, prev.encrypted_logs_hashes);
+            assert_eq(
+                out.note_encrypted_logs_hashes, prev.note_encrypted_logs_hashes, "mismatch revertible note_encrypted_logs_hashes"
+            );
+            assert_eq(
+                out.encrypted_logs_hashes, prev.encrypted_logs_hashes, "mismatch revertible encrypted_logs_hashes"
+            );
         }
     }
 
@@ -218,10 +204,10 @@ impl PublicKernelOutputValidator {
         let mut revertible_lengths = PublicAccumulatedDataArrayLengths::new(prev_revertible);
         let empty_lengths = PublicAccumulatedDataArrayLengths::empty();
 
-        if self.revertible {
-            revertible_lengths.public_call_stack -= 1;
-        } else {
+        if self.phase == PublicKernelPhase.SETUP {
             non_revertible_lengths.public_call_stack -= 1;
+        } else if self.phase == PublicKernelPhase.APP_LOGIC {
+            revertible_lengths.public_call_stack -= 1;
         }
 
         self.validate_prepended_accumulated_data(
@@ -331,15 +317,50 @@ impl PublicKernelOutputValidator {
     fn validate_gas_used(self) {
         let out_non_revertible_gas_used = self.output.end_non_revertible.gas_used;
         let out_revertible_gas_used = self.output.end.gas_used;
-        let prev_non_revertible_gas_used = self.previous_kernel.end_non_revertible.gas_used;
-        let prev_revertible_gas_used = self.previous_kernel.end.gas_used;
         let curr_gas_used = self.enqueued_call.accumulated_data.gas_used;
-        if self.revertible {
-            assert_eq(out_non_revertible_gas_used, prev_non_revertible_gas_used);
-            assert_eq(out_revertible_gas_used, prev_revertible_gas_used + curr_gas_used);
+        let mut expected_non_revertible_gas_used = self.previous_kernel.end_non_revertible.gas_used;
+        let mut expected_revertible_gas_used = self.previous_kernel.end.gas_used;
+        if self.phase == PublicKernelPhase.SETUP {
+            expected_non_revertible_gas_used += curr_gas_used;
+        } else if self.phase == PublicKernelPhase.APP_LOGIC {
+            expected_revertible_gas_used += curr_gas_used;
+        }
+        assert_eq(
+            out_non_revertible_gas_used, expected_non_revertible_gas_used, "wrong non-revertible gas used"
+        );
+        assert_eq(out_revertible_gas_used, expected_revertible_gas_used, "wrong revertible gas used");
+    }
+
+    fn validate_end_side_effect_counter(self) {
+        assert_eq(
+            self.output.end_side_effect_counter, self.enqueued_call.end_side_effect_counter, "mismatch end_side_effect_counter"
+        );
+    }
+
+    fn validate_revert_code(self) {
+        if self.phase == PublicKernelPhase.SETUP {
+            // enqueued_call.reverted should be false. If not, EnqueuedCallDataValidator > validate_revert_flag will fail.
+            assert_eq(self.output.revert_code, 0, "expected revert code to be 0");
+        }
+
+        let prev = self.previous_kernel.revert_code;
+        let out = self.output.revert_code;
+        if !self.enqueued_call.reverted {
+            assert_eq(out, prev, "mismatch revert code");
         } else {
-            assert_eq(out_non_revertible_gas_used, prev_non_revertible_gas_used + curr_gas_used);
-            assert_eq(out_revertible_gas_used, prev_revertible_gas_used);
+            if self.phase == PublicKernelPhase.APP_LOGIC {
+                assert_eq(out, 1, "expected revert code to be 1");
+            }
+            if self.phase == PublicKernelPhase.TEARDOWN {
+                // See https://docs.aztec.network/protocol-specs/gas-and-fees/kernel-tracking#handling-reverts
+                if prev == 0 {
+                    // Case where there is a new error in teardown
+                    assert_eq(out, 2, "expected revert code to be 2");
+                } else {
+                    // Case where there is an error in both app logic and teardown
+                    assert_eq(out, 3, "expected revert code to be 3");
+                };
+            }
         }
     }
 }

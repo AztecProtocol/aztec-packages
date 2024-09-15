@@ -17,6 +17,10 @@ import { PublicAccumulatedData } from './public_accumulated_data.js';
 export class PublicKernelCircuitPublicInputs {
   constructor(
     /**
+     * Data which is not modified by the circuits.
+     */
+    public constants: CombinedConstantData,
+    /**
      * Validation requests accumulated from public functions.
      */
     public validationRequests: PublicValidationRequests,
@@ -29,13 +33,9 @@ export class PublicKernelCircuitPublicInputs {
      */
     public end: PublicAccumulatedData,
     /**
-     * Data which is not modified by the circuits.
+     * Counter of the last side effect.
      */
-    public constants: CombinedConstantData,
-    /**
-     * Indicates whether execution of the public circuit reverted.
-     */
-    public revertCode: RevertCode,
+    public endSideEffectCounter: number,
     /**
      * The call request for the public teardown function
      */
@@ -44,17 +44,22 @@ export class PublicKernelCircuitPublicInputs {
      * The address of the fee payer for the transaction
      */
     public feePayer: AztecAddress,
+    /**
+     * Indicates whether execution of the public circuit reverted.
+     */
+    public revertCode: RevertCode,
   ) {}
 
   toBuffer() {
     return serializeToBuffer(
+      this.constants,
       this.validationRequests,
       this.endNonRevertibleData,
       this.end,
-      this.constants,
-      this.revertCode,
+      this.endSideEffectCounter,
       this.publicTeardownCallRequest,
       this.feePayer,
+      this.revertCode,
     );
   }
 
@@ -78,50 +83,54 @@ export class PublicKernelCircuitPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): PublicKernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PublicKernelCircuitPublicInputs(
+      reader.readObject(CombinedConstantData),
       reader.readObject(PublicValidationRequests),
       reader.readObject(PublicAccumulatedData),
       reader.readObject(PublicAccumulatedData),
-      reader.readObject(CombinedConstantData),
-      reader.readObject(RevertCode),
+      reader.readNumber(),
       reader.readObject(PublicCallRequest),
       reader.readObject(AztecAddress),
+      reader.readObject(RevertCode),
     );
   }
 
   static empty() {
     return new PublicKernelCircuitPublicInputs(
+      CombinedConstantData.empty(),
       PublicValidationRequests.empty(),
       PublicAccumulatedData.empty(),
       PublicAccumulatedData.empty(),
-      CombinedConstantData.empty(),
-      RevertCode.OK,
+      0,
       PublicCallRequest.empty(),
       AztecAddress.ZERO,
+      RevertCode.OK,
     );
   }
 
   static fromFields(fields: Fr[] | FieldReader): PublicKernelCircuitPublicInputs {
     const reader = FieldReader.asReader(fields);
     return new PublicKernelCircuitPublicInputs(
+      CombinedConstantData.fromFields(reader),
       PublicValidationRequests.fromFields(reader),
       PublicAccumulatedData.fromFields(reader),
       PublicAccumulatedData.fromFields(reader),
-      CombinedConstantData.fromFields(reader),
-      RevertCode.fromField(reader.readField()),
+      reader.readU32(),
       PublicCallRequest.fromFields(reader),
       AztecAddress.fromFields(reader),
+      RevertCode.fromField(reader.readField()),
     );
   }
 
   [inspect.custom]() {
     return `PublicKernelCircuitPublicInputs {
+      constants: ${inspect(this.constants)},
       validationRequests: ${inspect(this.validationRequests)},
       endNonRevertibleData: ${inspect(this.endNonRevertibleData)},
       end: ${inspect(this.end)},
-      constants: ${inspect(this.constants)},
+      endSideEffectCounter: ${this.endSideEffectCounter},
+      publicTeardownCallRequest: ${inspect(this.publicTeardownCallRequest)},
+      feePayer: ${this.feePayer},
       revertCode: ${this.revertCode},
-      publicTeardownCallRequest: ${inspect(this.publicTeardownCallRequest)}
-      feePayer: ${this.feePayer}
       }`;
   }
 }

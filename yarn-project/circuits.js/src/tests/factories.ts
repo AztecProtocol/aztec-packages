@@ -498,13 +498,14 @@ export function makePublicKernelCircuitPublicInputs(
   fullAccumulatedData = true,
 ): PublicKernelCircuitPublicInputs {
   return new PublicKernelCircuitPublicInputs(
-    makePublicValidationRequests(seed),
-    makePublicAccumulatedData(seed, fullAccumulatedData),
-    makePublicAccumulatedData(seed, fullAccumulatedData),
-    makeConstantData(seed + 0x100),
+    makeConstantData(seed),
+    makePublicValidationRequests(seed + 0x100),
+    makePublicAccumulatedData(seed + 0x200, fullAccumulatedData),
+    makePublicAccumulatedData(seed + 0x300, fullAccumulatedData),
+    seed + 0x300,
+    makePublicCallRequest(seed + 0x400),
+    makeAztecAddress(seed + 0x500),
     RevertCode.OK,
-    makePublicCallRequest(seed + 0x600),
-    makeAztecAddress(seed + 0x700),
   );
 }
 
@@ -563,8 +564,10 @@ export function makeVMCircuitPublicInputs(seed = 1) {
     makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicInnerCallRequest, seed + 0x200),
     makePublicValidationRequests(seed + 0x300),
     makePublicAccumulatedData(seed + 0x400),
-    makeGas(seed + 0x500),
-    fr(seed + 0x600),
+    seed + 0x500,
+    seed + 0x501,
+    makeGas(seed + 0x600),
+    fr(seed + 0x700),
     false,
   );
 }

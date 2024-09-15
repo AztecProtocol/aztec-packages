@@ -118,9 +118,7 @@ export class EnqueuedCallSimulator {
     transactionFee: Fr,
   ): Promise<EnqueuedCallResult> {
     const pendingNullifiers = this.getSiloedPendingNullifiers(previousPublicKernelOutput);
-    // NOTE: startSideEffectCounter is not the same as the executionRequest's sideEffectCounter
-    // (which counts the request itself)
-    const startSideEffectCounter = EnqueuedCallSimulator.getMaxSideEffectCounter(previousPublicKernelOutput) + 1;
+    const startSideEffectCounter = previousPublicKernelOutput.endSideEffectCounter + 1;
     const result = await this.publicExecutor.simulate(
       executionRequest,
       this.globalVariables,
@@ -143,6 +141,8 @@ export class EnqueuedCallSimulator {
       callStack,
       PublicValidationRequests.empty(),
       accumulatedData,
+      startSideEffectCounter,
+      startSideEffectCounter,
       availableGas,
       result.transactionFee,
       result.reverted,
@@ -322,40 +322,5 @@ export class EnqueuedCallSimulator {
     // See https://github.com/AztecProtocol/aztec3-packages/issues/378
     const bytecodeHash = new Fr(1n);
     return Promise.resolve(bytecodeHash);
-  }
-
-  /**
-   * Looks at the side effects of a transaction and returns the highest counter
-   * @param tx - A transaction
-   * @returns The highest side effect counter in the transaction so far
-   */
-  static getMaxSideEffectCounter(inputs: PublicKernelCircuitPublicInputs): number {
-    const sideEffectCounters = [
-      ...inputs.endNonRevertibleData.noteHashes,
-      ...inputs.endNonRevertibleData.nullifiers,
-      ...inputs.endNonRevertibleData.noteEncryptedLogsHashes,
-      ...inputs.endNonRevertibleData.encryptedLogsHashes,
-      ...inputs.endNonRevertibleData.unencryptedLogsHashes,
-      ...inputs.endNonRevertibleData.publicCallStack,
-      ...inputs.endNonRevertibleData.publicDataUpdateRequests,
-      ...inputs.end.noteHashes,
-      ...inputs.end.nullifiers,
-      ...inputs.end.noteEncryptedLogsHashes,
-      ...inputs.end.encryptedLogsHashes,
-      ...inputs.end.unencryptedLogsHashes,
-      ...inputs.end.publicCallStack,
-      ...inputs.end.publicDataUpdateRequests,
-    ];
-
-    let max = 0;
-    for (const sideEffect of sideEffectCounters) {
-      if ('counter' in sideEffect) {
-        max = Math.max(max, sideEffect.counter);
-      } else {
-        throw new Error('Unknown side effect type');
-      }
-    }
-
-    return max;
   }
 }

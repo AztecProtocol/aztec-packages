@@ -100,6 +100,7 @@ mod tests {
             let mut enqueued_call = FixtureBuilder::new().is_public_function();
             // Add an offset so that the mock data won't be the same as the values in previous_kernel.
             previous_revertible.value_offset = 5555;
+            enqueued_call.counter_start = 7777;
             enqueued_call.value_offset = 9999;
 
             let phase = PublicKernelPhase.SETUP;
@@ -118,6 +119,7 @@ mod tests {
             }
 
             let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
+            previous_kernel.public_inputs.end_side_effect_counter = enqueued_call.data.start_side_effect_counter - 1;
             previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
 
             let kernel = PublicKernelMergeCircuitPrivateInputs { previous_kernel, enqueued_call };

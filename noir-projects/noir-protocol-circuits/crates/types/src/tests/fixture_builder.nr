@@ -506,6 +506,8 @@ impl FixtureBuilder {
             public_call_stack: subarray(self.public_inner_call_requests.storage),
             validation_requests: self.to_public_validation_requests(),
             accumulated_data: self.to_public_accumulated_data(),
+            start_side_effect_counter: self.counter_start,
+            end_side_effect_counter: self.counter,
             start_gas_left: self.start_gas_left,
             transaction_fee: self.transaction_fee,
             reverted: self.revert_code != 0
@@ -529,17 +531,16 @@ impl FixtureBuilder {
         } else {
             PublicAccumulatedData::empty()
         };
-        let validation_requests = self.to_public_validation_requests();
-        let constants = self.to_constant_data();
 
         PublicKernelCircuitPublicInputs {
+            constants: self.to_constant_data(),
+            validation_requests: self.to_public_validation_requests(),
             end_non_revertible,
             end,
-            validation_requests,
-            constants,
-            revert_code: self.revert_code,
+            end_side_effect_counter: self.counter,
             public_teardown_call_request: self.public_teardown_call_request,
-            fee_payer: self.fee_payer
+            fee_payer: self.fee_payer,
+            revert_code: self.revert_code
         }
     }
 

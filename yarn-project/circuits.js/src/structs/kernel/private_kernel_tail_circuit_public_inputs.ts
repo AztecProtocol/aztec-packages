@@ -157,13 +157,14 @@ export class PrivateKernelTailCircuitPublicInputs {
       throw new Error('Private tail public inputs is not for public circuit.');
     }
     return new PublicKernelCircuitPublicInputs(
+      this.constants,
       this.forPublic.validationRequests,
       this.forPublic.endNonRevertibleData,
       this.forPublic.end,
-      this.constants,
-      this.revertCode,
+      0, // endSideEffectCounter
       this.forPublic.publicTeardownCallRequest,
       this.feePayer,
+      this.revertCode,
     );
   }
 

@@ -20,6 +20,8 @@ struct VMCircuitOutputComposer {
     public_call_stack: BoundedVec<PublicInnerCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     validation_requests: PublicValidationRequestsBuilder,
     accumulated_data: PublicAccumulatedDataBuilder,
+    start_side_effect_counter: u32,
+    end_side_effect_counter: u32,
     start_gas_left: Gas,
     transaction_fee: Field,
     reverted: bool,
@@ -33,11 +35,13 @@ impl VMCircuitOutputComposer {
         let accumulated_data = PublicAccumulatedDataBuilder::new(previous_kernel.accumulated_data);
         VMCircuitOutputComposer {
             constants: previous_kernel.constants,
-            call_request: previous_kernel.call_request, // Propagate the first call request throughout the entire enqueued call.
+            call_request: previous_kernel.call_request,
             public_call_stack,
             validation_requests,
             accumulated_data,
-            start_gas_left: previous_kernel.start_gas_left, // Propagate the same start gas left throughout the entire enqueued call.
+            start_side_effect_counter: previous_kernel.start_side_effect_counter,
+            end_side_effect_counter: previous_kernel.end_side_effect_counter,
+            start_gas_left: previous_kernel.start_gas_left,
             transaction_fee: previous_kernel.transaction_fee,
             reverted: previous_kernel.reverted
         }
@@ -48,6 +52,8 @@ impl VMCircuitOutputComposer {
         self.propagate_revert_flag(public_call);
         self.propagate_validation_requests(public_call);
         self.propagate_accumulated_data(public_call);
+        self.end_side_effect_counter = public_call.end_side_effect_counter;
+        // Other values should be the same through out the entire enqueued call.
         *self
     }
 
@@ -58,6 +64,8 @@ impl VMCircuitOutputComposer {
             public_call_stack: self.public_call_stack.storage,
             validation_requests: self.validation_requests.finish(),
             accumulated_data: self.accumulated_data.finish(),
+            start_side_effect_counter: self.start_side_effect_counter,
+            end_side_effect_counter: self.end_side_effect_counter,
             start_gas_left: self.start_gas_left,
             transaction_fee: self.transaction_fee,
             reverted: self.reverted

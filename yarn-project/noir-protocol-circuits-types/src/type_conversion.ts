@@ -1552,9 +1552,10 @@ export function mapPublicKernelCircuitPublicInputsToNoir(
     validation_requests: mapPublicValidationRequestsToNoir(inputs.validationRequests),
     end: mapPublicAccumulatedDataToNoir(inputs.end),
     end_non_revertible: mapPublicAccumulatedDataToNoir(inputs.endNonRevertibleData),
-    revert_code: mapRevertCodeToNoir(inputs.revertCode),
+    end_side_effect_counter: mapNumberToNoir(inputs.endSideEffectCounter),
     public_teardown_call_request: mapPublicCallRequestToNoir(inputs.publicTeardownCallRequest),
     fee_payer: mapAztecAddressToNoir(inputs.feePayer),
+    revert_code: mapRevertCodeToNoir(inputs.revertCode),
   };
 }
 
@@ -1853,13 +1854,14 @@ export function mapPublicKernelCircuitPublicInputsFromNoir(
   inputs: PublicKernelCircuitPublicInputsNoir,
 ): PublicKernelCircuitPublicInputs {
   return new PublicKernelCircuitPublicInputs(
+    mapCombinedConstantDataFromNoir(inputs.constants),
     mapPublicValidationRequestsFromNoir(inputs.validation_requests),
     mapPublicAccumulatedDataFromNoir(inputs.end_non_revertible),
     mapPublicAccumulatedDataFromNoir(inputs.end),
-    mapCombinedConstantDataFromNoir(inputs.constants),
-    mapRevertCodeFromNoir(inputs.revert_code),
+    mapNumberFromNoir(inputs.end_side_effect_counter),
     mapPublicCallRequestFromNoir(inputs.public_teardown_call_request),
     mapAztecAddressFromNoir(inputs.fee_payer),
+    mapRevertCodeFromNoir(inputs.revert_code),
   );
 }
 
@@ -2085,6 +2087,8 @@ function mapVMCircuitPublicInputsToNoir(inputs: VMCircuitPublicInputs): VMCircui
     public_call_stack: mapTuple(inputs.publicCallStack, mapPublicInnerCallRequestToNoir),
     validation_requests: mapPublicValidationRequestsToNoir(inputs.validationRequests),
     accumulated_data: mapPublicAccumulatedDataToNoir(inputs.accumulatedData),
+    start_side_effect_counter: mapNumberToNoir(inputs.startSideEffectCounter),
+    end_side_effect_counter: mapNumberToNoir(inputs.endSideEffectCounter),
     start_gas_left: mapGasToNoir(inputs.startGasLeft),
     transaction_fee: mapFieldToNoir(inputs.transactionFee),
     reverted: inputs.reverted,
@@ -2098,6 +2102,8 @@ export function mapVMCircuitPublicInputsFromNoir(inputs: VMCircuitPublicInputsNo
     mapTupleFromNoir(inputs.public_call_stack, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, mapPublicInnerCallRequestFromNoir),
     mapPublicValidationRequestsFromNoir(inputs.validation_requests),
     mapPublicAccumulatedDataFromNoir(inputs.accumulated_data),
+    mapNumberFromNoir(inputs.start_side_effect_counter),
+    mapNumberFromNoir(inputs.end_side_effect_counter),
     mapGasFromNoir(inputs.start_gas_left),
     mapFieldFromNoir(inputs.transaction_fee),
     inputs.reverted,

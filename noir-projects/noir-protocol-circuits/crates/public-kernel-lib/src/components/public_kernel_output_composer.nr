@@ -41,6 +41,7 @@ impl PublicKernelOutputComposer {
         self.propagate_revert_code(enqueued_call, phase);
         self.propagate_validation_requests(enqueued_call);
         self.propagate_accumulated_data(enqueued_call, phase);
+        self.propagate_end_side_effect_counter(enqueued_call);
         self.update_gas_used(enqueued_call, phase);
         *self
     }
@@ -132,6 +133,10 @@ impl PublicKernelOutputComposer {
         if revert_in_phase {
             self.output_builder.end = PublicAccumulatedDataBuilder::empty();
         }
+    }
+
+    fn propagate_end_side_effect_counter(&mut self, enqueued_call: VMCircuitPublicInputs) {
+        self.output_builder.end_side_effect_counter = enqueued_call.end_side_effect_counter;
     }
 
     fn update_gas_used(&mut self, enqueued_call: VMCircuitPublicInputs, phase: u8) {
