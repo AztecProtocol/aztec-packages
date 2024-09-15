@@ -10,6 +10,13 @@ shift
 DEFAULT_PORT=8080
 VERSION=${VERSION:-"latest"}
 AZTEC_PORT=${AZTEC_PORT:-$DEFAULT_PORT}
+INHERIT_USER=${INHERIT_USER:-1}
+
+if [[ -n "${NETWORK:-}" ]]; then
+  VERSION=$NETWORK
+  # enable proving if connecting to a network by default
+  export PXE_PROVER_ENABLED=${PXE_PROVER_ENABLED:-1}
+fi
 
 # preserve arguments to pass to docker run
 declare -a preserved_args
@@ -39,7 +46,7 @@ fi
 
 # If running in rootless docker, don't set uid/gid in container, as it breaks the write perms to the home mount.
 # Otherwise we set the uid/gid to be that of user running the container to ensure write perms to the home mount.
-if [ -z "${ROOTLESS:-}" ]; then
+if [[ -z "${ROOTLESS:-}" && "${INHERIT_USER:-}" == "1" ]]; then
   DOCKER_USER="--user $(id -u):$(id -g)"
 fi
 
@@ -73,16 +80,6 @@ for i in "${!args[@]}"; do
   fi
 done
 
-DOCKER_ENV="-e HOME=$HOME"
-for env in ${ENV_VARS_TO_INJECT:-}; do
-  if [ -n "${!env:-}" ]; then
-    # First substitute any reference to localhost with our host gateway.
-    env=${env//localhost/host.docker.internal}
-    # Inject into container.
-    DOCKER_ENV+=" -e $env=${!env:-}"
-  fi
-done
-
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
   case $1 in
@@ -91,11 +88,30 @@ while [[ "$#" -gt 0 ]]; do
     preserved_args+=("$1" "$2") # Store both argument and value
     shift 2                     # Move past argument and value
     ;;
+  --pxe.network)
+    VERSION="$2" # Set version to user-specified network (e.g. 'devnet')
+    echo "Using aztecprotocol/aztec: $VERSION"
+    preserved_args+=("$1" "$2") # Store both argument and value
+    # turn on proving if connecting to a network by default
+    export PXE_PROVER_ENABLED=${PXE_PROVER_ENABLED:-1}
+    shift 2
+    ;; # Move past argument and value
   *)
     preserved_args+=("$1") # Store unrecognized/other arguments
     shift                  # Move to next argument
     ;;
   esac
+done
+
+DOCKER_ENV="-e HOME=$HOME"
+for env in ${ENV_VARS_TO_INJECT:-}; do
+  # SSH_AUTH_SOCK must be handled separately
+  if [[ $env != "SSH_AUTH_SOCK" ]] && [[ -n "${!env:-}" ]]; then
+    # First substitute any reference to localhost with our host gateway.
+    env=${env//localhost/host.docker.internal}
+    # Inject into container.
+    DOCKER_ENV+=" -e $env=${!env:-}"
+  fi
 done
 
 # Dynamic port assignment
@@ -104,12 +120,32 @@ if [[ -z "${SKIP_PORT_ASSIGNMENT:-}" ]]; then
   port_assignment="-p $AZTEC_PORT:$AZTEC_PORT"
 fi
 
+ssh_agent_socket_mount=""
+if [[ "${ENV_VARS_TO_INJECT:-}" == *"SSH_AUTH_SOCK"* && -n "${SSH_AUTH_SOCK:-}" ]]; then
+  warn "SSH_AUTH_SOCK is set to ${SSH_AUTH_SOCK:-}. Attempting to enable SSH agent forwarding"
+
+  if [[ "$UNAME" == "Darwin" ]]; then
+    if ! command -v socat &> /dev/null; then
+      warn "Socat is not installed. To make SSH agent forwarding work in MacOS, please run:\n\nbrew install socat\n"
+    else
+      socat TCP-LISTEN:${SSH_AUTH_SOCK_SOCAT_PORT:-12345},reuseaddr,fork UNIX-CLIENT:$SSH_AUTH_SOCK &
+      SOCAT_PID=$!
+      trap "kill -9 $SOCAT_PID" SIGINT SIGTERM EXIT
+      DOCKER_ENV+=" -e SSH_AUTH_SOCK_SOCAT_PORT=${SSH_AUTH_SOCK_SOCAT_PORT:-12345}"
+    fi
+  else
+    DOCKER_ENV+=" -e SSH_AUTH_SOCK=${SSH_AUTH_SOCK}"
+    ssh_agent_socket_mount="-v $SSH_AUTH_SOCK:$SSH_AUTH_SOCK"
+  fi
+fi
+
 docker run \
   -ti \
   --rm \
   --workdir "$PWD" \
   -v $HOME:$HOME -v cache:/cache \
   $port_assignment \
+  $ssh_agent_socket_mount \
   ${DOCKER_ENV:-} \
   ${DOCKER_HOST_BINDS:-} \
   ${DOCKER_USER:-} \

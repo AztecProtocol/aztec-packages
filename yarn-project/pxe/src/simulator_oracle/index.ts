@@ -5,7 +5,7 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  type SiblingPath,
+  getNonNullifiedL1ToL2MessageWitness,
 } from '@aztec/circuit-types';
 import {
   type AztecAddress,
@@ -16,7 +16,6 @@ import {
   type KeyValidationRequest,
   type L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computeL1ToL2MessageNullifier } from '@aztec/circuits.js/hash';
 import { type FunctionArtifact, getFunctionArtifact } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { type KeyStore } from '@aztec/key-store';
@@ -47,7 +46,7 @@ export class SimulatorOracle implements DBOracle {
     if (!completeAddress) {
       throw new Error(
         `No public key registered for address ${account}.
-        Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/developers/debugging/aztecnr-errors#simulation-error-No-public-key-registered-for-address-0x0-Register-it-by-calling-pxeregisterRecipient-or-pxeregisterAccount`,
+        Register it by calling pxe.registerRecipient(...) or pxe.registerAccount(...).\nSee docs for context: https://docs.aztec.network/reference/common_errors/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
       );
     }
     return completeAddress;
@@ -77,18 +76,19 @@ export class SimulatorOracle implements DBOracle {
     return capsule;
   }
 
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus) {
+  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
     const noteDaos = await this.db.getIncomingNotes({
       contractAddress,
       storageSlot,
       status,
+      scopes,
     });
-    return noteDaos.map(({ contractAddress, storageSlot, nonce, note, innerNoteHash, siloedNullifier, index }) => ({
+    return noteDaos.map(({ contractAddress, storageSlot, nonce, note, noteHash, siloedNullifier, index }) => ({
       contractAddress,
       storageSlot,
       nonce,
       note,
-      innerNoteHash,
+      noteHash,
       siloedNullifier,
       // PXE can use this index to get full MembershipWitness
       index,
@@ -126,25 +126,12 @@ export class SimulatorOracle implements DBOracle {
     messageHash: Fr,
     secret: Fr,
   ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    let nullifierIndex: bigint | undefined;
-    let messageIndex = 0n;
-    let startIndex = 0n;
-    let siblingPath: SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>;
-
-    // We iterate over messages until we find one whose nullifier is not in the nullifier tree --> we need to check
-    // for nullifiers because messages can have duplicates.
-    do {
-      const response = await this.aztecNode.getL1ToL2MessageMembershipWitness('latest', messageHash, startIndex);
-      if (!response) {
-        throw new Error(`No non-nullified L1 to L2 message found for message hash ${messageHash.toString()}`);
-      }
-      [messageIndex, siblingPath] = response;
-
-      const messageNullifier = computeL1ToL2MessageNullifier(contractAddress, messageHash, secret, messageIndex);
-      nullifierIndex = await this.getNullifierIndex(messageNullifier);
-
-      startIndex = messageIndex + 1n;
-    } while (nullifierIndex !== undefined);
+    const [messageIndex, siblingPath] = await getNonNullifiedL1ToL2MessageWitness(
+      this.aztecNode,
+      contractAddress,
+      messageHash,
+      secret,
+    );
 
     // Assuming messageIndex is what you intended to use for the index in MessageLoadOracleInputs
     return new MessageLoadOracleInputs(messageIndex, siblingPath);
@@ -162,6 +149,11 @@ export class SimulatorOracle implements DBOracle {
    */
   async getCommitmentIndex(commitment: Fr) {
     return await this.aztecNode.findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
+  }
+
+  // We need this in public as part of the EXISTS calls - but isn't used in private
+  public getCommitmentValue(_leafIndex: bigint): Promise<Fr | undefined> {
+    throw new Error('Unimplemented in private!');
   }
 
   async getNullifierIndex(nullifier: Fr) {

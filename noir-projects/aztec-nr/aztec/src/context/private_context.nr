@@ -6,7 +6,10 @@ use crate::{
     key_validation_request::get_key_validation_request, arguments, returns::pack_returns,
     call_private_function::call_private_function_internal, header::get_header_at,
     logs::{emit_encrypted_note_log, emit_encrypted_event_log},
-    enqueue_public_function_call::{enqueue_public_function_call_internal, set_public_teardown_function_call_internal}
+    enqueue_public_function_call::{
+    enqueue_public_function_call_internal, notify_set_min_revertible_side_effect_counter,
+    set_public_teardown_function_call_internal
+}
 }
 };
 use dep::protocol_types::{
@@ -15,7 +18,7 @@ use dep::protocol_types::{
     max_block_number::MaxBlockNumber,
     validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     private_call_request::PrivateCallRequest, private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    public_call_request::PublicCallRequest, public_call_stack_item::PublicCallStackItem,
+    public_call_request::PublicCallRequest,
     public_call_stack_item_compressed::PublicCallStackItemCompressed, read_request::ReadRequest,
     note_hash::NoteHash, nullifier::Nullifier, log_hash::{LogHash, NoteLogHash, EncryptedLogHash}
 },
@@ -125,9 +128,11 @@ impl PrivateContext {
         self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
     }
 
-    // TODO(#7112): This function is called with non-zero note hash only in 1 of 25 cases in aztec-packages repo
-    // - consider creating a separate function with 1 arg for the zero note hash case.
-    fn push_nullifier(&mut self, nullifier: Field, nullified_note_hash: Field) {
+    fn push_nullifier(&mut self, nullifier: Field) {
+        self.nullifiers.push(Nullifier { value: nullifier, note_hash: 0, counter: self.next_counter() });
+    }
+
+    fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
         self.nullifiers.push(Nullifier { value: nullifier, note_hash: nullified_note_hash, counter: self.next_counter() });
     }
 
@@ -186,6 +191,7 @@ impl PrivateContext {
         //     [self.side_effect_counter as Field]
         // );
         self.min_revertible_side_effect_counter = self.side_effect_counter;
+        notify_set_min_revertible_side_effect_counter(self.min_revertible_side_effect_counter);
     }
 
     // docs:start:max-block-number
@@ -216,7 +222,7 @@ impl PrivateContext {
         let cached_request = self.last_key_validation_requests[key_index].unwrap_or(KeyValidationRequest::empty());
 
         if cached_request.pk_m.hash() == pk_m_hash {
-            // We get a match so the cached request is the latest one 
+            // We get a match so the cached request is the latest one
             cached_request.sk_app
         } else {
             // We didn't get a match meaning the cached result is stale. We fetch new values from oracle and instruct
@@ -254,7 +260,7 @@ impl PrivateContext {
         );
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_nullifier(nullifier, 0)
+        self.push_nullifier(nullifier)
     }
     // docs:end:consume_l1_to_l2_message
 
@@ -317,7 +323,7 @@ impl PrivateContext {
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
-    pub fn call_private_function_no_args<RETURNS_COUNT>(
+    pub fn call_private_function_no_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
@@ -325,7 +331,7 @@ impl PrivateContext {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0, false, false)
     }
 
-    pub fn static_call_private_function_no_args<RETURNS_COUNT>(
+    pub fn static_call_private_function_no_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
@@ -333,7 +339,7 @@ impl PrivateContext {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0, true, false)
     }
 
-    pub fn delegate_call_private_function_no_args<let ARGS_COUNT: u32>(
+    pub fn delegate_call_private_function_no_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector
@@ -341,7 +347,7 @@ impl PrivateContext {
         self.call_private_function_with_packed_args(contract_address, function_selector, 0, false, true)
     }
 
-    pub fn call_private_function_with_packed_args<RETURNS_COUNT>(
+    pub fn call_private_function_with_packed_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
@@ -505,7 +511,7 @@ impl PrivateContext {
         self.set_public_teardown_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 
-    pub fn set_public_teardown_function_with_packed_args<let ARGS_COUNT: u32>(
+    pub fn set_public_teardown_function_with_packed_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,

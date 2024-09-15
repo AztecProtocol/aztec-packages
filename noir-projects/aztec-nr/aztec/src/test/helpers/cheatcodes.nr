@@ -1,9 +1,9 @@
 use dep::protocol_types::{
-    abis::function_selector::FunctionSelector, address::{AztecAddress, PartialAddress},
+    abis::function_selector::FunctionSelector, address::AztecAddress,
     constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance
 };
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
-use crate::test::helpers::utils::{Deployer, TestAccount};
+use crate::test::helpers::utils::TestAccount;
 use crate::keys::public_keys::PublicKeys;
 
 unconstrained pub fn reset() {
@@ -57,6 +57,10 @@ unconstrained pub fn set_msg_sender(msg_sender: AztecAddress) {
     oracle_set_msg_sender(msg_sender)
 }
 
+unconstrained pub fn set_calldata(calldata: [Field]) {
+    oracle_set_calldata(calldata)
+}
+
 unconstrained pub fn get_msg_sender() -> AztecAddress {
     oracle_get_msg_sender()
 }
@@ -95,8 +99,8 @@ unconstrained pub fn add_nullifiers(contractAddress: AztecAddress, nullifiers: [
     oracle_add_nullifiers(contractAddress, nullifiers)
 }
 
-unconstrained pub fn add_note_hashes(contractAddress: AztecAddress, inner_note_hashes: [Field]) {
-    oracle_add_note_hashes(contractAddress, inner_note_hashes)
+unconstrained pub fn add_note_hashes(contractAddress: AztecAddress, note_hashes: [Field]) {
+    oracle_add_note_hashes(contractAddress, note_hashes)
 }
 
 unconstrained pub fn get_function_selector() -> FunctionSelector {
@@ -180,10 +184,13 @@ unconstrained fn oracle_assert_private_call_fails(
 unconstrained fn oracle_add_nullifiers(contractAddress: AztecAddress, nullifiers: [Field]) {}
 
 #[oracle(addNoteHashes)]
-unconstrained fn oracle_add_note_hashes(contractAddress: AztecAddress, inner_note_hashes: [Field]) {}
+unconstrained fn oracle_add_note_hashes(contractAddress: AztecAddress, note_hashes: [Field]) {}
 
 #[oracle(getFunctionSelector)]
 unconstrained fn oracle_get_function_selector() -> FunctionSelector {}
 
 #[oracle(setFunctionSelector)]
 unconstrained fn oracle_set_function_selector(selector: FunctionSelector) {}
+
+#[oracle(setCalldata)]
+unconstrained fn oracle_set_calldata(calldata: [Field]) {}

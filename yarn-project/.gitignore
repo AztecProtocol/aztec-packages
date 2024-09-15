@@ -20,13 +20,13 @@ circuits.js/fixtures/*.json
 circuits.js/src/structs/kernel/private_kernel_reset_circuit_private_inputs_variants.ts
 docs/dist
 end-to-end/addresses.json
+end-to-end/flame_graph
 end-to-end/log
 end-to-end/data
 end-to-end/src/web/main.js
 end-to-end/src/web/main.js.LICENSE.txt
 l1-artifacts/generated
 l1-contracts/generated
-noir-protocol-circuits-types/artifacts
 builder/target/
 builder/proofs/
 builder/Prover.toml
@@ -38,13 +38,17 @@ builder/Verifier.toml
 builder/src/target
 builder/src/crs
 builder/src/types
+noir-protocol-circuits-types/artifacts
 noir-protocol-circuits-types/src/types/
+ivc-integration/artifacts
+ivc-integration/src/types/
 protocol-contracts/artifacts
 scripts/tmp
 noir-contracts.js/src
 noir-contracts.js/artifacts/
 noir-contracts.js/codegenCache.json
 types/fixtures/*.json
+cli-wallet/test/data
 
 .yarn/*
 !.yarn/patches

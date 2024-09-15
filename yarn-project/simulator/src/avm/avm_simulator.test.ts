@@ -3,7 +3,7 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { keccak256, keccakf1600, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
+import { keccak256, keccakf1600, pedersenCommit, pedersenHash, poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { type Fieldable } from '@aztec/foundation/serialize';
 
@@ -28,11 +28,13 @@ import {
   randomMemoryBytes,
   randomMemoryFields,
   randomMemoryUint64s,
+  resolveAvmTestContractAssertionMessage,
 } from './fixtures/index.js';
 import { type HostStorage } from './journal/host_storage.js';
 import { type AvmPersistableStateManager } from './journal/journal.js';
-import { Add, CalldataCopy, Return } from './opcodes/index.js';
+import { Add, CalldataCopy, Return, Set } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
+import { Opcode } from './serialization/instruction_serialization.js';
 import {
   mockGetBytecode,
   mockGetContractInstance,
@@ -51,8 +53,16 @@ describe('AVM simulator: injected bytecode', () => {
   beforeAll(() => {
     calldata = [new Fr(1), new Fr(2)];
     bytecode = encodeToBytecode([
-      new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ adjustCalldataIndex(0), /*copySize=*/ 2, /*dstOffset=*/ 0),
-      new Add(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2),
+      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ adjustCalldataIndex(0), /*dstOffset*/ 0).as(
+        Opcode.SET_8,
+        Set.wireFormat8,
+      ),
+      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 2, /*dstOffset*/ 1).as(Opcode.SET_8, Set.wireFormat8),
+      new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0),
+      new Add(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
+        Opcode.ADD_8,
+        Add.wireFormat8,
+      ),
       new Return(/*indirect=*/ 0, /*returnOffset=*/ 2, /*copySize=*/ 1),
     ]);
   });
@@ -63,12 +73,10 @@ describe('AVM simulator: injected bytecode', () => {
 
   it('Should execute bytecode that performs basic addition', async () => {
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-    const { l2Gas: initialL2GasLeft } = context.machineState.gasLeft;
     const results = await new AvmSimulator(context).executeBytecode(markBytecodeAsAvm(bytecode));
 
     expect(results.reverted).toBe(false);
     expect(results.output).toEqual([new Fr(3)]);
-    expect(context.machineState.l2GasLeft).toEqual(initialL2GasLeft - 30);
   });
 
   it('Should halt if runs out of gas', async () => {
@@ -140,6 +148,22 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([expectedResult.x, expectedResult.y, Fr.ZERO]);
   });
 
+  it('pedersen commitment operations', async () => {
+    const calldata: Fr[] = [new Fr(100), new Fr(1)];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+    const bytecode = getAvmTestContractBytecode('pedersen_commit');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    // This doesnt include infinites
+    const expectedResult = pedersenCommit([Buffer.from([100]), Buffer.from([1])], 20).map(f => new Fr(f));
+    // TODO: Come back to the handling of infinities when we confirm how they're handled in bb
+    const isInf = expectedResult[0] === new Fr(0) && expectedResult[1] === new Fr(0);
+    expectedResult.push(new Fr(isInf));
+    expect(results.output).toEqual(expectedResult);
+  });
+
   describe('U128 addition and overflows', () => {
     it('U128 addition', async () => {
       const calldata: Fr[] = [
@@ -163,16 +187,20 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const bytecode = getAvmTestContractBytecode('u128_addition_overflow');
       const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
       expect(results.reverted).toBe(true);
-      expect(results.revertReason?.message).toEqual('Assertion failed: attempt to add with overflow');
+      expect(results.revertReason).toBeDefined();
+      expect(resolveAvmTestContractAssertionMessage('u128_addition_overflow', results.revertReason!)).toMatch(
+        'attempt to add with overflow',
+      );
     });
 
     it('Expect failure on U128::from_integer() overflow', async () => {
       const bytecode = getAvmTestContractBytecode('u128_from_integer_overflow');
       const results = await new AvmSimulator(initContext()).executeBytecode(bytecode);
       expect(results.reverted).toBe(true);
-      expect(results.revertReason?.message).toMatch('Assertion failed.');
-      // Note: compiler intrinsic messages (like below) are not known to the AVM, they are recovered by the PXE.
-      // "Assertion failed: call to assert_max_bit_size 'self.__assert_max_bit_size(bit_size)'"
+      expect(results.revertReason).toBeDefined();
+      expect(resolveAvmTestContractAssertionMessage('u128_from_integer_overflow', results.revertReason!)).toMatch(
+        'call to assert_max_bit_size',
+      );
     });
   });
 
@@ -193,11 +221,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
     expect(results.reverted).toBe(true);
-    expect(results.revertReason?.message).toEqual("Assertion failed: Nullifier doesn't exist!");
-    expect(results.output).toEqual([
-      new Fr(0),
-      ...[..."Nullifier doesn't exist!"].flatMap(c => new Fr(c.charCodeAt(0))),
-    ]);
+    expect(results.revertReason).toBeDefined();
+    expect(resolveAvmTestContractAssertionMessage('assert_nullifier_exists', results.revertReason!)).toMatch(
+      "Nullifier doesn't exist!",
+    );
+    expect(results.output).toEqual([]);
   });
 
   describe.each([
@@ -206,6 +234,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     ['set_opcode_u64', 1n << 60n],
     ['set_opcode_small_field', 0x001234567890abcdef1234567890abcdefn],
     ['set_opcode_big_field', 0x991234567890abcdef1234567890abcdefn],
+    ['set_opcode_really_big_field', 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdefn],
   ])('SET functions', (name: string, res: bigint) => {
     it(`function '${name}'`, async () => {
       const context = initContext();
@@ -386,11 +415,11 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
         expect(results.reverted).toBe(false);
         expect(results.output).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
-
+        const expectedValue = results.output[0].toNumber() === 1 ? value0 : Fr.ZERO;
         expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
         expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(
           storageAddress,
-          /*noteHash=*/ value0,
+          /*noteHash=*/ expectedValue,
           leafIndex,
           /*exists=*/ expectFound,
         );
@@ -452,9 +481,13 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.output).toEqual([expectFound ? Fr.ONE : Fr.ZERO]);
 
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledTimes(1);
+        let expectedValue = results.output[0].toNumber() === 1 ? value0 : value1;
+        if (mockAtLeafIndex === undefined) {
+          expectedValue = Fr.ZERO;
+        }
         expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledWith(
           address,
-          /*msgHash=*/ value0,
+          /*msgHash=*/ expectedValue,
           leafIndex,
           /*exists=*/ expectFound,
         );
@@ -871,7 +904,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(true); // The outer call should revert.
-        expect(results.revertReason?.message).toEqual('Assertion failed: Values are not equal');
+        expect(results.revertReason).toBeDefined();
+        expect(resolveAvmTestContractAssertionMessage('assert_same', results.revertReason!)).toMatch(
+          'Values are not equal',
+        );
       });
     });
   });

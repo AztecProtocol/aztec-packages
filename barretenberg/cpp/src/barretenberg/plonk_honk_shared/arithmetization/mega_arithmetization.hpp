@@ -11,6 +11,7 @@ namespace bb {
  */
 template <typename FF_> class MegaArith {
 
+  public:
     /**
      * @brief Defines the circuit block types for the Mega arithmetization
      * @note Its useful to define this as a template since it is used to actually store gate data (T = MegaTraceBlock)
@@ -40,6 +41,7 @@ template <typename FF_> class MegaArith {
         bool operator==(const MegaTraceBlocks& other) const = default;
     };
 
+  private:
     // An arbitrary but small-ish structuring that can be used for generic unit testing with non-trivial circuits
     struct SmallTestStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         SmallTestStructuredBlockSizes()
@@ -47,14 +49,14 @@ template <typename FF_> class MegaArith {
             const uint32_t FIXED_SIZE = 1 << 14;
             this->ecc_op = FIXED_SIZE;
             this->pub_inputs = FIXED_SIZE;
-            this->arithmetic = FIXED_SIZE;
+            this->arithmetic = 1 << 15;
             this->delta_range = FIXED_SIZE;
             this->elliptic = FIXED_SIZE;
             this->aux = FIXED_SIZE;
             this->lookup = FIXED_SIZE;
             this->busread = FIXED_SIZE;
             this->poseidon_external = FIXED_SIZE;
-            this->poseidon_internal = FIXED_SIZE;
+            this->poseidon_internal = 1 << 15;
         }
     };
 
@@ -75,20 +77,37 @@ template <typename FF_> class MegaArith {
         }
     };
 
+    // A minimal structuring specifically tailored to the medium complexity transaction for the AztecIvc benchmark
+    struct AztecIvcBenchStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
+        AztecIvcBenchStructuredBlockSizes()
+        {
+            this->ecc_op = 1 << 10;
+            this->pub_inputs = 1 << 7;
+            this->arithmetic = 187000;
+            this->delta_range = 90000;
+            this->elliptic = 9000;
+            this->aux = 137000;
+            this->lookup = 72000;
+            this->busread = 1 << 7;
+            this->poseidon_external = 3500;
+            this->poseidon_internal = 17500;
+        }
+    };
+
     // Structuring tailored to the full e2e TS test (TO BE UPDATED ACCORDINGLY)
     struct E2eStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         E2eStructuredBlockSizes()
         {
-            this->ecc_op = 1 << 10;
-            this->pub_inputs = 30000;
-            this->arithmetic = 600000;
-            this->delta_range = 140000;
-            this->elliptic = 600000;
-            this->aux = 1400000;
-            this->lookup = 460000;
-            this->busread = 1 << 7;
-            this->poseidon_external = 15000;
-            this->poseidon_internal = 85000;
+            this->ecc_op = 1 << 9;
+            this->pub_inputs = 4000;
+            this->arithmetic = 200000;
+            this->delta_range = 25000;
+            this->elliptic = 80000;
+            this->aux = 100000;
+            this->lookup = 200000;
+            this->busread = 10;
+            this->poseidon_external = 30000;
+            this->poseidon_internal = 150000;
         }
     };
 
@@ -105,6 +124,7 @@ template <typename FF_> class MegaArith {
 #ifdef CHECK_CIRCUIT_STACKTRACES
             this->stack_traces.populate();
 #endif
+            this->tracy_gate();
             this->wires[0].emplace_back(idx_1);
             this->wires[1].emplace_back(idx_2);
             this->wires[2].emplace_back(idx_3);
@@ -137,12 +157,7 @@ template <typename FF_> class MegaArith {
          * conventional Ultra arithmetization
          *
          */
-        void pad_additional()
-        {
-            q_busread().emplace_back(0);
-            q_poseidon2_external().emplace_back(0);
-            q_poseidon2_internal().emplace_back(0);
-        };
+        void pad_additional() { q_busread().emplace_back(0); };
 
         /**
          * @brief Resizes all selectors which are not part of the conventional Ultra arithmetization
@@ -150,12 +165,7 @@ template <typename FF_> class MegaArith {
          * conventional Ultra arithmetization
          * @param new_size
          */
-        void resize_additional(size_t new_size)
-        {
-            q_busread().resize(new_size);
-            q_poseidon2_external().resize(new_size);
-            q_poseidon2_internal().resize(new_size);
-        };
+        void resize_additional(size_t new_size) { q_busread().resize(new_size); };
     };
 
     struct TraceBlocks : public MegaTraceBlocks<MegaTraceBlock> {
@@ -175,6 +185,9 @@ template <typename FF_> class MegaArith {
                 break;
             case TraceStructure::CLIENT_IVC_BENCH:
                 fixed_block_sizes = ClientIvcBenchStructuredBlockSizes();
+                break;
+            case TraceStructure::AZTEC_IVC_BENCH:
+                fixed_block_sizes = AztecIvcBenchStructuredBlockSizes();
                 break;
             case TraceStructure::E2E_FULL_TEST:
                 fixed_block_sizes = E2eStructuredBlockSizes();
@@ -234,6 +247,8 @@ template <typename FF_> class MegaArith {
     // Note: Unused. Needed only for consistency with Ultra arith (which is used by Plonk)
     inline static const std::vector<std::string> selector_names = {};
 };
+
+using MegaArithmetization = MegaArith<bb::fr>;
 
 template <typename T>
 concept HasAdditionalSelectors = IsAnyOf<T, MegaArith<bb::fr>>;

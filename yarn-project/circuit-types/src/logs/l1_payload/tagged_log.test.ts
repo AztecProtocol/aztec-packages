@@ -1,6 +1,6 @@
 import { AztecAddress, KeyValidationRequest, computeOvskApp, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
 import { EventSelector, NoteSelector } from '@aztec/foundation/abi';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing';
 
@@ -57,10 +57,11 @@ describe('L1 Note Payload', () => {
   });
 
   it('encrypted tagged log matches Noir', () => {
+    // All the values in this test were arbitrarily set and copied over to `payload.nr`
     const contract = AztecAddress.fromString('0x10f48cd9eff7ae5b209c557c70de2e657ee79166868676b787e9417e19260e04');
     const storageSlot = new Fr(0x0fe46be583b71f4ab5b70c2657ff1d05cccf1d292a9369628d1a194f944e6599n);
     const noteValue = new Fr(0x301640ceea758391b2e161c92c0513f129020f4125256afdae2646ce31099f5cn);
-    const noteTypeId = new NoteSelector(0);
+    const noteTypeId = new NoteSelector(4135); // note type id of mock_note.nr
 
     const payload = new L1NotePayload(new Note([noteValue]), contract, storageSlot, noteTypeId);
 
@@ -82,7 +83,7 @@ describe('L1 Note Payload', () => {
     const encrypted = taggedLog.encrypt(ephSk, recipientAddress, ivpk, ovKeys).toString('hex');
 
     expect(encrypted).toMatchInlineSnapshot(
-      `"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701fa79f357275ed3983136f963253ad9beae147bb8d4ff52b6f53db957c440cf4fdd8003e6ce87650578cd7b96f3080ec6e5c2ecd07e28342cd006753d95a3c8a06acf6815cac45494d419312e71423d9b4fd48f220392d0b02eb1860f4e0213d97e188adb228027de514dc521cbf938589012df3e58c73a5969a601678dfedd5b6fcc008842b1538f37490b64b101edede3ccd93d635293e3510937548a9dc7dd0d22d41e92857588cedc8a109565280bf3304c3f36466f03681b0748b491b62de01f3c748eed5425b9fb78f24675e053e320dd9a14f1ee729e46d8bf377a63625fac106431d94b9993a40d2a4dba550234b6db10ea8886915eb3e9f473df5c1eaa964a508de9def29dddf43503dfc361b64016802793e2917840f7c7815c67197ac2aa140f0a6cd50a93abf6f82373a8d1a617672d845cfd4e3fac7154890552b4cd51c848610dd697052ee723d2490b3b244c6a2d4556474ba83e821e565fb05fb"`,
+      `"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008d460c0e434d846ec1ea286e4090eb56376ff27bddc1aacae1d856549f701fa77e4f33ba2f47fdac6370f13bc5f16bbae857bbe6ab3ee4ea2a339192eef22a47ce0df4426fc314cb6294ccf291b79c1d8d362cdcc223e51020ccd3318e7052ca74f1fe922ad914bd46e4b6abcd681b63ab1c5bf4151e82f00548ae7c61c59df8c117c14c2e8d9046d32d43a7da818c68be296ef9d1446a87a450eb3f6550200d2663915b0bad97e7f7419975e5a740efb67eeb5304a90808a004ebfc156054a1459191d7fea175f6c64159b3c25a13790cca7250c30e3c80698e64565a6c9ddb16ac1479c3199fec02464b2a252202119514b02012cc387579220f03587b40444ae93f3b83dec2c0a76ed90a804981accd67d43c978d0a97de97b42b5b94c96ea50aee2086eb63d8c8b61f169c12d1deacefc1d456633e46b62daff15bcab3e1ec5f474297e1cb35d8556682060819b4563a8cc66966b12a5e73f7919318e727491b0adb8273bc4a7205b1c753b76a57cceee7482df027ae196235bb9c9ff426"`,
     );
 
     const byteArrayString = `[${encrypted.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))}]`;
@@ -90,7 +91,7 @@ describe('L1 Note Payload', () => {
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
       'noir-projects/aztec-nr/aztec/src/encrypted_logs/payload.nr',
-      'expected_encrypted_note_log',
+      'encrypted_note_log_from_typescript',
       byteArrayString,
     );
   });
@@ -125,7 +126,7 @@ describe('L1 Event Payload', () => {
     beforeAll(() => {
       contractAddress = AztecAddress.random();
       randomness = Fr.random();
-      maskedContractAddress = pedersenHash([contractAddress, randomness], 0);
+      maskedContractAddress = poseidon2HashWithSeparator([contractAddress, randomness], 0);
 
       const payload = new L1EventPayload(Event.random(), contractAddress, randomness, EventSelector.random());
 

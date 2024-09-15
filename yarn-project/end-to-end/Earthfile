@@ -43,11 +43,75 @@ E2E_TEST:
       BUILD ../+export-end-to-end
     END
   END
-  # Run our docker compose, ending whenever sandbox ends, filtering out noisy eth_getLogs
   RUN docker run -e HARDWARE_CONCURRENCY=$hardware_concurrency --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test || $allow_fail
+
+E2E_TEST_PUBLIC_TESTNET:
+  FUNCTION
+  ARG hardware_concurrency=""
+  ARG test
+  ARG allow_fail=false
+  ARG seq_private_key
+  ARG prover_private_key
+  ARG ethereum_host
+  ARG l1_chain_id
+  LOCALLY
+  # Let docker compose know about the pushed tags above
+  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
+  # Optimize to not cause serial behavior if image already exists
+  IF ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"
+    WAIT
+      BUILD ../+export-end-to-end
+    END
+  END
+  RUN docker run -e L1_CHAIN_ID=$l1_chain_id -e ETHEREUM_HOST=$ethereum_host -e SEQ_PUBLISHER_PRIVATE_KEY=$seq_private_key -e PROVER_PUBLISHER_PRIVATE_KEY=$prover_private_key -e HARDWARE_CONCURRENCY=$hardware_concurrency --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG $test || $allow_fail
+
+NETWORK_TEST:
+  FUNCTION
+  ARG values_file="default.yaml"
+  ARG namespace
+  ARG test
+  ARG chaos_values
+  ARG fresh_install
+  ARG force_build
+  LOCALLY
+  # Let docker compose know about the pushed tags above
+  ENV AZTEC_DOCKER_TAG=$(git rev-parse HEAD)
+  IF  [ "$force_build" = "true" ] || \
+     ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/aztec:$AZTEC_DOCKER_TAG" || \
+     ! docker image ls --format '{{.Repository}}:{{.Tag}}' | grep "aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG"
+    WAIT
+      BUILD ../+export-e2e-test-images
+    END
+  END
+  # load the docker image into kind
+  RUN kind load docker-image aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG
+  RUN kind load docker-image aztecprotocol/aztec:$AZTEC_DOCKER_TAG
+
+  # if fresh_install is true, delete the namespace
+  IF [ "$fresh_install" = "true" ]
+    RUN kubectl delete namespace $namespace --ignore-not-found=true --wait=true --now --timeout=10m
+  END
+
+  RUN helm install spartan ../../spartan/aztec-network/ \
+        --namespace $namespace \
+        --create-namespace \
+        --values ../../spartan/aztec-network/values/$values_file \
+        --set images.test.image="aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG" \
+        --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
+        --set test="$test" \
+        --wait \
+        --wait-for-jobs=true \
+        --timeout=10m
+
+  RUN kubectl wait pod -l app==pxe --for=condition=Ready -n $namespace --timeout=10m
+
+  RUN helm test spartan --namespace $namespace --timeout 30m
 
 e2e-p2p:
   DO +E2E_TEST --test=./src/e2e_p2p_network.test.ts
+
+e2e-l1-with-wall-time:
+  DO +E2E_TEST --test=./src/e2e_l1_with_wall_time.test.ts
 
 e2e-2-pxes:
   DO +E2E_TEST --test=./src/e2e_2_pxes.test.ts
@@ -160,8 +224,8 @@ e2e-fees-dapp-subscription:
 e2e-fees-failures:
   DO +E2E_TEST --test=./src/e2e_fees/failures.test.ts
 
-e2e-fees-native-payments:
-  DO +E2E_TEST --test=./src/e2e_fees/native_payments.test.ts
+e2e-fees-fee-juice-payments:
+  DO +E2E_TEST --test=./src/e2e_fees/fee_juice_payments.test.ts
 
 e2e-fees-account-init:
   DO +E2E_TEST --test=./src/e2e_fees/account_init.test.ts
@@ -183,6 +247,13 @@ e2e-static-calls:
 
 e2e-token-contract:
   DO +E2E_TEST --test=./src/e2e_token_contract
+
+e2e-public-testnet:
+  ARG L1_CHAIN_ID="31337"
+  ARG ETHEREUM_HOST
+  ARG SEQ_PUBLISHER_PRIVATE_KEY
+  ARG PROVER_PUBLISHER_PRIVATE_KEY
+  DO +E2E_TEST_PUBLIC_TESTNET --test=./src/public-testnet --seq_private_key=${SEQ_PUBLISHER_PRIVATE_KEY:-} --prover_private_key=${PROVER_PUBLISHER_PRIVATE_KEY:-} --ethereum_host=${ETHEREUM_HOST:-} --l1_chain_id=${L1_CHAIN_ID:-}
 
 flakey-e2e-tests:
   DO +E2E_TEST --test=./src/flakey --allow_fail=true
@@ -250,3 +321,19 @@ bench-prover:
   ARG COMMIT_HASH
   DO +E2E_COMPOSE_TEST --test=bench_prover --debug="aztec:benchmarks:*,aztec:prover*,aztec:bb*,aztec:pxe*" --enable_gas=1 --compose_file=./scripts/docker-compose-no-sandbox.yml --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
   DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
+
+e2e-devnet-smoke:
+  DO +E2E_COMPOSE_TEST --test=devnet/e2e_smoke.test.ts --compose_file=scripts/docker-compose-devnet.yml
+
+e2e-cli-wallet:
+  DO +E2E_COMPOSE_TEST --test=e2e_cli_wallet --compose_file=scripts/docker-compose-wallet.yml
+
+network-smoke:
+  ARG force_build
+  ARG values_file="default.yaml"
+  DO +NETWORK_TEST --test=./src/spartan/smoke.test.ts --namespace=smoke --fresh_install=true --force_build=$force_build --values_file=$values_file
+
+network-transfer:
+  ARG force_build
+  ARG values_file="default.yaml"
+  DO +NETWORK_TEST --test=./src/spartan/transfer.test.ts --namespace=transfer --fresh_install=true --force_build=$force_build --values_file=$values_file

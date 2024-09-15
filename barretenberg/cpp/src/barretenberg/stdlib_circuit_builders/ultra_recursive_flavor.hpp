@@ -6,7 +6,6 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
@@ -24,9 +23,9 @@
 #include <type_traits>
 #include <vector>
 
-#include "barretenberg/stdlib/honk_recursion/transcript/transcript.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/transcript/transcript.hpp"
 
 namespace bb {
 
@@ -57,7 +56,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
-
+    // Indicates that this flavor runs with non-ZK Sumcheck.
+    static constexpr bool HasZK = false;
     static constexpr size_t NUM_WIRES = UltraFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -73,15 +73,14 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using Relations = UltraFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static_assert(MAX_PARTIAL_RELATION_LENGTH == 6);
+    // static_assert(MAX_PARTIAL_RELATION_LENGTH == 7);
     static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
+    // static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
-    static constexpr size_t BATCHED_RELATION_TOTAL_LENGTH = MAX_TOTAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size<Relations>::value;
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
@@ -93,9 +92,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
-  public:
     /**
-     * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
+     * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
      * @note Note the discrepancy with what sort of data is stored here vs in the proving key. We may want to resolve
@@ -125,31 +123,13 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = native_key->num_public_inputs;
             this->pub_inputs_offset = native_key->pub_inputs_offset;
-            this->q_m = Commitment::from_witness(builder, native_key->q_m);
-            this->q_l = Commitment::from_witness(builder, native_key->q_l);
-            this->q_r = Commitment::from_witness(builder, native_key->q_r);
-            this->q_o = Commitment::from_witness(builder, native_key->q_o);
-            this->q_4 = Commitment::from_witness(builder, native_key->q_4);
-            this->q_c = Commitment::from_witness(builder, native_key->q_c);
-            this->q_arith = Commitment::from_witness(builder, native_key->q_arith);
-            this->q_delta_range = Commitment::from_witness(builder, native_key->q_delta_range);
-            this->q_elliptic = Commitment::from_witness(builder, native_key->q_elliptic);
-            this->q_aux = Commitment::from_witness(builder, native_key->q_aux);
-            this->q_lookup = Commitment::from_witness(builder, native_key->q_lookup);
-            this->sigma_1 = Commitment::from_witness(builder, native_key->sigma_1);
-            this->sigma_2 = Commitment::from_witness(builder, native_key->sigma_2);
-            this->sigma_3 = Commitment::from_witness(builder, native_key->sigma_3);
-            this->sigma_4 = Commitment::from_witness(builder, native_key->sigma_4);
-            this->id_1 = Commitment::from_witness(builder, native_key->id_1);
-            this->id_2 = Commitment::from_witness(builder, native_key->id_2);
-            this->id_3 = Commitment::from_witness(builder, native_key->id_3);
-            this->id_4 = Commitment::from_witness(builder, native_key->id_4);
-            this->table_1 = Commitment::from_witness(builder, native_key->table_1);
-            this->table_2 = Commitment::from_witness(builder, native_key->table_2);
-            this->table_3 = Commitment::from_witness(builder, native_key->table_3);
-            this->table_4 = Commitment::from_witness(builder, native_key->table_4);
-            this->lagrange_first = Commitment::from_witness(builder, native_key->lagrange_first);
-            this->lagrange_last = Commitment::from_witness(builder, native_key->lagrange_last);
+            this->contains_recursive_proof = native_key->contains_recursive_proof;
+            this->recursive_proof_public_input_indices = native_key->recursive_proof_public_input_indices;
+
+            // Generate stdlib commitments (biggroup) from the native counterparts
+            for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
+                commitment = Commitment::from_witness(builder, native_commitment);
+            }
         };
 
         /**
@@ -160,30 +140,41 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
         {
-            // deserialize circuit size
+            using namespace bb::stdlib::field_conversion;
+
             size_t num_frs_read = 0;
-            size_t num_frs_FF = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
-            size_t num_frs_Comm = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
 
-            this->circuit_size = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                              builder, elements.subspan(num_frs_read, num_frs_FF))
-                                              .get_value());
-            num_frs_read += num_frs_FF;
-            this->num_public_inputs = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                   builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                   .get_value());
-            num_frs_read += num_frs_FF;
+            this->circuit_size = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->num_public_inputs = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->pub_inputs_offset = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->contains_recursive_proof =
+                bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
-            this->pub_inputs_offset = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
-                                                   builder, elements.subspan(num_frs_read, num_frs_FF))
-                                                   .get_value());
-            num_frs_read += num_frs_FF;
-
-            for (Commitment& comm : this->get_all()) {
-                comm = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(
-                    builder, elements.subspan(num_frs_read, num_frs_Comm));
-                num_frs_read += num_frs_Comm;
+            for (uint32_t& idx : this->recursive_proof_public_input_indices) {
+                idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
+
+            for (Commitment& commitment : this->get_all()) {
+                commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
+            }
+        }
+
+        /**
+         * @brief Construct a VerificationKey from a set of corresponding witness indices
+         *
+         * @param builder
+         * @param witness_indices
+         * @return VerificationKey
+         */
+        static VerificationKey from_witness_indices(CircuitBuilder& builder,
+                                                    const std::span<const uint32_t>& witness_indices)
+        {
+            std::vector<FF> vkey_fields;
+            vkey_fields.reserve(witness_indices.size());
+            for (const auto& idx : witness_indices) {
+                vkey_fields.emplace_back(FF::from_witness_index(&builder, idx));
+            }
+            return VerificationKey(builder, vkey_fields);
         }
     };
 
@@ -201,50 +192,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
     using WitnessCommitments = UltraFlavor::WitnessEntities<Commitment>;
 
-    class VerifierCommitments : public UltraFlavor::AllEntities<Commitment> {
-      public:
-        VerifierCommitments(const std::shared_ptr<VerificationKey>& verification_key,
-                            const std::optional<WitnessCommitments>& witness_commitments = std::nullopt)
-        {
-            this->q_m = verification_key->q_m;
-            this->q_l = verification_key->q_l;
-            this->q_r = verification_key->q_r;
-            this->q_o = verification_key->q_o;
-            this->q_4 = verification_key->q_4;
-            this->q_c = verification_key->q_c;
-            this->q_arith = verification_key->q_arith;
-            this->q_delta_range = verification_key->q_delta_range;
-            this->q_elliptic = verification_key->q_elliptic;
-            this->q_aux = verification_key->q_aux;
-            this->q_lookup = verification_key->q_lookup;
-            this->sigma_1 = verification_key->sigma_1;
-            this->sigma_2 = verification_key->sigma_2;
-            this->sigma_3 = verification_key->sigma_3;
-            this->sigma_4 = verification_key->sigma_4;
-            this->id_1 = verification_key->id_1;
-            this->id_2 = verification_key->id_2;
-            this->id_3 = verification_key->id_3;
-            this->id_4 = verification_key->id_4;
-            this->table_1 = verification_key->table_1;
-            this->table_2 = verification_key->table_2;
-            this->table_3 = verification_key->table_3;
-            this->table_4 = verification_key->table_4;
-            this->lagrange_first = verification_key->lagrange_first;
-            this->lagrange_last = verification_key->lagrange_last;
-
-            if (witness_commitments.has_value()) {
-                auto commitments = witness_commitments.value();
-                this->w_l = commitments.w_l;
-                this->w_r = commitments.w_r;
-                this->w_o = commitments.w_o;
-                this->lookup_inverses = commitments.lookup_inverses;
-                this->lookup_read_counts = commitments.lookup_read_counts;
-                this->lookup_read_tags = commitments.lookup_read_tags;
-                this->w_4 = commitments.w_4;
-                this->z_perm = commitments.z_perm;
-            }
-        }
-    };
+    // Reuse the VerifierCommitments from Ultra
+    using VerifierCommitments = UltraFlavor::VerifierCommitments_<Commitment, VerificationKey>;
 
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };

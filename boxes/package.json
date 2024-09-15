@@ -1,13 +1,15 @@
 {
   "name": "aztec-app",
   "packageManager": "yarn@4.0.2",
-  "version": "0.4.9",
+  "version": "0.5.0",
   "type": "module",
   "scripts": {
     "compile": "yarn workspaces foreach -A -v run compile",
     "build": "yarn workspaces foreach -A -v run build",
     "install-browsers": "playwright install --with-deps",
-    "publish": "yarn npm publish"
+    "publish": "yarn npm publish",
+    "test": "vitest bin.test.js",
+    "test:ci": "vitest run bin.test.js"
   },
   "workspaces": [
     "boxes/*"
@@ -35,9 +37,10 @@
     "ora": "^8.0.1",
     "pino": "^8.19.0",
     "pino-pretty": "^10.3.1",
-    "tiged": "^2.12.6"
+    "tiged": "^2.12.6",
+    "vitest": "^2.0.5"
   },
   "devDependencies": {
-    "@playwright/test": "1.42.0"
+    "@playwright/test": "1.46.1"
   }
 }

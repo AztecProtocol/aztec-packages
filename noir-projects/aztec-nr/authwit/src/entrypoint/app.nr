@@ -1,5 +1,8 @@
 use dep::aztec::prelude::PrivateContext;
-use dep::aztec::protocol_types::{constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::pedersen_hash, traits::{Hash, Serialize}};
+use dep::aztec::protocol_types::{
+    constants::GENERATOR_INDEX__SIGNATURE_PAYLOAD, hash::poseidon2_hash_with_separator,
+    traits::{Hash, Serialize}
+};
 
 use crate::entrypoint::function_call::{FunctionCall, FUNCTION_CALL_SIZE_IN_BYTES};
 
@@ -19,24 +22,21 @@ struct AppPayload {
 // docs:end:app-payload-struct
 
 impl Serialize<APP_PAYLOAD_SIZE> for AppPayload {
-  // Serializes the entrypoint struct
-  fn serialize(self) -> [Field; APP_PAYLOAD_SIZE] {
-    let mut fields: BoundedVec<Field, APP_PAYLOAD_SIZE> = BoundedVec::new();
-    for call in self.function_calls {
-      fields.extend_from_array(call.serialize());
+    // Serializes the entrypoint struct
+    fn serialize(self) -> [Field; APP_PAYLOAD_SIZE] {
+        let mut fields: BoundedVec<Field, APP_PAYLOAD_SIZE> = BoundedVec::new();
+        for call in self.function_calls {
+            fields.extend_from_array(call.serialize());
+        }
+        fields.push(self.nonce);
+        fields.storage
     }
-    fields.push(self.nonce);
-    fields.storage
-  }
 }
 
 impl Hash for AppPayload {
-  fn hash(self) -> Field {
-    pedersen_hash(
-      self.serialize(),
-      GENERATOR_INDEX__SIGNATURE_PAYLOAD
-    )
-  }
+    fn hash(self) -> Field {
+        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__SIGNATURE_PAYLOAD)
+    }
 }
 
 impl AppPayload {
@@ -47,7 +47,7 @@ impl AppPayload {
         for i in 0..ACCOUNT_MAX_CALLS {
             bytes.extend_from_array(self.function_calls[i].to_be_bytes());
         }
-        bytes.extend_from_slice(self.nonce.to_be_bytes(32));
+        bytes.extend_from_array(self.nonce.to_be_bytes::<32>());
 
         bytes.storage
     }

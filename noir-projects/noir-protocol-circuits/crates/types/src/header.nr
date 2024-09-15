@@ -1,11 +1,15 @@
 use crate::{
     abis::{
     append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
-    global_variables::{GlobalVariables, GLOBAL_VARIABLES_LENGTH}
+    global_variables::GlobalVariables
 },
-    constants::{GENERATOR_INDEX__BLOCK_HASH, HEADER_LENGTH, STATE_REFERENCE_LENGTH, CONTENT_COMMITMENT_LENGTH},
-    hash::pedersen_hash, state_reference::StateReference, traits::{Deserialize, Empty, Hash, Serialize},
-    utils::arr_copy_slice, content_commitment::ContentCommitment
+    constants::{
+    GENERATOR_INDEX__BLOCK_HASH, GLOBAL_VARIABLES_LENGTH, HEADER_LENGTH, STATE_REFERENCE_LENGTH,
+    CONTENT_COMMITMENT_LENGTH
+},
+    hash::poseidon2_hash_with_separator, state_reference::StateReference,
+    traits::{Deserialize, Empty, Hash, Serialize}, utils::arr_copy_slice,
+    content_commitment::ContentCommitment
 };
 
 // docs:start:header
@@ -20,11 +24,11 @@ struct Header {
 
 impl Eq for Header {
     fn eq(self, other: Self) -> bool {
-        self.last_archive.eq(other.last_archive) &
-        self.content_commitment.eq(other.content_commitment) &
-        self.state.eq(other.state) &
-        self.global_variables.eq(other.global_variables) &
-        self.total_fees.eq(other.total_fees)
+        self.last_archive.eq(other.last_archive)
+            & self.content_commitment.eq(other.content_commitment)
+            & self.state.eq(other.state)
+            & self.global_variables.eq(other.global_variables)
+            & self.total_fees.eq(other.total_fees)
     }
 }
 
@@ -84,7 +88,7 @@ impl Empty for Header {
 
 impl Hash for Header {
     fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__BLOCK_HASH)
+        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__BLOCK_HASH)
     }
 }
 
@@ -108,6 +112,6 @@ fn empty_hash_is_zero() {
     let hash = header.hash();
 
     // Value from new_contract_data.test.ts "computes empty hash" test
-    let test_data_empty_hash = 0x124e8c40a6eca2e3ad10c04050b01a3fad00df3cea47b13592c7571b6914c7a7;
+    let test_data_empty_hash = 0x1c97ed6fbc35f8b400d31bd38ce5cc938921e0cf2e20159d316f8c7011f9f42c;
     assert_eq(hash, test_data_empty_hash);
 }

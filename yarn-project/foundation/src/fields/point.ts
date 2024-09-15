@@ -226,6 +226,13 @@ export class Point {
     /* eslint-enable camelcase */
   }
 
+  // Used for IvpkM, OvpkM, NpkM and TpkM. TODO(#8124): Consider removing this method.
+  toWrappedNoirStruct() {
+    /* eslint-disable camelcase */
+    return { inner: this.toNoirStruct() };
+    /* eslint-enable camelcase */
+  }
+
   /**
    * Check if two Point instances are equal by comparing their buffer values.
    * Returns true if the buffer values are the same, and false otherwise.
@@ -265,19 +272,6 @@ export class Point {
     const rhs = this.x.square().mul(this.x).sub(A);
     return lhs.equals(rhs);
   }
-}
-
-/**
- * Does this object look like a point?
- * @param obj - Object to test if it is a point.
- * @returns Whether it looks like a point.
- */
-export function isPoint(obj: object): obj is Point {
-  if (!obj) {
-    return false;
-  }
-  const point = obj as Point;
-  return point.kind === 'point' && point.x !== undefined && point.y !== undefined;
 }
 
 export class NotOnCurveError extends Error {

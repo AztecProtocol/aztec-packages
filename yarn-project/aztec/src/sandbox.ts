@@ -1,9 +1,9 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { SignerlessWallet } from '@aztec/aztec.js';
+import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
-import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, deployCanonicalL2GasToken } from '@aztec/cli/utils';
+import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, deployCanonicalL2FeeJuice } from '@aztec/cli/misc';
 import {
   type DeployL1Contracts,
   type L1ContractArtifactsForDeployment,
@@ -14,10 +14,8 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import {
-  AvailabilityOracleAbi,
-  AvailabilityOracleBytecode,
-  GasPortalAbi,
-  GasPortalBytecode,
+  FeeJuicePortalAbi,
+  FeeJuicePortalBytecode,
   InboxAbi,
   InboxBytecode,
   OutboxAbi,
@@ -30,16 +28,19 @@ import {
   RollupBytecode,
 } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { GasTokenAddress } from '@aztec/protocol-contracts/gas-token';
+import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
 import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import {
+  createAndStartTelemetryClient,
+  getConfigEnvVars as getTelemetryClientConfig,
+} from '@aztec/telemetry-client/start';
 
 import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-export const { MNEMONIC = 'test test test test test test test test test test test junk' } = process.env;
+export const defaultMnemonic = 'test test test test test test test test test test test junk';
 
 const logger = createDebugLogger('aztec:sandbox');
 
@@ -49,7 +50,7 @@ const localAnvil = foundry;
  * Helper function that waits for the Ethereum RPC server to respond before deploying L1 contracts.
  */
 async function waitThenDeploy(config: AztecNodeConfig, deployFunction: () => Promise<DeployL1Contracts>) {
-  const chain = createEthereumChain(config.rpcUrl, config.l1ChainId);
+  const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
   // wait for ETH RPC to respond to a request.
   const publicClient = createPublicClient({
     chain: chain.chainInfo,
@@ -87,6 +88,7 @@ export async function deployContractsToL1(
   aztecNodeConfig: AztecNodeConfig,
   hdAccount: HDAccount | PrivateKeyAccount,
   contractDeployLogger = logger,
+  opts: { assumeProvenUntilBlockNumber?: number; salt?: number } = {},
 ) {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     registry: {
@@ -101,28 +103,30 @@ export async function deployContractsToL1(
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
     },
-    availabilityOracle: {
-      contractAbi: AvailabilityOracleAbi,
-      contractBytecode: AvailabilityOracleBytecode,
-    },
     rollup: {
       contractAbi: RollupAbi,
       contractBytecode: RollupBytecode,
     },
-    gasToken: {
+    feeJuice: {
       contractAbi: PortalERC20Abi,
       contractBytecode: PortalERC20Bytecode,
     },
-    gasPortal: {
-      contractAbi: GasPortalAbi,
-      contractBytecode: GasPortalBytecode,
+    feeJuicePortal: {
+      contractAbi: FeeJuicePortalAbi,
+      contractBytecode: FeeJuicePortalBytecode,
     },
   };
 
+  const chain = aztecNodeConfig.l1RpcUrl
+    ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
+    : { chainInfo: localAnvil };
+
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
-    deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, contractDeployLogger, l1Artifacts, {
-      l2GasTokenAddress: GasTokenAddress,
+    deployL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, chain.chainInfo, contractDeployLogger, l1Artifacts, {
+      l2FeeJuiceAddress: FeeJuiceAddress,
       vkTreeRoot: getVKTreeRoot(),
+      assumeProvenUntil: opts.assumeProvenUntilBlockNumber,
+      salt: opts.salt,
     }),
   );
 
@@ -146,17 +150,39 @@ export type SandboxConfig = AztecNodeConfig & {
  */
 export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const hdAccount = mnemonicToAccount(config.l1Mnemonic ?? MNEMONIC);
-  if (aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
+  const hdAccount = mnemonicToAccount(config.l1Mnemonic || defaultMnemonic);
+  if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
-
-  if (!aztecNodeConfig.p2pEnabled) {
-    await deployContractsToL1(aztecNodeConfig, hdAccount);
+  if (!aztecNodeConfig.validatorPrivateKey || aztecNodeConfig.validatorPrivateKey === NULL_KEY) {
+    const privKey = hdAccount.getHdKey().privateKey;
+    aztecNodeConfig.validatorPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
 
-  const node = await createAztecNode(new NoopTelemetryClient(), aztecNodeConfig);
+  let watcher: AnvilTestWatcher | undefined = undefined;
+  if (!aztecNodeConfig.p2pEnabled) {
+    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount);
+
+    const chain = aztecNodeConfig.l1RpcUrl
+      ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
+      : { chainInfo: localAnvil };
+
+    const publicClient = createPublicClient({
+      chain: chain.chainInfo,
+      transport: httpViemTransport(aztecNodeConfig.l1RpcUrl),
+    });
+
+    watcher = new AnvilTestWatcher(
+      new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
+      l1ContractAddresses.rollupAddress,
+      publicClient,
+    );
+    await watcher.start();
+  }
+
+  const client = await createAndStartTelemetryClient(getTelemetryClientConfig());
+  const node = await createAztecNode(aztecNodeConfig, client);
   const pxe = await createAztecPXE(node);
 
   await deployCanonicalKeyRegistry(
@@ -167,15 +193,16 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   );
 
   if (config.enableGas) {
-    await deployCanonicalL2GasToken(
+    await deployCanonicalL2FeeJuice(
       new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
-      aztecNodeConfig.l1Contracts.gasPortalAddress,
+      aztecNodeConfig.l1Contracts.feeJuicePortalAddress,
     );
   }
 
   const stop = async () => {
     await pxe.stop();
     await node.stop();
+    await watcher?.stop();
   };
 
   return { node, pxe, aztecNodeConfig, stop };
@@ -185,7 +212,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
  * Create and start a new Aztec RPC HTTP Server
  * @param config - Optional Aztec node settings.
  */
-export async function createAztecNode(telemetryClient: TelemetryClient, config: Partial<AztecNodeConfig> = {}) {
+export async function createAztecNode(config: Partial<AztecNodeConfig> = {}, telemetryClient?: TelemetryClient) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const node = await AztecNodeService.createAndSync(aztecNodeConfig, telemetryClient);
   return node;

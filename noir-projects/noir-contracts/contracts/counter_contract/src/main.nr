@@ -1,7 +1,7 @@
 contract Counter {
     // docs:start:imports
     use dep::aztec::prelude::{AztecAddress, Map};
-    use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
+    use dep::value_note::{balance_utils, value_note::ValueNote};
     use dep::easy_private_state::EasyPrivateUint;
     // docs:end:imports
 
@@ -55,7 +55,7 @@ contract Counter {
         let initial_value: Field = 5;
         env.impersonate(owner);
 
-        // Deploy contract and initialize 
+        // Deploy contract and initialize
         let initializer = Counter::interface().initialize(initial_value as u64, owner, outgoing_viewer);
         let counter_contract = env.deploy_self("Counter").with_private_initializer(initializer);
         let contract_address = counter_contract.to_address();

@@ -8,32 +8,15 @@ use crate::components::private_call_data_validator::{
 use dep::types::{
     abis::{
     call_context::CallContext, kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    log_hash::NoteLogHash, note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
-    private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths},
+    note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
+    private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
     private_kernel::private_call_data::PrivateCallData, side_effect::{Ordered, RangeOrdered}
 },
     address::{AztecAddress, PartialAddress}, contract_class_id::ContractClassId,
     constants::MAX_FIELD_VALUE,
     hash::{private_functions_root_from_siblings, stdlib_recursion_verification_key_compress_native_vk},
-    traits::is_empty, transaction::tx_request::TxRequest, utils::arrays::find_index
+    transaction::tx_request::TxRequest, utils::arrays::find_index_hint
 };
-
-unconstrained fn match_log_to_note<N>(
-    note_log: NoteLogHash,
-    accumulated_note_hashes: [ScopedNoteHash; N]
-) -> u32 {
-    find_index(
-        accumulated_note_hashes,
-        |n: ScopedNoteHash| n.counter() == note_log.note_hash_counter
-    )
-}
-
-unconstrained fn find_first_revertible_private_call_request_index(public_inputs: PrivateCircuitPublicInputs) -> u32 {
-    find_first_revertible_item_index(
-        public_inputs.min_revertible_side_effect_counter,
-        public_inputs.private_call_requests
-    )
-}
 
 fn validate_call_context(
     target_contract: AztecAddress,
@@ -60,7 +43,12 @@ fn validate_call_context(
     }
 }
 
-fn validate_incrementing_counters_within_range<T, N>(counter_start: u32, counter_end: u32, items: [T; N], num_items: u32) where T: Ordered {
+fn validate_incrementing_counters_within_range<T, let N: u32>(
+    counter_start: u32,
+    counter_end: u32,
+    items: [T; N],
+    num_items: u32
+) where T: Ordered {
     let mut prev_counter = counter_start;
     let mut should_check = true;
     for i in 0..N {
@@ -76,12 +64,7 @@ fn validate_incrementing_counters_within_range<T, N>(counter_start: u32, counter
     assert(prev_counter < counter_end, "counter must be smaller than the end counter of the call");
 }
 
-fn validate_incrementing_counter_ranges_within_range<T, N>(
-    counter_start: u32,
-    counter_end: u32,
-    items: [T; N],
-    num_items: u32
-) where T: RangeOrdered {
+fn validate_incrementing_counter_ranges_within_range<T, let N: u32>(counter_start: u32, counter_end: u32, items: [T; N], num_items: u32) where T: RangeOrdered {
     let mut prev_counter = counter_start;
     let mut should_check = true;
     for i in 0..N {
@@ -111,7 +94,7 @@ impl PrivateCallDataValidator {
         PrivateCallDataValidator { data, array_lengths }
     }
 
-    pub fn validate<N>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
+    pub fn validate<let N: u32>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
         self.validate_contract_address();
         self.validate_call();
         self.validate_private_call_requests();
@@ -138,7 +121,7 @@ impl PrivateCallDataValidator {
             tx_request.origin, call_stack_item.contract_address, "origin address does not match call stack items contract address"
         );
         assert_eq(
-            tx_request.function_data.hash(), call_stack_item.function_data.hash(), "tx_request function_data must match call_stack_item function_data"
+            tx_request.function_data, call_stack_item.function_data, "tx_request function_data must match call_stack_item function_data"
         );
         assert_eq(
             tx_request.args_hash, call_stack_item.public_inputs.args_hash, "noir function args passed to tx_request must match args in the call_stack_item"
@@ -271,15 +254,20 @@ impl PrivateCallDataValidator {
 
         // Check that the min_revertible_side_effect_counter does not fall in the middle of any nested calls.
         // If it is possible, one can create a custom account contract, set the min_revertible_side_effect_counter to a
-        // value that falls in a transfer function, make the tx revert which then preserves the note hashes and discards 
+        // value that falls in a transfer function, make the tx revert which then preserves the note hashes and discards
         // the nullifiers.
-        // 
+        //
         // We don't have to use the aggregated min_revertible_side_effect_counter in the output for the below check.
         // If the current call's min_revertible_side_effect_counter is 0, it means the counter might be set by another
-        // function. This check for that function guarantees that the counter won't fall into one of its nested calls. 
+        // function. This check for that function guarantees that the counter won't fall into one of its nested calls.
         // In this case, we can simply use 0 and make the following check pass.
         let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        let first_revertible_index = find_first_revertible_private_call_request_index(public_inputs);
+        let first_revertible_index = unsafe {
+            find_first_revertible_item_index(
+                public_inputs.min_revertible_side_effect_counter,
+                public_inputs.private_call_requests
+            )
+        };
         validate_split_ranges(
             min_revertible_side_effect_counter,
             first_revertible_index,
@@ -394,7 +382,7 @@ impl PrivateCallDataValidator {
         );
     }
 
-    fn validate_note_logs<N>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
+    fn validate_note_logs<let N: u32>(self, accumulated_note_hashes: [ScopedNoteHash; N]) {
         let note_logs = self.data.call_stack_item.public_inputs.note_encrypted_logs_hashes;
         let num_logs = self.array_lengths.note_encrypted_logs_hashes;
         let storage_contract_address = self.data.call_stack_item.public_inputs.call_context.storage_contract_address;
@@ -402,10 +390,16 @@ impl PrivateCallDataValidator {
         for i in 0..note_logs.len() {
             should_check &= i != num_logs;
             if should_check {
-                let note_index = match_log_to_note(note_logs[i], accumulated_note_hashes);
+                let note_log = note_logs[i];
+                let note_index = unsafe {
+                    find_index_hint(
+                        accumulated_note_hashes,
+                        |n: ScopedNoteHash| n.counter() == note_log.note_hash_counter
+                    )
+                };
                 assert(note_index != N, "could not find note hash linked to note log");
                 assert_eq(
-                    note_logs[i].note_hash_counter, accumulated_note_hashes[note_index].counter(), "could not find note hash linked to note log"
+                    note_log.note_hash_counter, accumulated_note_hashes[note_index].counter(), "could not find note hash linked to note log"
                 );
                 // If the note_index points to an empty note hash, the following check will fail.
                 assert_eq(

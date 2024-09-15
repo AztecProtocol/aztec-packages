@@ -1,11 +1,8 @@
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 contract StatefulTest {
-    use dep::aztec::prelude::{PrivateContext, NoteHeader, Map, PublicMutable, PrivateSet, AztecAddress, FunctionSelector};
-    use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::{VALUE_NOTE_LEN, ValueNote}};
-    use dep::aztec::{
-        deploy::deploy_contract as aztec_deploy_contract, context::{PublicContext, gas::GasOpts},
-        oracle::get_contract_instance::get_contract_instance, initializer::assert_is_initialized_private
-    };
+    use dep::aztec::prelude::{Map, PublicMutable, PrivateSet, AztecAddress, FunctionSelector};
+    use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
+    use dep::aztec::{initializer::assert_is_initialized_private};
 
     #[aztec(storage)]
     struct Storage {
@@ -91,8 +88,10 @@ contract StatefulTest {
     unconstrained fn summed_values(owner: AztecAddress) -> pub Field {
         let owner_balance = storage.notes.at(owner);
 
+        // docs:start:get_balance
         // Return the sum of all notes in the set.
         balance_utils::get_balance(owner_balance)
+        // docs:end:get_balance
     }
 
     #[aztec(public)]

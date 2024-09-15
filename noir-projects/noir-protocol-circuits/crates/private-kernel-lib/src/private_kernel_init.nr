@@ -31,7 +31,9 @@ impl PrivateKernelInitCircuitPrivateInputs {
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
         // Generate output.
-        let output = self.generate_output();
+        let output = unsafe {
+            self.generate_output()
+        };
 
         // Validate inputs.
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
@@ -40,7 +42,7 @@ impl PrivateKernelInitCircuitPrivateInputs {
         private_call_data_validator.validate(output.end.note_hashes);
 
         // Validate output.
-        if !std::runtime::is_unconstrained() {
+        if dep::types::validate::should_validate_output() {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
                 self.tx_request,
                 self.private_call.call_stack_item.public_inputs,
@@ -56,7 +58,7 @@ mod tests {
     use crate::private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
     use dep::types::{
         abis::{kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs},
-        tests::{fixture_builder::FixtureBuilder, fixtures, utils::assert_array_eq},
+        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
         transaction::tx_request::TxRequest
     };
 

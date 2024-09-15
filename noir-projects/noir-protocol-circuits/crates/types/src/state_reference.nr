@@ -1,7 +1,7 @@
 use crate::{
     abis::append_only_tree_snapshot::{AppendOnlyTreeSnapshot, APPEND_ONLY_TREE_SNAPSHOT_LENGTH},
     constants::{PARTIAL_STATE_REFERENCE_LENGTH, STATE_REFERENCE_LENGTH},
-    partial_state_reference::PartialStateReference, traits::{Deserialize, Empty, Hash, Serialize},
+    partial_state_reference::PartialStateReference, traits::{Deserialize, Empty, Serialize},
     utils::arr_copy_slice
 };
 
@@ -12,8 +12,7 @@ struct StateReference {
 
 impl Eq for StateReference {
     fn eq(self, other: StateReference) -> bool {
-        self.l1_to_l2_message_tree.eq(other.l1_to_l2_message_tree) &
-        self.partial.eq(other.partial)
+        self.l1_to_l2_message_tree.eq(other.l1_to_l2_message_tree) & self.partial.eq(other.partial)
     }
 }
 
@@ -39,17 +38,14 @@ impl Deserialize<STATE_REFERENCE_LENGTH> for StateReference {
 
         StateReference {
             l1_to_l2_message_tree: AppendOnlyTreeSnapshot::deserialize(l1_to_l2_message_tree_fields),
-            partial: PartialStateReference::deserialize(partial_fields),
+            partial: PartialStateReference::deserialize(partial_fields)
         }
     }
 }
 
 impl Empty for StateReference {
     fn empty() -> Self {
-        Self {
-            l1_to_l2_message_tree: AppendOnlyTreeSnapshot::zero(),
-            partial: PartialStateReference::empty(),
-        }
+        Self { l1_to_l2_message_tree: AppendOnlyTreeSnapshot::zero(), partial: PartialStateReference::empty() }
     }
 }
 

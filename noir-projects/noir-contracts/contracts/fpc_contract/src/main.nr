@@ -2,24 +2,21 @@ mod lib;
 
 contract FPC {
     use dep::aztec::{
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::is_empty},
-        state_vars::SharedImmutable, context::gas::GasOpts
+        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
+        state_vars::SharedImmutable
     };
     use dep::token::Token;
-    use dep::gas_token::GasToken;
     use crate::lib::compute_rebate;
 
     #[aztec(storage)]
     struct Storage {
         other_asset: SharedImmutable<AztecAddress>,
-        gas_token_address: SharedImmutable<AztecAddress>,
     }
 
     #[aztec(public)]
     #[aztec(initializer)]
-    fn constructor(other_asset: AztecAddress, gas_token_address: AztecAddress) {
+    fn constructor(other_asset: AztecAddress) {
         storage.other_asset.initialize(other_asset);
-        storage.gas_token_address.initialize(gas_token_address);
     }
 
     #[aztec(private)]
@@ -31,7 +28,9 @@ contract FPC {
         // FPC::at(context.this_address()).pay_refund_with_shielded_rebate(amount, asset, secret_hash).set_public_teardown_function(&mut context);
         context.set_public_teardown_function(
             context.this_address(),
-            FunctionSelector::from_signature("pay_refund_with_shielded_rebate(Field,(Field),Field)"),
+            comptime {
+            FunctionSelector::from_signature("pay_refund_with_shielded_rebate(Field,(Field),Field)")
+        },
             [amount, asset.to_field(), secret_hash]
         );
     }
@@ -44,7 +43,9 @@ contract FPC {
         // FPC::at(context.this_address()).pay_refund(context.msg_sender(), amount, asset).set_public_teardown_function(&mut context);
         context.set_public_teardown_function(
             context.this_address(),
-            FunctionSelector::from_signature("pay_refund((Field),Field,(Field))"),
+            comptime {
+            FunctionSelector::from_signature("pay_refund((Field),Field,(Field))")
+        },
             [context.msg_sender().to_field(), amount, asset.to_field()]
         );
     }

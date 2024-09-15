@@ -349,3 +349,25 @@ Stack trace (most recent call last):
          25:     blocks.arithmetic.q_2().emplace_back(in.b_scaling);
 gate number4
 ```
+
+
+### Improving LLDB Debugging
+
+It can be quite hard to make sense of field_t circuit values that indirectly reference their contents, and even plain field values that are typically in montgomery form.
+In command-line LLDB or VSCode debug console, run:
+
+```
+command script import ~/aztec-packages/barretenberg/cpp/scripts/lldb_format.py
+```
+
+Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect in VSCode (if you opened the debug console and put in these commands) then you will get pretty-printing of these types. This can be expanded fairly easily with more types if needed.
+
+
+### Using Tracy to Profile Memory/CPU
+
+See Tracy manual linked here https://github.com/wolfpld/tracy for in-depth Tracy documentation.
+
+The basic use of Tracy is to run a benchmark with the `cmake --preset tracy` build type, create a capture file, then
+transfer it to a local machine for interactive UI introspection.
+
+All the steps to do this effectively are included in cpp/scripts/benchmark_tracy.sh

@@ -56,13 +56,25 @@ pub struct CompileOptions {
     #[arg(long, value_parser = parse_expression_width)]
     pub expression_width: Option<ExpressionWidth>,
 
+    /// Generate ACIR with the target backend expression width.
+    /// The default is to generate ACIR without a bound and split expressions after code generation.
+    /// Activating this flag can sometimes provide optimizations for certain programs.
+    #[arg(long, default_value = "false")]
+    pub bounded_codegen: bool,
+
     /// Force a full recompilation.
     #[arg(long = "force")]
     pub force_compile: bool,
 
-    /// Emit debug information for the intermediate SSA IR
+    /// Emit debug information for the intermediate SSA IR to stdout
     #[arg(long, hide = true)]
     pub show_ssa: bool,
+
+    /// Emit the unoptimized SSA IR to file.
+    /// The IR will be dumped into the workspace target directory,
+    /// under `[compiled-package].ssa.json`.
+    #[arg(long, hide = true)]
+    pub emit_ssa: bool,
 
     #[arg(long, hide = true)]
     pub show_brillig: bool,
@@ -107,6 +119,12 @@ pub struct CompileOptions {
     /// Outputs the paths to any modified artifacts
     #[arg(long, hide = true)]
     pub show_artifact_paths: bool,
+
+    /// Flag to turn off the compiler check for under constrained values.
+    /// Warning: This can improve compilation speed but can also lead to correctness errors.
+    /// This check should always be run on production code.
+    #[arg(long)]
+    pub skip_underconstrained_check: bool,
 }
 
 pub fn parse_expression_width(input: &str) -> Result<ExpressionWidth, std::io::Error> {
@@ -194,23 +212,25 @@ fn add_debug_source_to_file_manager(file_manager: &mut FileManager) {
 
 /// Adds the file from the file system at `Path` to the crate graph as a root file
 ///
-/// Note: This methods adds the stdlib as a dependency to the crate.
-/// This assumes that the stdlib has already been added to the file manager.
+/// Note: If the stdlib dependency has not been added yet, it's added. Otherwise
+/// this method assumes the root crate is the stdlib (useful for running tests
+/// in the stdlib, getting LSP stuff for the stdlib, etc.).
 pub fn prepare_crate(context: &mut Context, file_name: &Path) -> CrateId {
     let path_to_std_lib_file = Path::new(STD_CRATE_NAME).join("lib.nr");
-    let std_file_id = context
-        .file_manager
-        .name_to_id(path_to_std_lib_file)
-        .expect("stdlib file id is expected to be present");
-    let std_crate_id = context.crate_graph.add_stdlib(std_file_id);
+    let std_file_id = context.file_manager.name_to_id(path_to_std_lib_file);
+    let std_crate_id = std_file_id.map(|std_file_id| context.crate_graph.add_stdlib(std_file_id));
 
     let root_file_id = context.file_manager.name_to_id(file_name.to_path_buf()).unwrap_or_else(|| panic!("files are expected to be added to the FileManager before reaching the compiler file_path: {file_name:?}"));
 
-    let root_crate_id = context.crate_graph.add_crate_root(root_file_id);
+    if let Some(std_crate_id) = std_crate_id {
+        let root_crate_id = context.crate_graph.add_crate_root(root_file_id);
 
-    add_dep(context, root_crate_id, std_crate_id, STD_CRATE_NAME.parse().unwrap());
+        add_dep(context, root_crate_id, std_crate_id, STD_CRATE_NAME.parse().unwrap());
 
-    root_crate_id
+        root_crate_id
+    } else {
+        context.crate_graph.add_crate_root_and_stdlib(root_file_id)
+    }
 }
 
 pub fn link_to_debug_crate(context: &mut Context, root_crate_id: CrateId) {
@@ -256,21 +276,26 @@ pub fn add_dep(
 pub fn check_crate(
     context: &mut Context,
     crate_id: CrateId,
-    deny_warnings: bool,
-    disable_macros: bool,
-    debug_comptime_in_file: Option<&str>,
+    options: &CompileOptions,
 ) -> CompilationResult<()> {
     let macros: &[&dyn MacroProcessor] =
-        if disable_macros { &[] } else { &[&aztec_macros::AztecMacro as &dyn MacroProcessor] };
+        if options.disable_macros { &[] } else { &[&aztec_macros::AztecMacro] };
 
     let mut errors = vec![];
-    let diagnostics = CrateDefMap::collect_defs(crate_id, context, debug_comptime_in_file, macros);
+    let error_on_unused_imports = true;
+    let diagnostics = CrateDefMap::collect_defs(
+        crate_id,
+        context,
+        options.debug_comptime_in_file.as_deref(),
+        error_on_unused_imports,
+        macros,
+    );
     errors.extend(diagnostics.into_iter().map(|(error, file_id)| {
         let diagnostic = CustomDiagnostic::from(&error);
         diagnostic.in_file(file_id)
     }));
 
-    if has_errors(&errors, deny_warnings) {
+    if has_errors(&errors, options.deny_warnings) {
         Err(errors)
     } else {
         Ok(((), errors))
@@ -296,13 +321,7 @@ pub fn compile_main(
     options: &CompileOptions,
     cached_program: Option<CompiledProgram>,
 ) -> CompilationResult<CompiledProgram> {
-    let (_, mut warnings) = check_crate(
-        context,
-        crate_id,
-        options.deny_warnings,
-        options.disable_macros,
-        options.debug_comptime_in_file.as_deref(),
-    )?;
+    let (_, mut warnings) = check_crate(context, crate_id, options)?;
 
     let main = context.get_main_function(&crate_id).ok_or_else(|| {
         // TODO(#2155): This error might be a better to exist in Nargo
@@ -337,13 +356,7 @@ pub fn compile_contract(
     crate_id: CrateId,
     options: &CompileOptions,
 ) -> CompilationResult<CompiledContract> {
-    let (_, warnings) = check_crate(
-        context,
-        crate_id,
-        options.deny_warnings,
-        options.disable_macros,
-        options.debug_comptime_in_file.as_deref(),
-    )?;
+    let (_, warnings) = check_crate(context, crate_id, options)?;
 
     // TODO: We probably want to error if contracts is empty
     let contracts = context.get_all_contracts(&crate_id);
@@ -436,9 +449,13 @@ fn compile_contract_inner(
             .attributes
             .secondary
             .iter()
-            .filter_map(
-                |attr| if let SecondaryAttribute::Custom(tag) = attr { Some(tag) } else { None },
-            )
+            .filter_map(|attr| {
+                if let SecondaryAttribute::Custom(attribute) = attr {
+                    Some(&attribute.contents)
+                } else {
+                    None
+                }
+            })
             .cloned()
             .collect();
 
@@ -450,6 +467,7 @@ fn compile_contract_inner(
             debug: function.debug,
             is_unconstrained: modifiers.is_unconstrained,
             names: function.names,
+            brillig_names: function.brillig_names,
         });
     }
 
@@ -512,6 +530,12 @@ fn compile_contract_inner(
     }
 }
 
+/// Default expression width used for Noir compilation.
+/// The ACVM native type `ExpressionWidth` has its own default which should always be unbounded,
+/// while we can sometimes expect the compilation target width to change.
+/// Thus, we set it separately here rather than trying to alter the default derivation of the type.
+pub const DEFAULT_EXPRESSION_WIDTH: ExpressionWidth = ExpressionWidth::Bounded { width: 4 };
+
 /// Compile the current crate using `main_function` as the entrypoint.
 ///
 /// This function assumes [`check_crate`] is called beforehand.
@@ -537,8 +561,12 @@ pub fn compile_no_check(
 
     // If user has specified that they want to see intermediate steps printed then we should
     // force compilation even if the program hasn't changed.
-    let force_compile =
-        force_compile || options.print_acir || options.show_brillig || options.show_ssa;
+    let force_compile = force_compile
+        || options.print_acir
+        || options.show_brillig
+        || options.force_brillig
+        || options.show_ssa
+        || options.emit_ssa;
 
     if !force_compile && hashes_match {
         info!("Program matches existing artifact, returning early");
@@ -550,9 +578,16 @@ pub fn compile_no_check(
         enable_brillig_logging: options.show_brillig,
         force_brillig_output: options.force_brillig,
         print_codegen_timings: options.benchmark_codegen,
+        expression_width: if options.bounded_codegen {
+            options.expression_width.unwrap_or(DEFAULT_EXPRESSION_WIDTH)
+        } else {
+            ExpressionWidth::default()
+        },
+        emit_ssa: if options.emit_ssa { Some(context.package_build_path.clone()) } else { None },
+        skip_underconstrained_check: options.skip_underconstrained_check,
     };
 
-    let SsaProgramArtifact { program, debug, warnings, names, error_types, .. } =
+    let SsaProgramArtifact { program, debug, warnings, names, brillig_names, error_types, .. } =
         create_program(program, &ssa_evaluator_options)?;
 
     let abi = abi_gen::gen_abi(context, &main_function, return_visibility, error_types);
@@ -567,5 +602,6 @@ pub fn compile_no_check(
         noir_version: NOIR_ARTIFACT_VERSION_STRING.to_string(),
         warnings,
         names,
+        brillig_names,
     })
 }

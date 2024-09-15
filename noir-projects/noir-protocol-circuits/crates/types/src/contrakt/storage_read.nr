@@ -1,34 +1,22 @@
-use crate::{
-    constants::{CONTRACT_STORAGE_READ_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_READ}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Empty, Serialize}
-};
+use crate::{constants::CONTRACT_STORAGE_READ_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
 struct StorageRead {
     storage_slot: Field,
     current_value: Field,
-    // TODO(dbanks12): use side effects properly in kernel checks
     counter: u32,
 }
 
 impl Eq for StorageRead {
     fn eq(self, other: Self) -> bool {
-        (self.storage_slot == other.storage_slot) & (self.current_value == other.current_value) & (self.current_value == other.current_value)
+        (self.storage_slot == other.storage_slot)
+            & (self.current_value == other.current_value)
+            & (self.current_value == other.current_value)
     }
 }
 
-impl Empty for StorageRead {   
+impl Empty for StorageRead {
     fn empty() -> Self {
-        Self {
-            storage_slot: 0,
-            current_value: 0,
-            counter: 0,
-        }
-    }
-}
-
-impl Hash for StorageRead {
-    fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_READ)
+        Self { storage_slot: 0, current_value: 0, counter: 0 }
     }
 }
 
@@ -40,11 +28,7 @@ impl Serialize<CONTRACT_STORAGE_READ_LENGTH> for StorageRead {
 
 impl Deserialize<CONTRACT_STORAGE_READ_LENGTH> for StorageRead {
     fn deserialize(serialized: [Field; CONTRACT_STORAGE_READ_LENGTH]) -> Self {
-        Self {
-            storage_slot: serialized[0],
-            current_value: serialized[1],
-            counter: serialized[2] as u32,
-        }
+        Self { storage_slot: serialized[0], current_value: serialized[1], counter: serialized[2] as u32 }
     }
 }
 

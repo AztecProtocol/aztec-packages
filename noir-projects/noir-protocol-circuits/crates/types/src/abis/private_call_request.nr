@@ -30,9 +30,9 @@ impl RangeOrdered for PrivateCallRequest {
 
 impl Eq for PrivateCallRequest {
     fn eq(self, other: PrivateCallRequest) -> bool {
-        (self.contract_address == other.contract_address) 
-            & (self.call_context == other.call_context) 
-            & (self.args_hash == other.args_hash) 
+        (self.contract_address == other.contract_address)
+            & (self.call_context == other.call_context)
+            & (self.args_hash == other.args_hash)
             & (self.returns_hash == other.returns_hash)
             & (self.start_side_effect_counter == other.start_side_effect_counter)
             & (self.end_side_effect_counter == other.end_side_effect_counter)
@@ -47,7 +47,7 @@ impl Empty for PrivateCallRequest {
             args_hash: 0,
             returns_hash: 0,
             start_side_effect_counter: 0,
-            end_side_effect_counter: 0,
+            end_side_effect_counter: 0
         }
     }
 }
@@ -78,7 +78,7 @@ impl Deserialize<PRIVATE_CALL_REQUEST_LENGTH> for PrivateCallRequest {
             args_hash: reader.read(),
             returns_hash: reader.read(),
             start_side_effect_counter: reader.read_u32(),
-            end_side_effect_counter: reader.read_u32(),
+            end_side_effect_counter: reader.read_u32()
         };
         reader.finish();
         item

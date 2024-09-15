@@ -1,8 +1,5 @@
 use dep::protocol_types::{address::AztecAddress, traits::Deserialize};
-use crate::oracle::{
-    execution::{get_chain_id, get_version, get_contract_address, get_block_number},
-    storage::{raw_storage_read, storage_read}
-};
+use crate::oracle::{execution::{get_chain_id, get_version, get_contract_address, get_block_number}, storage::storage_read};
 
 struct UnconstrainedContext {
     block_number: u32,
@@ -26,6 +23,12 @@ impl UnconstrainedContext {
 
     unconstrained fn at(contract_address: AztecAddress) -> Self {
         let block_number = get_block_number();
+        let chain_id = get_chain_id();
+        let version = get_version();
+        Self { block_number, contract_address, version, chain_id }
+    }
+
+    unconstrained fn at_historical(contract_address: AztecAddress, block_number: u32) -> Self {
         let chain_id = get_chain_id();
         let version = get_version();
         Self { block_number, contract_address, version, chain_id }

@@ -14,7 +14,6 @@ import {
 import {
   type AvmExecutionHints,
   AztecAddress,
-  ClientIvcProof,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
@@ -48,6 +47,7 @@ import {
   PublicKernelData,
   ReadRequest,
   RevertCode,
+  TreeLeafReadRequest,
   makeEmptyProof,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
@@ -361,7 +361,7 @@ export abstract class AbstractPhaseManager {
     const previousKernel = this.getPreviousKernelData(previousOutput, previousCircuit);
 
     // We take a deep copy (clone) of these inputs to be passed to the prover
-    const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, ClientIvcProof.empty(), callData);
+    const inputs = new PublicKernelCircuitPrivateInputs(previousKernel, callData);
     switch (this.phase) {
       case PublicKernelType.SETUP:
         return [inputs.clone(), await this.publicKernel.publicKernelCircuitSetup(inputs), 'PublicKernelSetupArtifact'];
@@ -413,7 +413,7 @@ export abstract class AbstractPhaseManager {
       returnsHash: computeVarArgsHash(result.returnValues),
       noteHashReadRequests: padArrayEnd(
         result.noteHashReadRequests,
-        ReadRequest.empty(),
+        TreeLeafReadRequest.empty(),
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
       ),
       nullifierReadRequests: padArrayEnd(
@@ -428,7 +428,7 @@ export abstract class AbstractPhaseManager {
       ),
       l1ToL2MsgReadRequests: padArrayEnd(
         result.l1ToL2MsgReadRequests,
-        ReadRequest.empty(),
+        TreeLeafReadRequest.empty(),
         MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
       ),
       contractStorageReads: padArrayEnd(

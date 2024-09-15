@@ -2,30 +2,32 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-
 import {DecoderBase} from "../decoders/Base.sol";
 
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
 import {SignatureLib} from "../../src/core/sequencer_selection/SignatureLib.sol";
+import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
 import {Inbox} from "../../src/core/messagebridge/Inbox.sol";
 import {Outbox} from "../../src/core/messagebridge/Outbox.sol";
 import {Errors} from "../../src/core/libraries/Errors.sol";
 import {Rollup} from "../../src/core/Rollup.sol";
-import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
+import {Leonidas} from "../../src/core/sequencer_selection/Leonidas.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {PortalERC20} from "../portals/PortalERC20.sol";
 import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
-
+import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
 /**
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
  */
+
 contract SpartaTest is DecoderBase {
+  using MessageHashUtils for bytes32;
+
   Registry internal registry;
   Inbox internal inbox;
   Outbox internal outbox;
@@ -34,57 +36,110 @@ contract SpartaTest is DecoderBase {
   TxsDecoderHelper internal txsHelper;
   PortalERC20 internal portalERC20;
 
-  AvailabilityOracle internal availabilityOracle;
-
   mapping(address validator => uint256 privateKey) internal privateKeys;
 
   SignatureLib.Signature internal emptySignature;
 
-  function setUp() public virtual {
-    registry = new Registry();
-    availabilityOracle = new AvailabilityOracle();
+  /**
+   * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
+   */
+  modifier setup(uint256 _validatorCount) {
+    string memory _name = "mixed_block_1";
+    {
+      Leonidas leonidas = new Leonidas(address(1));
+      DecoderBase.Full memory full = load(_name);
+      uint256 slotNumber = full.block.decodedHeader.globalVariables.slotNumber;
+      uint256 initialTime =
+        full.block.decodedHeader.globalVariables.timestamp - slotNumber * leonidas.SLOT_DURATION();
+      vm.warp(initialTime);
+    }
+
+    address[] memory initialValidators = new address[](_validatorCount);
+    for (uint256 i = 1; i < _validatorCount + 1; i++) {
+      uint256 privateKey = uint256(keccak256(abi.encode("validator", i)));
+      address validator = vm.addr(privateKey);
+      privateKeys[validator] = privateKey;
+      initialValidators[i - 1] = validator;
+    }
+
+    registry = new Registry(address(this));
     portalERC20 = new PortalERC20();
-    rollup = new Rollup(registry, availabilityOracle, IERC20(address(portalERC20)), bytes32(0));
+    rollup = new Rollup(
+      registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), initialValidators
+    );
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 
-    registry.upgrade(address(rollup), address(inbox), address(outbox));
-
-    // mint some tokens to the rollup
-    portalERC20.mint(address(rollup), 1000000);
+    registry.upgrade(address(rollup));
 
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
 
-    for (uint256 i = 1; i < 5; i++) {
-      uint256 privateKey = uint256(keccak256(abi.encode("validator", i)));
-      address validator = vm.addr(privateKey);
-      privateKeys[validator] = privateKey;
-      rollup.addValidator(validator);
+    _;
+  }
+
+  mapping(address => bool) internal _seenValidators;
+  mapping(address => bool) internal _seenCommittee;
+
+  function testInitialCommitteMatch() public setup(4) {
+    address[] memory validators = rollup.getValidators();
+    address[] memory committee = rollup.getCurrentEpochCommittee();
+    assertEq(rollup.getCurrentEpoch(), 0);
+    assertEq(validators.length, 4, "Invalid validator set size");
+    assertEq(committee.length, 4, "invalid committee set size");
+
+    for (uint256 i = 0; i < validators.length; i++) {
+      _seenValidators[validators[i]] = true;
+    }
+
+    for (uint256 i = 0; i < committee.length; i++) {
+      assertTrue(_seenValidators[committee[i]]);
+      assertFalse(_seenCommittee[committee[i]]);
+      _seenCommittee[committee[i]] = true;
     }
   }
 
-  function _testProposerForFutureEpoch() public {
-    // @todo Implement
+  function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
+    uint256 pre = rollup.getCurrentEpoch();
+    vm.warp(
+      block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_DURATION() * rollup.SLOT_DURATION()
+    );
+    uint256 post = rollup.getCurrentEpoch();
+    assertEq(pre + _epochsToJump, post, "Invalid epoch");
+
+    address expectedProposer = rollup.getCurrentProposer();
+
+    // Add a validator which will also setup the epoch
+    rollup.addValidator(address(0xdead));
+
+    address actualProposer = rollup.getCurrentProposer();
+    assertEq(expectedProposer, actualProposer, "Invalid proposer");
   }
 
-  function _testValidatorSetLargerThanCommittee() public {
-    // @todo Implement
+  function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
+    assertGt(rollup.getValidators().length, rollup.TARGET_COMMITTEE_SIZE(), "Not enough validators");
+    uint256 committeSize = rollup.TARGET_COMMITTEE_SIZE() * 2 / 3 + (_insufficientSigs ? 0 : 1);
+
+    _testBlock("mixed_block_1", _insufficientSigs, committeSize, false);
+
+    assertEq(
+      rollup.getEpochCommittee(rollup.getCurrentEpoch()).length,
+      rollup.TARGET_COMMITTEE_SIZE(),
+      "Invalid committee size"
+    );
   }
 
-  function testHappyPath() public {
-    _testBlock("mixed_block_0", 0, false); // We run a block before the epoch with validators
-    _testBlock("mixed_block_1", 3, false); // We need signatures!
+  function testHappyPath() public setup(4) {
+    _testBlock("mixed_block_1", false, 3, false);
+    _testBlock("mixed_block_2", false, 3, false);
   }
 
-  function testInvalidProposer() public {
-    _testBlock("mixed_block_0", 0, false); // We run a block before the epoch with validators
-    _testBlock("mixed_block_1", 3, true); // We need signatures!
+  function testInvalidProposer() public setup(4) {
+    _testBlock("mixed_block_1", true, 3, true);
   }
 
-  function testInsufficientSigs() public {
-    _testBlock("mixed_block_0", 0, false); // We run a block before the epoch with validators
-    _testBlock("mixed_block_1", 2, false); // We need signatures!
+  function testInsufficientSigs() public setup(4) {
+    _testBlock("mixed_block_1", true, 2, false);
   }
 
   struct StructToAvoidDeepStacks {
@@ -93,7 +148,12 @@ contract SpartaTest is DecoderBase {
     bool shouldRevert;
   }
 
-  function _testBlock(string memory _name, uint256 _signatureCount, bool _invalidaProposer) public {
+  function _testBlock(
+    string memory _name,
+    bool _expectRevert,
+    uint256 _signatureCount,
+    bool _invalidaProposer
+  ) internal {
     DecoderBase.Full memory full = load(_name);
     bytes memory header = full.block.header;
     bytes32 archive = full.block.archive;
@@ -106,13 +166,12 @@ contract SpartaTest is DecoderBase {
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
-    availabilityOracle.publish(body);
-
-    uint256 toConsume = inbox.toConsume();
     ree.proposer = rollup.getCurrentProposer();
     ree.shouldRevert = false;
 
     rollup.setupEpoch();
+
+    bytes32[] memory txHashes = new bytes32[](0);
 
     if (_signatureCount > 0 && ree.proposer != address(0)) {
       address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
@@ -120,20 +179,27 @@ contract SpartaTest is DecoderBase {
 
       SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](_signatureCount);
 
+      bytes32 digest = keccak256(abi.encode(archive, txHashes));
       for (uint256 i = 0; i < _signatureCount; i++) {
-        signatures[i] = createSignature(validators[i], archive);
+        signatures[i] = createSignature(validators[i], digest);
       }
 
-      if (_signatureCount < ree.needed) {
-        vm.expectRevert(
-          abi.encodeWithSelector(
-            Errors.Leonidas__InsufficientAttestations.selector, ree.needed, _signatureCount
-          )
-        );
+      if (_expectRevert) {
         ree.shouldRevert = true;
+        if (_signatureCount < ree.needed) {
+          vm.expectRevert(
+            abi.encodeWithSelector(
+              Errors.Leonidas__InsufficientAttestationsProvided.selector,
+              ree.needed,
+              _signatureCount
+            )
+          );
+        }
+        // @todo Handle SignatureLib__InvalidSignature case
+        // @todo Handle Leonidas__InsufficientAttestations case
       }
 
-      if (_invalidaProposer) {
+      if (_expectRevert && _invalidaProposer) {
         address realProposer = ree.proposer;
         ree.proposer = address(uint160(uint256(keccak256(abi.encode("invalid", ree.proposer)))));
         vm.expectRevert(
@@ -145,16 +211,18 @@ contract SpartaTest is DecoderBase {
       }
 
       vm.prank(ree.proposer);
-      rollup.process(header, archive, signatures);
+      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
-      rollup.process(header, archive);
+      SignatureLib.Signature[] memory signatures = new SignatureLib.Signature[](0);
+
+      rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
     }
 
-    assertEq(inbox.toConsume(), toConsume + 1, "Message subtree not consumed");
+    assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");
 
     bytes32 l2ToL1MessageTreeRoot;
     {
@@ -185,9 +253,14 @@ contract SpartaTest is DecoderBase {
       l2ToL1MessageTreeRoot = tree.computeRoot();
     }
 
-    (bytes32 root,) = outbox.roots(full.block.decodedHeader.globalVariables.blockNumber);
+    (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
 
-    assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
+    // If we are trying to read a block beyond the proven chain, we should see "nothing".
+    if (rollup.provenBlockCount() > full.block.decodedHeader.globalVariables.blockNumber) {
+      assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
+    } else {
+      assertEq(root, bytes32(0), "Invalid outbox root");
+    }
 
     assertEq(rollup.archive(), archive, "Invalid archive");
   }
@@ -201,17 +274,14 @@ contract SpartaTest is DecoderBase {
     }
   }
 
-  function max(uint256 a, uint256 b) internal pure returns (uint256) {
-    return a > b ? a : b;
-  }
-
   function createSignature(address _signer, bytes32 _digest)
     internal
     view
     returns (SignatureLib.Signature memory)
   {
     uint256 privateKey = privateKeys[_signer];
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _digest);
+    bytes32 digestForSig = _digest.toEthSignedMessageHash();
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digestForSig);
 
     return SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s});
   }

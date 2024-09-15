@@ -1,4 +1,4 @@
-import { type MerkleTreeOperations } from '../world-state-db/index.js';
+import { type MerkleTreeAdminOperations, type MerkleTreeOperations } from '../world-state-db/index.js';
 
 /**
  * Defines the possible states of the world state synchronizer.
@@ -53,21 +53,31 @@ export interface WorldStateSynchronizer {
   syncImmediate(minBlockNumber?: number): Promise<number>;
 
   /**
-   * Returns an instance of MerkleTreeOperations that will include uncommitted data.
-   * @returns An instance of MerkleTreeOperations that will include uncommitted data.
+   * Pauses the synchronizer, syncs to the target block number, forks world state, and resumes.
+   * @param targetBlockNumber - The block number to sync to.
+   * @param forkIncludeUncommitted - Whether to include uncommitted data in the fork.
+   * @returns The db forked at the requested target block number.
    */
-  getLatest(): MerkleTreeOperations;
+  syncImmediateAndFork(targetBlockNumber: number, forkIncludeUncommitted: boolean): Promise<MerkleTreeAdminOperations>;
 
   /**
-   * Returns an instance of MerkleTreeOperations that will not include uncommitted data.
-   * @returns An instance of MerkleTreeOperations that will not include uncommitted data.
+   * Forks the current in-memory state based off the current committed state, and returns an instance that cannot modify the underlying data store.
    */
-  getCommitted(): MerkleTreeOperations;
+  ephemeralFork(): Promise<MerkleTreeOperations>;
 
   /**
-   * Returns a readonly instance of MerkleTreeOperations where the state is as it was at the given block number
+   * Returns an instance of MerkleTreeAdminOperations that will include uncommitted data.
+   */
+  getLatest(): MerkleTreeAdminOperations;
+
+  /**
+   * Returns an instance of MerkleTreeAdminOperations that will not include uncommitted data.
+   */
+  getCommitted(): MerkleTreeAdminOperations;
+
+  /**
+   * Returns a readonly instance of MerkleTreeAdminOperations where the state is as it was at the given block number
    * @param block - The block number to look at
-   * @returns An instance of MerkleTreeOperations
    */
   getSnapshot(block: number): MerkleTreeOperations;
 }

@@ -1,11 +1,13 @@
-import { Body, InboxLeaf } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Header } from '@aztec/circuits.js';
+import { Body, InboxLeaf, L2Block, type ViemSignature } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, Header, Proof } from '@aztec/circuits.js';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
-import { AvailabilityOracleAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { type Hex, type Log, type PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
+
+import { type L1Published, type L1PublishedData } from './structs/published.js';
 
 /**
  * Processes newly received MessageSent (L1 to L2) logs.
@@ -24,76 +26,71 @@ export function processMessageSentLogs(
 }
 
 /**
- * Processes newly received L2BlockProcessed logs.
+ * Processes newly received L2BlockProposed logs.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param expectedL2BlockNumber - The next expected L2 block number.
- * @param logs - L2BlockProcessed logs.
- * @returns - An array of tuples representing block metadata including the header, archive tree snapshot.
+ * @param logs - L2BlockProposed logs.
+ * @returns - An array blocks.
  */
-export async function processL2BlockProcessedLogs(
+export async function processL2BlockProposedLogs(
   publicClient: PublicClient,
   expectedL2BlockNumber: bigint,
-  logs: Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[],
-): Promise<[Header, AppendOnlyTreeSnapshot][]> {
-  const retrievedBlockMetadata: [Header, AppendOnlyTreeSnapshot][] = [];
+  logs: Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProposed'>[],
+): Promise<L1Published<L2Block>[]> {
+  const retrievedBlocks: L1Published<L2Block>[] = [];
   for (const log of logs) {
     const blockNum = log.args.blockNumber;
     if (blockNum !== expectedL2BlockNumber) {
       throw new Error('Block number mismatch. Expected: ' + expectedL2BlockNumber + ' but got: ' + blockNum + '.');
     }
     // TODO: Fetch blocks from calldata in parallel
-    const [header, archive] = await getBlockMetadataFromRollupTx(
-      publicClient,
-      log.transactionHash!,
-      log.args.blockNumber,
-    );
+    const block = await getBlockFromRollupTx(publicClient, log.transactionHash!, log.args.blockNumber);
 
-    retrievedBlockMetadata.push([header, archive]);
+    const l1: L1PublishedData = {
+      blockNumber: log.blockNumber,
+      blockHash: log.blockHash,
+      timestamp: await getL1BlockTime(publicClient, log.blockNumber),
+    };
+
+    retrievedBlocks.push({ data: block, l1 });
     expectedL2BlockNumber++;
   }
 
-  return retrievedBlockMetadata;
+  return retrievedBlocks;
 }
 
-export async function processTxsPublishedLogs(
-  publicClient: PublicClient,
-  logs: Log<bigint, number, false, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>[],
-): Promise<[Body, Buffer][]> {
-  const retrievedBlockBodies: [Body, Buffer][] = [];
-  for (const log of logs) {
-    const newBlockBody = await getBlockBodiesFromAvailabilityOracleTx(publicClient, log.transactionHash!);
-    retrievedBlockBodies.push([newBlockBody, Buffer.from(hexToBytes(log.args.txsEffectsHash))]);
-  }
-
-  return retrievedBlockBodies;
+export async function getL1BlockTime(publicClient: PublicClient, blockNumber: bigint): Promise<bigint> {
+  const block = await publicClient.getBlock({ blockNumber, includeTransactions: false });
+  return block.timestamp;
 }
 
 /**
- * Gets block metadata (header and archive snapshot) from the calldata of an L1 transaction.
+ * Gets block from the calldata of an L1 transaction.
  * Assumes that the block was published from an EOA.
  * TODO: Add retries and error management.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param txHash - Hash of the tx that published it.
  * @param l2BlockNum - L2 block number.
- * @returns L2 block metadata (header and archive) from the calldata, deserialized
+ * @returns L2 block from the calldata, deserialized
  */
-async function getBlockMetadataFromRollupTx(
+async function getBlockFromRollupTx(
   publicClient: PublicClient,
   txHash: `0x${string}`,
   l2BlockNum: bigint,
-): Promise<[Header, AppendOnlyTreeSnapshot]> {
+): Promise<L2Block> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
   const { functionName, args } = decodeFunctionData({
     abi: RollupAbi,
     data,
   });
 
-  if (functionName !== 'process') {
+  if (!(functionName === 'propose')) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
-  const [headerHex, archiveRootHex] = args! as readonly [Hex, Hex];
+  const [headerHex, archiveRootHex, , , , bodyHex] = args! as readonly [Hex, Hex, Hex, Hex[], ViemSignature[], Hex];
 
   const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
+  const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
 
   const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
 
@@ -108,82 +105,28 @@ async function getBlockMetadataFromRollupTx(
     ]),
   );
 
-  return [header, archive];
+  return new L2Block(archive, header, blockBody);
 }
 
 /**
- * Gets block bodies from calldata of an L1 transaction, and deserializes them into Body objects.
- * Assumes that the block was published from an EOA.
- * TODO: Add retries and error management.
- * @param publicClient - The viem public client to use for transaction retrieval.
- * @param txHash - Hash of the tx that published it.
- * @returns An L2 block body from the calldata, deserialized
- */
-async function getBlockBodiesFromAvailabilityOracleTx(
-  publicClient: PublicClient,
-  txHash: `0x${string}`,
-): Promise<Body> {
-  const { input: data } = await publicClient.getTransaction({ hash: txHash });
-  const { functionName, args } = decodeFunctionData({
-    abi: AvailabilityOracleAbi,
-    data,
-  });
-
-  if (functionName !== 'publish') {
-    throw new Error(`Unexpected method called ${functionName}`);
-  }
-
-  const [bodyHex] = args! as [Hex];
-
-  const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
-
-  return blockBody;
-}
-
-/**
- * Gets relevant `L2BlockProcessed` logs from chain.
+ * Gets relevant `L2BlockProposed` logs from chain.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param rollupAddress - The address of the rollup contract.
  * @param fromBlock - First block to get logs from (inclusive).
  * @param toBlock - Last block to get logs from (inclusive).
- * @returns An array of `L2BlockProcessed` logs.
+ * @returns An array of `L2BlockProposed` logs.
  */
-export function getL2BlockProcessedLogs(
+export function getL2BlockProposedLogs(
   publicClient: PublicClient,
   rollupAddress: EthAddress,
   fromBlock: bigint,
   toBlock: bigint,
-): Promise<Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>[]> {
+): Promise<Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProposed'>[]> {
   return publicClient.getLogs({
     address: getAddress(rollupAddress.toString()),
     event: getAbiItem({
       abi: RollupAbi,
-      name: 'L2BlockProcessed',
-    }),
-    fromBlock,
-    toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
-  });
-}
-
-/**
- * Gets relevant `TxsPublished` logs from chain.
- * @param publicClient - The viem public client to use for transaction retrieval.
- * @param dataAvailabilityOracleAddress - The address of the availability oracle contract.
- * @param fromBlock - First block to get logs from (inclusive).
- * @param toBlock - Last block to get logs from (inclusive).
- * @returns An array of `TxsPublished` logs.
- */
-export function getTxsPublishedLogs(
-  publicClient: PublicClient,
-  dataAvailabilityOracleAddress: EthAddress,
-  fromBlock: bigint,
-  toBlock: bigint,
-): Promise<Log<bigint, number, false, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>[]> {
-  return publicClient.getLogs({
-    address: getAddress(dataAvailabilityOracleAddress.toString()),
-    event: getAbiItem({
-      abi: AvailabilityOracleAbi,
-      name: 'TxsPublished',
+      name: 'L2BlockProposed',
     }),
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
@@ -213,4 +156,58 @@ export function getMessageSentLogs(
     fromBlock,
     toBlock: toBlock + 1n, // the toBlock argument in getLogs is exclusive
   });
+}
+
+export type SubmitBlockProof = {
+  header: Header;
+  archiveRoot: Fr;
+  proverId: Fr;
+  aggregationObject: Buffer;
+  proof: Proof;
+};
+
+/**
+ * Gets block metadata (header and archive snapshot) from the calldata of an L1 transaction.
+ * Assumes that the block was published from an EOA.
+ * TODO: Add retries and error management.
+ * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param txHash - Hash of the tx that published it.
+ * @param l2BlockNum - L2 block number.
+ * @returns L2 block metadata (header and archive) from the calldata, deserialized
+ */
+export async function getBlockProofFromSubmitProofTx(
+  publicClient: PublicClient,
+  txHash: `0x${string}`,
+  l2BlockNum: bigint,
+  expectedProverId: Fr,
+): Promise<SubmitBlockProof> {
+  const { input: data } = await publicClient.getTransaction({ hash: txHash });
+  const { functionName, args } = decodeFunctionData({
+    abi: RollupAbi,
+    data,
+  });
+
+  if (!(functionName === 'submitBlockRootProof')) {
+    throw new Error(`Unexpected method called ${functionName}`);
+  }
+  const [headerHex, archiveHex, proverIdHex, aggregationObjectHex, proofHex] = args!;
+
+  const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
+  const proverId = Fr.fromString(proverIdHex);
+
+  const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
+  if (blockNumberFromHeader !== l2BlockNum) {
+    throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${blockNumberFromHeader}`);
+  }
+  if (!proverId.equals(expectedProverId)) {
+    throw new Error(`Prover ID mismatch: expected ${expectedProverId} but got ${proverId}`);
+  }
+
+  return {
+    header,
+    proverId,
+    aggregationObject: Buffer.from(hexToBytes(aggregationObjectHex)),
+    archiveRoot: Fr.fromString(archiveHex),
+    proof: Proof.fromBuffer(Buffer.from(hexToBytes(proofHex))),
+  };
 }

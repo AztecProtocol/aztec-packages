@@ -18,7 +18,7 @@ import {
   derivePublicKeyFromSecretKey,
 } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/hash';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { TestContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
@@ -50,9 +50,9 @@ describe('Key Registry', () => {
   afterAll(() => teardown());
 
   describe('using nsk_app to detect nullification', () => {
-    //    This test checks that it possible to detect that a note has been nullified just by using nsk_app. Note that
-    // this only works for non-transient notes as transient ones never emit a note hash which makes it impossible
-    // to brute force their nullifier.
+    //    This test checks that it is possible to detect that a note has been nullified just by using nsk_app. Note
+    // that this only works for non-transient notes as transient ones never emit a note hash which makes it
+    // impossible to brute force their nullifier.
     //    This might seem to make the scheme useless in practice. This could not be the case because if you have
     // a note of funds, when you create the transient you are nullifying that note. So even if I cannot see when you
     // nullified the transient ones, I can see that you nullified the first.
@@ -79,7 +79,7 @@ describe('Key Registry', () => {
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(0);
 
-      await testContract.methods.call_destroy_note(noteStorageSlot).send().wait();
+      await testContract.withWallet(account).methods.call_destroy_note(noteStorageSlot).send().wait();
 
       expect(await getNumNullifiedNotes(nskApp, testContract.address)).toEqual(1);
     });
@@ -96,7 +96,7 @@ describe('Key Registry', () => {
       );
       // 3. Derive all the possible nullifiers using nskApp
       const derivedNullifiers = noteHashes.map(noteHash => {
-        const innerNullifier = poseidon2Hash([noteHash, nskApp, GeneratorIndex.NOTE_NULLIFIER]);
+        const innerNullifier = poseidon2HashWithSeparator([noteHash, nskApp], GeneratorIndex.NOTE_NULLIFIER);
         return siloNullifier(contractAddress, innerNullifier);
       });
       // 4. Count the number of derived nullifiers that are in the nullifiers array

@@ -4,7 +4,6 @@ import "forge-std/Test.sol";
 
 // Rollup Processor
 import {Rollup} from "../../src/core/Rollup.sol";
-import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
 import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
@@ -14,7 +13,7 @@ import {Errors} from "../../src/core/libraries/Errors.sol";
 // Interfaces
 import {IInbox} from "../../src/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
 
 // Portal tokens
 import {TokenPortal} from "./TokenPortal.sol";
@@ -25,9 +24,9 @@ import {NaiveMerkle} from "../merkle/Naive.sol";
 contract TokenPortalTest is Test {
   using Hash for DataStructures.L1ToL2Msg;
 
-  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
-
   event MessageConsumed(bytes32 indexed messageHash, address indexed recipient);
+
+  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_L2_BLOCK_NUM + 1;
 
   Registry internal registry;
 
@@ -56,20 +55,24 @@ contract TokenPortalTest is Test {
   address internal recipient = address(0xdead);
   uint256 internal withdrawAmount = 654;
 
+  uint256 internal l2BlockNumber = 69;
+
   function setUp() public {
-    registry = new Registry();
+    registry = new Registry(address(this));
     portalERC20 = new PortalERC20();
     rollup =
-      new Rollup(registry, new AvailabilityOracle(), IERC20(address(portalERC20)), bytes32(0));
+      new Rollup(registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
 
-    registry.upgrade(address(rollup), address(inbox), address(outbox));
+    registry.upgrade(address(rollup));
 
-    portalERC20.mint(address(rollup), 1000000);
     tokenPortal = new TokenPortal();
-
     tokenPortal.initialize(address(registry), address(portalERC20), l2TokenAddress);
+
+    // Modify the proven block count
+    vm.store(address(rollup), bytes32(uint256(7)), bytes32(l2BlockNumber + 1));
+    assertEq(rollup.provenBlockCount(), l2BlockNumber + 1);
 
     vm.deal(address(this), 100 ether);
   }
@@ -203,7 +206,6 @@ contract TokenPortalTest is Test {
   function testAnyoneCanCallWithdrawIfNoDesignatedCaller(address _caller) public {
     vm.assume(_caller != address(0));
 
-    uint256 l2BlockNumber = 69;
     // add message with caller as this address
     (bytes32 l2ToL1Message, bytes32[] memory siblingPath, bytes32 treeRoot) =
       _addWithdrawMessageInOutbox(address(0), l2BlockNumber);
@@ -227,7 +229,6 @@ contract TokenPortalTest is Test {
 
   function testWithdrawWithDesignatedCallerFailsForOtherCallers(address _caller) public {
     vm.assume(_caller != address(this));
-    uint256 l2BlockNumber = 69;
     // add message with caller as this address
     (, bytes32[] memory siblingPath, bytes32 treeRoot) =
       _addWithdrawMessageInOutbox(address(this), l2BlockNumber);
@@ -252,7 +253,6 @@ contract TokenPortalTest is Test {
   }
 
   function testWithdrawWithDesignatedCallerSucceedsForDesignatedCaller() public {
-    uint256 l2BlockNumber = 69;
     // add message with caller as this address
     (bytes32 l2ToL1Message, bytes32[] memory siblingPath, bytes32 treeRoot) =
       _addWithdrawMessageInOutbox(address(this), l2BlockNumber);

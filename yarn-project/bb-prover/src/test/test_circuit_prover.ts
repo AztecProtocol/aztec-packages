@@ -1,5 +1,5 @@
 import {
-  type ProofAndVerificationKey,
+  type AvmProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
   type PublicKernelNonTailRequest,
   type PublicKernelTailRequest,
@@ -8,9 +8,13 @@ import {
 } from '@aztec/circuit-types';
 import {
   type AvmCircuitInputs,
+  AvmVerificationKeyData,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
+  type BlockMergeRollupInputs,
+  type BlockRootOrBlockMergePublicInputs,
+  type BlockRootRollupInputs,
   EmptyNestedData,
   type KernelCircuitPublicInputs,
   type MergeRollupInputs,
@@ -33,6 +37,7 @@ import {
   makeRecursiveProof,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import {
   ProtocolCircuitVkIndexes,
@@ -41,6 +46,10 @@ import {
   SimulatedServerCircuitArtifacts,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
+  convertBlockMergeRollupInputsToWitnessMap,
+  convertBlockMergeRollupOutputsFromWitnessMap,
+  convertBlockRootRollupInputsToWitnessMap,
+  convertBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
   convertPrivateKernelEmptyInputsToWitnessMap,
@@ -64,17 +73,18 @@ import { SimulatedPublicKernelArtifactMapping } from '../mappings/mappings.js';
 import { mapPublicKernelToCircuitName } from '../stats.js';
 
 /**
- * A class for use in testing situations (e2e, unit test etc)
- * Simulates circuits using the most efficient method and performs no proving
+ * A class for use in testing situations (e2e, unit test, etc) and temporarily for assembling a block in the sequencer.
+ * Simulates circuits using the most efficient method and performs no proving.
  */
 export class TestCircuitProver implements ServerCircuitProver {
   private wasmSimulator = new WASMSimulator();
   private instrumentation: ProverInstrumentation;
+  private logger = createDebugLogger('aztec:test-prover');
 
   constructor(
     telemetry: TelemetryClient,
     private simulationProvider?: SimulationProvider,
-    private logger = createDebugLogger('aztec:test-prover'),
+    private opts: { proverTestDelayMs: number } = { proverTestDelayMs: 0 },
   ) {
     this.instrumentation = new ProverInstrumentation(telemetry, 'TestCircuitProver');
   }
@@ -103,7 +113,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       SimulatedServerCircuitArtifacts.PrivateKernelEmptyArtifact,
     );
     const result = convertSimulatedPrivateKernelEmptyOutputsFromWitnessMap(witness);
-
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -131,7 +141,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       SimulatedServerCircuitArtifacts.PrivateKernelEmptyArtifact,
     );
     const result = convertPrivateKernelEmptyOutputsFromWitnessMap(witness);
-
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -172,7 +182,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
-
+    await this.delay();
     return Promise.resolve(rootParityInput);
   }
 
@@ -211,7 +221,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
-
+    await this.delay();
     return Promise.resolve(rootParityInput);
   }
 
@@ -243,6 +253,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -250,13 +261,14 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public getTubeProof(
+  public async getTubeProof(
     _tubeInput: TubeInputs,
   ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }> {
-    return Promise.resolve({
+    await this.delay();
+    return {
       tubeVK: VerificationKeyData.makeFake(),
       tubeProof: makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
-    });
+    };
   }
 
   /**
@@ -287,10 +299,81 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
       ProtocolCircuitVks['MergeRollupArtifact'],
+    );
+  }
+
+  /**
+   * Simulates the block root rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  @trackSpan('TestCircuitProver.getBlockRootRollupProof')
+  public async getBlockRootRollupProof(
+    input: BlockRootRollupInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    const timer = new Timer();
+    const witnessMap = convertBlockRootRollupInputsToWitnessMap(input);
+
+    // use WASM here as it is faster for small circuits
+    const witness = await this.wasmSimulator.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.BlockRootRollupArtifact,
+    );
+
+    const result = convertBlockRootRollupOutputsFromWitnessMap(witness);
+
+    this.instrumentation.recordDuration('simulationDuration', 'block-root-rollup', timer);
+    emitCircuitSimulationStats(
+      'block-root-rollup',
+      timer.ms(),
+      input.toBuffer().length,
+      result.toBuffer().length,
+      this.logger,
+    );
+    return makePublicInputsAndRecursiveProof(
+      result,
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      ProtocolCircuitVks['BlockRootRollupArtifact'],
+    );
+  }
+
+  /**
+   * Simulates the block merge rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  @trackSpan('TestCircuitProver.getBlockMergeRollupProof')
+  public async getBlockMergeRollupProof(
+    input: BlockMergeRollupInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    const timer = new Timer();
+    const witnessMap = convertBlockMergeRollupInputsToWitnessMap(input);
+
+    // use WASM here as it is faster for small circuits
+    const witness = await this.wasmSimulator.simulateCircuit(
+      witnessMap,
+      SimulatedServerCircuitArtifacts.BlockMergeRollupArtifact,
+    );
+
+    const result = convertBlockMergeRollupOutputsFromWitnessMap(witness);
+
+    this.instrumentation.recordDuration('simulationDuration', 'block-merge-rollup', timer);
+    emitCircuitSimulationStats(
+      'block-merge-rollup',
+      timer.ms(),
+      input.toBuffer().length,
+      result.toBuffer().length,
+      this.logger,
+    );
+    return makePublicInputsAndRecursiveProof(
+      result,
+      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      ProtocolCircuitVks['BlockMergeRollupArtifact'],
     );
   }
 
@@ -322,6 +405,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -355,7 +439,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
-
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -384,7 +468,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       result.toBuffer().length,
       this.logger,
     );
-
+    await this.delay();
     return makePublicInputsAndRecursiveProof(
       result,
       makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
@@ -392,11 +476,18 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  getAvmProof(_inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey> {
+  public async getAvmProof(_inputs: AvmCircuitInputs): Promise<AvmProofAndVerificationKey> {
     // We can't simulate the AVM because we don't have enough context to do so (e.g., DBs).
     // We just return an empty proof and VK data.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
-    return Promise.resolve({ proof: makeEmptyProof(), verificationKey: VerificationKeyData.makeFake() });
+    await this.delay();
+    return { proof: makeEmptyProof(), verificationKey: AvmVerificationKeyData.makeFake() };
+  }
+
+  private async delay(): Promise<void> {
+    if (this.opts.proverTestDelayMs > 0) {
+      await sleep(this.opts.proverTestDelayMs);
+    }
   }
 
   // Not implemented for test circuits

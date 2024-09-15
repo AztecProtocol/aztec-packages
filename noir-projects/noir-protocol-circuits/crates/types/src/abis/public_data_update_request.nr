@@ -1,11 +1,14 @@
-use crate::constants::{PUBLIC_DATA_UPDATE_REQUEST_LENGTH, GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST};
-use crate::traits::{Empty, Hash, Serialize, Deserialize};
-use crate::public_data_tree_leaf::PublicDataTreeLeaf;
-use crate::address::AztecAddress;
-use crate::contrakt::storage_update_request::StorageUpdateRequest;
-use crate::data::hash::{compute_public_data_tree_value, compute_public_data_tree_index};
-use crate::abis::side_effect::{Ordered, Positioned};
+use crate::{
+    abis::{side_effect::Ordered}, address::AztecAddress, constants::PUBLIC_DATA_UPDATE_REQUEST_LENGTH,
+    contrakt::storage_update_request::StorageUpdateRequest,
+    data::{
+    hash::{compute_public_data_tree_value, compute_public_data_tree_index},
+    public_data_tree_leaf::PublicDataTreeLeaf
+},
+    traits::{Empty, Serialize, Deserialize}
+};
 
+// TODO: Rename to PublicDataWrite
 struct PublicDataUpdateRequest {
     leaf_slot : Field,
     new_value : Field,
@@ -25,52 +28,28 @@ impl PublicDataUpdateRequest {
     }
 }
 
-impl Positioned for PublicDataUpdateRequest {
-    fn position(self) -> Field {
-        self.leaf_slot
-    }
-}
-
 impl Ordered for PublicDataUpdateRequest {
-    fn counter(self)-> u32{
+    fn counter(self) -> u32 {
         self.counter
     }
 }
 
 impl Eq for PublicDataUpdateRequest {
     fn eq(self, update_request: PublicDataUpdateRequest) -> bool {
-        (update_request.leaf_slot == self.leaf_slot)
-            & (update_request.new_value == self.new_value)
+        (update_request.leaf_slot == self.leaf_slot) & (update_request.new_value == self.new_value)
     }
 }
 
 impl Empty for PublicDataUpdateRequest {
     fn empty() -> Self {
-        Self {
-            leaf_slot : 0,
-            new_value : 0,
-            counter : 0
-        }
-    }
-}
-
-impl Hash for PublicDataUpdateRequest {
-    fn hash(self) -> Field {
-        std::hash::pedersen_hash_with_separator([
-            self.leaf_slot,
-            self.new_value
-        ], GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)
+        Self { leaf_slot: 0, new_value: 0, counter: 0 }
     }
 }
 
 impl From<PublicDataUpdateRequest> for PublicDataTreeLeaf {
     fn from(update_request: PublicDataUpdateRequest) -> PublicDataTreeLeaf {
-        PublicDataTreeLeaf {
-            slot: update_request.leaf_slot,
-            value: update_request.new_value
-        }
+        PublicDataTreeLeaf { slot: update_request.leaf_slot, value: update_request.new_value }
     }
-
 }
 
 impl PublicDataUpdateRequest {
@@ -80,19 +59,15 @@ impl PublicDataUpdateRequest {
 }
 
 impl Serialize<PUBLIC_DATA_UPDATE_REQUEST_LENGTH> for PublicDataUpdateRequest {
-  fn serialize(self) -> [Field; PUBLIC_DATA_UPDATE_REQUEST_LENGTH] {
-    [self.leaf_slot, self.new_value, self.counter as Field]
-  }
+    fn serialize(self) -> [Field; PUBLIC_DATA_UPDATE_REQUEST_LENGTH] {
+        [self.leaf_slot, self.new_value, self.counter as Field]
+    }
 }
 
 impl Deserialize<PUBLIC_DATA_UPDATE_REQUEST_LENGTH> for PublicDataUpdateRequest {
-  fn deserialize(fields: [Field; PUBLIC_DATA_UPDATE_REQUEST_LENGTH]) -> PublicDataUpdateRequest {
-    PublicDataUpdateRequest {
-      leaf_slot: fields[0],
-      new_value: fields[1],
-        counter: fields[2] as u32
+    fn deserialize(fields: [Field; PUBLIC_DATA_UPDATE_REQUEST_LENGTH]) -> PublicDataUpdateRequest {
+        PublicDataUpdateRequest { leaf_slot: fields[0], new_value: fields[1], counter: fields[2] as u32 }
     }
-  }
 }
 
 #[test]

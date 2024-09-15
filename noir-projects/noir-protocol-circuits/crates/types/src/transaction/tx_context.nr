@@ -1,6 +1,5 @@
 use crate::{
-    constants::{GENERATOR_INDEX__TX_CONTEXT, TX_CONTEXT_LENGTH}, hash::pedersen_hash,
-    traits::{Deserialize, Hash, Serialize, Empty}, utils::reader::Reader,
+    constants::TX_CONTEXT_LENGTH, traits::{Deserialize, Serialize, Empty}, utils::reader::Reader,
     abis::gas_settings::GasSettings
 };
 
@@ -20,19 +19,15 @@ impl TxContext {
 
 impl Eq for TxContext {
     fn eq(self, other: Self) -> bool {
-        (self.chain_id == other.chain_id) &
-        (self.version == other.version) &
-        (self.gas_settings.eq(other.gas_settings))
+        (self.chain_id == other.chain_id)
+            & (self.version == other.version)
+            & (self.gas_settings.eq(other.gas_settings))
     }
 }
 
 impl Empty for TxContext {
     fn empty() -> Self {
-        TxContext {
-            chain_id: 0,
-            version: 0,
-            gas_settings: GasSettings::empty(),
-        }
+        TxContext { chain_id: 0, version: 0, gas_settings: GasSettings::empty() }
     }
 }
 
@@ -58,17 +53,11 @@ impl Deserialize<TX_CONTEXT_LENGTH> for TxContext {
         let context = Self {
             chain_id: reader.read(),
             version: reader.read(),
-            gas_settings: reader.read_struct(GasSettings::deserialize),
+            gas_settings: reader.read_struct(GasSettings::deserialize)
         };
 
         reader.finish();
         context
-    }
-}
-
-impl Hash for TxContext {
-    fn hash(self) -> Field {
-        pedersen_hash(self.serialize(), GENERATOR_INDEX__TX_CONTEXT)
     }
 }
 
@@ -78,14 +67,4 @@ fn serialization_of_empty() {
     let serialized = context.serialize();
     let deserialized = TxContext::deserialize(serialized);
     assert(context.eq(deserialized));
-}
-
-#[test]
-fn empty_hash() {
-    let context = TxContext::empty();
-    let hash = context.hash();
-
-    // Value from tx_context.test.ts "computes empty item hash" test
-    let test_data_empty_hash = 0x17e4357684c5a4349b4587c95b0b6161dcb4a3c5b02d4eb2ecc3b02c80193261;
-    assert_eq(hash, test_data_empty_hash);
 }
