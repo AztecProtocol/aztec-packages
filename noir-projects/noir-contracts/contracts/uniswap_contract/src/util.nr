@@ -25,11 +25,11 @@ pub fn compute_swap_public_content_hash(
     let secret_hash_for_L1_to_l2_message_bytes: [u8; 32] = secret_hash_for_L1_to_l2_message.to_be_bytes();
     let caller_on_L1_bytes: [u8; 32] = caller_on_L1.to_field().to_be_bytes();
 
-    // function selector: 0xc9339214 poseidon2HashBytes("swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)")
-    hash_bytes[0] = 0xc9;
-    hash_bytes[1] = 0x33;
-    hash_bytes[2] = 0x92;
-    hash_bytes[3] = 0x14;
+    // function selector: 0xf18186d8 keccak256("swap_public(address,uint256,uint24,address,uint256,bytes32,bytes32,address)")
+    hash_bytes[0] = 0xf1;
+    hash_bytes[1] = 0x81;
+    hash_bytes[2] = 0x86;
+    hash_bytes[3] = 0xd8;
 
     for i in 0..32 {
         hash_bytes[i + 4] = input_token_portal_bytes[i];
@@ -71,11 +71,11 @@ pub fn compute_swap_private_content_hash(
     let secret_hash_for_L1_to_l2_message_bytes: [u8; 32] = secret_hash_for_L1_to_l2_message.to_be_bytes();
     let caller_on_L1_bytes: [u8; 32] = caller_on_L1.to_field().to_be_bytes();
 
-    // function selector: 0x8fe7f43b poseidon2HashBytes("swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address)")
-    hash_bytes[0] = 0x8f;
-    hash_bytes[1] = 0xe7;
-    hash_bytes[2] = 0xf4;
-    hash_bytes[3] = 0x3b;
+    // function selector: 0x16f416eb keccak256("swap_private(address,uint256,uint24,address,uint256,bytes32,bytes32,address)")
+    hash_bytes[0] = 0x16;
+    hash_bytes[1] = 0xf4;
+    hash_bytes[2] = 0x16;
+    hash_bytes[3] = 0xeb;
 
     for i in 0..32 {
         hash_bytes[i + 4] = input_token_portal_bytes[i];

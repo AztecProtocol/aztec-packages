@@ -428,7 +428,8 @@ pub fn update_fn_signatures_in_contract_interface(
     }
     Ok(())
 }
-fn poseidon2_hash_bytes(inputs: Vec<u8>) -> Vec<u8> {
+
+pub(crate) fn poseidon2_hash_bytes(inputs: Vec<u8>) -> Vec<u8> {
     let fields: Vec<_> = inputs
         .into_iter()
         .chunks(31)

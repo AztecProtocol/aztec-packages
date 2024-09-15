@@ -304,15 +304,7 @@ pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> [u8; 32] {
         sponge.absorb(field_from_bytes(current_field, false));
     }
 
-    let hashed_field = sponge.squeeze();
-
-    let mut result = [0; 32];
-    let hashed_field_bytes = hashed_field.to_le_bytes(32);
-
-    for i in 0..32 {
-        result[i] = hashed_field_bytes[i];
-    }
-    result
+    sponge.squeeze().to_le_bytes::<32>()
 }
 
 #[test]
