@@ -3,12 +3,8 @@ import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 describe('e2e_cross_chain_messaging token_bridge_public_to_private', () => {
   const t = new CrossChainMessagingTest('token_bridge_public_to_private');
 
-  let {
-    crossChainTestHarness,
-    ethAccount,
-    aztecNode,
-    ownerAddress,
-  } = t;
+  let { crossChainTestHarness, ethAccount, aztecNode, ownerAddress } = t;
+  let underlyingERC20: any;
 
   beforeEach(async () => {
     await t.applyBaseSnapshots();
@@ -19,6 +15,7 @@ describe('e2e_cross_chain_messaging token_bridge_public_to_private', () => {
     ethAccount = crossChainTestHarness.ethAccount;
     aztecNode = crossChainTestHarness.aztecNode;
     ownerAddress = crossChainTestHarness.ownerAddress;
+    underlyingERC20 = crossChainTestHarness.underlyingERC20;
   }, 300_000);
 
   afterEach(async () => {
@@ -36,7 +33,7 @@ describe('e2e_cross_chain_messaging token_bridge_public_to_private', () => {
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
     const msgHash = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount, secretHash);
-    expect(await crossChainTestHarness.underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(l1TokenBalance - bridgeAmount);
+    expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(l1TokenBalance - bridgeAmount);
 
     await crossChainTestHarness.makeMessageConsumable(msgHash);
 

@@ -1,8 +1,11 @@
 import { Fr, L1Actor, L1ToL2Message, L2Actor } from '@aztec/aztec.js';
+import { sha256ToField } from '@aztec/foundation/crypto';
+import { RollupAbi } from '@aztec/l1-artifacts';
+
+import { getContract } from 'viem';
+import { toFunctionSelector } from 'viem/utils';
 
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
-import { sha256ToField } from '@aztec/foundation/crypto';
-import { toFunctionSelector } from 'viem/utils';
 
 describe('e2e_cross_chain_messaging token_bridge_private', () => {
   const t = new CrossChainMessagingTest('token_bridge_private');
@@ -32,7 +35,11 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     ownerAddress = crossChainTestHarness.ownerAddress;
     l2Bridge = crossChainTestHarness.l2Bridge;
     l2Token = crossChainTestHarness.l2Token;
-    rollup = crossChainTestHarness.l2Token;
+    rollup = getContract({
+      address: crossChainTestHarness.l1ContractAddresses.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: crossChainTestHarness.walletClient,
+    });
   }, 300_000);
 
   afterEach(async () => {
@@ -166,5 +173,6 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     );
     await crossChainTestHarness.redeemShieldPrivatelyOnL2(bridgeAmount, secretForRedeemingMintedNotes);
     await crossChainTestHarness.expectPrivateBalanceOnL2(ownerAddress, bridgeAmount);
-  }), 90_000;
+  }),
+    90_000;
 });

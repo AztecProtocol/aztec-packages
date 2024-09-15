@@ -1,20 +1,15 @@
-use dep::aztec::{
-    prelude::AztecAddress, test::helpers::test_environment::TestEnvironment,
-};
+use dep::aztec::{prelude::AztecAddress, test::helpers::test_environment::TestEnvironment};
 
 use crate::Auth;
 
 pub fn setup() -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
-    // Setup env, generate keys
     let mut env = TestEnvironment::new();
 
     let admin = env.create_account();
     let to_authorize = env.create_account();
     let other = env.create_account();
 
-    let initializer_call_interface = Auth::interface().constructor(
-        admin,
-    );
+    let initializer_call_interface = Auth::interface().constructor(admin);
 
     let auth_contract = env.deploy_self("Auth").with_public_initializer(initializer_call_interface);
     let auth_contract_address = auth_contract.to_address();

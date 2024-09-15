@@ -3,6 +3,9 @@ use crate::Auth;
 
 use dep::aztec::prelude::AztecAddress;
 
+global CHANGE_AUTHORIZED_DELAY_BLOCKS = 5;
+
+// TODO (#8588): These were ported over directly from e2e tests. Refactor these in the correct TXe style.
 #[test]
 unconstrained fn main() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
@@ -43,8 +46,8 @@ unconstrained fn main() {
     let authorized_becomes_effective_after_delay = || {
         env.impersonate(to_authorize);
 
-        // We advance block by 4, because we initially advanced block by one after setting the value. See below comment for explanation.
-        env.advance_block_by(4);
+        // We advance block by 4, because the delay is 5, and we initially advanced block by one after setting the value. See below comment for explanation.
+        env.advance_block_by(CHANGE_AUTHORIZED_DELAY_BLOCKS - 1);
         let authorized: AztecAddress = env.call_public(Auth::at(auth_contract_address).get_authorized());
         assert_eq(authorized, to_authorize);
 
@@ -99,7 +102,8 @@ unconstrained fn main() {
     let authorized_becomes_effective_after_delay_again = || {
         env.impersonate(to_authorize);
 
-        env.advance_block_by(4);
+        // We advance the block by 4 again like above
+        env.advance_block_by(CHANGE_AUTHORIZED_DELAY_BLOCKS - 1);
         let authorized: AztecAddress = env.call_public(Auth::at(auth_contract_address).get_authorized());
         assert_eq(authorized, other);
 
