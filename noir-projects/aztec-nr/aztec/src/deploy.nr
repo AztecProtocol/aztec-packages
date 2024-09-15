@@ -25,7 +25,9 @@ pub fn deploy_contract(context: &mut PrivateContext, target: AztecAddress) {
 
     let _call_result = context.call_private_function(
         DEPLOYER_CONTRACT_ADDRESS,
-        FunctionSelector::from_field(0x7ebd3690),
+        comptime {
+        FunctionSelector::from_signature("deploy(Field,(Field),Field,(Field),bool)")
+    },
         serialized_args
     );
 }
