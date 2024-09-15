@@ -222,7 +222,7 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(S
     if (!result.success) {
         throw std::runtime_error("Failed to initialise tree: " + result.message);
     }
-    store_.commit();
+    store_.commit(false);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -512,11 +512,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_hashes_for_appe
             response.inner.hashes = std::make_shared<std::vector<fr>>(leaves_to_hash->size(), 0);
             std::vector<IndexedLeafValueType>& leaves = *leaves_to_hash;
             for (uint32_t i = 0; i < leaves.size(); ++i) {
-                if (!leaves[i].is_empty()) {
-                    fr hash = HashingPolicy::hash(leaves[i].get_hash_inputs());
-                    (*response.inner.hashes)[i] = hash;
-                    store_.put_leaf_by_hash(hash, leaves[i]);
-                }
+                IndexedLeafValueType& leaf = leaves[i];
+                fr hash = leaf.is_empty() ? 0 : HashingPolicy::hash(leaf.get_hash_inputs());
+                (*response.inner.hashes)[i] = hash;
+                store_.put_leaf_by_hash(hash, leaf);
             }
         },
         completion);

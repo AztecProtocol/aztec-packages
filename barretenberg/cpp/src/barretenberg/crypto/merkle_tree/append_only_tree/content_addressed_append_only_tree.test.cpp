@@ -14,6 +14,7 @@
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "gtest/gtest.h"
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -54,6 +55,18 @@ void check_size(TreeType& tree, index_t expected_size, bool includeUncommitted =
         signal.signal_level();
     };
     tree.get_meta_data(includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+void check_unfinalised_block_height(TreeType& tree, index_t expected_block_height)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        EXPECT_EQ(response.inner.meta.unfinalisedBlockHeight, expected_block_height);
+        signal.signal_level();
+    };
+    tree.get_meta_data(true, completion);
     signal.wait_for_level();
 }
 
@@ -386,7 +399,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_restore)
 {
-    constexpr size_t depth = 10;
+    constexpr size_t depth = 5;
     std::string name = random_string();
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
     {
@@ -480,7 +493,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_size)
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_leaf_index)
 {
-    constexpr size_t depth = 10;
+    constexpr size_t depth = 5;
     std::string name = random_string();
     LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
     Store store(name, depth, db);
@@ -509,7 +522,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_leaf_index)
 
     commit_tree(tree);
 
-    std::vector<fr> values{ 15, 18, 26, 2, 48 };
+    std::vector<fr> values{ 15, 18, 26, 2 };
     add_values(tree, values);
 
     // check the now committed state
@@ -523,7 +536,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_leaf_index)
 
     commit_tree(tree);
 
-    values = { 16, 4, 18, 22, 101 };
+    values = { 16, 4, 18, 22 };
     add_values(tree, values);
 
     // we now have duplicate leaf 18, one committed the other not
@@ -532,7 +545,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_leaf_index)
 
     // verify the find index from api
     check_find_leaf_index_from(tree, 18, 0, 5, true, true);
-    check_find_leaf_index_from(tree, 18, 6, 11, true, true);
+    check_find_leaf_index_from(tree, 18, 6, 10, true, true);
     check_find_leaf_index_from(tree, 18, 6, 0, false, false);
 
     commit_tree(tree);
@@ -551,8 +564,9 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_leaf_index)
     add_value(tree, 32);
 
     // should return the first uncommitted
-    check_find_leaf_index_from(tree, 18, 12, 14, true, true);
-    check_find_leaf_index_from(tree, 18, 15, 16, true, true);
+    check_find_leaf_index_from(tree, 18, 12, 12, true, true);
+    check_find_leaf_index_from(tree, 18, 14, 14, true, true);
+    check_find_leaf_index_from(tree, 18, 15, 0, false, true);
 
     // look past the last instance of this leaf
     check_find_leaf_index_from(tree, 18, 17, 0, false, true);
@@ -605,6 +619,42 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values_in_a
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
     check_sibling_path(tree, 4 - 1, memdb.get_sibling_path(4 - 1));
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_multiple_blocks)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    Store store(name, depth, db);
+    ThreadPool pool(1);
+    TreeType tree(store, pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    auto check = [&](index_t expected_size, index_t expected_unfinalised_block_height) {
+        check_size(tree, expected_size);
+        check_unfinalised_block_height(tree, expected_unfinalised_block_height);
+        check_root(tree, memdb.root());
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree, expected_size - 1, memdb.get_sibling_path(expected_size - 1));
+    };
+
+    constexpr uint32_t num_blocks = 10;
+    constexpr uint32_t batch_size = 4;
+    for (uint32_t i = 0; i < num_blocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < batch_size; ++j) {
+            size_t ind = i * batch_size + j;
+            memdb.update_element(ind, VALUES[ind]);
+            to_add.push_back(VALUES[ind]);
+        }
+        index_t expected_size = (i + 1) * batch_size;
+        add_values(tree, to_add);
+        check(expected_size, i);
+        commit_tree(tree);
+        check(expected_size, i + 1);
+    }
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_be_filled)

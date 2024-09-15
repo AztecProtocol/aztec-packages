@@ -200,10 +200,11 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
     // std::cout << "Zero root: " << current << std::endl;
 
     if (meta.size == 0) {
-        // if the tree is empty then we want to write the initial root
+        // if the tree is empty then we want to write some initial state
         meta.initialRoot = meta.root = current;
+        meta.finalisedBlockHeight = meta.unfinalisedBlockHeight = 0;
         store_.put_meta(meta);
-        store_.commit();
+        store_.commit(false);
     }
     max_size_ = numeric::pow64(2, depth_);
 }
@@ -526,7 +527,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
     // Add the values at the leaf nodes of the tree
     for (uint32_t i = 0; i < number_to_insert; ++i) {
         // write_node(level, index + i, hashes_local[i]);
-        // std::cout << "Writing leaf hash: " << hashes_local[i] << std::endl;
+        // std::cout << "Writing leaf hash: " << hashes_local[i] << " level " << level << std::endl;
         store_.put_node_by_hash(hashes_local[i], { .left = std::nullopt, .right = std::nullopt, .ref = 1 });
         store_.put_cached_node_by_index(level, i + index, hashes_local[i]);
     }
@@ -556,6 +557,8 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
             // std::cout << "Left: " << left << ", right: " << right << ", parent: " << hashes_local[i] << std::endl;
             store_.put_node_by_hash(hashes_local[i], { .left = left, .right = right, .ref = 1 });
             store_.put_cached_node_by_index(level, index + i, hashes_local[i]);
+            // std::cout << "Writing node hash " << hashes_local[i] << " level " << level << " index " << index + i
+            //           << std::endl;
         }
     }
 
@@ -590,6 +593,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
         ++sibling_path_index;
         store_.put_cached_node_by_index(level, index, new_hash);
         store_.put_node_by_hash(new_hash, { .left = left_op, .right = right_op, .ref = 1 });
+        // std::cout << "Writing node hash " << new_hash << " level " << level << " index " << index << std::endl;
     }
 
     // std::cout << "Here 9" << std::endl;

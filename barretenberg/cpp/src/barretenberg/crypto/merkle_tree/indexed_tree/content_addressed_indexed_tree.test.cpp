@@ -155,11 +155,11 @@ void check_sibling_path(TypeOfTree& tree,
     EXPECT_EQ(path, expected_sibling_path);
 }
 
-template <typename TypeOfTree> void commit_tree(TypeOfTree& tree)
+template <typename TypeOfTree> void commit_tree(TypeOfTree& tree, bool expectedSuccess = true)
 {
     Signal signal;
     auto completion = [&](const Response& response) -> void {
-        EXPECT_EQ(response.success, true);
+        EXPECT_EQ(response.success, expectedSuccess);
         signal.signal_level();
     };
     tree.commit(completion);
@@ -965,6 +965,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_memory_with_public
     add_value(tree, PublicDataLeafValue(30, 6));
     // The size still increases as we pad with an empty leaf
     check_size(tree, ++current_size);
+
     EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
     EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
     EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 0, 0));
@@ -1091,6 +1092,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, duplicates)
     commit_tree(tree);
 
     add_value(tree, NullifierLeafValue(42), false);
-    commit_tree(tree);
+    // expect this to fail as no data is present
+    commit_tree(tree, false);
     check_size(tree, 3);
 }

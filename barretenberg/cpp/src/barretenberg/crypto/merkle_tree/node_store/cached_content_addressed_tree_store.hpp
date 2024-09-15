@@ -14,6 +14,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <stdexcept>
 #include <unordered_map>
 #include <utility>
 
@@ -127,7 +128,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     /**
      * @brief Commits the uncommitted data to the underlying store
      */
-    void commit();
+    void commit(bool asBlock = true);
 
     /**
      * @brief Rolls back the uncommitted state
@@ -159,14 +160,25 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
   private:
     std::string name;
     uint32_t depth;
+
+    // Thie is a mapping between the node hash and it's payload (children and ref count) for every node in the tree,
+    // including leaves. As indexed trees are updated, this will end up containing many nodes that are not part of the
+    // final tree so they need to be omitted from what is committed.
     std::map<fr, NodePayload> nodes;
+
+    // This is a store mapping the leaf key (e.g. slot for public data or nullifier value for nullifier tree) to the
+    // indices in the tree For indexed tress there is only ever one index againt the key, for append-only trees there
+    // can be multiple
     std::map<uint256_t, Indices> indices;
+
+    // This is a mapping from leaf has to leaf pre-image. This will contai entries that need to be omitted when
+    // commiting updates
     std::map<fr, IndexedLeafValueType> leaves;
     PersistedStoreType& dataStore;
     TreeMeta meta;
     mutable std::mutex mtx;
 
-    // not persisted, just cached until commit
+    // The following stores are not persisted, just cached until commit
     std::vector<std::unordered_map<index_t, fr>> nodes_by_index;
     std::unordered_map<index_t, IndexedLeafValueType> leaf_pre_image_by_index;
 
@@ -176,6 +188,14 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void persist_meta(TreeMeta& m, WriteTransaction& tx);
 
+    void hydrate_indices_from_persisted_store(ReadTransaction& tx);
+
+    void persist_leaf_indices(WriteTransaction& tx);
+
+    void persist_leaf(const fr& hash, WriteTransaction& tx);
+
+    void persist_node(const std::optional<fr>& optional_hash, uint32_t level, WriteTransaction& tx);
+
     WriteTransactionPtr create_write_transaction() const { return dataStore.create_write_transaction(); }
 };
 
@@ -184,7 +204,7 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
                                                                                         bool includeUncommitted,
                                                                                         ReadTransaction& tx) const
 {
-    uint256_t new_value_as_number = uint256_t(new_leaf_key);
+    auto new_value_as_number = uint256_t(new_leaf_key);
     Indices committed;
     fr found_key = dataStore.find_low_leaf(new_leaf_key, committed, tx);
     auto db_index = committed.indices[0];
@@ -387,7 +407,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::put_cached_node_by_index(ui
         }
     }
 
-    // std::cout << " Putting node by index " << level << " : " << index << ", value: " << data << std::endl;
     nodes_by_index[level][index] = data;
 }
 
@@ -422,35 +441,41 @@ void ContentAddressedCachedTreeStore<LeafValueType>::get_meta(TreeMeta& m,
     read_persisted_meta(m, tx);
 }
 
-template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit()
+template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::commit(bool asBlock)
 {
+    fr currentRoot = fr::zero();
+    bool dataPresent = false;
     {
-        {
-            ReadTransactionPtr tx = create_read_transaction();
-            for (auto& idx : indices) {
-                std::vector<uint8_t> value;
-                FrKeyType key = idx.first;
-                Indices persistedIndices;
-                bool success = dataStore.read_leaf_indices(key, persistedIndices, *tx);
-                if (success) {
-                    idx.second.indices.insert(
-                        idx.second.indices.begin(), persistedIndices.indices.begin(), persistedIndices.indices.end());
+        ReadTransactionPtr tx = create_read_transaction();
+        dataPresent = get_cached_node_by_index(0, 0, currentRoot);
+        if (!dataPresent) {
+            if (asBlock) {
+                std::cout << "No data present for block" << std::endl;
+                throw std::runtime_error("No data present for block");
+            }
+        } else {
+            auto currentRootIter = nodes.find(currentRoot);
+            if (currentRootIter == nodes.end()) {
+                if (asBlock) {
+                    std::cout << "Current root not found, nothing to commit!" << std::endl;
+                    throw std::runtime_error("Current root not found, nothing to commit!");
                 }
+            } else {
+                hydrate_indices_from_persisted_store(*tx);
             }
         }
+    }
+    {
         WriteTransactionPtr tx = create_write_transaction();
         try {
-            for (auto& item : nodes) {
-                FrKeyType key = item.first;
-                dataStore.write_node(key, item.second, *tx);
-            }
-            for (auto& idx : indices) {
-                FrKeyType key = idx.first;
-                dataStore.write_leaf_indices(key, idx.second, *tx);
-            }
-            for (const auto& leaf : leaves) {
-                FrKeyType key = leaf.first;
-                dataStore.write_leaf_by_hash(key, leaf.second, *tx);
+            if (dataPresent) {
+                persist_leaf_indices(*tx);
+                persist_node(std::optional<fr>(currentRoot), 0, *tx);
+                if (asBlock) {
+                    ++meta.unfinalisedBlockHeight;
+                    BlockPayload block{ .size = meta.size, .root = currentRoot };
+                    dataStore.write_block_data(meta.unfinalisedBlockHeight, block, *tx);
+                }
             }
             persist_meta(meta, *tx);
             tx->commit();
@@ -460,6 +485,66 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         }
     }
     rollback();
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf_indices(WriteTransaction& tx)
+{
+    for (auto& idx : indices) {
+        FrKeyType key = idx.first;
+        dataStore.write_leaf_indices(key, idx.second, tx);
+    }
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::persist_leaf(const fr& hash, WriteTransaction& tx)
+{
+    // Now persist the leaf pre-image
+    auto leafPreImageIter = leaves.find(hash);
+    if (leafPreImageIter == leaves.end()) {
+        return;
+    }
+    dataStore.write_leaf_by_hash(hash, leafPreImageIter->second, tx);
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::persist_node(const std::optional<fr>& optional_hash,
+                                                                  uint32_t level,
+                                                                  WriteTransaction& tx)
+{
+    if (!optional_hash.has_value()) {
+        return;
+    }
+    fr hash = optional_hash.value();
+
+    if (level == depth) {
+        // this is a leaf
+        persist_leaf(hash, tx);
+    }
+
+    auto nodePayloadIter = nodes.find(hash);
+    if (nodePayloadIter == nodes.end()) {
+        //  need to reference count here
+        return;
+    }
+    dataStore.write_node(hash, nodePayloadIter->second, tx);
+    persist_node(nodePayloadIter->second.left, level + 1, tx);
+    persist_node(nodePayloadIter->second.right, level + 1, tx);
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::hydrate_indices_from_persisted_store(ReadTransaction& tx)
+{
+    for (auto& idx : indices) {
+        std::vector<uint8_t> value;
+        FrKeyType key = idx.first;
+        Indices persistedIndices;
+        bool success = dataStore.read_leaf_indices(key, persistedIndices, tx);
+        if (success) {
+            idx.second.indices.insert(
+                idx.second.indices.begin(), persistedIndices.indices.begin(), persistedIndices.indices.end());
+        }
+    }
 }
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::rollback()
