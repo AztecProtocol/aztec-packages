@@ -148,7 +148,7 @@ Paste the private flow test below the setup:
 Paste the public flow below the private flow:
 
 ```ts
-#include_code e2e_public_cross_chain /yarn-project/end-to-end/src/e2e_public_cross_chain_messaging/deposits.test.ts raw
+#include_code e2e_public_cross_chain /yarn-project/end-to-end/src/e2e_cross_chain_messaging/token_bridge_public.test.ts raw
 })
 ```
 
@@ -165,7 +165,7 @@ Note - you might have a jest error at the end of each test saying "expected 1-2 
 
 ## Next Steps
 
-### Follow a more detailed Aztec.js tutorial 
+### Follow a more detailed Aztec.js tutorial
 
 Follow the tutorial [here](../../../aztecjs-getting-started.md).
 
