@@ -72,248 +72,147 @@ impl PublicKernelMergeCircuitPrivateInputs {
     }
 }
 
-// mod tests {
-//     use crate::{public_kernel_merge::{PublicKernelMergeCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS}};
-//     use dep::types::{
-//         abis::{
-//         gas::Gas,
-//         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
-//         public_call_stack_item_compressed::PublicCallStackItemCompressed,
-//         public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-//     },
-//         address::AztecAddress, constants::PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
-//         contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
-//         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}, traits::is_empty
-//     };
+mod tests {
+    use crate::{
+        public_kernel_phase::PublicKernelPhase,
+        public_kernel_merge::{ALLOWED_PREVIOUS_CIRCUITS, PublicKernelMergeCircuitPrivateInputs}
+    };
+    use dep::types::{
+        abis::{
+        gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
+        max_block_number::MaxBlockNumber
+    },
+        constants::PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
+        tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}
+    };
 
-//     struct PublicKernelMergeCircuitPrivateInputsBuilder {
-//         previous_kernel: FixtureBuilder,
-//         previous_revertible: FixtureBuilder,
-//         public_call: FixtureBuilder,
-//     }
+    struct PublicKernelMergeCircuitPrivateInputsBuilder {
+        previous_kernel: FixtureBuilder,
+        previous_revertible: FixtureBuilder,
+        enqueued_call: FixtureBuilder,
+        phase: u8
+    }
 
-//     impl PublicKernelMergeCircuitPrivateInputsBuilder {
-//         pub fn new() -> Self {
-//             let previous_kernel = FixtureBuilder::new().as_parent_contract().in_vk_tree(PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX);
-//             let previous_revertible = FixtureBuilder::new();
-//             let mut public_call = FixtureBuilder::new().is_public_function();
-//             public_call.value_offset = 9999; // Add an offset so that the mock data won't be the same as the values in previous_kernel.
+    impl PublicKernelMergeCircuitPrivateInputsBuilder {
+        pub fn new() -> Self {
+            let previous_kernel = FixtureBuilder::new().as_parent_contract().in_vk_tree(PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX);
+            let mut previous_revertible = FixtureBuilder::new();
+            let mut enqueued_call = FixtureBuilder::new().is_public_function();
+            // Add an offset so that the mock data won't be the same as the values in previous_kernel.
+            previous_revertible.value_offset = 5555;
+            enqueued_call.value_offset = 9999;
 
-//             PublicKernelMergeCircuitPrivateInputsBuilder { previous_kernel, previous_revertible, public_call }
-//         }
+            let phase = PublicKernelPhase.SETUP;
 
-//         pub fn is_delegate_call(&mut self) -> Self {
-//             let _ = self.public_call.is_delegate_call();
-//             *self
-//         }
+            PublicKernelMergeCircuitPrivateInputsBuilder { previous_kernel, previous_revertible, enqueued_call, phase }
+        }
 
-//         pub fn to_public_data_reads<let N: u32>(self, contract_storage_reads: [StorageRead; N]) -> [PublicDataRead; N] {
-//             let storage_contract_address = self.public_call.storage_contract_address;
-//             contract_storage_reads.map(|r: StorageRead| PublicDataRead::from_contract_storage_read(storage_contract_address, r))
-//         }
+        pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
+            let enqueued_call = self.enqueued_call.to_enqueued_call_data();
+            let enqueued_call_request = self.enqueued_call.to_public_call_request();
 
-//         pub fn to_public_data_update_requests<let N: u32>(
-//             self,
-//             storage_update_requests: [StorageUpdateRequest; N]
-//         ) -> [PublicDataUpdateRequest; N] {
-//             let storage_contract_address = self.public_call.storage_contract_address;
-//             storage_update_requests.map(
-//                 |r: StorageUpdateRequest|
-//                 PublicDataUpdateRequest::from_contract_storage_update_request(storage_contract_address, r)
-//             )
-//         }
+            if self.phase == PublicKernelPhase.SETUP {
+                self.previous_kernel.add_public_call_request(enqueued_call_request);
+            } else {
+                self.previous_revertible.add_public_call_request(enqueued_call_request);
+            }
 
-//         pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
-//             let public_call = self.public_call.to_public_call_data();
+            let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
+            previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
 
-//             // In order to run the setup circuit, we must have an enqueued public call for setup.
-//             let compressed_item = public_call.call_stack_item.get_compressed();
-//             self.previous_kernel.push_public_call_request(compressed_item);
+            let kernel = PublicKernelMergeCircuitPrivateInputs { previous_kernel, enqueued_call };
+            kernel.execute()
+        }
 
-//             let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
+        pub fn succeeded(&mut self) {
+            let _ = self.execute();
+        }
 
-//             previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
+        pub fn failed(&mut self) {
+            let _ = self.execute();
+        }
+    }
 
-//             // Run the kernel on the setup call
-//             let kernel = PublicKernelMergeCircuitPrivateInputs { previous_kernel, public_call };
-//             kernel.execute()
-//         }
+    #[test]
+    unconstrained fn circuit_outputs_should_be_correctly_populated_with_previous_private_kernel() {
+        let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
 
-//         pub fn succeeded(&mut self) {
-//             let _ = self.execute();
-//         }
+        builder.previous_kernel.max_block_number = MaxBlockNumber::new(13);
 
-//         pub fn failed(&mut self) {
-//             let _ = self.execute();
-//         }
-//     }
+        builder.enqueued_call.append_public_data_read_requests(1);
+        let curr_reads = builder.enqueued_call.public_data_reads.storage;
+        builder.previous_kernel.append_public_data_read_requests(2);
+        let prev_reads = builder.previous_kernel.public_data_reads.storage;
 
-//     #[test]
-//     fn circuit_outputs_should_be_correctly_populated_with_previous_private_kernel() {
-//         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+        builder.enqueued_call.append_note_hashes(2);
+        let curr_note_hashes = builder.enqueued_call.note_hashes.storage;
+        builder.previous_kernel.append_note_hashes(1);
+        let prev_note_hashes = builder.previous_kernel.note_hashes.storage;
 
-//         builder.previous_kernel.max_block_number = MaxBlockNumber::new(13);
+        builder.enqueued_call.append_public_call_requests(2);
+        builder.previous_kernel.append_public_call_requests(1);
+        let prev_calls = builder.previous_kernel.public_call_requests.storage;
 
-//         builder.public_call.append_public_call_requests(2);
-//         let curr_calls = builder.public_call.public_call_requests.storage;
+        let public_inputs = builder.execute();
 
-//         builder.previous_kernel.append_public_call_requests(1);
-//         let prev_calls = builder.previous_kernel.public_call_requests.storage;
+        assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 13);
 
-//         builder.public_call.append_contract_storage_update_requests(2);
-//         let update_requests = builder.public_call.contract_storage_update_requests.storage;
+        assert_array_eq(
+            public_inputs.validation_requests.public_data_reads,
+            [prev_reads[0], prev_reads[1], curr_reads[0]]
+        );
 
-//         builder.public_call.append_contract_storage_read_requests(3);
-//         let read_requests = builder.public_call.contract_storage_reads.storage;
+        assert_array_eq(
+            public_inputs.end_non_revertible.note_hashes,
+            [prev_note_hashes[0], curr_note_hashes[0], curr_note_hashes[1]]
+        );
 
-//         let public_inputs = builder.execute();
+        assert_array_eq(
+            public_inputs.end_non_revertible.public_call_stack,
+            [prev_calls[0]] // Public call requests can only be propagated from previous kernel.
+        );
+    }
 
-//         assert_eq(public_inputs.validation_requests.for_rollup.max_block_number.unwrap(), 13);
-//         assert_array_eq(
-//             public_inputs.end_non_revertible.public_call_stack,
-//             [prev_calls[0], curr_calls[0], curr_calls[1]]
-//         );
-//         assert_array_eq(
-//             public_inputs.end_non_revertible.public_data_update_requests,
-//             builder.to_public_data_update_requests([update_requests[0], update_requests[1]])
-//         );
-//         assert_array_eq(
-//             public_inputs.validation_requests.public_data_reads,
-//             builder.to_public_data_reads([read_requests[0], read_requests[1], read_requests[2]])
-//         );
-//     }
+    #[test]
+    unconstrained fn updates_revertible_gas_used() {
+        let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
+        builder.phase = PublicKernelPhase.APP_LOGIC;
 
-//     #[test]
-//     fn logs_are_handled_as_expected() {
-//         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
+        // Transaction gas limit is 1k.
+        builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1000, 1000);
 
-//         // Logs for the current call stack.
-//         let unencrypted_logs_hash = 26;
-//         let unencrypted_log_preimages_length = 50;
-//         builder.public_call.add_unencrypted_log_hash(unencrypted_logs_hash, unencrypted_log_preimages_length);
+        // Non-revertible has used 200.
+        builder.previous_kernel.gas_used = Gas::new(200, 200);
 
-//         // Logs for the previous call stack.
-//         let prev_encrypted_logs_hash = 80;
-//         let prev_encrypted_log_preimages_length = 13;
-//         let prev_unencrypted_logs_hash = 956;
-//         let prev_unencrypted_log_preimages_length = 24;
-//         builder.previous_kernel.add_encrypted_log_hash(prev_encrypted_logs_hash, prev_encrypted_log_preimages_length);
-//         builder.previous_kernel.add_unencrypted_log_hash(
-//             prev_unencrypted_logs_hash,
-//             prev_unencrypted_log_preimages_length
-//         );
-//         let prev_data = builder.previous_kernel.to_public_accumulated_data();
+        // Revertible has used 100.
+        builder.previous_revertible.gas_used = Gas::new(100, 100);
 
-//         let expected_unencrypted_logs = [prev_data.unencrypted_logs_hashes[0], builder.public_call.unencrypted_logs_hashes.storage[0]];
-//         // we assume the encrypted log is already siloed from private kernels
-//         let expected_encrypted_logs = [prev_data.encrypted_logs_hashes[0]];
+        // So this call starts with 700 gas left
+        builder.enqueued_call.start_gas_left = Gas::new(700, 700);
+        // And uses 250.
+        builder.enqueued_call.gas_used = Gas::new(250, 250);
+        // Ending with 450 left.
+        builder.enqueued_call.end_gas_left = Gas::new(450, 450);
 
-//         let public_inputs = builder.execute();
+        // So the updated gas used by revertible must go up by 250, and non-revertible must stay the same.
+        let output = builder.execute();
+        assert_eq(output.end_non_revertible.gas_used, Gas::new(200, 200));
+        assert_eq(output.end.gas_used, Gas::new(350, 350));
+    }
 
-//         assert_array_eq(
-//             public_inputs.end_non_revertible.encrypted_logs_hashes,
-//             expected_encrypted_logs
-//         );
-//         assert_array_eq(
-//             public_inputs.end_non_revertible.unencrypted_logs_hashes,
-//             expected_unencrypted_logs
-//         );
-//     }
-
-//     #[test(should_fail_with="Public call cannot be reverted")]
-//     fn fails_if_public_call_reverted() {
-//         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-//         builder.public_call.revert_code = 1;
-
-//         builder.failed();
-//     }
-
-//     #[test]
-//     fn updates_non_revertible_gas_used() {
-//         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-
-//         // Transaction gas limit is 1k
-//         builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1000, 1000);
-
-//         // Revertible has already used 100
-//         builder.previous_revertible.gas_used = Gas::new(100, 100);
-
-//         // And non-revertible has used another 200
-//         builder.previous_kernel.gas_used = Gas::new(200, 200);
-
-//         // So this call starts with 700 gas left
-//         builder.public_call.start_gas_left = Gas::new(700, 700);
-
-//         // And uses 300, ending with 400 left
-//         builder.public_call.end_gas_left = Gas::new(400, 400);
-
-//         // So the updated gas used by non-revertible must go up by 300, and revertible must stay the same
-//         let output = builder.execute();
-//         assert_eq(output.end_non_revertible.gas_used, Gas::new(500, 500));
-//         assert_eq(output.end.gas_used, Gas::new(100, 100));
-//     }
-
-//     #[test]
-//     unconstrained fn propagate_fee_payer() {
-//         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-//         let fee_payer = AztecAddress::from_field(123);
-//         builder.previous_kernel.set_fee_payer(fee_payer);
-//         let public_inputs = builder.execute();
-//         assert_eq(public_inputs.fee_payer, fee_payer);
-
-//         // Check that the fee payer is not set if is_fee_payer is false
-//         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-//         assert_eq(is_empty(builder.previous_kernel.fee_payer), true);
-//         let public_inputs = builder.execute();
-//         assert_eq(public_inputs.fee_payer, AztecAddress::empty());
-//     }
-
-//     #[test]
-//     fn propagate_call_stacks_on_success() {
-//         let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-
-//         builder.previous_kernel.append_public_call_requests(1);
-//         let prev_non_rev_calls = builder.previous_kernel.public_call_requests.storage;
-
-//         builder.previous_revertible.append_public_call_requests(2);
-//         let prev_rev_calls = builder.previous_revertible.public_call_requests.storage;
-
-//         builder.previous_kernel.set_public_teardown_call_request();
-//         let prev_teardoen_calls = builder.previous_kernel.public_teardown_call_request;
-
-//         builder.public_call.append_public_call_requests(2);
-//         let curr_calls = builder.public_call.public_call_requests.storage;
-
-//         let public_inputs = builder.execute();
-
-//         assert_array_eq(
-//             public_inputs.end_non_revertible.public_call_stack,
-//             [prev_non_rev_calls[0], curr_calls[0], curr_calls[1]]
-//         );
-//         assert_array_eq(
-//             public_inputs.end.public_call_stack,
-//             [prev_rev_calls[0], prev_rev_calls[1]]
-//         );
-//         assert_array_eq(
-//             public_inputs.public_teardown_call_request,
-//             [prev_teardoen_calls[0]]
-//         );
-//     }
-
-//     #[test]
-//     fn valid_previous_kernel() {
-//         for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
-//             let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-//             builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
-
-//             let _res = builder.execute();
-//         }
-//     }
-//     // TODO(#7410) we need the tube vk to reinstate this
-//     // #[test(should_fail_with="Invalid vk index")]
-//     // fn invalid_previous_kernel() {
-//     //     let mut builder = PublicKernelSetupCircuitPrivateInputsBuilder::new();
-//     //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
-//     //     let _res = builder.execute();
-//     // }
-// }
+    #[test]
+    fn valid_previous_kernel() {
+        for i in 0..ALLOWED_PREVIOUS_CIRCUITS.len() {
+            let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
+            builder.previous_kernel = builder.previous_kernel.in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS[i]);
+            builder.succeeded();
+        }
+    }
+    // TODO(#7410) we need the tube vk to reinstate this
+    // #[test(should_fail_with="Invalid vk index")]
+    // fn invalid_previous_kernel() {
+    //     let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
+    //     builder.previous_kernel = builder.previous_kernel.in_vk_tree(BASE_ROLLUP_INDEX);
+    //     let _res = builder.execute();
+    // }
+}

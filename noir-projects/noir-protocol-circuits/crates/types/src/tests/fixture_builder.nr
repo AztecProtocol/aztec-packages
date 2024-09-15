@@ -6,14 +6,18 @@ use crate::{
     PublicAccumulatedData, PublicAccumulatedDataBuilder
 },
     function_data::FunctionData, global_variables::GlobalVariables,
-    combined_constant_data::CombinedConstantData,
-    kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs},
+    combined_constant_data::CombinedConstantData, enqueued_call_data::{EnqueuedCallData, Proof},
+    kernel_circuit_public_inputs::{
+    KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
+    VMCircuitPublicInputs
+},
     kernel_data::KernelData, public_kernel_data::PublicKernelData, max_block_number::MaxBlockNumber,
     private_kernel_data::PrivateKernelData, note_hash::{NoteHash, ScopedNoteHash},
     nullifier::{Nullifier, ScopedNullifier}, private_call_request::PrivateCallRequest,
     private_call_stack_item::PrivateCallStackItem,
     private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    private_kernel::private_call_data::PrivateCallData, public_call_data::{Proof, PublicCallData},
+    private_kernel::private_call_data::PrivateCallData,
+    public_call_data::{Proof as PublicCallDataProof, PublicCallData},
     public_call_request::PublicCallRequest, public_call_stack_item::PublicCallStackItem,
     public_circuit_public_inputs::PublicCircuitPublicInputs, public_data_read::PublicDataRead,
     public_data_update_request::PublicDataUpdateRequest,
@@ -338,6 +342,15 @@ impl FixtureBuilder {
         self.to_private_accumulated_data_builder().finish()
     }
 
+    pub fn to_public_call_request(self) -> PublicCallRequest {
+        PublicCallRequest {
+            contract_address: self.contract_address,
+            call_context: self.build_call_context(),
+            args_hash: self.args_hash,
+            counter: 0
+        }
+    }
+
     pub fn to_public_accumulated_data_builder(self) -> PublicAccumulatedDataBuilder {
         let nullifiers = BoundedVec { storage: self.nullifiers.storage.map(|n: ScopedNullifier| n.nullifier), len: self.nullifiers.len() };
         let note_encrypted_logs_hashes = BoundedVec {
@@ -468,7 +481,11 @@ impl FixtureBuilder {
     }
 
     pub fn to_public_call_data(self) -> PublicCallData {
-        PublicCallData { call_stack_item: self.to_public_call_stack_item(), proof: Proof {}, bytecode_hash: self.bytecode_hash }
+        PublicCallData {
+            call_stack_item: self.to_public_call_stack_item(),
+            proof: PublicCallDataProof {},
+            bytecode_hash: self.bytecode_hash
+        }
     }
 
     pub fn to_public_validation_requests(self) -> PublicValidationRequests {
@@ -480,6 +497,23 @@ impl FixtureBuilder {
             public_data_reads: self.public_data_reads.storage,
             l1_to_l2_msg_read_requests: self.l1_to_l2_msg_read_requests.storage
         }
+    }
+
+    pub fn to_vm_circuit_public_inputs(self) -> VMCircuitPublicInputs {
+        VMCircuitPublicInputs {
+            constants: self.to_constant_data(),
+            call_request: self.to_public_call_request(),
+            public_call_stack: subarray(self.public_inner_call_requests.storage),
+            validation_requests: self.to_public_validation_requests(),
+            accumulated_data: self.to_public_accumulated_data(),
+            start_gas_left: self.start_gas_left,
+            transaction_fee: self.transaction_fee,
+            reverted: self.revert_code != 0
+        }
+    }
+
+    pub fn to_enqueued_call_data(self) -> EnqueuedCallData {
+        EnqueuedCallData { data: self.to_vm_circuit_public_inputs(), proof: Proof {} }
     }
 
     pub fn to_public_kernel_circuit_public_inputs(self, revertible: bool) -> PublicKernelCircuitPublicInputs {

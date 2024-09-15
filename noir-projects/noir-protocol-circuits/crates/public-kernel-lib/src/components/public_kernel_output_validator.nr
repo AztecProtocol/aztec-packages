@@ -140,7 +140,7 @@ impl PublicKernelOutputValidator {
         prev_lengths: PublicValidationRequestsArrayLengths
     ) {
         let out = self.output.validation_requests;
-        let curr = self.previous_kernel.validation_requests;
+        let curr = self.enqueued_call.validation_requests;
         let curr_lengths = PublicValidationRequestsArrayLengths::new(curr);
 
         // Note that the enqueued call cannot modify the max block number value - it simply forwards it to the rollup.
@@ -148,36 +148,36 @@ impl PublicKernelOutputValidator {
         assert_array_appended(
             out.note_hash_read_requests,
             curr.note_hash_read_requests,
-            prev_lengths.note_hash_read_requests,
-            curr_lengths.note_hash_read_requests
+            curr_lengths.note_hash_read_requests,
+            prev_lengths.note_hash_read_requests
         );
 
         assert_array_appended(
             out.nullifier_read_requests,
             curr.nullifier_read_requests,
-            prev_lengths.nullifier_read_requests,
-            curr_lengths.nullifier_read_requests
+            curr_lengths.nullifier_read_requests,
+            prev_lengths.nullifier_read_requests
         );
 
         assert_array_appended(
             out.nullifier_non_existent_read_requests,
             curr.nullifier_non_existent_read_requests,
-            prev_lengths.nullifier_non_existent_read_requests,
-            curr_lengths.nullifier_non_existent_read_requests
+            curr_lengths.nullifier_non_existent_read_requests,
+            prev_lengths.nullifier_non_existent_read_requests
         );
 
         assert_array_appended(
             out.l1_to_l2_msg_read_requests,
             curr.l1_to_l2_msg_read_requests,
-            prev_lengths.l1_to_l2_msg_read_requests,
-            curr_lengths.l1_to_l2_msg_read_requests
+            curr_lengths.l1_to_l2_msg_read_requests,
+            prev_lengths.l1_to_l2_msg_read_requests
         );
 
         assert_array_appended(
             out.public_data_reads,
             curr.public_data_reads,
-            prev_lengths.public_data_reads,
-            curr_lengths.public_data_reads
+            curr_lengths.public_data_reads,
+            prev_lengths.public_data_reads
         );
     }
 
@@ -186,12 +186,12 @@ impl PublicKernelOutputValidator {
         let revert_in_phase = (self.output.revert_code != 0)
             & ((self.phase != PublicKernelPhase.TEARDOWN) | (self.output.revert_code != 1)); // Revert in APP_LOGIC
 
-        self.validate_propagated_accumulated_data(revert_in_phase);
+        self.validate_accumulated_data_from_private(revert_in_phase);
         self.validate_combined_accumulated_data(revert_in_phase);
         self.validate_gas_used();
     }
 
-    fn validate_propagated_accumulated_data(self, revert_in_phase: bool) {
+    fn validate_accumulated_data_from_private(self, revert_in_phase: bool) {
         let out = self.output.end_non_revertible;
         let prev = self.previous_kernel.end_non_revertible;
         assert_eq(out.note_encrypted_logs_hashes, prev.note_encrypted_logs_hashes);
@@ -256,7 +256,7 @@ impl PublicKernelOutputValidator {
             appended_non_revertible_lengths
         );
         self.validate_appended_accumulated_data(
-            out_non_revertible,
+            out_revertible,
             curr_data,
             revertible_lengths,
             appended_revertible_lengths
@@ -299,32 +299,32 @@ impl PublicKernelOutputValidator {
         assert_array_appended(
             out.note_hashes,
             curr.note_hashes,
-            prev_lengths.note_hashes,
-            curr_lengths.note_hashes
+            curr_lengths.note_hashes,
+            prev_lengths.note_hashes
         );
         assert_array_appended(
             out.nullifiers,
             curr.nullifiers,
-            prev_lengths.nullifiers,
-            curr_lengths.nullifiers
+            curr_lengths.nullifiers,
+            prev_lengths.nullifiers
         );
         assert_array_appended(
             out.l2_to_l1_msgs,
             curr.l2_to_l1_msgs,
-            prev_lengths.l2_to_l1_msgs,
-            curr_lengths.l2_to_l1_msgs
+            curr_lengths.l2_to_l1_msgs,
+            prev_lengths.l2_to_l1_msgs
         );
         assert_array_appended(
             out.unencrypted_logs_hashes,
             curr.unencrypted_logs_hashes,
-            prev_lengths.unencrypted_logs_hashes,
-            curr_lengths.unencrypted_logs_hashes
+            curr_lengths.unencrypted_logs_hashes,
+            prev_lengths.unencrypted_logs_hashes
         );
         assert_array_appended(
             out.public_data_update_requests,
             curr.public_data_update_requests,
-            prev_lengths.public_data_update_requests,
-            curr_lengths.public_data_update_requests
+            curr_lengths.public_data_update_requests,
+            prev_lengths.public_data_update_requests
         );
     }
 
