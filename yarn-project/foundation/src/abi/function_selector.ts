@@ -73,7 +73,10 @@ export class FunctionSelector extends Selector {
     if (/\s/.test(signature)) {
       throw new Error('Signature cannot contain whitespace');
     }
-    return FunctionSelector.fromBuffer(poseidon2HashBytes(Buffer.from(signature)).subarray(0, Selector.SIZE));
+    const hash = poseidon2HashBytes(Buffer.from(signature));
+    // We take the last Selector.SIZE big endian bytes
+    const bytes = hash.toBuffer().slice(-Selector.SIZE);
+    return FunctionSelector.fromBuffer(bytes);
   }
 
   /**

@@ -298,11 +298,7 @@ fn compute_fn_signature_hash(fn_name: &str, parameters: &[Type]) -> u32 {
         parameters.iter().map(signature_of_type).collect::<Vec<_>>().join(",")
     );
 
-    let result = poseidon2_hash_bytes(signature.as_bytes().to_vec());
-    // Take the first 4 bytes of the hash and convert them to an integer
-    // If you change the following value you have to change NUM_BYTES_PER_NOTE_TYPE_ID in l1_note_payload.ts as well
-    let num_bytes_per_note_type_id = 4;
-    u32::from_be_bytes(result[0..num_bytes_per_note_type_id].try_into().unwrap())
+    hash_to_selector(&signature)
 }
 
 // Updates the function signatures in the contract interface with the actual ones, replacing the placeholder.
@@ -429,7 +425,7 @@ pub fn update_fn_signatures_in_contract_interface(
     Ok(())
 }
 
-pub(crate) fn poseidon2_hash_bytes(inputs: Vec<u8>) -> Vec<u8> {
+fn poseidon2_hash_bytes(inputs: Vec<u8>) -> FieldElement {
     let fields: Vec<_> = inputs
         .into_iter()
         .chunks(31)
@@ -442,19 +438,31 @@ pub(crate) fn poseidon2_hash_bytes(inputs: Vec<u8>) -> Vec<u8> {
             FieldElement::from_be_bytes_reduce(&chunk_as_vec)
         })
         .collect();
-    let mut hash_bytes = poseidon_hash(&fields).expect("Poseidon hash failed").to_be_bytes();
-    hash_bytes.reverse();
-    hash_bytes
+
+    poseidon_hash(&fields).expect("Poseidon hash failed")
+}
+
+pub(crate) fn hash_to_selector(inputs: &str) -> u32 {
+    let hash = poseidon2_hash_bytes(inputs.as_bytes().to_vec()).to_be_bytes();
+    // Take the last 4 bytes of the hash and convert them to an integer
+    // If you change the following value you have to change NUM_BYTES_PER_NOTE_TYPE_ID in l1_note_payload.ts as well
+    let num_bytes_per_note_type_id = 4;
+    u32::from_be_bytes(hash[(32 - num_bytes_per_note_type_id)..32].try_into().unwrap())
 }
 
 #[cfg(test)]
 mod test {
-    use crate::transforms::contract_interface::poseidon2_hash_bytes;
+    use crate::transforms::contract_interface::hash_to_selector;
 
     #[test]
-    fn test_poseidon2_hash_bytes() {
-        let mut hash = poseidon2_hash_bytes("IS_VALID()".as_bytes().to_vec());
-        hash.truncate(4);
-        assert_eq!(hex::encode(&hash), "47dacd73");
+    fn test_selector_is_valid() {
+        let selector = hash_to_selector("IS_VALID()");
+        assert_eq!(hex::encode(&selector.to_be_bytes()), "73cdda47");
+    }
+
+    #[test]
+    fn test_long_selector() {
+        let selector = hash_to_selector("foo_and_bar_and_baz_and_foo_bar_baz_and_bar_foo");
+        assert_eq!(hex::encode(&selector.to_be_bytes()), "7590a997");
     }
 }

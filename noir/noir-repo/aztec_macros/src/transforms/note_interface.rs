@@ -26,7 +26,7 @@ use crate::{
     },
 };
 
-use super::contract_interface::poseidon2_hash_bytes;
+use super::contract_interface::hash_to_selector;
 
 // Automatic implementation of most of the methods in the NoteInterface trait, guiding the user with meaningful error messages in case some
 // methods must be implemented manually.
@@ -751,11 +751,7 @@ fn generate_note_deserialize_content_source(
 // Utility function to generate the note type id as a Field
 fn compute_note_type_id(note_type: &str) -> u32 {
     // TODO(#4519) Improve automatic note id generation and assignment
-    let result = poseidon2_hash_bytes(note_type.as_bytes().to_vec());
-    // Take the first 4 bytes of the hash and convert them to an integer
-    // If you change the following value you have to change NUM_BYTES_PER_NOTE_TYPE_ID in l1_note_payload.ts as well
-    let num_bytes_per_note_type_id = 4;
-    u32::from_be_bytes(result[0..num_bytes_per_note_type_id].try_into().unwrap())
+    hash_to_selector(&note_type)
 }
 
 pub fn inject_note_exports(

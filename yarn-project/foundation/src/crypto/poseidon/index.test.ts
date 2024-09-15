@@ -22,11 +22,3 @@ describe('poseidon2Permutation', () => {
     ]);
   });
 });
-
-describe('poseidon2HashBytes', () => {
-  it('test', () => {
-    const buf = Buffer.from('IS_VALID()');
-    const hash = poseidon2HashBytes(buf);
-    expect(hash.slice(0, 4).toString('hex')).toEqual('47dacd73');
-  });
-});

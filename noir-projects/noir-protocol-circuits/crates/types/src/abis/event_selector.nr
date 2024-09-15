@@ -53,12 +53,10 @@ impl EventSelector {
         let bytes = signature.as_bytes();
         let hash = crate::hash::poseidon2_hash_bytes(bytes);
 
-        let mut selector_bytes = [0; SELECTOR_SIZE];
-        for i in 0..SELECTOR_SIZE {
-            selector_bytes[i] = hash[i];
-        }
+        // We choose the last SELECTOR_SIZE bytes of the hash to avoid getting the first byte that is not full
+        let hash_bytes = hash.to_be_bytes::<SELECTOR_SIZE>();
 
-        EventSelector::from_field(field_from_bytes(selector_bytes, true))
+        EventSelector::from_field(field_from_bytes(hash_bytes, true))
     }
 
     pub fn zero() -> Self {

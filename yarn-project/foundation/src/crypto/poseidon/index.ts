@@ -58,7 +58,7 @@ export function poseidon2Permutation(input: Fieldable[]): Fr[] {
   return res.map(o => Fr.fromBuffer(Buffer.from(o.toBuffer())));
 }
 
-export function poseidon2HashBytes(input: Buffer): Buffer {
+export function poseidon2HashBytes(input: Buffer): Fr {
   const inputFields = [];
   for (let i = 0; i < input.length; i += 31) {
     const fieldBytes = Buffer.alloc(32, 0);
@@ -69,12 +69,13 @@ export function poseidon2HashBytes(input: Buffer): Buffer {
     inputFields.push(Fr.fromBuffer(fieldBytes));
   }
 
-  const resultBytes = Buffer.from(
-    BarretenbergSync.getSingleton()
-      .poseidon2Hash(
-        inputFields.map(i => new FrBarretenberg(i.toBuffer())), // TODO(#4189): remove this stupid conversion
-      )
-      .toBuffer(),
+  return Fr.fromBuffer(
+    Buffer.from(
+      BarretenbergSync.getSingleton()
+        .poseidon2Hash(
+          inputFields.map(i => new FrBarretenberg(i.toBuffer())), // TODO(#4189): remove this stupid conversion
+        )
+        .toBuffer(),
+    ),
   );
-  return resultBytes.reverse();
 }

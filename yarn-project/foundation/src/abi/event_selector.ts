@@ -44,7 +44,10 @@ export class EventSelector extends Selector {
     if (/\s/.test(signature)) {
       throw new Error('Signature cannot contain whitespace');
     }
-    return EventSelector.fromBuffer(poseidon2HashBytes(Buffer.from(signature)).subarray(0, Selector.SIZE));
+    const hash = poseidon2HashBytes(Buffer.from(signature));
+    // We take the last Selector.SIZE big endian bytes
+    const bytes = hash.toBuffer().slice(-Selector.SIZE);
+    return EventSelector.fromBuffer(bytes);
   }
 
   /**

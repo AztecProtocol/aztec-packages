@@ -278,7 +278,7 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(
 }
 
 #[no_predicates]
-pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> [u8; 32] {
+pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
     // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of Math.ceil(N/31)
     let mut in_len = N / 31;
     let mut has_padding = false;
@@ -304,7 +304,7 @@ pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> [u8; 32] {
         sponge.absorb(field_from_bytes(current_field, false));
     }
 
-    sponge.squeeze().to_le_bytes::<32>()
+    sponge.squeeze()
 }
 
 #[test]
