@@ -1,5 +1,5 @@
 import { Fr } from '../../fields/fields.js';
-import { poseidon2HashBytes, poseidon2Permutation } from './index.js';
+import { poseidon2Permutation } from './index.js';
 
 describe('poseidon2Permutation', () => {
   it('test vectors from cpp should match', () => {

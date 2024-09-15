@@ -65,7 +65,7 @@ describe('Logs', () => {
       expect(decryptedLog0?.payload.contractAddress).toStrictEqual(testLogContract.address);
       expect(decryptedLog0?.payload.randomness).toStrictEqual(randomness[0]);
       expect(decryptedLog0?.payload.eventTypeId).toStrictEqual(
-        EventSelector.fromField(new Fr(0x00000000000000000000000000000000000000000000000000000000aa533f60)),
+        EventSelector.fromField(new Fr(0x00000000000000000000000000000000000000000000000000000000d45c041b)),
       );
 
       // We decode our event into the event type
