@@ -169,6 +169,7 @@ impl<'local, 'context> Interpreter<'local, 'context> {
             "struct_def_name" => struct_def_name(interner, arguments, location),
             "struct_def_set_fields" => struct_def_set_fields(interner, arguments, location),
             "to_le_radix" => to_le_radix(arguments, return_type, location),
+            "to_be_radix" => to_be_radix(arguments, return_type, location),
             "trait_constraint_eq" => trait_constraint_eq(arguments, location),
             "trait_constraint_hash" => trait_constraint_hash(arguments, location),
             "trait_def_as_trait_constraint" => {
@@ -770,7 +771,7 @@ fn to_le_radix(
     };
 
     // Decompose the integer into its radix digits in little endian form.
-    let decomposed_integer = compute_to_radix(value, radix);
+    let decomposed_integer = compute_to_radix_le(value, radix);
     let decomposed_integer = vecmap(0..limb_count as usize, |i| match decomposed_integer.get(i) {
         Some(digit) => Value::U8(*digit),
         None => Value::U8(0),
@@ -781,7 +782,41 @@ fn to_le_radix(
     ))
 }
 
-fn compute_to_radix(field: FieldElement, radix: u32) -> Vec<u8> {
+fn to_be_radix(
+    arguments: Vec<(Value, Location)>,
+    return_type: Type,
+    location: Location,
+) -> IResult<Value> {
+    let (value, radix) = check_two_arguments(arguments, location)?;
+
+    let value = get_field(value)?;
+    let radix = get_u32(radix)?;
+    let limb_count = if let Type::Array(length, _) = return_type {
+        if let Type::Constant(limb_count) = *length {
+            limb_count
+        } else {
+            return Err(InterpreterError::TypeAnnotationsNeededForMethodCall { location });
+        }
+    } else {
+        return Err(InterpreterError::TypeAnnotationsNeededForMethodCall { location });
+    };
+
+    // Decompose the integer into its radix digits in little endian form.
+    let decomposed_integer = compute_to_radix_le(value, radix);
+
+    // Iterate in reverse to get the big endian result.
+    let decomposed_integer =
+        vecmap((0..limb_count as usize).rev(), |i| match decomposed_integer.get(i) {
+            Some(digit) => Value::U8(*digit),
+            None => Value::U8(0),
+        });
+    Ok(Value::Array(
+        decomposed_integer.into(),
+        Type::Integer(Signedness::Unsigned, IntegerBitSize::Eight),
+    ))
+}
+
+fn compute_to_radix_le(field: FieldElement, radix: u32) -> Vec<u8> {
     let bit_size = u32::BITS - (radix - 1).leading_zeros();
     let radix_big = BigUint::from(radix);
     assert_eq!(BigUint::from(2u128).pow(bit_size), radix_big, "ICE: Radix must be a power of 2");

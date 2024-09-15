@@ -170,7 +170,7 @@ use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, 
  *
  *
  * --- FAQ ---
- * Q:   Why are we using a success flag of `keccak256("IS_VALID()")` instead of just returning a boolean?
+ * Q:   Why are we using a success flag of `poseidon2_hash_bytes("IS_VALID()")` instead of just returning a boolean?
  * A:   We want to make sure that we don't accidentally return `true` if there is a collision in the function selector.
  *      By returning a hash of `IS_VALID()`, it becomes very unlikely that there is both a collision and we return
  *      a success flag.
@@ -189,7 +189,7 @@ use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, 
  *      chain to avoid a case where the same message could be used across multiple chains.
  */
 
-global IS_VALID_SELECTOR = 0xabf64ad4; // 4 first bytes of keccak256("IS_VALID()")
+global IS_VALID_SELECTOR = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
 
 /**
  * Assert that `on_behalf_of` have authorized the current call with a valid authentication witness
