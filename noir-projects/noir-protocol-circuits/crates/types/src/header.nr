@@ -24,11 +24,11 @@ struct Header {
 
 impl Eq for Header {
     fn eq(self, other: Self) -> bool {
-        self.last_archive.eq(other.last_archive) &
-        self.content_commitment.eq(other.content_commitment) &
-        self.state.eq(other.state) &
-        self.global_variables.eq(other.global_variables) &
-        self.total_fees.eq(other.total_fees)
+        self.last_archive.eq(other.last_archive)
+            & self.content_commitment.eq(other.content_commitment)
+            & self.state.eq(other.state)
+            & self.global_variables.eq(other.global_variables)
+            & self.total_fees.eq(other.total_fees)
     }
 }
 

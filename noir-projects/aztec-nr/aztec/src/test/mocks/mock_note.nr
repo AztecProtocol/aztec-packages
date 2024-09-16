@@ -17,14 +17,11 @@ struct MockNote {
 
 impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
     fn serialize_content(self) -> [Field; MOCK_NOTE_LENGTH] {
-      [self.value]
+        [self.value]
     }
 
     fn deserialize_content(fields: [Field; MOCK_NOTE_LENGTH]) -> Self {
-      Self {
-        value: fields[0],
-        header: NoteHeader::empty(),
-      }
+        Self { value: fields[0], header: NoteHeader::empty() }
     }
 
     fn compute_note_hiding_point(self: Self) -> Point {
@@ -35,33 +32,39 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
     }
 
     fn get_header(self) -> NoteHeader {
-      self.header
+        self.header
     }
 
     fn set_header(&mut self, header: NoteHeader) -> () {
-      self.header = header;
+        self.header = header;
     }
 
     fn get_note_type_id() -> Field {
-      // randomly chose note type id
-      4135
+        // randomly chose note type id
+        4135
     }
 
     fn compute_nullifier(_self: Self, _context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
         // more cumbersome
-        poseidon2_hash_with_separator([note_hash_for_nullify], GENERATOR_INDEX__NOTE_NULLIFIER as Field)
+        poseidon2_hash_with_separator(
+            [note_hash_for_nullify],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+        )
     }
 
     fn compute_nullifier_without_context(self) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
         // more cumbersome
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
-        poseidon2_hash_with_separator([note_hash_for_nullify], GENERATOR_INDEX__NOTE_NULLIFIER as Field)
+        poseidon2_hash_with_separator(
+            [note_hash_for_nullify],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+        )
     }
 
     fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_BYTES_LENGTH] {
-      let serialized_note = self.serialize_content();
+        let serialized_note = self.serialize_content();
 
         let mut buffer: [u8; MOCK_NOTE_BYTES_LENGTH] = [0; MOCK_NOTE_BYTES_LENGTH];
 
@@ -85,8 +88,7 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
 
 impl Eq for MockNote {
     fn eq(self, other: Self) -> bool {
-      (self.header == other.header) &
-      (self.value == other.value)
+        (self.header == other.header) & (self.value == other.value)
     }
 }
 
