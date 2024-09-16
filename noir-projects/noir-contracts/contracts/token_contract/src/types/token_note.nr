@@ -73,13 +73,14 @@ impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
 }
 
 impl TokenNote {
-    // TODO: Merge this func with `compute_note_hiding_point`. I (benesjan) didn't do it in the initial PR to not have
+    // TODO(#8290): Merge this func with `compute_note_hiding_point`. I (benesjan) didn't do it in the initial PR to not have
     // to modify macros and all the related funcs in it.
     fn to_note_hiding_point(self) -> TokenNoteHidingPoint {
         TokenNoteHidingPoint::new(self.compute_note_hiding_point())
     }
 }
 
+// TODO(#8290): Auto-generate this
 struct TokenNoteHidingPoint {
   inner: Point
 }
