@@ -14,6 +14,7 @@ import {
   type ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
 } from './interface.js';
+import { RequestResponseRateLimiter } from './rate_limiter/rate_limiter.js';
 
 /**
  * The Request Response Service
@@ -35,12 +36,15 @@ export class ReqResp {
   private individualRequestTimeoutMs: number;
 
   private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
+  private rateLimiter: RequestResponseRateLimiter;
 
   constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p) {
     this.logger = createDebugLogger('aztec:p2p:reqresp');
 
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
+
+    this.rateLimiter = new RequestResponseRateLimiter();
   }
 
   /**
@@ -52,6 +56,7 @@ export class ReqResp {
     for (const subProtocol of Object.keys(this.subProtocolHandlers)) {
       await this.libp2p.handle(subProtocol, this.streamHandler.bind(this, subProtocol as ReqRespSubProtocol));
     }
+    this.rateLimiter.start();
   }
 
   /**
@@ -62,6 +67,7 @@ export class ReqResp {
     for (const protocol of Object.keys(this.subProtocolHandlers)) {
       await this.libp2p.unhandle(protocol);
     }
+    this.rateLimiter.stop();
     await this.libp2p.stop();
     this.abortController.abort();
   }
@@ -167,8 +173,16 @@ export class ReqResp {
    *
    * @param param0 - The incoming stream data
    */
-  private async streamHandler(protocol: ReqRespSubProtocol, { stream }: IncomingStreamData) {
+  private async streamHandler(protocol: ReqRespSubProtocol, { stream, connection }: IncomingStreamData) {
     // Store a reference to from this for the async generator
+    if (!this.rateLimiter.allow(protocol, connection.remotePeer)) {
+      this.logger.warn(`Rate limit exceeded for ${protocol} from ${connection.remotePeer}`);
+
+      // TODO(#8483): handle changing peer scoring for failed rate limit, maybe differentiate between global and peer limits here when punishing
+      await stream.close();
+      return;
+    }
+
     const handler = this.subProtocolHandlers[protocol];
 
     try {

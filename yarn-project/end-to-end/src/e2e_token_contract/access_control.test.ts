@@ -18,7 +18,7 @@ describe('e2e_token_contract access control', () => {
 
   it('Set admin', async () => {
     await t.asset.methods.set_admin(t.accounts[1].address).send().wait();
-    expect(await t.asset.methods.admin().simulate()).toBe(t.accounts[1].address.toBigInt());
+    expect(await t.asset.methods.get_admin().simulate()).toBe(t.accounts[1].address.toBigInt());
   });
 
   it('Add minter as admin', async () => {

@@ -37,7 +37,11 @@ trait ProveNoteIsNullified {
 
 impl ProveNoteIsNullified for Header {
     // docs:start:prove_note_is_nullified
-    fn prove_note_is_nullified<Note, N, M>(self, note: Note, context: &mut PrivateContext) where Note: NoteInterface<N, M> {
+    fn prove_note_is_nullified<Note, N, M>(
+        self,
+        note: Note,
+        context: &mut PrivateContext
+    ) where Note: NoteInterface<N, M> {
         let nullifier = compute_siloed_nullifier(note, context);
 
         self.prove_nullifier_inclusion(nullifier);

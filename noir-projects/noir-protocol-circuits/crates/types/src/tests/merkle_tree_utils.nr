@@ -78,7 +78,7 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u8, let SUPERTREE_HEIGHT: u8, let 
             subtree: MerkleTree::empty(),
             zero_hashes: [0; TREE_HEIGHT],
             left_supertree_branch: [0; SUPERTREE_HEIGHT],
-            _phantom_subtree_height: [0; SUBTREE_HEIGHT],
+            _phantom_subtree_height: [0; SUBTREE_HEIGHT]
         }
     }
 }

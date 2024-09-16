@@ -179,6 +179,39 @@ pub fn brillig_to_avm(
                     ],
                 });
             }
+            BrilligOpcode::Not { destination, source, bit_size } => {
+                assert!(
+                    is_integral_bit_size(*bit_size),
+                    "Not bit size should be integral: {:?}",
+                    brillig_instr
+                );
+                let bits_needed =
+                    [source.0, destination.0].iter().map(bits_needed_for).max().unwrap();
+                assert!(
+                    bits_needed == 8 || bits_needed == 16,
+                    "Not only support 8 or 16 bit encodings, got: {}",
+                    bits_needed
+                );
+
+                avm_instrs.push(AvmInstruction {
+                    opcode: if bits_needed == 8 { AvmOpcode::NOT_8 } else { AvmOpcode::NOT_16 },
+                    indirect: Some(ALL_DIRECT),
+                    operands: vec![
+                        make_operand(bits_needed, &source.0),
+                        make_operand(bits_needed, &destination.0),
+                    ],
+                    tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
+                });
+                if let IntegerBitSize::U1 = bit_size {
+                    // We need to cast the result back to u1
+                    handle_cast(
+                        &mut avm_instrs,
+                        destination,
+                        destination,
+                        BitSize::Integer(IntegerBitSize::U1),
+                    );
+                }
+            }
             BrilligOpcode::CalldataCopy { destination_address, size_address, offset_address } => {
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::CALLDATACOPY,
@@ -493,8 +526,6 @@ fn handle_cast(
                     AvmOperand::U32 { value: /*limbs=*/ 1},
                 ],
             },
-            // Then we cast back to u8 (which is what we use for u1).
-            generate_cast_instruction(dest_offset, false, dest_offset, false, AvmTypeTag::UINT8),
         ]);
     } else {
         let tag = tag_from_bit_size(bit_size);
@@ -1282,7 +1313,8 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
     pc_map[0] = 0; // first PC is always 0 as there are no instructions inserted by AVM at start
     for i in 0..brillig_bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
-            BrilligOpcode::Cast { bit_size: BitSize::Integer(IntegerBitSize::U1), .. } => 3,
+            BrilligOpcode::Cast { bit_size: BitSize::Integer(IntegerBitSize::U1), .. } => 2,
+            BrilligOpcode::Not { bit_size: IntegerBitSize::U1, .. } => 3,
             _ => 1,
         };
         // next Brillig pc will map to an AVM pc offset by the

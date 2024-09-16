@@ -14,6 +14,8 @@
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
+auto& engine = bb::numeric::get_debug_randomness();
+
 namespace bb::stdlib::recursion::honk {
 template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public testing::Test {
   public:
@@ -72,11 +74,11 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         // Create 2^log_n many add gates based on input log num gates
         const size_t num_gates = 1 << log_num_gates;
         for (size_t i = 0; i < num_gates; ++i) {
-            fr a = fr::random_element();
+            fr a = fr::random_element(&engine);
             uint32_t a_idx = builder.add_variable(a);
 
-            fr b = fr::random_element();
-            fr c = fr::random_element();
+            fr b = fr::random_element(&engine);
+            fr c = fr::random_element(&engine);
             fr d = a + b + c;
             uint32_t b_idx = builder.add_variable(b);
             uint32_t c_idx = builder.add_variable(c);
@@ -86,9 +88,9 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         }
 
         // Define some additional non-trivial but arbitrary circuit logic
-        fr_ct a(public_witness_ct(&builder, fr::random_element()));
-        fr_ct b(public_witness_ct(&builder, fr::random_element()));
-        fr_ct c(public_witness_ct(&builder, fr::random_element()));
+        fr_ct a(public_witness_ct(&builder, fr::random_element(&engine)));
+        fr_ct b(public_witness_ct(&builder, fr::random_element(&engine)));
+        fr_ct c(public_witness_ct(&builder, fr::random_element(&engine)));
 
         for (size_t i = 0; i < 32; ++i) {
             a = (a * b) + b + a;
@@ -98,7 +100,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         byte_array_ct to_hash(&builder, "nonsense test data");
         blake3s(to_hash);
 
-        fr bigfield_data = fr::random_element();
+        fr bigfield_data = fr::random_element(&engine);
         fr bigfield_data_a{ bigfield_data.data[0], bigfield_data.data[1], 0, 0 };
         fr bigfield_data_b{ bigfield_data.data[2], bigfield_data.data[3], 0, 0 };
 
@@ -158,12 +160,12 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         std::vector<fr> coeffs;
         std::vector<fr_ct> coeffs_ct;
         for (size_t idx = 0; idx < 8; idx++) {
-            auto el = fr::random_element();
+            auto el = fr::random_element(&engine);
             coeffs.emplace_back(el);
             coeffs_ct.emplace_back(fr_ct(&builder, el));
         }
         Polynomial<fr> poly(coeffs);
-        fr point = fr::random_element();
+        fr point = fr::random_element(&engine);
         fr_ct point_ct(fr_ct(&builder, point));
         auto res1 = poly.evaluate(point);
 
@@ -353,7 +355,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto [prover_accumulator, verifier_accumulator] = fold_and_verify_native();
 
         // Tamper with the accumulator by changing the target sum
-        verifier_accumulator->target_sum = FF::random_element();
+        verifier_accumulator->target_sum = FF::random_element(&engine);
 
         // Create a decider proof for accumulator obtained through folding
         InnerDeciderProver decider_prover(prover_accumulator);
@@ -381,7 +383,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto verification_key = std::make_shared<InnerVerificationKey>(prover_inst->proving_key);
         auto verifier_inst = std::make_shared<InnerDeciderVerificationKey>(verification_key);
 
-        prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element();
+        prover_accumulator->proving_key.polynomials.w_l.at(1) = FF::random_element(&engine);
 
         // Generate a folding proof with the incorrect polynomials which would result in the prover having the wrong
         // target sum

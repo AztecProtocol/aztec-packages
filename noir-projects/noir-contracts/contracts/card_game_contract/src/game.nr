@@ -24,17 +24,15 @@ impl Deserialize<PLAYER_SERIALIZED_LEN> for PlayerEntry {
         let deck_strength = fields[1] as u32;
         let points = fields[2] as u64;
 
-        PlayerEntry {
-            address,
-            deck_strength,
-            points
-        }
+        PlayerEntry { address, deck_strength, points }
     }
 }
 
 impl Eq for PlayerEntry {
     fn eq(self, other: PlayerEntry) -> bool {
-        self.address.eq(other.address) & self.deck_strength.eq(other.deck_strength) & self.points.eq(other.points)
+        self.address.eq(other.address)
+            & self.deck_strength.eq(other.deck_strength)
+            & self.points.eq(other.points)
     }
 }
 

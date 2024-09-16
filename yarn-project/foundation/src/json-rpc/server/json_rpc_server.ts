@@ -6,6 +6,7 @@ import compress from 'koa-compress';
 import Router from 'koa-router';
 
 import { createDebugLogger } from '../../log/index.js';
+import { promiseWithResolvers } from '../../promise/utils.js';
 import { type JsonClassConverterInput, type StringClassConverterInput } from '../class_converter.js';
 import { convertBigintsInObj } from '../convert.js';
 import { type ClassMaps, JsonProxy } from './json_proxy.js';
@@ -19,6 +20,13 @@ export class JsonRpcServer {
    * The proxy object.
    */
   public proxy: JsonProxy;
+
+  /**
+   * The HTTP server accepting remote requests.
+   * This member field is initialized when the server is started.
+   */
+  private httpServer?: http.Server;
+
   constructor(
     private handler: object,
     private stringClassMap: StringClassConverterInput,
@@ -141,9 +149,32 @@ export class JsonRpcServer {
    * @param port - Port number.
    * @param prefix - Prefix string.
    */
-  public start(port: number, prefix = '') {
-    const httpServer = http.createServer(this.getApp(prefix).callback());
-    httpServer.listen(port);
+  public start(port: number, prefix = ''): void {
+    if (this.httpServer) {
+      throw new Error('Server is already listening');
+    }
+
+    this.httpServer = http.createServer(this.getApp(prefix).callback());
+    this.httpServer.listen(port);
+  }
+
+  /**
+   * Stops the HTTP server
+   */
+  public stop(): Promise<void> {
+    if (!this.httpServer) {
+      return Promise.resolve();
+    }
+
+    const { promise, resolve, reject } = promiseWithResolvers<void>();
+    this.httpServer.close(err => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+    return promise;
   }
 
   /**

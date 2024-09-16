@@ -56,7 +56,7 @@ impl Empty for PublicKernelCircuitPublicInputsBuilder {
             constants: CombinedConstantData::empty(),
             revert_code: 0 as u8,
             public_teardown_call_stack: BoundedVec::new(),
-            fee_payer: AztecAddress::empty(),
+            fee_payer: AztecAddress::empty()
         }
     }
 }

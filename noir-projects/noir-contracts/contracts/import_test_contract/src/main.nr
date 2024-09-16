@@ -5,8 +5,6 @@ contract ImportTest {
 
     use dep::test::{Test, Test::DeepStruct, Test::DummyNote};
 
-    use dep::test::Test::ValueNote;
-
     // Calls the test_code_gen on the Test contract at the target address
     // Used for testing calling a function with arguments of multiple types
     // See yarn-project/simulator/src/client/private_execution.ts
