@@ -80,6 +80,40 @@ unconstrained fn transfer_to_private_to_self_transfer_not_prepared() {
     );
 }
 
+#[test(should_fail_with="transfer not prepared")]
+unconstrained fn transfer_to_private_finalizing_from_incorrect_sender() {
+    // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
+    let (env, nft_contract_address, incorrect_sender, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
+
+    let correct_sender = AztecAddress::from_field(9);
+
+    let note_randomness = unsafe_rand();
+    let transient_storage_slot_randomness = unsafe_rand();
+    // Sender will be the msg_sender/transfer_preparer in prepare_transfer_to_private
+    let transfer_preparer_storage_slot_commitment = pedersen_hash(
+        [correct_sender.to_field(), transient_storage_slot_randomness],
+        NFT::TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+    );
+
+    // We prepare the transfer
+    env.call_private_void(
+        NFT::at(nft_contract_address).prepare_transfer_to_private(
+            correct_sender,
+            recipient,
+            note_randomness,
+            transient_storage_slot_randomness
+        )
+    );
+
+    // We impersonate incorrect sender and try to finalize the transfer of the NFT. The incorrect sender owns the NFT
+    // but tries to consume a prepared transfer not belonging to him. For this reason the test should fail with
+    // "transfer not prepared".
+    env.impersonate(incorrect_sender);
+    env.call_public(
+        NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
+    );
+}
+
 #[test(should_fail_with="invalid NFT owner")]
 unconstrained fn transfer_to_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
