@@ -1,0 +1,29 @@
+name: Redo Typo PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'The PR number to redo'
+        required: true
+        type: string
+
+jobs:
+  redo-typo-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up GitHub CLI
+      uses: actions/setup-gh@v2
+      with:
+        token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+    - name: Run repo-typo-pr script
+      run: |
+        chmod +x scripts/repo-typo-pr
+        ./scripts/repo-typo-pr ${{ github.event.inputs.pr_number }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
