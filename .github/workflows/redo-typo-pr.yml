@@ -16,10 +16,14 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Set up GitHub CLI
-      uses: actions/setup-gh@v2
-      with:
-        token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+    - name: Install GitHub CLI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gh
+
+    - name: Authenticate with GitHub CLI
+      run: |
+        echo "${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}" | gh auth login --with-token
 
     - name: Run repo-typo-pr script
       run: ./scripts/repo-typo-pr ${{ github.event.inputs.pr_number }}
