@@ -23,11 +23,6 @@ export type ArchiverConfig = {
   archiverPollingIntervalMS?: number;
 
   /**
-   * The L1 block to start reading from
-   */
-  archiverL1StartBlock: number;
-
-  /**
    * The polling interval viem uses in ms
    */
   viemPollingIntervalMS?: number;
@@ -56,11 +51,6 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
     description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',
     ...numberConfigHelper(1000),
-  },
-  archiverL1StartBlock: {
-    env: 'ARCHIVER_L1_START_BLOCK',
-    description: 'The L1 block the archiver should start reading logs from',
-    ...numberConfigHelper(0),
   },
   viemPollingIntervalMS: {
     env: 'ARCHIVER_VIEM_POLLING_INTERVAL_MS',

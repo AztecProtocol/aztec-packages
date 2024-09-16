@@ -46,6 +46,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   // @todo  #8018
   uint256 public constant TIMELINESS_PROVING_IN_SLOTS = 100;
 
+  uint256 public immutable L1_BLOCK_AT_GENESIS;
   IRegistry public immutable REGISTRY;
   IInbox public immutable INBOX;
   IOutbox public immutable OUTBOX;
@@ -84,6 +85,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     OUTBOX = new Outbox(address(this));
     vkTreeRoot = _vkTreeRoot;
     VERSION = 1;
+    L1_BLOCK_AT_GENESIS = block.number;
 
     // Genesis block
     blocks[0] = BlockLog({
@@ -170,7 +172,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   function computeTxsEffectsHash(bytes calldata _body)
     external
-    view
+    pure
     override(IRollup)
     returns (bytes32)
   {

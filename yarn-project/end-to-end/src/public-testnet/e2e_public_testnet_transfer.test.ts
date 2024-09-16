@@ -53,7 +53,7 @@ describe(`deploys and transfers a private only token`, () => {
   });
 
   it('calls a private function', async () => {
-    const initialBalance = 100000000000n;
+    const initialBalance = 100_000_000_000n;
     const transferValue = 5n;
     secretKey1 = Fr.random();
     secretKey2 = Fr.random();
