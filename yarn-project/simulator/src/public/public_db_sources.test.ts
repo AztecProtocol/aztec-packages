@@ -1,4 +1,3 @@
-// TODO(md): fix this test
 import { MerkleTreeId } from '@aztec/circuit-types';
 import { AztecAddress, Fr, PublicDataTreeLeafPreimage } from '@aztec/circuits.js';
 import { computePublicDataTreeLeafSlot } from '@aztec/circuits.js/hash';

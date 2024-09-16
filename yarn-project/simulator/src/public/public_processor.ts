@@ -110,7 +110,6 @@ export class PublicProcessor {
    */
   public async process(
     txs: Tx[],
-    // NOTE(MD): max transactions is redundant, it should be filtered beforehand
     maxTransactions = txs.length,
     processedTxHandler?: ProcessedTxHandler,
     txValidator?: TxValidator<ProcessedTx>,
@@ -118,8 +117,6 @@ export class PublicProcessor {
     // The processor modifies the tx objects in place, so we need to clone them.
     txs = txs.map(tx => Tx.clone(tx));
     const result: ProcessedTx[] = [];
-
-    // NOTE(md): isnt the point that no txs should fail?
     const failed: FailedTx[] = [];
     let returns: NestedProcessReturnValues[] = [];
 
