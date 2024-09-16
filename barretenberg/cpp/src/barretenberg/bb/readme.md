@@ -27,10 +27,10 @@ This binary will take as input ACIR and witness values described in the IR to cr
     source ~/.bashrc
     ```
 
-3. Install the version of `bb` compatible with your Noir version; with Noir v0.32.0 for example:
+3. Install the version of `bb` compatible with your Noir version; with **Noir v0.34.0** for example:
 
     ```bash
-    bbup -v 0.47.1
+    bbup -v 0.55.0
     ```
 
     Check the version compatibility section below for how to identify matching versions.
@@ -52,6 +52,7 @@ Certain `bb` commands will expect the tool `jq` to already be installed. If `jq 
 TODO: https://github.com/AztecProtocol/aztec-packages/issues/7511
 
 For quick reference:
+- Noir v0.34.0 <> BB v0.55.0
 - Noir v0.33.0 <> BB v0.47.1
 - Noir v0.32.0 <> BB v0.46.1
 - Noir v0.31.0 <> BB v0.41.0
@@ -61,7 +62,7 @@ For quick reference:
 TODO: https://github.com/AztecProtocol/aztec-packages/issues/7600
 
 All available `bb` commands:
-https://github.com/AztecProtocol/aztec-packages/blob/barretenberg-v0.47.1/barretenberg/cpp/src/barretenberg/bb/main.cpp#L1357-L1489
+https://github.com/AztecProtocol/aztec-packages/blob/barretenberg-v0.55.0/barretenberg/cpp/src/barretenberg/bb/main.cpp#L1369-L1512
 
 #### FilePath vs Stdout
 
