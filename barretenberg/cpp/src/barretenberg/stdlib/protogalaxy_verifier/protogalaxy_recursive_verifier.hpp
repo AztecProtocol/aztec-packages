@@ -44,15 +44,12 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
         , keys_to_fold(DeciderVerificationKeys(builder, accumulator, decider_vks)){};
 
     /**
-     * @brief Instatiate the decider verification keys and the transcript.
-     *
-     * @param fold_data The data transmitted via the transcript by the prover.
+     * @brief Process the public data ϕ for the decider verification keys to be folded.
      */
     void run_oink_verifier_on_each_incomplete_key(const std::vector<FF>&);
 
     /**
-     * @brief Process the public data ϕ for the keys to be folded.
-     *
+     * @brief Instatiate the vks and the transcript.
      */
     void run_oink_verifier_on_one_incomplete_key(const std::shared_ptr<DeciderVK>&, std::string&);
 
