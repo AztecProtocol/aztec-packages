@@ -1,13 +1,19 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type AccountWallet, BatchCall, DeployMethod, createDebugLogger, createPXEClient } from '@aztec/aztec.js';
+import {
+  type AccountWallet,
+  BatchCall,
+  type DeployMethod,
+  type DeployOptions,
+  createDebugLogger,
+  createPXEClient,
+} from '@aztec/aztec.js';
 import { type AztecNode, type FunctionCall, type PXE } from '@aztec/circuit-types';
 import { Fr, deriveSigningKey } from '@aztec/circuits.js';
 import { EasyPrivateTokenContract } from '@aztec/noir-contracts.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { DeployOptions } from '../../aztec.js/src/contract/deploy_method.js';
 import { type BotConfig, SupportedTokenContracts } from './config.js';
-import { getBalances } from './utils.js';
+import { getBalances, getPrivateBalance, isStandardTokenContract } from './utils.js';
 
 const MINT_BALANCE = 1e12;
 const MIN_BALANCE = 1e3;
@@ -129,13 +135,30 @@ export class BotFactory {
    */
   private async mintTokens(token: TokenContract | EasyPrivateTokenContract) {
     const sender = token.wallet.getAddress();
-    const { privateBalance, publicBalance } = await getBalances(token, sender);
+    const isStandardToken = isStandardTokenContract(token);
+    let privateBalance = 0n;
+    let publicBalance = 0n;
+
+    if (isStandardToken) {
+      const { privateBalance: _privateBalance, publicBalance: _publicBalance } = await getBalances(token, sender);
+      privateBalance = _privateBalance;
+      publicBalance = _publicBalance;
+    } else {
+      privateBalance = await getPrivateBalance(token, sender);
+    }
+
+    // const { privateBalance, publicBalance } = await getBalances(token, sender);
     const calls: FunctionCall[] = [];
     if (privateBalance < MIN_BALANCE) {
       this.log.info(`Minting private tokens for ${sender.toString()}`);
-      calls.push(token.methods.privately_mint_private_note(MINT_BALANCE).request());
+
+      calls.push(
+        isStandardToken
+          ? token.methods.mint_private(MINT_BALANCE, Fr.ZERO).request()
+          : token.methods.mint(MINT_BALANCE, sender, sender).request(),
+      );
     }
-    if (publicBalance < MIN_BALANCE) {
+    if (isStandardToken && publicBalance < MIN_BALANCE) {
       this.log.info(`Minting public tokens for ${sender.toString()}`);
       calls.push(token.methods.mint_public(sender, MINT_BALANCE).request());
     }
