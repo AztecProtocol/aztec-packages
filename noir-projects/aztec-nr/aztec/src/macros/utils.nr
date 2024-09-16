@@ -1,4 +1,4 @@
-use std::meta::{typ::fresh_type_variable, unquote};
+use std::meta::{typ::fresh_type_variable, unquote, type_of};
 
 pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
     if f.has_named_attribute("private") {
@@ -35,11 +35,12 @@ pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
 pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quoted) -> Expr {
     let mut body_quote = body.fold(
         quote {},
-        |body_quote, expr: Expr| {
+        |body_quote: Quoted, expr: Expr| {
         let expr_quote = expr.quoted();
+        let semicolon = if expr_quote.as_expr().is_some() { quote {} } else { quote {;} };
         quote {
             $body_quote
-            $expr_quote
+            $expr_quote$semicolon
         }
      }
     );
@@ -58,8 +59,13 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
     body_expr.unwrap()
 }
 
+pub(crate) comptime fn is_bool(typ: Type) -> bool {
+    let a_bool = true;
+    typ == type_of(a_bool)
+}
+
 pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ: Type) -> Quoted {
-    if typ.is_field() | typ.as_integer().is_some() {
+    if typ.is_field() | typ.as_integer().is_some() | is_bool(typ) {
         quote { $slice_name = $slice_name.push_back($name as Field); }
     } else if typ.as_struct().is_some() {
         quote { $slice_name = $slice_name.append($name.serialize()); }
@@ -83,7 +89,7 @@ pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ:
 }
 
 pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Type) -> Quoted {
-    if typ.is_field() | typ.as_integer().is_some() {
+    if typ.is_field() | typ.as_integer().is_some() | is_bool(typ) {
         quote { $hasher_name.add($name as Field); }
     } else if typ.as_struct().is_some() {
         quote { $hasher_name.add_multiple($name.serialize()); }

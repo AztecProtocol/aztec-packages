@@ -7,6 +7,9 @@ contract Counter {
     use value_note::{balance_utils, value_note::ValueNote};
     use easy_private_state::EasyPrivateUint;
     use aztec::macros::{storage::storage, functions::{initializer, private}};
+    use aztec::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
+    use aztec::context::inputs::private_context_inputs::PrivateContextInputs;
+
     // docs:end:imports
 
     // docs:start:storage_struct
@@ -28,26 +31,14 @@ contract Counter {
 
     // docs:start:increment
     #[private]
-    fn increment(owner: AztecAddress, outgoing_viewer: AztecAddress) -> Field {
-        let mut args_hasher = dep::aztec::hash::ArgsHasher::new();
-        args_hasher.add_multiple(owner.serialize());
-        args_hasher.add_multiple(outgoing_viewer.serialize());
-        let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hasher.hash());
-        dep::aztec::initializer::assert_is_initialized_private(&mut context);
-        let storage = Storage::init(&mut context);
+    fn increment(owner: AztecAddress, outgoing_viewer: AztecAddress) {
         unsafe {
             dep::aztec::oracle::debug_log::debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
-        }
-        let counters: unspecified = (storage.counters);
+        };
+        let counters = storage.counters;
         counters.at(owner).add(1, owner, outgoing_viewer);
-        let mut return_hasher = dep::aztec::hash::ArgsHasher::new();
-        let macro__returned__values = 1;
-        return_hasher.add(macro__returned__values as Field);
-        context.set_return_hash(return_hasher);
-        context.finish()
     }
     // docs:end:increment
-
     // docs:start:get_counter
     unconstrained fn get_counter(owner: AztecAddress) -> pub Field {
         let counters = storage.counters;
@@ -55,10 +46,10 @@ contract Counter {
     }
     // docs:end:get_counter
     // docs:start:test_imports
-    use dep::aztec::test::{helpers::{test_environment::TestEnvironment}};
-    use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
-    use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
-    use dep::aztec::note::note_viewer_options::NoteViewerOptions;
+    // use dep::aztec::test::{helpers::{test_environment::TestEnvironment}};
+    // use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
+    // use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
+    // use dep::aztec::note::note_viewer_options::NoteViewerOptions;
     // docs:end:test_imports
     // docs:start:txe_test_increment
     #[test]

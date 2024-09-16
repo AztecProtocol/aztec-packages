@@ -19,7 +19,7 @@ fn setup() -> (TestEnvironment, PrivateContext, TestAccount) {
 
 #[test(should_fail_with="Invalid public keys hint for address")]
 fn test_get_current_keys_unknown_unregistered() {
-    let (_, context, account) = setup();
+    let (_, mut context, account) = setup();
 
     let _ = OracleMock::mock("getPublicKeysAndPartialAddress").returns([0; KEY_ORACLE_RESPONSE_LENGTH]).times(1);
     let _ = get_current_public_keys(&mut context, account.address);
