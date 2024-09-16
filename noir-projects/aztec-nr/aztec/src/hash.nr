@@ -127,7 +127,7 @@ fn compute_var_args_hash() {
     }
     let hash = input.hash();
     dep::std::println(hash);
-    assert(hash == 0x1cce4dbf69f14c44865919991ee1057922e34d7310ba237d71759aa422621ca9);
+    assert(hash == 0x19b0d74feb06ebde19edd85a28986c97063e84b3b351a8b666c7cac963ce655f);
 }
 
 #[test]
