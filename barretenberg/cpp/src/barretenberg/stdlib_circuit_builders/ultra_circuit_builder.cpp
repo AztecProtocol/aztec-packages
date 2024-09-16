@@ -1719,7 +1719,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): Originally this was a single arithmetic gate.
     // With trace sorting, we must add a dummy gate since the add gate would otherwise try to read into an aux gate that
-    // has been sorted out of sequence. (Note: temporarily disabled in favor of manual arith gate in aux block above).
+    // has been sorted out of sequence.
     // product gate 1
     // (lo_0 + q_0(p_0 + p_1*2^b) + q_1(p_0*2^b) - (r_1)2^b)2^-2b - lo_1 = 0
     create_big_add_gate({ input.q[0],

@@ -647,7 +647,7 @@ TEST(UltraCircuitConstructor, NonNativeFieldMultiplication)
 }
 
 /**
- * @brief Test that each block only contains gates which have the corresponding selector turned on.
+ * @brief Test that the aux block only contains aux gates.
  *
  */
 TEST(UltraCircuitConstructor, NonNativeFieldMultiplicationSortCheck)
@@ -705,7 +705,8 @@ TEST(UltraCircuitConstructor, NonNativeFieldMultiplicationSortCheck)
     bool result = CircuitChecker::check(circuit_constructor);
     EXPECT_EQ(result, true);
 
-    // Check that in the aux blocks, only the aux selector is nonzero, while the other selectors are zero
+    // Everything above was copied from the previous test.
+    // Check that in the aux blocks, the other selectors besides the aux selector are zero
     for (size_t i = 0; i < circuit_constructor.blocks.aux.size(); ++i) {
         EXPECT_EQ(circuit_constructor.blocks.aux.q_arith()[i], 0);
         EXPECT_EQ(circuit_constructor.blocks.aux.q_delta_range()[i], 0);

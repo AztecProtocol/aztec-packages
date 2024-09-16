@@ -159,6 +159,11 @@ TEST(MegaCircuitBuilder, GoblinEccOpQueueUltraOps)
     }
 }
 
+/**
+ * @brief Check that the selector partitioning is correct for the mega circuit builder
+ * @details We check that for the arithmetic, delta_range, elliptic, aux, lookup, busread, poseidon2_external,
+ * poseidon2_internal blocks, and the other selectors are zero on that block.
+ */
 TEST(MegaCircuitBuilder, CompleteSelectorPartitioningCheck)
 {
     auto builder = MegaCircuitBuilder();
@@ -166,9 +171,8 @@ TEST(MegaCircuitBuilder, CompleteSelectorPartitioningCheck)
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 
-    // Check that for the blocks arithmetic, delta_range, elliptic, aux, lookup, busread, poseidon2_external,
-    // poseidon2_internal the corresponding selector polynomial is non-zero on the appropriate rows and the other
-    // selectors are zero get the trace blocks
+    // For each block, we want to check that all of the other selectors are zero on that block besides the one
+    // corresponding to the current block
     for (auto& block : builder.blocks.get()) {
         for (size_t i = 0; i < block.size(); ++i) {
             if (&block != &builder.blocks.arithmetic) {
