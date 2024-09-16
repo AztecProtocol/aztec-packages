@@ -35,6 +35,8 @@ interface IRollup {
 
   function OUTBOX() external view returns (IOutbox);
 
+  function L1_BLOCK_AT_GENESIS() external view returns (uint256);
+
   function propose(
     bytes calldata _header,
     bytes32 _archive,
