@@ -22,25 +22,22 @@ struct FeePayload {
 // docs:end:fee-payload-struct
 
 impl Serialize<FEE_PAYLOAD_SIZE> for FeePayload {
-  // Serializes the entrypoint struct
-  fn serialize(self) -> [Field; FEE_PAYLOAD_SIZE] {
-    let mut fields: BoundedVec<Field, FEE_PAYLOAD_SIZE> = BoundedVec::new();
-    for i in 0..MAX_FEE_FUNCTION_CALLS {
-      fields.extend_from_array(self.function_calls[i].serialize());
+    // Serializes the entrypoint struct
+    fn serialize(self) -> [Field; FEE_PAYLOAD_SIZE] {
+        let mut fields: BoundedVec<Field, FEE_PAYLOAD_SIZE> = BoundedVec::new();
+        for i in 0..MAX_FEE_FUNCTION_CALLS {
+            fields.extend_from_array(self.function_calls[i].serialize());
+        }
+        fields.push(self.nonce);
+        fields.push(self.is_fee_payer as Field);
+        fields.storage
     }
-    fields.push(self.nonce);
-    fields.push(self.is_fee_payer as Field);
-    fields.storage
-  }
 }
 
 impl Hash for FeePayload {
-  fn hash(self) -> Field {
-    poseidon2_hash_with_separator(
-      self.serialize(),
-      GENERATOR_INDEX__FEE_PAYLOAD
-    )
-  }
+    fn hash(self) -> Field {
+        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__FEE_PAYLOAD)
+    }
 }
 
 impl FeePayload {

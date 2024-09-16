@@ -16,7 +16,7 @@ impl Empty for PrivateContextInputs {
             call_context: CallContext::empty(),
             historical_header: Header::empty(),
             tx_context: TxContext::empty(),
-            start_side_effect_counter: 0 as u32,
+            start_side_effect_counter: 0 as u32
         }
     }
 }

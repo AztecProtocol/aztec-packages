@@ -13,10 +13,7 @@ impl Eq for TreeLeafReadRequest {
 
 impl Empty for TreeLeafReadRequest {
     fn empty() -> Self {
-        TreeLeafReadRequest {
-            value: 0,
-            leaf_index: 0,
-        }
+        TreeLeafReadRequest { value: 0, leaf_index: 0 }
     }
 }
 
@@ -28,10 +25,7 @@ impl Serialize<TREE_LEAF_READ_REQUEST_LENGTH> for TreeLeafReadRequest {
 
 impl Deserialize<TREE_LEAF_READ_REQUEST_LENGTH> for TreeLeafReadRequest {
     fn deserialize(values: [Field; TREE_LEAF_READ_REQUEST_LENGTH]) -> Self {
-        Self {
-            value: values[0],
-            leaf_index: values[1],
-        }
+        Self { value: values[0], leaf_index: values[1] }
     }
 }
 

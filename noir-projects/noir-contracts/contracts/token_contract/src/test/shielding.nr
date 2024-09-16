@@ -1,5 +1,5 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes, oracle::unsafe_rand::unsafe_rand, hash::compute_secret_hash};
+use dep::aztec::{oracle::unsafe_rand::unsafe_rand, hash::compute_secret_hash};
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::{types::transparent_note::TransparentNote, Token};
 
@@ -14,8 +14,8 @@ unconstrained fn shielding_on_behalf_of_self() {
     let shield_call_interface = Token::at(token_contract_address).shield(owner, shield_amount, secret_hash, 0);
     env.call_public(shield_call_interface);
 
-    // Store a note in the cache so we can redeem it
-    env.store_note_in_cache(
+    // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
+    env.add_note(
         &mut TransparentNote::new(shield_amount, secret_hash),
         Token::storage().pending_shields.slot,
         token_contract_address
@@ -47,8 +47,8 @@ unconstrained fn shielding_on_behalf_of_other() {
 
     // Become owner again
     env.impersonate(owner);
-    // Store a note in the cache so we can redeem it
-    env.store_note_in_cache(
+    // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
+    env.add_note(
         &mut TransparentNote::new(shield_amount, secret_hash),
         Token::storage().pending_shields.slot,
         token_contract_address

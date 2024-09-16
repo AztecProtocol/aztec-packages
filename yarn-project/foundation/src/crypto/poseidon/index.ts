@@ -57,3 +57,25 @@ export function poseidon2Permutation(input: Fieldable[]): Fr[] {
   // assert(res.length === 4, 'Output state must be of size 4');
   return res.map(o => Fr.fromBuffer(Buffer.from(o.toBuffer())));
 }
+
+export function poseidon2HashBytes(input: Buffer): Fr {
+  const inputFields = [];
+  for (let i = 0; i < input.length; i += 31) {
+    const fieldBytes = Buffer.alloc(32, 0);
+    input.slice(i, i + 31).copy(fieldBytes);
+
+    // Noir builds the bytes as little-endian, so we need to reverse them.
+    fieldBytes.reverse();
+    inputFields.push(Fr.fromBuffer(fieldBytes));
+  }
+
+  return Fr.fromBuffer(
+    Buffer.from(
+      BarretenbergSync.getSingleton()
+        .poseidon2Hash(
+          inputFields.map(i => new FrBarretenberg(i.toBuffer())), // TODO(#4189): remove this stupid conversion
+        )
+        .toBuffer(),
+    ),
+  );
+}
