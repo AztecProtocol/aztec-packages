@@ -1,3 +1,4 @@
+#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #ifndef __wasm__
@@ -405,7 +406,8 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
         test_name, /*honk_recursion=*/false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
                                               // Assumes Flavor is not UltraHonk
 
-    ClientIVC ivc;
+    AztecIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     while (!program_stack.empty()) {

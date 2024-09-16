@@ -331,7 +331,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     using Program = acir_format::AcirProgram;
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
-    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
+    using DeciderVerificationKey = AztecIVC::DeciderVerificationKey;
 
     init_bn254_crs(1 << 24);
     init_grumpkin_crs(1 << 15);
@@ -416,18 +416,18 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
     init_bn254_crs(1);
     init_grumpkin_crs(1 << 15);
 
-    const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
-    const auto accumulator = read_to_shared_ptr<ClientIVC::DeciderVerificationKey>(accumulator_path);
+    const auto proof = from_buffer<AztecIVC::Proof>(read_file(proof_path));
+    const auto accumulator = read_to_shared_ptr<AztecIVC::DeciderVerificationKey>(accumulator_path);
     accumulator->verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-    const auto final_vk = read_to_shared_ptr<ClientIVC::VerificationKey>(final_vk_path);
+    const auto final_vk = read_to_shared_ptr<AztecIVC::VerificationKey>(final_vk_path);
     const auto eccvm_vk = read_to_shared_ptr<ECCVMFlavor::VerificationKey>(eccvm_vk_path);
     eccvm_vk->pcs_verification_key =
         std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(eccvm_vk->circuit_size + 1);
     const auto translator_vk = read_to_shared_ptr<TranslatorFlavor::VerificationKey>(translator_vk_path);
     translator_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
-    const bool verified = ClientIVC::verify(
-        proof, accumulator, std::make_shared<ClientIVC::DeciderVerificationKey>(final_vk), eccvm_vk, translator_vk);
+    const bool verified = AztecIVC::verify(
+        proof, accumulator, std::make_shared<AztecIVC::DeciderVerificationKey>(final_vk), eccvm_vk, translator_vk);
     vinfo("verified: ", verified);
     return verified;
 }
@@ -478,11 +478,13 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     using Builder = Flavor::CircuitBuilder;
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
+    using DeciderVK = AztecIVC::DeciderVerificationKey;
 
     init_bn254_crs(1 << 22);
     init_grumpkin_crs(1 << 16);
 
-    ClientIVC ivc;
+    AztecIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     auto program_stack = acir_format::get_acir_program_stack(
@@ -514,7 +516,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_vk = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.honk_vk);
+    auto last_vk = std::make_shared<DeciderVK>(ivc.honk_vk);
     vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
 
     vinfo("write proof and vk data to files..");
@@ -578,7 +580,7 @@ void prove_tube(const std::string& output_path)
     // set_public on each witness
     auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.folding_proof[1]));
     num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
-    num_public_inputs -= 2 * 8;                       // don't add the databus return data commitments
+    num_public_inputs -= 2 * 8;                       // don't add the databus return data commitments (2x)
     for (size_t i = 0; i < num_public_inputs; i++) {
         auto offset = acir_format::HONK_RECURSION_PUBLIC_INPUT_OFFSET;
         builder->add_public_variable(proof.folding_proof[i + offset]);
