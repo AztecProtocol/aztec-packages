@@ -2,12 +2,12 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { mock } from 'jest-mock-extended';
 
+import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint32 } from '../avm_memory_types.js';
 import { markBytecodeAsAvm } from '../bytecode_utils.js';
-import { adjustCalldataIndex, initContext, initHostStorage, initPersistableStateManager } from '../fixtures/index.js';
-import { type HostStorage } from '../journal/host_storage.js';
+import { adjustCalldataIndex, initContext, initPersistableStateManager } from '../fixtures/index.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
@@ -20,15 +20,15 @@ import { SStore } from './storage.js';
 
 describe('External Calls', () => {
   let context: AvmContext;
-  let hostStorage: HostStorage;
+  let worldStateDB: WorldStateDB;
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
 
   beforeEach(() => {
-    hostStorage = initHostStorage();
+    worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();
-    persistableState = initPersistableStateManager({ hostStorage, trace });
-    context = initContext({ persistableState: persistableState });
+    persistableState = initPersistableStateManager({ worldStateDB, trace });
+    context = initContext({ persistableState });
     mockTraceFork(trace); // make sure trace.fork() works on nested call
   });
 
@@ -94,7 +94,7 @@ describe('External Calls', () => {
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 2),
         ]),
       );
-      mockGetBytecode(hostStorage, otherContextInstructionsBytecode);
+      mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -148,7 +148,7 @@ describe('External Calls', () => {
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
         ]),
       );
-      mockGetBytecode(hostStorage, otherContextInstructionsBytecode);
+      mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
       const { l2GasLeft: initialL2Gas, daGasLeft: initialDaGas } = context.machineState;
 
@@ -235,7 +235,7 @@ describe('External Calls', () => {
       ];
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(encodeToBytecode(otherContextInstructions));
-      mockGetBytecode(hostStorage, otherContextInstructionsBytecode);
+      mockGetBytecode(worldStateDB, otherContextInstructionsBytecode);
 
       const instruction = new StaticCall(
         /*indirect=*/ 0,

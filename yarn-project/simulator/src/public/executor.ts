@@ -9,11 +9,10 @@ import { AvmContext } from '../avm/avm_context.js';
 import { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
-import { HostStorage } from '../avm/journal/host_storage.js';
 import { AvmPersistableStateManager } from '../avm/journal/index.js';
-import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from './db_interfaces.js';
 import { type PublicExecutionResult } from './execution.js';
 import { ExecutorMetrics } from './executor_metrics.js';
+import { type WorldStateDB } from './public_db_sources.js';
 import { PublicSideEffectTrace } from './side_effect_trace.js';
 
 /**
@@ -22,13 +21,7 @@ import { PublicSideEffectTrace } from './side_effect_trace.js';
 export class PublicExecutor {
   metrics: ExecutorMetrics;
 
-  constructor(
-    private readonly publicStorageDB: PublicStateDB,
-    private readonly contractsDb: PublicContractsDB,
-    private readonly commitmentsDb: CommitmentsDB,
-    private readonly header: Header,
-    client: TelemetryClient,
-  ) {
+  constructor(private readonly worldStateDB: WorldStateDB, private readonly header: Header, client: TelemetryClient) {
     this.metrics = new ExecutorMetrics(client, 'PublicExecutor');
   }
 
@@ -56,15 +49,14 @@ export class PublicExecutor {
   ): Promise<PublicExecutionResult> {
     const address = executionRequest.contractAddress;
     const selector = executionRequest.callContext.functionSelector;
-    const fnName = (await this.contractsDb.getDebugFunctionName(address, selector)) ?? `${address}:${selector}`;
+    const fnName = (await this.worldStateDB.getDebugFunctionName(address, selector)) ?? `${address}:${selector}`;
 
     PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}.`);
     const timer = new Timer();
 
-    const hostStorage = new HostStorage(this.publicStorageDB, this.contractsDb, this.commitmentsDb);
     const trace = new PublicSideEffectTrace(startSideEffectCounter);
     const avmPersistableState = AvmPersistableStateManager.newWithPendingSiloedNullifiers(
-      hostStorage,
+      this.worldStateDB,
       trace,
       pendingSiloedNullifiers.map(n => n.value),
     );

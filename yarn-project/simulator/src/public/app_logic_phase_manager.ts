@@ -1,11 +1,11 @@
 import { PublicKernelType, type PublicProvingRequest, type Tx } from '@aztec/circuit-types';
 import { type GlobalVariables, type Header, type PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
-import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
+import { type PublicExecutor } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { AbstractPhaseManager, makeAvmProvingRequest } from './abstract_phase_manager.js';
-import { type ContractsDataSourcePublicDB } from './public_db_sources.js';
+import { type WorldStateDB } from './public_db_sources.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
 /**
@@ -18,8 +18,7 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
     publicKernel: PublicKernelCircuitSimulator,
     globalVariables: GlobalVariables,
     historicalHeader: Header,
-    protected publicContractsDB: ContractsDataSourcePublicDB,
-    protected publicStateDB: PublicStateDB,
+    protected worldStateDB: WorldStateDB,
     phase: PublicKernelType = PublicKernelType.APP_LOGIC,
   ) {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
@@ -37,7 +36,7 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
     // TODO(@spalladino): Should we allow emitting contracts in the fee preparation phase?
     // TODO(#6464): Should we allow emitting contracts in the private setup phase?
     // if so, this should only add contracts that were deployed during private app logic.
-    await this.publicContractsDB.addNewContracts(tx);
+    await this.worldStateDB.addNewContracts(tx);
     const {
       publicProvingInformation,
       kernelOutput,
@@ -49,7 +48,7 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
     } = await this.processEnqueuedPublicCalls(tx, previousPublicKernelOutput, previousCircuit).catch(
       // if we throw for any reason other than simulation, we need to rollback and drop the TX
       async err => {
-        await this.publicStateDB.rollbackToCommit();
+        await this.worldStateDB.rollbackToCommit();
         throw err;
       },
     );
@@ -57,8 +56,8 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
     if (revertReason) {
       // TODO(#6464): Should we allow emitting contracts in the private setup phase?
       // if so, this is removing contracts deployed in private setup
-      await this.publicContractsDB.removeNewContracts(tx);
-      await this.publicStateDB.rollbackToCheckpoint();
+      await this.worldStateDB.removeNewContracts(tx);
+      await this.worldStateDB.rollbackToCheckpoint();
       tx.filterRevertedLogs(kernelOutput);
     } else {
       tx.unencryptedLogs.addFunctionLogs(newUnencryptedLogs);

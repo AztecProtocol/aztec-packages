@@ -4,8 +4,9 @@ import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { mock } from 'jest-mock-extended';
 
+import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
-import { initHostStorage, initPersistableStateManager } from '../fixtures/index.js';
+import { initPersistableStateManager } from '../fixtures/index.js';
 import {
   mockGetContractInstance,
   mockL1ToL2MessageExists,
@@ -13,7 +14,6 @@ import {
   mockNullifierExists,
   mockStorageRead,
 } from '../test_utils.js';
-import { type HostStorage } from './host_storage.js';
 import { type AvmPersistableStateManager } from './journal.js';
 
 describe('journal', () => {
@@ -21,14 +21,14 @@ describe('journal', () => {
   const utxo = Fr.random();
   const leafIndex = Fr.random();
 
-  let hostStorage: HostStorage;
+  let worldStateDB: WorldStateDB;
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
 
   beforeEach(() => {
-    hostStorage = initHostStorage();
+    worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();
-    persistableState = initPersistableStateManager({ hostStorage, trace });
+    persistableState = initPersistableStateManager({ worldStateDB, trace });
   });
 
   describe('Public Storage', () => {
@@ -38,7 +38,7 @@ describe('journal', () => {
       const storedValue = new Fr(420);
       const cachedValue = new Fr(69);
 
-      mockStorageRead(hostStorage, storedValue);
+      mockStorageRead(worldStateDB, storedValue);
 
       // Get the cache first
       const cacheMissResult = await persistableState.readStorage(address, slot);
@@ -83,7 +83,7 @@ describe('journal', () => {
     });
 
     it('checkNoteHashExists works for existing note hashes', async () => {
-      mockNoteHashExists(hostStorage, leafIndex, utxo);
+      mockNoteHashExists(worldStateDB, leafIndex, utxo);
       const exists = await persistableState.checkNoteHashExists(address, utxo, leafIndex);
       expect(exists).toEqual(true);
       expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
@@ -110,7 +110,7 @@ describe('journal', () => {
     });
 
     it('checkNullifierExists works for existing nullifiers', async () => {
-      mockNullifierExists(hostStorage, leafIndex, utxo);
+      mockNullifierExists(worldStateDB, leafIndex, utxo);
       const exists = await persistableState.checkNullifierExists(address, utxo);
       expect(exists).toEqual(true);
       expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
@@ -130,7 +130,7 @@ describe('journal', () => {
     });
 
     it('checkL1ToL2MessageExists works for existing message', async () => {
-      mockL1ToL2MessageExists(hostStorage, leafIndex, utxo);
+      mockL1ToL2MessageExists(worldStateDB, leafIndex, utxo);
       const exists = await persistableState.checkL1ToL2MessageExists(address, utxo, leafIndex);
       expect(exists).toEqual(true);
       expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledTimes(1);
@@ -148,7 +148,7 @@ describe('journal', () => {
   describe('Getting contract instances', () => {
     it('Should get contract instance', async () => {
       const contractInstance = randomContractInstanceWithAddress(/*(base instance) opts=*/ {}, /*address=*/ address);
-      mockGetContractInstance(hostStorage, contractInstance);
+      mockGetContractInstance(worldStateDB, contractInstance);
       await persistableState.getContractInstance(address);
       expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
       expect(trace.traceGetContractInstance).toHaveBeenCalledWith({ exists: true, ...contractInstance });

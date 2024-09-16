@@ -7,13 +7,13 @@ import {
   type PublicKernelCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
-import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
+import { type PublicExecutor } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
 import { AbstractPhaseManager, makeAvmProvingRequest } from './abstract_phase_manager.js';
-import { type ContractsDataSourcePublicDB } from './public_db_sources.js';
+import { type WorldStateDB } from './public_db_sources.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
 /**
@@ -26,8 +26,7 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
     publicKernel: PublicKernelCircuitSimulator,
     globalVariables: GlobalVariables,
     historicalHeader: Header,
-    protected publicContractsDB: ContractsDataSourcePublicDB,
-    protected publicStateDB: PublicStateDB,
+    protected worldStateDB: WorldStateDB,
     phase: PublicKernelType = PublicKernelType.TEARDOWN,
   ) {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
@@ -43,12 +42,12 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
       await this.processEnqueuedPublicCalls(tx, previousPublicKernelOutput, previousKernelArtifact).catch(
         // the abstract phase manager throws if simulation gives error in a non-revertible phase
         async err => {
-          await this.publicStateDB.rollbackToCommit();
+          await this.worldStateDB.rollbackToCommit();
           throw err;
         },
       );
     if (revertReason) {
-      await this.publicStateDB.rollbackToCheckpoint();
+      await this.worldStateDB.rollbackToCheckpoint();
       tx.filterRevertedLogs(kernelOutput);
     } else {
       // TODO(#6464): Should we allow emitting contracts in the public teardown phase?

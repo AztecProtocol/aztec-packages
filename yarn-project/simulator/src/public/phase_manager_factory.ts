@@ -1,11 +1,11 @@
 import { PublicKernelType, type Tx } from '@aztec/circuit-types';
 import { type GlobalVariables, type Header, type PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
-import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
+import { type PublicExecutor } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { type AbstractPhaseManager } from './abstract_phase_manager.js';
 import { AppLogicPhaseManager } from './app_logic_phase_manager.js';
-import { type ContractsDataSourcePublicDB } from './public_db_sources.js';
+import { type WorldStateDB } from './public_db_sources.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { SetupPhaseManager } from './setup_phase_manager.js';
 import { TailPhaseManager } from './tail_phase_manager.js';
@@ -31,20 +31,11 @@ export class PhaseManagerFactory {
     publicKernel: PublicKernelCircuitSimulator,
     globalVariables: GlobalVariables,
     historicalHeader: Header,
-    publicContractsDB: ContractsDataSourcePublicDB,
-    publicStateDB: PublicStateDB,
+    worldStateDB: WorldStateDB,
   ): AbstractPhaseManager | undefined {
     const data = tx.data.forPublic!;
     if (data.needsSetup) {
-      return new SetupPhaseManager(
-        db,
-        publicExecutor,
-        publicKernel,
-        globalVariables,
-        historicalHeader,
-        publicContractsDB,
-        publicStateDB,
-      );
+      return new SetupPhaseManager(db, publicExecutor, publicKernel, globalVariables, historicalHeader, worldStateDB);
     } else if (data.needsAppLogic) {
       return new AppLogicPhaseManager(
         db,
@@ -52,8 +43,7 @@ export class PhaseManagerFactory {
         publicKernel,
         globalVariables,
         historicalHeader,
-        publicContractsDB,
-        publicStateDB,
+        worldStateDB,
       );
     } else if (data.needsTeardown) {
       return new TeardownPhaseManager(
@@ -62,8 +52,7 @@ export class PhaseManagerFactory {
         publicKernel,
         globalVariables,
         historicalHeader,
-        publicContractsDB,
-        publicStateDB,
+        worldStateDB,
       );
     } else {
       return undefined;
@@ -78,8 +67,7 @@ export class PhaseManagerFactory {
     publicKernel: PublicKernelCircuitSimulator,
     globalVariables: GlobalVariables,
     historicalHeader: Header,
-    publicContractsDB: ContractsDataSourcePublicDB,
-    publicStateDB: PublicStateDB,
+    worldStateDB: WorldStateDB,
   ): AbstractPhaseManager | undefined {
     if (output.needsSetup) {
       throw new CannotTransitionToSetupError();
@@ -93,8 +81,7 @@ export class PhaseManagerFactory {
         publicKernel,
         globalVariables,
         historicalHeader,
-        publicContractsDB,
-        publicStateDB,
+        worldStateDB,
       );
     } else if (output.needsTeardown) {
       if (currentPhaseManager.phase === PublicKernelType.TEARDOWN) {
@@ -106,19 +93,10 @@ export class PhaseManagerFactory {
         publicKernel,
         globalVariables,
         historicalHeader,
-        publicContractsDB,
-        publicStateDB,
+        worldStateDB,
       );
     } else if (currentPhaseManager.phase !== PublicKernelType.TAIL) {
-      return new TailPhaseManager(
-        db,
-        publicExecutor,
-        publicKernel,
-        globalVariables,
-        historicalHeader,
-        publicContractsDB,
-        publicStateDB,
-      );
+      return new TailPhaseManager(db, publicExecutor, publicKernel, globalVariables, historicalHeader, worldStateDB);
     } else {
       return undefined;
     }
