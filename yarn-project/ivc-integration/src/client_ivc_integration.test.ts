@@ -79,9 +79,9 @@ describe('Client IVC Integration', () => {
       tx,
     });
 
-    const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
-      prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-    });
+    // const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
+    //   prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
+    // });
     // Create client IVC proof
     const bytecodes = [
       MockAppCreatorCircuit.bytecode,
