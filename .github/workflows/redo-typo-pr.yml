@@ -20,5 +20,11 @@ jobs:
       run: |
         echo "${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}" | gh auth login --with-token
 
+    - name: Set git configure for commits
+      run: |
+        # identify ourselves, needed to commit
+        git config --global user.name AztecBot
+        git config --global user.email tech@aztecprotocol.com
+
     - name: Run repo-typo-pr script
       run: ./scripts/redo-typo-pr ${{ github.event.inputs.pr_number }}
