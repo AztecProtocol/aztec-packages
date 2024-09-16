@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726233077895,
+  "lastUpdate": 1726481910369,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2d3e0b672c11eddf0e4e50f00a42a662bdd67c0c",
-          "message": "chore(revert): earthfile accidental change (#8309)",
-          "timestamp": "2024-08-31T11:43:49-04:00",
-          "tree_id": "0e995ecfe8182aa5b9bd8acbf01e8f664e236b0c",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2d3e0b672c11eddf0e4e50f00a42a662bdd67c0c"
-        },
-        "date": 1725119765212,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13723.357671999991,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10360.771741999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5108.438909,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4654.891734999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39939.670315,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39939670000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14718.917256,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14718918000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3717051482,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3717051482 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 148100593,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 148100593 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3101439798,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3101439798 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 120164679,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 120164679 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3600,6 +3528,78 @@ window.BENCHMARK_DATA = {
             "value": 113281775,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 113281775 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alexghr@users.noreply.github.com",
+            "name": "Alex Gherghisan",
+            "username": "alexghr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aab87733b4381d8d64b85f5e5a6bff4e31ee1abd",
+          "message": "fix: native world state test issues (#8546)\n\nThis PR fixes the flaky Jest tests that were comparing the C++\r\nWorldState against the JS implementation.\r\n\r\nThe issue stemmed from the `WorldState::get_state_reference` function\r\nreading state reference for all five trees in parallel and saving that\r\ninformation in a `std::unordered_map`. Concurrent writes to a\r\n`std::unordered_map` [are\r\ninvalid](https://devblogs.microsoft.com/oldnewthing/20231103-00/?p=108966)\r\nso I've added a lock to ensure that only one thread writes at a time.\r\nSimultaneous reads are fine though.",
+          "timestamp": "2024-09-16T11:08:09+01:00",
+          "tree_id": "3b663f039343f3698013f2bb4b0de35483347c81",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/aab87733b4381d8d64b85f5e5a6bff4e31ee1abd"
+        },
+        "date": 1726481903375,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 12908.682877000017,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9257.660694000002 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5109.11256,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4717.756773 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 38327.397527,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 38327397000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14658.544392,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14658545000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 3613244945,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 3613244945 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 137259628,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 137259628 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2962647334,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 2962647334 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 113527785,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 113527785 ns\nthreads: 1"
           }
         ]
       }
