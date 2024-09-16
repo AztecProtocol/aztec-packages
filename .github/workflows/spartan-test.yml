@@ -136,11 +136,10 @@ jobs:
           tester_ttl: 40
           run: |
             set -eux
-            cd ./yarn-project/end-to-end/
-            ./scripts/setup_local_k8s.sh
+            ./spartan/scripts/setup_local_k8s.sh
             export FORCE_COLOR=1
             export EARTHLY_BUILD_ARGS="${{ env.EARTHLY_BUILD_ARGS }}"
-            ../../scripts/earthly-ci --exec-stats -P --no-output ./+network-transfer --values-file=${{ matrix.values_file }}
+            ./scripts/earthly-ci --exec-stats -P --no-output ./yarn-project/end-to-end/+network-transfer --values-file=${{ matrix.values_file }}
 
   success-check:
     runs-on: ubuntu-20.04

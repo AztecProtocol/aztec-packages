@@ -1,4 +1,5 @@
-use crate::{constants::KEY_VALIDATION_REQUEST_LENGTH, traits::{Empty, Serialize, Deserialize}, point::Point};
+use crate::{traits::{Empty, Serialize, Deserialize}, point::Point};
+pub use crate::constants::KEY_VALIDATION_REQUEST_LENGTH;
 
 struct KeyValidationRequest {
     pk_m: Point,
@@ -7,17 +8,13 @@ struct KeyValidationRequest {
 
 impl Eq for KeyValidationRequest {
     fn eq(self, request: KeyValidationRequest) -> bool {
-        (request.pk_m.eq(self.pk_m))
-            & (request.sk_app.eq(self.sk_app))
+        (request.pk_m.eq(self.pk_m)) & (request.sk_app.eq(self.sk_app))
     }
 }
 
 impl Empty for KeyValidationRequest {
     fn empty() -> Self {
-        KeyValidationRequest {
-            pk_m: Point::empty(),
-            sk_app: 0,
-        }
+        KeyValidationRequest { pk_m: Point::empty(), sk_app: 0 }
     }
 }
 
@@ -27,17 +24,14 @@ impl Serialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
             self.pk_m.x,
             self.pk_m.y,
             self.pk_m.is_infinite as Field,
-            self.sk_app,
+            self.sk_app
         ]
     }
 }
 
 impl Deserialize<KEY_VALIDATION_REQUEST_LENGTH> for KeyValidationRequest {
     fn deserialize(fields: [Field; KEY_VALIDATION_REQUEST_LENGTH]) -> Self {
-        Self {
-            pk_m: Point { x:fields[0], y: fields[1], is_infinite: fields[2] as bool},
-            sk_app: fields[3],
-        }
+        Self { pk_m: Point { x: fields[0], y: fields[1], is_infinite: fields[2] as bool }, sk_app: fields[3] }
     }
 }
 

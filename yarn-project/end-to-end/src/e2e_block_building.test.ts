@@ -12,6 +12,7 @@ import {
   type Wallet,
   deriveKeys,
   retryUntil,
+  sleep,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
@@ -333,6 +334,7 @@ describe('e2e_block_building', () => {
         minTxsPerBlock: 0,
         skipProtocolContracts: true,
       }));
+      await sleep(1000);
 
       const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
       await account.waitSetup();

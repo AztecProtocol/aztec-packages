@@ -1,16 +1,15 @@
 use dep::protocol_types::{
     abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
-    address::{AztecAddress, PartialAddress}, storage::map::derive_storage_slot_in_map,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, traits::Deserialize
+    address::AztecAddress, traits::Deserialize
 };
 
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
 
-use crate::context::{PrivateContext, PublicContext, UnconstrainedContext, PrivateVoidCallInterface};
-use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer, TestAccount}, keys};
+use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
+use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer}, keys};
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
-use crate::hash::{hash_args, hash_args_array};
+use crate::hash::hash_args;
 
 use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
 use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_created_note};
@@ -208,7 +207,9 @@ impl TestEnvironment {
         );
     }
 
-    pub fn store_note_in_cache<Note, let N: u32, let M: u32>(
+    /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
+    /// not having an encrypted log emitted. TXE alternative to `PXE.addNote(...)`.
+    pub fn add_note<Note, let N: u32, let M: u32>(
         _self: Self,
         note: &mut Note,
         storage_slot: Field,

@@ -3,7 +3,6 @@ use dep::protocol_types::{
     hash::poseidon2_hash_with_separator, point::{Point, POINT_LENGTH},
     traits::{Deserialize, Serialize, Empty, is_empty, Hash}
 };
-use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX};
 
 global PUBLIC_KEYS_LENGTH: u32 = 12;
 
@@ -92,20 +91,20 @@ impl ToPoint for TpkM {
 impl Empty for PublicKeys {
     fn empty() -> Self {
         PublicKeys {
-            npk_m : NpkM { inner: Point::empty() },
-            ivpk_m : IvpkM { inner: Point::empty() },
-            ovpk_m : OvpkM { inner: Point::empty() },
-            tpk_m : TpkM { inner: Point::empty() }
+            npk_m: NpkM { inner: Point::empty() },
+            ivpk_m: IvpkM { inner: Point::empty() },
+            ovpk_m: OvpkM { inner: Point::empty() },
+            tpk_m: TpkM { inner: Point::empty() }
         }
     }
 }
 
 impl Eq for PublicKeys {
     fn eq(self, other: PublicKeys) -> bool {
-        ( self.npk_m.inner == other.npk_m.inner ) &
-        ( self.ivpk_m.inner == other.ivpk_m.inner ) &
-        ( self.ovpk_m.inner == other.ovpk_m.inner ) &
-        ( self.tpk_m.inner == other.tpk_m.inner )
+        (self.npk_m.inner == other.npk_m.inner)
+            & (self.ivpk_m.inner == other.ivpk_m.inner)
+            & (self.ovpk_m.inner == other.ovpk_m.inner)
+            & (self.tpk_m.inner == other.tpk_m.inner)
     }
 }
 
@@ -143,10 +142,10 @@ impl Serialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
 impl Deserialize<PUBLIC_KEYS_LENGTH> for PublicKeys {
     fn deserialize(serialized: [Field; PUBLIC_KEYS_LENGTH]) -> PublicKeys {
         PublicKeys {
-            npk_m: NpkM { inner: Point { x:serialized[0], y:serialized[1], is_infinite: serialized[2] as bool } },
-            ivpk_m: IvpkM { inner: Point { x:serialized[3], y: serialized[4], is_infinite: serialized[5] as bool } },
-            ovpk_m: OvpkM { inner: Point { x:serialized[6], y: serialized[7], is_infinite: serialized[8] as bool } },
-            tpk_m: TpkM { inner: Point { x:serialized[9], y: serialized[10], is_infinite: serialized[11] as bool } }
+            npk_m: NpkM { inner: Point { x: serialized[0], y: serialized[1], is_infinite: serialized[2] as bool } },
+            ivpk_m: IvpkM { inner: Point { x: serialized[3], y: serialized[4], is_infinite: serialized[5] as bool } },
+            ovpk_m: OvpkM { inner: Point { x: serialized[6], y: serialized[7], is_infinite: serialized[8] as bool } },
+            tpk_m: TpkM { inner: Point { x: serialized[9], y: serialized[10], is_infinite: serialized[11] as bool } }
         }
     }
 }

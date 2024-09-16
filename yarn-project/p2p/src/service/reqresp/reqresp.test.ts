@@ -72,6 +72,30 @@ describe('ReqResp', () => {
     await stopNodes(nodes);
   });
 
+  it('Should hit a rate limit if too many requests are made in quick succession', async () => {
+    const nodes = await createNodes(2);
+
+    await startNodes(nodes);
+
+    // Spy on the logger to make sure the error message is logged
+    const loggerSpy = jest.spyOn((nodes[1].req as any).logger, 'warn');
+
+    await sleep(500);
+    await connectToPeers(nodes);
+    await sleep(500);
+
+    // Default rate is set at 1 every 200 ms; so this should fire a few times
+    for (let i = 0; i < 10; i++) {
+      await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, PING_PROTOCOL, Buffer.from('ping'));
+    }
+
+    // Make sure the error message is logged
+    const errorMessage = `Rate limit exceeded for ${PING_PROTOCOL} from ${nodes[0].p2p.peerId.toString()}`;
+    expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
+
+    await stopNodes(nodes);
+  });
+
   describe('TX REQ PROTOCOL', () => {
     it('Can request a Tx from TxHash', async () => {
       const tx = mockTx();

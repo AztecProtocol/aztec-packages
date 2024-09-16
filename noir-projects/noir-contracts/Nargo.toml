@@ -28,6 +28,7 @@ members = [
     "contracts/key_registry_contract",
     "contracts/inclusion_proofs_contract",
     "contracts/lending_contract",
+    "contracts/nft_contract",
     "contracts/parent_contract",
     "contracts/pending_note_hashes_contract",
     "contracts/price_feed_contract",
