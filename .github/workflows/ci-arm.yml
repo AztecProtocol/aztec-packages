@@ -57,6 +57,7 @@ jobs:
         if: needs.changes.outputs.build-images == 'true'
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
+        if: needs.changes.outputs.build-images == 'true'
       - uses: ./.github/ci-setup-action
         if: needs.changes.outputs.build-images == 'true'
         with:
