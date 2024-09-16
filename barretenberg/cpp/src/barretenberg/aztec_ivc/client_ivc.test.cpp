@@ -1,4 +1,3 @@
-#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/aztec_ivc/aztec_ivc.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
@@ -9,7 +8,7 @@
 
 using namespace bb;
 
-class ClientIVCTests : public ::testing::Test {
+class AztecIVCAutoVerifyTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
@@ -17,15 +16,15 @@ class ClientIVCTests : public ::testing::Test {
         srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
-    using Flavor = ClientIVC::Flavor;
+    using Flavor = AztecIVC::Flavor;
     using FF = typename Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
-    using Builder = ClientIVC::ClientCircuit;
-    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
-    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
-    using FoldProof = ClientIVC::FoldProof;
-    using DeciderProver = ClientIVC::DeciderProver;
-    using DeciderVerifier = ClientIVC::DeciderVerifier;
+    using Builder = AztecIVC::ClientCircuit;
+    using DeciderProvingKey = AztecIVC::DeciderProvingKey;
+    using DeciderVerificationKey = AztecIVC::DeciderVerificationKey;
+    using FoldProof = AztecIVC::FoldProof;
+    using DeciderProver = AztecIVC::DeciderProver;
+    using DeciderVerifier = AztecIVC::DeciderVerifier;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
@@ -45,7 +44,7 @@ class ClientIVCTests : public ::testing::Test {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
         // function circuit because we cannot support zero commtiments. While the builder handles this at
         // finalisation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other MegaHonk
-        // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
+        // circuits (where we don't explicitly need to add goblin ops), in AztecIVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(circuit);
         return circuit;
@@ -56,7 +55,7 @@ class ClientIVCTests : public ::testing::Test {
  * @brief A simple-as-possible test demonstrating IVC for two mock circuits
  *
  */
-TEST_F(ClientIVCTests, Basic)
+TEST_F(AztecIVCAutoVerifyTests, Basic)
 {
     AztecIVC ivc;
     ivc.auto_verify_mode = true;
@@ -80,7 +79,7 @@ TEST_F(ClientIVCTests, Basic)
  * @brief Prove and verify accumulation of an arbitrary set of circuits
  *
  */
-TEST_F(ClientIVCTests, BasicLarge)
+TEST_F(AztecIVCAutoVerifyTests, BasicLarge)
 {
     AztecIVC ivc;
     ivc.auto_verify_mode = true;
@@ -104,7 +103,7 @@ TEST_F(ClientIVCTests, BasicLarge)
  * @brief Using a structured trace allows for the accumulation of circuits of varying size
  *
  */
-TEST_F(ClientIVCTests, BasicStructured)
+TEST_F(AztecIVCAutoVerifyTests, BasicStructured)
 {
     AztecIVC ivc;
     ivc.auto_verify_mode = true;
@@ -129,7 +128,7 @@ TEST_F(ClientIVCTests, BasicStructured)
  * @brief Prove and verify accumulation of an arbitrary set of circuits using precomputed verification keys
  *
  */
-TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
+TEST_F(AztecIVCAutoVerifyTests, PrecomputedVerificationKeys)
 {
     AztecIVC ivc;
     ivc.auto_verify_mode = true;
@@ -156,7 +155,7 @@ TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
  * @brief Perform accumulation with a structured trace and precomputed verification keys
  *
  */
-TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
+TEST_F(AztecIVCAutoVerifyTests, StructuredPrecomputedVKs)
 {
     AztecIVC ivc;
     ivc.auto_verify_mode = true;

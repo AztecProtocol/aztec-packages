@@ -1,6 +1,5 @@
 #include "barretenberg/aztec_ivc/aztec_ivc.hpp"
 #include "barretenberg/bb/file_io.hpp"
-#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
@@ -445,7 +444,8 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
     init_bn254_crs(1 << 22);
     init_grumpkin_crs(1 << 16);
 
-    ClientIVC ivc;
+    AztecIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     auto program_stack = acir_format::get_acir_program_stack(

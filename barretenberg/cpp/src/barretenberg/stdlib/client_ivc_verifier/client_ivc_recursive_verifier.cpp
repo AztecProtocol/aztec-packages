@@ -8,7 +8,7 @@ namespace bb::stdlib::recursion::honk {
  * @todo (https://github.com/AztecProtocol/barretenberg/issues/934):  Add logic for accumulating the pairing points
  * produced by the verifiers (and potentially IPA accumulators for ECCVM verifier)
  */
-void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
+void ClientIVCRecursiveVerifier::verify(const AztecIVC::Proof& proof)
 {
     // Construct stdlib accumulator, vkey and proof
     auto stdlib_verifier_accum =

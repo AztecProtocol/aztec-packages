@@ -5,7 +5,6 @@ set(DSL_DEPENDENCIES
     aztec_ivc
     plonk
     ultra_honk
-    client_ivc
     stdlib_sha256
     stdlib_aes128
     stdlib_keccak

@@ -1,6 +1,6 @@
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
+#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/test.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -14,7 +14,7 @@ class ClientIVCRecursionTests : public testing::Test {
     using DeciderVerificationKey = FoldVerifierInput::DeciderVK;
     using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
     using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
-    using Proof = ClientIVC::Proof;
+    using Proof = AztecIVC::Proof;
     using Flavor = UltraRecursiveFlavor_<Builder>;
     using NativeFlavor = Flavor::NativeFlavor;
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<Flavor>;
@@ -34,11 +34,11 @@ class ClientIVCRecursionTests : public testing::Test {
      * @brief Construct a genuine ClientIVC prover output based on accumulation of an arbitrary set of mock circuits
      *
      */
-    static ClientIVCProverOutput construct_client_ivc_prover_output(ClientIVC& ivc)
+    static ClientIVCProverOutput construct_client_ivc_prover_output(AztecIVC& ivc)
     {
-        using Builder = ClientIVC::ClientCircuit;
+        using Builder = AztecIVC::ClientCircuit;
 
-        size_t NUM_CIRCUITS = 3;
+        size_t NUM_CIRCUITS = 4;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             Builder circuit{ ivc.goblin.op_queue };
             GoblinMockCircuits::construct_mock_function_circuit(circuit);
@@ -62,7 +62,8 @@ class ClientIVCRecursionTests : public testing::Test {
  */
 TEST_F(ClientIVCRecursionTests, NativeVerification)
 {
-    ClientIVC ivc;
+    AztecIVC ivc;
+    ivc.auto_verify_mode = true;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the set of native decider vks to be processed by the folding verifier
@@ -82,7 +83,8 @@ TEST_F(ClientIVCRecursionTests, NativeVerification)
 TEST_F(ClientIVCRecursionTests, Basic)
 {
     // Generate a genuine ClientIVC prover output
-    ClientIVC ivc;
+    AztecIVC ivc;
+    ivc.auto_verify_mode = true;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
@@ -103,7 +105,8 @@ TEST_F(ClientIVCRecursionTests, Basic)
 TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 {
     // Generate a genuine ClientIVC prover output
-    ClientIVC ivc;
+    AztecIVC ivc;
+    ivc.auto_verify_mode = true;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier

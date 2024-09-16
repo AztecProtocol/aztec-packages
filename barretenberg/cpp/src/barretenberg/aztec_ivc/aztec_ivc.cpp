@@ -284,7 +284,7 @@ bool AztecIVC::prove_and_verify()
  * (albeit innefficient) way of separating out the cost of computing VKs from a benchmark.
  *
  * @param circuits A copy of the circuits to be accumulated (passing by reference would alter the original circuits)
- * @return std::vector<std::shared_ptr<ClientIVC::VerificationKey>>
+ * @return std::vector<std::shared_ptr<AztecIVC::VerificationKey>>
  */
 std::vector<std::shared_ptr<AztecIVC::VerificationKey>> AztecIVC::precompute_folding_verification_keys(
     std::vector<ClientCircuit> circuits)

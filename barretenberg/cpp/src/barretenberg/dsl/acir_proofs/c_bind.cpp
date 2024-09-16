@@ -1,7 +1,7 @@
 #include "c_bind.hpp"
 #include "../acir_format/acir_to_constraint_buf.hpp"
 #include "acir_composer.hpp"
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/net.hpp"
 #include "barretenberg/common/serialize.hpp"
@@ -92,7 +92,8 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
 
     ProgramStack program_stack{ constraint_systems, witness_stack };
 
-    ClientIVC ivc;
+    AztecIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     while (!program_stack.empty()) {

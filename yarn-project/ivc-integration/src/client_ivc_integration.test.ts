@@ -48,7 +48,7 @@ describe('Client IVC Integration', () => {
     );
 
     await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack'), encode(witnessStack));
-    const provingResult = await executeBbClientIvcProof(
+    const provingResult = await executeBbientIvcProof(
       bbBinaryPath,
       bbWorkingDirectory,
       path.join(bbWorkingDirectory, 'acir.msgpack'),

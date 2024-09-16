@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 
@@ -15,7 +15,7 @@ class ClientIVCRecursiveVerifier {
     using GoblinVerifier = GoblinRecursiveVerifier;
 
   public:
-    using Proof = ClientIVC::Proof;
+    using Proof = AztecIVC::Proof;
     using FoldVerifierInput = FoldingVerifier::VerifierInput;
     using GoblinVerifierInput = GoblinVerifier::VerifierInput;
     struct VerifierInput {
@@ -27,7 +27,7 @@ class ClientIVCRecursiveVerifier {
         : builder(builder)
         , verifier_input(verifier_input){};
 
-    void verify(const ClientIVC::Proof&);
+    void verify(const AztecIVC::Proof&);
 
   private:
     std::shared_ptr<Builder> builder;
