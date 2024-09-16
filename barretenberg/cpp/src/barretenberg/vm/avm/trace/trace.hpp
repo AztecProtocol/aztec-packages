@@ -178,7 +178,12 @@ class AvmTraceBuilder {
                             uint32_t input_size_offset,
                             uint32_t gen_ctx_offset);
     // Conversions
-    void op_to_radix_le(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset, uint32_t radix, uint32_t num_limbs);
+    void op_to_radix_le(uint8_t indirect,
+                        uint32_t src_offset,
+                        uint32_t dst_offset,
+                        uint32_t radix_offset,
+                        uint32_t num_limbs,
+                        uint8_t output_bits);
 
     // Future Gadgets -- pending changes in noir
     void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t h_init_offset, uint32_t input_offset);

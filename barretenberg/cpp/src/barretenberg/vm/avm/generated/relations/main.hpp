@@ -23,6 +23,8 @@ template <typename FF_> class mainImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+        const auto constants_MEM_TAG_U1 = FF(1);
+        const auto constants_MEM_TAG_FF = FF(7);
         const auto constants_misc_INTERNAL_CALL_SPACE_ID = FF(255);
         const auto main_KERNEL_INPUT_SELECTORS =
             ((((((((((new_term.main_sel_op_address + new_term.main_sel_op_storage_address) +
@@ -534,7 +536,7 @@ template <typename FF_> class mainImpl {
         {
             using Accumulator = typename std::tuple_element_t<74, ContainerOverSubrelations>;
             auto tmp = (((new_term.main_sel_op_eq + new_term.main_sel_op_lte) + new_term.main_sel_op_lt) *
-                        (new_term.main_w_in_tag - FF(1)));
+                        (new_term.main_w_in_tag - constants_MEM_TAG_U1));
             tmp *= scaling_factor;
             std::get<74>(evals) += typename Accumulator::View(tmp);
         }
@@ -561,13 +563,13 @@ template <typename FF_> class mainImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<78, ContainerOverSubrelations>;
-            auto tmp = (new_term.main_sel_op_fdiv * (new_term.main_r_in_tag - FF(6)));
+            auto tmp = (new_term.main_sel_op_fdiv * (new_term.main_r_in_tag - constants_MEM_TAG_FF));
             tmp *= scaling_factor;
             std::get<78>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<79, ContainerOverSubrelations>;
-            auto tmp = (new_term.main_sel_op_fdiv * (new_term.main_w_in_tag - FF(6)));
+            auto tmp = (new_term.main_sel_op_fdiv * (new_term.main_w_in_tag - constants_MEM_TAG_FF));
             tmp *= scaling_factor;
             std::get<79>(evals) += typename Accumulator::View(tmp);
         }
@@ -800,7 +802,7 @@ template <typename FF> class main : public Relation<mainImpl<FF>> {
         case 0:
             return "OPCODE_SELECTORS";
         case 74:
-            return "OUTPUT_U8";
+            return "OUTPUT_U1";
         case 75:
             return "SUBOP_FDIV";
         case 76:

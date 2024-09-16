@@ -89,12 +89,17 @@ void FixedBytesTable::finalize_for_testing(std::vector<AvmFullRow<FF>>& main_tra
 void FixedBytesTable::finalize_byte_length(std::vector<AvmFullRow<FF>>& main_trace)
 {
     // Generate ByteLength Lookup table of instruction tags to the number of bytes
-    // {U8: 1, U16: 2, U32: 4, U64: 8, U128: 16}
-    for (uint8_t avm_in_tag = 0; avm_in_tag < 5; avm_in_tag++) {
-        // The +1 here is because the instruction tags we care about (i.e excl U0 and FF) has the range 1,5]
-        main_trace.at(avm_in_tag).byte_lookup_sel_bin = FF(1);
-        main_trace.at(avm_in_tag).byte_lookup_table_in_tags = avm_in_tag + 1;
-        main_trace.at(avm_in_tag).byte_lookup_table_byte_lengths = static_cast<uint8_t>(1 << avm_in_tag);
+    for (uint8_t avm_in_tag = static_cast<uint8_t>(AvmMemoryTag::U1);
+         avm_in_tag <= static_cast<uint8_t>(AvmMemoryTag::U128);
+         avm_in_tag++) {
+        // lookup indices start at 0
+        uint8_t lookup_index = avm_in_tag - static_cast<uint8_t>(AvmMemoryTag::U1);
+        size_t num_bytes = avm_in_tag == static_cast<uint8_t>(AvmMemoryTag::U1)
+                               ? 1
+                               : 1 << (static_cast<uint8_t>(avm_in_tag) - static_cast<uint8_t>(AvmMemoryTag::U8));
+        main_trace.at(lookup_index).byte_lookup_sel_bin = FF(1);
+        main_trace.at(lookup_index).byte_lookup_table_in_tags = avm_in_tag;
+        main_trace.at(lookup_index).byte_lookup_table_byte_lengths = num_bytes;
     }
 }
 

@@ -67,6 +67,9 @@ void common_validate_op_not(std::vector<Row> const& trace,
     case AvmMemoryTag::U0:
         FAIL() << "Unintialized Mem Tags Disallowed";
         break;
+    case AvmMemoryTag::U1:
+        EXPECT_EQ(alu_row->alu_u1_tag, FF(1));
+        break;
     case AvmMemoryTag::U8:
         EXPECT_EQ(alu_row->alu_u8_tag, FF(1));
         break;
@@ -377,10 +380,11 @@ class AvmBitwiseTests : public ::testing::Test {
 
 using TwoOpParamRow = std::tuple<std::array<FF, 2>, AvmMemoryTag>;
 std::vector<AvmMemoryTag> mem_tags{
-    { AvmMemoryTag::U8, AvmMemoryTag::U16, AvmMemoryTag::U32, AvmMemoryTag::U64, AvmMemoryTag::U128 }
+    { AvmMemoryTag::U1, AvmMemoryTag::U8, AvmMemoryTag::U16, AvmMemoryTag::U32, AvmMemoryTag::U64, AvmMemoryTag::U128 }
 };
 
-std::vector<std::array<FF, 2>> positive_op_not_test_values = { { { 1, 254 },
+std::vector<std::array<FF, 2>> positive_op_not_test_values = { { { 1, 0 },
+                                                                 { 1, 254 },
                                                                  { 512, 65'023 },
                                                                  { 131'072, 4'294'836'223LLU },
                                                                  { 0x100000000LLU, 0xfffffffeffffffffLLU },
@@ -401,6 +405,7 @@ std::vector<TwoOpParamRow> gen_two_op_params(std::vector<std::array<FF, 2>> oper
 
 std::vector<ThreeOpParam> positive_op_and_test_values = {
     { { FF(1), FF(1), FF(1) },
+      { FF(1), FF(1), FF(1) },
       { FF(5323), FF(321), FF(65) },
       { FF(13793), FF(10590617LLU), FF(4481) },
       { FF(0x7bff744e3cdf79LLU), FF(0x14ccccccccb6LLU), FF(0x14444c0ccc30LLU) },
@@ -411,6 +416,7 @@ std::vector<ThreeOpParam> positive_op_and_test_values = {
 
 std::vector<std::array<FF, 3>> positive_op_or_test_values = {
     { { FF(1), FF(1), FF(1) },
+      { FF(1), FF(1), FF(1) },
       { FF(5323), FF(321), FF(0x15cb) },
       { FF(13793), FF(10590617LLU), FF(0xa1bdf9) },
       { FF(0x7bff744e3cdf79LLU), FF(0x14ccccccccb6LLU), FF(0x7bfffccefcdfffLLU) },
@@ -420,6 +426,7 @@ std::vector<std::array<FF, 3>> positive_op_or_test_values = {
 };
 std::vector<std::array<FF, 3>> positive_op_xor_test_values = {
     { { FF(1), FF(1), FF(0) },
+      { FF(1), FF(1), FF(0) },
       { FF(5323), FF(321), FF(0x158a) },
       { FF(13793), FF(10590617LLU), FF(0xa1ac78) },
       { FF(0x7bff744e3cdf79LLU), FF(0x14ccccccccb6LLU), uint256_t::from_uint128(0x7bebb882f013cf) },
@@ -428,7 +435,8 @@ std::vector<std::array<FF, 3>> positive_op_xor_test_values = {
         uint256_t::from_uint128((uint128_t{ 0xa906021301080001 } << 64) + uint128_t{ 0x0001080876844827 }) } }
 };
 std::vector<std::array<FF, 3>> positive_op_shr_test_values = {
-    { { FF(20), FF(3), FF(2) },
+    { { FF(1), FF(1), FF(0) },
+      { FF(20), FF(3), FF(2) },
       { FF(5323), FF(255), FF(0) },
       { FF(36148), FF(13), FF(4) },
       { FF(0x7bff744e3cdf79LLU), FF(64), FF(0) },
@@ -437,7 +445,8 @@ std::vector<std::array<FF, 3>> positive_op_shr_test_values = {
         FF(2) } }
 };
 std::vector<std::array<FF, 3>> positive_op_shl_test_values = {
-    { { FF(20), FF(8), FF(0) },
+    { { FF(1), FF(1), FF(0) },
+      { FF(20), FF(8), FF(0) },
       { FF(5323), FF(10), FF(11264) },
       { FF(13793), FF(255), FF(0) },
       { FF(239), FF(50), uint256_t::from_uint128(269090077735387136) },
@@ -602,6 +611,10 @@ class AvmBitwiseNegativeTestsFF : public AvmBitwiseTests {
   protected:
     void SetUp() override { GTEST_SKIP(); }
 };
+class AvmBitwiseNegativeTestsU1 : public AvmBitwiseTests {
+  protected:
+    void SetUp() override { GTEST_SKIP(); }
+};
 class AvmBitwiseNegativeTestsU8 : public AvmBitwiseTests {
   protected:
     void SetUp() override { GTEST_SKIP(); }
@@ -754,17 +767,23 @@ TEST_F(AvmBitwiseNegativeTestsFF, UndefinedOverFF)
     // TODO(ilyas): When the SET opcodes applies relational constraints, this will fail
     // we will need to look at a new way of doing this test.
     for (size_t i = 1; i < 4; i++) {
-        trace.at(i).mem_tag = FF(6);
-        trace.at(i).mem_r_in_tag = FF(6);
-        trace.at(i).mem_w_in_tag = FF(6);
+        trace.at(i).mem_tag = FF(static_cast<uint8_t>(AvmMemoryTag::FF));
+        trace.at(i).mem_r_in_tag = FF(static_cast<uint8_t>(AvmMemoryTag::FF));
+        trace.at(i).mem_w_in_tag = FF(static_cast<uint8_t>(AvmMemoryTag::FF));
         trace.at(i).alu_ff_tag = FF::one();
         trace.at(i).alu_u8_tag = FF::zero();
-        trace.at(i).main_r_in_tag = FF(6);
-        trace.at(i).main_w_in_tag = FF(6);
-        trace.at(i).alu_in_tag = FF(6);
+        trace.at(i).main_r_in_tag = FF(static_cast<uint8_t>(AvmMemoryTag::FF));
+        trace.at(i).main_w_in_tag = FF(static_cast<uint8_t>(AvmMemoryTag::FF));
+        trace.at(i).alu_in_tag = FF(static_cast<uint8_t>(AvmMemoryTag::FF));
     }
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "ALU_FF_NOT_XOR");
+}
+
+TEST_F(AvmBitwiseNegativeTestsU1, BitwiseNot)
+{
+    std::vector<Row> trace = gen_mutated_trace_not(FF{ 0 }, FF{ 0 }, AvmMemoryTag::U1);
+    EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), "ALU_OP_NOT");
 }
 
 TEST_F(AvmBitwiseNegativeTestsU8, BitwiseNot)

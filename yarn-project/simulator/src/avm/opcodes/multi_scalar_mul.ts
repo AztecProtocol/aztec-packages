@@ -54,8 +54,8 @@ export class MultiScalarMul extends Instruction {
       const offset = pointsOffset + i * 3;
       // Check (Field, Field)
       memory.checkTagsRange(TypeTag.FIELD, offset, 2);
-      // Check Uint8 (inf flag)
-      memory.checkTag(TypeTag.UINT8, offset + 2);
+      // Check Uint1 (inf flag)
+      memory.checkTag(TypeTag.UINT1, offset + 2);
     }
     // Get the unrolled (x, y, inf) representing the points
     const pointsVector = memory.getSlice(pointsOffset, pointsReadLength);

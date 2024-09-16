@@ -121,6 +121,24 @@ class AvmCastNegativeTests : public AvmCastTests {
     void SetUp() override { GTEST_SKIP(); }
 };
 
+TEST_F(AvmCastTests, basicU1ToU8)
+{
+    gen_trace(1, 0, 1, AvmMemoryTag::U1, AvmMemoryTag::U8);
+    validate_cast_trace(1, 1, 0, 1, AvmMemoryTag::U1, AvmMemoryTag::U8);
+}
+
+TEST_F(AvmCastTests, noTruncationU8ToU1)
+{
+    gen_trace(1, 0, 1, AvmMemoryTag::U8, AvmMemoryTag::U1);
+    validate_cast_trace(1, 1, 0, 1, AvmMemoryTag::U8, AvmMemoryTag::U1);
+}
+
+TEST_F(AvmCastTests, truncationU8ToU1)
+{
+    gen_trace(15, 0, 1, AvmMemoryTag::U8, AvmMemoryTag::U1);
+    validate_cast_trace(15, 1, 0, 1, AvmMemoryTag::U8, AvmMemoryTag::U1);
+}
+
 TEST_F(AvmCastTests, basicU8ToU16)
 {
     gen_trace(237, 0, 1, AvmMemoryTag::U8, AvmMemoryTag::U16);
