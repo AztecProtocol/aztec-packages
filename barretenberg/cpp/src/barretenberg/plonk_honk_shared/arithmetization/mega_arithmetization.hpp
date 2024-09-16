@@ -29,13 +29,13 @@ template <typename FF_> class MegaArith {
         T aux;
         T lookup;
         T busread;
-        T poseidon_external;
-        T poseidon_internal;
+        T poseidon2_external;
+        T poseidon2_internal;
 
         auto get()
         {
-            return RefArray{ ecc_op, pub_inputs, arithmetic, delta_range,       elliptic,
-                             aux,    lookup,     busread,    poseidon_external, poseidon_internal };
+            return RefArray{ ecc_op, pub_inputs, arithmetic, delta_range,        elliptic,
+                             aux,    lookup,     busread,    poseidon2_external, poseidon2_internal };
         }
 
         bool operator==(const MegaTraceBlocks& other) const = default;
@@ -55,8 +55,8 @@ template <typename FF_> class MegaArith {
             this->aux = FIXED_SIZE;
             this->lookup = FIXED_SIZE;
             this->busread = FIXED_SIZE;
-            this->poseidon_external = FIXED_SIZE;
-            this->poseidon_internal = 1 << 15;
+            this->poseidon2_external = FIXED_SIZE;
+            this->poseidon2_internal = 1 << 15;
         }
     };
 
@@ -72,8 +72,8 @@ template <typename FF_> class MegaArith {
             this->aux = 1 << 16;
             this->lookup = 1 << 15;
             this->busread = 1 << 7;
-            this->poseidon_external = 1 << 11;
-            this->poseidon_internal = 1 << 14;
+            this->poseidon2_external = 1 << 11;
+            this->poseidon2_internal = 1 << 14;
         }
     };
 
@@ -83,14 +83,14 @@ template <typename FF_> class MegaArith {
         {
             this->ecc_op = 1 << 10;
             this->pub_inputs = 1 << 7;
-            this->arithmetic = 187000;
+            this->arithmetic = 201000;
             this->delta_range = 90000;
             this->elliptic = 9000;
             this->aux = 137000;
             this->lookup = 72000;
             this->busread = 1 << 7;
-            this->poseidon_external = 3500;
-            this->poseidon_internal = 17500;
+            this->poseidon2_external = 2500;
+            this->poseidon2_internal = 11500;
         }
     };
 
@@ -106,8 +106,8 @@ template <typename FF_> class MegaArith {
             this->aux = 100000;
             this->lookup = 200000;
             this->busread = 10;
-            this->poseidon_external = 30000;
-            this->poseidon_internal = 150000;
+            this->poseidon2_external = 30000;
+            this->poseidon2_internal = 150000;
         }
     };
 
@@ -215,8 +215,8 @@ template <typename FF_> class MegaArith {
             info("auxiliary     :\t", this->aux.size(), "/", this->aux.get_fixed_size());
             info("lookups       :\t", this->lookup.size(), "/", this->lookup.get_fixed_size());
             info("busread       :\t", this->busread.size(), "/", this->busread.get_fixed_size());
-            info("poseidon ext  :\t", this->poseidon_external.size(), "/", this->poseidon_external.get_fixed_size());
-            info("poseidon int  :\t", this->poseidon_internal.size(), "/", this->poseidon_internal.get_fixed_size());
+            info("poseidon ext  :\t", this->poseidon2_external.size(), "/", this->poseidon2_external.get_fixed_size());
+            info("poseidon int  :\t", this->poseidon2_internal.size(), "/", this->poseidon2_internal.get_fixed_size());
             info("");
         }
 
