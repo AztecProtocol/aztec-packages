@@ -66,39 +66,42 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * representing the sum f_0(ω) + α_j*g(ω) where f_0 represents the full honk evaluation at row 0, g(ω) is the
      * linearly dependent subrelation and α_j is its corresponding batching challenge.
      */
-    static std::vector<FF> compute_row_evaluations(const ProverPolynomials& polynomials,
-                                                   const RelationSeparator& alpha,
-                                                   const RelationParameters<FF>& relation_parameters)
+    static std::tuple<std::vector<RelationEvaluations>, std::vector<FF>> compute_row_evaluations(
+        const ProverPolynomials& polynomials,
+        const RelationSeparator& alpha,
+        const RelationParameters<FF>& relation_parameters)
 
     {
 
         BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::compute_row_evaluations");
+
         const size_t polynomial_size = polynomials.get_polynomial_size();
-        std::vector<FF> full_honk_evaluations(polynomial_size);
+        std::vector<FF> aggregate_relation_evaluations(polynomial_size);
+        std::vector<RelationEvaluations> subrelation_evaluations(polynomial_size);
+
         const std::vector<FF> linearly_dependent_contribution_accumulators = parallel_for_heuristic(
             polynomial_size,
             /*accumulator default*/ FF(0),
-            [&](size_t row, FF& linearly_dependent_contribution_accumulator) {
-                auto row_evaluations = polynomials.get_row(row);
-                RelationEvaluations relation_evaluations;
-                RelationUtils::zero_elements(relation_evaluations);
+            [&](size_t row_idx, FF& linearly_dependent_contribution_accumulator) {
+                typename Flavor::AllValues row = polynomials.get_row(row_idx);
+                RelationEvaluations& evals = subrelation_evaluations[row_idx];
+                RelationUtils::zero_elements(evals); // WORKTODO: needed?
 
-                RelationUtils::template accumulate_relation_evaluations<>(
-                    row_evaluations, relation_evaluations, relation_parameters, FF(1));
+                // evaluate all subrelations on (row, relation_params) and accumulate in evals (separator is 1 since we
+                // are not summing across rows here)
+                RelationUtils::accumulate_relation_evaluations(row, evals, relation_parameters, 1);
 
-                auto output = FF(0);
-                auto running_challenge = FF(1);
-                RelationUtils::scale_and_batch_elements(relation_evaluations,
-                                                        alpha,
-                                                        running_challenge,
-                                                        output,
-                                                        linearly_dependent_contribution_accumulator);
+                FF output{ 0 };
+                FF running_challenge{ 1 };
+                RelationUtils::scale_and_batch_elements(
+                    evals, alpha, running_challenge, output, linearly_dependent_contribution_accumulator);
 
-                full_honk_evaluations[row] = output;
+                aggregate_relation_evaluations[row_idx] = output;
             },
             thread_heuristics::ALWAYS_MULTITHREAD);
-        full_honk_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
-        return full_honk_evaluations;
+        aggregate_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
+
+        return std::make_pair(subrelation_evaluations, aggregate_relation_evaluations);
     }
 
     /**
@@ -163,15 +166,16 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     /**
      * @brief Construct the power perturbator polynomial F(X) in coefficient form from the accumulator
      */
-    static Polynomial<FF> compute_perturbator(const std::shared_ptr<const DeciderPK>& accumulator,
-                                              const std::vector<FF>& deltas)
+    static std::tuple<std::vector<RelationEvaluations>, Polynomial<FF>> compute_perturbator(
+        const std::shared_ptr<const DeciderPK>& accumulator, const std::vector<FF>& deltas)
     {
         BB_OP_COUNT_TIME();
-        auto full_honk_evaluations = compute_row_evaluations(
+        auto [subrelation_evaluations, aggregate_relation_evaluations] = compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());
-        return Polynomial<FF>(construct_perturbator_coefficients(betas, deltas, full_honk_evaluations));
+        Polynomial<FF> perturbator(construct_perturbator_coefficients(betas, deltas, aggregate_relation_evaluations));
+        return std::make_pair(subrelation_evaluations, perturbator);
     }
 
     /**
