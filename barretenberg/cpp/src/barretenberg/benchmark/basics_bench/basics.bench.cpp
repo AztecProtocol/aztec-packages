@@ -455,10 +455,10 @@ void pippenger(State& state)
         size_t num_cycles = 1 << static_cast<size_t>(state.range(0));
         Polynomial<Fr> pol(num_cycles);
         for (size_t i = 0; i < num_cycles; i++) {
-            *(uint256_t*)&pol[i] = engine.get_random_uint256();
-            pol[i].self_reduce_once();
-            pol[i].self_reduce_once();
-            pol[i].self_reduce_once();
+            *(uint256_t*)&pol.at(i) = engine.get_random_uint256();
+            pol.at(i).self_reduce_once();
+            pol.at(i).self_reduce_once();
+            pol.at(i).self_reduce_once();
         }
 
         auto ck = std::make_shared<CommitmentKey<curve::BN254>>(num_cycles);

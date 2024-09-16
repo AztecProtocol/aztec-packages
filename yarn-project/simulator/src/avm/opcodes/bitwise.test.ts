@@ -363,20 +363,20 @@ describe('Bitwise instructions', () => {
   describe('NOT', () => {
     it('Should (de)serialize correctly', () => {
       const buf = Buffer.from([
-        Not.opcode, // opcode
+        Opcode.NOT_16, // opcode
         0x01, // indirect
         TypeTag.UINT64, // inTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // aOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new Not(
         /*indirect=*/ 0x01,
         /*inTag=*/ TypeTag.UINT64,
-        /*aOffset=*/ 0x12345678,
-        /*dstOffset=*/ 0x3456789a,
-      );
+        /*aOffset=*/ 0x1234,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.NOT_16, Not.wireFormat16);
 
-      expect(Not.deserialize(buf)).toEqual(inst);
+      expect(Not.as(Not.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 

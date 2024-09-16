@@ -134,7 +134,9 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
 
 template <typename Flavor>
 bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
-    const TranslationEvaluations_<typename Flavor::BF, typename Flavor::FF>& translation_evaluations)
+    const TranslationEvaluations_<
+        typename stdlib::bigfield<typename Flavor::CircuitBuilder, typename Flavor::Curve::BaseFieldNative::Params>,
+        typename Flavor::FF>& translation_evaluations)
 {
     const auto reconstruct_from_array = [&](const auto& arr) {
         const BF reconstructed = BF(arr[0], arr[1], arr[2], arr[3]);

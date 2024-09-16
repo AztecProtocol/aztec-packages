@@ -77,4 +77,7 @@ export type MerkleTreeAdminDb = {
 
     /** Deletes this database. */
     delete(): Promise<void>;
+
+    /** Stops the database */
+    stop(): Promise<void>;
   };

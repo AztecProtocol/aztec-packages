@@ -152,9 +152,6 @@ contract Leonidas is Ownable, ILeonidas {
 
   /**
    * @notice  Get the validator set for the current epoch
-   *
-   * @dev Makes a call to setupEpoch under the hood, this should ONLY be called as a view function, and not from within
-   *      this contract.
    * @return The validator set for the current epoch
    */
   function getCurrentEpochCommittee() external view override(ILeonidas) returns (address[] memory) {
@@ -292,9 +289,6 @@ contract Leonidas is Ownable, ILeonidas {
   function getProposerAt(uint256 _ts) public view override(ILeonidas) returns (address) {
     uint256 epochNumber = getEpochAt(_ts);
     uint256 slot = getSlotAt(_ts);
-    if (epochNumber == 0) {
-      return address(0);
-    }
 
     Epoch storage epoch = epochs[epochNumber];
 

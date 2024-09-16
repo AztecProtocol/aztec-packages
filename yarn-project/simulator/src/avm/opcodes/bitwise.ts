@@ -87,7 +87,7 @@ export class Shr extends ThreeOperandBitwiseInstruction {
 
 export class Not extends TwoOperandInstruction {
   static readonly type: string = 'NOT';
-  static readonly opcode = Opcode.NOT;
+  static readonly opcode = Opcode.NOT_8;
 
   constructor(indirect: number, inTag: number, aOffset: number, dstOffset: number) {
     super(indirect, inTag, aOffset, dstOffset);

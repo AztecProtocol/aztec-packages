@@ -148,10 +148,11 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<
 {
     // Get the relation separation challenges for sumcheck/combiner computation
     RelationSeparator alphas;
-    for (size_t idx = 0; idx < alphas.size(); idx++) {
-        alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "alpha_" + std::to_string(idx));
+    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> args;
+    for (size_t idx = 0; idx < alphas.size(); ++idx) {
+        args[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
-    return alphas;
+    return transcript->template get_challenges<FF>(args);
 }
 
 template class OinkVerifier<UltraFlavor>;

@@ -13,7 +13,6 @@ export async function getNodeInfo(rpcUrl: string, debugLogger: DebugLogger, log:
   log(` Registry Address: ${info.l1ContractAddresses.registryAddress.toString()}`);
   log(` L1 -> L2 Inbox Address: ${info.l1ContractAddresses.inboxAddress.toString()}`);
   log(` L2 -> L1 Outbox Address: ${info.l1ContractAddresses.outboxAddress.toString()}`);
-  log(` Availability Oracle Address: ${info.l1ContractAddresses.availabilityOracleAddress.toString()}`);
   log(` Fee Juice Address: ${info.l1ContractAddresses.feeJuiceAddress.toString()}`);
   log(` Fee Juice Portal Address: ${info.l1ContractAddresses.feeJuicePortalAddress.toString()}`);
 

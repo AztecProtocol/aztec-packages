@@ -123,7 +123,7 @@ export class CMov extends Instruction {
 
 export class Cast extends TwoOperandInstruction {
   static readonly type: string = 'CAST';
-  static readonly opcode = Opcode.CAST;
+  static readonly opcode = Opcode.CAST_8;
 
   constructor(indirect: number, dstTag: number, srcOffset: number, dstOffset: number) {
     super(indirect, dstTag, srcOffset, dstOffset);

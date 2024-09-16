@@ -546,7 +546,6 @@ jobs:
           echo "TF_VAR_REGISTRY_CONTRACT_ADDRESS=$(extract registryAddress)" >>$GITHUB_ENV
           echo "TF_VAR_INBOX_CONTRACT_ADDRESS=$(extract inboxAddress)" >>$GITHUB_ENV
           echo "TF_VAR_OUTBOX_CONTRACT_ADDRESS=$(extract outboxAddress)" >>$GITHUB_ENV
-          echo "TF_VAR_AVAILABILITY_ORACLE_CONTRACT_ADDRESS=$(extract availabilityOracleAddress)" >>$GITHUB_ENV
           echo "TF_VAR_FEE_JUICE_CONTRACT_ADDRESS=$(extract feeJuiceAddress)" >>$GITHUB_ENV
           echo "TF_VAR_FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$(extract feeJuicePortalAddress)" >>$GITHUB_ENV
 
@@ -771,8 +770,7 @@ jobs:
         run: |
           ./.github/scripts/wait_for_infra.sh pxe ${{ env.DEPLOY_TAG }} ${{ env.API_KEY }}
 
-      - name: Deploy verifier (allow failure)
-        continue-on-error: true
+      - name: Deploy verifier
         working-directory: ./yarn-project/aztec/terraform/pxe
         run: |
           set -eo pipefail

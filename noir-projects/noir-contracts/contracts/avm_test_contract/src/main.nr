@@ -13,7 +13,7 @@ impl Serialize<2> for Note {
 
 impl Deserialize<2> for Note {
     fn deserialize(wire: [Field; 2]) -> Note {
-        Note {a: wire[0], b: wire[1]}
+        Note { a: wire[0], b: wire[1] }
     }
 }
 

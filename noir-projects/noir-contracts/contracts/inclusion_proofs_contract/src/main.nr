@@ -1,15 +1,11 @@
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
-    use dep::aztec::prelude::{
-        AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map,
-        PrivateSet, PublicMutable
-    };
+    use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, Map, PrivateSet, PublicMutable};
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_current_public_keys
     };
 
-    use dep::aztec::protocol_types::{contract_class_id::ContractClassId, header::Header};
     use dep::aztec::{note::note_getter_options::NoteStatus};
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;

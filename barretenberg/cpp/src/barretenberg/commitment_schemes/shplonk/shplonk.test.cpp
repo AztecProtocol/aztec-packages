@@ -30,12 +30,12 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     // Generate two random (unrelated) polynomials of two different sizes, as well as their evaluations at a (single but
     // different) random point and their commitments.
     const auto r1 = Fr::random_element();
-    auto poly1 = this->random_polynomial(n);
+    auto poly1 = Polynomial<Fr>::random(n);
     const auto eval1 = poly1.evaluate(r1);
     const auto commitment1 = this->commit(poly1);
 
     const auto r2 = Fr::random_element();
-    auto poly2 = this->random_polynomial(n / 2);
+    auto poly2 = Polynomial<Fr>::random(n / 2);
     const auto eval2 = poly2.evaluate(r2);
     const auto commitment2 = this->commit(poly2);
 

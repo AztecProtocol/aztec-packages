@@ -730,11 +730,11 @@ TEST_F(AvmExecutionTests, setAndCastOpcodes)
                                "02"                       // U16
                                "B813"                     // val 47123
                                "0011"                     // dst_offset 17
-                               + to_hex(OpCode::CAST) +   // opcode CAST
+                               + to_hex(OpCode::CAST_8) + // opcode CAST
                                "00"                       // Indirect flag
                                "01"                       // U8
-                               "00000011"                 // addr a
-                               "00000012"                 // addr casted a
+                               "11"                       // addr a
+                               "12"                       // addr casted a
                                + to_hex(OpCode::RETURN) + // opcode RETURN
                                "00"                       // Indirect flag
                                "00000000"                 // ret offset 0
@@ -747,12 +747,12 @@ TEST_F(AvmExecutionTests, setAndCastOpcodes)
 
     // SUB
     EXPECT_THAT(instructions.at(1),
-                AllOf(Field(&Instruction::op_code, OpCode::CAST),
+                AllOf(Field(&Instruction::op_code, OpCode::CAST_8),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
                                         VariantWith<AvmMemoryTag>(AvmMemoryTag::U8),
-                                        VariantWith<uint32_t>(17),
-                                        VariantWith<uint32_t>(18)))));
+                                        VariantWith<uint8_t>(17),
+                                        VariantWith<uint8_t>(18)))));
 
     auto trace = gen_trace_from_instr(instructions);
 
@@ -1238,16 +1238,16 @@ TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
                                "00000000"                       // cd_offset
                                "00000001"                       // copy_size
                                "00000000"                       // dst_offset
-                               + to_hex(OpCode::CAST) +         // opcode CAST inf to U8
+                               + to_hex(OpCode::CAST_8) +       // opcode CAST inf to U8
                                "00"                             // Indirect flag
                                "01"                             // U8 tag field
-                               "00000002"                       // a_is_inf
-                               "00000002"                       // a_is_inf
-                               + to_hex(OpCode::CAST) +         // opcode CAST inf to U8
+                               "02"                             // a_is_inf
+                               "02"                             // a_is_inf
+                               + to_hex(OpCode::CAST_8) +       // opcode CAST inf to U8
                                "00"                             // Indirect flag
                                "01"                             // U8 tag field
-                               "00000005"                       // b_is_inf
-                               "00000005"                       // b_is_inf
+                               "05"                             // b_is_inf
+                               "05"                             // b_is_inf
                                + to_hex(OpCode::SET_8) +        // opcode SET for direct src_length
                                "00"                             // Indirect flag
                                "03"                             // U32
@@ -1314,16 +1314,16 @@ TEST_F(AvmExecutionTests, msmOpCode)
                                "00000000"                     // cd_offset 0
                                "00000001"                     // copy_size (10 elements)
                                "00000000"                     // dst_offset 0
-                               + to_hex(OpCode::CAST) +       // opcode CAST inf to U8
+                               + to_hex(OpCode::CAST_8) +     // opcode CAST inf to U8
                                "00"                           // Indirect flag
                                "01"                           // U8 tag field
-                               "00000002"                     // a_is_inf
-                               "00000002"                     //
-                               + to_hex(OpCode::CAST) +       // opcode CAST inf to U8
+                               "02"                           // a_is_inf
+                               "02"                           //
+                               + to_hex(OpCode::CAST_8) +     // opcode CAST inf to U8
                                "00"                           // Indirect flag
                                "01"                           // U8 tag field
-                               "00000005"                     // b_is_inf
-                               "00000005"                     //
+                               "05"                           // b_is_inf
+                               "05"                           //
                                + to_hex(OpCode::SET_8) +      // opcode SET for length
                                "00"                           // Indirect flag
                                "03"                           // U32
@@ -1758,11 +1758,11 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
                                "01"                    // value 1
                                "01"                    // dst_offset 1
                                // Cast set to field
-                               + to_hex(OpCode::CAST) +               // opcode CAST
+                               + to_hex(OpCode::CAST_8) +             // opcode CAST
                                "00"                                   // Indirect flag
                                "06"                                   // tag field
-                               "00000001"                             // dst 1
-                               "00000001"                             // dst 1
+                               "01"                                   // dst 1
+                               "01"                                   // dst 1
                                + to_hex(OpCode::EMITNOTEHASH) +       // opcode EMITNOTEHASH
                                "00"                                   // Indirect flag
                                "00000001"                             // src offset 1
@@ -1859,11 +1859,11 @@ TEST_F(AvmExecutionTests, kernelOutputStorageLoadOpcodeSimple)
                                "03"                       // U32
                                "09"                       // value 9
                                "01"                       // dst_offset 1
-                               + to_hex(OpCode::CAST) +   // opcode CAST (Cast set to field)
+                               + to_hex(OpCode::CAST_8) + // opcode CAST (Cast set to field)
                                "00"                       // Indirect flag
                                "06"                       // tag field
-                               "00000001"                 // dst 1
-                               "00000001"                 // dst 1
+                               "01"                       // dst 1
+                               "01"                       // dst 1
                                + to_hex(OpCode::SLOAD) +  // opcode SLOAD
                                "00"                       // Indirect flag
                                "00000001"                 // slot offset 1
@@ -1972,11 +1972,11 @@ TEST_F(AvmExecutionTests, kernelOutputStorageOpcodes)
                                "09"                    // value 9
                                "01"                    // dst_offset 1
                                // Cast set to field
-                               + to_hex(OpCode::CAST) +   // opcode CAST
+                               + to_hex(OpCode::CAST_8) + // opcode CAST
                                "00"                       // Indirect flag
                                "06"                       // tag field
-                               "00000001"                 // dst 1
-                               "00000001"                 // dst 1
+                               "01"                       // dst 1
+                               "01"                       // dst 1
                                + to_hex(OpCode::SLOAD) +  // opcode SLOAD
                                "00"                       // Indirect flag
                                "00000001"                 // slot offset 1
@@ -2047,11 +2047,11 @@ TEST_F(AvmExecutionTests, kernelOutputHashExistsOpcodes)
                                "01"                    // value 1
                                "01"                    // dst_offset 1
                                // Cast set to field
-                               + to_hex(OpCode::CAST) +            // opcode CAST
+                               + to_hex(OpCode::CAST_8) +          // opcode CAST
                                "00"                                // Indirect flag
                                "06"                                // tag field
-                               "00000001"                          // dst 1
-                               "00000001"                          // dst 1
+                               "01"                                // dst 1
+                               "01"                                // dst 1
                                + to_hex(OpCode::NOTEHASHEXISTS) +  // opcode NOTEHASHEXISTS
                                "00"                                // Indirect flag
                                "00000001"                          // slot offset 1
