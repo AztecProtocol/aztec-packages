@@ -20,6 +20,8 @@ vk_g1 = [
     "q_elliptic",
     "q_aux",
     "q_lookup",
+    "q_poseidon_2_external",
+    "q_poseidon_2_Inernal",
     "sigma_1",
     "sigma_2",
     "sigma_3",
@@ -124,6 +126,11 @@ def print_loc(pointer: int, name: str):
 def print_fr(pointer:int , name: str):
     print_loc(pointer, name)
 
+# Smalle g1 is releavant to the points in the verification key
+def print_small_g1(pointer:int, name: str):
+    print_loc(pointer, name + "_x_loc")
+    print_loc(pointer + 32, name + "_y_loc")
+
 def print_g1(pointer: int, name: str):
     print_loc(pointer, name + "_x0_loc")
     print_loc(pointer + 32, name + "_x1_loc")
@@ -137,27 +144,27 @@ def print_vk(pointer: int):
         pointer += 32
 
     for item in vk_g1:
-        print_g1(pointer, item)
+        print_small_g1(pointer, item)
         pointer += (4*32)
-    
+
     return pointer
 
 def print_proof(pointer: int):
     for item in proof_fr:
         print_fr(pointer, item)
         pointer += 32
-    
+
     for item in proof_g1:
         print_g1(pointer, item)
         pointer += (4*32)
-    
+
     return pointer
 
-BATCHED_RELATION_PARTIAL_LENGTH = 7
+BATCHED_RELATION_PARTIAL_LENGTH = 8
 PROOF_SIZE_LOG_N = 28
-NUMBER_OF_ENTITIES = 42
-NUMBER_OF_ALPHAS = 17
-NUMBER_OF_SUBRELATIONS = 18
+NUMBER_OF_ENTITIES = 44
+NUMBER_OF_ALPHAS = 25
+NUMBER_OF_SUBRELATIONS = 26 # should this not be the same?
 # For the meantime we will load the entire proof into memory here
 # however i predict that it will be more efficient to load in the sumcheck univars
 # for each round with their own slice of calldatacopy
@@ -198,7 +205,7 @@ def print_challenges(pointer: int):
     for alpha in range(0, NUMBER_OF_ALPHAS):
         print_fr(pointer, "alpha_challenge_" + str(alpha))
         pointer += 32
-    
+
     # TODO: this NOT THE PROOF SIZE LOG_N?????
     for gate in range(0, PROOF_SIZE_LOG_N):
         print_fr(pointer, "gate_challenge_" + str(gate))
@@ -212,7 +219,7 @@ def print_challenges(pointer: int):
 
 
 def main():
-    # This is an arbitrary offset, but will need to be adjusted based on the 
+    # This is an arbitrary offset, but will need to be adjusted based on the
     pointer = 0x380
 
     # Print the verification key indicies

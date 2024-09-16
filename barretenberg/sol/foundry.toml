@@ -5,6 +5,7 @@ libs = ['lib']
 ffi = true
 optimizer_runs = 500
 gas_limit = 900000000000000000
+evm_version = "cancun"
 
 [fuzz]
 runs = 1
