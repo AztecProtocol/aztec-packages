@@ -277,6 +277,20 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(
     sponge.squeeze()
 }
 
+pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field where T: ToField {
+    let in_len = inputs.len() + 1;
+    let two_pow_64 = 18446744073709551616;
+    let iv : Field = (in_len as Field) * two_pow_64;
+    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
+    sponge.absorb(separator.to_field());
+
+    for i in 0..inputs.len() {
+        sponge.absorb(inputs[i]);
+    }
+
+    sponge.squeeze()
+}
+
 #[no_predicates]
 pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
     // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of Math.ceil(N/31)
