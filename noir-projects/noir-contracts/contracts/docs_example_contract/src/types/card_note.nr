@@ -1,17 +1,12 @@
-use dep::aztec::prelude::{NoteInterface, NoteHeader, PrivateContext};
+use dep::aztec::prelude::{NullifiableNote, PrivateContext};
 use dep::aztec::{
     note::{utils::compute_note_hash_for_nullify}, keys::getters::get_nsk_app,
     protocol_types::{traits::Serialize, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator}
 };
 
-// Shows how to create a custom note
-
-global CARD_NOTE_LEN: Field = 3;
-// CARD_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global CARD_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 
 // docs:start:state_vars-CardNote
-#[aztec(note)]
+#[note]
 struct CardNote {
     points: u8,
     randomness: Field,
@@ -29,7 +24,7 @@ impl CardNote {
 // docs:end:cardnote_impl
 
 // docs:start:note_interface
-impl NoteInterface<CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN> for CardNote {
+impl NullifiableNote for CardNote {
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(

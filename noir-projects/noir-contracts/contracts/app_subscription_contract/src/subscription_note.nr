@@ -9,7 +9,7 @@ global SUBSCRIPTION_NOTE_LEN: Field = 4;
 // SUBSCRIPTION_NOTE_BYTES_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
 global SUBSCRIPTION_NOTE_BYTES_LEN: Field = SUBSCRIPTION_NOTE_LEN * 32 + 64;
 
-#[aztec(note)]
+#[note]
 struct SubscriptionNote {
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
     npk_m_hash: Field,

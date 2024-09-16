@@ -13,7 +13,7 @@ use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 global UINT_NOTE_LEN: Field = 3; // 3 plus a header.
 global UINT_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 
-#[aztec(note)]
+#[note]
 struct UintNote {
     // The integer stored by the note
     value: U128,

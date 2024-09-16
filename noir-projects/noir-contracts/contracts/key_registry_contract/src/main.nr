@@ -1,14 +1,18 @@
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract KeyRegistry {
     use dep::authwit::auth::assert_current_call_valid_authwit_public;
 
     use dep::aztec::{
         keys::{PublicKeys, stored_keys::StoredKeys, public_keys::NpkM},
-        state_vars::{PublicMutable, Map}, protocol_types::address::{AztecAddress, PartialAddress}
+        state_vars::{PublicMutable, Map}, protocol_types::address::{AztecAddress, PartialAddress},
+        macros::{storage::storage, functions::public}
     };
 
-    #[aztec(storage)]
-    struct Storage {
-        current_keys: Map<AztecAddress, PublicMutable<StoredKeys>>,
+    #[storage]
+    struct Storage<Context> {
+        current_keys: Map<AztecAddress, PublicMutable<StoredKeys, Context>, Context>,
     }
 
     impl<Context> Storage<Context> {
@@ -34,7 +38,7 @@ contract KeyRegistry {
         storage.current_keys.at(account).read().public_keys
     }
 
-    #[aztec(public)]
+    #[public]
     fn register_initial_keys(account: AztecAddress, partial_address: PartialAddress, keys: PublicKeys) {
         let computed_address = AztecAddress::compute(keys.hash(), partial_address);
         assert(computed_address.eq(account), "Computed address does not match supplied address");
@@ -42,7 +46,7 @@ contract KeyRegistry {
         storage.current_keys.at(account).write(StoredKeys::new(keys));
     }
 
-    #[aztec(public)]
+    #[public]
     fn rotate_npk_m(account: AztecAddress, new_npk_m: NpkM, nonce: Field) {
         if (!account.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, account);

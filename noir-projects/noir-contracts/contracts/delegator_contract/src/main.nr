@@ -1,17 +1,20 @@
 // A contract used along with `Parent` contract to test nested calls.
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract Delegator {
     use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, PublicMutable, PrivateSet, Map};
     use dep::value_note::value_note::ValueNote;
     use dep::delegated_on::DelegatedOn;
-    use dep::aztec::utils::comparison::Comparator;
+    use dep::aztec::{utils::comparison::Comparator, macros::{storage::storage, functions::{private, public}}};
 
-    #[aztec(storage)]
-    struct Storage {
-        current_value: PublicMutable<Field>,
-        a_map_with_private_values: Map<AztecAddress, PrivateSet<ValueNote>>,
+    #[storage]
+    struct Storage<Context> {
+        current_value: PublicMutable<Field, Context>,
+        a_map_with_private_values: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
     }
 
-    #[aztec(private)]
+    #[private]
     fn private_delegate_set_value(
         target_contract: AztecAddress,
         value: Field,
@@ -21,17 +24,17 @@ contract Delegator {
         DelegatedOn::at(target_contract).private_set_value(value, owner).delegate_call(&mut context)
     }
 
-    #[aztec(private)]
+    #[private]
     fn enqueued_delegate_set_value(target_contract: AztecAddress, value: Field) {
         DelegatedOn::at(target_contract).public_set_value(value).delegate_enqueue(&mut context)
     }
 
-    #[aztec(public)]
+    #[public]
     fn public_delegate_set_value(target_contract: AztecAddress, value: Field) -> Field {
         DelegatedOn::at(target_contract).public_set_value(value).delegate_call(&mut context)
     }
 
-    #[aztec(private)]
+    #[private]
     fn get_private_value(amount: Field, owner: AztecAddress) -> pub Field {
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);

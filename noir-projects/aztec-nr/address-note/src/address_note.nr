@@ -14,7 +14,7 @@ global ADDRESS_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
 // docs:start:address_note_def
 // docs:start:address_note_struct
 // Stores an address
-#[aztec(note)]
+#[note]
 struct AddressNote {
     address: AztecAddress,
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.

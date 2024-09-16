@@ -1,36 +1,38 @@
 mod subscription_note;
 mod dapp_payload;
 
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract AppSubscription {
     use crate::{dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
     use aztec::{
         prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
-        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys},
         keys::getters::get_current_public_keys, protocol_types::constants::MAX_FIELD_VALUE,
-        utils::comparison::Comparator
+        utils::comparison::Comparator, macros::{storage, functions::{public, initializer, private}}
     };
     use authwit::auth::assert_current_call_valid_authwit;
     use token::Token;
     use router::utils::privately_check_block_number;
 
-    #[aztec(storage)]
-    struct Storage {
+    #[storage]
+    struct Storage<Context> {
         // The following is only needed in private but we use ShareImmutable here instead of PrivateImmutable because
         // the value can be publicly known and SharedImmutable provides us with a better devex here because we don't
         // have to bother with sharing the note between pixies of users.
-        target_address: SharedImmutable<AztecAddress>,
-        subscription_token_address: SharedImmutable<AztecAddress>,
-        subscription_recipient_address: SharedImmutable<AztecAddress>,
-        subscription_price: SharedImmutable<Field>,
-        subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote>>,
-        fee_juice_limit_per_tx: SharedImmutable<Field>,
+        target_address: SharedImmutable<AztecAddress, Context>,
+        subscription_token_address: SharedImmutable<AztecAddress, Context>,
+        subscription_recipient_address: SharedImmutable<AztecAddress, Context>,
+        subscription_price: SharedImmutable<Field, Context>,
+        subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
+        fee_juice_limit_per_tx: SharedImmutable<Field, Context>,
     }
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS = 5;
     global SUBSCRIPTION_TXS = 5;
 
-    #[aztec(private)]
+    #[private]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
         assert(context.msg_sender().to_field() == MAX_FIELD_VALUE);
@@ -59,8 +61,8 @@ contract AppSubscription {
         payload.execute_calls(&mut context, storage.target_address.read_private());
     }
 
-    #[aztec(public)]
-    #[aztec(initializer)]
+    #[public]
+    #[initializer]
     fn constructor(
         target_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
@@ -75,7 +77,7 @@ contract AppSubscription {
         storage.fee_juice_limit_per_tx.initialize(fee_juice_limit_per_tx);
     }
 
-    #[aztec(private)]
+    #[private]
     fn subscribe(subscriber: AztecAddress, nonce: Field, expiry_block_number: Field, tx_count: Field) {
         assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
 

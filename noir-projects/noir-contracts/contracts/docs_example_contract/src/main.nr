@@ -11,6 +11,9 @@ mod types;
 // also has `options.nr` which shows various ways of using `NoteGetterOptions` to query notes
 // it also shows what our macros do behind the scenes!
 
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract DocsExample {
     // how to import dependencies defined in your workspace
     use dep::aztec::prelude::{
@@ -22,17 +25,17 @@ contract DocsExample {
     // how to import methods from other files/folders within your workspace
     use crate::types::{card_note::CardNote, leader::Leader};
 
-    #[aztec(storage)]
-    struct Storage {
+    #[storage]
+    struct Storage<Context> {
         // Shows how to create a custom struct in PublicMutable
         // docs:start:storage-leader-declaration
-        leader: PublicMutable<Leader>,
+        leader: PublicMutable<Leader, Context>,
         // docs:end:storage-leader-declaration
         // docs:start:storage-private-mutable-declaration
-        legendary_card: PrivateMutable<CardNote>,
+        legendary_card: PrivateMutable<CardNote, Context>,
         // docs:end:storage-private-mutable-declaration
         // just used for docs example to show how to create a private mutable map.
-        profiles: Map<AztecAddress, PrivateMutable<CardNote>>,
+        profiles: Map<AztecAddress, PrivateMutable<CardNote, Context>, Context>,
         // docs:start:storage-set-declaration
         set: PrivateSet<CardNote>,
         // docs:end:storage-set-declaration
@@ -91,13 +94,13 @@ contract DocsExample {
         }
     }
 
-    #[aztec(public)]
+    #[public]
     fn initialize_shared_immutable(points: u8) {
         let mut new_leader = Leader { account: context.msg_sender(), points };
         storage.shared_immutable.initialize(new_leader);
     }
 
-    #[aztec(private)]
+    #[private]
     fn match_shared_immutable(account: AztecAddress, points: u8) {
         let expected = Leader { account, points };
         let read = storage.shared_immutable.read_private();
@@ -106,7 +109,7 @@ contract DocsExample {
         assert(read.points == expected.points, "Invalid points");
     }
 
-    #[aztec(private)]
+    #[private]
     fn get_shared_immutable_constrained_private_indirect() -> pub Leader {
         // This is a private function that calls another private function
         // and returns the response.
@@ -117,7 +120,7 @@ contract DocsExample {
         leader
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_shared_immutable_constrained_public_indirect() -> pub Leader {
         // This is a public function that calls another public function
         // and returns the response.
@@ -128,20 +131,20 @@ contract DocsExample {
         leader
     }
 
-    #[aztec(public)]
-    #[aztec(view)]
+    #[public]
+    #[view]
     fn get_shared_immutable_constrained_public() -> pub Leader {
         storage.shared_immutable.read_public()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_shared_immutable_constrained_public_multiple() -> pub [Leader; 5] {
         let a = storage.shared_immutable.read_public();
         [a, a, a, a, a]
     }
 
-    #[aztec(private)]
-    #[aztec(view)]
+    #[private]
+    #[view]
     fn get_shared_immutable_constrained_private() -> pub Leader {
         storage.shared_immutable.read_private()
     }
@@ -150,7 +153,7 @@ contract DocsExample {
         storage.shared_immutable.read_public()
     }
 
-    #[aztec(public)]
+    #[public]
     fn initialize_public_immutable(points: u8) {
         // docs:start:initialize_public_immutable
         let mut new_leader = Leader { account: context.msg_sender(), points };
@@ -165,7 +168,7 @@ contract DocsExample {
     }
 
     // docs:start:initialize-private-mutable
-    #[aztec(private)]
+    #[private]
     fn initialize_private_immutable(randomness: Field, points: u8) {
         let msg_sender_npk_m_hash = get_current_public_keys(&mut context, context.msg_sender()).npk_m.hash();
 
@@ -174,7 +177,7 @@ contract DocsExample {
     }
     // docs:end:initialize-private-mutable
 
-    #[aztec(private)]
+    #[private]
     // msg_sender() is 0 at deploy time. So created another function
     fn initialize_private(randomness: Field, points: u8) {
         let msg_sender_npk_m_hash = get_current_public_keys(&mut context, context.msg_sender()).npk_m.hash();
@@ -184,7 +187,7 @@ contract DocsExample {
         storage.legendary_card.initialize(&mut legendary_card).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), context.msg_sender()));
     }
 
-    #[aztec(private)]
+    #[private]
     fn insert_notes(amounts: [u8; 3]) {
         let sender_keys = get_current_public_keys(&mut context, context.msg_sender());
         let sender_npk_m_hash = sender_keys.npk_m.hash();
@@ -202,7 +205,7 @@ contract DocsExample {
         }
     }
 
-    #[aztec(private)]
+    #[private]
     fn insert_note(amount: u8, randomness: Field) {
         let sender_npk_m_hash = get_current_public_keys(&mut context, context.msg_sender()).npk_m.hash();
 
@@ -217,7 +220,7 @@ contract DocsExample {
     }
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
 
-    #[aztec(private)]
+    #[private]
     fn update_legendary_card(randomness: Field, points: u8) {
         let sender_npk_m_hash = get_current_public_keys(&mut context, context.msg_sender()).npk_m.hash();
 
@@ -226,7 +229,7 @@ contract DocsExample {
         DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
 
-    #[aztec(private)]
+    #[private]
     fn increase_legendary_points() {
         // Ensure `points` > current value
         // Also serves as a e2e test that you can `get_note()` and then `replace()`
@@ -248,19 +251,19 @@ contract DocsExample {
         DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
 
-    #[aztec(private)]
-    #[aztec(view)]
+    #[private]
+    #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         1
     }
 
-    #[aztec(public)]
+    #[public]
     fn spend_public_authwit(inner_hash: Field) -> Field {
         1
     }
 
-    #[aztec(public)]
-    #[aztec(internal)]
+    #[public]
+    #[internal]
     fn update_leader(account: AztecAddress, points: u8) {
         let new_leader = Leader { account, points };
         storage.leader.write(new_leader);
@@ -281,7 +284,7 @@ contract DocsExample {
     // docs:end:private_mutable_is_initialized
 
     // docs:start:get_note-private-immutable
-    #[aztec(private)]
+    #[private]
     fn get_imm_card() -> CardNote {
         storage.private_immutable.get_note()
     }
@@ -300,7 +303,7 @@ contract DocsExample {
     use dep::aztec::context::inputs::PrivateContextInputs;
 
     // docs:start:simple_macro_example
-    #[aztec(private)]
+    #[private]
     fn simple_macro_example(a: Field, b: Field) -> Field {
         a + b
     }

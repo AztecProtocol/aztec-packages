@@ -1,9 +1,13 @@
 // Sample escrow contract that stores a balance of a private token on behalf of an owner.
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract Escrow {
     use dep::aztec::prelude::{AztecAddress, PrivateImmutable};
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-        keys::getters::get_current_public_keys
+        keys::getters::get_current_public_keys,
+        macros::{storage::storage, functions::{private, initializer}},
     };
 
     // docs:start:addressnote_import
@@ -11,14 +15,14 @@ contract Escrow {
     // docs:end:addressnote_import
     use dep::token::Token;
 
-    #[aztec(storage)]
-    struct Storage {
-        owner: PrivateImmutable<AddressNote>,
+    #[storage]
+    struct Storage<Context> {
+        owner: PrivateImmutable<AddressNote, Context>,
     }
 
     // Creates a new instance
-    #[aztec(private)]
-    #[aztec(initializer)]
+    #[private]
+    #[initializer]
     fn constructor(owner: AztecAddress) {
         let owner_keys = get_current_public_keys(&mut context, owner);
         let msg_sender_keys = get_current_public_keys(&mut context, context.msg_sender());
@@ -31,7 +35,7 @@ contract Escrow {
     }
 
     // Withdraws balance. Requires that msg.sender is the owner.
-    #[aztec(private)]
+    #[private]
     fn withdraw(token: AztecAddress, amount: Field, recipient: AztecAddress) {
         let sender = context.msg_sender();
 

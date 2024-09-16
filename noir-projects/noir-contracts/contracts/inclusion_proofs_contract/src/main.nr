@@ -1,4 +1,7 @@
 // A demonstration of inclusion and non-inclusion proofs.
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract InclusionProofs {
     use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, Map, PrivateSet, PublicMutable};
     use dep::aztec::{
@@ -6,26 +9,26 @@ contract InclusionProofs {
         keys::getters::get_current_public_keys
     };
 
-    use dep::aztec::{note::note_getter_options::NoteStatus};
+    use dep::aztec::{note::note_getter_options::NoteStatus, macros::{storage::storage, functions::{private, public, initializer}}};
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;
     // docs:end:value_note_imports
-    #[aztec(storage)]
-    struct Storage {
-        private_values: Map<AztecAddress, PrivateSet<ValueNote>>,
-        public_value: PublicMutable<Field>,
-        public_unused_value: PublicMutable<Field>,
+    #[storage]
+    struct Storage<Context> {
+        private_values: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
+        public_value: PublicMutable<Field, Context>,
+        public_unused_value: PublicMutable<Field, Context>,
     }
 
-    #[aztec(public)]
-    #[aztec(initializer)]
+    #[public]
+    #[initializer]
     fn constructor(public_value: Field) {
         storage.public_value.write(public_value);
     }
 
     // docs:start:create_note
     // Creates a value note owned by `owner`.
-    #[aztec(private)]
+    #[private]
     fn create_note(owner: AztecAddress, value: Field) {
         let owner_private_values = storage.private_values.at(owner);
         let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
@@ -35,7 +38,7 @@ contract InclusionProofs {
     }
     // docs:end:create_note
 
-    #[aztec(private)]
+    #[private]
     fn test_note_inclusion(
         owner: AztecAddress,
         use_block_number: bool,
@@ -65,7 +68,7 @@ contract InclusionProofs {
         // docs:end:prove_note_inclusion
     }
 
-    #[aztec(private)]
+    #[private]
     fn test_note_inclusion_fail_case(
         owner: AztecAddress,
         use_block_number: bool,
@@ -85,7 +88,7 @@ contract InclusionProofs {
     }
 
     // Proves that the note was not yet nullified at block `block_number`.
-    #[aztec(private)]
+    #[private]
     fn test_note_not_nullified(
         owner: AztecAddress,
         use_block_number: bool,
@@ -114,7 +117,7 @@ contract InclusionProofs {
         // docs:end:prove_note_not_nullified
     }
 
-    #[aztec(private)]
+    #[private]
     fn test_note_validity(
         owner: AztecAddress,
         use_block_number: bool,
@@ -142,7 +145,7 @@ contract InclusionProofs {
     }
 
     // docs:start:nullify_note
-    #[aztec(private)]
+    #[private]
     fn nullify_note(owner: AztecAddress) {
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
@@ -155,7 +158,7 @@ contract InclusionProofs {
     // Proves nullifier existed at block `block_number`.
     // Note: I am not getting a nullifier of the note that was created in this contract in this function because it is
     //       currently not possible to obtain a nullified note from PXE.
-    #[aztec(private)]
+    #[private]
     fn test_nullifier_inclusion(
         nullifier: Field,
         use_block_number: bool,
@@ -171,18 +174,18 @@ contract InclusionProofs {
         // docs:end:prove_nullifier_inclusion
     }
 
-    #[aztec(public)]
+    #[public]
     fn push_nullifier_public(nullifier: Field) {
         context.push_nullifier(nullifier);
     }
 
     // Proves nullifier existed at latest block
-    #[aztec(public)]
+    #[public]
     fn test_nullifier_inclusion_from_public(nullifier: Field) {
         assert(context.nullifier_exists(nullifier, context.this_address()));
     }
 
-    #[aztec(private)]
+    #[private]
     fn test_storage_historical_read_unset_slot(block_number: u32 // The block at which we'll read the public storage value
     ) {
         let header = context.get_header_at(block_number);
@@ -196,7 +199,7 @@ contract InclusionProofs {
         // docs:end:public_storage_historical_read
     }
 
-    #[aztec(private)]
+    #[private]
     fn test_storage_historical_read(
         expected: Field,
         use_block_number: bool,
@@ -214,7 +217,7 @@ contract InclusionProofs {
     }
 
     // Proves that a contract was publicly deployed and/or initialized at block `block_number`.
-    #[aztec(private)]
+    #[private]
     fn test_contract_inclusion(
         contract_address: AztecAddress,
         block_number: u32,
@@ -236,7 +239,7 @@ contract InclusionProofs {
     }
 
     // Proves that a contract was NOT publicly deployed and/or initialized at block `block_number`.
-    #[aztec(private)]
+    #[private]
     fn test_contract_non_inclusion(
         contract_address: AztecAddress,
         block_number: u32,

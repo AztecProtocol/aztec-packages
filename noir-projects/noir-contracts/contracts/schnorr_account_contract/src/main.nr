@@ -2,6 +2,9 @@ mod public_key_note;
 
 // Account contract that uses Schnorr signatures for authentication.
 // The signing key is stored in an immutable private note and should be different from the encryption/nullifying key.
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract SchnorrAccount {
     use dep::std;
 
@@ -13,17 +16,18 @@ contract SchnorrAccount {
     };
     use dep::aztec::{hash::compute_siloed_nullifier, keys::getters::get_current_public_keys};
     use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
+    use dep::aztec::macros::{storage::storage, functions::{private, initializer, view, noinitcheck}};
 
     use crate::public_key_note::PublicKeyNote;
 
-    #[aztec(storage)]
-    struct Storage {
-        signing_public_key: PrivateImmutable<PublicKeyNote>,
+    #[storage]
+    struct Storage<Context> {
+        signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
     }
 
     // Constructs the contract
-    #[aztec(private)]
-    #[aztec(initializer)]
+    #[private]
+    #[initializer]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
         let this_keys = get_current_public_keys(&mut context, this);
@@ -36,16 +40,16 @@ contract SchnorrAccount {
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
-    #[aztec(private)]
-    #[aztec(noinitcheck)]
+    #[private]
+    #[noinitcheck]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payload, cancellable);
     }
 
-    #[aztec(private)]
-    #[aztec(noinitcheck)]
-    #[aztec(view)]
+    #[private]
+    #[noinitcheck]
+    #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         let actions = AccountActions::init(&mut context, is_valid_impl);
         actions.verify_private_authwit(inner_hash)

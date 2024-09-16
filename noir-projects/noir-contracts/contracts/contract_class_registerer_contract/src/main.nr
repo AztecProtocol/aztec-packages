@@ -1,20 +1,25 @@
 mod events;
 mod capsule;
 
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract ContractClassRegisterer {
-    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector};
     use dep::aztec::protocol_types::{
         contract_class_id::ContractClassId,
         constants::{
         ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, FUNCTION_TREE_HEIGHT,
         MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
         MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
-        MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE
+        MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS
     },
         traits::Serialize, abis::log_hash::LogHash
     };
 
-    use dep::aztec::{context::PrivateContext, oracle::logs::emit_contract_class_unencrypted_log_private_internal};
+    use dep::aztec::{
+        context::PrivateContext, oracle::logs::emit_contract_class_unencrypted_log_private_internal,
+        macros::functions::private
+    };
 
     use crate::events::{
         class_registered::ContractClassRegistered,
@@ -26,7 +31,7 @@ contract ContractClassRegisterer {
     use crate::capsule::pop_capsule;
     // docs:end:import_pop_capsule
 
-    #[aztec(private)]
+    #[private]
     fn register(artifact_hash: Field, private_functions_root: Field, public_bytecode_commitment: Field) {
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
         // TODO: Validate packed_public_bytecode is legit public bytecode
@@ -59,7 +64,7 @@ contract ContractClassRegisterer {
         emit_contract_class_unencrypted_log(&mut context, event.serialize());
     }
 
-    #[aztec(private)]
+    #[private]
     fn broadcast_private_function(
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,
@@ -101,7 +106,7 @@ contract ContractClassRegisterer {
         emit_contract_class_unencrypted_log(&mut context, event.serialize());
     }
 
-    #[aztec(private)]
+    #[private]
     fn broadcast_unconstrained_function(
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,

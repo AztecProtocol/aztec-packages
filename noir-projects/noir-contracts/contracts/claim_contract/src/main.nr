@@ -1,28 +1,32 @@
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract Claim {
     use dep::aztec::{
         note::utils::compute_note_hash_for_nullify,
         protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
-        state_vars::SharedImmutable
+        state_vars::SharedImmutable,
+        macros::{storage::storage, functions::{private, public, initializer}}
     };
     use dep::value_note::value_note::ValueNote;
     use dep::token::Token;
 
-    #[aztec(storage)]
-    struct Storage {
+    #[storage]
+    struct Storage<Context> {
       // Address of a contract based on whose notes we distribute the rewards
-      target_contract: SharedImmutable<AztecAddress>,
+      target_contract: SharedImmutable<AztecAddress, Context>,
       // Token to be distributed as a reward when claiming
-      reward_token: SharedImmutable<AztecAddress>,
+      reward_token: SharedImmutable<AztecAddress, Context>,
     }
 
-    #[aztec(public)]
-    #[aztec(initializer)]
+    #[public]
+    #[initializer]
     fn constructor(target_contract: AztecAddress, reward_token: AztecAddress) {
         storage.target_contract.initialize(target_contract);
         storage.reward_token.initialize(reward_token);
     }
 
-    #[aztec(private)]
+    #[private]
     fn claim(proof_note: ValueNote, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
         let target_address = storage.target_contract.read_private();

@@ -1,18 +1,22 @@
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract BoxReact {
     use dep::aztec::{
         keys::public_keys::{IvpkM, OvpkM},
         prelude::{AztecAddress, PrivateMutable, Map, NoteInterface, NoteHeader, Point},
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
+        macros::{storage::storage, functions::{private, public, initializer}}
     };
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
-    #[aztec(storage)]
+    #[storage]
     struct Storage {
         numbers: Map<AztecAddress, PrivateMutable<ValueNote>>,
     }
 
-    #[aztec(private)]
-    #[aztec(initializer)]
+    #[private]
+    #[initializer]
     fn constructor(
         number: Field,
         owner: AztecAddress,
@@ -25,7 +29,7 @@ contract BoxReact {
         numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
     }
 
-    #[aztec(private)]
+    #[private]
     fn setNumber(
         number: Field,
         owner: AztecAddress,

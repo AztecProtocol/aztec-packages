@@ -1,23 +1,26 @@
 mod settings;
 
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract PrivateFPC {
-    use dep::aztec::{protocol_types::{address::AztecAddress, hash::compute_siloed_nullifier}, state_vars::SharedImmutable};
+    use dep::aztec::{protocol_types::{address::AztecAddress, hash::compute_siloed_nullifier}, state_vars::SharedImmutable, macros::{storage::storage, functions::{private, initializer, public}}};
     use dep::token::Token;
     use crate::settings::Settings;
 
-    #[aztec(storage)]
-    struct Storage {
-        settings: SharedImmutable<Settings>,
+    #[storage]
+    struct Storage<Context> {
+        settings: SharedImmutable<Settings, Context>,
     }
 
-    #[aztec(public)]
-    #[aztec(initializer)]
+    #[public]
+    #[initializer]
     fn constructor(other_asset: AztecAddress, admin: AztecAddress) {
         let settings = Settings { other_asset, admin };
         storage.settings.initialize(settings);
     }
 
-    #[aztec(private)]
+    #[private]
     fn fund_transaction_privately(amount: Field, asset: AztecAddress, user_randomness: Field) {
         // TODO: Once SharedImmutable performs only 1 merkle proof here, we'll save ~4k gates
         let settings = storage.settings.read_private();

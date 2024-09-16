@@ -1,5 +1,5 @@
 use dep::aztec::{
-    prelude::{NoteHeader, NoteInterface, PrivateContext},
+    prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
     note::utils::compute_note_hash_for_nullify, oracle::unsafe_rand::unsafe_rand,
     keys::getters::get_nsk_app
@@ -10,11 +10,7 @@ trait OwnedNote {
     fn get_amount(self) -> U128;
 }
 
-global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
-// TOKEN_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global TOKEN_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
-
-#[aztec(note)]
+#[note]
 struct TokenNote {
     // The amount of tokens in the note
     amount: U128,
@@ -24,7 +20,7 @@ struct TokenNote {
     randomness: Field,
 }
 
-impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
+impl NullifiableNote for TokenNote {
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);

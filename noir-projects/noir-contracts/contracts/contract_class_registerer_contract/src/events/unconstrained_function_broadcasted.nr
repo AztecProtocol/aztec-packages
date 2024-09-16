@@ -12,7 +12,7 @@ use dep::aztec::protocol_types::{
 
 struct InnerUnconstrainedFunction {
     selector: FunctionSelector,
-    metadata_hash: Field, 
+    metadata_hash: Field,
 }
 
 impl Serialize<2> for InnerUnconstrainedFunction {
@@ -23,7 +23,7 @@ impl Serialize<2> for InnerUnconstrainedFunction {
 
 struct UnconstrainedFunction {
     selector: FunctionSelector,
-    metadata_hash: Field, 
+    metadata_hash: Field,
     bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS],
 }
 
@@ -39,7 +39,7 @@ impl Serialize<MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS + 2
     }
 }
 
-// #[aztec(event)]
+// #[event]
 struct ClassUnconstrainedFunctionBroadcasted {
     contract_class_id: ContractClassId,
     artifact_metadata_hash: Field,
