@@ -201,7 +201,7 @@ export class EnqueuedCallsProcessor {
           revertReason: result.revertReason,
         });
 
-        revertReason = revertReason && result.revertReason;
+        revertReason ??= result.revertReason;
       }
     }
 
@@ -254,7 +254,7 @@ export class EnqueuedCallsProcessor {
       // if so, this should only add contracts that were deployed during private app logic.
       await this.publicContractsDB.addNewContracts(tx);
 
-      const availableGas = this.getAvailableGas(tx, previousPublicKernelOutput, phase);
+      const availableGas = this.getAvailableGas(tx, publicKernelOutput, phase);
       const transactionFee = this.getTransactionFee(tx, publicKernelOutput, phase);
 
       const enqueuedCallResult = await this.enqueuedCallSimulator.simulate(

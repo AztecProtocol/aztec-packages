@@ -126,6 +126,24 @@ mod tests {
             kernel.execute()
         }
 
+        pub fn populate_gas_used(&mut self) {
+            // Transaction gas limit is 1k.
+            self.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1000, 1000);
+
+            // Non-revertible has used 200.
+            self.previous_kernel.gas_used = Gas::new(200, 200);
+
+            // Revertible has used 100.
+            self.previous_revertible.gas_used = Gas::new(100, 100);
+
+            // So this call starts with 700 gas left
+            self.enqueued_call.start_gas_left = Gas::new(700, 700);
+            // And uses 250.
+            self.enqueued_call.gas_used = Gas::new(250, 250);
+            // Ending with 450 left.
+            self.enqueued_call.end_gas_left = Gas::new(450, 450);
+        }
+
         pub fn succeeded(&mut self) {
             let _ = self.execute();
         }
@@ -180,24 +198,27 @@ mod tests {
         let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
         builder.phase = PublicKernelPhase.APP_LOGIC;
 
-        // Transaction gas limit is 1k.
-        builder.previous_kernel.tx_context.gas_settings.gas_limits = Gas::new(1000, 1000);
-
-        // Non-revertible has used 200.
-        builder.previous_kernel.gas_used = Gas::new(200, 200);
-
-        // Revertible has used 100.
-        builder.previous_revertible.gas_used = Gas::new(100, 100);
-
-        // So this call starts with 700 gas left
-        builder.enqueued_call.start_gas_left = Gas::new(700, 700);
-        // And uses 250.
-        builder.enqueued_call.gas_used = Gas::new(250, 250);
-        // Ending with 450 left.
-        builder.enqueued_call.end_gas_left = Gas::new(450, 450);
+        builder.populate_gas_used();
 
         // So the updated gas used by revertible must go up by 250, and non-revertible must stay the same.
         let output = builder.execute();
+        assert_eq(output.end_non_revertible.gas_used, Gas::new(200, 200));
+        assert_eq(output.end.gas_used, Gas::new(350, 350));
+    }
+
+    #[test]
+    unconstrained fn handle_revert_in_app_logic() {
+        let mut builder = PublicKernelMergeCircuitPrivateInputsBuilder::new();
+        builder.phase = PublicKernelPhase.APP_LOGIC;
+        builder.enqueued_call.revert_code = 1;
+
+        builder.populate_gas_used();
+
+        let output = builder.execute();
+
+        assert_eq(output.revert_code, 1);
+
+        // gas_used is propagated even when reverts.
         assert_eq(output.end_non_revertible.gas_used, Gas::new(200, 200));
         assert_eq(output.end.gas_used, Gas::new(350, 350));
     }

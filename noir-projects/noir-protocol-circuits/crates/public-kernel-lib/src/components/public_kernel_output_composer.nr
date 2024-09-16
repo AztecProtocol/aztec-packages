@@ -131,7 +131,9 @@ impl PublicKernelOutputComposer {
         let revert_in_phase = (self.output_builder.revert_code != 0)
             & ((phase != PublicKernelPhase.TEARDOWN) | (self.output_builder.revert_code != 1)); // Revert in APP_LOGIC
         if revert_in_phase {
+            let gas_used = self.output_builder.end.gas_used;
             self.output_builder.end = PublicAccumulatedDataBuilder::empty();
+            self.output_builder.end.gas_used = gas_used;
         }
     }
 
