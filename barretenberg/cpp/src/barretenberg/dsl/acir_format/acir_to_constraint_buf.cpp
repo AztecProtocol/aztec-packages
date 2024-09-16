@@ -222,6 +222,20 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, s
                     // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
                     af.constrained_witness.insert(pt.b);
                 }
+                // minimal_range of a witness is the smallest range of the witness and the witness that are
+                // 'assert_equal' to it
+                if (af.minimal_range.contains(pt.b) && af.minimal_range.contains(pt.a)) {
+                    if (af.minimal_range[pt.a] < af.minimal_range[pt.b]) {
+                        af.minimal_range[pt.a] = af.minimal_range[pt.b];
+                    } else {
+                        af.minimal_range[pt.b] = af.minimal_range[pt.a];
+                    }
+                } else if (af.minimal_range.contains(pt.b)) {
+                    af.minimal_range[pt.a] = af.minimal_range[pt.b];
+                } else if (af.minimal_range.contains(pt.a)) {
+                    af.minimal_range[pt.a] = af.minimal_range[pt.b];
+                }
+
                 af.assert_equalities.push_back(pt);
                 af.original_opcode_indices.assert_equalities.push_back(opcode_index);
             }
@@ -321,7 +335,13 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .num_bits = arg.input.num_bits,
                 });
                 af.original_opcode_indices.range_constraints.push_back(opcode_index);
-
+                if (af.minimal_range.contains(witness_input)) {
+                    if (af.minimal_range[witness_input] > arg.input.num_bits) {
+                        af.minimal_range[witness_input] = arg.input.num_bits;
+                    }
+                } else {
+                    af.minimal_range[witness_input] = arg.input.num_bits;
+                }
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::AES128Encrypt>) {
                 af.aes128_constraints.push_back(AES128Constraint{
                     .inputs = map(arg.inputs, [](auto& e) { return parse_input(e); }),
