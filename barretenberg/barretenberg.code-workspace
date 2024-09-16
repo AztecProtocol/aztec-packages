@@ -145,6 +145,6 @@
             "cwd": "${command:cmake.buildDirectory}",
             "internalConsoleOptions": "openOnSessionStart",
             "console": "internalConsole",
-        }    
+        },
     },
 }

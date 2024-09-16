@@ -471,31 +471,102 @@ inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ul
             std::set<bb::fr> column_3(table.column_3.begin(), table.column_3.end());
             bb::plookup::BasicTableId id = table.id;
             if (id == bb::plookup::AES_SBOX_MAP || id == bb::plookup::AES_SPARSE_MAP) {
-                uint32_t out_idx = lookup_block.w_o()[gate_index];
-                uint32_t real_out_idx = to_real(out_idx);
-                bool find_out = find_position(real_out_idx);
-                auto q_c = lookup_block.q_c()[gate_index];
-                if (q_c == 0) {
-                    if (find_out) {
-                        variables_in_one_gate.erase(real_out_idx);
+                uint32_t real_out_idx = to_real(lookup_block.w_o()[gate_index]);
+                uint32_t real_right_idx = to_real(lookup_block.w_r()[gate_index]);
+                if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
+                    bool find_out = find_position(real_out_idx);
+                    bool find_right = find_position(real_right_idx);
+                    auto q_m = lookup_block.q_m()[gate_index];
+                    auto q_c = lookup_block.q_c()[gate_index];
+                    if (q_c == 0) {
+                        if (find_out) {
+                            variables_in_one_gate.erase(real_out_idx);
+                        }
+                    }
+                    if (q_m == 0) {
+                        if (find_right) {
+                            variables_in_one_gate.erase(real_right_idx);
+                        }
                     }
                 }
             }
             if (id == bb::plookup::SHA256_WITNESS_SLICE_3) {
                 uint32_t real_right_idx = to_real(lookup_block.w_r()[gate_index]);
                 uint32_t real_out_idx = to_real(lookup_block.w_o()[gate_index]);
-                auto q_m = lookup_block.q_m()[gate_index];
-                auto q_c = lookup_block.q_c()[gate_index];
-                bool find_out = find_position(real_out_idx);
-                bool find_right = find_position(real_right_idx);
-                if (q_c == 0) {
-                    if (find_out) {
-                        variables_in_one_gate.erase(real_out_idx);
+                if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
+                    auto q_m = lookup_block.q_m()[gate_index];
+                    auto q_c = lookup_block.q_c()[gate_index];
+                    bool find_out = find_position(real_out_idx);
+                    bool find_right = find_position(real_right_idx);
+                    if (q_c == 0) {
+                        if (find_out) {
+                            variables_in_one_gate.erase(real_out_idx);
+                        }
+                    }
+                    if (q_m == 0) {
+                        if (find_right) {
+                            variables_in_one_gate.erase(real_right_idx);
+                        }
                     }
                 }
-                if (q_m == 0) {
-                    if (find_right) {
-                        variables_in_one_gate.erase(real_right_idx);
+            }
+            if (id == bb::plookup::SHA256_WITNESS_SLICE_7_ROTATE_4) {
+                uint32_t real_right_idx = to_real(lookup_block.w_r()[gate_index]);
+                uint32_t real_out_idx = to_real(lookup_block.w_o()[gate_index]);
+                if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
+                    auto q_m = lookup_block.q_m()[gate_index];
+                    auto q_c = lookup_block.q_c()[gate_index];
+                    bool find_out = find_position(real_out_idx);
+                    bool find_right = find_position(real_right_idx);
+                    if (q_c == 0) {
+                        if (find_out) {
+                            variables_in_one_gate.erase(real_out_idx);
+                        }
+                    }
+                    if (q_m == 0) {
+                        if (find_right) {
+                            variables_in_one_gate.erase(real_right_idx);
+                        }
+                    }
+                }
+            }
+            if (id == bb::plookup::SHA256_WITNESS_SLICE_8_ROTATE_7) {
+                uint32_t real_right_idx = to_real(lookup_block.w_r()[gate_index]);
+                uint32_t real_out_idx = to_real(lookup_block.w_o()[gate_index]);
+                if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
+                    auto q_m = lookup_block.q_m()[gate_index];
+                    auto q_c = lookup_block.q_c()[gate_index];
+                    bool find_out = find_position(real_out_idx);
+                    bool find_right = find_position(real_right_idx);
+                    if (q_c == 0) {
+                        if (find_out) {
+                            variables_in_one_gate.erase(real_out_idx);
+                        }
+                    }
+                    if (q_m == 0) {
+                        if (find_right) {
+                            variables_in_one_gate.erase(real_right_idx);
+                        }
+                    }
+                }
+            }
+            if (id == bb::plookup::SHA256_WITNESS_SLICE_14_ROTATE_1) {
+                uint32_t real_right_idx = to_real(lookup_block.w_r()[gate_index]);
+                uint32_t real_out_idx = to_real(lookup_block.w_o()[gate_index]);
+                if (variables_gate_counts[real_out_idx] != 1 || variables_gate_counts[real_right_idx] != 1) {
+                    auto q_m = lookup_block.q_m()[gate_index];
+                    auto q_c = lookup_block.q_c()[gate_index];
+                    bool find_out = find_position(real_out_idx);
+                    bool find_right = find_position(real_right_idx);
+                    if (q_c == 0) {
+                        if (find_out) {
+                            variables_in_one_gate.erase(real_out_idx);
+                        }
+                    }
+                    if (q_m == 0) {
+                        if (find_right) {
+                            variables_in_one_gate.erase(real_right_idx);
+                        }
                     }
                 }
             }
@@ -517,10 +588,6 @@ inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ul
             }
             if (column_3.size() == 1) {
                 uint32_t out_idx = lookup_block.w_o()[gate_index];
-                /* if (out_idx == 2506) {
-                    info("break here");
-                    info("out_idx == ", out_idx);
-                } */
                 uint32_t real_out_idx = to_real(out_idx);
                 bool find_out = find_position(real_out_idx);
                 if (find_out) {

@@ -316,7 +316,6 @@ std::array<field_t<Builder>, 8> sha256_block(const std::array<field_t<Builder>, 
     output[5] = add_normalize(f.normal, h_init[5]);
     output[6] = add_normalize(g.normal, h_init[6]);
     output[7] = add_normalize(h.normal, h_init[7]);
-
     /**
      * At this point, a malicilous prover could tweak the add_normalise function and the result could be 'overflowed'.
      * Thus, we need 32-bit range checks on the outputs. Note that we won't need range checks while applying the SHA-256
