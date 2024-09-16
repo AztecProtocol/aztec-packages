@@ -27,22 +27,24 @@ struct NFTNote {
 impl NoteInterface<NFT_NOTE_LEN, NFT_NOTE_BYTES_LEN> for NFTNote {
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
-        poseidon2_hash_with_separator([
+        poseidon2_hash_with_separator(
+            [
             note_hash_for_nullify,
             secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
-        poseidon2_hash_with_separator([
+        poseidon2_hash_with_separator(
+            [
             note_hash_for_nullify,
-            secret,
+            secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 
@@ -71,7 +73,9 @@ impl NFTNote {
 
 impl Eq for NFTNote {
     fn eq(self, other: Self) -> bool {
-        (self.token_id == other.token_id) & (self.npk_m_hash == other.npk_m_hash) & (self.randomness == other.randomness)
+        (self.token_id == other.token_id)
+            & (self.npk_m_hash == other.npk_m_hash)
+            & (self.randomness == other.randomness)
     }
 }
 
@@ -110,15 +114,13 @@ impl Serialize<POINT_LENGTH> for NFTNoteHidingPoint {
 
 impl Deserialize<POINT_LENGTH> for NFTNoteHidingPoint {
     fn deserialize(serialized: [Field; POINT_LENGTH]) -> NFTNoteHidingPoint {
-        NFTNoteHidingPoint {inner: Point::deserialize(serialized)}
+        NFTNoteHidingPoint { inner: Point::deserialize(serialized) }
     }
 }
 
 impl Empty for NFTNoteHidingPoint {
     fn empty() -> Self {
-        Self {
-            inner: Point::empty()
-        }
+        Self { inner: Point::empty() }
     }
 }
 
