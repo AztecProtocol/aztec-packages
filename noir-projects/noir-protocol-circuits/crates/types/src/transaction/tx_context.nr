@@ -19,19 +19,15 @@ impl TxContext {
 
 impl Eq for TxContext {
     fn eq(self, other: Self) -> bool {
-        (self.chain_id == other.chain_id) &
-        (self.version == other.version) &
-        (self.gas_settings.eq(other.gas_settings))
+        (self.chain_id == other.chain_id)
+            & (self.version == other.version)
+            & (self.gas_settings.eq(other.gas_settings))
     }
 }
 
 impl Empty for TxContext {
     fn empty() -> Self {
-        TxContext {
-            chain_id: 0,
-            version: 0,
-            gas_settings: GasSettings::empty(),
-        }
+        TxContext { chain_id: 0, version: 0, gas_settings: GasSettings::empty() }
     }
 }
 
@@ -57,7 +53,7 @@ impl Deserialize<TX_CONTEXT_LENGTH> for TxContext {
         let context = Self {
             chain_id: reader.read(),
             version: reader.read(),
-            gas_settings: reader.read_struct(GasSettings::deserialize),
+            gas_settings: reader.read_struct(GasSettings::deserialize)
         };
 
         reader.finish();

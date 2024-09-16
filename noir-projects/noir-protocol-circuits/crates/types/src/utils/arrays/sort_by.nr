@@ -49,3 +49,25 @@ unconstrained pub fn sort_by<T, let N: u32, Env>(array: [T; N], ordering: fn[Env
 
     result
 }
+
+/// Returns the index of the elements in the array that would sort it, using the provided custom sorting function.
+unconstrained fn get_sorting_index<T, let N: u32, Env>(array: [T; N], ordering: fn[Env](T, T) -> bool) -> [u32; N] {
+    let mut result = [0; N];
+    let mut a = array;
+    for i in 0..N {
+        result[i] = i;
+    }
+    for i in 1..N {
+        for j in 0..i {
+            if ordering(a[i], a[j]) {
+                let old_a_j = a[j];
+                a[j] = a[i];
+                a[i] = old_a_j;
+                let old_j = result[j];
+                result[j] = result[i];
+                result[i] = old_j;
+            }
+        }
+    }
+    result
+}

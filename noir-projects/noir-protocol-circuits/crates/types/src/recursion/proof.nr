@@ -9,22 +9,20 @@ struct RecursiveProof {
 
 impl Serialize<RECURSIVE_PROOF_LENGTH> for RecursiveProof {
     fn serialize(self) -> [Field; RECURSIVE_PROOF_LENGTH] {
-      self.fields
+        self.fields
     }
 }
 
 impl Deserialize<RECURSIVE_PROOF_LENGTH> for RecursiveProof {
     fn deserialize(fields: [Field; RECURSIVE_PROOF_LENGTH]) -> Self {
-      RecursiveProof { fields }
+        RecursiveProof { fields }
     }
 }
 
 impl Empty for RecursiveProof {
-  fn empty() -> Self {
-    RecursiveProof {
-      fields: [0; RECURSIVE_PROOF_LENGTH],
+    fn empty() -> Self {
+        RecursiveProof { fields: [0; RECURSIVE_PROOF_LENGTH] }
     }
-  }
 }
 
 struct NestedRecursiveProof {
@@ -33,22 +31,20 @@ struct NestedRecursiveProof {
 
 impl Serialize<NESTED_RECURSIVE_PROOF_LENGTH> for NestedRecursiveProof {
     fn serialize(self) -> [Field; NESTED_RECURSIVE_PROOF_LENGTH] {
-      self.fields
+        self.fields
     }
 }
 
 impl Deserialize<NESTED_RECURSIVE_PROOF_LENGTH> for NestedRecursiveProof {
     fn deserialize(fields: [Field; NESTED_RECURSIVE_PROOF_LENGTH]) -> Self {
-      NestedRecursiveProof { fields }
+        NestedRecursiveProof { fields }
     }
 }
 
 impl Empty for NestedRecursiveProof {
-  fn empty() -> Self {
-    NestedRecursiveProof {
-      fields: [0; NESTED_RECURSIVE_PROOF_LENGTH],
+    fn empty() -> Self {
+        NestedRecursiveProof { fields: [0; NESTED_RECURSIVE_PROOF_LENGTH] }
     }
-  }
 }
 
 impl Eq for RecursiveProof {

@@ -1,8 +1,5 @@
-use crate::{
-    context::{PrivateContext, PublicContext}, event::event_interface::EventInterface,
-    encrypted_logs::payload::compute_encrypted_event_log, oracle::logs_traits::LensForEncryptedEvent
-};
-use dep::protocol_types::{address::AztecAddress, traits::Serialize};
+use crate::{context::PublicContext, event::event_interface::EventInterface};
+use dep::protocol_types::{traits::Serialize};
 
 fn emit<Event, let N: u32, let M: u32>(
     context: &mut PublicContext,

@@ -9,22 +9,14 @@ struct EmptyNestedCircuitPublicInputs {
 }
 
 impl Verifiable for EmptyNestedCircuitPublicInputs {
-  fn verify(self) {
-    std::verify_proof(
-        self.vk.key,
-        self.proof.fields,
-        [],
-        self.vk.hash
-    );
-  }
+    fn verify(self) {
+        std::verify_proof(self.vk.key, self.proof.fields, [], self.vk.hash);
+    }
 }
 
 impl Empty for EmptyNestedCircuitPublicInputs {
     fn empty() -> Self {
-        Self {
-            proof: RecursiveProof::empty(),
-            vk: VerificationKey::empty(),
-        }
+        Self { proof: RecursiveProof::empty(), vk: VerificationKey::empty() }
     }
 }
 

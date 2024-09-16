@@ -14,15 +14,13 @@ mod types;
 contract DocsExample {
     // how to import dependencies defined in your workspace
     use dep::aztec::prelude::{
-        AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
-        PrivateContext, Map, PublicMutable, PublicImmutable, PrivateMutable, PrivateImmutable,
-        PrivateSet, SharedImmutable, Deserialize
+        AztecAddress, NoteViewerOptions, PrivateContext, Map, PublicMutable, PublicImmutable,
+        PrivateMutable, PrivateImmutable, PrivateSet, SharedImmutable
     };
     use dep::aztec::encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys};
-    use dep::aztec::note::note_getter_options::Comparator;
     use dep::aztec::keys::getters::get_current_public_keys;
     // how to import methods from other files/folders within your workspace
-    use crate::types::{card_note::{CardNote, CARD_NOTE_LEN}, leader::Leader};
+    use crate::types::{card_note::CardNote, leader::Leader};
 
     #[aztec(storage)]
     struct Storage {
@@ -213,15 +211,9 @@ contract DocsExample {
     }
 
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
-    unconstrained fn read_note(amount: Field, comparator: u8) -> pub BoundedVec<CardNote, 10> {
+    unconstrained fn read_note(comparator: u8, amount: Field) -> pub BoundedVec<CardNote, 10> {
         let mut options = NoteViewerOptions::new();
-        storage.set.view_notes(
-            options.select(
-                CardNote::properties().points,
-                amount,
-                Option::some(comparator)
-            )
-        )
+        storage.set.view_notes(options.select(CardNote::properties().points, comparator, amount))
     }
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
 
@@ -304,8 +296,6 @@ contract DocsExample {
     }
 
     /// Macro equivalence section
-    use dep::aztec::hash::hash_args;
-
     use dep::aztec::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
     use dep::aztec::context::inputs::PrivateContextInputs;
 

@@ -1,6 +1,5 @@
 use crate::keys::getters::{get_current_public_keys, get_historical_public_keys, KEY_REGISTRY_UPDATE_BLOCKS};
 use crate::context::PrivateContext;
-use dep::protocol_types::address::AztecAddress;
 
 use crate::test::helpers::{cheatcodes, test_environment::TestEnvironment, utils::TestAccount};
 use dep::std::test::OracleMock;

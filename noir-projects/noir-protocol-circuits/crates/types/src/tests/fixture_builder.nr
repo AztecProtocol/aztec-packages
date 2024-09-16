@@ -1215,7 +1215,7 @@ impl Empty for FixtureBuilder {
             end_gas_left: Gas::empty(),
             transaction_fee: 0,
             public_teardown_call_stack: BoundedVec::new(),
-            value_offset: 0,
+            value_offset: 0
         }
     }
 }
