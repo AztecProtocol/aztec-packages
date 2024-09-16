@@ -406,14 +406,12 @@ export class L1Publisher {
           }),
         });
 
-        const min = (a: bigint, b: bigint) => (a > b ? b : a);
-
         // @note  We perform this guesstimate instead of the usual `gasEstimate` since
         //        viem will use the current state to simulate against, which means that
         //        we will fail estimation in the case where we are simulating for the
         //        first ethereum block within our slot (as current time is not in the
         //        slot yet).
-        const gasGuesstimate = min(computeTxsEffectsHashGas + L1Publisher.PROPOSE_GAS_GUESS, 15_000_000n);
+        const gasGuesstimate = computeTxsEffectsHashGas + L1Publisher.PROPOSE_GAS_GUESS;
 
         const attestations = encodedData.attestations
           ? encodedData.attestations.map(attest => attest.toViemSignature())

@@ -15,7 +15,7 @@ struct Card {
 }
 
 impl FromField for Card {
- fn from_field(field: Field) -> Card {
+    fn from_field(field: Field) -> Card {
         let value_bytes: [u8; 32] = field.to_le_bytes();
         let strength = (value_bytes[0] as u32) + (value_bytes[1] as u32) * 256;
         let points = (value_bytes[2] as u32) + (value_bytes[3] as u32) * 256;
@@ -24,8 +24,8 @@ impl FromField for Card {
 }
 
 impl ToField for Card {
- fn to_field(self) -> Field {
-        self.strength as Field + (self.points as Field)*65536
+    fn to_field(self) -> Field {
+        self.strength as Field + (self.points as Field) * 65536
     }
 }
 

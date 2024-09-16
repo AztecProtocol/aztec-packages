@@ -55,7 +55,6 @@ impl<let N: u32, let M: u32> Eq for CompressedString<N, M> {
 impl<let N: u32, let M: u32> Serialize<N> for CompressedString<N, M> {
     fn serialize(self) -> [Field; N] {
         self.value
-
     }
 }
 

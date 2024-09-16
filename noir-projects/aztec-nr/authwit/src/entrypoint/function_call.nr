@@ -14,9 +14,11 @@ struct FunctionCall {
 }
 
 impl Serialize<FUNCTION_CALL_SIZE> for FunctionCall {
-  fn serialize(self) -> [Field; FUNCTION_CALL_SIZE] {
-    [self.args_hash, self.function_selector.to_field(), self.target_address.to_field(), self.is_public as Field, self.is_static as Field]
-  }
+    fn serialize(self) -> [Field; FUNCTION_CALL_SIZE] {
+        [
+            self.args_hash, self.function_selector.to_field(), self.target_address.to_field(), self.is_public as Field, self.is_static as Field
+        ]
+    }
 }
 
 impl FunctionCall {

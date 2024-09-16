@@ -35,6 +35,8 @@ interface IRollup {
 
   function OUTBOX() external view returns (IOutbox);
 
+  function L1_BLOCK_AT_GENESIS() external view returns (uint256);
+
   function propose(
     bytes calldata _header,
     bytes32 _archive,
@@ -66,5 +68,5 @@ interface IRollup {
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
-  function computeTxsEffectsHash(bytes calldata _body) external view returns (bytes32);
+  function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }
