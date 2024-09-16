@@ -1,13 +1,17 @@
 import { jest } from '@jest/globals';
 
-import { PeerErrorSeverity, PeerPenalty, PeerScoring } from './peer_scoring.js';
+import { getP2PDefaultConfig } from '../config.js';
+import { PeerErrorSeverity, PeerScoring } from './peer_scoring.js';
 
 describe('PeerScoring', () => {
   let peerScoring: PeerScoring;
   const testPeerId = 'testPeer123';
 
   beforeEach(() => {
-    peerScoring = new PeerScoring();
+    peerScoring = new PeerScoring({
+      ...getP2PDefaultConfig(),
+      peerPenaltyValues: [2, 10, 50],
+    });
     jest.useFakeTimers();
   });
 
@@ -53,13 +57,13 @@ describe('PeerScoring', () => {
   });
 
   test('should apply correct penalties for different error severities', () => {
-    peerScoring.updateScore(testPeerId, -PeerPenalty[PeerErrorSeverity.LowToleranceError]);
+    peerScoring.updateScore(testPeerId, -peerScoring.peerPenalties[PeerErrorSeverity.HighToleranceError]);
     expect(peerScoring.getScore(testPeerId)).toBe(-2);
 
-    peerScoring.updateScore(testPeerId, -PeerPenalty[PeerErrorSeverity.MidToleranceError]);
+    peerScoring.updateScore(testPeerId, -peerScoring.peerPenalties[PeerErrorSeverity.MidToleranceError]);
     expect(peerScoring.getScore(testPeerId)).toBe(-12);
 
-    peerScoring.updateScore(testPeerId, -PeerPenalty[PeerErrorSeverity.HighToleranceError]);
+    peerScoring.updateScore(testPeerId, -peerScoring.peerPenalties[PeerErrorSeverity.LowToleranceError]);
     expect(peerScoring.getScore(testPeerId)).toBe(-62);
   });
 
@@ -68,7 +72,7 @@ describe('PeerScoring', () => {
   });
 
   test('should apply maximum penalty correctly', () => {
-    const maxPenalty = Math.max(...Object.values(PeerPenalty));
+    const maxPenalty = Math.max(...Object.values(peerScoring.peerPenalties));
     peerScoring.updateScore(testPeerId, -maxPenalty);
     expect(peerScoring.getScore(testPeerId)).toBe(-maxPenalty);
   });

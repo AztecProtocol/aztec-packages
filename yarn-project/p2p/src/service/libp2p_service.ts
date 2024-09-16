@@ -471,12 +471,12 @@ export class LibP2PService implements P2PService {
         // High penalty if nullifier is older than 20 blocks
         if (snapshotInvalidTxs.length > 0) {
           // penalize
-          this.peerManager.penalizePeer(peerId, PeerPenalty[PeerErrorSeverity.LowToleranceError]);
+          this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
           return false;
         }
       }
       // penalize
-      this.peerManager.penalizePeer(peerId, PeerPenalty[PeerErrorSeverity.HighToleranceError]);
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
       return false;
     }
 
@@ -485,7 +485,7 @@ export class LibP2PService implements P2PService {
     const [_____, proofInvalidTxs] = await proofValidator.validateTxs([tx]);
     if (proofInvalidTxs.length > 0) {
       // penalize
-      this.peerManager.penalizePeer(peerId, PeerPenalty[PeerErrorSeverity.MidToleranceError]);
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
       return false;
     }
 

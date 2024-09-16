@@ -126,6 +126,26 @@ export interface P2PConfig extends P2PReqRespConfig {
   severePeerPenaltyBlockLength: number;
 
   /**
+   * The weight of the tx topic for the gossipsub protocol.  This determines how much the score for this specific topic contributes to the overall peer score.
+   */
+  gossipsubTxTopicWeight: number;
+
+  /**
+   * This is the weight applied to the penalty for delivering invalid messages.
+   */
+  gossipsubTxInvalidMessageDeliveriesWeight: number;
+
+  /**
+   * determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1.
+   */
+  gossipsubTxInvalidMessageDeliveriesDecay: number;
+
+  /**
+   * The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.
+   */
+  peerPenaltyValues: number[];
+
+  /**
    * The chain id of the L1 chain.
    */
   l1ChainId: number;
@@ -241,6 +261,28 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',
     description: 'How many message cache windows to include when gossiping with other pears.',
     ...numberConfigHelper(3),
+  },
+  gossipsubTxTopicWeight: {
+    env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',
+    description: 'The weight of the tx topic for the gossipsub protocol.',
+    ...numberConfigHelper(1),
+  },
+  gossipsubTxInvalidMessageDeliveriesWeight: {
+    env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_WEIGHT',
+    description: 'The weight of the tx invalid message deliveries for the gossipsub protocol.',
+    ...numberConfigHelper(-20),
+  },
+  gossipsubTxInvalidMessageDeliveriesDecay: {
+    env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_DECAY',
+    description: 'Determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1.',
+    ...numberConfigHelper(0.5),
+  },
+  peerPenaltyValues: {
+    env: 'P2P_PEER_PENALTY_VALUES',
+    parseEnv: (val: string) => val.split(',').map(Number),
+    description:
+      'The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.',
+    defaultValue: [2, 10, 50],
   },
   severePeerPenaltyBlockLength: {
     env: 'P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH',

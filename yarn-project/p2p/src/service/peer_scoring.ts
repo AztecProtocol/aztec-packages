@@ -1,3 +1,5 @@
+import { type P2PConfig } from '../config.js';
+
 export enum PeerErrorSeverity {
   /**
    * Not malicious action, but it must not be tolerated
@@ -16,7 +18,7 @@ export enum PeerErrorSeverity {
   HighToleranceError = 'HighToleranceError',
 }
 
-export const PeerPenalty = {
+const DefaultPeerPenalties = {
   [PeerErrorSeverity.LowToleranceError]: 2,
   [PeerErrorSeverity.MidToleranceError]: 10,
   [PeerErrorSeverity.HighToleranceError]: 50,
@@ -27,8 +29,18 @@ export class PeerScoring {
   private lastUpdateTime: Map<string, number> = new Map();
   private decayInterval = 1000 * 60; // 1 minute
   private decayFactor = 0.9;
+  peerPenalties: { [key in PeerErrorSeverity]: number };
 
-  constructor() {}
+  constructor(config: P2PConfig) {
+    this.peerPenalties = {
+      [PeerErrorSeverity.HighToleranceError]:
+        config.peerPenaltyValues[0] ?? DefaultPeerPenalties[PeerErrorSeverity.LowToleranceError],
+      [PeerErrorSeverity.MidToleranceError]:
+        config.peerPenaltyValues[1] ?? DefaultPeerPenalties[PeerErrorSeverity.MidToleranceError],
+      [PeerErrorSeverity.LowToleranceError]:
+        config.peerPenaltyValues[2] ?? DefaultPeerPenalties[PeerErrorSeverity.HighToleranceError],
+    };
+  }
 
   updateScore(peerId: string, scoreDelta: number): void {
     const currentTime = Date.now();
