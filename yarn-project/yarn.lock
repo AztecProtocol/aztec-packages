@@ -3376,12 +3376,12 @@ __metadata:
 
 "@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.34.0
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=0a6cc4&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=999f32&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@noir-lang/acvm_js": 0.50.0
     "@noir-lang/noirc_abi": 0.34.0
     "@noir-lang/types": 0.34.0
-  checksum: 432f14d70d911c94aacab42012e7813b5823d9a8971d1d9a543b82ab3b2e38739bf1e065788c08e8f44bebd75fb3ab0f8dba3151b74bbb3aa2ec5c105f4bca61
+  checksum: 72009b3553a8c2652270b86b02bf5215456adb3c66ebb08a3b66185d20b708e86cf3300c3f57641d2e9e9f10d340bbf5e2f9fb1f89507900ccdd9b0e42c4349a
   languageName: node
   linkType: hard
 
