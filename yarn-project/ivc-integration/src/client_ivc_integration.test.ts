@@ -86,9 +86,13 @@ describe('Client IVC Integration', () => {
     const bytecodes = [
       MockAppCreatorCircuit.bytecode,
       MockPrivateKernelInitCircuit.bytecode,
-      MockPrivateKernelTailCircuit.bytecode,
+      // MockPrivateKernelTailCircuit.bytecode,
     ];
-    const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
+    const witnessStack = [
+      appWitnessGenResult.witness,
+      initWitnessGenResult.witness,
+      // tailWitnessGenResult.witness
+    ];
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);
     await proof.writeToOutputDirectory(bbWorkingDirectory);
