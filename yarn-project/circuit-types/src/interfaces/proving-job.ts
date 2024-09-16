@@ -1,6 +1,5 @@
 import {
   type AvmCircuitInputs,
-  type AvmVerificationKeyData,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
@@ -33,7 +32,7 @@ import { type CircuitName } from '../stats/index.js';
 
 export type AvmProofAndVerificationKey = {
   proof: Proof;
-  verificationKey: AvmVerificationKeyData;
+  verificationKey: VerificationKeyData;
 };
 
 export type PublicInputsAndRecursiveProof<T> = {

@@ -19,6 +19,7 @@ import {
 import { type EpochProver, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,

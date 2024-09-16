@@ -5,8 +5,8 @@ import {
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type AvmCircuitInputs,
-  AvmVerificationKeyData,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
@@ -551,7 +551,10 @@ export class TestCircuitProver implements ServerCircuitProver {
     // We just return an empty proof and VK data.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
     await this.delay();
-    return { proof: makeEmptyProof(), verificationKey: AvmVerificationKeyData.makeFake() };
+    return {
+      proof: makeEmptyProof(),
+      verificationKey: VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    };
   }
 
   private async delay(): Promise<void> {

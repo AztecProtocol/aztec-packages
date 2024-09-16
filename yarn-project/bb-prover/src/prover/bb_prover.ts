@@ -9,7 +9,6 @@ import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@a
 import {
   AGGREGATION_OBJECT_LENGTH,
   type AvmCircuitInputs,
-  type AvmVerificationKeyData,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
@@ -814,7 +813,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return await this.verifyWithKey(getUltraHonkFlavorForCircuit(circuitType), verificationKey, proof);
   }
 
-  public async verifyAvmProof(proof: Proof, verificationKey: AvmVerificationKeyData) {
+  public async verifyAvmProof(proof: Proof, verificationKey: VerificationKeyData) {
     return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
       verifyAvmProof(this.config.bbBinaryPath, proofPath, vkPath, logger.debug),
     );
