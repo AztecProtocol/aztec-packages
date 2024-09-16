@@ -19,7 +19,7 @@ export class ValidationService {
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
   createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
-    const payloadSigner = (payload: Buffer32) => this.keyStore.sign(payload);
+    const payloadSigner = (payload: Buffer32) => this.keyStore.signMessage(payload);
 
     return BlockProposal.createProposalFromSigner(header, archive, txs, payloadSigner);
   }
@@ -37,7 +37,7 @@ export class ValidationService {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7961): check that the current validator is correct
 
     const buf = Buffer32.fromBuffer(keccak256(proposal.getPayload()));
-    const sig = await this.keyStore.sign(buf);
+    const sig = await this.keyStore.signMessage(buf);
     return new BlockAttestation(proposal.header, proposal.archive, proposal.txs, sig);
   }
 }

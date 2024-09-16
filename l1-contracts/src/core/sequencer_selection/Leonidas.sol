@@ -9,6 +9,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {SignatureLib} from "./SignatureLib.sol";
 import {SampleLib} from "./SampleLib.sol";
 import {Constants} from "../libraries/ConstantsGen.sol";
+import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 
 import {ILeonidas} from "./ILeonidas.sol";
 
@@ -29,6 +30,7 @@ import {ILeonidas} from "./ILeonidas.sol";
 contract Leonidas is Ownable, ILeonidas {
   using EnumerableSet for EnumerableSet.AddressSet;
   using SignatureLib for SignatureLib.Signature;
+  using MessageHashUtils for bytes32;
 
   /**
    * @notice  The data structure for an epoch
@@ -376,6 +378,7 @@ contract Leonidas is Ownable, ILeonidas {
     // Validate the attestations
     uint256 validAttestations = 0;
 
+    bytes32 digest = _digest.toEthSignedMessageHash();
     for (uint256 i = 0; i < _signatures.length; i++) {
       SignatureLib.Signature memory signature = _signatures[i];
       if (signature.isEmpty) {
@@ -383,7 +386,7 @@ contract Leonidas is Ownable, ILeonidas {
       }
 
       // The verification will throw if invalid
-      signature.verify(committee[i], _digest);
+      signature.verify(committee[i], digest);
       validAttestations++;
     }
 

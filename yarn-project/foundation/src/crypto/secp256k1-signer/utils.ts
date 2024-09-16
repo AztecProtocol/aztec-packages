@@ -5,6 +5,14 @@ import { EthAddress } from '../../eth-address/index.js';
 import { Signature } from '../../eth-signature/eth_signature.js';
 import { keccak256 } from '../keccak/index.js';
 
+const ETH_SIGN_PREFIX = '\x19Ethereum Signed Message:\n32';
+
+// We just hash the message to make it easier to work with in the smart contract.
+export function makeEthSignDigest(message: Buffer32): Buffer32 {
+  const prefix = Buffer.from(ETH_SIGN_PREFIX);
+  return Buffer32.fromBuffer(keccak256(Buffer.concat([prefix, message.buffer])));
+}
+
 /**
  * Converts a public key to an address.
  * @param publicKey - The public key to convert.

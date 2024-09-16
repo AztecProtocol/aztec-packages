@@ -126,5 +126,5 @@ export const subProtocolMap: SubProtocolMap = {
   [TX_REQ_PROTOCOL]: {
     request: TxHash,
     response: Tx,
-  }
+  },
 };

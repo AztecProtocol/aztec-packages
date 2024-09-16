@@ -27,4 +27,10 @@ export class LocalKeyStore implements ValidatorKeyStore {
 
     return Promise.resolve(signature);
   }
+
+  public signMessage(message: Buffer32): Promise<Signature> {
+    // Sign message adds eth sign prefix and hashes before signing
+    const signature = this.signer.signMessage(message);
+    return Promise.resolve(signature);
+  }
 }

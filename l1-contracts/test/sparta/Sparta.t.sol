@@ -19,12 +19,15 @@ import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {PortalERC20} from "../portals/PortalERC20.sol";
 import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
+import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+
 /**
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
  */
-
 contract SpartaTest is DecoderBase {
+  using MessageHashUtils for bytes32;
+
   Registry internal registry;
   Inbox internal inbox;
   Outbox internal outbox;
@@ -277,7 +280,9 @@ contract SpartaTest is DecoderBase {
     returns (SignatureLib.Signature memory)
   {
     uint256 privateKey = privateKeys[_signer];
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _digest);
+
+    bytes32 digest = _digest.toEthSignedMessageHash();
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
     return SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s});
   }

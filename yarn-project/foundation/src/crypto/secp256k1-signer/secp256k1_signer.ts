@@ -2,7 +2,7 @@ import { type Buffer32 } from '@aztec/foundation/buffer';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Signature } from '@aztec/foundation/eth-signature';
 
-import { addressFromPrivateKey, signMessage } from './utils.js';
+import { addressFromPrivateKey, makeEthSignDigest, signMessage } from './utils.js';
 
 /**
  * Secp256k1Signer
@@ -20,5 +20,15 @@ export class Secp256k1Signer {
 
   sign(message: Buffer32): Signature {
     return signMessage(message, this.privateKey.buffer);
+  }
+
+  /**
+   * Sign a message using the same method as eth_sign
+   * @param message - The message to sign.
+   * @returns The signature.
+   */
+  signMessage(message: Buffer32): Signature {
+    const digest = makeEthSignDigest(message);
+    return this.sign(digest);
   }
 }

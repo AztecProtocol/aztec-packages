@@ -6,7 +6,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { TxHash } from '../tx/tx_hash.js';
-import { getHashedSignaturePayload, getSignaturePayload } from './block_utils.js';
+import {
+  getHashedSignaturePayload,
+  getHashedSignaturePayloadEthSignedMessage,
+  getSignaturePayload,
+} from './block_utils.js';
 import { Gossipable } from './gossipable.js';
 import { TopicType, createTopicString } from './topic_type.js';
 
@@ -66,7 +70,7 @@ export class BlockProposal extends Gossipable {
    */
   getSender() {
     if (!this.sender) {
-      const hashed = getHashedSignaturePayload(this.archive, this.txs);
+      const hashed = getHashedSignaturePayloadEthSignedMessage(this.archive, this.txs);
       // Cache the sender for later use
       this.sender = recoverAddress(hashed, this.signature);
     }

@@ -41,7 +41,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve();
   }
 
-  public async deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
+  public deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
       const slotNumber = attestation.header.globalVariables.slotNumber;
       const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());

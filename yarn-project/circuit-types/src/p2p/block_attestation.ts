@@ -6,7 +6,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { TxHash } from '../tx/tx_hash.js';
-import { getHashedSignaturePayload, getSignaturePayload } from './block_utils.js';
+import { getHashedSignaturePayloadEthSignedMessage, getSignaturePayload } from './block_utils.js';
 import { Gossipable } from './gossipable.js';
 import { TopicType, createTopicString } from './topic_type.js';
 
@@ -55,7 +55,7 @@ export class BlockAttestation extends Gossipable {
   getSender() {
     if (!this.sender) {
       // Recover the sender from the attestation
-      const hashed = getHashedSignaturePayload(this.archive, this.txHashes);
+      const hashed = getHashedSignaturePayloadEthSignedMessage(this.archive, this.txHashes);
       // Cache the sender for later use
       this.sender = recoverAddress(hashed, this.signature);
     }
