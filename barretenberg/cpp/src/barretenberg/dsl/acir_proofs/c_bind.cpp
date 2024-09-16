@@ -107,6 +107,7 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
         program_stack.pop_back();
     }
     *result = ivc.prove_and_verify();
+    info("acir_fold_and_verify_program_stack result: ", *result);
 }
 
 WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)

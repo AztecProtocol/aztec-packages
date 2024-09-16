@@ -16,6 +16,9 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
+template <typename T>
+concept HasGoblinBuilder = IsMegaBuilder<typename T::Curve::Builder>;
+
 // One can only define a TYPED_TEST with a single template paramter.
 // Our workaround is to pass parameters of the following type.
 template <typename _Curve, bool _use_bigfield = false> struct TestType {
@@ -1191,9 +1194,6 @@ using TestTypes = testing::Types<TestType<stdlib::bn254<bb::StandardCircuitBuild
 
 TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
 
-template <typename T>
-concept HasGoblinBuilder = IsMegaBuilder<typename T::Curve::Builder>;
-
 TYPED_TEST(stdlib_biggroup, add)
 {
 
@@ -1304,7 +1304,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
 HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
 {
     // ULTRATODO: make this work for secp curves
-    if constexpr (TypeParam::Curve::type == CurveType::BN254) {
+    if constexpr ((TypeParam::Curve::type == CurveType::BN254) && !HasGoblinBuilder<TypeParam>) {
         size_t num_repetitions = 1;
         for (size_t i = 0; i < num_repetitions; i++) {
             TestFixture::test_compute_naf();
@@ -1318,8 +1318,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul)
 {
     if constexpr (HasPlookup<typename TypeParam::Curve::Builder>) {
-        if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP();
         } else {
             TestFixture::test_compute_wnaf();
         };
@@ -1332,8 +1332,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul)
 HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_edge_cases)
 {
     if constexpr (HasPlookup<typename TypeParam::Curve::Builder>) {
-        if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP();
         } else {
             TestFixture::test_compute_wnaf();
         };
@@ -1346,7 +1346,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_edge_cases)
    case where Fr is a bigfield. */
 HEAVY_TYPED_TEST(stdlib_biggroup, compute_wnaf)
 {
-    if constexpr (!HasPlookup<typename TypeParam::Curve::Builder> && TypeParam::use_bigfield) {
+    if constexpr ((!HasPlookup<typename TypeParam::Curve::Builder> && TypeParam::use_bigfield) ||
+                  (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>)) {
         GTEST_SKIP();
     } else {
         TestFixture::test_compute_wnaf();
@@ -1360,8 +1361,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_short_scalars)
     if constexpr (TypeParam::use_bigfield) {
         GTEST_SKIP();
     } else {
-        if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP();
         } else {
             TestFixture::test_batch_mul_short_scalars();
         };
@@ -1372,8 +1373,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_128_bit)
     if constexpr (TypeParam::use_bigfield) {
         GTEST_SKIP();
     } else {
-        if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
+            GTEST_SKIP();
         } else {
             TestFixture::test_wnaf_batch_mul_128_bit();
         };
@@ -1393,7 +1394,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, bn254_endo_batch_mul)
 {
     if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {
         if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+            GTEST_SKIP();
         } else {
             TestFixture::test_bn254_endo_batch_mul();
         };
@@ -1405,7 +1406,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, mixed_mul_bn254_endo)
 {
     if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {
         if constexpr (HasGoblinBuilder<TypeParam>) {
-            GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+            GTEST_SKIP();
         } else {
             TestFixture::test_mixed_mul_bn254_endo();
         };

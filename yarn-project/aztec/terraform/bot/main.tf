@@ -150,7 +150,7 @@ resource "aws_ecs_task_definition" "aztec-bot" {
       command           = ["start", "--bot", "--pxe"]
       essential         = true
       cpu               = 8192
-      memoryReservation = 14336
+      memoryReservation = 15685
       portMappings = [
         {
           containerPort = 80

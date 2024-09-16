@@ -11,7 +11,7 @@
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 #include <gtest/gtest.h>
 using namespace bb;
@@ -19,7 +19,7 @@ using namespace bb;
 void ensure_non_zero(auto& polynomial)
 {
     bool has_non_zero_coefficient = false;
-    for (auto& coeff : polynomial) {
+    for (auto& coeff : polynomial.coeffs()) {
         has_non_zero_coefficient |= !coeff.is_zero();
     }
     ASSERT_TRUE(has_non_zero_coefficient);

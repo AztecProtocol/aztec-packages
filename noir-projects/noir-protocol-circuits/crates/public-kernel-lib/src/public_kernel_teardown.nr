@@ -57,7 +57,7 @@ mod tests {
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
         public_call_stack_item_compressed::PublicCallStackItemCompressed
     },
-        address::AztecAddress, constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, BASE_ROLLUP_INDEX},
+        address::AztecAddress, constants::PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}, traits::is_empty
     };
 

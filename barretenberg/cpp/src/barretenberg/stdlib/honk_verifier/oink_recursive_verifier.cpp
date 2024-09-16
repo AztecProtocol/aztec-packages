@@ -27,7 +27,7 @@ OinkRecursiveVerifier_<Flavor>::OinkRecursiveVerifier_(Builder* builder,
     , domain_separator(std::move(domain_separator))
 {}
 
-template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify_proof(OinkProof& proof)
+template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify_proof(const OinkProof& proof)
 {
     transcript = std::make_shared<Transcript>(proof);
     verify();
@@ -113,9 +113,11 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(domain_separator + labels.z_perm);
 
     RelationSeparator alphas;
-    for (size_t idx = 0; idx < alphas.size(); idx++) {
-        alphas[idx] = transcript->template get_challenge<FF>(domain_separator + "alpha_" + std::to_string(idx));
+    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> args;
+    for (size_t idx = 0; idx < alphas.size(); ++idx) {
+        args[idx] = domain_separator + "alpha_" + std::to_string(idx);
     }
+    alphas = transcript->template get_challenges<FF>(args);
 
     verification_key->relation_parameters =
         RelationParameters<FF>{ eta, eta_two, eta_three, beta, gamma, public_input_delta };

@@ -1,22 +1,18 @@
 use dep::aztec::{
     generators::{Ga1 as G_amt, Ga2 as G_npk, Ga3 as G_rnd, G_slot},
     protocol_types::{
-    address::AztecAddress, traits::{Deserialize, Serialize}, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-    hash::poseidon2_hash_with_separator, point::{Point, POINT_LENGTH}
+    traits::Serialize, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator,
+    point::{Point, POINT_LENGTH}
 },
     note::{note_header::NoteHeader, note_interface::NoteInterface, utils::compute_note_hash_for_nullify},
     oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
 };
-use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
+use dep::std::{embedded_curve_ops::multi_scalar_mul};
+use std::hash::from_field_unsafe;
 
 global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.
 // VALUE_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
 global VALUE_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
-
-trait OwnedNote {
-    fn new(amount: U128, owner_npk_m_hash: Field) -> Self;
-    fn get_amount(self) -> U128;
-}
 
 // docs:start:value-note-def
 #[aztec(note)]
@@ -33,11 +29,12 @@ impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
-        poseidon2_hash_with_separator([
+        poseidon2_hash_with_separator(
+            [
             note_hash_for_nullify,
             secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 
@@ -46,11 +43,12 @@ impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
-        poseidon2_hash_with_separator([
+        poseidon2_hash_with_separator(
+            [
             note_hash_for_nullify,
-            secret,
+            secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 
@@ -99,24 +97,9 @@ impl Serialize<7> for ValueNote {
 
 impl Eq for ValueNote {
     fn eq(self, other: Self) -> bool {
-        (self.value == other.value) &
-        (self.npk_m_hash == other.npk_m_hash) &
-        (self.randomness == other.randomness)
-    }
-}
-
-impl OwnedNote for ValueNote {
-    fn new(value: U128, owner_npk_m_hash: Field) -> Self {
-        Self {
-            value: value.to_field(),
-            npk_m_hash: owner_npk_m_hash,
-            randomness: unsafe_rand(),
-            header: NoteHeader::empty(),
-        }
-    }
-
-    fn get_amount(self) -> U128 {
-        U128::from_field(self.value)
+        (self.value == other.value)
+            & (self.npk_m_hash == other.npk_m_hash)
+            & (self.randomness == other.randomness)
     }
 }
 

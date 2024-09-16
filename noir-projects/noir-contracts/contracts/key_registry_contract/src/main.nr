@@ -3,8 +3,7 @@ contract KeyRegistry {
 
     use dep::aztec::{
         keys::{PublicKeys, stored_keys::StoredKeys, public_keys::NpkM},
-        state_vars::{PublicMutable, Map},
-        protocol_types::{point::Point, address::{AztecAddress, PartialAddress}}
+        state_vars::{PublicMutable, Map}, protocol_types::address::{AztecAddress, PartialAddress}
     };
 
     #[aztec(storage)]

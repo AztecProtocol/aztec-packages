@@ -11,7 +11,7 @@
 
 namespace bb::avm_trace {
 
-using Operand = std::variant<AvmMemoryTag, uint8_t, uint16_t, uint32_t, uint64_t, uint128_t>;
+using Operand = std::variant<AvmMemoryTag, uint8_t, uint16_t, uint32_t, uint64_t, uint128_t, FF>;
 
 class Instruction {
   public:
@@ -40,6 +40,8 @@ class Instruction {
                 str += std::to_string(std::get<uint64_t>(operand));
             } else if (std::holds_alternative<uint128_t>(operand)) {
                 str += "someu128";
+            } else if (std::holds_alternative<FF>(operand)) {
+                str += "someff";
             } else {
                 str += "unknown operand type";
             }

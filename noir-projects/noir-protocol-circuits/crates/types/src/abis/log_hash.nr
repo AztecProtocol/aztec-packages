@@ -32,17 +32,13 @@ impl Eq for LogHash {
     fn eq(self, other: LogHash) -> bool {
         (self.value == other.value)
             & (self.counter == other.counter)
-            & (self.length == other.length) 
+            & (self.length == other.length)
     }
 }
 
 impl Empty for LogHash {
     fn empty() -> Self {
-        LogHash {
-            value: 0,
-            counter: 0,
-            length: 0,
-        }
+        LogHash { value: 0, counter: 0, length: 0 }
     }
 }
 
@@ -54,11 +50,7 @@ impl Serialize<LOG_HASH_LENGTH> for LogHash {
 
 impl Deserialize<LOG_HASH_LENGTH> for LogHash {
     fn deserialize(values: [Field; LOG_HASH_LENGTH]) -> Self {
-        Self {
-            value: values[0],
-            counter: values[1] as u32,
-            length: values[2],
-        }
+        Self { value: values[0], counter: values[1] as u32, length: values[2] }
     }
 }
 
@@ -99,23 +91,19 @@ impl OrderedValue<Field> for ScopedLogHash {
 
 impl Eq for ScopedLogHash {
     fn eq(self, other: ScopedLogHash) -> bool {
-        (self.log_hash == other.log_hash)
-            & (self.contract_address == other.contract_address) 
+        (self.log_hash == other.log_hash) & (self.contract_address == other.contract_address)
     }
 }
 
 impl Empty for ScopedLogHash {
     fn empty() -> Self {
-        ScopedLogHash {
-            log_hash: LogHash::empty(),
-            contract_address: AztecAddress::empty(),
-        }
+        ScopedLogHash { log_hash: LogHash::empty(), contract_address: AztecAddress::empty() }
     }
 }
 
 impl Serialize<SCOPED_LOG_HASH_LENGTH> for ScopedLogHash {
     fn serialize(self) -> [Field; SCOPED_LOG_HASH_LENGTH] {
-       array_concat(self.log_hash.serialize(), [self.contract_address.to_field()])
+        array_concat(self.log_hash.serialize(), [self.contract_address.to_field()])
     }
 }
 
@@ -124,7 +112,7 @@ impl Deserialize<SCOPED_LOG_HASH_LENGTH> for ScopedLogHash {
         let mut reader = Reader::new(values);
         let res = Self {
             log_hash: reader.read_struct(LogHash::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize),
+            contract_address: reader.read_struct(AztecAddress::deserialize)
         };
         reader.finish();
         res
@@ -167,19 +155,14 @@ impl Eq for EncryptedLogHash {
     fn eq(self, other: EncryptedLogHash) -> bool {
         (self.value == other.value)
             & (self.counter == other.counter)
-            & (self.length == other.length) 
-            & (self.randomness == other.randomness) 
+            & (self.length == other.length)
+            & (self.randomness == other.randomness)
     }
 }
 
 impl Empty for EncryptedLogHash {
     fn empty() -> Self {
-        EncryptedLogHash {
-            value: 0,
-            counter: 0,
-            length: 0,
-            randomness: 0,
-        }
+        EncryptedLogHash { value: 0, counter: 0, length: 0, randomness: 0 }
     }
 }
 
@@ -191,12 +174,7 @@ impl Serialize<ENCRYPTED_LOG_HASH_LENGTH> for EncryptedLogHash {
 
 impl Deserialize<ENCRYPTED_LOG_HASH_LENGTH> for EncryptedLogHash {
     fn deserialize(values: [Field; ENCRYPTED_LOG_HASH_LENGTH]) -> Self {
-        Self {
-            value: values[0],
-            counter: values[1] as u32,
-            length: values[2],
-            randomness: values[3],
-        }
+        Self { value: values[0], counter: values[1] as u32, length: values[2], randomness: values[3] }
     }
 }
 
@@ -248,23 +226,19 @@ impl OrderedValue<Field> for ScopedEncryptedLogHash {
 
 impl Eq for ScopedEncryptedLogHash {
     fn eq(self, other: ScopedEncryptedLogHash) -> bool {
-        (self.log_hash == other.log_hash)
-            & (self.contract_address == other.contract_address) 
+        (self.log_hash == other.log_hash) & (self.contract_address == other.contract_address)
     }
 }
 
 impl Empty for ScopedEncryptedLogHash {
     fn empty() -> Self {
-        ScopedEncryptedLogHash {
-            log_hash: EncryptedLogHash::empty(),
-            contract_address: AztecAddress::empty(),
-        }
+        ScopedEncryptedLogHash { log_hash: EncryptedLogHash::empty(), contract_address: AztecAddress::empty() }
     }
 }
 
 impl Serialize<SCOPED_ENCRYPTED_LOG_HASH_LENGTH> for ScopedEncryptedLogHash {
     fn serialize(self) -> [Field; SCOPED_ENCRYPTED_LOG_HASH_LENGTH] {
-       array_concat(self.log_hash.serialize(), [self.contract_address.to_field()])
+        array_concat(self.log_hash.serialize(), [self.contract_address.to_field()])
     }
 }
 
@@ -273,7 +247,7 @@ impl Deserialize<SCOPED_ENCRYPTED_LOG_HASH_LENGTH> for ScopedEncryptedLogHash {
         let mut reader = Reader::new(values);
         let res = Self {
             log_hash: reader.read_struct(EncryptedLogHash::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize),
+            contract_address: reader.read_struct(AztecAddress::deserialize)
         };
         reader.finish();
         res
@@ -315,19 +289,14 @@ impl Eq for NoteLogHash {
     fn eq(self, other: NoteLogHash) -> bool {
         (self.value == other.value)
             & (self.counter == other.counter)
-            & (self.length == other.length) 
-            & (self.note_hash_counter == other.note_hash_counter) 
+            & (self.length == other.length)
+            & (self.note_hash_counter == other.note_hash_counter)
     }
 }
 
 impl Empty for NoteLogHash {
     fn empty() -> Self {
-        NoteLogHash {
-            value: 0,
-            counter: 0,
-            length: 0,
-            note_hash_counter: 0,
-        }
+        NoteLogHash { value: 0, counter: 0, length: 0, note_hash_counter: 0 }
     }
 }
 
@@ -339,11 +308,6 @@ impl Serialize<NOTE_LOG_HASH_LENGTH> for NoteLogHash {
 
 impl Deserialize<NOTE_LOG_HASH_LENGTH> for NoteLogHash {
     fn deserialize(values: [Field; NOTE_LOG_HASH_LENGTH]) -> Self {
-        Self {
-            value: values[0],
-            counter: values[1] as u32,
-            length: values[2],
-            note_hash_counter: values[3] as u32,
-        }
+        Self { value: values[0], counter: values[1] as u32, length: values[2], note_hash_counter: values[3] as u32 }
     }
 }

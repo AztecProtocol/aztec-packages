@@ -133,7 +133,7 @@ export class FullProverTest {
           this.accounts.map(a => a.address),
         );
 
-        expect(await this.fakeProofsAsset.methods.admin().simulate()).toBe(this.accounts[0].address.toBigInt());
+        expect(await this.fakeProofsAsset.methods.get_admin().simulate()).toBe(this.accounts[0].address.toBigInt());
       },
     );
   }
@@ -348,7 +348,7 @@ export class FullProverTest {
     const { walletClient, publicClient, l1ContractAddresses } = this.context.deployL1ContractsValues;
 
     const contract = await this.circuitProofVerifier.generateSolidityContract(
-      'RootRollupArtifact',
+      'BlockRootRollupArtifact',
       'UltraHonkVerifier.sol',
     );
 

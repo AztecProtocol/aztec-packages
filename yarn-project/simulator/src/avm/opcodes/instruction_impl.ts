@@ -5,31 +5,47 @@ import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
 
 /** Wire format that informs deserialization for instructions with two operands. */
-export const TwoOperandWireFormat = [
+export const TwoOperandWireFormat8 = [
   OperandType.UINT8,
   OperandType.UINT8,
   OperandType.UINT8,
-  OperandType.UINT32,
-  OperandType.UINT32,
+  OperandType.UINT8,
+  OperandType.UINT8,
+];
+export const TwoOperandWireFormat16 = [
+  OperandType.UINT8,
+  OperandType.UINT8,
+  OperandType.UINT8,
+  OperandType.UINT16,
+  OperandType.UINT16,
 ];
 
 /** Wire format that informs deserialization for instructions with three operands. */
-export const ThreeOperandWireFormat = [
+export const ThreeOperandWireFormat8 = [
   OperandType.UINT8,
   OperandType.UINT8,
   OperandType.UINT8,
-  OperandType.UINT32,
-  OperandType.UINT32,
-  OperandType.UINT32,
+  OperandType.UINT8,
+  OperandType.UINT8,
+  OperandType.UINT8,
+];
+export const ThreeOperandWireFormat16 = [
+  OperandType.UINT8,
+  OperandType.UINT8,
+  OperandType.UINT8,
+  OperandType.UINT16,
+  OperandType.UINT16,
+  OperandType.UINT16,
 ];
 
 /**
  * Covers (de)serialization for an instruction with:
- * indirect, inTag, and two UINT32s.
+ * indirect, inTag, and two operands.
  */
 export abstract class TwoOperandInstruction extends Instruction {
   // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = TwoOperandWireFormat;
+  static readonly wireFormat8: OperandType[] = TwoOperandWireFormat8;
+  static readonly wireFormat16: OperandType[] = TwoOperandWireFormat16;
 
   constructor(
     protected indirect: number,
@@ -43,11 +59,11 @@ export abstract class TwoOperandInstruction extends Instruction {
 
 /**
  * Covers (de)serialization for an instruction with:
- * indirect, inTag, and three UINT32s.
+ * indirect, inTag, and three operands.
  */
 export abstract class ThreeOperandInstruction extends Instruction {
-  // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat: OperandType[] = ThreeOperandWireFormat;
+  static readonly wireFormat8: OperandType[] = ThreeOperandWireFormat8;
+  static readonly wireFormat16: OperandType[] = ThreeOperandWireFormat16;
 
   constructor(
     protected indirect: number,

@@ -96,7 +96,6 @@ pub(crate) fn get_program(src: &str) -> (ParsedModule, Context, Vec<(Compilation
         };
 
         let debug_comptime_in_file = None;
-        let enable_arithmetic_generics = false;
         let error_on_unused_imports = true;
         let macro_processors = &[];
 
@@ -107,7 +106,6 @@ pub(crate) fn get_program(src: &str) -> (ParsedModule, Context, Vec<(Compilation
             program.clone().into_sorted(),
             root_file_id,
             debug_comptime_in_file,
-            enable_arithmetic_generics,
             error_on_unused_imports,
             macro_processors,
         ));
@@ -859,7 +857,7 @@ fn get_program_captures(src: &str) -> Vec<Vec<String>> {
     let interner = context.def_interner;
     let mut all_captures: Vec<Vec<String>> = Vec::new();
     for func in program.into_sorted().functions {
-        let func_id = interner.find_function(func.name()).unwrap();
+        let func_id = interner.find_function(func.item.name()).unwrap();
         let hir_func = interner.function(&func_id);
         // Iterate over function statements and apply filtering function
         find_lambda_captures(hir_func.block(&interner).statements(), &interner, &mut all_captures);
@@ -3366,7 +3364,7 @@ fn warns_on_re_export_of_item_with_less_visibility() {
 }
 
 #[test]
-fn unoquted_integer_as_integer_token() {
+fn unquoted_integer_as_integer_token() {
     let src = r#"
     trait Serialize<let N: u32> {
         fn serialize() {}
@@ -3375,9 +3373,9 @@ fn unoquted_integer_as_integer_token() {
     #[attr]
     pub fn foobar() {}
 
-    fn attr(_f: FunctionDefinition) -> Quoted {
+    comptime fn attr(_f: FunctionDefinition) -> Quoted {
         let serialized_len = 1;
-        // We are testing that when we unoqute $serialized_len, it's unquoted
+        // We are testing that when we unquote $serialized_len, it's unquoted
         // as the token `1` and not as something else that later won't be parsed correctly
         // in the context of a generic argument.
         quote {
@@ -3423,4 +3421,44 @@ fn errors_on_unused_function() {
 
     assert_eq!(ident.to_string(), "foo");
     assert_eq!(*item_type, "function");
+}
+
+#[test]
+fn constrained_reference_to_unconstrained() {
+    let src = r#"
+    fn main(mut x: u32, y: pub u32) {
+        let x_ref = &mut x;
+        if x == 5  {
+            unsafe {
+                mut_ref_input(x_ref, y);        
+            }
+        }
+
+        assert(x == 10);
+    }
+
+    unconstrained fn mut_ref_input(x: &mut u32, y: u32) {
+        *x = y;
+    }
+    "#;
+
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+
+    let CompilationError::TypeError(TypeCheckError::ConstrainedReferenceToUnconstrained { .. }) =
+        &errors[0].0
+    else {
+        panic!("Expected an error about passing a constrained reference to unconstrained");
+    };
+}
+
+#[test]
+fn comptime_type_in_runtime_code() {
+    let source = "pub fn foo(_f: FunctionDefinition) {}";
+    let errors = get_program_errors(source);
+    assert_eq!(errors.len(), 1);
+    assert!(matches!(
+        errors[0].0,
+        CompilationError::ResolverError(ResolverError::ComptimeTypeInRuntimeCode { .. })
+    ));
 }

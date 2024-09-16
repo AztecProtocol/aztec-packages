@@ -1,12 +1,13 @@
-use std::rc::Rc;
+use std::hash::Hash;
+use std::{hash::Hasher, rc::Rc};
 
 use acvm::FieldElement;
 use noirc_errors::Location;
 
 use crate::{
     ast::{
-        BlockExpression, ExpressionKind, IntegerBitSize, LValue, Signedness, StatementKind,
-        UnresolvedTypeData,
+        BlockExpression, ExpressionKind, IntegerBitSize, LValue, Pattern, Signedness,
+        StatementKind, UnresolvedTypeData,
     },
     hir::{
         comptime::{
@@ -24,7 +25,7 @@ use crate::{
     macros_api::{NodeInterner, StructId},
     node_interner::{FuncId, TraitId, TraitImplId},
     parser::NoirParser,
-    token::{Token, Tokens},
+    token::{SecondaryAttribute, Token, Tokens},
     QuotedType, Type,
 };
 
@@ -90,6 +91,13 @@ pub(crate) fn get_array(
     }
 }
 
+pub(crate) fn get_bool((value, location): (Value, Location)) -> IResult<bool> {
+    match value {
+        Value::Bool(value) => Ok(value),
+        value => type_mismatch(value, Type::Bool, location),
+    }
+}
+
 pub(crate) fn get_slice(
     interner: &NodeInterner,
     (value, location): (Value, Location),
@@ -114,6 +122,13 @@ pub(crate) fn get_str(
             let expected = Type::String(Box::new(interner.next_type_variable()));
             type_mismatch(value, expected, location)
         }
+    }
+}
+
+pub(crate) fn get_ctstring((value, location): (Value, Location)) -> IResult<Rc<String>> {
+    match value {
+        Value::CtString(string) => Ok(string),
+        value => type_mismatch(value, Type::Quoted(QuotedType::CtString), location),
     }
 }
 
@@ -182,6 +197,9 @@ pub(crate) fn get_expr(
             }
             ExprValue::LValue(LValue::Interned(id, _)) => {
                 Ok(ExprValue::LValue(interner.get_lvalue(id, location.span).clone()))
+            }
+            ExprValue::Pattern(Pattern::Interned(id, _)) => {
+                Ok(ExprValue::Pattern(interner.get_pattern(id).clone()))
             }
             _ => Ok(expr),
         },
@@ -436,4 +454,41 @@ pub(super) fn block_expression_to_value(block_expr: BlockExpression) -> Value {
     let statements = statements.map(|statement| Value::statement(statement.kind)).collect();
 
     Value::Slice(statements, typ)
+}
+
+pub(super) fn has_named_attribute(name: &str, attributes: &[SecondaryAttribute]) -> bool {
+    for attribute in attributes {
+        if let Some(attribute_name) = attribute.name() {
+            if name == attribute_name {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+pub(super) fn hash_item<T: Hash>(
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+    get_item: impl FnOnce((Value, Location)) -> IResult<T>,
+) -> IResult<Value> {
+    let argument = check_one_argument(arguments, location)?;
+    let item = get_item(argument)?;
+
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    item.hash(&mut hasher);
+    let hash = hasher.finish();
+    Ok(Value::Field((hash as u128).into()))
+}
+
+pub(super) fn eq_item<T: Eq>(
+    arguments: Vec<(Value, Location)>,
+    location: Location,
+    mut get_item: impl FnMut((Value, Location)) -> IResult<T>,
+) -> IResult<Value> {
+    let (self_arg, other_arg) = check_two_arguments(arguments, location)?;
+    let self_arg = get_item(self_arg)?;
+    let other_arg = get_item(other_arg)?;
+    Ok(Value::Bool(self_arg == other_arg))
 }

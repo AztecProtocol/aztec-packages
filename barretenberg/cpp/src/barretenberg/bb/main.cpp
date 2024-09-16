@@ -58,8 +58,10 @@ const auto current_dir = current_path.filename().string();
  */
 void init_bn254_crs(size_t dyadic_circuit_size)
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
+    // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
     // Must +1 for Plonk only!
-    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + 1);
+    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + dyadic_circuit_size * 6 / 10 + 1);
     auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
 }
@@ -72,7 +74,10 @@ void init_bn254_crs(size_t dyadic_circuit_size)
  */
 void init_grumpkin_crs(size_t eccvm_dyadic_circuit_size)
 {
-    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
+    // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
+    auto grumpkin_g1_data =
+        get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size + eccvm_dyadic_circuit_size * 6 / 10);
     srs::init_grumpkin_crs_factory(grumpkin_g1_data);
 }
 
@@ -451,10 +456,10 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
         auto stack_item = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
-        auto circuit = acir_format::create_circuit<Builder>(
-            stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
+        auto builder = acir_format::create_circuit<Builder>(
+            stack_item.constraints, 0, stack_item.witness, /*honk_recursion=*/false, ivc.goblin.op_queue);
 
-        ivc.accumulate(circuit);
+        ivc.accumulate(builder);
 
         program_stack.pop_back();
     }
@@ -951,12 +956,7 @@ void avm_prove(const std::filesystem::path& bytecode_path,
     auto const [verification_key, proof] =
         AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(bytecode, calldata, public_inputs_vec, avm_hints));
 
-    std::vector<fr> vk_as_fields = { fr(verification_key.circuit_size), fr(verification_key.num_public_inputs) };
-
-    for (auto const& comm : verification_key.get_all()) {
-        std::vector<fr> comm_as_fields = field_conversion::convert_to_bn254_frs(comm);
-        vk_as_fields.insert(vk_as_fields.end(), comm_as_fields.begin(), comm_as_fields.end());
-    }
+    std::vector<fr> vk_as_fields = verification_key.to_field_elements();
 
     vinfo("vk fields size: ", vk_as_fields.size());
     vinfo("circuit size: ", vk_as_fields[0]);
@@ -1285,7 +1285,7 @@ void prove_honk_output_all(const std::string& bytecodePath,
     using VerificationKey = Flavor::VerificationKey;
 
     bool honk_recursion = false;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
         honk_recursion = true;
     }
 
@@ -1477,12 +1477,12 @@ int main(int argc, char* argv[])
         } else if (command == "prove_keccak_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraKeccakFlavor>(bytecode_path, witness_path, output_path);
-        } else if (command == "prove_keccak_ultra_honk_output_all") {
+        } else if (command == "prove_ultra_keccak_honk_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk_output_all<UltraKeccakFlavor>(bytecode_path, witness_path, output_path);
         } else if (command == "verify_ultra_honk") {
             return verify_honk<UltraFlavor>(proof_path, vk_path) ? 0 : 1;
-        } else if (command == "verify_keccak_ultra_honk") {
+        } else if (command == "verify_ultra_keccak_honk") {
             return verify_honk<UltraKeccakFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "write_vk_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
@@ -1507,6 +1507,9 @@ int main(int argc, char* argv[])
         } else if (command == "vk_as_fields_mega_honk") {
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields_honk<MegaFlavor>(vk_path, output_path);
+        } else if (command == "vk_as_fields_ultra_keccak_honk") {
+            std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
+            vk_as_fields_honk<UltraKeccakFlavor>(vk_path, output_path);
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;

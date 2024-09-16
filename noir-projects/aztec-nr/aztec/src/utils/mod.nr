@@ -3,4 +3,4 @@ mod comparison;
 mod point;
 mod test;
 
-use crate::utils::collapse_array::{collapse_array, verify_collapse_hints};
+pub use crate::utils::collapse_array::collapse_array;

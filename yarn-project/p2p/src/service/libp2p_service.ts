@@ -94,7 +94,7 @@ export class LibP2PService implements P2PService {
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
-    this.reqresp = new ReqResp(node);
+    this.reqresp = new ReqResp(config, node);
 
     this.blockReceivedCallback = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
       this.logger.verbose(
@@ -390,7 +390,7 @@ export class LibP2PService implements P2PService {
     this.logger.verbose(`Sending message ${identifier} to peers`);
 
     const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
-    this.logger.verbose(`Sent tx ${identifier} to ${recipientsNum} peers`);
+    this.logger.verbose(`Sent message ${identifier} to ${recipientsNum} peers`);
   }
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.

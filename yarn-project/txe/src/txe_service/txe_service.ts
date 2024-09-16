@@ -272,6 +272,11 @@ export class TXEService {
     return toForeignCallResult([]);
   }
 
+  setCalldata(_length: ForeignCallSingle, calldata: ForeignCallArray) {
+    (this.typedOracle as TXE).setCalldata(fromArray(calldata));
+    return toForeignCallResult([]);
+  }
+
   getFunctionSelector() {
     const functionSelector = (this.typedOracle as TXE).getFunctionSelector();
     return toForeignCallResult([toSingle(functionSelector.toField())]);
@@ -580,6 +585,17 @@ export class TXEService {
   async avmOpcodeStorageWrite(slot: ForeignCallSingle, value: ForeignCallSingle) {
     await this.typedOracle.storageWrite(fromSingle(slot), [fromSingle(value)]);
     return toForeignCallResult([]);
+  }
+
+  //unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {}
+  avmOpcodeCalldataCopy(cdOffsetInput: ForeignCallSingle, copySizeInput: ForeignCallSingle) {
+    const cdOffset = fromSingle(cdOffsetInput).toNumber();
+    const copySize = fromSingle(copySizeInput).toNumber();
+
+    const calldata = (this.typedOracle as TXE).getCalldata();
+    const calldataSlice = calldata.slice(cdOffset, cdOffset + copySize);
+
+    return toForeignCallResult([toArray(calldataSlice)]);
   }
 
   async getPublicKeysAndPartialAddress(address: ForeignCallSingle) {

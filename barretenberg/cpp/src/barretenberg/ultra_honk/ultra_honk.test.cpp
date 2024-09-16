@@ -68,7 +68,7 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
 
     auto ensure_non_zero = [](auto& polynomial) {
         bool has_non_zero_coefficient = false;
-        for (auto& coeff : polynomial) {
+        for (auto& coeff : polynomial.coeffs()) {
             has_non_zero_coefficient |= !coeff.is_zero();
         }
         ASSERT_TRUE(has_non_zero_coefficient);
@@ -259,8 +259,10 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         // question will be zero. So if read counts is incremented at some arbitrary index but read tags is not, the
         // inverse will be 0 and the erroneous read_counts value will get multiplied by 0 in the relation. This is
         // expected behavior.
-        polynomials.lookup_read_counts[25] = 1;
-        polynomials.lookup_read_tags[25] = 1;
+        polynomials.lookup_read_counts = polynomials.lookup_read_counts.full();
+        polynomials.lookup_read_counts.at(25) = 1;
+        polynomials.lookup_read_tags = polynomials.lookup_read_tags.full();
+        polynomials.lookup_read_tags.at(25) = 1;
 
         EXPECT_FALSE(prove_and_verify(proving_key));
     }
@@ -272,14 +274,16 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         auto proving_key = std::make_shared<DeciderProvingKey>(builder);
         auto& polynomials = proving_key->proving_key.polynomials;
 
+        bool altered = false;
         // Find a lookup gate and alter one of the wire values
-        for (auto [q_lookup, wire_3] : zip_view(polynomials.q_lookup, polynomials.w_o)) {
-            if (!q_lookup.is_zero()) {
-                wire_3 += 1;
+        for (auto [i, q_lookup] : polynomials.q_lookup.indexed_values()) {
+            if (!q_lookup.is_zero() && polynomials.q_lookup.is_valid_set_index(i)) {
+                polynomials.w_o.at(i) += 1;
+                altered = true;
                 break;
             }
         }
-
+        EXPECT_TRUE(altered);
         EXPECT_FALSE(prove_and_verify(proving_key));
     }
 
@@ -291,8 +295,9 @@ TYPED_TEST(UltraHonkTests, LookupFailure)
         auto& polynomials = proving_key->proving_key.polynomials;
 
         // Turn the lookup selector on for an arbitrary row where it is not already active
+        polynomials.q_lookup = polynomials.q_lookup.full();
         EXPECT_TRUE(polynomials.q_lookup[25] != 1);
-        polynomials.q_lookup[25] = 1;
+        polynomials.q_lookup.at(25) = 1;
 
         EXPECT_FALSE(prove_and_verify(proving_key));
     }

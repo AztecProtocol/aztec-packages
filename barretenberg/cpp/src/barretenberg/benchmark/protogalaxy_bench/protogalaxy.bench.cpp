@@ -4,8 +4,8 @@
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/sumcheck/instance/instances.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
+#include "barretenberg/ultra_honk/decider_keys.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 
 using namespace benchmark;
 

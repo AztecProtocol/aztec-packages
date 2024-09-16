@@ -1,13 +1,15 @@
 use dep::protocol_types::{constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, GET_NOTES_ORACLE_RETURN_LENGTH}};
 use crate::context::PrivateContext;
 use crate::note::{
-    constants::{GET_NOTE_ORACLE_RETURN_LENGTH, MAX_NOTES_PER_PAGE, VIEW_NOTE_ORACLE_RETURN_LENGTH},
+    constants::{GET_NOTE_ORACLE_RETURN_LENGTH, VIEW_NOTE_ORACLE_RETURN_LENGTH},
     note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, NoteStatus, PropertySelector},
     note_interface::NoteInterface, note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_read_request
 };
 use crate::oracle;
 use crate::utils::comparison::compare;
+
+pub use crate::note::constants::MAX_NOTES_PER_PAGE;
 
 mod test;
 
@@ -80,13 +82,17 @@ pub fn get_note<Note, let N: u32, let M: u32>(
     context: &mut PrivateContext,
     storage_slot: Field
 ) -> (Note, Field) where Note: NoteInterface<N, M> {
-    let note = get_note_internal(storage_slot);
+    let note = unsafe {
+        get_note_internal(storage_slot)
+    };
 
+    // Constraining that we got a valid note from the oracle is fairly straightforward: all we need to do is check that
+    // the metadata is correct, and that the note exists.
     check_note_header(*context, storage_slot, note);
 
     let note_hash_for_read_request = compute_note_hash_for_read_request(note);
-
     context.push_note_hash_read_request(note_hash_for_read_request);
+
     (note, note_hash_for_read_request)
 }
 
@@ -95,8 +101,12 @@ pub fn get_notes<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS>
 ) -> (BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) where Note: NoteInterface<N, M> + Eq {
-    let opt_notes = get_notes_internal(storage_slot, options);
+    let opt_notes = unsafe {
+        get_notes_internal(storage_slot, options)
+    };
 
+    // We apply the constraints in a separate function instead of inlining them here to make it easier to test that
+    // these checks correctly reject bad notes.
     constrain_get_notes_internal(context, storage_slot, opt_notes, options)
 }
 

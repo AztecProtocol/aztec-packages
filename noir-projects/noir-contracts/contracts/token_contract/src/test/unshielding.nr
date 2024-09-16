@@ -1,5 +1,5 @@
 use crate::test::utils;
-use dep::aztec::{oracle::unsafe_rand::unsafe_rand, test::helpers::cheatcodes};
+use dep::aztec::oracle::unsafe_rand::unsafe_rand;
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
 
@@ -63,7 +63,7 @@ unconstrained fn unshield_failure_on_behalf_of_other_more_than_balance() {
     env.call_private_void(unshield_call_interface);
 }
 
-#[test(should_fail)]
+#[test(should_fail_with="Authorization not found for message hash")]
 unconstrained fn unshield_failure_on_behalf_of_other_invalid_designated_caller() {
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
 
@@ -76,7 +76,7 @@ unconstrained fn unshield_failure_on_behalf_of_other_invalid_designated_caller()
     env.call_private_void(unshield_call_interface);
 }
 
-#[test(should_fail)]
+#[test(should_fail_with="Authorization not found for message hash")]
 unconstrained fn unshield_failure_on_behalf_of_other_no_approval() {
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
 
