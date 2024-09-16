@@ -146,7 +146,7 @@ namespace main(256);
     // Helper selector to characterize a Binary chiplet selector
     pol commit sel_bin;
 
-    // Instruction memory tags read/write (1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6: field)
+    // Instruction memory tags read/write (1: u1, 2: u8, 3: u16, 4: u32, 5: u64, 6: u128, 7: field)
     pol commit r_in_tag;
     pol commit w_in_tag;
     pol commit alu_in_tag; // Copy of r_in_tag or w_in_tag depending of the operation. It is sent to ALU trace.
@@ -311,17 +311,17 @@ namespace main(256);
     //      values should be written into these memory indices.
     //    - For indirect memory accesses, the memory trace constraints ensure that
     //      loaded values come from memory addresses with tag u32. This is enforced in the memory trace
-    //      where each memory entry with flag sel_resolve_ind_addr_x (for x = a,b,c,d) constrains r_int_tag == 3 (u32).
+    //      where each memory entry with flag sel_resolve_ind_addr_x (for x = a,b,c,d) constrains r_int_tag is u32.
     //
     // - ind_addr_a, ind_addr_b, ind_addr_c, ind_addr_d to u32 type: Should be guaranteed by bytecode validation and
     // instruction decomposition as only immediate 32-bit values should be written into the indirect registers.
     //
-    // - 0 <= r_in_tag, w_in_tag <= 6 // This should be constrained by the operation decomposition.
+    // - 0 <= r_in_tag, w_in_tag <= constants.MEM_TAG_FF // This should be constrained by the operation decomposition.
 
     //====== COMPARATOR OPCODES CONSTRAINTS =====================================
-    // Enforce that the tag for the ouput of EQ opcode is u8 (i.e. equal to 1).
-    #[OUTPUT_U8]
-    (sel_op_eq + sel_op_lte + sel_op_lt) * (w_in_tag - 1) = 0;
+    // Enforce that the tag for the ouput of EQ opcode is u1 (i.e. equal to 1).
+    #[OUTPUT_U1]
+    (sel_op_eq + sel_op_lte + sel_op_lt) * (w_in_tag - constants.MEM_TAG_U1) = 0;
 
     //====== FDIV OPCODE CONSTRAINTS ============================================
     // Relation for division over the finite field
@@ -340,13 +340,13 @@ namespace main(256);
     #[SUBOP_FDIV_ZERO_ERR2]
     (sel_op_fdiv + sel_op_div) * op_err * (1 - inv) = 0;
 
-    // Enforcement that instruction tags are FF (tag constant 6).
+    // Enforcement that instruction tags are FF
     // TODO: These 2 conditions might be removed and enforced through
     //       the bytecode decomposition instead.
     #[SUBOP_FDIV_R_IN_TAG_FF]
-    sel_op_fdiv * (r_in_tag - 6) = 0;
+    sel_op_fdiv * (r_in_tag - constants.MEM_TAG_FF) = 0;
     #[SUBOP_FDIV_W_IN_TAG_FF]
-    sel_op_fdiv * (w_in_tag - 6) = 0;
+    sel_op_fdiv * (w_in_tag - constants.MEM_TAG_FF) = 0;
 
     // op_err cannot be maliciously activated for a non-relevant
     // operation selector, i.e., op_err == 1 ==> sel_op_fdiv || sel_op_XXX || ...
@@ -542,9 +542,9 @@ namespace main(256);
     binary.start {binary.clk, binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id, binary.in_tag};
 
     #[PERM_MAIN_CONV]
-    sel_op_radix_le {clk, ia, ic, id}
+    sel_op_radix_le {clk, ia, ib, ic, id}
     is
-    conversion.sel_to_radix_le {conversion.clk, conversion.input, conversion.radix, conversion.num_limbs};
+    conversion.sel_to_radix_le {conversion.clk, conversion.input, conversion.radix, conversion.num_limbs, conversion.output_bits};
 
     // This will be enabled when we migrate just to sha256Compression, as getting sha256 to work with it is tricky.
     // #[PERM_MAIN_SHA256]

@@ -364,6 +364,15 @@ global GENERATOR_INDEX__NOTE_NULLIFIER: u32 = 53;
 global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
 global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
 
+// AVM memory tags
+global MEM_TAG_U1 = 1;
+global MEM_TAG_U8 = 2;
+global MEM_TAG_U16 = 3;
+global MEM_TAG_U32 = 4;
+global MEM_TAG_U64 = 5;
+global MEM_TAG_U128 = 6;
+global MEM_TAG_FF = 7;
+
 global SENDER_SELECTOR: u32 = 0;
 // "address" actually does not exist in PublicCircuitPublicInputs,
 // so this is just an alias to "storage address" for now
