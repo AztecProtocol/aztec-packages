@@ -81,8 +81,6 @@ pub fn compute_encrypted_note_log<Note, let N: u32, let NB: u32, let M: u32>(
 
     let incoming_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ivpk);
     let outgoing_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ovpk);
-
-    // Below we would pass in either a partial note or the complete note and it would just call to_be_bytes on it.
     let incoming_body_ciphertext = EncryptedLogIncomingBody::from_note(note, storage_slot).compute_ciphertext(eph_sk, ivpk);
     let outgoing_body_ciphertext: [u8; 144] = EncryptedLogOutgoingBody::new(eph_sk, recipient, ivpk).compute_ciphertext(fr_to_fq(ovsk_app), eph_pk);
 
