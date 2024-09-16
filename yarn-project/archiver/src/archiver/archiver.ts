@@ -2,7 +2,7 @@ import {
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type L1ToL2MessageSource,
-  L2Block,
+  type L2Block,
   type L2BlockL2Logs,
   type L2BlockSource,
   type L2LogsSource,
@@ -46,16 +46,10 @@ import { type Chain, type HttpTransport, type PublicClient, createPublicClient, 
 
 import { type ArchiverDataStore } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
-import {
-  retrieveBlockBodiesFromAvailabilityOracle,
-  retrieveBlockMetadataFromRollup,
-  retrieveL1ToL2Messages,
-  retrieveL2ProofVerifiedEvents,
-} from './data_retrieval.js';
+import { retrieveBlockFromRollup, retrieveL1ToL2Messages, retrieveL2ProofVerifiedEvents } from './data_retrieval.js';
 import { getL1BlockTime } from './eth_log_handlers.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import { type SingletonDataRetrieval } from './structs/data_retrieval.js';
-import { type L1Published } from './structs/published.js';
 
 /**
  * Helper interface to combine all sources this archiver implementation provides.
@@ -86,7 +80,6 @@ export class Archiver implements ArchiveSource {
   constructor(
     private readonly publicClient: PublicClient<HttpTransport, Chain>,
     private readonly rollupAddress: EthAddress,
-    private readonly availabilityOracleAddress: EthAddress,
     private readonly inboxAddress: EthAddress,
     private readonly registryAddress: EthAddress,
     private readonly store: ArchiverDataStore,
@@ -119,7 +112,6 @@ export class Archiver implements ArchiveSource {
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
-      config.l1Contracts.availabilityOracleAddress,
       config.l1Contracts.inboxAddress,
       config.l1Contracts.registryAddress,
       archiverStore,
@@ -247,72 +239,26 @@ export class Archiver implements ArchiveSource {
     // Read all data from chain and then write to our stores at the end
     const nextExpectedL2BlockNum = BigInt((await this.store.getSynchedL2BlockNumber()) + 1);
 
-    this.log.debug(`Retrieving block bodies from ${blockBodiesSynchedTo + 1n} to ${currentL1BlockNumber}`);
-    const retrievedBlockBodies = await retrieveBlockBodiesFromAvailabilityOracle(
+    this.log.debug(`Retrieving blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+    const retrievedBlocks = await retrieveBlockFromRollup(
       this.publicClient,
-      this.availabilityOracleAddress,
+      this.rollupAddress,
       blockUntilSynced,
-      blockBodiesSynchedTo + 1n,
+      blocksSynchedTo + 1n,
       currentL1BlockNumber,
+      nextExpectedL2BlockNum,
     );
 
-    this.log.debug(
-      `Retrieved ${retrievedBlockBodies.retrievedData.length} block bodies up to L1 block ${retrievedBlockBodies.lastProcessedL1BlockNumber}`,
+    // Add the body
+
+    (retrievedBlocks.length ? this.log.verbose : this.log.debug)(
+      `Retrieved ${retrievedBlocks.length || 'no'} new L2 blocks between L1 blocks ${
+        blocksSynchedTo + 1n
+      } and ${currentL1BlockNumber}.`,
     );
-    await this.store.addBlockBodies(retrievedBlockBodies);
 
-    // Now that we have block bodies we will retrieve block metadata and build L2 blocks from the bodies and the metadata
-    let retrievedBlocks: L1Published<L2Block>[];
-    let lastProcessedL1BlockNumber: bigint;
-    {
-      // @todo @LHerskind Investigate how necessary that nextExpectedL2BlockNum really is.
-      //                  Also, I would expect it to break horribly if we have a reorg.
-      this.log.debug(`Retrieving block metadata from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
-      const retrievedBlockMetadata = await retrieveBlockMetadataFromRollup(
-        this.publicClient,
-        this.rollupAddress,
-        blockUntilSynced,
-        blocksSynchedTo + 1n,
-        currentL1BlockNumber,
-        nextExpectedL2BlockNum,
-      );
-
-      const retrievedBodyHashes = retrievedBlockMetadata.map(([header]) => header.contentCommitment.txsEffectsHash);
-
-      // @note @LHerskind   We will occasionally be hitting this point BEFORE, we have actually retrieved the bodies.
-      //                    The main reason this have not been an issue earlier is because:
-      //                    i) the design previously published the body in one tx and the header in another,
-      //                       which in an anvil auto mine world mean that they are separate blocks.
-      //                    ii) We have been lucky that latency have been small enough to not matter.
-      const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
-
-      if (retrievedBlockMetadata.length !== blockBodiesFromStore.length) {
-        this.log.warn('Block headers length does not equal block bodies length');
-      }
-
-      const blocks: L1Published<L2Block>[] = [];
-      for (let i = 0; i < retrievedBlockMetadata.length; i++) {
-        const [header, archive, l1] = retrievedBlockMetadata[i];
-        const blockBody = blockBodiesFromStore[i];
-        if (blockBody) {
-          blocks.push({ data: new L2Block(archive, header, blockBody), l1 });
-        } else {
-          this.log.warn(`Block body not found for block ${header.globalVariables.blockNumber.toBigInt()}.`);
-        }
-      }
-
-      (blocks.length ? this.log.verbose : this.log.debug)(
-        `Retrieved ${blocks.length || 'no'} new L2 blocks between L1 blocks ${
-          blocksSynchedTo + 1n
-        } and ${currentL1BlockNumber}.`,
-      );
-
-      retrievedBlocks = blocks;
-      lastProcessedL1BlockNumber =
-        retrievedBlockMetadata.length > 0
-          ? retrievedBlockMetadata[retrievedBlockMetadata.length - 1][2].blockNumber
-          : blocksSynchedTo;
-    }
+    const lastProcessedL1BlockNumber =
+      retrievedBlocks.length > 0 ? retrievedBlocks[retrievedBlocks.length - 1].l1.blockNumber : blocksSynchedTo;
 
     this.log.debug(
       `Processing retrieved blocks ${retrievedBlocks
@@ -320,29 +266,33 @@ export class Archiver implements ArchiveSource {
         .join(',')} with last processed L1 block ${lastProcessedL1BlockNumber}`,
     );
 
-    await Promise.all(
-      retrievedBlocks.map(block => {
-        const noteEncryptedLogs = block.data.body.noteEncryptedLogs;
-        const encryptedLogs = block.data.body.encryptedLogs;
-        const unencryptedLogs = block.data.body.unencryptedLogs;
-        return this.store.addLogs(noteEncryptedLogs, encryptedLogs, unencryptedLogs, block.data.number);
-      }),
-    );
-
-    // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
-    await Promise.all(
-      retrievedBlocks.map(async block => {
-        const blockLogs = block.data.body.txEffects
-          .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
-          .flatMap(txLog => txLog.unrollLogs());
-        await this.storeRegisteredContractClasses(blockLogs, block.data.number);
-        await this.storeDeployedContractInstances(blockLogs, block.data.number);
-        await this.storeBroadcastedIndividualFunctions(blockLogs, block.data.number);
-      }),
-    );
-
     if (retrievedBlocks.length > 0) {
+      await Promise.all(
+        retrievedBlocks.map(block => {
+          const noteEncryptedLogs = block.data.body.noteEncryptedLogs;
+          const encryptedLogs = block.data.body.encryptedLogs;
+          const unencryptedLogs = block.data.body.unencryptedLogs;
+          return this.store.addLogs(noteEncryptedLogs, encryptedLogs, unencryptedLogs, block.data.number);
+        }),
+      );
+
+      // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
+      await Promise.all(
+        retrievedBlocks.map(async block => {
+          const blockLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
+            .flatMap(txLog => txLog.unrollLogs());
+          await this.storeRegisteredContractClasses(blockLogs, block.data.number);
+          await this.storeDeployedContractInstances(blockLogs, block.data.number);
+          await this.storeBroadcastedIndividualFunctions(blockLogs, block.data.number);
+        }),
+      );
+
       const timer = new Timer();
+      await this.store.addBlockBodies({
+        lastProcessedL1BlockNumber: lastProcessedL1BlockNumber,
+        retrievedData: retrievedBlocks.map(b => b.data.body),
+      });
       await this.store.addBlocks(retrievedBlocks);
       this.instrumentation.processNewBlocks(
         timer.ms() / retrievedBlocks.length,

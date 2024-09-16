@@ -21,24 +21,21 @@ struct DAppPayload {
 // docs:end:app-payload-struct
 
 impl Serialize<DAPP_PAYLOAD_SIZE> for DAppPayload {
-  // Serializes the entrypoint struct
-  fn serialize(self) -> [Field; DAPP_PAYLOAD_SIZE] {
-    let mut fields: BoundedVec<Field, DAPP_PAYLOAD_SIZE> = BoundedVec::new();
-    for call in self.function_calls {
-      fields.extend_from_array(call.serialize());
+    // Serializes the entrypoint struct
+    fn serialize(self) -> [Field; DAPP_PAYLOAD_SIZE] {
+        let mut fields: BoundedVec<Field, DAPP_PAYLOAD_SIZE> = BoundedVec::new();
+        for call in self.function_calls {
+            fields.extend_from_array(call.serialize());
+        }
+        fields.push(self.nonce);
+        fields.storage
     }
-    fields.push(self.nonce);
-    fields.storage
-  }
 }
 
 impl Hash for DAppPayload {
-  fn hash(self) -> Field {
-    poseidon2_hash_with_separator(
-      self.serialize(),
-      GENERATOR_INDEX__SIGNATURE_PAYLOAD
-    )
-  }
+    fn hash(self) -> Field {
+        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__SIGNATURE_PAYLOAD)
+    }
 }
 
 impl DAppPayload {

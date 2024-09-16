@@ -63,15 +63,15 @@ impl Deserialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
 }
 
 impl Eq for GlobalVariables {
-    fn eq(self, other : GlobalVariables) -> bool {
-        (self.chain_id == other.chain_id) &
-        (self.version == other.version) &
-        (self.block_number == other.block_number) &
-        (self.slot_number == other.slot_number) &
-        (self.timestamp == other.timestamp) &
-        (self.coinbase == other.coinbase) &
-        (self.fee_recipient == other.fee_recipient) &
-        (self.gas_fees == other.gas_fees)
+    fn eq(self, other: GlobalVariables) -> bool {
+        (self.chain_id == other.chain_id)
+            & (self.version == other.version)
+            & (self.block_number == other.block_number)
+            & (self.slot_number == other.slot_number)
+            & (self.timestamp == other.timestamp)
+            & (self.coinbase == other.coinbase)
+            & (self.fee_recipient == other.fee_recipient)
+            & (self.gas_fees == other.gas_fees)
     }
 }
 

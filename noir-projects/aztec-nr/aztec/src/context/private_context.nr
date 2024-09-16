@@ -18,7 +18,7 @@ use dep::protocol_types::{
     max_block_number::MaxBlockNumber,
     validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     private_call_request::PrivateCallRequest, private_circuit_public_inputs::PrivateCircuitPublicInputs,
-    public_call_request::PublicCallRequest, public_call_stack_item::PublicCallStackItem,
+    public_call_request::PublicCallRequest,
     public_call_stack_item_compressed::PublicCallStackItemCompressed, read_request::ReadRequest,
     note_hash::NoteHash, nullifier::Nullifier, log_hash::{LogHash, NoteLogHash, EncryptedLogHash}
 },

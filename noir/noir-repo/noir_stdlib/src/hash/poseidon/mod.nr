@@ -1,5 +1,4 @@
 mod bn254; // Instantiations of Poseidon for prime field of the same order as BN254
-use crate::field::modulus_num_bits;
 use crate::hash::Hasher;
 use crate::default::Default;
 
@@ -166,13 +165,6 @@ fn sigma<let O: u32>(x: [Field; O]) -> [Field; O] {
     y
 }
 
-// Check security of sponge instantiation
-fn check_security(rate: Field, width: Field, security: Field) -> bool {
-    let n = modulus_num_bits();
-
-    ((n - 1) as Field * (width - rate) / 2) as u8 > security as u8
-}
-
 struct PoseidonHasher{
     _state: [Field],
 }
@@ -185,16 +177,16 @@ impl Hasher for PoseidonHasher {
         assert(len < 16);
         if len == 1 {
             result = bn254::hash_1([self._state[0]]);
-        } 
+        }
         if len == 2 {
             result = bn254::hash_2([self._state[0],self._state[1]]);
-        } 
+        }
         if len == 3 {
             result = bn254::hash_3([self._state[0],self._state[1],self._state[2]]);
-        } 
+        }
         if len == 4 {
             result = bn254::hash_4([self._state[0],self._state[1],self._state[2],self._state[3]]);
-        } 
+        }
         if len == 5 {
             result = bn254::hash_5([self._state[0],self._state[1],self._state[2],self._state[3],self._state[4]]);
         }
@@ -228,20 +220,18 @@ impl Hasher for PoseidonHasher {
         if len == 15 {
             result = bn254::hash_15([self._state[0],self._state[1],self._state[2],self._state[3],self._state[4], self._state[5], self._state[6], self._state[7], self._state[8], self._state[9], self._state[10], self._state[11], self._state[12], self._state[13], self._state[14]]);
         }
-        
+
         result
     }
 
-    fn write(&mut self, input: Field){
+    fn write(&mut self, input: Field) {
         self._state = self._state.push_back(input);
     }
 }
 
-impl Default for PoseidonHasher{
-    fn default() -> Self{
-        PoseidonHasher{
-            _state: &[],
-        }
+impl Default for PoseidonHasher {
+    fn default() -> Self {
+        PoseidonHasher { _state: &[] }
     }
 }
 

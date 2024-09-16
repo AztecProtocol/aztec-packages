@@ -21,16 +21,16 @@ TEST(Protogalaxy, CombinerOn2Keys)
     using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
-        std::fill(polys.q_arith.begin(), polys.q_arith.end(), 1);
-        std::fill(polys.q_delta_range.begin(), polys.q_delta_range.end(), 0);
-        std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
-        std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
-        std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
-        std::fill(polys.q_4.begin(), polys.q_4.end(), 0);
-        std::fill(polys.q_poseidon2_external.begin(), polys.q_poseidon2_external.end(), 0);
-        std::fill(polys.q_poseidon2_internal.begin(), polys.q_poseidon2_internal.end(), 0);
-        std::fill(polys.w_4.begin(), polys.w_4.end(), 0);
-        std::fill(polys.w_4_shift.begin(), polys.w_4_shift.end(), 0);
+        std::fill(polys.q_arith.coeffs().begin(), polys.q_arith.coeffs().end(), 1);
+        std::fill(polys.q_delta_range.coeffs().begin(), polys.q_delta_range.coeffs().end(), 0);
+        std::fill(polys.q_elliptic.coeffs().begin(), polys.q_elliptic.coeffs().end(), 0);
+        std::fill(polys.q_aux.coeffs().begin(), polys.q_aux.coeffs().end(), 0);
+        std::fill(polys.q_lookup.coeffs().begin(), polys.q_lookup.coeffs().end(), 0);
+        std::fill(polys.q_4.coeffs().begin(), polys.q_4.coeffs().end(), 0);
+        std::fill(polys.q_poseidon2_external.coeffs().begin(), polys.q_poseidon2_external.coeffs().end(), 0);
+        std::fill(polys.q_poseidon2_internal.coeffs().begin(), polys.q_poseidon2_internal.coeffs().end(), 0);
+        std::fill(polys.w_4.coeffs().begin(), polys.w_4.coeffs().end(), 0);
+        std::fill(polys.w_4_shift.coeffs().begin(), polys.w_4_shift.coeffs().end(), 0);
     };
 
     auto run_test = [&](bool is_random_input) {
@@ -90,20 +90,20 @@ TEST(Protogalaxy, CombinerOn2Keys)
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
-                polys.w_l[idx] = w_l;
-                polys.w_r[idx] = w_r;
-                polys.w_o[idx] = w_l + w_r;
-                polys.q_l[idx] = 1;
-                polys.q_r[idx] = 1;
-                polys.q_o[idx] = -1;
+                polys.w_l.at(idx) = w_l;
+                polys.w_r.at(idx) = w_r;
+                polys.w_o.at(idx) = w_l + w_r;
+                polys.q_l.at(idx) = 1;
+                polys.q_r.at(idx) = 1;
+                polys.q_o.at(idx) = -1;
             };
 
             const auto create_mul_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
-                polys.w_l[idx] = w_l;
-                polys.w_r[idx] = w_r;
-                polys.w_o[idx] = w_l * w_r;
-                polys.q_m[idx] = 1;
-                polys.q_o[idx] = -1;
+                polys.w_l.at(idx) = w_l;
+                polys.w_r.at(idx) = w_r;
+                polys.w_o.at(idx) = w_l * w_r;
+                polys.q_m.at(idx) = 1;
+                polys.q_o.at(idx) = -1;
             };
 
             create_add_gate(keys[0]->proving_key.polynomials, 0, 1, 2);
@@ -162,14 +162,14 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
 
     constexpr size_t UNIVARIATE_LENGTH = 12;
     const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
-        std::fill(polys.q_arith.begin(), polys.q_arith.end(), 1);
-        std::fill(polys.q_delta_range.begin(), polys.q_delta_range.end(), 0);
-        std::fill(polys.q_elliptic.begin(), polys.q_elliptic.end(), 0);
-        std::fill(polys.q_aux.begin(), polys.q_aux.end(), 0);
-        std::fill(polys.q_lookup.begin(), polys.q_lookup.end(), 0);
-        std::fill(polys.q_4.begin(), polys.q_4.end(), 0);
-        std::fill(polys.w_4.begin(), polys.w_4.end(), 0);
-        std::fill(polys.w_4_shift.begin(), polys.w_4_shift.end(), 0);
+        std::fill(polys.q_arith.coeffs().begin(), polys.q_arith.coeffs().end(), 1);
+        std::fill(polys.q_delta_range.coeffs().begin(), polys.q_delta_range.coeffs().end(), 0);
+        std::fill(polys.q_elliptic.coeffs().begin(), polys.q_elliptic.coeffs().end(), 0);
+        std::fill(polys.q_aux.coeffs().begin(), polys.q_aux.coeffs().end(), 0);
+        std::fill(polys.q_lookup.coeffs().begin(), polys.q_lookup.coeffs().end(), 0);
+        std::fill(polys.q_4.coeffs().begin(), polys.q_4.coeffs().end(), 0);
+        std::fill(polys.w_4.coeffs().begin(), polys.w_4.coeffs().end(), 0);
+        std::fill(polys.w_4_shift.coeffs().begin(), polys.w_4_shift.coeffs().end(), 0);
     };
 
     auto run_test = [&](bool is_random_input) {
@@ -210,7 +210,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             // Get the result of the 0th subrelation of the arithmetic relation
             FF key_offset = std::get<0>(temporary_accumulator)[0];
             // Subtract it from q_c[0] (it directly affect the target sum, making it zero and enabling the optimisation)
-            keys_data[1]->proving_key.polynomials.q_c[0] -= key_offset;
+            keys_data[1]->proving_key.polynomials.q_c.at(0) -= key_offset;
             std::vector<typename Flavor::ProverPolynomials>
                 extended_polynomials; // These hold the extensions of prover polynomials
 
@@ -224,7 +224,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                               keys_data[1]->proving_key.polynomials.get_all(),
                               prover_polynomials.get_all())) {
                     for (size_t i = 0; i < /*circuit_size*/ 2; i++) {
-                        new_polynomial[i] = key_0_polynomial[i] + ((key_1_polynomial[i] - key_0_polynomial[i]) * idx);
+                        new_polynomial.at(i) =
+                            key_0_polynomial[i] + ((key_1_polynomial[i] - key_0_polynomial[i]) * idx);
                     }
                 }
                 extended_polynomials.push_back(std::move(prover_polynomials));
@@ -280,20 +281,20 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
-                polys.w_l[idx] = w_l;
-                polys.w_r[idx] = w_r;
-                polys.w_o[idx] = w_l + w_r;
-                polys.q_l[idx] = 1;
-                polys.q_r[idx] = 1;
-                polys.q_o[idx] = -1;
+                polys.w_l.at(idx) = w_l;
+                polys.w_r.at(idx) = w_r;
+                polys.w_o.at(idx) = w_l + w_r;
+                polys.q_l.at(idx) = 1;
+                polys.q_r.at(idx) = 1;
+                polys.q_o.at(idx) = -1;
             };
 
             const auto create_mul_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
-                polys.w_l[idx] = w_l;
-                polys.w_r[idx] = w_r;
-                polys.w_o[idx] = w_l * w_r;
-                polys.q_m[idx] = 1;
-                polys.q_o[idx] = -1;
+                polys.w_l.at(idx) = w_l;
+                polys.w_r.at(idx) = w_r;
+                polys.w_o.at(idx) = w_l * w_r;
+                polys.q_m.at(idx) = 1;
+                polys.q_o.at(idx) = -1;
             };
 
             create_add_gate(keys[0]->proving_key.polynomials, 0, 1, 2);

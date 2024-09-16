@@ -5,8 +5,8 @@ use std::{
 
 use async_lsp::ResponseError;
 use completion_items::{
-    crate_completion_item, field_completion_item, simple_completion_item, snippet_completion_item,
-    struct_field_completion_item,
+    field_completion_item, simple_completion_item, snippet_completion_item,
+    trait_impl_method_completion_item,
 };
 use convert_case::{Case, Casing};
 use fm::{FileId, FileMap, PathString};
@@ -18,8 +18,9 @@ use noirc_frontend::{
         AsTraitPath, AttributeTarget, BlockExpression, CallExpression, ConstructorExpression,
         Expression, ExpressionKind, ForLoopStatement, GenericTypeArgs, Ident, IfExpression,
         ItemVisibility, Lambda, LetStatement, MemberAccessExpression, MethodCallExpression,
-        NoirFunction, NoirStruct, NoirTraitImpl, Path, PathKind, Pattern, Statement, TypeImpl,
-        UnresolvedGeneric, UnresolvedGenerics, UnresolvedType, UseTree, UseTreeKind, Visitor,
+        NoirFunction, NoirStruct, NoirTraitImpl, Path, PathKind, Pattern, Statement,
+        TraitImplItemKind, TypeImpl, UnresolvedGeneric, UnresolvedGenerics, UnresolvedType,
+        UseTree, UseTreeKind, Visitor,
     },
     graph::{CrateId, Dependency},
     hir::def_map::{CrateDefMap, LocalModuleId, ModuleId},
@@ -32,7 +33,10 @@ use noirc_frontend::{
 };
 use sort_text::underscore_sort_text;
 
-use crate::{requests::to_lsp_location, utils, visibility::is_visible, LspState};
+use crate::{
+    requests::to_lsp_location, trait_impl_method_stub_generator::TraitImplMethodStubGenerator,
+    utils, visibility::is_visible, LspState,
+};
 
 use super::process_request;
 
@@ -84,6 +88,7 @@ pub(crate) fn on_completion_request(
 struct NodeFinder<'a> {
     files: &'a FileMap,
     file: FileId,
+    source: &'a str,
     lines: Vec<&'a str>,
     byte_index: usize,
     byte: Option<u8>,
@@ -136,6 +141,7 @@ impl<'a> NodeFinder<'a> {
         Self {
             files,
             file,
+            source,
             lines: source.lines().collect(),
             byte_index,
             byte,
@@ -183,20 +189,23 @@ impl<'a> NodeFinder<'a> {
         let struct_type = struct_type.borrow();
 
         // First get all of the struct's fields
-        let mut fields = HashMap::new();
-        let fields_as_written = struct_type.get_fields_as_written();
-        for (field, typ) in &fields_as_written {
-            fields.insert(field, typ);
-        }
+        let mut fields: Vec<_> =
+            struct_type.get_fields_as_written().into_iter().enumerate().collect();
 
         // Remove the ones that already exists in the constructor
-        for (field, _) in &constructor_expression.fields {
-            fields.remove(&field.0.contents);
+        for (used_name, _) in &constructor_expression.fields {
+            fields.retain(|(_, (name, _))| name != &used_name.0.contents);
         }
 
         let self_prefix = false;
-        for (field, typ) in fields {
-            self.completion_items.push(struct_field_completion_item(field, typ, self_prefix));
+        for (field_index, (field, typ)) in &fields {
+            self.completion_items.push(self.struct_field_completion_item(
+                field,
+                typ,
+                struct_type.id,
+                *field_index,
+                self_prefix,
+            ));
         }
     }
 
@@ -508,6 +517,7 @@ impl<'a> NodeFinder<'a> {
                     self.collect_local_variables(pattern);
                 }
             }
+            Pattern::Interned(..) => (),
         }
     }
 
@@ -652,9 +662,15 @@ impl<'a> NodeFinder<'a> {
         prefix: &str,
         self_prefix: bool,
     ) {
-        for (name, typ) in &struct_type.get_fields(generics) {
+        for (field_index, (name, typ)) in struct_type.get_fields(generics).iter().enumerate() {
             if name_matches(name, prefix) {
-                self.completion_items.push(struct_field_completion_item(name, typ, self_prefix));
+                self.completion_items.push(self.struct_field_completion_item(
+                    name,
+                    typ,
+                    struct_type.id,
+                    field_index,
+                    self_prefix,
+                ));
             }
         }
     }
@@ -746,7 +762,10 @@ impl<'a> NodeFinder<'a> {
             for dependency in self.dependencies {
                 let dependency_name = dependency.as_name();
                 if name_matches(&dependency_name, prefix) {
-                    self.completion_items.push(crate_completion_item(dependency_name));
+                    let root_id = self.def_maps[&dependency.crate_id].root();
+                    let module_id = ModuleId { krate: dependency.crate_id, local_id: root_id };
+                    self.completion_items
+                        .push(self.crate_completion_item(dependency_name, module_id));
                 }
             }
 
@@ -833,6 +852,73 @@ impl<'a> NodeFinder<'a> {
         }
     }
 
+    fn suggest_trait_impl_function(
+        &mut self,
+        noir_trait_impl: &NoirTraitImpl,
+        noir_function: &NoirFunction,
+    ) {
+        // First find the trait
+        let location = Location::new(noir_trait_impl.trait_name.span(), self.file);
+        let Some(ReferenceId::Trait(trait_id)) = self.interner.find_referenced(location) else {
+            return;
+        };
+
+        let trait_ = self.interner.get_trait(trait_id);
+
+        // Get all methods
+        let mut method_ids = trait_.method_ids.clone();
+
+        // Remove the ones that already are implemented
+        for item in &noir_trait_impl.items {
+            if let TraitImplItemKind::Function(noir_function) = &item.item.kind {
+                method_ids.remove(noir_function.name());
+            }
+        }
+
+        let indent = 0;
+
+        // Suggest the ones that match the name
+        let prefix = noir_function.name();
+        for (name, func_id) in method_ids {
+            if !name_matches(&name, prefix) {
+                continue;
+            }
+
+            let func_meta = self.interner.function_meta(&func_id);
+
+            let mut generator = TraitImplMethodStubGenerator::new(
+                &name,
+                func_meta,
+                trait_,
+                noir_trait_impl,
+                self.interner,
+                self.def_maps,
+                self.module_id,
+                indent,
+            );
+            generator.set_body("${1}".to_string());
+
+            let stub = generator.generate();
+
+            // We don't need the initial indent nor the final newlines
+            let stub = stub.trim();
+            // We also don't need the leading "fn " as that's already in the code;
+            let stub = stub.strip_prefix("fn ").unwrap();
+
+            let label = if func_meta.parameters.is_empty() {
+                format!("fn {}()", &name)
+            } else {
+                format!("fn {}(..)", &name)
+            };
+
+            let completion_item = trait_impl_method_completion_item(label, stub);
+            let completion_item = self
+                .completion_item_with_doc_comments(ReferenceId::Function(func_id), completion_item);
+
+            self.completion_items.push(completion_item);
+        }
+    }
+
     fn try_set_self_type(&mut self, pattern: &Pattern) {
         match pattern {
             Pattern::Identifier(ident) => {
@@ -846,7 +932,7 @@ impl<'a> NodeFinder<'a> {
                 }
             }
             Pattern::Mutable(pattern, ..) => self.try_set_self_type(pattern),
-            Pattern::Tuple(..) | Pattern::Struct(..) => (),
+            Pattern::Tuple(..) | Pattern::Struct(..) | Pattern::Interned(..) => (),
         }
     }
 
@@ -872,7 +958,7 @@ impl<'a> Visitor for NodeFinder<'a> {
         false
     }
 
-    fn visit_parsed_submodule(&mut self, parsed_sub_module: &ParsedSubModule, span: Span) -> bool {
+    fn visit_parsed_submodule(&mut self, parsed_sub_module: &ParsedSubModule, _span: Span) -> bool {
         // Switch `self.module_id` to the submodule
         let previous_module_id = self.module_id;
 
@@ -887,7 +973,9 @@ impl<'a> Visitor for NodeFinder<'a> {
         let old_auto_import_line = self.auto_import_line;
         self.nesting += 1;
 
-        if let Some(lsp_location) = to_lsp_location(self.files, self.file, span) {
+        if let Some(lsp_location) =
+            to_lsp_location(self.files, self.file, parsed_sub_module.name.span())
+        {
             self.auto_import_line = (lsp_location.range.start.line + 1) as usize;
         }
 
@@ -937,7 +1025,25 @@ impl<'a> Visitor for NodeFinder<'a> {
         self.collect_type_parameters_in_generics(&noir_trait_impl.impl_generics);
 
         for item in &noir_trait_impl.items {
-            item.accept(self);
+            if let TraitImplItemKind::Function(noir_function) = &item.item.kind {
+                // Check if it's `fn foo>|<` and neither `(` nor `<` follow
+                if noir_function.name_ident().span().end() as usize == self.byte_index
+                    && noir_function.parameters().is_empty()
+                {
+                    let bytes = self.source.as_bytes();
+                    let mut cursor = self.byte_index;
+                    while cursor < bytes.len() && bytes[cursor].is_ascii_whitespace() {
+                        cursor += 1;
+                    }
+                    let char = bytes[cursor] as char;
+                    if char != '(' && char != '<' {
+                        self.suggest_trait_impl_function(noir_trait_impl, noir_function);
+                        return false;
+                    }
+                }
+            }
+
+            item.item.accept(self);
         }
 
         self.type_parameters.clear();
@@ -952,7 +1058,7 @@ impl<'a> Visitor for NodeFinder<'a> {
         self.collect_type_parameters_in_generics(&type_impl.generics);
 
         for (method, span) in &type_impl.methods {
-            method.accept(*span, self);
+            method.item.accept(*span, self);
 
             // Optimization: stop looking in functions past the completion cursor
             if span.end() as usize > self.byte_index {
@@ -973,8 +1079,8 @@ impl<'a> Visitor for NodeFinder<'a> {
         self.type_parameters.clear();
         self.collect_type_parameters_in_generics(&noir_struct.generics);
 
-        for (_name, unresolved_type) in &noir_struct.fields {
-            unresolved_type.accept(self);
+        for field in &noir_struct.fields {
+            field.item.typ.accept(self);
         }
 
         self.type_parameters.clear();

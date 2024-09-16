@@ -46,15 +46,14 @@ template <typename Flavor> void compute_concatenated_polynomials(typename Flavor
         size_t i = index / concatenation_groups[0].size();
         // Get the index of the original polynomial
         size_t j = index % concatenation_groups[0].size();
-        auto my_group = concatenation_groups[i];
+        auto& my_group = concatenation_groups[i];
         auto& current_target = targets[i];
 
-        auto starting_write_offset = current_target.begin();
-        auto finishing_read_offset = my_group[j].begin();
-        std::advance(starting_write_offset, j * MINI_CIRCUIT_SIZE);
-        std::advance(finishing_read_offset, MINI_CIRCUIT_SIZE);
         // Copy into appropriate position in the concatenated polynomial
-        std::copy(my_group[j].begin(), finishing_read_offset, starting_write_offset);
+        // We offset by start_index() as the first 0 is not physically represented for shiftable values
+        for (size_t k = current_target.start_index(); k < MINI_CIRCUIT_SIZE; k++) {
+            current_target.at(j * MINI_CIRCUIT_SIZE + k) = my_group[j][k];
+        }
     };
     parallel_for(concatenation_groups.size() * concatenation_groups[0].size(), ordering_function);
 }
@@ -85,9 +84,6 @@ template <typename Flavor>
 void compute_translator_range_constraint_ordered_polynomials(typename Flavor::ProverPolynomials& polynomials,
                                                              size_t mini_circuit_dyadic_size)
 {
-
-    using FF = typename Flavor::FF;
-
     // Get constants
     constexpr auto sort_step = Flavor::SORT_STEP;
     constexpr auto num_concatenated_wires = Flavor::NUM_CONCATENATED_WIRES;
@@ -113,10 +109,10 @@ void compute_translator_range_constraint_ordered_polynomials(typename Flavor::Pr
     }
 
     std::vector<std::vector<uint32_t>> ordered_vectors_uint(num_concatenated_wires);
-    auto ordered_constraint_polynomials = std::vector{ &polynomials.ordered_range_constraints_0,
-                                                       &polynomials.ordered_range_constraints_1,
-                                                       &polynomials.ordered_range_constraints_2,
-                                                       &polynomials.ordered_range_constraints_3 };
+    RefArray ordered_constraint_polynomials{ polynomials.ordered_range_constraints_0,
+                                             polynomials.ordered_range_constraints_1,
+                                             polynomials.ordered_range_constraints_2,
+                                             polynomials.ordered_range_constraints_3 };
     std::vector<size_t> extra_denominator_uint(full_circuit_size);
 
     // Get information which polynomials need to be concatenated
@@ -166,12 +162,8 @@ void compute_translator_range_constraint_ordered_polynomials(typename Flavor::Pr
         // 2. Comparison operators for finite fields are operating on internal form, so we'd have to convert them from
         // Montgomery
         std::sort(current_vector.begin(), current_vector.end());
-
         // Copy the values into the actual polynomial
-        std::transform(current_vector.cbegin(),
-                       current_vector.cend(),
-                       (*ordered_constraint_polynomials[i]).begin(),
-                       [](uint32_t in) { return FF(in); });
+        ordered_constraint_polynomials[i].copy_vector(current_vector);
     };
 
     // Construct the first 4 polynomials
@@ -191,11 +183,8 @@ void compute_translator_range_constraint_ordered_polynomials(typename Flavor::Pr
     std::sort(std::execution::par_unseq, extra_denominator_uint.begin(), extra_denominator.end());
 #endif
 
-    // And copy it to the actual polynomial
-    std::transform(extra_denominator_uint.cbegin(),
-                   extra_denominator_uint.cend(),
-                   polynomials.ordered_range_constraints_4.begin(),
-                   [](uint32_t in) { return FF(in); });
+    // Copy the values into the actual polynomial
+    polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint);
 }
 
 } // namespace bb

@@ -58,8 +58,10 @@ const auto current_dir = current_path.filename().string();
  */
 void init_bn254_crs(size_t dyadic_circuit_size)
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
+    // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
     // Must +1 for Plonk only!
-    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + 1);
+    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + dyadic_circuit_size * 6 / 10 + 1);
     auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
 }
@@ -72,7 +74,10 @@ void init_bn254_crs(size_t dyadic_circuit_size)
  */
 void init_grumpkin_crs(size_t eccvm_dyadic_circuit_size)
 {
-    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
+    // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
+    auto grumpkin_g1_data =
+        get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size + eccvm_dyadic_circuit_size * 6 / 10);
     srs::init_grumpkin_crs_factory(grumpkin_g1_data);
 }
 
@@ -451,10 +456,10 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
         auto stack_item = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
-        auto circuit = acir_format::create_circuit<Builder>(
-            stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
+        auto builder = acir_format::create_circuit<Builder>(
+            stack_item.constraints, 0, stack_item.witness, /*honk_recursion=*/false, ivc.goblin.op_queue);
 
-        ivc.accumulate(circuit);
+        ivc.accumulate(builder);
 
         program_stack.pop_back();
     }

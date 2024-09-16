@@ -205,7 +205,7 @@ TEST_F(MegaHonkTests, MultipleCircuitsHonkAndMerge)
     auto commitment_key = std::make_shared<CommitmentKey>(aggregate_op_queue_size);
     size_t idx = 0;
     for (const auto& result : op_queue->get_ultra_ops_commitments()) {
-        auto expected = commitment_key->commit(ultra_ops[idx++]);
+        auto expected = commitment_key->commit({ /* start index */ 0, ultra_ops[idx++] });
         EXPECT_EQ(result, expected);
     }
 }

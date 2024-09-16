@@ -161,20 +161,20 @@ describe('Memory instructions', () => {
   describe('CAST', () => {
     it('Should deserialize correctly', () => {
       const buf = Buffer.from([
-        Cast.opcode, // opcode
+        Opcode.CAST_16, // opcode
         0x01, // indirect
         TypeTag.FIELD, // dstTag
-        ...Buffer.from('12345678', 'hex'), // aOffset
-        ...Buffer.from('3456789a', 'hex'), // dstOffset
+        ...Buffer.from('1234', 'hex'), // aOffset
+        ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
       const inst = new Cast(
         /*indirect=*/ 0x01,
         /*dstTag=*/ TypeTag.FIELD,
-        /*aOffset=*/ 0x12345678,
-        /*dstOffset=*/ 0x3456789a,
-      );
+        /*aOffset=*/ 0x1234,
+        /*dstOffset=*/ 0x3456,
+      ).as(Opcode.CAST_16, Cast.wireFormat16);
 
-      expect(Cast.deserialize(buf)).toEqual(inst);
+      expect(Cast.as(Cast.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
     });
 

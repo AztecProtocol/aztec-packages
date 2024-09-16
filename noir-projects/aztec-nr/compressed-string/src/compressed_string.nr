@@ -1,4 +1,4 @@
-use dep::aztec::protocol_types::{utils::field::field_from_bytes, traits::{Eq, Serialize, Deserialize}};
+use dep::aztec::protocol_types::{utils::field::field_from_bytes, traits::{Serialize, Deserialize}};
 
 // The general Compressed String.
 // Compresses M bytes into N fields.
@@ -55,7 +55,6 @@ impl<let N: u32, let M: u32> Eq for CompressedString<N, M> {
 impl<let N: u32, let M: u32> Serialize<N> for CompressedString<N, M> {
     fn serialize(self) -> [Field; N] {
         self.value
-
     }
 }
 
