@@ -17,25 +17,9 @@ interface ITestRollup {
 interface IRollup {
   event L2BlockProposed(uint256 indexed blockNumber);
   event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
-  event PrunedPending(uint256 provenBlockCount, uint256 pendingBlockCount);
-
-  function canProposeAtTime(uint256 _ts, bytes32 _archive) external view returns (uint256, uint256);
-  function validateHeader(
-    bytes calldata _header,
-    SignatureLib.Signature[] memory _signatures,
-    bytes32 _digest,
-    uint256 _currentTime,
-    bytes32 _txsEffecstHash,
-    DataStructures.ExecutionFlags memory _flags
-  ) external view;
+  event PrunedPending(uint256 provenBlockNumber);
 
   function prune() external;
-
-  function INBOX() external view returns (IInbox);
-
-  function OUTBOX() external view returns (IOutbox);
-
-  function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 
   function propose(
     bytes calldata _header,
@@ -54,6 +38,22 @@ interface IRollup {
     bytes calldata _proof
   ) external;
 
+  function canProposeAtTime(uint256 _ts, bytes32 _archive) external view returns (uint256, uint256);
+  function validateHeader(
+    bytes calldata _header,
+    SignatureLib.Signature[] memory _signatures,
+    bytes32 _digest,
+    uint256 _currentTime,
+    bytes32 _txsEffecstHash,
+    DataStructures.ExecutionFlags memory _flags
+  ) external view;
+
+  function INBOX() external view returns (IInbox);
+
+  function OUTBOX() external view returns (IOutbox);
+
+  function L1_BLOCK_AT_GENESIS() external view returns (uint256);
+
   // TODO(#7346): Integrate batch rollups
   // function submitRootProof(
   //   bytes32 _previousArchive,
@@ -68,5 +68,7 @@ interface IRollup {
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
+  function provenBlockNum() external view returns (uint256);
+  function pendingBlockNum() external view returns (uint256);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }

@@ -35,6 +35,16 @@ import {Leonidas} from "./sequencer_selection/Leonidas.sol";
 contract Rollup is Leonidas, IRollup, ITestRollup {
   using SafeCast for uint256;
 
+  struct ChainTip {
+    uint256 blockNumber;
+    uint256 slotNumber;
+  }
+
+  struct State {
+    ChainTip pendingTip;
+    ChainTip provenTip;
+  }
+
   struct BlockLog {
     bytes32 archive;
     bytes32 blockHash;
@@ -52,11 +62,9 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   IOutbox public immutable OUTBOX;
   uint256 public immutable VERSION;
   IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
-
   IVerifier public verifier;
 
-  uint256 public pendingBlockCount;
-  uint256 public provenBlockCount;
+  State public state;
 
   // @todo  Validate assumption:
   //        Currently we assume that the archive root following a block is specific to the block
@@ -67,7 +75,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   bytes32 public vkTreeRoot;
 
-  // @note  Assume that all blocks up to this value are automatically proven. Speeds up bootstrapping.
+  // @note  Assume that all blocks up to this value (exclusive) are automatically proven. Speeds up bootstrapping.
   //        Testing only. This should be removed eventually.
   uint256 private assumeProvenUntilBlockNumber;
 
@@ -93,8 +101,9 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       blockHash: bytes32(0),
       slotNumber: 0
     });
-    pendingBlockCount = 1;
-    provenBlockCount = 1;
+
+    state.pendingTip = ChainTip({blockNumber: 0, slotNumber: 0});
+    state.provenTip = ChainTip({blockNumber: 0, slotNumber: 0});
 
     for (uint256 i = 0; i < _validators.length; i++) {
       _addValidator(_validators[i]);
@@ -110,11 +119,11 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @dev     While in devnet, this will be guarded behind an `onlyOwner`
    */
   function prune() external override(IRollup) onlyOwner {
-    if (pendingBlockCount == provenBlockCount) {
+    if (state.pendingTip.blockNumber == state.provenTip.blockNumber) {
       revert Errors.Rollup__NothingToPrune();
     }
 
-    BlockLog storage firstPendingNotInProven = blocks[provenBlockCount];
+    BlockLog storage firstPendingNotInProven = blocks[state.provenTip.blockNumber + 1];
     uint256 prunableAtSlot =
       uint256(firstPendingNotInProven.slotNumber) + TIMELINESS_PROVING_IN_SLOTS;
     uint256 currentSlot = getCurrentSlot();
@@ -123,14 +132,13 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__NotReadyToPrune(currentSlot, prunableAtSlot);
     }
 
-    // @note  We are not deleting the blocks, but we are "winding back" the pendingBlockCount
-    //        to the last block that was proven.
-    //        The reason we can do this, is that any new block proposed will overwrite a previous block
-    //        so no values should "survive". It it is however slightly odd for people reading
-    //        the chain separately from the contract without using pendingBlockCount as a boundary.
-    pendingBlockCount = provenBlockCount;
+    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
+    //        We can do because any new block proposed will overwrite a previous block in the block log,
+    //        so no values should "survive".
+    //        People must therefore read the chain using the pendingTip as a boundary.
+    state.pendingTip = state.provenTip;
 
-    emit PrunedPending(provenBlockCount, pendingBlockCount);
+    emit PrunedPending(state.pendingTip.blockNumber);
   }
 
   /**
@@ -142,8 +150,15 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     override(ITestRollup)
     onlyOwner
   {
-    if (blockNumber > provenBlockCount && blockNumber <= pendingBlockCount) {
-      provenBlockCount = blockNumber;
+    // the first condition ensures that we actually need to adjust the proven tip,
+    // since assumeProvenUntilBlockNumber is exclusive.
+    // e.g. if the arg is 5, we don't need to move the proven tip if it is already 4.
+    // the second condition ensures we have a valid slot number for the proven tip.
+    if (
+      blockNumber > state.provenTip.blockNumber + 1 && blockNumber <= state.pendingTip.blockNumber
+    ) {
+      state.provenTip =
+        ChainTip({blockNumber: blockNumber - 1, slotNumber: blocks[blockNumber - 1].slotNumber});
     }
     assumeProvenUntilBlockNumber = blockNumber;
   }
@@ -168,15 +183,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    */
   function setVkTreeRoot(bytes32 _vkTreeRoot) external override(ITestRollup) onlyOwner {
     vkTreeRoot = _vkTreeRoot;
-  }
-
-  function computeTxsEffectsHash(bytes calldata _body)
-    external
-    pure
-    override(IRollup)
-    returns (bytes32)
-  {
-    return TxsDecoder.decode(_body);
   }
 
   /**
@@ -213,7 +219,12 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       _flags: DataStructures.ExecutionFlags({ignoreDA: false, ignoreSignatures: false})
     });
 
-    blocks[pendingBlockCount++] = BlockLog({
+    state.pendingTip = ChainTip({
+      blockNumber: header.globalVariables.blockNumber,
+      slotNumber: header.globalVariables.slotNumber.toUint128()
+    });
+
+    blocks[header.globalVariables.blockNumber] = BlockLog({
       archive: _archive,
       blockHash: _blockHash,
       slotNumber: header.globalVariables.slotNumber.toUint128()
@@ -237,7 +248,10 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
     // Automatically flag the block as proven if we have cheated and set assumeProvenUntilBlockNumber.
     if (header.globalVariables.blockNumber < assumeProvenUntilBlockNumber) {
-      provenBlockCount += 1;
+      state.provenTip = ChainTip({
+        blockNumber: header.globalVariables.blockNumber,
+        slotNumber: header.globalVariables.slotNumber.toUint128()
+      });
 
       if (header.globalVariables.coinbase != address(0) && header.totalFees > 0) {
         // @note  This will currently fail if there are insufficient funds in the bridge
@@ -283,13 +297,13 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   ) external override(IRollup) {
     HeaderLib.Header memory header = HeaderLib.decode(_header);
 
-    if (header.globalVariables.blockNumber >= pendingBlockCount) {
+    if (header.globalVariables.blockNumber > state.pendingTip.blockNumber) {
       revert Errors.Rollup__TryingToProveNonExistingBlock();
     }
 
     // @note  This implicitly also ensures that we have not already proven, since
     //        the value `provenBlockCount` is incremented at the end of this function
-    if (header.globalVariables.blockNumber != provenBlockCount) {
+    if (header.globalVariables.blockNumber != state.provenTip.blockNumber + 1) {
       revert Errors.Rollup__NonSequentialProving();
     }
 
@@ -375,7 +389,10 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidProof();
     }
 
-    provenBlockCount += 1;
+    state.provenTip = ChainTip({
+      blockNumber: header.globalVariables.blockNumber,
+      slotNumber: header.globalVariables.slotNumber.toUint128()
+    });
 
     for (uint256 i = 0; i < 32; i++) {
       address coinbase = address(uint160(uint256(publicInputs[25 + i * 2])));
@@ -419,7 +436,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   {
     uint256 slot = getSlotAt(_ts);
 
-    uint256 lastSlot = uint256(blocks[pendingBlockCount - 1].slotNumber);
+    uint256 lastSlot = uint256(state.pendingTip.slotNumber);
     if (slot <= lastSlot) {
       revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
     }
@@ -435,7 +452,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       DataStructures.ExecutionFlags({ignoreDA: true, ignoreSignatures: true});
     _validateLeonidas(slot, sigs, _archive, flags);
 
-    return (slot, pendingBlockCount);
+    return (slot, state.pendingTip.blockNumber + 1);
   }
 
   /**
@@ -462,13 +479,30 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     _validateHeader(header, _signatures, _digest, _currentTime, _txsEffectsHash, _flags);
   }
 
+  function computeTxsEffectsHash(bytes calldata _body)
+    external
+    pure
+    override(IRollup)
+    returns (bytes32)
+  {
+    return TxsDecoder.decode(_body);
+  }
+
   /**
    * @notice  Get the current archive root
    *
    * @return bytes32 - The current archive root
    */
   function archive() public view override(IRollup) returns (bytes32) {
-    return blocks[pendingBlockCount - 1].archive;
+    return blocks[state.pendingTip.blockNumber].archive;
+  }
+
+  function provenBlockNum() public view override(IRollup) returns (uint256) {
+    return state.provenTip.blockNumber;
+  }
+
+  function pendingBlockNum() public view override(IRollup) returns (uint256) {
+    return state.pendingTip.blockNumber;
   }
 
   /**
@@ -569,9 +603,9 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__InvalidVersion(VERSION, _header.globalVariables.version);
     }
 
-    if (_header.globalVariables.blockNumber != pendingBlockCount) {
+    if (_header.globalVariables.blockNumber != state.pendingTip.blockNumber + 1) {
       revert Errors.Rollup__InvalidBlockNumber(
-        pendingBlockCount, _header.globalVariables.blockNumber
+        state.pendingTip.blockNumber + 1, _header.globalVariables.blockNumber
       );
     }
 
@@ -585,7 +619,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__SlotValueTooLarge(slot);
     }
 
-    uint256 lastSlot = uint256(blocks[pendingBlockCount - 1].slotNumber);
+    uint256 lastSlot = uint256(state.pendingTip.slotNumber);
     if (slot <= lastSlot) {
       revert Errors.Rollup__SlotAlreadyInChain(lastSlot, slot);
     }

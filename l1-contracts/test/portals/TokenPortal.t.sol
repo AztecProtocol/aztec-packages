@@ -71,8 +71,8 @@ contract TokenPortalTest is Test {
     tokenPortal.initialize(address(registry), address(portalERC20), l2TokenAddress);
 
     // Modify the proven block count
-    vm.store(address(rollup), bytes32(uint256(7)), bytes32(l2BlockNumber + 1));
-    assertEq(rollup.provenBlockCount(), l2BlockNumber + 1);
+    vm.store(address(rollup), bytes32(uint256(8)), bytes32(l2BlockNumber));
+    assertEq(rollup.provenBlockNum(), l2BlockNumber);
 
     vm.deal(address(this), 100 ether);
   }
