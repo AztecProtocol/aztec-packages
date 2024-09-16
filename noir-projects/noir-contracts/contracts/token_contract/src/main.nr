@@ -1,7 +1,7 @@
 // docs:start:token_all
 // docs:start:imports
 mod types;
-//mod test;
+mod test;
 
 use dep::aztec::macros::aztec;
 
@@ -29,6 +29,8 @@ contract Token {
         macros::{storage::storage, events::event, functions::{initializer, private, view, public}},
         utils::comparison::Comparator, protocol_types::{point::Point, traits::Serialize}
     };
+
+    use std::embedded_curve_ops::EmbeddedCurvePoint;
 
     // docs:start:import_authwit
     use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};

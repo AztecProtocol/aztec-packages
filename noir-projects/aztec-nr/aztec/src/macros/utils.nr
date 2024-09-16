@@ -102,13 +102,8 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
     body_expr.unwrap()
 }
 
-pub(crate) comptime fn is_bool(typ: Type) -> bool {
-    let a_bool = true;
-    typ == type_of(a_bool)
-}
-
 pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ: Type) -> Quoted {
-    if typ.is_field() | typ.as_integer().is_some() | is_bool(typ) {
+    if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
         quote { $slice_name = $slice_name.push_back($name as Field); }
     } else if typ.as_struct().is_some() {
         quote { $slice_name = $slice_name.append($name.serialize()); }
@@ -132,7 +127,7 @@ pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ:
 }
 
 pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Type) -> Quoted {
-    if typ.is_field() | typ.as_integer().is_some() | is_bool(typ) {
+    if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
         quote { $hasher_name.add($name as Field); }
     } else if typ.as_struct().is_some() {
         quote { $hasher_name.add_multiple($name.serialize()); }
