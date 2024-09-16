@@ -1,8 +1,8 @@
 import { BlockAttestation, BlockProposal, type TxHash } from '@aztec/circuit-types';
 import { type Header } from '@aztec/circuits.js';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
 import { type Fr } from '@aztec/foundation/fields';
-import { Buffer32 } from '@aztec/foundation/buffer';
 
 import { type ValidatorKeyStore } from '../key_store/interface.js';
 

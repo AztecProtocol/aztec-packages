@@ -1,5 +1,5 @@
-import { type Signature } from '@aztec/foundation/eth-signature';
 import { type Buffer32 } from '@aztec/foundation/buffer';
+import { type Signature } from '@aztec/foundation/eth-signature';
 
 /** Key Store
  *

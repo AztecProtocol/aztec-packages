@@ -6,7 +6,6 @@ export class ValidatorError extends Error {
   }
 }
 
-// TODO(md): add unit test
 export class InvalidValidatorPrivateKeyError extends ValidatorError {
   constructor() {
     super('Invalid validator private key provided');

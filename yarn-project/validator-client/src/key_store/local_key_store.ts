@@ -1,6 +1,6 @@
-import { type Signature } from '@aztec/foundation/eth-signature';
+import { type Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { type Signature } from '@aztec/foundation/eth-signature';
 
 import { type ValidatorKeyStore } from './interface.js';
 
@@ -12,8 +12,8 @@ import { type ValidatorKeyStore } from './interface.js';
 export class LocalKeyStore implements ValidatorKeyStore {
   private signer: Secp256k1Signer;
 
-  constructor(privateKey: string) {
-    this.signer = new Secp256k1Signer(Buffer32.fromString(privateKey));
+  constructor(privateKey: Buffer32) {
+    this.signer = new Secp256k1Signer(privateKey);
   }
 
   /**
