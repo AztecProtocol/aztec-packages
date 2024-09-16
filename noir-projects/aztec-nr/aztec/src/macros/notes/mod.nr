@@ -1,9 +1,12 @@
-use std::meta::{type_of, unquote};
+use std::{
+    meta::{type_of, unquote}, collections::umap::UHashMap,
+    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
+};
 use protocol_types::{meta::flatten_to_fields, utils::field::field_from_bytes};
 use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector};
 use protocol_types::meta::pack_from_fields;
 
-comptime mut global NOTES = &[];
+comptime mut global NOTES: UHashMap<Module, [(StructDefinition, u32, Field)], BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
 comptime fn compute_note_type_id(name: Quoted) -> Field {
     let name_as_str_quote = name.as_str_quote();
@@ -298,6 +301,18 @@ comptime fn generate_partial_note_impl(s: StructDefinition, hiding_point_name: Q
     }
 }
 
+comptime fn register_note(note: StructDefinition, note_serialized_len: u32, note_type_id: Field) {
+    let current_notes = unsafe {
+        NOTES.get(note.module())
+    };
+    let notes_to_insert = if current_notes.is_some() {
+        current_notes.unwrap().push_back((note, note_serialized_len, note_type_id))
+    } else {
+        &[(note, note_serialized_len, note_type_id)]
+    };
+    NOTES.insert(note.module(), notes_to_insert);
+}
+
 #[varargs]
 pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> Quoted {
     // Automatically inject header if not present
@@ -315,8 +330,7 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     let note_properties = generate_note_properties(s);
     let partial_note_impl = generate_partial_note_impl(s, hiding_point_name);
 
-    // Register note here
-    NOTES = NOTES.push_back((s, note_serialized_len, note_type_id));
+    register_note(s, note_serialized_len, note_type_id);
 
     quote {
         $note_interface_impl
@@ -340,8 +354,7 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
     let (note_interface_impl, note_serialized_len, note_type_id) = generate_note_interface(s, hiding_point_name, fixed_fields, &[]);
     let note_properties = generate_note_properties(s);
 
-    // Register note here
-    NOTES = NOTES.push_back((s, note_serialized_len, note_type_id));
+    register_note(s, note_serialized_len, note_type_id);
 
     quote {
         $note_interface_impl

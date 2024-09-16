@@ -17,7 +17,7 @@ unconstrained fn shielding_on_behalf_of_self() {
     // Store a note in the cache so we can redeem it
     env.store_note_in_cache(
         &mut TransparentNote::new(shield_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 
@@ -50,7 +50,7 @@ unconstrained fn shielding_on_behalf_of_other() {
     // Store a note in the cache so we can redeem it
     env.store_note_in_cache(
         &mut TransparentNote::new(shield_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 

@@ -37,8 +37,8 @@ unconstrained fn setup_refund_success() {
     let user_npk_m_hash = get_current_public_keys(&mut context, user).npk_m.hash();
     let fee_payer_npk_m_hash = get_current_public_keys(&mut context, fee_payer).npk_m.hash();
 
-    let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage().balances.slot, fee_payer);
-    let user_balances_slot = derive_storage_slot_in_map(Token::storage().balances.slot, user);
+    let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, fee_payer);
+    let user_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, user);
 
     // When the refund was set up, we would've spent the note worth mint_amount, and inserted a note worth
     //`mint_amount - funded_amount`. When completing the refund, we would've constructed a hash corresponding to a note

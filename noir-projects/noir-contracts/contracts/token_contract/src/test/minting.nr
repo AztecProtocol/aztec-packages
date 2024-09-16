@@ -77,7 +77,7 @@ unconstrained fn mint_private_success() {
     // Store a note in the cache so we can redeem it
     env.store_note_in_cache(
         &mut TransparentNote::new(mint_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 
@@ -108,7 +108,7 @@ unconstrained fn mint_private_failure_double_spend() {
     // Store a note in the cache so we can redeem it
     env.store_note_in_cache(
         &mut TransparentNote::new(mint_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 
@@ -167,7 +167,7 @@ unconstrained fn mint_private_failure_overflow_recipient() {
     // Store a note in the cache so we can redeem it
     env.store_note_in_cache(
         &mut TransparentNote::new(mint_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 
@@ -207,12 +207,12 @@ unconstrained fn mint_private_failure_overflow_total_supply() {
     // Store 2 notes in the cache so we can redeem it for owner and recipient
     env.store_note_in_cache(
         &mut TransparentNote::new(mint_amount, secret_hash_owner),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
     env.store_note_in_cache(
         &mut TransparentNote::new(mint_amount, secret_hash_recipient),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 

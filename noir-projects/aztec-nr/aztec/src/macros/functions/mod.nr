@@ -1,12 +1,14 @@
-use std::meta::{unquote, type_of};
-
+use std::{
+    meta::{type_of, unquote}, collections::umap::UHashMap,
+    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
+};
 use super::utils::{
     modify_fn_body, is_fn_private, get_fn_visibility, is_fn_view, is_fn_initializer, is_fn_internal,
-    fn_has_noinitcheck, compute_fn_selector, add_to_field_slice, add_to_hasher
+    fn_has_noinitcheck, compute_fn_selector, add_to_field_slice, add_to_hasher, is_fn_public,
+    module_has_storage, module_has_initializer
 };
-use super::utils::is_fn_public;
 
-comptime mut global STUBS: [Quoted] = &[];
+comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
 // Empty annotation just to leave a mark in the function that can be used to add the check in the correct place over at #[private]
 pub comptime fn internal(_f: FunctionDefinition) {}
@@ -86,12 +88,24 @@ comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     result
 }
 
+comptime fn register_stub(m: Module, stub: Quoted) {
+    let current_stubs = unsafe {
+        STUBS.get(m)
+    };
+    let stubs_to_insert = if current_stubs.is_some() {
+        current_stubs.unwrap().push_back(stub)
+    } else {
+        &[stub]
+    };
+    STUBS.insert(m, stubs_to_insert);
+}
+
 pub comptime fn private(f: FunctionDefinition) -> Quoted {
     let fn_abi = create_fn_abi_export(f);
     let fn_stub = stub_fn(f);
-    STUBS = STUBS.push_back(fn_stub);
-    let module_has_initializer = f.module().functions().any(|f: FunctionDefinition| is_fn_initializer(f));
-    let module_has_storage = f.module().structs().any(|s: StructDefinition| s.has_named_attribute("storage"));
+    register_stub(f.module(), fn_stub);
+    let module_has_initializer = module_has_initializer(f.module());
+    let module_has_storage = module_has_storage(f.module());
 
     let current_params = f.parameters();
     f.set_parameters(
@@ -196,9 +210,9 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
 pub comptime fn public(f: FunctionDefinition) -> Quoted {
     let fn_abi = create_fn_abi_export(f);
     let fn_stub = stub_fn(f);
-    STUBS = STUBS.push_back(fn_stub);
-    let module_has_initializer = f.module().functions().any(|f: FunctionDefinition| is_fn_initializer(f));
-    let module_has_storage = f.module().structs().any(|s: StructDefinition| s.has_named_attribute("storage"));
+    register_stub(f.module(), fn_stub);
+    let module_has_initializer = module_has_initializer(f.module());
+    let module_has_storage = module_has_storage(f.module());
 
     let current_params = f.parameters();
     f.set_parameters(
@@ -260,7 +274,7 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
 
 pub comptime fn transform_unconstrained(f: FunctionDefinition) {
     let context_creation = quote { let mut context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new(); };
-    let module_has_storage = f.module().structs().any(|s: StructDefinition| s.has_named_attribute("storage"));
+    let module_has_storage = module_has_storage(f.module());
 
     let storage_init = if module_has_storage {
         quote { let storage = Storage::init(context); }

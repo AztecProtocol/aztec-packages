@@ -1,6 +1,11 @@
+use std::{
+    collections::umap::UHashMap,
+    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
+};
+
 use super::utils::get_serialized_size;
 
-comptime mut global STORAGE_LAYOUT_NAME: Quoted = quote {};
+comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
 pub comptime fn is_storage_map(typ: Type) -> bool {
     if typ.as_struct().is_some() {
@@ -102,7 +107,10 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     let storage_layout_fields = storage_layout_fields.join(quote {,});
     let storage_layout_constructors = storage_layout_constructors.join(quote {,});
 
-    STORAGE_LAYOUT_NAME = quote { STORAGE_LAYOUT };
+    let module = s.module();
+    let module_name = module.name();
+    let storage_layout_name = f"STORAGE_LAYOUT_{module_name}".quoted_contents();
+    STORAGE_LAYOUT_NAME.insert(module, storage_layout_name);
 
     quote {
         impl<Context> Storage<Context> {
@@ -118,7 +126,7 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
         }
 
         #[abi(storage)]
-        global $STORAGE_LAYOUT_NAME = StorageLayout {
+        global $storage_layout_name = StorageLayout {
             $storage_layout_constructors
         };
     }

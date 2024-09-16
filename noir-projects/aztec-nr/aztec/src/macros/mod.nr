@@ -9,16 +9,23 @@ use storage::STORAGE_LAYOUT_NAME;
 use notes::{NOTES, generate_note_export};
 
 use functions::transform_unconstrained;
+use utils::module_has_storage;
 
 pub comptime fn generate_contract_interface(m: Module) -> Quoted {
     let module_name = m.name();
-    let fn_stubs_quote = STUBS.join(quote {});
+    let contract_stubs = STUBS.get(m);
+    let fn_stubs_quote = if contract_stubs.is_some() {
+        contract_stubs.unwrap().join(quote {})
+    } else {
+        quote {}
+    };
 
-    let has_storage = STORAGE_LAYOUT_NAME != quote {};
+    let has_storage = module_has_storage(m);
     let storage_layout_getter = if has_storage {
+        let storage_layout_name = STORAGE_LAYOUT_NAME.get(m).unwrap();
         quote {
             pub fn storage_layout() -> StorageLayout {
-                $STORAGE_LAYOUT_NAME
+                $storage_layout_name
             }
         }
     } else {
@@ -72,18 +79,24 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
     }
 }
 
-pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
+pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier(m: Module) -> Quoted {
+    let contract_notes = NOTES.get(m);
     let mut max_note_length: u32 = 0;
-    let body = if NOTES.len() == 0 {
-        quote {
+    let empty_body = quote {
             assert(false, "This contract does not use private notes");
             [0, 0, 0, 0]
-        }
+    };
+    let body = if contract_notes.is_none() {
+        empty_body
+    } else if contract_notes.unwrap().len() == 0 { // no short circuiting :(
+        empty_body
     } else {
-        max_note_length = NOTES.fold(0, | acc, (_, len, _): (StructDefinition, u32, Field) | {
+        let notes = contract_notes.unwrap();
+
+        max_note_length = notes.fold(0, | acc, (_, len, _): (StructDefinition, u32, Field) | {
             acc + len
         });
-        let if_statements = NOTES.map(
+        let if_statements = notes.map(
             | (note, _, _): (StructDefinition, u32, Field) | {
                 let note_name = note.name();
                 quote {
@@ -118,12 +131,18 @@ pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quote
     }
 }
 
-pub comptime fn generate_note_exports() -> Quoted {
-    let note_exports = NOTES.map(
-        | (s, _, note_type_id): (StructDefinition, u32, Field) | {
+pub comptime fn generate_note_exports(m: Module) -> Quoted {
+    let contract_notes = NOTES.get(m);
+    let note_exports = if contract_notes.is_some() {
+        let notes = contract_notes.unwrap();
+        notes.map(
+            | (s, _, note_type_id): (StructDefinition, u32, Field) | {
             generate_note_export(s, note_type_id)
         }
-    ).join(quote {});
+        ).join(quote {})
+    } else {
+        quote {}
+    };
 
     quote {
         $note_exports
@@ -133,8 +152,8 @@ pub comptime fn generate_note_exports() -> Quoted {
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
     let unconstrained_functions = m.functions().filter(| f: FunctionDefinition | f.is_unconstrained() & !f.has_named_attribute("test"));
-    let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
-    let note_exports = generate_note_exports();
+    let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier(m);
+    let note_exports = generate_note_exports(m);
     for f in unconstrained_functions {
         transform_unconstrained(f);
     }

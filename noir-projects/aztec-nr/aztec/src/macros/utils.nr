@@ -262,3 +262,11 @@ pub(crate) comptime fn get_serialized_size(typ: Type) -> u32 {
     let serialize_impl = maybe_serialize_impl.unwrap();
     serialize_impl.trait_generic_args()[0].as_constant().unwrap()
 }
+
+pub(crate) comptime fn module_has_storage(m: Module) -> bool {
+    m.structs().any(|s: StructDefinition| s.has_named_attribute("storage"))
+}
+
+pub(crate) comptime fn module_has_initializer(m: Module) -> bool {
+    m.functions().any(|f: FunctionDefinition| is_fn_initializer(f))
+}
