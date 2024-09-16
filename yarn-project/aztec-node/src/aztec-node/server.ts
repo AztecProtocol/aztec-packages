@@ -762,7 +762,7 @@ export class AztecNodeService implements AztecNode {
     const txValidators: TxValidator<Tx | ProcessedTx>[] = [
       new DataTxValidator(),
       new MetadataTxValidator(newGlobalVariables),
-      new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest())),
+      new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest(), this.contractDataSource)),
     ];
 
     if (!isSimulation) {

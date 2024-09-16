@@ -33,12 +33,11 @@ import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AvmSimulator, type PublicContractsDB, type PublicExecutionResult, type PublicStateDB } from '@aztec/simulator';
+import { AvmSimulator, type PublicContractsDB, type PublicExecutionResult, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
   initContext,
   initExecutionEnvironment,
-  initHostStorage,
   initPersistableStateManager,
   resolveAvmTestContractAssertionMessage,
 } from '@aztec/simulator/avm/fixtures';
@@ -227,16 +226,15 @@ const proveAndVerifyAvmTestContract = async (
   }).withAddress(environment.address);
   contractsDb.getContractInstance.mockResolvedValue(Promise.resolve(contractInstance));
 
-  const storageDb = mock<PublicStateDB>();
+  const worldStateDB = mock<WorldStateDB>();
   const storageValue = new Fr(5);
-  storageDb.storageRead.mockResolvedValue(Promise.resolve(storageValue));
+  worldStateDB.storageRead.mockResolvedValue(Promise.resolve(storageValue));
 
-  const hostStorage = initHostStorage({ contractsDb });
   const trace = new PublicSideEffectTrace(startSideEffectCounter);
-  const persistableState = initPersistableStateManager({ hostStorage, trace });
+  const persistableState = initPersistableStateManager({ worldStateDB, trace });
   const context = initContext({ env: environment, persistableState });
   const nestedCallBytecode = getAvmTestContractBytecode('add_args_return');
-  jest.spyOn(hostStorage.contractsDb, 'getBytecode').mockResolvedValue(nestedCallBytecode);
+  jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(nestedCallBytecode);
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
 
