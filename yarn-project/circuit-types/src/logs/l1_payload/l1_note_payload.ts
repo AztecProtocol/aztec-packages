@@ -96,18 +96,18 @@ export class L1NotePayload extends L1Payload {
    */
   public static decryptAsIncoming(ciphertext: Buffer | bigint[], ivsk: GrumpkinScalar) {
     const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
-    const reader = BufferReader.asReader(input);
-
-    // TODO(benesjan): implement pub values extraction.
-    const _numPubliclyDeliveredValues = reader.readUInt8();
+    const [publicValues, remainingCiphertext] = this.#getPublicValuesAndRemainingCipherText(input);
 
     const [address, incomingBody] = super._decryptAsIncoming(
-      reader.readToEnd(),
+      remainingCiphertext,
       ivsk,
       EncryptedNoteLogIncomingBody.fromCiphertext,
     );
 
-    return new L1NotePayload(incomingBody.note, address, incomingBody.storageSlot, incomingBody.noteTypeId);
+    // Partial fields are expected to be at the end of the note
+    const note = new Note([...incomingBody.note.items, ...publicValues]);
+
+    return new L1NotePayload(note, address, incomingBody.storageSlot, incomingBody.noteTypeId);
   }
 
   /**
@@ -125,18 +125,18 @@ export class L1NotePayload extends L1Payload {
    */
   public static decryptAsOutgoing(ciphertext: Buffer | bigint[], ovsk: GrumpkinScalar) {
     const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
-    const reader = BufferReader.asReader(input);
-
-    // TODO(benesjan): implement pub values extraction.
-    const _numPubliclyDeliveredValues = reader.readUInt8();
+    const [publicValues, remainingCiphertext] = this.#getPublicValuesAndRemainingCipherText(input);
 
     const [address, incomingBody] = super._decryptAsOutgoing(
-      reader.readToEnd(),
+      remainingCiphertext,
       ovsk,
       EncryptedNoteLogIncomingBody.fromCiphertext,
     );
 
-    return new L1NotePayload(incomingBody.note, address, incomingBody.storageSlot, incomingBody.noteTypeId);
+    // Partial fields are expected to be at the end of the note
+    const note = new Note([...incomingBody.note.items, ...publicValues]);
+
+    return new L1NotePayload(note, address, incomingBody.storageSlot, incomingBody.noteTypeId);
   }
 
   public equals(other: L1NotePayload) {
@@ -146,5 +146,27 @@ export class L1NotePayload extends L1Payload {
       this.storageSlot.equals(other.storageSlot) &&
       this.noteTypeId.equals(other.noteTypeId)
     );
+  }
+
+  static #getPublicValuesAndRemainingCipherText(input: Buffer): [Fr[], Buffer] {
+    const reader = BufferReader.asReader(input);
+    const numPubliclyDeliveredValues = reader.readUInt8();
+
+    const remainingData = reader.readToEnd();
+    const publicValuesData = remainingData.subarray(
+      remainingData.length - numPubliclyDeliveredValues * Fr.SIZE_IN_BYTES,
+      remainingData.length,
+    );
+    if (publicValuesData.length % Fr.SIZE_IN_BYTES !== 0) {
+      throw new Error('Public values byte length is not a multiple of Fr size');
+    }
+    const publicValues = [];
+    for (let i = 0; i < publicValuesData.length; i += Fr.SIZE_IN_BYTES) {
+      publicValues.push(Fr.fromBuffer(publicValuesData.subarray(i, i + Fr.SIZE_IN_BYTES)));
+    }
+
+    const remainingCiphertext = remainingData.subarray(0, remainingData.length - publicValuesData.length);
+
+    return [publicValues, remainingCiphertext];
   }
 }

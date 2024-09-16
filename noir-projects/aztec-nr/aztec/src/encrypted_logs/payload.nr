@@ -109,9 +109,9 @@ pub fn compute_encrypted_note_log<Note, let N: u32, let NB: u32, let M: u32>(
     }
 
     // Current unoptimized size of the encrypted log
-    // num_publicly_delivered_values (1 bytes)
     // incoming_tag (32 bytes)
     // outgoing_tag (32 bytes)
+    // num_publicly_delivered_values (1 byte)
     // eph_pk (32 bytes)
     // incoming_header (48 bytes)
     // outgoing_header (48 bytes)
