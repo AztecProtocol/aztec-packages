@@ -7,12 +7,10 @@ unconstrained fn access_control() {
     let (env, nft_contract_address, owner, recipient) = utils::setup(/* with_account_contracts */ false);
 
     // Set a new admin
-    let set_admin_call_interface = NFT::at(nft_contract_address).set_admin(recipient);
-    env.call_public(set_admin_call_interface);
+    env.call_public(NFT::at(nft_contract_address).set_admin(recipient));
 
     // Check it worked
-    let get_admin_call_interface = NFT::at(nft_contract_address).get_admin();
-    let admin = env.call_public(get_admin_call_interface);
+    let admin = env.call_public(NFT::at(nft_contract_address).get_admin());
     assert(admin == recipient.to_field());
 
     // Impersonate new admin
@@ -42,10 +40,8 @@ unconstrained fn access_control() {
     env.impersonate(owner);
 
     // Try to set ourselves as admin, fail miserably
-    let set_admin_call_interface = NFT::at(nft_contract_address).set_admin(recipient);
-    env.assert_public_call_fails(set_admin_call_interface);
+    env.assert_public_call_fails(NFT::at(nft_contract_address).set_admin(recipient));
 
     // Try to revoke minter status to recipient, fail miserably
-    let set_minter_call_interface = NFT::at(nft_contract_address).set_minter(recipient, false);
-    env.assert_public_call_fails(set_minter_call_interface);
+    env.assert_public_call_fails(NFT::at(nft_contract_address).set_minter(recipient, false));
 }

@@ -34,17 +34,19 @@ unconstrained fn transfer_to_private_to_a_different_account() {
     );
 
     // We prepare the transfer
-    let prepare_transfer_to_private_call_interface = NFT::at(nft_contract_address).prepare_transfer_to_private(
-        sender,
-        recipient,
-        note_randomness,
-        transient_storage_slot_randomness
+    env.call_private_void(
+        NFT::at(nft_contract_address).prepare_transfer_to_private(
+            sender,
+            recipient,
+            note_randomness,
+            transient_storage_slot_randomness
+        )
     );
-    env.call_private_void(prepare_transfer_to_private_call_interface);
 
     // Finalize the transfer of the NFT
-    let finalize_transfer_to_private_call_interface = NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment);
-    env.call_public(finalize_transfer_to_private_call_interface);
+    env.call_public(
+        NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
+    );
 
     // Store the finalized note in the cache
     let mut context = env.private();
@@ -73,8 +75,9 @@ unconstrained fn transfer_to_private_to_self_transfer_not_prepared() {
     let transfer_preparer_storage_slot_commitment = unsafe_rand();
 
     // Try finalizing the transfer without preparing it
-    let finalize_transfer_to_private_call_interface = NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment);
-    env.call_public(finalize_transfer_to_private_call_interface);
+    env.call_public(
+        NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
+    );
 }
 
 #[test(should_fail_with="invalid NFT owner")]
@@ -86,7 +89,8 @@ unconstrained fn transfer_to_private_failure_not_an_owner() {
     let transfer_preparer_storage_slot_commitment = unsafe_rand();
 
     // Try transferring someone else's public NFT
-    let finalize_transfer_to_private_call_interface = NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment);
     env.impersonate(not_owner);
-    env.call_public(finalize_transfer_to_private_call_interface);
+    env.call_public(
+        NFT::at(nft_contract_address).finalize_transfer_to_private(token_id, transfer_preparer_storage_slot_commitment)
+    );
 }

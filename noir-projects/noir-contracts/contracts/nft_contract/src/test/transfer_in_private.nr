@@ -10,8 +10,7 @@ unconstrained fn transfer_in_private() {
     let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
     // Transfer the NFT to the recipient
-    let transfer_in_private_call_interface = NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 0);
-    env.call_private_void(transfer_in_private_call_interface);
+    env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 0));
 
     // Recipient should have the note in their private nfts
     utils::assert_owns_private_nft(nft_contract_address, recipient, token_id);
@@ -23,8 +22,7 @@ unconstrained fn transfer_in_private_to_self() {
     let (env, nft_contract_address, owner, _, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
 
     // Transfer the NFT back to the owner
-    let transfer_in_private_call_interface = NFT::at(nft_contract_address).transfer_in_private(owner, owner, token_id, 0);
-    env.call_private_void(transfer_in_private_call_interface);
+    env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(owner, owner, token_id, 0));
 
     // NFT owner should stay the same
     utils::assert_owns_private_nft(nft_contract_address, owner, token_id);
@@ -37,8 +35,7 @@ unconstrained fn transfer_in_private_to_non_deployed_account() {
     let not_deployed = cheatcodes::create_account();
 
     // Transfer the NFT to the recipient
-    let transfer_in_private_call_interface = NFT::at(nft_contract_address).transfer_in_private(sender, not_deployed.address, token_id, 0);
-    env.call_private_void(transfer_in_private_call_interface);
+    env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(sender, not_deployed.address, token_id, 0));
 
     // Owner of the private NFT should be the not_deployed account
     utils::assert_owns_private_nft(nft_contract_address, not_deployed.address, token_id);
@@ -67,10 +64,8 @@ unconstrained fn transfer_in_private_failure_not_an_owner() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
     let (env, nft_contract_address, owner, not_owner, token_id) = utils::setup_mint_and_transfer_to_private(/* with_account_contracts */ false);
     // Try transferring the NFT from not_owner
-    let transfer_in_private_call_interface = NFT::at(nft_contract_address).transfer_in_private(not_owner, owner, token_id, 0);
-
     env.impersonate(not_owner);
-    env.call_private_void(transfer_in_private_call_interface);
+    env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(not_owner, owner, token_id, 0));
 }
 
 #[test(should_fail_with="invalid nonce")]
@@ -83,9 +78,8 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_self_non_zero_nonce() 
     // We set random value for the token_id as the nonce check is before we use the value.
     let token_id = unsafe_rand();
 
-    let transfer_in_private_from_call_interface = NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1);
     // Try transferring the NFT
-    env.call_private_void(transfer_in_private_from_call_interface);
+    env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1));
 }
 
 #[test(should_fail_with="Authorization not found for message hash")]
@@ -98,11 +92,10 @@ unconstrained fn transfer_in_private_failure_on_behalf_of_other_without_approval
     // We set random value for the token_id as the nonce check is before we use the value.
     let token_id = unsafe_rand();
 
-    let transfer_in_private_from_call_interface = NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1);
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Try transferring the NFT
-    env.call_private_void(transfer_in_private_from_call_interface);
+    env.call_private_void(NFT::at(nft_contract_address).transfer_in_private(sender, recipient, token_id, 1));
 }
 
 #[test(should_fail_with="Authorization not found for message hash")]

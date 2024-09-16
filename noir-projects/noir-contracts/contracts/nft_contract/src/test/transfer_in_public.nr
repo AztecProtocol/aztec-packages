@@ -9,8 +9,7 @@ unconstrained fn transfer_in_public() {
     let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Transfer the NFT
-    let transfer_in_public_call_interface = NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 0);
-    env.call_public(transfer_in_public_call_interface);
+    env.call_public(NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 0));
 
     utils::assert_owns_public_nft(env, nft_contract_address, recipient, token_id);
 }
@@ -21,8 +20,7 @@ unconstrained fn transfer_in_public_to_self() {
     let (env, nft_contract_address, user, _, token_id) = utils::setup_and_mint(/* with_account_contracts */ false);
 
     // Transfer the NFT
-    let transfer_in_public_call_interface = NFT::at(nft_contract_address).transfer_in_public(user, user, token_id, 0);
-    env.call_public(transfer_in_public_call_interface);
+    env.call_public(NFT::at(nft_contract_address).transfer_in_public(user, user, token_id, 0));
 
     // Check the user stayed the public owner
     utils::assert_owns_public_nft(env, nft_contract_address, user, token_id);
@@ -54,9 +52,8 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_self_non_zero_nonce() {
     // We set random value for the token_id as the nonce check is before we use the value.
     let token_id = unsafe_rand();
 
-    let transfer_in_public_call_interface = NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, unsafe_rand());
     // Try to transfer the NFT
-    env.call_public(transfer_in_public_call_interface);
+    env.call_public(NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, unsafe_rand()));
 }
 
 #[test(should_fail_with="invalid owner")]
@@ -66,8 +63,7 @@ unconstrained fn transfer_in_public_non_existent_nft() {
 
     // Try to transfer the NFT
     let token_id = 612;
-    let transfer_in_public_call_interface = NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 0);
-    env.call_public(transfer_in_public_call_interface);
+    env.call_public(NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 0));
 }
 
 // Not checking error message here with should_fail_with because noir panics when I try doing that.
@@ -76,11 +72,10 @@ unconstrained fn transfer_in_public_failure_on_behalf_of_other_without_approval(
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, nft_contract_address, sender, recipient, token_id) = utils::setup_and_mint(/* with_account_contracts */ true);
 
-    let transfer_in_public_from_call_interface = NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 1);
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Try to transfer tokens
-    env.assert_public_call_fails(transfer_in_public_from_call_interface);
+    env.assert_public_call_fails(NFT::at(nft_contract_address).transfer_in_public(sender, recipient, token_id, 1));
     // Check the sender stayed the public owner
     utils::assert_owns_public_nft(env, nft_contract_address, sender, token_id);
 }
