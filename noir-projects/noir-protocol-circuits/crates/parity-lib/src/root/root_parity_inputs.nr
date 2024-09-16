@@ -1,12 +1,8 @@
-use dep::types::{
-    merkle_tree::MerkleTree, recursion::{verification_key::VerificationKey, proof::RecursiveProof},
-    traits::Serialize
-};
+use dep::types::merkle_tree::MerkleTree;
 use crate::{
     parity_public_inputs::ParityPublicInputs, root::root_parity_input::RootParityInput,
     utils::sha256_merkle_tree::Sha256MerkleTree
 };
-use dep::std;
 
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u64 = 4;
 
