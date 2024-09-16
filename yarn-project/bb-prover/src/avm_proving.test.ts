@@ -1,6 +1,5 @@
 import {
   AvmCircuitInputs,
-  AvmVerificationKeyData,
   AztecAddress,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -28,6 +27,7 @@ import {
   ReadRequest,
   RevertCode,
   TreeLeafReadRequest,
+  VerificationKeyData,
 } from '@aztec/circuits.js';
 import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -286,7 +286,7 @@ const proveAndVerifyAvmTestContract = async (
   // Then we test VK extraction and serialization.
   const succeededRes = proofRes as BBSuccess;
   const vkData = await extractAvmVkData(succeededRes.vkPath!);
-  AvmVerificationKeyData.fromBuffer(vkData.toBuffer());
+  VerificationKeyData.fromBuffer(vkData.toBuffer());
 
   // Then we verify.
   const rawVkPath = path.join(succeededRes.vkPath!, 'vk');

@@ -5,7 +5,7 @@ import {
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
-  AvmVerificationKeyData,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   type BaseOrMergeRollupPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
   type KernelCircuitPublicInputs,
@@ -33,7 +33,7 @@ export class MockProver implements ServerCircuitProver {
     return Promise.resolve(
       Promise.resolve({
         proof: makeEmptyProof(),
-        verificationKey: AvmVerificationKeyData.makeFake(),
+        verificationKey: VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
       }),
     );
   }

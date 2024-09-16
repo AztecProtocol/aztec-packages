@@ -1,7 +1,5 @@
 import {
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  AvmVerificationKeyAsFields,
-  AvmVerificationKeyData,
   Fr,
   VerificationKeyAsFields,
   VerificationKeyData,
@@ -32,7 +30,7 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
 }
 
 // TODO: This was adapted from the above function. A refactor might be needed.
-export async function extractAvmVkData(vkDirectoryPath: string): Promise<AvmVerificationKeyData> {
+export async function extractAvmVkData(vkDirectoryPath: string): Promise<VerificationKeyData> {
   const [rawFields, rawBinary] = await Promise.all([
     fs.readFile(path.join(vkDirectoryPath, VK_FIELDS_FILENAME), { encoding: 'utf-8' }),
     fs.readFile(path.join(vkDirectoryPath, VK_FILENAME)),
@@ -43,7 +41,7 @@ export async function extractAvmVkData(vkDirectoryPath: string): Promise<AvmVeri
   // TODO: is the above actually the case?
   const vkHash = fields[0];
   assert(fields.length === AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, 'Invalid AVM verification key length');
-  const vkAsFields = new AvmVerificationKeyAsFields(fields, vkHash);
-  const vk = new AvmVerificationKeyData(vkAsFields, rawBinary);
+  const vkAsFields = new VerificationKeyAsFields(fields, vkHash);
+  const vk = new VerificationKeyData(vkAsFields, rawBinary);
   return vk;
 }

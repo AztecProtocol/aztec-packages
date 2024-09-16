@@ -3,9 +3,7 @@ import { times } from '@aztec/foundation/collection';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { strict as assert } from 'assert';
-
-import { AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
+import { VERIFICATION_KEY_LENGTH_IN_FIELDS } from '../constants.gen.js';
 import { CircuitType } from './shared.js';
 
 /**
@@ -124,81 +122,16 @@ export class VerificationKeyAsFields {
    * Builds a fake verification key that should be accepted by circuits.
    * @returns A fake verification key.
    */
-  static makeFake(seed = 1): VerificationKeyAsFields {
-    return new VerificationKeyAsFields(makeTuple(VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed), Fr.random());
+  static makeFake(len = VERIFICATION_KEY_LENGTH_IN_FIELDS): VerificationKeyAsFields {
+    return new VerificationKeyAsFields(makeTuple(len, Fr.random), Fr.random());
   }
 
   /**
    * Builds an 'empty' verification key
    * @returns An 'empty' verification key
    */
-  static makeEmpty(): VerificationKeyAsFields {
-    return new VerificationKeyAsFields(makeTuple(VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.zero), Fr.zero());
-  }
-}
-
-/**
- * Provides a 'fields' representation of the AVM's verification key
- */
-// TODO: This is a copy of the above, a refactor might be needed.
-export class AvmVerificationKeyAsFields {
-  constructor(public key: Fr[], public hash: Fr) {
-    assert(this.key.length === AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, 'Invalid AVM key length');
-  }
-
-  public get numPublicInputs() {
-    return Number(this.key[CIRCUIT_PUBLIC_INPUTS_INDEX]);
-  }
-
-  public get circuitSize() {
-    return Number(this.key[CIRCUIT_SIZE_INDEX]);
-  }
-
-  public get isRecursive() {
-    return this.key[CIRCUIT_RECURSIVE_INDEX].equals(Fr.ONE);
-  }
-
-  /**
-   * Serialize as a buffer.
-   * @returns The buffer.
-   */
-  toBuffer() {
-    return serializeToBuffer(this.key, this.hash);
-  }
-  toFields() {
-    return [...this.key, this.hash];
-  }
-
-  /**
-   * Deserializes from a buffer or reader, corresponding to a write in cpp.
-   * @param buffer - Buffer to read from.
-   * @returns The AvmVerificationKeyAsFields.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): AvmVerificationKeyAsFields {
-    const reader = BufferReader.asReader(buffer);
-    return new AvmVerificationKeyAsFields(
-      reader.readArray(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr),
-      reader.readObject(Fr),
-    );
-  }
-
-  /**
-   * Builds a fake verification key that should be accepted by circuits.
-   * @returns A fake verification key.
-   */
-  static makeFake(seed = 1): AvmVerificationKeyAsFields {
-    return new AvmVerificationKeyAsFields(
-      makeTuple(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.random, seed),
-      Fr.random(),
-    );
-  }
-
-  /**
-   * Builds an 'empty' verification key
-   * @returns An 'empty' verification key
-   */
-  static makeEmpty(): AvmVerificationKeyAsFields {
-    return new AvmVerificationKeyAsFields(makeTuple(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, Fr.zero), Fr.zero());
+  static makeEmpty(len = VERIFICATION_KEY_LENGTH_IN_FIELDS): VerificationKeyAsFields {
+    return new VerificationKeyAsFields(makeTuple(len, Fr.zero), Fr.zero());
   }
 }
 
@@ -292,8 +225,8 @@ export class VerificationKeyData {
     return this.keyAsFields.isRecursive;
   }
 
-  static makeFake(): VerificationKeyData {
-    return new VerificationKeyData(VerificationKeyAsFields.makeFake(), VerificationKey.makeFake().toBuffer());
+  static makeFake(len = VERIFICATION_KEY_LENGTH_IN_FIELDS): VerificationKeyData {
+    return new VerificationKeyData(VerificationKeyAsFields.makeFake(len), VerificationKey.makeFake().toBuffer());
   }
 
   /**
@@ -322,53 +255,5 @@ export class VerificationKeyData {
 
   public clone() {
     return VerificationKeyData.fromBuffer(this.toBuffer());
-  }
-}
-
-export class AvmVerificationKeyData {
-  constructor(public readonly keyAsFields: AvmVerificationKeyAsFields, public readonly keyAsBytes: Buffer) {}
-
-  public get numPublicInputs() {
-    return this.keyAsFields.numPublicInputs;
-  }
-
-  public get circuitSize() {
-    return this.keyAsFields.circuitSize;
-  }
-
-  public get isRecursive() {
-    return this.keyAsFields.isRecursive;
-  }
-
-  static makeFake(): AvmVerificationKeyData {
-    return new AvmVerificationKeyData(AvmVerificationKeyAsFields.makeFake(), VerificationKey.makeFake().toBuffer());
-  }
-
-  /**
-   * Serialize as a buffer.
-   * @returns The buffer.
-   */
-  toBuffer() {
-    return serializeToBuffer(this.keyAsFields, this.keyAsBytes.length, this.keyAsBytes);
-  }
-
-  toString() {
-    return this.toBuffer().toString('hex');
-  }
-
-  static fromBuffer(buffer: Buffer | BufferReader): AvmVerificationKeyData {
-    const reader = BufferReader.asReader(buffer);
-    const verificationKeyAsFields = reader.readObject(AvmVerificationKeyAsFields);
-    const length = reader.readNumber();
-    const bytes = reader.readBytes(length);
-    return new AvmVerificationKeyData(verificationKeyAsFields, bytes);
-  }
-
-  static fromString(str: string): AvmVerificationKeyData {
-    return AvmVerificationKeyData.fromBuffer(Buffer.from(str, 'hex'));
-  }
-
-  public clone() {
-    return AvmVerificationKeyData.fromBuffer(this.toBuffer());
   }
 }

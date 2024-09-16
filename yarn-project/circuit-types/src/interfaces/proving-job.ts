@@ -1,6 +1,5 @@
 import {
   type AvmCircuitInputs,
-  type AvmVerificationKeyData,
   type BaseOrMergeRollupPublicInputs,
   type BaseParityInputs,
   type BaseRollupInputs,
@@ -28,7 +27,7 @@ import type { PublicKernelNonTailRequest, PublicKernelTailRequest } from '../tx/
 
 export type AvmProofAndVerificationKey = {
   proof: Proof;
-  verificationKey: AvmVerificationKeyData;
+  verificationKey: VerificationKeyData;
 };
 
 export type PublicInputsAndRecursiveProof<T> = {

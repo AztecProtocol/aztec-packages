@@ -27,6 +27,7 @@ import {
 } from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   AvmCircuitInputs,
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
@@ -1019,7 +1020,10 @@ export class ProvingOrchestrator implements BlockProver {
               logger.warn(
                 `Error thrown when proving AVM circuit, but AVM_PROVING_STRICT is off, so faking AVM proof and carrying on. Error: ${err}.`,
               );
-              return { proof: makeEmptyProof(), verificationKey: VerificationKeyData.makeFake() };
+              return {
+                proof: makeEmptyProof(),
+                verificationKey: VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+              };
             }
           }
         },
