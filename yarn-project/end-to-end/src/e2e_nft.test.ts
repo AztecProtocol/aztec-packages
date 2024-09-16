@@ -16,15 +16,12 @@ describe('NFT', () => {
 
   let teardown: () => Promise<void>;
 
-  let nftContractAsAdmin: NFTContract;
-  let nftContractAsMinter: NFTContract;
-  let nftContractAsUser1: NFTContract;
-  let nftContractAsUser2: NFTContract;
-
   let adminWallet: AccountWallet;
   let minterWallet: AccountWallet;
   let user1Wallet: AccountWallet;
   let user2Wallet: AccountWallet;
+
+  let nftContractAddress: AztecAddress;
 
   // Arbitrary token id
   const TOKEN_ID = Fr.random().toBigInt();
@@ -35,31 +32,35 @@ describe('NFT', () => {
     ({ teardown, wallets } = await setup(4));
     [adminWallet, minterWallet, user1Wallet, user2Wallet] = wallets;
 
-    nftContractAsAdmin = await NFTContract.deploy(adminWallet, adminWallet.getAddress(), 'FROG', 'FRG')
+    const nftContract = await NFTContract.deploy(adminWallet, adminWallet.getAddress(), 'FROG', 'FRG')
       .send()
       .deployed();
-    nftContractAsMinter = await NFTContract.at(nftContractAsAdmin.address, minterWallet);
-    nftContractAsUser1 = await NFTContract.at(nftContractAsAdmin.address, user1Wallet);
-    nftContractAsUser2 = await NFTContract.at(nftContractAsAdmin.address, user2Wallet);
+    nftContractAddress = nftContract.address;
   });
 
   afterAll(() => teardown());
 
   // NOTE: This test is sequential and each test case depends on the previous one
   it('sets minter', async () => {
+    const nftContractAsAdmin = await NFTContract.at(nftContractAddress, adminWallet);
+
     await nftContractAsAdmin.methods.set_minter(minterWallet.getAddress(), true).send().wait();
     const isMinterAMinter = await nftContractAsAdmin.methods.is_minter(minterWallet.getAddress()).simulate();
     expect(isMinterAMinter).toBe(true);
   });
 
   it('minter mints to a user', async () => {
+    const nftContractAsMinter = await NFTContract.at(nftContractAddress, minterWallet);
+
     await nftContractAsMinter.methods.mint(user1Wallet.getAddress(), TOKEN_ID).send().wait();
 
-    const ownerAfterMint = await nftContractAsUser1.methods.owner_of(TOKEN_ID).simulate();
+    const ownerAfterMint = await nftContractAsMinter.methods.owner_of(TOKEN_ID).simulate();
     expect(ownerAfterMint).toEqual(user1Wallet.getAddress());
   });
 
   it('transfers to private', async () => {
+    const nftContractAsUser1 = await NFTContract.at(nftContractAddress, user1Wallet);
+
     // In a simple "shield" flow the sender and recipient are the same. In the "uniswap swap to private" flow
     // it would be the uniswap contract.
     const recipient = user1Wallet.getAddress();
@@ -113,6 +114,8 @@ describe('NFT', () => {
   });
 
   it('transfers in private', async () => {
+    const nftContractAsUser1 = await NFTContract.at(nftContractAddress, user1Wallet);
+
     await nftContractAsUser1.methods
       .transfer_in_private(user1Wallet.getAddress(), user2Wallet.getAddress(), TOKEN_ID, 0)
       .send()
@@ -126,6 +129,8 @@ describe('NFT', () => {
   });
 
   it('transfers to public', async () => {
+    const nftContractAsUser2 = await NFTContract.at(nftContractAddress, user2Wallet);
+
     await nftContractAsUser2.methods
       .transfer_to_public(user2Wallet.getAddress(), user2Wallet.getAddress(), TOKEN_ID, 0)
       .send()
@@ -136,6 +141,8 @@ describe('NFT', () => {
   });
 
   it('transfers in public', async () => {
+    const nftContractAsUser2 = await NFTContract.at(nftContractAddress, user2Wallet);
+
     await nftContractAsUser2.methods
       .transfer_in_public(user2Wallet.getAddress(), user1Wallet.getAddress(), TOKEN_ID, 0)
       .send()
@@ -146,6 +153,7 @@ describe('NFT', () => {
   });
 
   const getPrivateNfts = async (owner: AztecAddress) => {
+    const nftContractAsUser1 = await NFTContract.at(nftContractAddress, user1Wallet);
     const [nfts, pageLimitReached] = await nftContractAsUser1.methods.get_private_nfts(owner, 0).simulate();
     if (pageLimitReached) {
       throw new Error('Page limit reached and pagination not implemented in test');
