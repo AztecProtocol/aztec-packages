@@ -1,10 +1,17 @@
 import { type InboxLeaf, type L2Block } from '@aztec/circuit-types';
 import { Fr, type Proof } from '@aztec/circuits.js';
-import { type EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 
-import { type Hex, type PublicClient, getAbiItem } from 'viem';
+import {
+  type Chain,
+  type GetContractReturnType,
+  type Hex,
+  type HttpTransport,
+  type PublicClient,
+  getAbiItem,
+} from 'viem';
 
 import {
   getBlockProofFromSubmitProofTx,
@@ -27,12 +34,11 @@ import { type L1Published } from './structs/published.js';
  * @returns An array of block; as well as the next eth block to search from.
  */
 export async function retrieveBlockFromRollup(
+  rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
-  rollupAddress: EthAddress,
   blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
-  expectedNextL2BlockNum: bigint,
   logger: DebugLogger = createDebugLogger('aztec:archiver'),
 ): Promise<L1Published<L2Block>[]> {
   const retrievedBlocks: L1Published<L2Block>[] = [];
@@ -40,25 +46,25 @@ export async function retrieveBlockFromRollup(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const L2BlockProposedLogs = await getL2BlockProposedLogs(
+    const l2BlockProposedLogs = await getL2BlockProposedLogs(
       publicClient,
-      rollupAddress,
+      EthAddress.fromString(rollup.address),
       searchStartBlock,
       searchEndBlock,
     );
-    if (L2BlockProposedLogs.length === 0) {
+
+    if (l2BlockProposedLogs.length === 0) {
       break;
     }
 
-    const lastLog = L2BlockProposedLogs[L2BlockProposedLogs.length - 1];
+    const lastLog = l2BlockProposedLogs[l2BlockProposedLogs.length - 1];
     logger.debug(
-      `Got L2 block processed logs for ${L2BlockProposedLogs[0].blockNumber}-${lastLog.blockNumber} between ${searchStartBlock}-${searchEndBlock} L1 blocks`,
+      `Got L2 block processed logs for ${l2BlockProposedLogs[0].blockNumber}-${lastLog.blockNumber} between ${searchStartBlock}-${searchEndBlock} L1 blocks`,
     );
 
-    const newBlocks = await processL2BlockProposedLogs(publicClient, expectedNextL2BlockNum, L2BlockProposedLogs);
+    const newBlocks = await processL2BlockProposedLogs(rollup, publicClient, l2BlockProposedLogs);
     retrievedBlocks.push(...newBlocks);
     searchStartBlock = lastLog.blockNumber! + 1n;
-    expectedNextL2BlockNum += BigInt(newBlocks.length);
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
   return retrievedBlocks;
 }
