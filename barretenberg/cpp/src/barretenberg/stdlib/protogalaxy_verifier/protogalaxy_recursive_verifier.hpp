@@ -2,7 +2,6 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
-#include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 #include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_keys.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp"
@@ -13,68 +12,36 @@ namespace bb::stdlib::recursion::honk {
 template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
   public:
     using Flavor = typename DeciderVerificationKeys::Flavor;
-    // using NativeFlavor = typename Flavor::NativeFlavor;
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
-    // using GroupElement = typename Flavor::GroupElement;
     using DeciderVK = typename DeciderVerificationKeys::DeciderVK;
-    // using NativeDeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;
     using VerificationKey = typename Flavor::VerificationKey;
-    using NativeVerificationKey = typename Flavor::NativeVerificationKey;
-    using WitnessCommitments = typename Flavor::WitnessCommitments;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
+
     using Builder = typename Flavor::CircuitBuilder;
-    using RelationSeparator = typename Flavor::RelationSeparator;
-    static constexpr size_t NUM = DeciderVerificationKeys::NUM;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-    using OinkVerifier = OinkRecursiveVerifier_<Flavor>;
+
+    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
+
     struct VerifierInput {
       public:
-        // using DeciderVK = NativeDeciderVK;
+        using NativeFlavor = typename Flavor::NativeFlavor;
+        using DeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;
+        using NativeVerificationKey = typename Flavor::NativeVerificationKey;
         std::shared_ptr<DeciderVK> accumulator;
         std::vector<std::shared_ptr<NativeVerificationKey>> decider_vks;
     };
 
-    static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
-
-    CommitmentLabels commitment_labels;
-
     Builder* builder;
-    std::shared_ptr<Transcript> transcript;
+
     DeciderVerificationKeys keys_to_fold;
+
+    std::shared_ptr<Transcript> transcript;
 
     ProtogalaxyRecursiveVerifier_(Builder* builder,
                                   const std::shared_ptr<DeciderVK>& accumulator,
                                   const std::vector<std::shared_ptr<VerificationKey>>& decider_vks)
         : builder(builder)
         , keys_to_fold(DeciderVerificationKeys(builder, accumulator, decider_vks)){};
-
-    /**
-     * @brief Given δ, compute the vector [δ, δ^2,..., δ^num_powers].
-     * @details This is Step 2 of the protocol as written in the paper.
-     */
-    static std::vector<FF> compute_round_challenge_pows(const size_t num_powers, const FF& round_challenge)
-    {
-        std::vector<FF> pows(num_powers);
-        pows[0] = round_challenge;
-        for (size_t i = 1; i < num_powers; i++) {
-            pows[i] = pows[i - 1].sqr();
-        }
-        return pows;
-    }
-
-    static std::vector<FF> update_gate_challenges(const FF perturbator_challenge,
-                                                  const std::vector<FF>& gate_challenges,
-                                                  const std::vector<FF>& round_challenges)
-    {
-        const size_t num_challenges = gate_challenges.size();
-        std::vector<FF> next_gate_challenges(num_challenges);
-
-        for (size_t idx = 0; idx < num_challenges; idx++) {
-            next_gate_challenges[idx] = gate_challenges[idx] + perturbator_challenge * round_challenges[idx];
-        }
-        return next_gate_challenges;
-    }
 
     /**
      * @brief Instatiate the decider verification keys and the transcript.
@@ -99,27 +66,6 @@ template <class DeciderVerificationKeys> class ProtogalaxyRecursiveVerifier_ {
      *
      */
     std::shared_ptr<DeciderVK> verify_folding_proof(const StdlibProof<Builder>&);
-
-    /**
-     * @brief Evaluates the perturbator at a  given scalar, in a sequential manner for the recursive setting.
-     *
-     * @details This method is equivalent to the one in the Polynomial class for evaluating a polynomial, represented by
-     * coefficients in monomial basis, at a given point. The Polynomial class is used in the native verifier for
-     * constructing and computing the perturbator. We implement this separate functionality here in the recursive
-     * folding verifier to avoid instantiating the entire Polynomial class on stdlib::bn254. Furthermore, the evaluation
-     * needs to be done sequentially as we don't support a parallel_for in circuits.
-     *
-     */
-    static FF evaluate_perturbator(std::vector<FF> coeffs, FF point)
-    {
-        FF point_acc = FF(1);
-        FF result = FF(0);
-        for (size_t i = 0; i < coeffs.size(); i++) {
-            result += coeffs[i] * point_acc;
-            point_acc *= point;
-        }
-        return result;
-    };
 };
 
 } // namespace bb::stdlib::recursion::honk

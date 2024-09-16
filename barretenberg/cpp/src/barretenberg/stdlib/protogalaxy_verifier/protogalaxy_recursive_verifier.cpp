@@ -1,5 +1,7 @@
 #include "protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
+#include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -8,7 +10,7 @@ template <class DeciderVerificationKeys>
 void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_one_incomplete_key(
     const std::shared_ptr<DeciderVK>& key, std::string& domain_separator)
 {
-    OinkVerifier oink_verifier{ builder, key, transcript, domain_separator + '_' };
+    OinkRecursiveVerifier_<Flavor> oink_verifier{ builder, key, transcript, domain_separator + '_' };
     oink_verifier.verify();
 }
 
@@ -40,12 +42,14 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
 {
     static constexpr size_t BATCHED_EXTENDED_LENGTH = DeciderVerificationKeys::BATCHED_EXTENDED_LENGTH;
     static constexpr size_t NUM_KEYS = DeciderVerificationKeys::NUM;
+    static constexpr size_t COMBINER_LENGTH = BATCHED_EXTENDED_LENGTH - NUM_KEYS;
 
     run_oink_verifier_on_each_incomplete_key(proof);
 
-    auto& accumulator = keys_to_fold[0]; // Use a reference to the existing accumulator in keys_to_fold
+    std::shared_ptr<DeciderVK> accumulator = keys_to_fold[0];
     const size_t log_circuit_size = static_cast<size_t>(accumulator->verification_key->log_circuit_size);
 
+    // Perturbator round
     const FF delta = transcript->template get_challenge<FF>("delta");
     const std::vector<FF> deltas = compute_round_challenge_pows(log_circuit_size, delta);
     std::vector<FF> perturbator_coeffs(log_circuit_size + 1, 0);
@@ -55,29 +59,32 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
                 transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
         }
     }
-
     const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
+    // Combiner quotient round
     perturbator_coeffs[0] = accumulator->target_sum;
-    const FF perturbator_at_challenge = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
+    const FF perturbator_evaluation = evaluate_perturbator(perturbator_coeffs, perturbator_challenge);
 
-    // Receive combiner quotient evaluations from the prover
-    std::array<FF, BATCHED_EXTENDED_LENGTH - NUM_KEYS> combiner_quotient_evals;
-    for (size_t idx = 0; idx < BATCHED_EXTENDED_LENGTH - NUM_KEYS; idx++) {
+    std::array<FF, COMBINER_LENGTH>
+        combiner_quotient_evals; // The degree of the combiner quotient (K in the paper) is dk - k - 1 = k(d - 1) - 1.
+                                 // Hence we need  k(d - 1) evaluations to represent it.
+    for (size_t idx = 0; idx < COMBINER_LENGTH; idx++) {
         combiner_quotient_evals[idx] =
             transcript->template receive_from_prover<FF>("combiner_quotient_" + std::to_string(idx + NUM_KEYS));
     }
-    const Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_KEYS> combiner_quotient(combiner_quotient_evals);
+
+    // Folding
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
+    const Univariate<FF, BATCHED_EXTENDED_LENGTH, NUM_KEYS> combiner_quotient(combiner_quotient_evals);
     const FF combiner_quotient_at_challenge = combiner_quotient.evaluate(combiner_challenge);
 
     const FF vanishing_polynomial_at_challenge = combiner_challenge * (combiner_challenge - FF(1));
     const std::vector<FF> lagranges = { FF(1) - combiner_challenge, combiner_challenge };
 
-    // Update accumulator
+    // Compute next folding parameters
     accumulator->is_accumulator = true;
     accumulator->target_sum =
-        perturbator_at_challenge * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
+        perturbator_evaluation * lagranges[0] + vanishing_polynomial_at_challenge * combiner_quotient_at_challenge;
     accumulator->gate_challenges = update_gate_challenges(perturbator_challenge, accumulator->gate_challenges, deltas);
 
     // Fold the commitments
