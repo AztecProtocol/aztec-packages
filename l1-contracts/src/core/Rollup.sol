@@ -170,7 +170,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   function computeTxsEffectsHash(bytes calldata _body)
     external
-    view
+    pure
     override(IRollup)
     returns (bytes32)
   {

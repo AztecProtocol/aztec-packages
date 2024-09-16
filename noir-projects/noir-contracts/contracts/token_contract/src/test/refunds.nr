@@ -43,7 +43,7 @@ unconstrained fn setup_refund_success() {
     //`mint_amount - funded_amount`. When completing the refund, we would've constructed a hash corresponding to a note
     // worth  `funded_amount - transaction_fee`. We "know" the transaction fee was 1 (it is hardcoded in
     // `executePublicFunction` TXE oracle) but we need to notify TXE of the note (preimage).
-    env.store_note_in_cache(
+    env.add_note(
         &mut TokenNote {
         amount: U128::from_integer(funded_amount - 1),
         npk_m_hash: user_npk_m_hash,
@@ -53,7 +53,7 @@ unconstrained fn setup_refund_success() {
         user_balances_slot,
         token_contract_address
     );
-    env.store_note_in_cache(
+    env.add_note(
         &mut TokenNote {
         amount: U128::from_integer(1),
         npk_m_hash: fee_payer_npk_m_hash,
