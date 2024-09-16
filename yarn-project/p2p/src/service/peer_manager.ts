@@ -6,7 +6,7 @@ import { type Multiaddr } from '@multiformats/multiaddr';
 
 import { type P2PConfig } from '../config.js';
 import { type PubSubLibp2p } from '../util.js';
-import { PeerScoring } from './peer_scoring.js';
+import { type PeerErrorSeverity, PeerScoring } from './peer_scoring.js';
 import { type PeerDiscoveryService } from './service.js';
 
 const MAX_DIAL_ATTEMPTS = 3;
@@ -21,7 +21,7 @@ type CachedPeer = {
 
 export class PeerManager {
   private cachedPeers: Map<string, CachedPeer> = new Map();
-  private peerScoring: PeerScoring = new PeerScoring();
+  private peerScoring: PeerScoring;
 
   constructor(
     private libP2PNode: PubSubLibp2p,
@@ -29,6 +29,7 @@ export class PeerManager {
     private config: P2PConfig,
     private logger = createDebugLogger('aztec:p2p:peer_manager'),
   ) {
+    this.peerScoring = new PeerScoring(config);
     // Handle new established connections
     this.libP2PNode.addEventListener('peer:connect', evt => {
       const peerId = evt.detail;
@@ -60,9 +61,10 @@ export class PeerManager {
     this.peerScoring.decayAllScores();
   }
 
-  public penalizePeer(peerId: PeerId, penalty: number) {
+  public penalizePeer(peerId: PeerId, penalty: PeerErrorSeverity) {
     const id = peerId.toString();
-    this.peerScoring.updateScore(id, -penalty);
+    const penaltyValue = this.peerScoring.peerPenalties[penalty];
+    this.peerScoring.updateScore(id, -penaltyValue);
   }
 
   public getPeerScore(peerId: string): number {
