@@ -8,6 +8,16 @@ on:
         required: true
         type: string
 
+  pull_request:
+    types: [labeled]
+    branches:
+      - master
+    paths-ignore:
+      - '**/README.md'
+    filters:
+      labels:
+        - 'redo-typo-pr'
+
 jobs:
   redo-typo-pr:
     runs-on: ubuntu-latest
@@ -15,15 +25,22 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
-
-    - name: Install GitHub CLI
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gh
+      with:
+        token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
     - name: Authenticate with GitHub CLI
       run: |
         echo "${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}" | gh auth login --with-token
 
+    - name: Set git configure for commits
+      run: |
+        # Identify ourselves, needed to commit
+        git config --global user.name AztecBot
+        git config --global user.email tech@aztecprotocol.com
+
+    - name: Determine PR number
+      id: determine-pr-number
+      run: echo "PR_NUMBER=${{ github.event.inputs.pr_number || github.event.pull_request.number }}" >> $GITHUB_ENV
+
     - name: Run repo-typo-pr script
-      run: ./scripts/repo-typo-pr ${{ github.event.inputs.pr_number }}
+      run: ./scripts/redo-typo-pr ${{ env.PR_NUMBER }}
