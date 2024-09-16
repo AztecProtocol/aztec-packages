@@ -97,6 +97,9 @@ contract SpartaTest is DecoderBase {
       assertFalse(_seenCommittee[committee[i]]);
       _seenCommittee[committee[i]] = true;
     }
+
+    address proposer = rollup.getCurrentProposer();
+    assertTrue(_seenCommittee[proposer]);
   }
 
   function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {

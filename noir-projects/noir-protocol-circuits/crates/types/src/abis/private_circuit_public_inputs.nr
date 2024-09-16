@@ -48,6 +48,7 @@ impl PrivateCircuitPublicInputsArrayLengths {
     }
 }
 
+// Public inputs to private app circuit.
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,
 
