@@ -23,10 +23,15 @@
  *        much from running it in CI, and it is therefore skipped.
  *
  *
+ * Previous results. The `blockCount` is the number of blocks we will construct with `txCount`
+ * transactions of the `complexity` provided.
+ * The `numberOfBlocks` is the total number of blocks, including deployments of canonical contracts
+ * and setup before we start the "actual" test. Similar, `numberOfTransactions` is the total number
+ * of transactions across these blocks.
  * blockCount: 10, txCount: 36, complexity: Deployment:      {"numberOfBlocks":16, "syncTime":17.490706521987914, "numberOfTransactions":366}
  * blockCount: 10, txCount: 36, complexity: PrivateTransfer: {"numberOfBlocks":19, "syncTime":20.846745924949644, "numberOfTransactions":474}
  * blockCount: 10, txCount: 36, complexity: PublicTransfer:  {"numberOfBlocks":18, "syncTime":21.340179460525512, "numberOfTransactions":438}
- * blockCount: 10, txCount: 9,  complexity: MaxDiff:         {"numberOfBlocks":17, "syncTime":49.40888188171387,  "numberOfTransactions":105}
+ * blockCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387,  "numberOfTransactions":105}
  */
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { AztecNodeService } from '@aztec/aztec-node';
@@ -64,7 +69,7 @@ enum TxComplexity {
   Deployment,
   PrivateTransfer,
   PublicTransfer,
-  MaxDiff,
+  Spam,
 }
 
 /**
@@ -240,17 +245,17 @@ class TestVariant {
         txs.push(tk.methods.transfer_public(sender, recipient, 1n, 0).send());
       }
       return txs;
-    } else if (this.txComplexity == TxComplexity.MaxDiff) {
+    } else if (this.txComplexity == TxComplexity.Spam) {
       // This one is slightly more painful. We need to setup a new contract that writes
       // a metric ton of state changes.
 
       const txs = [];
       for (let i = 0; i < this.txCount; i++) {
         const batch = new BatchCall(this.wallets[i], [
-          this.spam.methods.private_spam(this.seed, 16, false).request(),
-          this.spam.methods.private_spam(this.seed + 16n, 16, false).request(),
-          this.spam.methods.private_spam(this.seed + 32n, 16, false).request(),
-          this.spam.methods.private_spam(this.seed + 48n, 15, true).request(),
+          this.spam.methods.spam(this.seed, 16, false).request(),
+          this.spam.methods.spam(this.seed + 16n, 16, false).request(),
+          this.spam.methods.spam(this.seed + 32n, 16, false).request(),
+          this.spam.methods.spam(this.seed + 48n, 15, true).request(),
         ]);
 
         this.seed += 100n;
@@ -314,7 +319,7 @@ const variants: TestVariant[] = [
   new TestVariant(10, 36, TxComplexity.Deployment),
   new TestVariant(10, 36, TxComplexity.PrivateTransfer),
   new TestVariant(10, 36, TxComplexity.PublicTransfer),
-  new TestVariant(10, 9, TxComplexity.MaxDiff),
+  new TestVariant(10, 9, TxComplexity.Spam),
 ];
 
 describe('e2e_l1_with_wall_time', () => {

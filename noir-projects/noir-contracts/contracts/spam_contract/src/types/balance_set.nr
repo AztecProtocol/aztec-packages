@@ -1,3 +1,4 @@
+// This file is copied from the token contract.
 use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, NoteInterface, PrivateSet};
 use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},

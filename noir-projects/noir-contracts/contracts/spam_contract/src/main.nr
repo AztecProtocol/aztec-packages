@@ -10,22 +10,13 @@ contract Spam {
         protocol_types::{
         hash::poseidon2_hash_with_separator,
         constants::{
-        GENERATOR_INDEX__NOTE_NULLIFIER, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
+        MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL, GENERATOR_INDEX__NOTE_NULLIFIER,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
     }
     }
     };
 
     use crate::types::{token_note::TokenNote, balance_set::BalanceSet};
-
-    #[aztec(event)]
-    struct Yeet {
-        value0: Field,
-        value1: Field,
-        value2: Field,
-        value3: Field,
-        value4: Field,
-    }
 
     #[aztec(storage)]
     struct Storage {
@@ -34,19 +25,18 @@ contract Spam {
     }
 
     #[aztec(private)]
-    fn private_spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
+    fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
         let caller = context.msg_sender();
         let caller_keys = get_current_public_keys(&mut context, caller);
         let amount = U128::from_integer(1);
 
-        for _ in 0..16 {
+        for _ in 0..MAX_NOTE_HASHES_PER_CALL {
             storage.balances.at(caller).add(caller_keys.npk_m, U128::from_integer(amount)).emit(
                 encode_and_encrypt_note_with_keys_unconstrained(&mut context, caller_keys.ovpk_m, caller_keys.ivpk_m, caller)
             );
         }
 
-        // Here we will be having some slightly issues.
-        for i in 0..16 {
+        for i in 0..MAX_NULLIFIERS_PER_CALL {
             if (i < nullifier_count) {
                 context.push_nullifier(
                     poseidon2_hash_with_separator(
@@ -67,6 +57,7 @@ contract Spam {
     }
 
     #[aztec(public)]
+    #[aztec(internal)]
     fn public_spam(start: u32, end: u32) {
         let one = U128::from_integer(1);
         for i in start..end {
