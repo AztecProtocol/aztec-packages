@@ -99,6 +99,7 @@ export class TaggedLog<Payload extends L1NotePayload | L1EventPayload> {
       if (
         !(e instanceof NotOnCurveError) &&
         !e.message.endsWith('is greater or equal to field modulus.') &&
+        !e.message.startsWith('Public values byte length is not a multiple of Fr size.') &&
         !e.message.startsWith('Invalid AztecAddress length') &&
         !e.message.startsWith('Selector must fit in') &&
         !e.message.startsWith('Attempted to read beyond buffer length')
@@ -145,6 +146,7 @@ export class TaggedLog<Payload extends L1NotePayload | L1EventPayload> {
       if (
         !(e instanceof NotOnCurveError) &&
         !e.message.endsWith('is greater or equal to field modulus.') &&
+        !e.message.startsWith('Public values byte length is not a multiple of Fr size.') &&
         !e.message.startsWith('Invalid AztecAddress length') &&
         !e.message.startsWith('Selector must fit in') &&
         !e.message.startsWith('Attempted to read beyond buffer length')

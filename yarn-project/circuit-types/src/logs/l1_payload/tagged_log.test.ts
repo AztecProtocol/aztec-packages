@@ -96,7 +96,7 @@ describe('L1 Note Payload', () => {
     );
   });
 
-  it.only('encrypted tagged log of finalized partial note matches Noir', () => {
+  it('encrypted tagged log of finalized partial note matches Noir', () => {
     const numPublicValues = 2;
 
     // All the values in this test were arbitrarily set and copied over to `payload.nr`

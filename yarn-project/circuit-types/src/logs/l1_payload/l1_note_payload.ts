@@ -158,7 +158,7 @@ export class L1NotePayload extends L1Payload {
       remainingData.length,
     );
     if (publicValuesData.length % Fr.SIZE_IN_BYTES !== 0) {
-      throw new Error('Public values byte length is not a multiple of Fr size');
+      throw new Error(`Public values byte length is not a multiple of Fr size. Length: ${publicValuesData.length}`);
     }
     const publicValues = [];
     for (let i = 0; i < publicValuesData.length; i += Fr.SIZE_IN_BYTES) {
