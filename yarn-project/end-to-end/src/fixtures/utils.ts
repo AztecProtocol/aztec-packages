@@ -383,6 +383,9 @@ export async function setup(
     config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   }
 
+  // Made as separate values such that keys can change, but for test they will be the same.
+  config.validatorPrivateKey = config.publisherPrivateKey;
+
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
     return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts, enableGas);
@@ -407,10 +410,6 @@ export async function setup(
   );
 
   await watcher.start();
-
-  // Run the test with validators enabled
-  const validatorPrivKey = getPrivateKeyFromIndex(1);
-  config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
 
   logger.verbose('Creating and synching an aztec node...');
 

@@ -289,9 +289,6 @@ contract Leonidas is Ownable, ILeonidas {
   function getProposerAt(uint256 _ts) public view override(ILeonidas) returns (address) {
     uint256 epochNumber = getEpochAt(_ts);
     uint256 slot = getSlotAt(_ts);
-    if (epochNumber == 0) {
-      return address(0);
-    }
 
     Epoch storage epoch = epochs[epochNumber];
 

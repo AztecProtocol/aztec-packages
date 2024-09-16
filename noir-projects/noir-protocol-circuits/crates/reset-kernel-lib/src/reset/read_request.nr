@@ -230,9 +230,7 @@ mod tests {
 
     impl Empty for TestLeafPreimage {
         fn empty() -> Self {
-            TestLeafPreimage {
-                value: 0,
-            }
+            TestLeafPreimage { value: 0 }
         }
     }
 

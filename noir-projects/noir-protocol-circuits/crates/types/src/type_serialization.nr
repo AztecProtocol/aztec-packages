@@ -59,7 +59,6 @@ impl Serialize<U128_SERIALIZED_LEN> for U128 {
     fn serialize(self) -> [Field; 1] {
         [self.to_integer()]
     }
-
 }
 
 impl Deserialize<U128_SERIALIZED_LEN> for U128 {

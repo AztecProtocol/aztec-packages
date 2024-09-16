@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.55.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.54.0...barretenberg-v0.55.0) (2024-09-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* Add Not instruction in brillig ([#8488](https://github.com/AztecProtocol/aztec-packages/issues/8488))
+* **avm:** variants for CAST/NOT opcode ([#8497](https://github.com/AztecProtocol/aztec-packages/issues/8497))
+* **avm:** variants for REVERT opcode ([#8487](https://github.com/AztecProtocol/aztec-packages/issues/8487))
+
+### Features
+
+* (bb) remove redundant constraints on field/group elements when using goblin plonk ([#8409](https://github.com/AztecProtocol/aztec-packages/issues/8409)) ([12a093d](https://github.com/AztecProtocol/aztec-packages/commit/12a093d25e0c32fed5eceee424b24111ad2f14a4))
+* Add Not instruction in brillig ([#8488](https://github.com/AztecProtocol/aztec-packages/issues/8488)) ([ceda361](https://github.com/AztecProtocol/aztec-packages/commit/ceda3612f0d12d43bffde9c9b992a432d1a13d75))
+* **avm:** Parallelize polynomial alloc and set ([#8520](https://github.com/AztecProtocol/aztec-packages/issues/8520)) ([7e73531](https://github.com/AztecProtocol/aztec-packages/commit/7e7353195592d503a92c7222788c739006fa81fc))
+* **avm:** Variants for CAST/NOT opcode ([#8497](https://github.com/AztecProtocol/aztec-packages/issues/8497)) ([bc609fa](https://github.com/AztecProtocol/aztec-packages/commit/bc609fa457b029dee0dc19818e3709a6ea9564ab))
+* **avm:** Variants for REVERT opcode ([#8487](https://github.com/AztecProtocol/aztec-packages/issues/8487)) ([a0c8915](https://github.com/AztecProtocol/aztec-packages/commit/a0c8915ccf00fe1c329bf87760d28b3c42725cf1))
+* **bb:** Iterative constexpr_for ([#8502](https://github.com/AztecProtocol/aztec-packages/issues/8502)) ([02c3330](https://github.com/AztecProtocol/aztec-packages/commit/02c333028bf186f0472738f4a5c39d36f4980941))
+* Checking finalized sizes + a test of two folding verifiers ([#8503](https://github.com/AztecProtocol/aztec-packages/issues/8503)) ([d9e3f4d](https://github.com/AztecProtocol/aztec-packages/commit/d9e3f4d42118d16b343b818a0649e6cfbc14ea31))
+* Native world state ([#7516](https://github.com/AztecProtocol/aztec-packages/issues/7516)) ([c1aa6f7](https://github.com/AztecProtocol/aztec-packages/commit/c1aa6f73d13e860d5fcee07e82347a7633f8b334))
+* New test programs for wasm benchmarking ([#8389](https://github.com/AztecProtocol/aztec-packages/issues/8389)) ([0b46e96](https://github.com/AztecProtocol/aztec-packages/commit/0b46e96e8e5d05876a3700b9e50d29d6f349ea6e))
+* Verification key stuff ([#8431](https://github.com/AztecProtocol/aztec-packages/issues/8431)) ([11dc8ff](https://github.com/AztecProtocol/aztec-packages/commit/11dc8ff185d74e6e5bc51e85d6bcd6577ac83161))
+
+
+### Miscellaneous
+
+* **bb:** Fix mac build ([#8505](https://github.com/AztecProtocol/aztec-packages/issues/8505)) ([32fd347](https://github.com/AztecProtocol/aztec-packages/commit/32fd347f887af57456767bcb7a38070f8c4b2b28)), closes [#8499](https://github.com/AztecProtocol/aztec-packages/issues/8499)
+* **bb:** Fix mac build ([#8522](https://github.com/AztecProtocol/aztec-packages/issues/8522)) ([986e703](https://github.com/AztecProtocol/aztec-packages/commit/986e70353d28eab48cc0028bf31a2c8d67ffb29d))
+* Protogalaxy verifier matches prover 1 ([#8414](https://github.com/AztecProtocol/aztec-packages/issues/8414)) ([5a76ec6](https://github.com/AztecProtocol/aztec-packages/commit/5a76ec61fb9dee976cdee8bba8198854d9249bf3))
+* Use uint32_t instead of size_t for databus data ([#8479](https://github.com/AztecProtocol/aztec-packages/issues/8479)) ([79995c8](https://github.com/AztecProtocol/aztec-packages/commit/79995c84e0f88c1ee72876fd21c50c33830597fc))
+
 ## [0.54.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.53.0...barretenberg-v0.54.0) (2024-09-10)
 
 

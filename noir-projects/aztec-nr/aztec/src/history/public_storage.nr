@@ -4,7 +4,7 @@ use dep::protocol_types::{
 };
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
-use crate::{context::PrivateContext, oracle::get_public_data_witness::get_public_data_witness};
+use crate::{oracle::get_public_data_witness::get_public_data_witness};
 
 trait PublicStorageHistoricalRead {
     fn public_storage_historical_read(header: Header, storage_slot: Field, contract_address: AztecAddress) -> Field;

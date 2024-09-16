@@ -14,24 +14,19 @@ struct PreviousRollupData{
 }
 
 impl Verifiable for PreviousRollupData {
-  fn verify(self) {
-    let inputs = BaseOrMergeRollupPublicInputs::serialize(self.base_or_merge_rollup_public_inputs);
-    std::verify_proof(
-        self.vk.key,
-        self.proof.fields,
-        inputs,
-        self.vk.hash
-    );
-  }
+    fn verify(self) {
+        let inputs = BaseOrMergeRollupPublicInputs::serialize(self.base_or_merge_rollup_public_inputs);
+        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+    }
 }
 
 impl Empty for PreviousRollupData {
     fn empty() -> Self {
         PreviousRollupData {
             base_or_merge_rollup_public_inputs: BaseOrMergeRollupPublicInputs::empty(),
-            proof : NestedRecursiveProof::empty(),
-            vk : VerificationKey::empty(),
-            vk_witness : MembershipWitness::empty(),
+            proof: NestedRecursiveProof::empty(),
+            vk: VerificationKey::empty(),
+            vk_witness: MembershipWitness::empty()
         }
     }
 }
