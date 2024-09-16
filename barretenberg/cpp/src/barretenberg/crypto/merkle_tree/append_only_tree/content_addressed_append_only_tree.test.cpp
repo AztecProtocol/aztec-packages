@@ -85,12 +85,15 @@ void check_root(TreeType& tree, fr expected_root, bool includeUncommitted = true
 void check_sibling_path(TreeType& tree,
                         index_t index,
                         fr_sibling_path expected_sibling_path,
-                        bool includeUncommitted = true)
+                        bool includeUncommitted = true,
+                        bool expected_result = true)
 {
     Signal signal;
     auto completion = [&](const TypedResponse<GetSiblingPathResponse>& response) -> void {
-        EXPECT_EQ(response.success, true);
-        EXPECT_EQ(response.inner.path, expected_sibling_path);
+        EXPECT_EQ(response.success, expected_result);
+        if (expected_result) {
+            EXPECT_EQ(response.inner.path, expected_sibling_path);
+        }
         signal.signal_level();
     };
     tree.get_sibling_path(index, completion, includeUncommitted);
@@ -275,6 +278,47 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_value_and_get_siblin
     check_root(tree, memdb.root());
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 }
+
+// To be implemented later
+// TEST_F(PersistedContentAddressedAppendOnlyTreeTest, requesting_sibling_path_greater_than_size_returns_error)
+// {
+//     constexpr size_t depth = 3;
+//     std::string name = random_string();
+//     LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+//     Store store(name, depth, db);
+
+//     ThreadPool pool(1);
+//     TreeType tree(store, pool);
+
+//     // can't retrieve path that does not exist
+//     check_sibling_path(tree, 0, fr_sibling_path(), true, false);
+
+//     add_value(tree, VALUES[0]);
+
+//     // can't retrieve committed path
+//     check_sibling_path(tree, 0, fr_sibling_path(), false, false);
+
+//     // can retrieve uncommitted path
+//     check_sibling_path(tree, 0, fr_sibling_path(), true, true);
+
+//     commit_tree(tree);
+
+//     // can now retrieve committed path
+//     check_sibling_path(tree, 0, fr_sibling_path(), false, true);
+
+//     add_value(tree, VALUES[1]);
+
+//     // can't retrieve committed path
+//     check_sibling_path(tree, 1, fr_sibling_path(), false, false);
+
+//     // can retrieve uncommitted path
+//     check_sibling_path(tree, 1, fr_sibling_path(), true, true);
+
+//     commit_tree(tree);
+
+//     // can now retrieve committed path
+//     check_sibling_path(tree, 1, fr_sibling_path(), false, true);
+// }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_overfilled)
 {
@@ -682,7 +726,11 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_siblin
     TreeType tree(store, pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
-    std::vector<fr_sibling_path> historicPaths;
+    constexpr uint32_t num_blocks = 10;
+    constexpr uint32_t batch_size = 4;
+
+    std::vector<fr_sibling_path> historicPathsZeroIndex;
+    std::vector<fr_sibling_path> historicPathsMaxIndex;
 
     auto check = [&](index_t expected_size, index_t expected_unfinalised_block_height) {
         check_size(tree, expected_size);
@@ -691,13 +739,13 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_siblin
         check_sibling_path(tree, 0, memdb.get_sibling_path(0));
         check_sibling_path(tree, expected_size - 1, memdb.get_sibling_path(expected_size - 1));
 
-        for (uint32_t i = 0; i < historicPaths.size(); i++) {
-            check_historic_sibling_path(tree, 0, historicPaths[i], i + 1);
+        for (uint32_t i = 0; i < historicPathsZeroIndex.size(); i++) {
+            check_historic_sibling_path(tree, 0, historicPathsZeroIndex[i], i + 1);
+            index_t maxSizeAtBlock = ((i + 1) * batch_size) - 1;
+            check_historic_sibling_path(tree, maxSizeAtBlock, historicPathsMaxIndex[i], i + 1);
         }
     };
 
-    constexpr uint32_t num_blocks = 10;
-    constexpr uint32_t batch_size = 4;
     for (uint32_t i = 0; i < num_blocks; i++) {
         std::vector<fr> to_add;
 
@@ -711,7 +759,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_siblin
         check(expected_size, i);
         commit_tree(tree);
         check(expected_size, i + 1);
-        historicPaths.push_back(memdb.get_sibling_path(0));
+        historicPathsZeroIndex.push_back(memdb.get_sibling_path(0));
+        historicPathsMaxIndex.push_back(memdb.get_sibling_path(expected_size - 1));
     }
 }
 

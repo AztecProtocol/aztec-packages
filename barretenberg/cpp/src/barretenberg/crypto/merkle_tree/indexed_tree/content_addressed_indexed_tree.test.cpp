@@ -112,9 +112,9 @@ IndexedLeaf<LeafValueType> get_leaf(TypeOfTree& tree, index_t index, bool includ
 }
 
 template <typename LeafValueType, typename TypeOfTree>
-std::pair<bool, index_t> get_low_leaf(TypeOfTree& tree, const LeafValueType& leaf, bool includeUncommitted = true)
+GetLowIndexedLeafResponse get_low_leaf(TypeOfTree& tree, const LeafValueType& leaf, bool includeUncommitted = true)
 {
-    std::pair<bool, index_t> low_leaf_info;
+    GetLowIndexedLeafResponse low_leaf_info;
     Signal signal;
     auto completion = [&](const auto& leaf) -> void {
         low_leaf_info = leaf.inner;
@@ -1064,15 +1064,15 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, returns_low_leaves)
 
     auto predecessor = get_low_leaf(tree, NullifierLeafValue(42));
 
-    EXPECT_EQ(predecessor.first, false);
-    EXPECT_EQ(predecessor.second, 1);
+    EXPECT_EQ(predecessor.is_already_present, false);
+    EXPECT_EQ(predecessor.index, 1);
 
     add_value(tree, NullifierLeafValue(42));
 
     predecessor = get_low_leaf(tree, NullifierLeafValue(42));
     // returns the current leaf since it exists already. Inserting 42 again would modify the existing leaf
-    EXPECT_EQ(predecessor.first, true);
-    EXPECT_EQ(predecessor.second, 2);
+    EXPECT_EQ(predecessor.is_already_present, true);
+    EXPECT_EQ(predecessor.index, 2);
 }
 
 TEST_F(PersistedContentAddressedIndexedTreeTest, duplicates)

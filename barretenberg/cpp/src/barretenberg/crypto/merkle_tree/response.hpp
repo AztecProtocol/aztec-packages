@@ -53,6 +53,11 @@ template <typename LeafValueType> struct GetIndexedLeafResponse {
     std::optional<IndexedLeaf<LeafValueType>> indexed_leaf;
 };
 
+struct GetLowIndexedLeafResponse {
+    bool is_already_present;
+    index_t index;
+};
+
 template <typename ResponseType> struct TypedResponse {
     ResponseType inner;
     bool success{ true };

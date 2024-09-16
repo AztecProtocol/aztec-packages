@@ -76,13 +76,13 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
 
     /**
      * @brief Returns the sibling path from the leaf at the given index to the root
-     * @param blockNumber The block number of the tree to use as a reference
      * @param index The index at which to read the sibling path
+     * @param blockNumber The block number of the tree to use as a reference
      * @param on_completion Callback to be called on completion
      * @param includeUncommitted Whether to include uncommitted changes
      */
-    void get_sibling_path(const index_t& blockNumber,
-                          const index_t& index,
+    void get_sibling_path(const index_t& index,
+                          const index_t& blockNumber,
                           const HashPathCallback& on_completion,
                           bool includeUncommitted) const;
 
@@ -126,15 +126,44 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     void get_leaf(const index_t& index, bool includeUncommitted, const GetLeafCallback& completion) const;
 
     /**
+     * @brief Returns the leaf value at the provided index
+     * @param index The index of the leaf to be retrieved
+     * @param blockNumber The block number of the tree to use as a reference
+     * @param includeUncommitted Whether to include uncommitted changes
+     * @param on_completion Callback to be called on completion
+     */
+    void get_leaf(const index_t& index,
+                  const index_t& blockNumber,
+                  bool includeUncommitted,
+                  const GetLeafCallback& completion) const;
+
+    /**
      * @brief Returns the index of the provided leaf in the tree
      */
     void find_leaf_index(const fr& leaf, bool includeUncommitted, const FindLeafCallback& on_completion) const;
+
+    /**
+     * @brief Returns the index of the provided leaf in the tree
+     */
+    void find_leaf_index(const fr& leaf,
+                         const index_t& blockNumber,
+                         bool includeUncommitted,
+                         const FindLeafCallback& on_completion) const;
 
     /**
      * @brief Returns the index of the provided leaf in the tree only if it exists after the index value provided
      */
     void find_leaf_index_from(const fr& leaf,
                               index_t start_index,
+                              bool includeUncommitted,
+                              const FindLeafCallback& on_completion) const;
+
+    /**
+     * @brief Returns the index of the provided leaf in the tree only if it exists after the index value provided
+     */
+    void find_leaf_index_from(const fr& leaf,
+                              index_t start_index,
+                              const index_t& blockNumber,
                               bool includeUncommitted,
                               const FindLeafCallback& on_completion) const;
 
@@ -177,6 +206,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
                                                           bool includeUncommitted) const;
 
     std::optional<fr> find_leaf_hash(index_t leaf_index,
+                                     const fr& reference_root,
                                      ReadTransaction& tx,
                                      bool includeUncommitted,
                                      bool updateNodesByIndexCache = false) const;
@@ -212,10 +242,10 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
     zero_hashes_[0] = current;
     // std::cout << "Zero root: " << current << std::endl;
 
-    if (meta.size == 0) {
+    // The root of the empty tree has not yet been set, initialise the tree with roots
+    if (meta.root == fr::zero()) {
         // if the tree is empty then we want to write some initial state
         meta.initialRoot = meta.root = current;
-        meta.finalisedBlockHeight = meta.unfinalisedBlockHeight = 0;
         store_.put_meta(meta);
         store_.commit(false);
     }
@@ -243,21 +273,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
                                                                             bool includeUncommitted) const
 {
     get_subtree_sibling_path(index, 0, on_completion, includeUncommitted);
-    // auto job = [=, this]() {
-    //     execute_and_report<GetSiblingPathResponse>(
-    //         [=, this](TypedResponse<GetSiblingPathResponse>& response) {
-    //             ReadTransactionPtr tx = store_.create_read_transaction();
-    //             RequestContext requestContext;
-    //             requestContext.includeCommitted = includeUncommitted;
-    //             requestContext.latestBlock = true;
-    //             requestContext.root = store_.get_current_root(*tx, includeUncommitted);
-    //             OptionalSiblingPath optional_path =
-    //                 get_subtree_sibling_path_internal(index, 0, requestContext, *tx, includeUncommitted);
-    //             response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
-    //         },
-    //         on_completion);
-    // };
-    // workers_.enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -270,8 +285,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
         execute_and_report<GetSiblingPathResponse>(
             [=, this](TypedResponse<GetSiblingPathResponse>& response) {
                 ReadTransactionPtr tx = store_.create_read_transaction();
-                TreeMeta m;
-                store_.get_meta(m, *tx, includeUncommitted);
                 BlockPayload blockData;
                 if (!store_.get_block_data(blockNumber, blockData, *tx)) {
                     throw std::runtime_error("Data for block unavailable");
@@ -279,7 +292,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
 
                 RequestContext requestContext;
                 requestContext.includeCommitted = includeUncommitted;
-                requestContext.latestBlock = true;
+                requestContext.latestBlock = false;
                 requestContext.root = blockData.root;
                 requestContext.sizeAtBlock = blockData.size;
                 OptionalSiblingPath optional_path =
@@ -357,9 +370,13 @@ fr_sibling_path ContentAddressedAppendOnlyTree<Store, HashingPolicy>::optional_s
 
 template <typename Store, typename HashingPolicy>
 std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_hash(
-    index_t leaf_index, ReadTransaction& tx, bool includeUncommitted, bool updateNodesByIndexCache) const
+    index_t leaf_index,
+    const fr& reference_root,
+    ReadTransaction& tx,
+    bool includeUncommitted,
+    bool updateNodesByIndexCache) const
 {
-    fr hash = store_.get_current_root(tx, includeUncommitted);
+    fr hash = reference_root;
     // std::cout << "Finding leaf hash for root " << hash << " at index " << leaf_index << std::endl;
     index_t mask = static_cast<index_t>(1) << (depth_ - 1);
     index_t child_index_at_level = 0;
@@ -518,7 +535,41 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
         execute_and_report<GetLeafResponse>(
             [=, this](TypedResponse<GetLeafResponse>& response) {
                 ReadTransactionPtr tx = store_.create_read_transaction();
-                std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, *tx, includeUncommitted);
+                RequestContext requestContext;
+                requestContext.includeCommitted = includeUncommitted;
+                requestContext.latestBlock = true;
+                requestContext.root = store_.get_current_root(*tx, includeUncommitted);
+                std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext.root, *tx, includeUncommitted);
+                response.success = leaf_hash.has_value();
+                if (response.success) {
+                    response.inner.leaf = leaf_hash.value();
+                }
+            },
+            on_completion);
+    };
+    workers_.enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_t& leaf_index,
+                                                                    const index_t& blockNumber,
+                                                                    bool includeUncommitted,
+                                                                    const GetLeafCallback& on_completion) const
+{
+    auto job = [=, this]() {
+        execute_and_report<GetLeafResponse>(
+            [=, this](TypedResponse<GetLeafResponse>& response) {
+                ReadTransactionPtr tx = store_.create_read_transaction();
+                BlockPayload blockData;
+                if (!store_.get_block_data(blockNumber, blockData, *tx)) {
+                    throw std::runtime_error("Data for block unavailable");
+                }
+                RequestContext requestContext;
+                requestContext.includeCommitted = includeUncommitted;
+                requestContext.latestBlock = false;
+                requestContext.root = blockData.root;
+                requestContext.sizeAtBlock = blockData.size;
+                std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext, *tx, includeUncommitted);
                 response.success = leaf_hash.has_value();
                 if (response.success) {
                     response.inner.leaf = leaf_hash.value();
@@ -538,6 +589,15 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index(const
 }
 
 template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index(const fr& leaf,
+                                                                           const index_t& blockNumber,
+                                                                           bool includeUncommitted,
+                                                                           const FindLeafCallback& on_completion) const
+{
+    find_leaf_index_from(leaf, 0, blockNumber, includeUncommitted, on_completion);
+}
+
+template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
     const fr& leaf, index_t start_index, bool includeUncommitted, const FindLeafCallback& on_completion) const
 {
@@ -545,6 +605,43 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
         execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
                 typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
+                RequestContext requestContext;
+                requestContext.latestBlock = true;
+                requestContext.includeCommitted = includeUncommitted;
+                requestContext.root = store_.get_current_root(*tx, includeUncommitted);
+                std::optional<index_t> leaf_index =
+                    store_.find_leaf_index_from(leaf, start_index, requestContext, *tx, includeUncommitted);
+                response.success = leaf_index.has_value();
+                if (response.success) {
+                    response.inner.leaf_index = leaf_index.value();
+                }
+            },
+            on_completion);
+    };
+    workers_.enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
+    const fr& leaf,
+    index_t start_index,
+    const index_t& blockNumber,
+    bool includeUncommitted,
+    const FindLeafCallback& on_completion) const
+{
+    auto job = [=, this]() -> void {
+        execute_and_report<FindLeafIndexResponse>(
+            [=, this](TypedResponse<FindLeafIndexResponse>& response) {
+                typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
+                BlockPayload blockData;
+                if (!store_.get_block_data(blockNumber, blockData, *tx)) {
+                    throw std::runtime_error("Data for block unavailable");
+                }
+                RequestContext requestContext;
+                requestContext.includeCommitted = includeUncommitted;
+                requestContext.latestBlock = false;
+                requestContext.root = blockData.root;
+                requestContext.sizeAtBlock = blockData.size;
                 std::optional<index_t> leaf_index =
                     store_.find_leaf_index_from(leaf, start_index, *tx, includeUncommitted);
                 response.success = leaf_index.has_value();

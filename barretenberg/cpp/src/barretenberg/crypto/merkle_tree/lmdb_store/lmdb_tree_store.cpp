@@ -161,12 +161,25 @@ void LMDBTreeStore::write_node(const fr& nodeHash, const NodePayload& nodeData, 
     tx.put_value<FrKeyType>(key, encoded, *_nodeDatabase);
 }
 
-fr LMDBTreeStore::find_low_leaf(const fr& leafValue, Indices& indices, ReadTransaction& tx)
+fr LMDBTreeStore::find_low_leaf(const fr& leafValue,
+                                Indices& indices,
+                                const RequestContext& requestContext,
+                                ReadTransaction& tx)
 {
     std::vector<uint8_t> data;
     FrKeyType key(leafValue);
-    tx.get_value_or_previous(key, data, *_leafValueToIndexDatabase);
-    msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
+    auto is_valid = [&](const std::vector<uint8_t>& data) {
+        Indices tmp;
+        msgpack::unpack((const char*)data.data(), data.size()).get().convert(tmp);
+        return tmp.indices[0] <= requestContext.sizeAtBlock;
+    };
+    if (requestContext.latestBlock) {
+        tx.get_value_or_previous(key, data, *_leafValueToIndexDatabase);
+        msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
+    } else {
+        tx.get_value_or_previous(key, data, *_leafValueToIndexDatabase, is_valid);
+        msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
+    }
     return key;
 }
 

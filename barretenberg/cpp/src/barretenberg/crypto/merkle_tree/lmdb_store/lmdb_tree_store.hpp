@@ -66,7 +66,7 @@ class LMDBTreeStore {
 
     bool read_leaf_indices(const fr& leafValue, Indices& indices, ReadTransaction& tx);
 
-    fr find_low_leaf(const fr& leafValue, Indices& indices, ReadTransaction& tx);
+    fr find_low_leaf(const fr& leafValue, Indices& indices, const RequestContext& requestContext, ReadTransaction& tx);
 
     void write_leaf_indices(const fr& leafValue, const Indices& indices, WriteTransaction& tx);
 

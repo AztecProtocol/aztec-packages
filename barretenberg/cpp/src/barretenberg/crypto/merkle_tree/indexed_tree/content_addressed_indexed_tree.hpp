@@ -42,7 +42,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     using IndexedLeafValueType = typename Store::IndexedLeafValueType;
     using AddCompletionCallback = std::function<void(const TypedResponse<AddIndexedDataResponse<LeafValueType>>&)>;
     using LeafCallback = std::function<void(const TypedResponse<GetIndexedLeafResponse<LeafValueType>>&)>;
-    using FindLowLeafCallback = std::function<void(const TypedResponse<std::pair<bool, index_t>>&)>;
+    using FindLowLeafCallback = std::function<void(const TypedResponse<GetLowIndexedLeafResponse>&)>;
 
     ContentAddressedIndexedTree(Store& store, ThreadPool& workers, index_t initial_size);
     ContentAddressedIndexedTree(ContentAddressedIndexedTree const& other) = delete;
@@ -191,7 +191,7 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(S
         store_.get_meta(meta, *tx, false);
     }
 
-    if (meta.size > 0) {
+    if (meta.unfinalisedBlockHeight != 0) {
         return;
     }
 
@@ -234,7 +234,11 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
         execute_and_report<GetIndexedLeafResponse<LeafValueType>>(
             [=, this](TypedResponse<GetIndexedLeafResponse<LeafValueType>>& response) {
                 ReadTransactionPtr tx = store_.create_read_transaction();
-                std::optional<fr> leaf_hash = find_leaf_hash(index, *tx, includeUncommitted);
+                RequestContext requestContext;
+                requestContext.includeCommitted = includeUncommitted;
+                requestContext.latestBlock = true;
+                requestContext.root = store_.get_current_root(*tx, includeUncommitted);
+                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext.root, *tx, includeUncommitted);
                 if (leaf_hash.has_value()) {
                     std::optional<IndexedLeafValueType> leaf =
                         store_.get_leaf_by_hash(leaf_hash.value(), *tx, includeUncommitted);
@@ -269,8 +273,12 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
         execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
                 typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
+                RequestContext requestContext;
+                requestContext.includeCommitted = includeUncommitted;
+                requestContext.latestBlock = true;
+                requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 std::optional<index_t> leaf_index =
-                    store_.find_leaf_index_from(leaf, start_index, *tx, includeUncommitted);
+                    store_.find_leaf_index_from(leaf, start_index, requestContext, *tx, includeUncommitted);
                 response.success = leaf_index.has_value();
                 if (response.success) {
                     response.inner.leaf_index = leaf_index.value();
@@ -287,10 +295,16 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
                                                                       const FindLowLeafCallback& on_completion) const
 {
     auto job = [=, this]() {
-        execute_and_report<std::pair<bool, index_t>>(
-            [=, this](TypedResponse<std::pair<bool, index_t>>& response) {
+        execute_and_report<GetLowIndexedLeafResponse>(
+            [=, this](TypedResponse<GetLowIndexedLeafResponse>& response) {
                 typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
-                response.inner = store_.find_low_value(leaf_key, includeUncommitted, *tx);
+                RequestContext requestContext;
+                requestContext.includeCommitted = includeUncommitted;
+                requestContext.latestBlock = true;
+                requestContext.root = store_.get_current_root(*tx, includeUncommitted);
+                std::pair<bool, index_t> result = store_.find_low_value(leaf_key, requestContext, *tx);
+                response.inner.index = result.second;
+                response.inner.is_already_present = result.first;
             },
             on_completion);
     };
@@ -580,9 +594,13 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                     // This gives us the leaf that need updating
                     index_t low_leaf_index = 0;
                     bool is_already_present = false;
+                    RequestContext requestContext;
+                    requestContext.latestBlock = true;
+                    requestContext.includeCommitted = true;
+                    requestContext.root = store_.get_current_root(*tx, true);
                     // std::cout << "Here 3" << std::endl;
                     std::tie(is_already_present, low_leaf_index) =
-                        store_.find_low_value(value_pair.first.get_key(), true, *tx);
+                        store_.find_low_value(value_pair.first.get_key(), requestContext, *tx);
                     // std::cout << "Found low leaf index " << low_leaf_index << std::endl;
 
                     // Try and retrieve the leaf pre-image from the cache first.
@@ -600,7 +618,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                         //           << std::endl;
                     } else {
                         // std::cout << "Looking for leaf" << std::endl;
-                        std::optional<fr> low_leaf_hash = find_leaf_hash(low_leaf_index, *tx, true, true);
+                        std::optional<fr> low_leaf_hash =
+                            find_leaf_hash(low_leaf_index, requestContext.root, *tx, true, true);
 
                         if (!low_leaf_hash.has_value()) {
                             // std::cout << "Failed to find low leaf" << std::endl;

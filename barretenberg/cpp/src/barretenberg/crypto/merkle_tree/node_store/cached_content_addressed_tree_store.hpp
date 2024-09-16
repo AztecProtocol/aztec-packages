@@ -39,14 +39,11 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     using ReadTransactionPtr = std::unique_ptr<ReadTransaction>;
     using WriteTransactionPtr = std::unique_ptr<WriteTransaction>;
 
-    ContentAddressedCachedTreeStore(std::string name, uint32_t levels, PersistedStoreType& dataStore)
-        : name(std::move(name))
-        , depth(levels)
-        , dataStore(dataStore)
-        , nodes_by_index(std::vector<std::unordered_map<index_t, fr>>(depth + 1, std::unordered_map<index_t, fr>()))
-    {
-        initialise();
-    }
+    ContentAddressedCachedTreeStore(std::string name, uint32_t levels, PersistedStoreType& dataStore);
+    ContentAddressedCachedTreeStore(std::string name,
+                                    uint32_t levels,
+                                    const index_t& referenceBlockNumber,
+                                    PersistedStoreType& dataStore);
     ~ContentAddressedCachedTreeStore() = default;
 
     ContentAddressedCachedTreeStore() = delete;
@@ -58,7 +55,9 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     /**
      * @brief Returns the index of the leaf with a value immediately lower than the value provided
      */
-    std::pair<bool, index_t> find_low_value(const fr& new_leaf_key, bool includeUncommitted, ReadTransaction& tx) const;
+    std::pair<bool, index_t> find_low_value(const fr& new_leaf_key,
+                                            const RequestContext& requestContext,
+                                            ReadTransaction& tx) const;
 
     /**
      * @brief Returns the leaf at the provided index, if one exists
@@ -113,12 +112,13 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
     /**
      * @brief Reads the tree meta data, including uncommitted data if requested
      */
-    bool get_block_data(const index_t& blockNumber, BlockPayload& m, ReadTransaction& tx) const;
+    bool get_block_data(const index_t& blockNumber, BlockPayload& blockData, ReadTransaction& tx) const;
 
     /**
      * @brief Finds the index of the given leaf value in the tree if available. Includes uncommitted data if requested.
      */
     std::optional<index_t> find_leaf_index(const LeafValueType& leaf,
+                                           const RequestContext& requestContext,
                                            ReadTransaction& tx,
                                            bool includeUncommitted) const;
 
@@ -127,6 +127,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
      */
     std::optional<index_t> find_leaf_index_from(const LeafValueType& leaf,
                                                 index_t start_index,
+                                                const RequestContext& requestContext,
                                                 ReadTransaction& tx,
                                                 bool includeUncommitted) const;
 
@@ -165,6 +166,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
   private:
     std::string name;
     uint32_t depth;
+    std::optional<BlockPayload> initialised_from_block;
 
     // Thie is a mapping between the node hash and it's payload (children and ref count) for every node in the tree,
     // including leaves. As indexed trees are updated, this will end up containing many nodes that are not part of the
@@ -189,7 +191,11 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void initialise();
 
+    void initialise_from_block(const index_t& blockNumber);
+
     bool read_persisted_meta(TreeMeta& m, ReadTransaction& tx) const;
+
+    void enrich_meta_from_block(TreeMeta& m) const;
 
     void persist_meta(TreeMeta& m, WriteTransaction& tx);
 
@@ -205,16 +211,40 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 };
 
 template <typename LeafValueType>
-std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_low_value(const fr& new_leaf_key,
-                                                                                        bool includeUncommitted,
-                                                                                        ReadTransaction& tx) const
+ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(std::string name,
+                                                                                uint32_t levels,
+                                                                                PersistedStoreType& dataStore)
+    : name(std::move(name))
+    , depth(levels)
+    , dataStore(dataStore)
+    , nodes_by_index(std::vector<std::unordered_map<index_t, fr>>(depth + 1, std::unordered_map<index_t, fr>()))
+{
+    initialise();
+}
+
+template <typename LeafValueType>
+ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(std::string name,
+                                                                                uint32_t levels,
+                                                                                const index_t& referenceBlockNumber,
+                                                                                PersistedStoreType& dataStore)
+    : name(std::move(name))
+    , depth(levels)
+    , dataStore(dataStore)
+    , nodes_by_index(std::vector<std::unordered_map<index_t, fr>>(depth + 1, std::unordered_map<index_t, fr>()))
+{
+    initialise_from_block(referenceBlockNumber);
+}
+
+template <typename LeafValueType>
+std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_low_value(
+    const fr& new_leaf_key, const RequestContext& requestContext, ReadTransaction& tx) const
 {
     auto new_value_as_number = uint256_t(new_leaf_key);
     Indices committed;
-    fr found_key = dataStore.find_low_leaf(new_leaf_key, committed, tx);
+    fr found_key = dataStore.find_low_leaf(new_leaf_key, committed, requestContext, tx);
     auto db_index = committed.indices[0];
     uint256_t retrieved_value = found_key;
-    if (!includeUncommitted || retrieved_value == new_value_as_number || indices.empty()) {
+    if (!requestContext.includeCommitted || retrieved_value == new_value_as_number || indices.empty()) {
         return std::make_pair(new_value_as_number == retrieved_value, db_index);
     }
 
@@ -324,16 +354,19 @@ void ContentAddressedCachedTreeStore<LeafValueType>::update_index(const index_t&
 }
 
 template <typename LeafValueType>
-std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf_index(const LeafValueType& leaf,
-                                                                                       ReadTransaction& tx,
-                                                                                       bool includeUncommitted) const
+std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf_index(
+    const LeafValueType& leaf, const RequestContext& requestContext, ReadTransaction& tx, bool includeUncommitted) const
 {
-    return find_leaf_index_from(leaf, 0, tx, includeUncommitted);
+    return find_leaf_index_from(leaf, 0, requestContext, tx, includeUncommitted);
 }
 
 template <typename LeafValueType>
 std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf_index_from(
-    const LeafValueType& leaf, index_t start_index, ReadTransaction& tx, bool includeUncommitted) const
+    const LeafValueType& leaf,
+    index_t start_index,
+    const RequestContext& requestContext,
+    ReadTransaction& tx,
+    bool includeUncommitted) const
 {
     Indices committed;
     std::optional<index_t> result = std::nullopt;
@@ -345,6 +378,9 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
             for (size_t i = 0; i < committed.indices.size(); ++i) {
                 index_t ind = committed.indices[i];
                 if (ind < start_index) {
+                    continue;
+                }
+                if (!requestContext.latestBlock && ind >= requestContext.sizeAtBlock) {
                     continue;
                 }
                 if (!result.has_value()) {
@@ -577,7 +613,11 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
 template <typename LeafValueType>
 bool ContentAddressedCachedTreeStore<LeafValueType>::read_persisted_meta(TreeMeta& m, ReadTransaction& tx) const
 {
-    return dataStore.read_meta_data(m, tx);
+    if (!dataStore.read_meta_data(m, tx)) {
+        return false;
+    }
+    enrich_meta_from_block(m);
+    return true;
 }
 
 template <typename LeafValueType>
@@ -605,10 +645,12 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
     // No meta data available. Write the initial state down
     meta.name = name;
     meta.size = 0;
+    meta.root = fr::zero();
+    meta.initialRoot = fr::zero();
     meta.depth = depth;
     meta.initialSize = 0;
     meta.finalisedBlockHeight = 0;
-    meta.finalisedBlockHeight = 0;
+    meta.unfinalisedBlockHeight = 0;
     WriteTransactionPtr tx = create_write_transaction();
     try {
         persist_meta(meta, *tx);
@@ -616,6 +658,45 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
     } catch (std::exception& e) {
         tx->try_abort();
         throw e;
+    }
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const index_t& blockNumber)
+{
+    // Read the persisted meta data, if the name or depth of the tree is not consistent with what was provided during
+    // construction then we throw
+    std::vector<uint8_t> data;
+    {
+        ReadTransactionPtr tx = create_read_transaction();
+        bool success = read_persisted_meta(meta, *tx);
+        if (success) {
+            if (name == meta.name && depth == meta.depth) {
+                return;
+            }
+            throw std::runtime_error("Invalid tree meta data");
+        } else {
+            throw std::runtime_error("Tree must be initialised");
+        }
+
+        if (meta.unfinalisedBlockHeight < blockNumber) {
+            throw std::runtime_error("Unable to initialise from future block");
+        }
+        BlockPayload blockData;
+        if (get_block_data(blockNumber, blockData, tx) == false) {
+            throw std::runtime_error("Failed to retrieve block data");
+        }
+        initialised_from_block = blockData;
+        enrich_meta_from_block(meta, tx);
+    }
+}
+
+template <typename LeafValueType>
+void ContentAddressedCachedTreeStore<LeafValueType>::enrich_meta_from_block(TreeMeta& m) const
+{
+    if (initialised_from_block.has_value()) {
+        m.size = initialised_from_block->size;
+        m.root = initialised_from_block->root;
     }
 }
 
