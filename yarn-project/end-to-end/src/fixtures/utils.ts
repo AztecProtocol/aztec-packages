@@ -280,6 +280,7 @@ async function setupWithRemoteEnvironment(
     wallets,
     logger,
     cheatCodes,
+    watcher: undefined,
     teardown,
   };
 }
@@ -298,6 +299,8 @@ type SetupOptions = {
   initialValidators?: EthAddress[];
   /** Anvil block time (interval) */
   l1BlockTime?: number;
+  /** Anvil Start time */
+  l1StartTime?: number;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -320,6 +323,8 @@ export type EndToEndContext = {
   logger: DebugLogger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
+  /** The anvil test watcher (undefined if connected to remove environment) */
+  watcher: AnvilTestWatcher | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -364,9 +369,14 @@ export async function setup(
     setupMetricsLogger(filename);
   }
 
+  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
+
   if (opts.stateLoad) {
-    const ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
     await ethCheatCodes.loadChainState(opts.stateLoad);
+  }
+
+  if (opts.l1StartTime) {
+    await ethCheatCodes.warp(opts.l1StartTime);
   }
 
   let publisherPrivKey = undefined;
@@ -489,6 +499,7 @@ export async function setup(
     logger,
     cheatCodes,
     sequencer,
+    watcher,
     teardown,
   };
 }
