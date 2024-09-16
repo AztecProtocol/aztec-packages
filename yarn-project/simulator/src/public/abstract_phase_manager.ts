@@ -64,6 +64,7 @@ import {
 import {
   type PublicExecutionResult,
   type PublicExecutor,
+  type WorldStateDB,
   accumulateReturnValues,
   isPublicExecutionResult,
 } from '@aztec/simulator';
@@ -139,19 +140,39 @@ export type PhaseResult = {
   gasUsed?: Gas;
 };
 
+export interface PhaseConfig {
+  db: MerkleTreeOperations;
+  publicExecutor: PublicExecutor;
+  publicKernel: PublicKernelCircuitSimulator;
+  globalVariables: GlobalVariables;
+  historicalHeader: Header;
+  worldStateDB: WorldStateDB;
+  phase?: PublicKernelType;
+}
+
 export abstract class AbstractPhaseManager {
   protected hintsBuilder: HintsBuilder;
   protected log: DebugLogger;
-  constructor(
-    protected db: MerkleTreeOperations,
-    protected publicExecutor: PublicExecutor,
-    protected publicKernel: PublicKernelCircuitSimulator,
-    protected globalVariables: GlobalVariables,
-    protected historicalHeader: Header,
-    public phase: PublicKernelType,
-  ) {
-    this.hintsBuilder = new HintsBuilder(db);
-    this.log = createDebugLogger(`aztec:sequencer:${phase}`);
+
+  protected db: MerkleTreeOperations;
+  protected publicExecutor: PublicExecutor;
+  protected publicKernel: PublicKernelCircuitSimulator;
+  protected globalVariables: GlobalVariables;
+  protected historicalHeader: Header;
+  protected worldStateDB: WorldStateDB;
+  public phase: PublicKernelType;
+
+  constructor(config: PhaseConfig) {
+    this.db = config.db;
+    this.publicExecutor = config.publicExecutor;
+    this.publicKernel = config.publicKernel;
+    this.globalVariables = config.globalVariables;
+    this.historicalHeader = config.historicalHeader;
+    this.worldStateDB = config.worldStateDB;
+    this.phase = config.phase ?? PublicKernelType.SETUP;
+
+    this.hintsBuilder = new HintsBuilder(this.db);
+    this.log = createDebugLogger(`aztec:sequencer:${this.phase}`);
   }
 
   /**
