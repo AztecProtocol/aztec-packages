@@ -5,7 +5,7 @@ use crate::{
 
 use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER, traits::Eq};
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
-use crate::note::note_interface::{NullifiableNote, FinalizedNote};
+use crate::note::note_interface::NullifiableNote;
 
 global MOCK_NOTE_LENGTH = 1;
 
@@ -32,15 +32,6 @@ impl NullifiableNote for MockNote {
             [note_hash_for_nullify],
             GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
-    }
-}
-
-impl FinalizedNote for MockNote {
-    fn compute_note_hash(self: Self) -> Field {
-        assert(self.header.storage_slot != 0, "Storage slot must be set before computing note hash");
-        // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
-        let value_scalar = from_field_unsafe(self.value);
-        multi_scalar_mul([G_val], [value_scalar]).x
     }
 }
 
@@ -86,6 +77,13 @@ impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
             }
         }
         buffer
+    }
+
+    fn compute_note_hash(self: Self) -> Field {
+        assert(self.header.storage_slot != 0, "Storage slot must be set before computing note hash");
+        // We use the unsafe version because the multi_scalar_mul will constrain the scalars.
+        let value_scalar = from_field_unsafe(self.value);
+        multi_scalar_mul([G_val], [value_scalar]).x
     }
 }
 

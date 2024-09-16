@@ -4,9 +4,8 @@ use crate::note::{
     constants::MAX_NOTES_PER_PAGE,
     lifecycle::{create_note, create_note_hash_from_public, destroy_note_unsafe},
     note_getter::{get_notes, view_notes}, note_getter_options::NoteGetterOptions,
-    note_interface::{NoteInterface, NullifiableNote, FinalizedNote},
-    note_viewer_options::NoteViewerOptions, utils::compute_note_hash_for_read_request,
-    note_emission::NoteEmission
+    note_interface::{NoteInterface, NullifiableNote}, note_viewer_options::NoteViewerOptions,
+    utils::compute_note_hash_for_read_request, note_emission::NoteEmission
 };
 use crate::state_vars::storage::Storage;
 
@@ -28,7 +27,7 @@ impl<Note, Context> PrivateSet<Note, Context> {
     // docs:end:new
 }
 
-impl<Note, let N: u32> PrivateSet<Note, &mut PublicContext> where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
+impl<Note, let N: u32> PrivateSet<Note, &mut PublicContext> where Note: NoteInterface<N> + NullifiableNote {
     // docs:start:insert_from_public
     pub fn insert_from_public(self, note: &mut Note) {
         create_note_hash_from_public(self.context, self.storage_slot, note);
@@ -36,7 +35,7 @@ impl<Note, let N: u32> PrivateSet<Note, &mut PublicContext> where Note: NoteInte
     // docs:end:insert_from_public
 }
 
-impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext> where Note: NoteInterface<N> + NullifiableNote + FinalizedNote + Eq {
+impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext> where Note: NoteInterface<N> + NullifiableNote + Eq {
     // docs:start:insert
     pub fn insert(self, note: &mut Note) -> NoteEmission<Note> {
         create_note(self.context, self.storage_slot, note)
@@ -84,7 +83,7 @@ impl<Note, let N: u32> PrivateSet<Note, &mut PrivateContext> where Note: NoteInt
     }
 }
 
-impl<Note, let N: u32> PrivateSet<Note, UnconstrainedContext> where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
+impl<Note, let N: u32> PrivateSet<Note, UnconstrainedContext> where Note: NoteInterface<N> + NullifiableNote {
     // docs:start:view_notes
     unconstrained pub fn view_notes(
         self,

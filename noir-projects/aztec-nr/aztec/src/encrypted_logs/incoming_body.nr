@@ -72,12 +72,6 @@ mod test {
         inner: Point
     }
 
-    impl PartialNote for AddressNote {
-        fn compute_note_hiding_point(_self: Self) -> Point {
-            crate::generators::Ga1
-        }
-    }
-
     impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
         fn get_note_type_id() -> Field {
@@ -125,6 +119,10 @@ mod test {
                 }
             }
             buffer
+        }
+
+        fn compute_note_hash(self) -> Field {
+            crate::generators::Ga1.x
         }
     }
 

@@ -11,7 +11,7 @@ use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deplo
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
 use crate::hash::hash_args;
 
-use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote, FinalizedNote}};
+use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};
 use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_created_note};
 
 struct TestEnvironment {}
@@ -212,7 +212,7 @@ impl TestEnvironment {
         note: &mut Note,
         storage_slot: Field,
         contract_address: AztecAddress
-    ) where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
+    ) where Note: NoteInterface<N> + NullifiableNote {
         let original_contract_address = get_contract_address();
         cheatcodes::set_contract_address(contract_address);
         let note_hash_counter = cheatcodes::get_side_effects_counter();

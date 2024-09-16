@@ -3,7 +3,7 @@ use crate::context::PrivateContext;
 use crate::note::{
     constants::{GET_NOTE_ORACLE_RETURN_LENGTH, VIEW_NOTE_ORACLE_RETURN_LENGTH},
     note_getter_options::{NoteGetterOptions, Select, Sort, SortOrder, NoteStatus, PropertySelector},
-    note_interface::{NoteInterface, NullifiableNote, FinalizedNote},
+    note_interface::{NoteInterface, NullifiableNote},
     note_viewer_options::NoteViewerOptions, utils::compute_note_hash_for_read_request
 };
 use crate::oracle;
@@ -81,7 +81,7 @@ fn check_notes_order<let N: u32>(
 pub fn get_note<Note, let N: u32>(
     context: &mut PrivateContext,
     storage_slot: Field
-) -> (Note, Field) where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
+) -> (Note, Field) where Note: NoteInterface<N> + NullifiableNote {
     let note = unsafe {
         get_note_internal(storage_slot)
     };
@@ -100,7 +100,7 @@ pub fn get_notes<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>
-) -> (BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) where Note: NoteInterface<N> + NullifiableNote + FinalizedNote + Eq {
+) -> (BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) where Note: NoteInterface<N> + NullifiableNote + Eq {
     let opt_notes = unsafe {
         get_notes_internal(storage_slot, options)
     };
@@ -123,7 +123,7 @@ fn constrain_get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS
     storage_slot: Field,
     opt_notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>
-) -> (BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) where Note: NoteInterface<N> + NullifiableNote + FinalizedNote + Eq {
+) -> (BoundedVec<Note, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) where Note: NoteInterface<N> + NullifiableNote + Eq {
     // The filter is applied first to avoid pushing note read requests for notes we're not interested in. Note that
     // while the filter function can technically mutate the contents of the notes (as opposed to simply removing some),
     // the private kernel will later validate that these note actually exist, so transformations would cause for that
