@@ -75,7 +75,7 @@ pub fn setup_mint_and_transfer_to_private(with_account_contracts: bool) -> (&mut
     let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
     let private_nfts_owner_slot = derive_storage_slot_in_map(NFT::storage().private_nfts.slot, owner);
 
-    env.store_note_in_cache(
+    env.add_note(
         &mut NFTNote {
         token_id: minted_token_id,
         npk_m_hash: owner_npk_m_hash,
