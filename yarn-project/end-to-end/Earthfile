@@ -116,6 +116,9 @@ e2e-l1-with-wall-time:
 e2e-2-pxes:
   DO +E2E_TEST --test=./src/e2e_2_pxes.test.ts
 
+e2e-nft:
+  DO +E2E_TEST --test=./src/e2e_nft.test.ts
+
 e2e-prover-full:
   DO +E2E_TEST --test=./src/e2e_prover/full --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
 
