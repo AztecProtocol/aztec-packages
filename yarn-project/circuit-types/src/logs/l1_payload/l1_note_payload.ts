@@ -67,7 +67,7 @@ export class L1NotePayload extends L1Payload {
   }
 
   public encrypt(ephSk: GrumpkinScalar, recipient: AztecAddress, ivpk: PublicKey, ovKeys: KeyValidationRequest) {
-    // TODO(benesjan): numPubliclyDeliveredValues could occupy just a single bit if we store info about partial fields
+    // TODO(#8558): numPubliclyDeliveredValues could occupy just a single bit if we store info about partial fields
     // in the ABI
     // We always set the value to 0 here as we don't need partial notes encryption support in TS
     const numPubliclyDeliveredValues = 0;
