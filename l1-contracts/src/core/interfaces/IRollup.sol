@@ -66,5 +66,5 @@ interface IRollup {
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
-  function computeTxsEffectsHash(bytes calldata _body) external view returns (bytes32);
+  function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }
