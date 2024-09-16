@@ -34,7 +34,7 @@ fn extract_property_value_from_selector<let N: u32>(
     value_field
 }
 
-fn check_note_header<Note, let N: u32, let M: u32>(
+fn check_note_header<Note, let N: u32>(
     context: PrivateContext,
     storage_slot: Field,
     note: Note
@@ -78,7 +78,7 @@ fn check_notes_order<let N: u32>(
     }
 }
 
-pub fn get_note<Note, let N: u32, let M: u32>(
+pub fn get_note<Note, let N: u32>(
     context: &mut PrivateContext,
     storage_slot: Field
 ) -> (Note, Field) where Note: NoteInterface<N> + NullifiableNote + FinalizedNote {
@@ -96,7 +96,7 @@ pub fn get_note<Note, let N: u32, let M: u32>(
     (note, note_hash_for_read_request)
 }
 
-pub fn get_notes<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
+pub fn get_notes<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>
@@ -118,7 +118,7 @@ unconstrained fn apply_preprocessor<Note, PREPROCESSOR_ARGS>(
     preprocessor(notes, preprocessor_args)
 }
 
-fn constrain_get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
+fn constrain_get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
     opt_notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
@@ -163,7 +163,7 @@ fn constrain_get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS,
     (notes, note_hashes)
 }
 
-unconstrained fn get_note_internal<Note, let N: u32, let M: u32>(storage_slot: Field) -> Note where Note: NoteInterface<N> {
+unconstrained fn get_note_internal<Note, let N: u32>(storage_slot: Field) -> Note where Note: NoteInterface<N> {
     let placeholder_note = [Option::none()];
     let placeholder_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
     let placeholder_note_length = [0; N];
@@ -188,7 +188,7 @@ unconstrained fn get_note_internal<Note, let N: u32, let M: u32>(storage_slot: F
     )[0].unwrap() // Notice: we don't allow dummies to be returned from get_note (singular).
 }
 
-unconstrained fn get_notes_internal<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
+unconstrained fn get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(
     storage_slot: Field,
     options: NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS>
 ) -> [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where Note: NoteInterface<N> {

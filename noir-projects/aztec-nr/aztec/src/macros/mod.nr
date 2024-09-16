@@ -2,6 +2,7 @@ mod functions;
 mod utils;
 mod notes;
 mod storage;
+mod events;
 
 use functions::STUBS;
 use storage::STORAGE_LAYOUT_NAME;

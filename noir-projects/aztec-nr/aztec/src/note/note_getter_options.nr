@@ -129,7 +129,7 @@ impl<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOptions<Note, N
     }
 }
 
-impl<Note, let N: u32, let M: u32> NoteGetterOptions<Note, N, Field, Field> where Note: NoteInterface<N> {
+impl<Note, let N: u32> NoteGetterOptions<Note, N, Field, Field> where Note: NoteInterface<N> {
     // This function initializes a NoteGetterOptions that simply returns the maximum number of notes allowed in a call.
     pub fn new() -> Self {
         Self {

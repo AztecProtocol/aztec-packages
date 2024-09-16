@@ -32,18 +32,61 @@ pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
     f.has_named_attribute("noinitcheck")
 }
 
-pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quoted) -> Expr {
-    let mut body_quote = body.fold(
-        quote {},
-        |body_quote: Quoted, expr: Expr| {
-        let expr_quote = expr.quoted();
-        let semicolon = if expr_quote.as_expr().is_some() { quote {} } else { quote {;} };
-        quote {
-            $body_quote
-            $expr_quote$semicolon
+// This is probably a terrible hack
+pub(crate) comptime fn expr_as_quoted_fixed(expr: Expr) -> Quoted {
+    if expr.as_let().is_some() {
+        let quoted = expr.quoted();
+        // Let statements lose semicolons
+        quote { $quoted; }
+    } else if expr.as_assert().is_some() {
+        let (assertion, _message) = expr.as_assert().unwrap();
+        // Assertions with messages bork the compiler at compiler/noirc_frontend/src/node_interner.rs:1145
+        quote { assert($assertion); }
+    } else if expr.as_unsafe().is_some() {
+        // Unsafe blocks require semicolons for some reason? Not if I write them manually
+        let unsafe_expr = expr.as_unsafe().unwrap();
+        let unsafe_quote = expr_slice_as_quoted_fixed(unsafe_expr);
+        quote { unsafe { $unsafe_quote }; }
+    } else if expr.as_if().is_some() {
+        let (condition, if_branch, else_branch) = expr.as_if().unwrap();
+        let fixed_if = expr_as_quoted_fixed(if_branch);
+        // Fix the branches
+        if else_branch.is_some() {
+            let fixed_else = expr_as_quoted_fixed(else_branch.unwrap());
+            quote { if $condition { $fixed_if } else { $fixed_else } }
+        } else {
+            quote { if $condition { $fixed_if } }
         }
-     }
-    );
+    } else if expr.as_for().is_some() {
+        // Fix the for body
+        let (variable, iterable, body) = expr.as_for().unwrap();
+        let fixed_body = expr_as_quoted_fixed(body);
+        quote { for $variable in $iterable $fixed_body }
+    } else if expr.as_block().is_some() {
+        let fixed = expr_slice_as_quoted_fixed(expr.as_block().unwrap());
+        quote {
+            { $fixed }
+        }
+    } else {
+        quote { $expr }
+    }
+}
+
+pub(crate) comptime fn expr_slice_as_quoted_fixed(exprs: [Expr]) -> Quoted {
+    exprs.fold(
+        quote {},
+        |full_quote: Quoted, expr: Expr| {
+            let expr_quote = expr_as_quoted_fixed(expr);
+            quote {
+                $full_quote
+                $expr_quote
+            }
+        }
+    )
+}
+
+pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quoted) -> Expr {
+    let mut body_quote = expr_slice_as_quoted_fixed(body);
     body_quote = quote {
         {
             $prepend
@@ -195,6 +238,22 @@ pub(crate) comptime fn compute_fn_selector(f: FunctionDefinition) -> Field {
 
     let computation_quote = quote {
         protocol_types::abis::function_selector::FunctionSelector::from_signature($signature_str_quote).to_field()
+    };
+    unquote!(computation_quote)
+}
+
+pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
+    let event_name = s.name();
+    let args_signatures = s.fields().map(
+        | (_, typ): (Quoted, Type) | {
+        signature_of_type(typ)
+    }
+    ).join(quote {,});
+    let signature_quote = quote { $event_name($args_signatures) };
+    let signature_str_quote = signature_quote.as_str_quote();
+
+    let computation_quote = quote {
+        protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote)
     };
     unquote!(computation_quote)
 }
