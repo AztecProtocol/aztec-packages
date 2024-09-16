@@ -8,18 +8,16 @@ on:
         required: true
         type: string
 
-  pull_request:
+  pull_request_target:
     types: [labeled]
     branches:
       - master
     paths-ignore:
       - '**/README.md'
-    filters:
-      labels:
-        - 'redo-typo-pr'
 
 jobs:
   redo-typo-pr:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'redo-typo-pr')
     runs-on: ubuntu-latest
 
     steps:
