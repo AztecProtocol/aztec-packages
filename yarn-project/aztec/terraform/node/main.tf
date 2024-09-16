@@ -58,6 +58,7 @@ locals {
   node_p2p_private_keys  = var.NODE_P2P_PRIVATE_KEYS
   node_count             = length(local.sequencer_private_keys)
   data_dir               = "/usr/src/yarn-project/aztec"
+  eth_host               = var.ETHEREUM_HOST != "" ? var.ETHEREUM_HOST : "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/admin-${var.FORK_ADMIN_API_KEY}"
 }
 
 output "node_count" {
@@ -257,7 +258,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "ETHEREUM_HOST"
-          value = "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/admin-${var.FORK_ADMIN_API_KEY}"
+          value = "${local.eth_host}"
         },
         {
           name  = "DATA_DIRECTORY"
@@ -373,7 +374,7 @@ resource "aws_ecs_task_definition" "aztec-node" {
         },
         {
           name  = "P2P_BLOCK_CHECK_INTERVAL_MS"
-          value = "1000"
+          value = "10000"
         },
         {
           name  = "P2P_PEER_CHECK_INTERVAL_MS"

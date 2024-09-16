@@ -12,7 +12,13 @@ variable "API_KEY" {
 }
 
 variable "FORK_ADMIN_API_KEY" {
-  type = string
+  type    = string
+  default = ""
+}
+
+variable "ETHEREUM_HOST" {
+  type    = string
+  default = ""
 }
 
 variable "SEQUENCER_PRIVATE_KEYS" {

@@ -384,6 +384,6 @@ It builds on the Token contract described here and goes into more detail about A
 - Review [the end to end tests (Github link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/end-to-end/src/e2e_token_contract/) for reference.
 -  [Commitments (Wikipedia link)](https://en.wikipedia.org/wiki/Commitment_scheme)
 -  [Nullifiers](../../../aztec/concepts/storage/trees/index.md#nullifier-tree)
--  [Contract Communication](../../../aztec/smart_contracts/communication/index.md).
+-  [Contract Communication](../../../aztec/smart_contracts/communication/index.md)
 -  [Contract Storage](../../../aztec/concepts/storage/index.md)
 -  [Authwit](../../../aztec/concepts/accounts/authwit.md)
