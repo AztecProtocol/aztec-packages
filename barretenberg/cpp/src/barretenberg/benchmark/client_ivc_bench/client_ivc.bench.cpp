@@ -18,7 +18,7 @@ namespace {
  * @brief Benchmark suite for the aztec client PG-Goblin IVC scheme
  *
  */
-class AztecIVCBench : public benchmark::Fixture {
+class ClientIVCBench : public benchmark::Fixture {
   public:
     using Builder = MegaCircuitBuilder;
     using DeciderVerificationKey = DeciderVerificationKey_<MegaFlavor>;
@@ -79,7 +79,7 @@ class AztecIVCBench : public benchmark::Fixture {
  * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
  *
  */
-BENCHMARK_DEFINE_F(AztecIVCBench, FullStructured)(benchmark::State& state)
+BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {
     AztecIVC ivc;
     ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
@@ -101,9 +101,9 @@ BENCHMARK_DEFINE_F(AztecIVCBench, FullStructured)(benchmark::State& state)
     verify_ivc(proof, ivc);
 }
 
-#define ARGS Arg(AztecIVCBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)
+#define ARGS Arg(ClientIVCBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)
 
-BENCHMARK_REGISTER_F(AztecIVCBench, FullStructured)->Unit(benchmark::kMillisecond)->ARGS;
+BENCHMARK_REGISTER_F(ClientIVCBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
 
 } // namespace
 

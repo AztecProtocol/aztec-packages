@@ -109,6 +109,7 @@ class AztecIVC {
     // A flag indicating whether or not to construct a structured trace in the DeciderProvingKey
     TraceStructure trace_structure = TraceStructure::NONE;
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): eventually do away with this.
     // Setting auto_verify_mode = true will cause kernel completion logic to be added to kernels automatically
     bool auto_verify_mode = false;
     bool is_kernel = true;
