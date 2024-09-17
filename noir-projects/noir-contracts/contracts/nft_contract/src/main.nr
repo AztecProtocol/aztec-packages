@@ -233,7 +233,7 @@ contract NFT {
         let from_ovpk_m = get_current_public_keys(&mut context, from).ovpk_m;
         let to_keys = get_current_public_keys(&mut context, to);
 
-        let new_note = NFTNote::new(token_id, to_keys.npk_m.hash());
+        let mut new_note = NFTNote::new(token_id, to_keys.npk_m.hash());
         nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk_m, to_keys.ivpk_m, to));
     }
 

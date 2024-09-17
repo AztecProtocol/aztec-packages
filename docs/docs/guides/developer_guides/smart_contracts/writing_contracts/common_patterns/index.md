@@ -16,7 +16,7 @@ Similarly we have discovered some anti-patterns too (like privacy leakage) that 
 We call this the "authentication witness" pattern or authwit for short.
 
 - Approve someone in private domain:
-  #include_code authwit_to_another_sc /yarn-project/end-to-end/src/e2e_cross_chain_messaging.test.ts typescript
+  #include_code authwit_to_another_sc /yarn-project/end-to-end/src/e2e_cross_chain_messaging/token_bridge_private.test.ts typescript
 
 Here you approve a contract to burn funds on your behalf.
 
