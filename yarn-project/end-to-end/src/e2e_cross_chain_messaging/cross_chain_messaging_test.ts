@@ -28,7 +28,7 @@ import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
-export class PublicCrossChainMessagingContractTest {
+export class CrossChainMessagingTest {
   private snapshotManager: ISnapshotManager;
   logger: DebugLogger;
   wallets: AccountWallet[] = [];
@@ -52,8 +52,8 @@ export class PublicCrossChainMessagingContractTest {
   outbox!: any; // GetContractReturnType<typeof OutboxAbi> | undefined;
 
   constructor(testName: string) {
-    this.logger = createDebugLogger(`aztec:e2e_public_cross_chain_messaging:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_public_cross_chain_messaging/${testName}`, dataPath);
+    this.logger = createDebugLogger(`aztec:e2e_cross_chain_messaging:${testName}`);
+    this.snapshotManager = createSnapshotManager(`e2e_cross_chain_messaging/${testName}`, dataPath);
   }
 
   async assumeProven() {
@@ -106,7 +106,7 @@ export class PublicCrossChainMessagingContractTest {
     );
 
     await this.snapshotManager.snapshot(
-      'e2e_public_cross_chain_messaging',
+      'e2e_cross_chain_messaging',
       async () => {
         // Create the token contract state.
         // Move this account thing to addAccounts above?

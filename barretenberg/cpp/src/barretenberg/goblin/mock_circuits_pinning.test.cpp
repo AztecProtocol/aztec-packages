@@ -50,3 +50,38 @@ TEST_F(MegaMockCircuitsPinning, AppCircuitSizes)
     run_test(true);
     run_test(false);
 }
+
+/**
+ * @brief Regression test that the structured circuit size has not increased over a power of 2.
+ */
+TEST_F(MegaMockCircuitsPinning, SmallTestStructuredCircuitSize)
+{
+    GoblinProver goblin;
+    MegaCircuitBuilder app_circuit{ goblin.op_queue };
+    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, TraceStructure::SMALL_TEST);
+    EXPECT_EQ(proving_key->proving_key.log_circuit_size, 18);
+}
+
+TEST_F(MegaMockCircuitsPinning, ClientIVCBenchStructuredCircuitSize)
+{
+    GoblinProver goblin;
+    MegaCircuitBuilder app_circuit{ goblin.op_queue };
+    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, TraceStructure::CLIENT_IVC_BENCH);
+    EXPECT_EQ(proving_key->proving_key.log_circuit_size, 18);
+}
+
+TEST_F(MegaMockCircuitsPinning, AztecIVCBenchStructuredCircuitSize)
+{
+    GoblinProver goblin;
+    MegaCircuitBuilder app_circuit{ goblin.op_queue };
+    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, TraceStructure::AZTEC_IVC_BENCH);
+    EXPECT_EQ(proving_key->proving_key.log_circuit_size, 19);
+}
+
+TEST_F(MegaMockCircuitsPinning, E2EStructuredCircuitSize)
+{
+    GoblinProver goblin;
+    MegaCircuitBuilder app_circuit{ goblin.op_queue };
+    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, TraceStructure::E2E_FULL_TEST);
+    EXPECT_EQ(proving_key->proving_key.log_circuit_size, 20);
+}

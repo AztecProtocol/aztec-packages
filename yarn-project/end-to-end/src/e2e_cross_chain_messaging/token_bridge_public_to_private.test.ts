@@ -1,50 +1,28 @@
-import { type AztecAddress, type AztecNode, type DebugLogger, type EthAddress } from '@aztec/aztec.js';
+import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
-import { setup } from './fixtures/utils.js';
-import { CrossChainTestHarness } from './shared/cross_chain_test_harness.js';
+describe('e2e_cross_chain_messaging token_bridge_public_to_private', () => {
+  const t = new CrossChainMessagingTest('token_bridge_public_to_private');
 
-describe('e2e_public_to_private_messaging', () => {
-  let logger: DebugLogger;
-  let teardown: () => Promise<void>;
-
-  let aztecNode: AztecNode;
-  let ethAccount: EthAddress;
+  let { crossChainTestHarness, ethAccount, aztecNode, ownerAddress } = t;
   let underlyingERC20: any;
-  let ownerAddress: AztecAddress;
-  let crossChainTestHarness: CrossChainTestHarness;
 
   beforeEach(async () => {
-    const {
-      aztecNode: aztecNode_,
-      pxe,
-      deployL1ContractsValues,
-      wallet,
-      logger: logger_,
-      teardown: teardown_,
-    } = await setup(2);
-    crossChainTestHarness = await CrossChainTestHarness.new(
-      aztecNode_,
-      pxe,
-      deployL1ContractsValues.publicClient,
-      deployL1ContractsValues.walletClient,
-      wallet,
-      logger_,
-    );
+    await t.applyBaseSnapshots();
+    await t.setup();
+    // Have to destructure again to ensure we have latest refs.
+    ({ crossChainTestHarness } = t);
 
-    aztecNode = crossChainTestHarness.aztecNode;
     ethAccount = crossChainTestHarness.ethAccount;
+    aztecNode = crossChainTestHarness.aztecNode;
     ownerAddress = crossChainTestHarness.ownerAddress;
     underlyingERC20 = crossChainTestHarness.underlyingERC20;
-
-    teardown = teardown_;
-    logger = logger_;
-    logger.info('Successfully deployed contracts and initialized portal');
-  });
+  }, 300_000);
 
   afterEach(async () => {
-    await teardown();
+    await t.teardown();
   });
 
+  // Moved from e2e_public_to_private_messaging.test.ts
   it('Milestone 5.4: Should be able to create a commitment in a public function and spend in a private function', async () => {
     // Generate a claim secret using pedersen
     const l1TokenBalance = 1000000n;
