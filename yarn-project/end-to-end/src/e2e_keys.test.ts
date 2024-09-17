@@ -63,9 +63,8 @@ describe('Keys', () => {
     //    There are some examples where the action is fully hidden though. One of those examples is shielding where you
     // instantly consume the note after creating it. In this case, the nullifier is never emitted and hence the action
     // is impossible to detect with this scheme.
-    //    Another example is a withdraw is withdrawing from DeFi and then immediately spending the funds. In this case,
-    // we would need nsk_app and the contract address of the DeFi contract to detect the nullification of the initial
-    // note.
+    //    Another example is withdrawing from DeFi and then immediately spending the funds. In this case, we would
+    // need nsk_app and the contract address of the DeFi contract to detect the nullification of the initial note.
     it('nsk_app and contract address are enough to detect note nullification', async () => {
       const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
       const nskApp = computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);

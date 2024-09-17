@@ -27,6 +27,7 @@ import {
   TxReceipt,
   TxStatus,
   type TxValidator,
+  type WorldStateSynchronizer,
   partitionReverts,
 } from '@aztec/circuit-types';
 import {
@@ -52,19 +53,21 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
-import { InMemoryAttestationPool, type P2P, createP2PClient } from '@aztec/p2p';
-import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
-import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
-import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
-import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import {
   AggregateTxValidator,
   DataTxValidator,
   DoubleSpendTxValidator,
-  GlobalVariableBuilder,
+  InMemoryAttestationPool,
   MetadataTxValidator,
-  SequencerClient,
-} from '@aztec/sequencer-client';
+  type P2P,
+  TxProofValidator,
+  createP2PClient,
+} from '@aztec/p2p';
+import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
+import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
+import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
+import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
+import { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import { PublicProcessorFactory, WASMSimulator, WorldStateDB, createSimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -75,11 +78,10 @@ import {
   type ProtocolContractAddresses,
 } from '@aztec/types/contracts';
 import { createValidatorClient } from '@aztec/validator-client';
-import { type WorldStateSynchronizer, createWorldStateSynchronizer } from '@aztec/world-state';
+import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { type AztecNodeConfig, getPackageInfo } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
-import { TxProofValidator } from './tx_validator/tx_proof_validator.js';
 
 /**
  * The aztec node.
@@ -143,16 +145,22 @@ export class AztecNodeService implements AztecNode {
     // this may well change in future
     config.transactionProtocol = `/aztec/tx/${config.l1Contracts.rollupAddress.toString()}`;
 
-    // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(config, new InMemoryAttestationPool(), archiver, telemetry);
-
     // now create the merkle trees and the world state synchronizer
     const worldStateSynchronizer = await createWorldStateSynchronizer(config, archiver, telemetry);
+    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
+
+    // create the tx pool and the p2p client, which will need the l2 block source
+    const p2pClient = await createP2PClient(
+      config,
+      new InMemoryAttestationPool(),
+      archiver,
+      proofVerifier,
+      worldStateSynchronizer,
+      telemetry,
+    );
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);
-
-    const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
 
     const simulationProvider = await createSimulationProvider(config, log);
 
@@ -747,20 +755,12 @@ export class AztecNodeService implements AztecNode {
 
   public async isValidTx(tx: Tx, isSimulation: boolean = false): Promise<boolean> {
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
-
-    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
-      new Fr(blockNumber),
-      // We only need chainId and block number, thus coinbase and fee recipient can be set to 0.
-      EthAddress.ZERO,
-      AztecAddress.ZERO,
-    );
-
     // These validators are taken from the sequencer, and should match.
     // The reason why `phases` and `gas` tx validator is in the sequencer and not here is because
     // those tx validators are customizable by the sequencer.
     const txValidators: TxValidator<Tx | ProcessedTx>[] = [
       new DataTxValidator(),
-      new MetadataTxValidator(newGlobalVariables),
+      new MetadataTxValidator(new Fr(this.l1ChainId), new Fr(blockNumber)),
       new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest())),
     ];
 

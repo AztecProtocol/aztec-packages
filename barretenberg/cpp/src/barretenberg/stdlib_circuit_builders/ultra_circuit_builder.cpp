@@ -180,52 +180,52 @@ void UltraCircuitBuilder_<Arithmetization>::add_gates_to_ensure_all_polys_are_no
         plookup::MultiTableId::HONK_DUMMY_MULTI, dummy_accumulators, left_witness_index, right_witness_index);
 
     // mock a poseidon external gate, with all zeros as input
-    blocks.poseidon_external.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
-    blocks.poseidon_external.q_m().emplace_back(0);
-    blocks.poseidon_external.q_1().emplace_back(0);
-    blocks.poseidon_external.q_2().emplace_back(0);
-    blocks.poseidon_external.q_3().emplace_back(0);
-    blocks.poseidon_external.q_c().emplace_back(0);
-    blocks.poseidon_external.q_arith().emplace_back(0);
-    blocks.poseidon_external.q_4().emplace_back(0);
-    blocks.poseidon_external.q_delta_range().emplace_back(0);
-    blocks.poseidon_external.q_lookup_type().emplace_back(0);
-    blocks.poseidon_external.q_elliptic().emplace_back(0);
-    blocks.poseidon_external.q_aux().emplace_back(0);
-    blocks.poseidon_external.q_poseidon2_external().emplace_back(1);
-    blocks.poseidon_external.q_poseidon2_internal().emplace_back(0);
+    blocks.poseidon2_external.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.poseidon2_external.q_m().emplace_back(0);
+    blocks.poseidon2_external.q_1().emplace_back(0);
+    blocks.poseidon2_external.q_2().emplace_back(0);
+    blocks.poseidon2_external.q_3().emplace_back(0);
+    blocks.poseidon2_external.q_c().emplace_back(0);
+    blocks.poseidon2_external.q_arith().emplace_back(0);
+    blocks.poseidon2_external.q_4().emplace_back(0);
+    blocks.poseidon2_external.q_delta_range().emplace_back(0);
+    blocks.poseidon2_external.q_lookup_type().emplace_back(0);
+    blocks.poseidon2_external.q_elliptic().emplace_back(0);
+    blocks.poseidon2_external.q_aux().emplace_back(0);
+    blocks.poseidon2_external.q_poseidon2_external().emplace_back(1);
+    blocks.poseidon2_external.q_poseidon2_internal().emplace_back(0);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.poseidon_external.pad_additional();
+        blocks.poseidon2_external.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
 
     // dummy gate to be read into by previous poseidon external gate via shifts
-    this->create_dummy_gate(blocks.poseidon_external, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    this->create_dummy_gate(blocks.poseidon2_external, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 
     // mock a poseidon internal gate, with all zeros as input
-    blocks.poseidon_internal.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
-    blocks.poseidon_internal.q_m().emplace_back(0);
-    blocks.poseidon_internal.q_1().emplace_back(0);
-    blocks.poseidon_internal.q_2().emplace_back(0);
-    blocks.poseidon_internal.q_3().emplace_back(0);
-    blocks.poseidon_internal.q_c().emplace_back(0);
-    blocks.poseidon_internal.q_arith().emplace_back(0);
-    blocks.poseidon_internal.q_4().emplace_back(0);
-    blocks.poseidon_internal.q_delta_range().emplace_back(0);
-    blocks.poseidon_internal.q_lookup_type().emplace_back(0);
-    blocks.poseidon_internal.q_elliptic().emplace_back(0);
-    blocks.poseidon_internal.q_aux().emplace_back(0);
-    blocks.poseidon_internal.q_poseidon2_external().emplace_back(0);
-    blocks.poseidon_internal.q_poseidon2_internal().emplace_back(1);
+    blocks.poseidon2_internal.populate_wires(this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    blocks.poseidon2_internal.q_m().emplace_back(0);
+    blocks.poseidon2_internal.q_1().emplace_back(0);
+    blocks.poseidon2_internal.q_2().emplace_back(0);
+    blocks.poseidon2_internal.q_3().emplace_back(0);
+    blocks.poseidon2_internal.q_c().emplace_back(0);
+    blocks.poseidon2_internal.q_arith().emplace_back(0);
+    blocks.poseidon2_internal.q_4().emplace_back(0);
+    blocks.poseidon2_internal.q_delta_range().emplace_back(0);
+    blocks.poseidon2_internal.q_lookup_type().emplace_back(0);
+    blocks.poseidon2_internal.q_elliptic().emplace_back(0);
+    blocks.poseidon2_internal.q_aux().emplace_back(0);
+    blocks.poseidon2_internal.q_poseidon2_external().emplace_back(0);
+    blocks.poseidon2_internal.q_poseidon2_internal().emplace_back(1);
     if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.poseidon_internal.pad_additional();
+        blocks.poseidon2_internal.pad_additional();
     }
     check_selector_length_consistency();
     ++this->num_gates;
 
     // dummy gate to be read into by previous poseidon internal gate via shifts
-    create_dummy_gate(blocks.poseidon_internal, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
+    create_dummy_gate(blocks.poseidon2_internal, this->zero_idx, this->zero_idx, this->zero_idx, this->zero_idx);
 }
 
 /**
@@ -1717,45 +1717,22 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<Arithmetization>::evaluate_non_nati
         range_constrain_two_limbs(input.q[2], input.q[3]);
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/913): Remove this arithmetic gate from the aux block
-    // and replace with the big_add + dummy below.
-    this->assert_valid_variables({ input.q[0], input.q[1], input.r[1], lo_1_idx });
-    blocks.aux.populate_wires(input.q[0], input.q[1], input.r[1], lo_1_idx);
-    blocks.aux.q_m().emplace_back(0);
-    blocks.aux.q_1().emplace_back(input.neg_modulus[0] + input.neg_modulus[1] * LIMB_SHIFT);
-    blocks.aux.q_2().emplace_back(input.neg_modulus[0] * LIMB_SHIFT);
-    blocks.aux.q_3().emplace_back(-LIMB_SHIFT);
-    blocks.aux.q_c().emplace_back(0);
-    blocks.aux.q_arith().emplace_back(2);
-    blocks.aux.q_4().emplace_back(-LIMB_SHIFT.sqr());
-    blocks.aux.q_delta_range().emplace_back(0);
-    blocks.aux.q_lookup_type().emplace_back(0);
-    blocks.aux.q_elliptic().emplace_back(0);
-    blocks.aux.q_aux().emplace_back(0);
-    blocks.aux.q_poseidon2_external().emplace_back(0);
-    blocks.aux.q_poseidon2_internal().emplace_back(0);
-    if constexpr (HasAdditionalSelectors<Arithmetization>) {
-        blocks.aux.pad_additional();
-    }
-    check_selector_length_consistency();
-    ++this->num_gates;
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): Originally this was a single arithmetic gate.
     // With trace sorting, we must add a dummy gate since the add gate would otherwise try to read into an aux gate that
-    // has been sorted out of sequence. (Note: temporarily disabled in favor of manual arith gate in aux block above).
+    // has been sorted out of sequence.
     // product gate 1
     // (lo_0 + q_0(p_0 + p_1*2^b) + q_1(p_0*2^b) - (r_1)2^b)2^-2b - lo_1 = 0
-    // create_big_add_gate({ input.q[0],
-    //                       input.q[1],
-    //                       input.r[1],
-    //                       lo_1_idx,
-    //                       input.neg_modulus[0] + input.neg_modulus[1] * LIMB_SHIFT,
-    //                       input.neg_modulus[0] * LIMB_SHIFT,
-    //                       -LIMB_SHIFT,
-    //                       -LIMB_SHIFT.sqr(),
-    //                       0 },
-    //                     true);
-    // create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, lo_0_idx);
+    create_big_add_gate({ input.q[0],
+                          input.q[1],
+                          input.r[1],
+                          lo_1_idx,
+                          input.neg_modulus[0] + input.neg_modulus[1] * LIMB_SHIFT,
+                          input.neg_modulus[0] * LIMB_SHIFT,
+                          -LIMB_SHIFT,
+                          -LIMB_SHIFT.sqr(),
+                          0 },
+                        true);
+    create_dummy_gate(blocks.arithmetic, this->zero_idx, this->zero_idx, this->zero_idx, lo_0_idx);
 
     blocks.aux.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
     apply_aux_selectors(AUX_SELECTORS::NON_NATIVE_FIELD_1);
@@ -2803,7 +2780,7 @@ template <typename Arithmetization> void UltraCircuitBuilder_<Arithmetization>::
 template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon_external;
+    auto& block = this->blocks.poseidon2_external;
     block.populate_wires(in.a, in.b, in.c, in.d);
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
@@ -2831,7 +2808,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
 template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon_internal;
+    auto& block = this->blocks.poseidon2_internal;
     block.populate_wires(in.a, in.b, in.c, in.d);
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);

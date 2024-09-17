@@ -128,9 +128,6 @@ e2e-prover-with-padding:
 e2e-account-contracts:
   DO +E2E_TEST --test=./src/e2e_account_contracts.test.ts
 
-e2e-auth-contract:
-  DO +E2E_TEST --test=./src/e2e_auth_contract.test.ts
-
 e2e-authwit:
   DO +E2E_TEST --test=./src/e2e_authwit.test.ts
 
@@ -151,12 +148,6 @@ e2e-card-game:
 
 e2e-cheat-codes:
   DO +E2E_TEST --test=./src/e2e_cheat_codes.test.ts
-
-e2e-counter-contract:
-  DO +E2E_TEST --test=./src/e2e_counter_contract.test.ts
-
-e2e-cross-chain-messaging:
-  DO +E2E_TEST --test=./src/e2e_cross_chain_messaging.test.ts
 
 e2e-crowdfunding-and-claim:
   DO +E2E_TEST --test=./src/e2e_crowdfunding_and_claim.test.ts
@@ -230,11 +221,8 @@ e2e-fees-fee-juice-payments:
 e2e-fees-account-init:
   DO +E2E_TEST --test=./src/e2e_fees/account_init.test.ts
 
-e2e-public-cross-chain-messaging:
-  DO +E2E_TEST --test=./src/e2e_public_cross_chain_messaging
-
-e2e-public-to-private-messaging:
-  DO +E2E_TEST --test=./src/e2e_public_to_private_messaging.test.ts
+e2e-cross-chain-messaging:
+  DO +E2E_TEST --test=./src/e2e_cross_chain_messaging
 
 e2e-state-vars:
   DO +E2E_TEST --test=./src/e2e_state_vars.test.ts

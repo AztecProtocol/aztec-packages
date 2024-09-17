@@ -2,10 +2,9 @@
 # We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
 
 set(DSL_DEPENDENCIES
-    aztec_ivc
+    client_ivc
     plonk
     ultra_honk
-    client_ivc
     stdlib_sha256
     stdlib_aes128
     stdlib_keccak

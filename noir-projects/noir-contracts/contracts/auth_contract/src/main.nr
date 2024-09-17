@@ -1,3 +1,5 @@
+mod test;
+
 // Test contract showing basic public access control that can be used in private. It uses a SharedMutable state variable to
 // publicly store the address of an authorized account that can call private functions.
 contract Auth {
@@ -12,7 +14,7 @@ contract Auth {
         // Admin can change the value of the authorized address via set_authorized()
         admin: PublicImmutable<AztecAddress>,
         // docs:start:shared_mutable_storage
-        authorized: SharedMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY_BLOCKS>, 
+        authorized: SharedMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY_BLOCKS>,
         // docs:end:shared_mutable_storage
     }
 

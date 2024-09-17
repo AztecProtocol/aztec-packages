@@ -4,6 +4,7 @@ import {
   type MerkleTreeOperations,
   type ProverClient,
   type TxProvider,
+  type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -11,7 +12,6 @@ import { type L1Publisher } from '@aztec/sequencer-client';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
-import { type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { BlockProvingJob, type BlockProvingJobState } from './job/block-proving-job.js';
 import { ProverNodeMetrics } from './metrics.js';
