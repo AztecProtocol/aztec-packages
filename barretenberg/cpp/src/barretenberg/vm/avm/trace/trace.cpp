@@ -206,6 +206,15 @@ AvmTraceBuilder::MemOp AvmTraceBuilder::constrained_write_to_memory(uint8_t spac
                   .val = value };
 }
 
+AvmMemoryTag AvmTraceBuilder::unconstrained_get_memory_tag(AddressWithMode addr)
+{
+    auto offset = addr.offset;
+    if (addr.mode == AddressingMode::INDIRECT) {
+        offset = static_cast<decltype(offset)>(mem_trace_builder.unconstrained_read(call_ptr, offset));
+    }
+    return mem_trace_builder.unconstrained_get_memory_tag(call_ptr, offset);
+}
+
 FF AvmTraceBuilder::unconstrained_read_from_memory(AddressWithMode addr)
 {
     auto offset = addr.offset;
@@ -989,15 +998,16 @@ void AvmTraceBuilder::op_xor(
  * @param indirect A byte encoding information about indirect/direct memory access.
  * @param a_offset An index in memory pointing to the only operand of Not.
  * @param dst_offset An index in memory pointing to the output of Not.
- * @param in_tag The instruction memory tag of the operands.
  */
-void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag)
+void AvmTraceBuilder::op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset)
 {
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve any potential indirects in the order they are encoded in the indirect byte.
     auto [resolved_a, resolved_c] = unpack_indirects<2>(indirect, { a_offset, dst_offset });
 
+    // We get our representative memory tag from the resolved_a memory address.
+    AvmMemoryTag in_tag = unconstrained_get_memory_tag(resolved_a);
     // Reading from memory and loading into ia
     auto read_a = constrained_read_from_memory(call_ptr, clk, resolved_a, in_tag, in_tag, IntermRegister::IA);
 
