@@ -2,7 +2,6 @@ import { PedersenCommitment } from '../opcodes/commitment.js';
 import { DAGasLeft, L2GasLeft } from '../opcodes/context_getters.js';
 import { EcAdd } from '../opcodes/ec_add.js';
 import { Keccak, KeccakF1600, Pedersen, Poseidon2, Sha256Compression } from '../opcodes/hashing.js';
-import { Instruction } from '../opcodes/index.js';
 import {
   Add,
   Address,
