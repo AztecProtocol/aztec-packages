@@ -45,8 +45,6 @@ import {
 } from '@aztec/simulator/avm/fixtures';
 import { SerializableContractInstance } from '@aztec/types/contracts';
 
-import { jest } from '@jest/globals';
-import { mock } from 'jest-mock-extended';
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'path';
@@ -116,6 +114,11 @@ const getPublicInputs = (result: PublicExecutionResult): PublicCircuitPublicInpu
 };
 
 export async function proveAvmTestContract(
+  // NOTE(AD): these are hackishly passed instead of
+  // importing them as this module gets exported in our index.ts and jest is only a dev dependency/
+  // In the future, a testing helper package that depends on jest might be a better solution
+  jest: any,
+  jestMock: any,
   functionName: string,
   calldata: Fr[] = [],
   assertionErrString?: string,
@@ -126,7 +129,7 @@ export async function proveAvmTestContract(
   const globals = globalVariables == undefined ? GlobalVariables.empty() : globalVariables;
   const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
 
-  const contractsDb = mock<PublicContractsDB>();
+  const contractsDb = jestMock() as PublicContractsDB;
   const contractInstance = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
@@ -135,11 +138,11 @@ export async function proveAvmTestContract(
     initializationHash: new Fr(0x101112),
     publicKeysHash: new Fr(0x161718),
   }).withAddress(environment.address);
-  contractsDb.getContractInstance.mockResolvedValue(Promise.resolve(contractInstance));
+  (contractsDb.getContractInstance as any).mockResolvedValue(Promise.resolve(contractInstance));
 
-  const storageDb = mock<PublicStateDB>();
+  const storageDb = jestMock() as PublicStateDB;
   const storageValue = new Fr(5);
-  storageDb.storageRead.mockResolvedValue(Promise.resolve(storageValue));
+  (storageDb.storageRead as any).mockResolvedValue(Promise.resolve(storageValue));
 
   const hostStorage = initHostStorage({ contractsDb });
   const trace = new PublicSideEffectTrace(startSideEffectCounter);
@@ -196,12 +199,24 @@ export async function proveAvmTestContract(
  * execution.
  */
 export async function proveAndVerifyAvmTestContract(
+  // NOTE(AD): these are hackishly passed instead of
+  // importing them as this module gets exported in our index.ts and jest is only a dev dependency/
+  // In the future, a testing helper package that depends on jest might be a better solution
+  jest: any,
+  jestMock: any,
   functionName: string,
   calldata: Fr[] = [],
   assertionErrString?: string,
   globalVariables?: GlobalVariables,
 ) {
-  const succeededRes = await proveAvmTestContract(functionName, calldata, assertionErrString, globalVariables);
+  const succeededRes = await proveAvmTestContract(
+    jest,
+    jestMock,
+    functionName,
+    calldata,
+    assertionErrString,
+    globalVariables,
+  );
 
   // Then we test VK extraction and serialization.
   const vkData = await extractAvmVkData(succeededRes.vkPath!);

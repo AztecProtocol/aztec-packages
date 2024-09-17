@@ -1,22 +1,22 @@
 import { type BBSuccess, BB_RESULT, generateProof, verifyProof } from '@aztec/bb-prover';
 import { proveAvmTestContract } from '@aztec/bb-prover';
-import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-} from '@aztec/circuits.js/constants';
+import { AVM_PROOF_LENGTH_IN_FIELDS, AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '@aztec/circuits.js/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
 
+
+
 import { jest } from '@jest/globals';
 import fs from 'fs/promises';
+import { mock } from 'jest-mock-extended';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { MockPublicKernelCircuit, witnessGenMockPublicKernelCircuit } from './index.js';
+
 
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
@@ -54,7 +54,7 @@ describe('AVM Integration', () => {
   }
 
   it('Should generate and verify an ultra honk proof from an AVM verification', async () => {
-    const bbSuccess = await proveAvmTestContract('new_note_hash', [new Fr(1)]);
+    const bbSuccess = await proveAvmTestContract(jest, mock, 'new_note_hash', [new Fr(1)]);
 
     const avmProofPath = bbSuccess.proofPath;
     const avmVkPath = bbSuccess.vkPath;
