@@ -1,13 +1,9 @@
 use acvm::acir::brillig::{BitSize, IntegerBitSize, Opcode as BrilligOpcode};
-use fxhash::FxHashMap as HashMap;
-use std::collections::BTreeMap;
 
-use acvm::acir::circuit::BrilligOpcodeLocation;
 use acvm::brillig_vm::brillig::{
     BinaryFieldOp, BinaryIntOp, BlackBoxOp, HeapArray, HeapVector, MemoryAddress, ValueOrArray,
 };
 use acvm::FieldElement;
-use noirc_errors::debug_info::DebugInfo;
 
 use crate::bit_traits::bits_needed_for;
 use crate::instructions::{
@@ -18,10 +14,7 @@ use crate::opcodes::AvmOpcode;
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
 
 /// Transpile a Brillig program to AVM bytecode
-pub fn brillig_to_avm(
-    brillig_bytecode: &[BrilligOpcode<FieldElement>],
-    brillig_pcs_to_avm_pcs: &[usize],
-) -> Vec<u8> {
+pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> Vec<u8> {
     dbg_print_brillig_program(brillig_bytecode);
 
     let mut avm_instrs: Vec<AvmInstruction> = Vec::new();
@@ -220,19 +213,17 @@ pub fn brillig_to_avm(
                 });
             }
             BrilligOpcode::Jump { location } => {
-                let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMP_16,
-                    operands: vec![make_operand(16, &avm_loc)],
+                    operands: vec![make_operand(16, location)],
                     ..Default::default()
                 });
             }
             BrilligOpcode::JumpIf { condition, location } => {
-                let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::JUMPI_16,
                     indirect: Some(ALL_DIRECT),
-                    operands: vec![make_operand(16, &avm_loc), make_operand(16, &condition.0)],
+                    operands: vec![make_operand(16, location), make_operand(16, &condition.0)],
                     ..Default::default()
                 });
             }
@@ -277,10 +268,9 @@ pub fn brillig_to_avm(
                 ));
             }
             BrilligOpcode::Call { location } => {
-                let avm_loc = brillig_pcs_to_avm_pcs[*location];
                 avm_instrs.push(AvmInstruction {
                     opcode: AvmOpcode::INTERNALCALL,
-                    operands: vec![AvmOperand::U32 { value: avm_loc as u32 }],
+                    operands: vec![AvmOperand::U32 { value: *location as u32 }],
                     ..Default::default()
                 });
             }
@@ -1222,71 +1212,6 @@ fn handle_storage_read(
         ],
         ..Default::default()
     });
-}
-
-/// Patch a Noir function's debug info with updated PCs since transpilation injects extra
-/// instructions in some cases.
-pub fn patch_debug_info_pcs(
-    mut debug_infos: Vec<DebugInfo>,
-    brillig_pcs_to_avm_pcs: &[usize],
-) -> Vec<DebugInfo> {
-    for patched_debug_info in debug_infos.iter_mut() {
-        let mut patched_brillig_locations = BTreeMap::new();
-        for (brillig_function_id, opcode_locations_map) in
-            patched_debug_info.brillig_locations.iter()
-        {
-            // create a new map with all of its keys (OpcodeLocations) patched
-            let mut patched_locations = BTreeMap::new();
-            for (original_opcode_location, source_locations) in opcode_locations_map.iter() {
-                let avm_opcode_location =
-                    BrilligOpcodeLocation(brillig_pcs_to_avm_pcs[original_opcode_location.0]);
-                patched_locations.insert(avm_opcode_location, source_locations.clone());
-            }
-            // insert the new map as a brillig locations map for the current function id
-            patched_brillig_locations.insert(*brillig_function_id, patched_locations);
-        }
-
-        // patch the `DebugInfo` entry
-        patched_debug_info.brillig_locations = patched_brillig_locations;
-    }
-    debug_infos
-}
-
-/// Patch the assert messages with updated PCs since transpilation injects extra
-/// opcodes into the bytecode.
-pub fn patch_assert_message_pcs(
-    assert_messages: HashMap<usize, String>,
-    brillig_pcs_to_avm_pcs: &[usize],
-) -> HashMap<usize, String> {
-    assert_messages
-        .into_iter()
-        .map(|(brillig_pc, message)| (brillig_pcs_to_avm_pcs[brillig_pc], message))
-        .collect()
-}
-
-/// Compute an array that maps each Brillig pc to an AVM pc.
-/// This must be done before transpiling to properly transpile jump destinations.
-/// This is necessary for two reasons:
-/// 1. The transpiler injects `initial_offset` instructions at the beginning of the program.
-/// 2. Some brillig instructions (_e.g._ Stop, or certain ForeignCalls) map to multiple AVM instructions
-/// args:
-///     initial_offset: how many AVM instructions were inserted at the start of the program
-///     brillig: the Brillig program
-/// returns: an array where each index is a Brillig pc,
-///     and each value is the corresponding AVM pc.
-pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> Vec<usize> {
-    let mut pc_map = vec![0; brillig_bytecode.len()];
-
-    pc_map[0] = 0; // first PC is always 0 as there are no instructions inserted by AVM at start
-    for i in 0..brillig_bytecode.len() - 1 {
-        let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
-            _ => 1,
-        };
-        // next Brillig pc will map to an AVM pc offset by the
-        // number of AVM instructions generated for this Brillig one
-        pc_map[i + 1] = pc_map[i] + num_avm_instrs_for_this_brillig_instr;
-    }
-    pc_map
 }
 
 fn is_integral_bit_size(bit_size: IntegerBitSize) -> bool {
