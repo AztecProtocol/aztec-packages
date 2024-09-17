@@ -1,9 +1,13 @@
-use dep::aztec::prelude::{AztecAddress, FunctionSelector, NoteHeader, NoteInterface, NoteGetterOptions, PrivateContext};
+use dep::aztec::prelude::{NoteHeader, NoteInterface, NullifiableNote, PrivateContext};
 
 use dep::aztec::{
     note::utils::compute_note_hash_for_nullify, keys::getters::get_nsk_app,
-    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator}
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
+    macros::notes::note_custom_interface, generators::Ga1 as Gx_1, generators::Ga2 as Gx_2,
+    generators::Ga3 as Gy_1, generators::Ga4 as Gy_2, generators::Ga5 as Gnpk_m_hash, generators::G_slot
 };
+
+use std::hash::from_field_unsafe;
 
 global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;
 // ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
@@ -11,7 +15,7 @@ global ECDSA_PUBLIC_KEY_NOTE_BYTES_LEN: Field = 5 * 32 + 64;
 
 // Stores an ECDSA public key composed of two 32-byte elements
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
-#[note]
+#[note_custom_interface]
 struct EcdsaPublicKeyNote {
     x: [u8; 32],
     y: [u8; 32],
@@ -19,7 +23,7 @@ struct EcdsaPublicKeyNote {
     npk_m_hash: Field,
 }
 
-impl NullifiableNote for EcdsaPublicKeyNote {
+impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
     // Cannot use the automatic serialization since x and y don't fit. Serialize the note as 5 fields where:
     // [0] = x[0..31] (upper bound excluded)
     // [1] = x[31]
@@ -32,11 +36,11 @@ impl NullifiableNote for EcdsaPublicKeyNote {
         let mut mul: Field = 1;
 
         for i in 1..32 {
-          let byte_x: Field = self.x[31 - i] as Field;
-          x = x + (byte_x * mul);
-          let byte_y: Field = self.y[31 - i] as Field;
-          y = y + (byte_y * mul);
-          mul *= 256;
+            let byte_x: Field = self.x[31 - i] as Field;
+            x = x + (byte_x * mul);
+            let byte_y: Field = self.y[31 - i] as Field;
+            y = y + (byte_y * mul);
+            mul *= 256;
         }
 
         let last_x = self.x[31] as Field;
@@ -65,24 +69,88 @@ impl NullifiableNote for EcdsaPublicKeyNote {
         EcdsaPublicKeyNote { x, y, npk_m_hash: serialized_note[4], header: NoteHeader::empty() }
     }
 
+    fn to_be_bytes(self, storage_slot: Field) -> [u8; ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 64] {
+        let serialized_note = self.serialize_content();
+
+        let mut buffer: [u8; ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 64] = [0; ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 64];
+
+        let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
+        let note_type_id_bytes: [u8; 32] = EcdsaPublicKeyNote::get_note_type_id().to_be_bytes();
+
+        for i in 0..32 {
+            buffer[i] = storage_slot_bytes[i];
+            buffer[32 + i] = note_type_id_bytes[i];
+        }
+
+        for i in 0..serialized_note.len() {
+            let bytes: [u8; 32] = serialized_note[i].to_be_bytes();
+            for j in 0..32 {
+                buffer[64 + i * 32 + j] = bytes[j];
+            }
+        }
+        buffer
+    }
+
+    fn get_note_type_id() -> Field {
+        comptime
+        {
+            let bytes = "EcdsaPublicKeyNote".as_bytes();
+            let hash = std::hash::keccak256(bytes, bytes.len() as u32);
+            let mut selector_be_bytes = [0; 4];
+            for i in 0..4 {
+                selector_be_bytes[i] = hash[i];
+            }
+
+            aztec::protocol_types::utils::field::field_from_bytes(selector_be_bytes, true)
+        }
+    }
+
+    fn get_header(self) -> NoteHeader {
+        self.header
+    }
+
+    fn set_header(&mut self, header: NoteHeader) {
+        self.header = header;
+    }
+
+    fn compute_note_hash(self) -> Field {
+        let serialized = self.serialize_content();
+        std::embedded_curve_ops::multi_scalar_mul(
+            [Gx_1, Gx_2, Gy_1, Gy_2, Gnpk_m_hash, G_slot],
+            [
+            from_field_unsafe(serialized[0]),
+            from_field_unsafe(serialized[1]),
+            from_field_unsafe(serialized[2]),
+            from_field_unsafe(serialized[3]),
+            from_field_unsafe(serialized[4]),
+            from_field_unsafe(self.get_header().storage_slot)
+        ]
+        ).x
+    }
+}
+
+impl NullifiableNote for EcdsaPublicKeyNote {
+
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
-        poseidon2_hash_with_separator([
+        poseidon2_hash_with_separator(
+            [
             note_hash_for_nullify,
             secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
-        poseidon2_hash_with_separator([
+        poseidon2_hash_with_separator(
+            [
             note_hash_for_nullify,
-            secret,
+            secret
         ],
-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 }

@@ -2,7 +2,7 @@ use dep::aztec::{
     prelude::{NoteHeader, NullifiableNote, PrivateContext},
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
     note::utils::compute_note_hash_for_nullify, oracle::unsafe_rand::unsafe_rand,
-    keys::getters::get_nsk_app
+    keys::getters::get_nsk_app, macros::notes::partial_note
 };
 
 trait OwnedNote {
@@ -10,7 +10,7 @@ trait OwnedNote {
     fn get_amount(self) -> U128;
 }
 
-#[note]
+#[partial_note(quote {amount})]
 struct TokenNote {
     // The amount of tokens in the note
     amount: U128,

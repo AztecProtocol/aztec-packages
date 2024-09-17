@@ -2,7 +2,8 @@
 use dep::aztec::{
     note::{note_getter_options::PropertySelector, utils::compute_note_hash_for_nullify},
     prelude::{NoteHeader, NullifiableNote, PrivateContext},
-    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator}
+    protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
+    macros::notes::note
 };
 
 // Transparent note represents a note that is created in the clear (public execution), but can only be spent by those

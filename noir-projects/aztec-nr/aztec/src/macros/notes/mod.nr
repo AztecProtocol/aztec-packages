@@ -3,8 +3,11 @@ use std::{
     hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
 };
 use protocol_types::{meta::flatten_to_fields, utils::field::field_from_bytes};
-use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector};
+use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector, note_interface::NoteInterface};
 use protocol_types::meta::pack_from_fields;
+use std::meta::typ::fresh_type_variable;
+
+comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 
 comptime mut global NOTES: UHashMap<Module, [(StructDefinition, u32, Field)], BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
@@ -28,10 +31,11 @@ comptime fn compute_note_type_id(name: Quoted) -> Field {
 
 comptime fn generate_note_interface(
     s: StructDefinition,
+    note_type_id: Field,
     hiding_point_name: Quoted,
     fixed_fields: [(Quoted, Type)],
     nullable_fields: [Quoted]
-) -> (Quoted, u32, Field) {
+) -> (Quoted, u32) {
     let name = s.name();
     let typ = s.as_type();
     let (fields, aux_vars) = flatten_to_fields(quote { self }, typ, &[quote {self.header}]);
@@ -44,8 +48,6 @@ comptime fn generate_note_interface(
     let serialized_fields = fields.join(quote {,});
     let content_len = fields.len();
 
-    let note_header_type = quote { crate::note::note_header::NoteHeader}.as_type();
-
     let (deserialized_content, _) = pack_from_fields(
         quote { self },
         typ,
@@ -54,7 +56,6 @@ comptime fn generate_note_interface(
         &[(quote {header}, quote { NoteHeader::empty() })]
     );
 
-    let note_type_id = compute_note_type_id(name);
     let fixed_fields_args = fixed_fields.map(| (name, _): (Quoted, Type) | quote{self.$name}).push_back(quote {self.get_header().storage_slot}).join(quote {,});
     let nullable_fields_args = nullable_fields.map(|field| quote { self.$field }).join(quote {,});
 
@@ -95,11 +96,11 @@ comptime fn generate_note_interface(
                 $note_type_id
             }
 
-            fn set_header(&mut self, header: $note_header_type) {
+            fn set_header(&mut self, header: $NOTE_HEADER_TYPE) {
                 self.header = header;
             }
 
-            fn get_header(self) -> $note_header_type {
+            fn get_header(self) -> $NOTE_HEADER_TYPE {
                 self.header
             }
 
@@ -107,7 +108,7 @@ comptime fn generate_note_interface(
                 $hiding_point_name::new($fixed_fields_args).finalize($nullable_fields_args)
             }
         }
-    }, content_len, note_type_id)
+    }, content_len)
 }
 
 comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
@@ -332,42 +333,80 @@ comptime fn register_note(note: StructDefinition, note_serialized_len: u32, note
     NOTES.insert(note.module(), notes_to_insert);
 }
 
-comptime fn common_note_annotation(s: StructDefinition, nullable_fields: [Quoted]) -> (Quoted, Quoted) {
+comptime fn extract_fixed_fields(s: StructDefinition, nullable_fields: [Quoted]) -> [(Quoted, Type)] {
+    s.fields().filter(
+        | (name, typ): (Quoted, Type) | (typ != NOTE_HEADER_TYPE) & nullable_fields.all(| field | field != name)
+    )
+}
+
+comptime fn common_note_annotation(
+    s: StructDefinition,
+    fixed_fields: [(Quoted, Type)],
+    nullable_fields: [Quoted]
+) -> (Quoted, Quoted, Field) {
     // Automatically inject header if not present
-    let note_header_type = type_of(NoteHeader::empty());
-    let filtered_header = s.fields().filter(| (_, typ): (Quoted, Type) | typ == note_header_type);
+    let filtered_header = s.fields().filter(| (_, typ): (Quoted, Type) | typ == NOTE_HEADER_TYPE);
     if (filtered_header.len() == 0) {
-        let new_fields = s.fields().push_back((quote { header }, note_header_type));
+        let new_fields = s.fields().push_back((quote { header }, NOTE_HEADER_TYPE));
         s.set_fields(new_fields);
     }
-    let fixed_fields = s.fields().filter(
-        | (name, typ): (Quoted, Type) | (typ != note_header_type) & nullable_fields.all(| field | field != name)
-    );
     let (note_hiding_point, hiding_point_name) = generate_note_hiding_point(s, fixed_fields, nullable_fields);
-    let (note_interface_impl, note_serialized_len, note_type_id) = generate_note_interface(s, hiding_point_name, fixed_fields, nullable_fields);
     let note_properties = generate_note_properties(s);
-
-    register_note(s, note_serialized_len, note_type_id);
+    let note_type_id = compute_note_type_id(s.name());
 
     (quote {
-        $note_interface_impl
         $note_properties
         $note_hiding_point
-    }, hiding_point_name)
+    }, hiding_point_name, note_type_id)
 }
 
 #[varargs]
 pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> Quoted {
-    let (common, hiding_point_name) = common_note_annotation(s, nullable_fields);
+    let fixed_fields = extract_fixed_fields(s, nullable_fields);
+    let (common, hiding_point_name, note_type_id) = common_note_annotation(s, fixed_fields, nullable_fields);
+    let (note_interface_impl, note_serialized_len) = generate_note_interface(
+        s,
+        note_type_id,
+        hiding_point_name,
+        fixed_fields,
+        nullable_fields
+    );
     let partial_note_impl = generate_partial_note_impl(s, hiding_point_name);
+    register_note(s, note_serialized_len, note_type_id);
 
     quote {
         $common
+        $note_interface_impl
         $partial_note_impl
     }
 }
 
 pub comptime fn note(s: StructDefinition) -> Quoted {
-    let (common, _) = common_note_annotation(s, &[]);
-    common
+    let fixed_fields = extract_fixed_fields(s, &[]);
+    let (common, hiding_point_name, note_type_id) = common_note_annotation(s, fixed_fields, &[]);
+    let (note_interface_impl, note_serialized_len) = generate_note_interface(s, note_type_id, hiding_point_name, fixed_fields, &[]);
+    register_note(s, note_serialized_len, note_type_id);
+
+    quote {
+        $common
+        $note_interface_impl
+    }
+}
+
+pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
+    let fixed_fields = extract_fixed_fields(s, &[]);
+    let (common, _, note_type_id) = common_note_annotation(s, fixed_fields, &[]);
+
+    let serialized_len_type = fresh_type_variable();
+    let note_interface_impl = s.as_type().get_trait_impl(quote { NoteInterface<$serialized_len_type> }.as_trait_constraint());
+    let name = s.name();
+    assert(note_interface_impl.is_some(), f"Note {name} must implement NoteInterface trait");
+
+    let note_serialized_len = note_interface_impl.unwrap().trait_generic_args()[0].as_constant().unwrap();
+
+    register_note(s, note_serialized_len, note_type_id);
+
+    quote {
+        $common
+    }
 }

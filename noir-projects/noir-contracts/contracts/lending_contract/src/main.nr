@@ -271,7 +271,7 @@ contract Lending {
 
     #[public]
     #[view]
-    fn get_asset(asset_id: Field) -> pub Asset {
+    fn get_asset(asset_id: Field) -> Asset {
         storage.assets.at(asset_id).read()
     }
 

@@ -9,7 +9,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract TokenBridge {
-    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, PublicMutable, SharedImmutable};
+    use dep::aztec::prelude::{AztecAddress, EthAddress, PublicMutable, SharedImmutable};
 
     use dep::token_portal_content_hash_lib::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 
@@ -21,9 +21,9 @@ contract TokenBridge {
     // docs:start:token_bridge_storage_and_constructor
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
-    struct Storage {
-        token: PublicMutable<AztecAddress>,
-        portal_address: SharedImmutable<EthAddress>,
+    struct Storage<Context> {
+        token: PublicMutable<AztecAddress, Context>,
+        portal_address: SharedImmutable<EthAddress, Context>,
     }
 
     // Constructs the contract.

@@ -29,7 +29,7 @@ contract DocsExample {
     // how to import methods from other files/folders within your workspace
     use crate::types::{card_note::CardNote, leader::Leader};
 
-    #[storage]
+    #[storage_no_init]
     struct Storage<Context> {
         // Shows how to create a custom struct in PublicMutable
         // docs:start:storage-leader-declaration
@@ -59,44 +59,44 @@ contract DocsExample {
 
     // Note: The following is no longer necessary to implement manually as our macros do this for us. It is left here
     // for documentation purposes only.
-    // impl<Context> Storage<Context> {
-    //     fn init(context: Context) -> Self {
-    //         Storage {
-    //             // docs:start:storage-leader-init
-    //             leader: PublicMutable::new(context, 1),
-    //             // docs:end:storage-leader-init
-    //             // docs:start:start_vars_private_mutable
-    //             legendary_card: PrivateMutable::new(context, 3),
-    //             // docs:end:start_vars_private_mutable
-    //             // just used for docs example (not for game play):
-    //             // docs:start:state_vars-MapPrivateMutable
-    //             profiles: Map::new(
-    //                 context,
-    //                 4,
-    //                 |context, slot| {
-    //                     PrivateMutable::new(context, slot)
-    //                 }
-    //             ),
-    //             // docs:end:state_vars-MapPrivateMutable
-    //             // docs:start:storage-set-init
-    //             set: PrivateSet::new(context, 5),
-    //             // docs:end:storage-set-init
-    //             private_immutable: PrivateImmutable::new(context, 6),
-    //             shared_immutable: SharedImmutable::new(context, 7),
-    //             // docs:start:storage-minters-init
-    //             minters: Map::new(
-    //                 context,
-    //                 8,
-    //                 |context, slot| {
-    //                     PublicMutable::new(context, slot)
-    //                 }
-    //             ),
-    //             // docs:end:storage-minters-init
-    //             // docs:start:storage-public-immutable
-    //             public_immutable: PublicImmutable::new(context, 9)// docs:end:storage-public-immutable
-    //         }
-    //     }
-    // }
+    impl<Context> Storage<Context> {
+        fn init(context: Context) -> Self {
+            Storage {
+                // docs:start:storage-leader-init
+                leader: PublicMutable::new(context, 1),
+                // docs:end:storage-leader-init
+                // docs:start:start_vars_private_mutable
+                legendary_card: PrivateMutable::new(context, 3),
+                // docs:end:start_vars_private_mutable
+                // just used for docs example (not for game play):
+                // docs:start:state_vars-MapPrivateMutable
+                profiles: Map::new(
+                    context,
+                    4,
+                    |context, slot| {
+                        PrivateMutable::new(context, slot)
+                    }
+                ),
+                // docs:end:state_vars-MapPrivateMutable
+                // docs:start:storage-set-init
+                set: PrivateSet::new(context, 5),
+                // docs:end:storage-set-init
+                private_immutable: PrivateImmutable::new(context, 6),
+                shared_immutable: SharedImmutable::new(context, 7),
+                // docs:start:storage-minters-init
+                minters: Map::new(
+                    context,
+                    8,
+                    |context, slot| {
+                        PublicMutable::new(context, slot)
+                    }
+                ),
+                // docs:end:storage-minters-init
+                // docs:start:storage-public-immutable
+                public_immutable: PublicImmutable::new(context, 9)// docs:end:storage-public-immutable
+            }
+        }
+    }
 
     #[public]
     fn initialize_shared_immutable(points: u8) {

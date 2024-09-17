@@ -4,7 +4,11 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract PrivateFPC {
-    use dep::aztec::{protocol_types::{address::AztecAddress, hash::compute_siloed_nullifier}, state_vars::SharedImmutable, macros::{storage::storage, functions::{private, initializer, public}}};
+    use dep::aztec::{
+        protocol_types::{address::AztecAddress, hash::compute_siloed_nullifier},
+        state_vars::SharedImmutable,
+        macros::{storage::storage, functions::{private, initializer, public}}
+    };
     use dep::token::Token;
     use crate::settings::Settings;
 

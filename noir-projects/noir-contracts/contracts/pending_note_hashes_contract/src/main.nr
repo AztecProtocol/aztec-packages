@@ -16,7 +16,7 @@ contract PendingNoteHashes {
     use dep::aztec::macros::{storage::storage, functions::private};
 
     #[storage]
-    struct Storage<Context {
+    struct Storage<Context> {
         balances: Map<AztecAddress, PrivateSet<ValueNote, Context>, Context>,
     }
 

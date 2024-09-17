@@ -7,7 +7,7 @@ contract Escrow {
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
         keys::getters::get_current_public_keys,
-        macros::{storage::storage, functions::{private, initializer}},
+        macros::{storage::storage, functions::{private, initializer}}
     };
 
     // docs:start:addressnote_import

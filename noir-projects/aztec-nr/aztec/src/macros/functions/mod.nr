@@ -1,16 +1,15 @@
-use std::{
-    meta::{type_of, unquote}, collections::umap::UHashMap,
-    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
-};
+mod interfaces;
+
+use std::meta::{type_of, unquote};
 use super::utils::{
     modify_fn_body, is_fn_private, get_fn_visibility, is_fn_view, is_fn_initializer, is_fn_internal,
     fn_has_noinitcheck, compute_fn_selector, add_to_field_slice, add_to_hasher, is_fn_public,
     module_has_storage, module_has_initializer
 };
 
-comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
+use interfaces::{create_fn_abi_export, register_stub};
 
-// Empty annotation just to leave a mark in the function that can be used to add the check in the correct place over at #[private]
+// Empty annotation just to leave a mark in the function that can be used to add the check in the correct place over at #[private] or #[public]
 pub comptime fn internal(_f: FunctionDefinition) {}
 
 comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
@@ -19,7 +18,7 @@ comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
     quote { assert(context.msg_sender() == context.this_address(), $assertion_message); }
 }
 
-// Empty annotation just to leave a mark in the function that can be used to add the check in the correct place over at #[private]
+// Empty annotation just to leave a mark in the function that can be used to add the check in the correct place over at #[private] or #[public]
 pub comptime fn view(_f: FunctionDefinition) {}
 
 comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
@@ -32,8 +31,11 @@ comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
     }
 }
 
-// Empty annotation just to leave a mark in the function that can be used to add the check in the correct place over at #[private]
+// Empty annotation just to leave a mark in the function that can be used to add the check in the correct place over at #[private] or #[public]
 pub comptime fn initializer(_f: FunctionDefinition) {}
+
+// Empty annotation just to leave a mark in the function that can be used to add the check in the correct place over at #[private] or #[public]
+pub comptime fn noinitcheck(_f: FunctionDefinition) {}
 
 comptime fn create_assert_initializer(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
@@ -48,56 +50,6 @@ comptime fn create_init_check(f: FunctionDefinition) -> Quoted {
 comptime fn create_mark_as_initialized(f: FunctionDefinition) -> Quoted {
     let fn_visibility = get_fn_visibility(f);
     f"dep::aztec::initializer::mark_as_initialized_{fn_visibility}(&mut context);".quoted_contents()
-}
-
-comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
-    let name = f.name();
-    // Remove first arg (inputs)
-    let mut parameters = f.parameters().map(
-        | (name, typ): (Quoted, Type) | {
-        quote { $name: $typ }
-    }
-    ).join(quote{,});
-
-    let parameters_struct_name = f"{name}_parameters".quoted_contents();
-    let parameters = quote {
-        struct $parameters_struct_name {
-            $parameters
-        }
-    };
-
-    let return_value_type = f.return_type();
-    let return_type = if return_value_type != type_of(()) {
-        quote { return_type: $return_value_type }
-    } else {
-        quote {}
-    };
-
-    let abi_struct_name = f"{name}_abi".quoted_contents();
-
-    let result = quote {
-
-        $parameters
-
-        #[abi(functions)]
-        struct $abi_struct_name {
-            parameters: $parameters_struct_name,
-            $return_type
-        }
-    };
-    result
-}
-
-comptime fn register_stub(m: Module, stub: Quoted) {
-    let current_stubs = unsafe {
-        STUBS.get(m)
-    };
-    let stubs_to_insert = if current_stubs.is_some() {
-        current_stubs.unwrap().push_back(stub)
-    } else {
-        &[stub]
-    };
-    STUBS.insert(m, stubs_to_insert);
 }
 
 pub comptime fn private(f: FunctionDefinition) -> Quoted {
@@ -158,12 +110,14 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     };
 
     let return_value_var_name = quote { macro__returned__values };
-    let (body_without_return, last_body_expr) = body.pop_back();
 
     let return_value_type = f.return_type();
-    let return_value = if return_value_type != type_of(()) {
+    let return_value = if body.len() == 0 {
+        quote {}
+    } else if return_value_type != type_of(()) {
+        let (body_without_return, last_body_expr) = body.pop_back();
         let return_value = last_body_expr.quoted();
-        let return_value_assignment = quote { let $return_value_var_name = $return_value; };
+        let return_value_assignment = quote { let $return_value_var_name: $return_value_type = $return_value; };
         let return_hasher_name = quote { return_hasher };
         let return_value_into_hasher = add_to_hasher(return_hasher_name, return_value_var_name, return_value_type);
 
@@ -176,13 +130,15 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
             context.set_return_hash($return_hasher_name);
         }
     } else {
+        let (body_without_return, last_body_expr) = body.pop_back();
         if !last_body_expr.has_semicolon()
             & last_body_expr.as_for().is_none()
             & last_body_expr.as_assert().is_none()
-            & last_body_expr.as_for_range().is_none() {
-            println("wtf");
+            & last_body_expr.as_for_range().is_none()
+            & last_body_expr.as_assert_eq().is_none()
+            & last_body_expr.as_let().is_none() {
             let unused_return_value_name = f"_{return_value_var_name}".quoted_contents();
-            body = body.pop_back().0.push_back(quote { let $unused_return_value_name = $last_body_expr; }.as_expr().unwrap());
+            body = body_without_return.push_back(quote { let $unused_return_value_name = $last_body_expr; }.as_expr().unwrap());
         }
         quote {}
     };

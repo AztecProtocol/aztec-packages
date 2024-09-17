@@ -5,7 +5,10 @@ use dep::aztec::macros::aztec;
 contract StatefulTest {
     use dep::aztec::prelude::{Map, PublicMutable, PrivateSet, AztecAddress, FunctionSelector};
     use dep::value_note::{balance_utils, utils::{increment, decrement}, value_note::ValueNote};
-    use dep::aztec::{initializer::assert_is_initialized_private, macros::{storage::storage, functions::{private, public, initializer, noinitcheck, view}};
+    use dep::aztec::{
+        initializer::assert_is_initialized_private,
+        macros::{storage::storage, functions::{private, public, initializer, noinitcheck, view}}
+    };
 
     #[storage]
     struct Storage<Context> {

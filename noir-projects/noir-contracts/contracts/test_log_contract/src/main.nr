@@ -2,8 +2,9 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract TestLog {
+    use std::meta::derive;
     use dep::aztec::prelude::PrivateSet;
-    use dep::aztec::protocol_types::{scalar::Scalar, address::AztecAddress};
+    use dep::aztec::protocol_types::{scalar::Scalar, address::AztecAddress, traits::Serialize};
     use dep::aztec::keys::public_keys::IvpkM;
     use dep::value_note::value_note::ValueNote;
     use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
@@ -11,13 +12,17 @@ contract TestLog {
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
     use dep::aztec::macros::{storage::storage, events::event, functions::{private, public}};
 
+    use std::embedded_curve_ops::EmbeddedCurveScalar;
+
     #[event]
+    #[derive(Serialize)]
     struct ExampleEvent0 {
         value0: Field,
         value1: Field,
     }
 
     #[event]
+    #[derive(Serialize)]
     struct ExampleEvent1 {
         value2: AztecAddress,
         value3: u8,

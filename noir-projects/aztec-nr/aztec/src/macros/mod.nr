@@ -4,7 +4,7 @@ mod notes;
 mod storage;
 mod events;
 
-use functions::STUBS;
+use functions::interfaces::STUBS;
 use storage::STORAGE_LAYOUT_NAME;
 use notes::{NOTES, generate_note_export};
 
@@ -21,7 +21,7 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
     };
 
     let has_storage = module_has_storage(m);
-    let storage_layout_getter = if has_storage {
+    let storage_layout_getter = if has_storage & STORAGE_LAYOUT_NAME.get(m).is_some() {
         let storage_layout_name = STORAGE_LAYOUT_NAME.get(m).unwrap();
         quote {
             pub fn storage_layout() -> StorageLayout {

@@ -4,9 +4,13 @@ use dep::aztec::macros::aztec;
 contract ContractInstanceDeployer {
     use dep::aztec::protocol_types::{
         address::{AztecAddress, PublicKeysHash, PartialAddress}, contract_class_id::ContractClassId,
-        constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE, abis::log_hash::LogHash, traits::Serialize
+        constants::DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE, abis::log_hash::LogHash,
+        traits::Serialize
     };
-    use dep::aztec::{hash::compute_unencrypted_log_hash, oracle::logs::emit_unencrypted_log_private_internal, macros::{events::event, functions::private }};
+    use dep::aztec::{
+        hash::compute_unencrypted_log_hash, oracle::logs::emit_unencrypted_log_private_internal,
+        macros::{events::event, functions::private}
+    };
     use std::meta::derive;
 
     #[event]

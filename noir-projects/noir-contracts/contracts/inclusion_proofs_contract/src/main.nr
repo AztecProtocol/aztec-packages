@@ -9,7 +9,10 @@ contract InclusionProofs {
         keys::getters::get_current_public_keys
     };
 
-    use dep::aztec::{note::note_getter_options::NoteStatus, macros::{storage::storage, functions::{private, public, initializer}}};
+    use dep::aztec::{
+        note::note_getter_options::NoteStatus,
+        macros::{storage::storage, functions::{private, public, initializer}}
+    };
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;
     // docs:end:value_note_imports

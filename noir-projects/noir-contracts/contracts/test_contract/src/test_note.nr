@@ -1,4 +1,7 @@
-use dep::aztec::{note::{note_header::NoteHeader, note_interface::NullifiableNote}, context::PrivateContext};
+use dep::aztec::{
+    note::{note_header::NoteHeader, note_interface::NullifiableNote}, context::PrivateContext,
+    macros::notes::note
+};
 
 // A note which stores a field and is expected to be passed around using the `addNote` function.
 // WARNING: This Note is not private as it does not contain randomness and hence it can be easy to perform

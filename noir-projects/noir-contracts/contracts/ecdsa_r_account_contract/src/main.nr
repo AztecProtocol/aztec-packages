@@ -7,7 +7,7 @@ contract EcdsaRAccount {
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
         keys::getters::get_current_public_keys,
-        macros::{storage::storage, functions::{private, initializer, view, noinitcheck}},
+        macros::{storage::storage, functions::{private, initializer, view, noinitcheck}}
     };
 
     use dep::authwit::{

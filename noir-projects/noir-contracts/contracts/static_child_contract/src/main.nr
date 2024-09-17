@@ -3,11 +3,10 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract StaticChild {
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PublicMutable, PrivateSet, PrivateContext, Deserialize};
+    use dep::aztec::prelude::{AztecAddress, PublicMutable, PrivateSet};
 
     use dep::aztec::{
-        context::{PublicContext, gas::GasOpts}, protocol_types::{abis::{call_context::CallContext}},
-        note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
+        note::{note_getter_options::NoteGetterOptions},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_current_public_keys, utils::comparison::Comparator,
         macros::{storage::storage, functions::{private, public, view}}

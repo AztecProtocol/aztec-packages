@@ -9,8 +9,9 @@ contract KeyRegistry {
         state_vars::{PublicMutable, Map}, protocol_types::address::{AztecAddress, PartialAddress},
         macros::{storage::storage, functions::public}
     };
+    use aztec::macros::storage::storage_no_init;
 
-    #[storage]
+    #[storage_no_init]
     struct Storage<Context> {
         current_keys: Map<AztecAddress, PublicMutable<StoredKeys, Context>, Context>,
     }

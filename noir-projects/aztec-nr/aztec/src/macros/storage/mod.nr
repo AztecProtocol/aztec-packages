@@ -4,6 +4,7 @@ use std::{
 };
 
 use super::utils::get_serialized_size;
+use super::utils::is_note;
 
 comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
@@ -42,14 +43,8 @@ pub comptime fn generate_storage_field_constructor(typ: Type, slot: Quoted, pare
             1
         } else {
             let stored_struct = container_struct_generics[0];
-            let is_note = if stored_struct.as_struct().is_some() {
-                let (def, _) = stored_struct.as_struct().unwrap();
-                def.has_named_attribute("note")
-            } else {
-                false
-            };
             // Private notes always occupy a single slot. Someone could store a Note in PublicMutable for whatever reason though.
-            if is_note & (container_struct_name != quote { PublicMutable }) {
+            if is_note(stored_struct) & (container_struct_name != quote { PublicMutable }) {
                 1
             } else {
                 get_serialized_size(stored_struct)
@@ -78,6 +73,9 @@ comptime fn add_context_generic(typ: Type, context_generic: Type) -> Type {
         quote { $name<$generics> }.as_type()
     }
 }
+
+// Just to make sure the contract is marked as having storage
+pub comptime fn storage_no_init(_s: StructDefinition) {}
 
 pub comptime fn storage(s: StructDefinition) -> Quoted {
     let mut slot: u32 = 1;
@@ -132,3 +130,4 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
         };
     }
 }
+

@@ -86,6 +86,7 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
     };
     let body_expr = body_quote.as_expr();
     assert(body_expr.is_some(), f"Body is not an expression: {body_quote}");
+    println(body_expr.unwrap());
     body_expr.unwrap()
 }
 
@@ -251,9 +252,23 @@ pub(crate) comptime fn get_serialized_size(typ: Type) -> u32 {
 }
 
 pub(crate) comptime fn module_has_storage(m: Module) -> bool {
-    m.structs().any(|s: StructDefinition| s.has_named_attribute("storage"))
+    m.structs().any(
+        |s: StructDefinition| s.has_named_attribute("storage") | s.has_named_attribute("storage_no_init")
+    )
 }
 
 pub(crate) comptime fn module_has_initializer(m: Module) -> bool {
     m.functions().any(|f: FunctionDefinition| is_fn_initializer(f))
+}
+
+pub(crate) comptime fn is_note(typ: Type) -> bool {
+    typ.as_struct().map_or(
+        false,
+        | struc: (StructDefinition, [Type]) | {
+        let (def, _) = struc;
+                def.has_named_attribute("note")
+                    | def.has_named_attribute("partial_note")
+                    | def.has_named_attribute("note_custom_interface")
+    }
+    )
 }

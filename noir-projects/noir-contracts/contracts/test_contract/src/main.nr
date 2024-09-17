@@ -37,15 +37,19 @@ contract Test {
         note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
-        oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}, utils::comparison::Comparator
+        oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}, utils::comparison::Comparator,
+        macros::{storage::storage, events::event, functions::{private, public, internal}}
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::value_note::value_note::ValueNote;
-    use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
+    // TODO investigate why the macros require EmbeddableCurvePoint and EmbeddableCurveScalar
+    use std::embedded_curve_ops::{EmbeddedCurveScalar, EmbeddedCurvePoint, fixed_base_scalar_mul as derive_public_key};
+    use std::meta::derive;
 
     use crate::test_note::TestNote;
 
     #[event]
+    #[derive(Serialize)]
     struct ExampleEvent {
         value0: Field,
         value1: Field,
@@ -55,7 +59,7 @@ contract Test {
     }
 
     #[storage]
-    struct Storage<Context {
+    struct Storage<Context> {
         example_constant: PrivateImmutable<TestNote, Context>,
         example_set: PrivateSet<TestNote, Context>,
     }
@@ -378,11 +382,7 @@ contract Test {
     }
 
     #[private]
-    fn consume_message_from_arbitrary_sender_private(
-        content: Field,
-        secret: Field,
-        sender: EthAddress
-    ) {
+    fn consume_message_from_arbitrary_sender_private(content: Field, secret: Field, sender: EthAddress) {
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(content, secret, sender);
     }
