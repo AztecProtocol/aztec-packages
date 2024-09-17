@@ -55,21 +55,65 @@ template <class Flavor>
 typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(
     Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
+    // Complete the public inputs execution trace block from builder.public_inputs
+    populate_public_inputs_block(builder);
+
     ZoneScopedN("construct_trace_data");
     // Allocate the wires and selectors polynomials
     if constexpr (IsHonkFlavor<Flavor>) {
         for (auto& wire : proving_key.polynomials.get_wires()) {
             wire = Polynomial::shiftable(proving_key.circuit_size);
         }
-        for (auto& selector : proving_key.polynomials.get_selectors()) {
-            selector = Polynomial(proving_key.circuit_size);
+        // Define selectors over the block they are isolated to
+        uint32_t offset = Flavor::has_zero_row ? 1 : 0;
+        if constexpr (IsGoblinFlavor<Flavor>) {
+            offset += builder.blocks.ecc_op.get_fixed_size(is_structured);
+            info("offset after ecc_op block is ", offset);
         }
+        offset += builder.blocks.pub_inputs.get_fixed_size(is_structured);
+        info("offset after pub_inputs block is ", offset);
+        proving_key.polynomials.q_arith =
+            Polynomial(proving_key.circuit_size - offset, proving_key.circuit_size, offset);
+        offset += builder.blocks.arithmetic.get_fixed_size(is_structured);
+        info("offset after arithmetic block is ", offset);
+        proving_key.polynomials.q_delta_range =
+            Polynomial(builder.blocks.delta_range.size(), proving_key.circuit_size, offset);
+        offset += builder.blocks.delta_range.get_fixed_size(is_structured);
+        info("offset after delta_range block is ", offset);
+        proving_key.polynomials.q_elliptic =
+            Polynomial(builder.blocks.elliptic.size(), proving_key.circuit_size, offset);
+        offset += builder.blocks.elliptic.get_fixed_size(is_structured);
+        info("offset after elliptic block is ", offset);
+        proving_key.polynomials.q_aux = Polynomial(builder.blocks.aux.size(), proving_key.circuit_size, offset);
+        offset += builder.blocks.aux.get_fixed_size(is_structured);
+        info("offset after aux block is ", offset);
+        proving_key.polynomials.q_lookup = Polynomial(builder.blocks.lookup.size(), proving_key.circuit_size, offset);
+        offset += builder.blocks.lookup.get_fixed_size(is_structured);
+        info("offset after lookup block is ", offset);
+        if constexpr (HasDataBus<Flavor>) {
+            proving_key.polynomials.q_busread =
+                Polynomial(builder.blocks.busread.size(), proving_key.circuit_size, offset);
+            offset += builder.blocks.busread.get_fixed_size(is_structured);
+            info("offset after busread block is ", offset);
+        }
+        proving_key.polynomials.q_poseidon2_external =
+            Polynomial(builder.blocks.poseidon2_external.size(), proving_key.circuit_size, offset);
+        offset += builder.blocks.poseidon2_external.get_fixed_size(is_structured);
+        info("offset after poseidon2_external block is ", offset);
+        proving_key.polynomials.q_poseidon2_internal =
+            Polynomial(builder.blocks.poseidon2_internal.size(), proving_key.circuit_size, offset);
+        offset += builder.blocks.poseidon2_internal.get_fixed_size(is_structured);
+        info("offset after poseidon2_internal block is ", offset);
+        // set the other selector polynomials to full size
+        proving_key.polynomials.q_m = Polynomial(proving_key.circuit_size);
+        proving_key.polynomials.q_c = Polynomial(proving_key.circuit_size);
+        proving_key.polynomials.q_l = Polynomial(proving_key.circuit_size);
+        proving_key.polynomials.q_r = Polynomial(proving_key.circuit_size);
+        proving_key.polynomials.q_o = Polynomial(proving_key.circuit_size);
+        proving_key.polynomials.q_4 = Polynomial(proving_key.circuit_size);
     }
 
     TraceData trace_data{ builder, proving_key };
-
-    // Complete the public inputs execution trace block from builder.public_inputs
-    populate_public_inputs_block(builder);
 
     uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
     // For each block in the trace, populate wire polys, copy cycles and selector polys

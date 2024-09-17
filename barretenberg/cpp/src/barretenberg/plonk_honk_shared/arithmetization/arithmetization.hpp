@@ -68,8 +68,6 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
     bool has_ram_rom = false;   // does the block contain RAM/ROM gates
     bool is_pub_inputs = false; // is this the public inputs block
 
-    uint32_t fixed_size = 0; // Fixed size for use in structured trace
-
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
     size_t size() const { return std::get<0>(this->wires).size(); }
@@ -104,6 +102,8 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
         }
     }
 #endif
+  private:
+    uint32_t fixed_size = 0; // Fixed size for use in structured trace
 };
 
 } // namespace bb
