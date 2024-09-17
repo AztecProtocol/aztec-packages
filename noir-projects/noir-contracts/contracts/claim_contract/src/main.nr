@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 contract Claim {
     use dep::aztec::{
         note::utils::compute_note_hash_for_nullify,
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
+        protocol_types::address::AztecAddress,
         state_vars::SharedImmutable,
         macros::{storage::storage, functions::{private, public, initializer}}
     };

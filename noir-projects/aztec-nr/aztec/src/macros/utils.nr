@@ -57,16 +57,6 @@ pub(crate) comptime fn expr_as_quoted_fixed(expr: Expr) -> Quoted {
         } else {
             quote { if $condition { $fixed_if } }
         }
-    } else if expr.as_for().is_some() {
-        // Fix the for body
-        let (variable, iterable, body) = expr.as_for().unwrap();
-        let fixed_body = expr_as_quoted_fixed(body);
-        quote { for $variable in $iterable $fixed_body }
-    } else if expr.as_block().is_some() {
-        let fixed = expr_slice_as_quoted_fixed(expr.as_block().unwrap());
-        quote {
-            { $fixed }
-        }
     } else {
         quote { $expr }
     }
@@ -95,10 +85,7 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
         }
     };
     let body_expr = body_quote.as_expr();
-    if !body_expr.is_some() {
-        println(body_quote);
-    }
-    assert(body_expr.is_some(), "Body is not an expression");
+    assert(body_expr.is_some(), f"Body is not an expression: {body_quote}");
     body_expr.unwrap()
 }
 

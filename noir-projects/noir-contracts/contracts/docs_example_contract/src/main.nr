@@ -20,8 +20,12 @@ contract DocsExample {
         AztecAddress, NoteViewerOptions, PrivateContext, Map, PublicMutable, PublicImmutable,
         PrivateMutable, PrivateImmutable, PrivateSet, SharedImmutable
     };
-    use dep::aztec::encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys};
-    use dep::aztec::keys::getters::get_current_public_keys;
+    use dep::aztec::{
+        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys},
+        keys::getters::get_current_public_keys,
+        macros::{storage::storage, functions::{public, private, internal, view}}
+    };
+
     // how to import methods from other files/folders within your workspace
     use crate::types::{card_note::CardNote, leader::Leader};
 
@@ -37,62 +41,62 @@ contract DocsExample {
         // just used for docs example to show how to create a private mutable map.
         profiles: Map<AztecAddress, PrivateMutable<CardNote, Context>, Context>,
         // docs:start:storage-set-declaration
-        set: PrivateSet<CardNote>,
+        set: PrivateSet<CardNote, Context>,
         // docs:end:storage-set-declaration
         // docs:start:storage-private-immutable-declaration
-        private_immutable: PrivateImmutable<CardNote>,
+        private_immutable: PrivateImmutable<CardNote, Context>,
         // docs:end:storage-private-immutable-declaration
         // docs:start:storage-shared-immutable-declaration
-        shared_immutable: SharedImmutable<Leader>,
+        shared_immutable: SharedImmutable<Leader, Context>,
         // docs:end:storage-shared-immutable-declaration
         // docs:start:storage-minters-declaration
-        minters: Map<AztecAddress, PublicMutable<bool>>,
+        minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
         // docs:end:storage-minters-declaration
         // docs:start:storage-public-immutable-declaration
-        public_immutable: PublicImmutable<Leader>,
+        public_immutable: PublicImmutable<Leader, Context>,
         // docs:end:storage-public-immutable-declaration
     }
 
     // Note: The following is no longer necessary to implement manually as our macros do this for us. It is left here
     // for documentation purposes only.
-    impl<Context> Storage<Context> {
-        fn init(context: Context) -> Self {
-            Storage {
-                // docs:start:storage-leader-init
-                leader: PublicMutable::new(context, 1),
-                // docs:end:storage-leader-init
-                // docs:start:start_vars_private_mutable
-                legendary_card: PrivateMutable::new(context, 3),
-                // docs:end:start_vars_private_mutable
-                // just used for docs example (not for game play):
-                // docs:start:state_vars-MapPrivateMutable
-                profiles: Map::new(
-                    context,
-                    4,
-                    |context, slot| {
-                        PrivateMutable::new(context, slot)
-                    }
-                ),
-                // docs:end:state_vars-MapPrivateMutable
-                // docs:start:storage-set-init
-                set: PrivateSet::new(context, 5),
-                // docs:end:storage-set-init
-                private_immutable: PrivateImmutable::new(context, 6),
-                shared_immutable: SharedImmutable::new(context, 7),
-                // docs:start:storage-minters-init
-                minters: Map::new(
-                    context,
-                    8,
-                    |context, slot| {
-                        PublicMutable::new(context, slot)
-                    }
-                ),
-                // docs:end:storage-minters-init
-                // docs:start:storage-public-immutable
-                public_immutable: PublicImmutable::new(context, 9)// docs:end:storage-public-immutable
-            }
-        }
-    }
+    // impl<Context> Storage<Context> {
+    //     fn init(context: Context) -> Self {
+    //         Storage {
+    //             // docs:start:storage-leader-init
+    //             leader: PublicMutable::new(context, 1),
+    //             // docs:end:storage-leader-init
+    //             // docs:start:start_vars_private_mutable
+    //             legendary_card: PrivateMutable::new(context, 3),
+    //             // docs:end:start_vars_private_mutable
+    //             // just used for docs example (not for game play):
+    //             // docs:start:state_vars-MapPrivateMutable
+    //             profiles: Map::new(
+    //                 context,
+    //                 4,
+    //                 |context, slot| {
+    //                     PrivateMutable::new(context, slot)
+    //                 }
+    //             ),
+    //             // docs:end:state_vars-MapPrivateMutable
+    //             // docs:start:storage-set-init
+    //             set: PrivateSet::new(context, 5),
+    //             // docs:end:storage-set-init
+    //             private_immutable: PrivateImmutable::new(context, 6),
+    //             shared_immutable: SharedImmutable::new(context, 7),
+    //             // docs:start:storage-minters-init
+    //             minters: Map::new(
+    //                 context,
+    //                 8,
+    //                 |context, slot| {
+    //                     PublicMutable::new(context, slot)
+    //                 }
+    //             ),
+    //             // docs:end:storage-minters-init
+    //             // docs:start:storage-public-immutable
+    //             public_immutable: PublicImmutable::new(context, 9)// docs:end:storage-public-immutable
+    //         }
+    //     }
+    // }
 
     #[public]
     fn initialize_shared_immutable(points: u8) {
@@ -110,7 +114,7 @@ contract DocsExample {
     }
 
     #[private]
-    fn get_shared_immutable_constrained_private_indirect() -> pub Leader {
+    fn get_shared_immutable_constrained_private_indirect() -> Leader {
         // This is a private function that calls another private function
         // and returns the response.
         // Used to test that we can retrieve values through calls and
@@ -121,7 +125,7 @@ contract DocsExample {
     }
 
     #[public]
-    fn get_shared_immutable_constrained_public_indirect() -> pub Leader {
+    fn get_shared_immutable_constrained_public_indirect() -> Leader {
         // This is a public function that calls another public function
         // and returns the response.
         // Used to test that we can retrieve values through calls and
@@ -133,23 +137,23 @@ contract DocsExample {
 
     #[public]
     #[view]
-    fn get_shared_immutable_constrained_public() -> pub Leader {
+    fn get_shared_immutable_constrained_public() -> Leader {
         storage.shared_immutable.read_public()
     }
 
     #[public]
-    fn get_shared_immutable_constrained_public_multiple() -> pub [Leader; 5] {
+    fn get_shared_immutable_constrained_public_multiple() -> [Leader; 5] {
         let a = storage.shared_immutable.read_public();
         [a, a, a, a, a]
     }
 
     #[private]
     #[view]
-    fn get_shared_immutable_constrained_private() -> pub Leader {
+    fn get_shared_immutable_constrained_private() -> Leader {
         storage.shared_immutable.read_private()
     }
 
-    unconstrained fn get_shared_immutable() -> pub Leader {
+    unconstrained fn get_shared_immutable() -> Leader {
         storage.shared_immutable.read_public()
     }
 
@@ -161,7 +165,7 @@ contract DocsExample {
         // docs:end:initialize_public_immutable
     }
 
-    unconstrained fn get_public_immutable() -> pub Leader {
+    unconstrained fn get_public_immutable() -> Leader {
         // docs:start:read_public_immutable
         storage.public_immutable.read()
         // docs:end:read_public_immutable
@@ -204,111 +208,87 @@ contract DocsExample {
             );
         }
     }
-
     #[private]
     fn insert_note(amount: u8, randomness: Field) {
         let sender_npk_m_hash = get_current_public_keys(&mut context, context.msg_sender()).npk_m.hash();
-
         let mut note = CardNote::new(amount, randomness, sender_npk_m_hash);
         storage.set.insert(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), context.msg_sender()));
     }
-
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
-    unconstrained fn read_note(comparator: u8, amount: Field) -> pub BoundedVec<CardNote, 10> {
+    unconstrained fn read_note(comparator: u8, amount: Field) -> BoundedVec<CardNote, 10> {
         let mut options = NoteViewerOptions::new();
         storage.set.view_notes(options.select(CardNote::properties().points, comparator, amount))
     }
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
-
     #[private]
     fn update_legendary_card(randomness: Field, points: u8) {
         let sender_npk_m_hash = get_current_public_keys(&mut context, context.msg_sender()).npk_m.hash();
-
         let mut new_card = CardNote::new(points, randomness, sender_npk_m_hash);
         storage.legendary_card.replace(&mut new_card).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), context.msg_sender()));
         DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
-
     #[private]
     fn increase_legendary_points() {
         // Ensure `points` > current value
         // Also serves as a e2e test that you can `get_note()` and then `replace()`
-
         let sender_npk_m_hash = get_current_public_keys(&mut context, context.msg_sender()).npk_m.hash();
-
         // docs:start:state_vars-PrivateMutableGet
         let card = storage.legendary_card.get_note().note;
-
         // docs:end:state_vars-PrivateMutableGet
-
         let points = card.points + 1;
-
         let mut new_card = CardNote::new(points, card.randomness, sender_npk_m_hash);
         // docs:start:state_vars-PrivateMutableReplace
         storage.legendary_card.replace(&mut new_card).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), context.msg_sender()));
         // docs:end:state_vars-PrivateMutableReplace
-
         DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(&mut context);
     }
-
     #[private]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         1
     }
-
     #[public]
     fn spend_public_authwit(inner_hash: Field) -> Field {
         1
     }
-
     #[public]
     #[internal]
     fn update_leader(account: AztecAddress, points: u8) {
         let new_leader = Leader { account, points };
         storage.leader.write(new_leader);
     }
-
-    unconstrained fn get_leader() -> pub Leader {
+    unconstrained fn get_leader() -> Leader {
         storage.leader.read()
     }
-
-    unconstrained fn get_legendary_card() -> pub CardNote {
+    unconstrained fn get_legendary_card() -> CardNote {
         storage.legendary_card.view_note()
     }
-
     // docs:start:private_mutable_is_initialized
-    unconstrained fn is_legendary_initialized() -> pub bool {
+    unconstrained fn is_legendary_initialized() -> bool {
         storage.legendary_card.is_initialized()
     }
     // docs:end:private_mutable_is_initialized
-
     // docs:start:get_note-private-immutable
     #[private]
     fn get_imm_card() -> CardNote {
         storage.private_immutable.get_note()
     }
     // docs:end:get_note-private-immutable
-
-    unconstrained fn view_imm_card() -> pub CardNote {
+    unconstrained fn view_imm_card() -> CardNote {
         storage.private_immutable.view_note()
     }
-
-    unconstrained fn is_priv_imm_initialized() -> pub bool {
+    unconstrained fn is_priv_imm_initialized() -> bool {
         storage.private_immutable.is_initialized()
     }
-
     /// Macro equivalence section
     use dep::aztec::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
     use dep::aztec::context::inputs::PrivateContextInputs;
-
     // docs:start:simple_macro_example
     #[private]
     fn simple_macro_example(a: Field, b: Field) -> Field {
         a + b
     }
     // docs:end:simple_macro_example
-
     // docs:start:simple_macro_example_expanded
     fn simple_macro_example_expanded(
         // ************************************************************
@@ -317,7 +297,6 @@ contract DocsExample {
         inputs: PrivateContextInputs,
         // docs:end:context-example-inputs
         // ************************************************************
-
         // Our original inputs!
         a: Field,
         b: Field // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the
@@ -332,20 +311,16 @@ contract DocsExample {
         args_hasher.add(a);
         args_hasher.add(b);
         // docs:end:context-example-hasher
-
         // The context object is created with the inputs and the hash of the inputs
         // docs:start:context-example-context
         let mut context = PrivateContext::new(inputs, args_hasher.hash());
         // docs:end:context-example-context
-
         // docs:start:storage-example-context
         let mut storage = Storage::init(&mut context);
         // docs:end:storage-example-context
         // ************************************************************
-
         // Our actual program
         let result = a + b;
-
         // ************************************************************
         // Return values are pushed into the context
         // docs:start:context-example-context-return
@@ -353,7 +328,6 @@ contract DocsExample {
         return_hasher.add(result);
         context.set_return_hash(return_hasher);
         // docs:end:context-example-context-return
-
         // The context is returned to be consumed by the kernel circuit!
         // docs:start:context-example-finish
         context.finish()

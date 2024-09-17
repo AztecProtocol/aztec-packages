@@ -157,12 +157,12 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
-    let return_value_type = f.return_type();
+    let return_value_var_name = quote { macro__returned__values };
+    let (body_without_return, last_body_expr) = body.pop_back();
 
+    let return_value_type = f.return_type();
     let return_value = if return_value_type != type_of(()) {
-        let (body_without_return, return_value) = body.pop_back();
-        let return_value = return_value.quoted();
-        let return_value_var_name = quote { macro__returned__values };
+        let return_value = last_body_expr.quoted();
         let return_value_assignment = quote { let $return_value_var_name = $return_value; };
         let return_hasher_name = quote { return_hasher };
         let return_value_into_hasher = add_to_hasher(return_hasher_name, return_value_var_name, return_value_type);
@@ -176,6 +176,14 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
             context.set_return_hash($return_hasher_name);
         }
     } else {
+        if !last_body_expr.has_semicolon()
+            & last_body_expr.as_for().is_none()
+            & last_body_expr.as_assert().is_none()
+            & last_body_expr.as_for_range().is_none() {
+            println("wtf");
+            let unused_return_value_name = f"_{return_value_var_name}".quoted_contents();
+            body = body.pop_back().0.push_back(quote { let $unused_return_value_name = $last_body_expr; }.as_expr().unwrap());
+        }
         quote {}
     };
 
@@ -287,6 +295,7 @@ pub comptime fn transform_unconstrained(f: FunctionDefinition) {
     };
     let body = f.body().as_block().unwrap();
     let modified_body = modify_fn_body(body, to_prepend, quote {});
+    f.set_return_public(true);
     f.set_body(modified_body);
 }
 

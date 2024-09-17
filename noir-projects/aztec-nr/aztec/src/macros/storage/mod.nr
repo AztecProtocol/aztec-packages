@@ -41,9 +41,6 @@ pub comptime fn generate_storage_field_constructor(typ: Type, slot: Quoted, pare
         let serialized_size = if parent_is_map {
             1
         } else {
-            assert(
-                container_struct_generics.len() == 2, f"Failed to process {container_struct_name}: Storable containers must be generic over a serializable type and Context"
-            );
             let stored_struct = container_struct_generics[0];
             let is_note = if stored_struct.as_struct().is_some() {
                 let (def, _) = stored_struct.as_struct().unwrap();
@@ -104,6 +101,16 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     //s.set_fields(new_storage_fields);
 
     let storage_vars_constructors = storage_vars_constructors.join(quote {,});
+    let storage_impl = quote {
+        impl<Context> Storage<Context> {
+            fn init(context: Context) -> Self {
+                Self {
+                    $storage_vars_constructors
+                }
+            }
+        }
+    };
+
     let storage_layout_fields = storage_layout_fields.join(quote {,});
     let storage_layout_constructors = storage_layout_constructors.join(quote {,});
 
@@ -113,13 +120,7 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
     STORAGE_LAYOUT_NAME.insert(module, storage_layout_name);
 
     quote {
-        impl<Context> Storage<Context> {
-            fn init(context: Context) -> Self {
-                Self {
-                    $storage_vars_constructors
-                }
-            }
-        }
+        $storage_impl
 
         struct StorageLayout {
             $storage_layout_fields

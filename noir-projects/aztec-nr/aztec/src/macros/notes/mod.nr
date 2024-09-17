@@ -170,20 +170,41 @@ comptime fn generate_note_hiding_point(
     let name = s.name();
     let hiding_point_name = f"{name}HidingPoint".quoted_contents();
 
-    let mut new_args_list = &[];
     let mut new_generators_list = &[];
     let mut new_scalars_list = &[];
+    let mut new_args_list = &[];
+    let mut new_generics_list = &[];
+    let mut new_trait_bounds_list = &[];
+
     for i in 0..fixed_fields.len() {
-        let (field_name, field_type) = fixed_fields[i];
+        let (field_name, _) = fixed_fields[i];
+        let arg_type = f"N{i}".quoted_contents();
         let generator_index = i + 1;
         new_generators_list = new_generators_list.push_back(f"aztec::generators::Ga{generator_index}".quoted_contents());
         new_scalars_list = new_scalars_list.push_back(quote { std::hash::from_field_unsafe($field_name.to_field()) });
-        new_args_list = new_args_list.push_back(quote { $field_name: $field_type });
+        new_args_list = new_args_list.push_back(quote { $field_name: $arg_type });
+        new_generics_list = new_generics_list.push_back(quote { $arg_type });
+        new_trait_bounds_list = new_trait_bounds_list.push_back(quote { $arg_type: aztec::protocol_types::traits::ToField });
     }
+
     new_args_list = new_args_list.push_back(quote { storage_slot: Field });
     let new_generators = new_generators_list.push_back(quote { aztec::generators::G_slot }).join(quote {,});
     let new_scalars = new_scalars_list.push_back(quote { std::hash::from_field_unsafe(storage_slot) }).join(quote {,});
     let new_args = new_args_list.join(quote {,});
+
+    let new_generics = if new_generics_list.len() > 0 {
+        let generics = new_generics_list.join(quote {,});
+        quote {<$generics>}
+    } else {
+        quote {}
+    };
+
+    let new_trait_bounds = if new_trait_bounds_list.len() > 0 {
+        let bounds = new_trait_bounds_list.join(quote {,});
+        quote {where $bounds}
+    } else {
+        quote {}
+    };
 
     let mut finalize_generators_list = &[];
     let mut finalize_scalars_list = &[];
@@ -253,8 +274,7 @@ comptime fn generate_note_hiding_point(
                 $hiding_point_name { inner: aztec::protocol_types::point::Point::empty() }
             }
 
-            fn new($new_args) -> $hiding_point_name {
-                let generators = [$new_generators];
+            fn new$new_generics($new_args) -> $hiding_point_name $new_trait_bounds {
                 let point = std::embedded_curve_ops::multi_scalar_mul(
                     [$new_generators],
                     [$new_scalars]
@@ -267,8 +287,7 @@ comptime fn generate_note_hiding_point(
                 self
             }
 
-            fn initialize($initialize_args) -> $hiding_point_name {
-                let generators = [$new_generators];
+            fn initialize$new_generics($initialize_args) -> $hiding_point_name $new_trait_bounds {
                 let point = std::embedded_curve_ops::multi_scalar_mul(
                     [$new_generators],
                     [$new_scalars]
@@ -313,8 +332,7 @@ comptime fn register_note(note: StructDefinition, note_serialized_len: u32, note
     NOTES.insert(note.module(), notes_to_insert);
 }
 
-#[varargs]
-pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> Quoted {
+comptime fn common_note_annotation(s: StructDefinition, nullable_fields: [Quoted]) -> (Quoted, Quoted) {
     // Automatically inject header if not present
     let note_header_type = type_of(NoteHeader::empty());
     let filtered_header = s.fields().filter(| (_, typ): (Quoted, Type) | typ == note_header_type);
@@ -328,37 +346,28 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
     let (note_hiding_point, hiding_point_name) = generate_note_hiding_point(s, fixed_fields, nullable_fields);
     let (note_interface_impl, note_serialized_len, note_type_id) = generate_note_interface(s, hiding_point_name, fixed_fields, nullable_fields);
     let note_properties = generate_note_properties(s);
-    let partial_note_impl = generate_partial_note_impl(s, hiding_point_name);
 
     register_note(s, note_serialized_len, note_type_id);
 
-    quote {
+    (quote {
         $note_interface_impl
         $note_properties
         $note_hiding_point
+    }, hiding_point_name)
+}
+
+#[varargs]
+pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> Quoted {
+    let (common, hiding_point_name) = common_note_annotation(s, nullable_fields);
+    let partial_note_impl = generate_partial_note_impl(s, hiding_point_name);
+
+    quote {
+        $common
         $partial_note_impl
     }
 }
 
 pub comptime fn note(s: StructDefinition) -> Quoted {
-    // Automatically inject header if not present
-    let note_header_type = type_of(NoteHeader::empty());
-    let filtered_header = s.fields().filter(| (_, typ): (Quoted, Type) | typ == note_header_type);
-    if (filtered_header.len() == 0) {
-        let new_fields = s.fields().push_back((quote { header }, note_header_type));
-        s.set_fields(new_fields);
-    }
-    let fixed_fields = s.fields().filter(| (_, typ): (Quoted, Type) | typ != note_header_type);
-
-    let (note_hiding_point, hiding_point_name) = generate_note_hiding_point(s, fixed_fields, &[]);
-    let (note_interface_impl, note_serialized_len, note_type_id) = generate_note_interface(s, hiding_point_name, fixed_fields, &[]);
-    let note_properties = generate_note_properties(s);
-
-    register_note(s, note_serialized_len, note_type_id);
-
-    quote {
-        $note_interface_impl
-        $note_properties
-        $note_hiding_point
-    }
+    let (common, _) = common_note_annotation(s, &[]);
+    common
 }

@@ -36,7 +36,8 @@ contract AvmTest {
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map};
     use dep::compressed_string::CompressedString;
-    use dep::aztec::macros::{storage::storage, functions::public};
+    use dep::aztec::macros::{storage::storage, functions::{public, private}};
+    use dep::aztec::context::gas::GasOpts;
 
 
     #[storage]

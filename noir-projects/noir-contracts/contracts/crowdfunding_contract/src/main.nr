@@ -11,9 +11,10 @@ contract Crowdfunding {
         keys::getters::get_current_public_keys, prelude::{AztecAddress, PrivateSet, SharedImmutable},
         utils::comparison::Comparator,
         unencrypted_logs::unencrypted_event_emission::encode_event,
-        macros::{storage::storage, events::event, functions::{public, initializer, private, internal}}
+        macros::{storage::storage, events::event, functions::{public, initializer, private, internal}},
+        protocol_types::traits::Serialize
     };
-    use dep::aztec::
+    use std::meta::derive;
     // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
     // docs:end:import_valuenote
@@ -22,6 +23,7 @@ contract Crowdfunding {
     // docs:end:all-deps
 
     #[event]
+    #[derive(Serialize)]
     struct WithdrawalProcessed {
         who: Field,
         amount: Field,

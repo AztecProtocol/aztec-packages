@@ -21,7 +21,7 @@ pub comptime fn pack_from_fields<N>(
 
     if replacement == quote {} {
         if typ.is_field() | typ.as_integer().is_some() {
-            result = quote { $buffer[$consumed] as Field };
+            result = quote { $buffer[$consumed] as $typ };
             consumed = 1;
         } else if typ.as_struct().is_some() {
             let (nested_def, _) = typ.as_struct().unwrap();

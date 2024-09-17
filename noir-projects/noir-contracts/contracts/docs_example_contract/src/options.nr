@@ -1,4 +1,4 @@
-use crate::types::card_note::{CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN};
+use crate::types::card_note::{CARD_NOTE_LEN, CardNote};
 use dep::aztec::prelude::NoteGetterOptions;
 
 use dep::aztec::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
@@ -10,7 +10,7 @@ use dep::aztec::{note::note_getter_options::SortOrder, utils::comparison::Compar
 pub fn create_npk_card_getter_options(
     account_npk_m_hash: Field,
     offset: u32
-) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN, Field, Field> {
+) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, Field, Field> {
     let mut options = NoteGetterOptions::new();
     options.select(
         CardNote::properties().npk_m_hash,
@@ -25,7 +25,7 @@ pub fn create_exact_card_getter_options(
     points: u8,
     secret: Field,
     account_npk_m_hash: Field
-) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN, Field, Field> {
+) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, Field, Field> {
     let mut options = NoteGetterOptions::new();
     options.select(CardNote::properties().points, Comparator.EQ, points as Field).select(CardNote::properties().randomness, Comparator.EQ, secret).select(
         CardNote::properties().npk_m_hash,
@@ -53,13 +53,13 @@ pub fn filter_min_points(
 // docs:end:state_vars-OptionFilter
 
 // docs:start:state_vars-NoteGetterOptionsFilter
-pub fn create_cards_with_min_points_getter_options(min_points: u8) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN, Field, u8> {
+pub fn create_cards_with_min_points_getter_options(min_points: u8) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, Field, u8> {
     NoteGetterOptions::with_filter(filter_min_points, min_points).sort(CardNote::properties().points, SortOrder.ASC)
 }
 // docs:end:state_vars-NoteGetterOptionsFilter
 
 // docs:start:state_vars-NoteGetterOptionsPickOne
-pub fn create_largest_card_getter_options() -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN, Field, Field> {
+pub fn create_largest_card_getter_options() -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, Field, Field> {
     let mut options = NoteGetterOptions::new();
     options.sort(CardNote::properties().points, SortOrder.DESC).set_limit(1)
 }

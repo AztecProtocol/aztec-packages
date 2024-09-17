@@ -7,9 +7,6 @@ contract Counter {
     use value_note::{balance_utils, value_note::ValueNote};
     use easy_private_state::EasyPrivateUint;
     use aztec::macros::{storage::storage, functions::{initializer, private}};
-    use aztec::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
-    use aztec::context::inputs::private_context_inputs::PrivateContextInputs;
-
     // docs:end:imports
 
     // docs:start:storage_struct

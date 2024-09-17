@@ -151,12 +151,15 @@ pub comptime fn generate_note_exports(m: Module) -> Quoted {
 
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
+
     let unconstrained_functions = m.functions().filter(| f: FunctionDefinition | f.is_unconstrained() & !f.has_named_attribute("test"));
-    let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier(m);
-    let note_exports = generate_note_exports(m);
     for f in unconstrained_functions {
         transform_unconstrained(f);
     }
+
+    let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier(m);
+    let note_exports = generate_note_exports(m);
+
     quote {
         $interface
         $compute_note_hash_and_optionally_a_nullifier

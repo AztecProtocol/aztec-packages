@@ -11,7 +11,7 @@ contract AppSubscription {
         prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
         keys::getters::get_current_public_keys, protocol_types::constants::MAX_FIELD_VALUE,
         utils::comparison::Comparator,
-        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys };
+        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys},
         macros::{storage::storage, functions::{public, initializer, private}}
     };
     use authwit::auth::assert_current_call_valid_authwit;

@@ -3,10 +3,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract DelegatedOn {
-    use dep::aztec::prelude::{
-        AztecAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions, PublicMutable,
-        PrivateSet, PrivateContext, Map
-    };
+    use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, PublicMutable, PrivateSet, Map};
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_current_public_keys, utils::comparison::Comparator,
@@ -43,7 +40,7 @@ contract DelegatedOn {
         notes.get(0).value
     }
 
-    unconstrained fn view_public_value() -> pub Field {
+    unconstrained fn view_public_value() -> Field {
         storage.current_value.read()
     }
 }

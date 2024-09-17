@@ -5,21 +5,19 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract CardGame {
-    use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
+    use dep::aztec::protocol_types::address::AztecAddress;
     use dep::aztec::{hash::pedersen_hash, state_vars::{Map, PublicMutable}};
 
-    use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
+    use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
 
-    use dep::aztec::note::{note_header::NoteHeader, constants::MAX_NOTES_PER_PAGE};
-
-    use crate::cards::{PACK_CARDS, Deck, Card, get_pack_cards, compute_deck_strength};
-    use crate::game::{NUMBER_OF_PLAYERS, NUMBER_OF_CARDS_DECK, PLAYABLE_CARDS, PlayerEntry, Game, GAME_SERIALIZED_LEN};
+    use crate::cards::{Deck, Card, get_pack_cards, compute_deck_strength};
+    use crate::game::{PLAYABLE_CARDS, PlayerEntry, Game};
     use dep::aztec::macros::{storage::storage, functions::{private, public, internal}};
 
     #[storage]
     struct Storage<Context> {
-        collections: Map<AztecAddress, Deck, Context>,
-        game_decks: Map<Field, Map<AztecAddress, Deck, Context>, Context>,
+        collections: Map<AztecAddress, Deck<Context>, Context>,
+        game_decks: Map<Field, Map<AztecAddress, Deck<Context>, Context>, Context>,
         games: Map<Field, PublicMutable<Game, Context>, Context>,
     }
 
