@@ -27,4 +27,7 @@ interface ILeonidas {
   function getCurrentEpochCommittee() external view returns (address[] memory);
   function getEpochCommittee(uint256 _epoch) external view returns (address[] memory);
   function getValidators() external view returns (address[] memory);
+
+  function getEpochAt(uint256 _ts) external view returns (uint256);
+  function getSlotAt(uint256 _ts) external view returns (uint256);
 }

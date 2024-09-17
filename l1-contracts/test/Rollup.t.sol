@@ -23,6 +23,8 @@ import {PortalERC20} from "./portals/PortalERC20.sol";
 import {TxsDecoderHelper} from "./decoders/helpers/TxsDecoderHelper.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 
+// solhint-disable comprehensive-interface
+
 /**
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
  * Main use of these test is shorter cycles when updating the decoder contract.
@@ -113,13 +115,7 @@ contract RollupTest is DecoderBase {
 
     _testBlock("mixed_block_1", false);
 
-    uint256 currentSlot = rollup.getCurrentSlot();
-    (,, uint128 slot) = rollup.blocks(1);
-    uint256 prunableAt = uint256(slot) + rollup.TIMELINESS_PROVING_IN_SLOTS();
-
-    vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__NotReadyToPrune.selector, currentSlot, prunableAt)
-    );
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
     rollup.prune();
   }
 

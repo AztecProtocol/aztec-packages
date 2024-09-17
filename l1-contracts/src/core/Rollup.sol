@@ -110,32 +110,13 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @notice  Prune the pending chain up to the last proven block
    *
    * @dev     Will revert if there is nothing to prune or if the chain is not ready to be pruned
-   *
-   * @dev     While in devnet, this will be guarded behind an `onlyOwner`
    */
-  function prune() external override(IRollup) onlyOwner {
-    if (tips.pendingBlockNumber == tips.provenBlockNumber) {
+  function prune() external override(IRollup) {
+    if (!_canPrune()) {
       revert Errors.Rollup__NothingToPrune();
     }
 
-    BlockLog storage firstPendingNotInProven = blocks[tips.provenBlockNumber + 1];
-    uint256 prunableAtSlot =
-      uint256(firstPendingNotInProven.slotNumber) + TIMELINESS_PROVING_IN_SLOTS;
-    uint256 currentSlot = getCurrentSlot();
-
-    if (currentSlot < prunableAtSlot) {
-      revert Errors.Rollup__NotReadyToPrune(currentSlot, prunableAtSlot);
-    }
-
-    uint256 pending = tips.pendingBlockNumber;
-
-    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
-    //        We can do because any new block proposed will overwrite a previous block in the block log,
-    //        so no values should "survive".
-    //        People must therefore read the chain using the pendingTip as a boundary.
-    tips.pendingBlockNumber = tips.provenBlockNumber;
-
-    emit PrunedPending(tips.provenBlockNumber, pending);
+    _prune();
   }
 
   /**
@@ -193,6 +174,9 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body
   ) external override(IRollup) {
+    if (_canPrune()) {
+      _prune();
+    }
     bytes32 txsEffectsHash = TxsDecoder.decode(_body);
 
     // Decode and validate header
@@ -277,6 +261,9 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external override(IRollup) {
+    if (_canPrune()) {
+      _prune();
+    }
     HeaderLib.Header memory header = HeaderLib.decode(_header);
 
     if (header.globalVariables.blockNumber > tips.pendingBlockNumber) {
@@ -484,6 +471,36 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   function getPendingBlockNumber() public view override(IRollup) returns (uint256) {
     return tips.pendingBlockNumber;
+  }
+
+  function _prune() internal {
+    uint256 pending = tips.pendingBlockNumber;
+
+    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
+    //        We can do because any new block proposed will overwrite a previous block in the block log,
+    //        so no values should "survive".
+    //        People must therefore read the chain using the pendingTip as a boundary.
+    tips.pendingBlockNumber = tips.provenBlockNumber;
+
+    emit PrunedPending(tips.provenBlockNumber, pending);
+  }
+
+  function _canPrune() internal view returns (bool) {
+    if (tips.pendingBlockNumber == tips.provenBlockNumber) {
+      return false;
+    }
+
+    uint256 currentSlot = getCurrentSlot();
+    uint256 oldestPendingEpoch = getEpochAt(blocks[tips.provenBlockNumber + 1].slotNumber);
+    uint256 startSlotOfPendingEpoch = oldestPendingEpoch * Constants.AZTEC_EPOCH_DURATION;
+
+    // TODO: #8608 adds a proof claim, which will allow us to prune the chain more aggressively.
+    //       That is what will add a `CLAIM_DURATION` to the pruning logic.
+    if (currentSlot < startSlotOfPendingEpoch + 2 * Constants.AZTEC_EPOCH_DURATION) {
+      return false;
+    }
+
+    return true;
   }
 
   /**

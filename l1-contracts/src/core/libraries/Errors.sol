@@ -60,7 +60,6 @@ library Errors {
   error Rollup__TimestampTooOld(); // 0x72ed9c81
   error Rollup__UnavailableTxs(bytes32 txsHash); // 0x414906c3
   error Rollup__NothingToPrune(); // 0x850defd3
-  error Rollup__NotReadyToPrune(uint256 currentSlot, uint256 prunableAt); // 0x9fdf1614
   error Rollup__NonSequentialProving(); // 0x1e5be132
 
   // Registry
