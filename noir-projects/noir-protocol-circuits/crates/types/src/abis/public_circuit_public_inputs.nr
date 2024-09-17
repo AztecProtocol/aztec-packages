@@ -18,6 +18,7 @@ use crate::{
     utils::reader::Reader
 };
 
+// Public inputs to public app circuit.
 struct PublicCircuitPublicInputs {
     call_context: CallContext,
 

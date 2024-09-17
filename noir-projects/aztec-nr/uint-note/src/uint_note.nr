@@ -5,8 +5,7 @@ use dep::aztec::{
     constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::{Point, POINT_LENGTH},
     hash::poseidon2_hash_with_separator, traits::Serialize
 },
-    note::utils::compute_note_hash_for_nullify, oracle::unsafe_rand::unsafe_rand,
-    keys::getters::get_nsk_app
+    note::utils::compute_note_hash_for_nullify, keys::getters::get_nsk_app
 };
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 

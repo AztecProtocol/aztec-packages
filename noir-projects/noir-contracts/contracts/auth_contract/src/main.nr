@@ -1,3 +1,5 @@
+mod test;
+
 // Test contract showing basic public access control that can be used in private. It uses a SharedMutable state variable to
 // publicly store the address of an authorized account that can call private functions.
 use dep::aztec::macros::aztec;

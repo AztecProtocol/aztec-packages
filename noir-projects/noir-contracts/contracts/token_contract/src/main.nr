@@ -143,7 +143,7 @@ contract Token {
     // docs:start:admin
     #[public]
     #[view]
-    fn admin() -> Field {
+    fn get_admin() -> Field {
         storage.admin.read().to_field()
     }
     // docs:end:admin

@@ -21,13 +21,13 @@ template <typename FF_> class UltraArith {
         T elliptic;
         T aux;
         T lookup;
-        T poseidon_external;
-        T poseidon_internal;
+        T poseidon2_external;
+        T poseidon2_internal;
 
         auto get()
         {
-            return RefArray{ pub_inputs, arithmetic, delta_range,       elliptic,
-                             aux,        lookup,     poseidon_external, poseidon_internal };
+            return RefArray{ pub_inputs, arithmetic, delta_range,        elliptic,
+                             aux,        lookup,     poseidon2_external, poseidon2_internal };
         }
 
         bool operator==(const UltraTraceBlocks& other) const = default;
@@ -44,8 +44,8 @@ template <typename FF_> class UltraArith {
             this->elliptic = FIXED_SIZE;
             this->aux = FIXED_SIZE;
             this->lookup = FIXED_SIZE;
-            this->poseidon_external = FIXED_SIZE;
-            this->poseidon_internal = FIXED_SIZE;
+            this->poseidon2_external = FIXED_SIZE;
+            this->poseidon2_internal = FIXED_SIZE;
         }
     };
 
@@ -119,8 +119,8 @@ template <typename FF_> class UltraArith {
 
         auto get()
         {
-            return RefArray{ this->pub_inputs, this->arithmetic, this->delta_range,       this->elliptic,
-                             this->aux,        this->lookup,     this->poseidon_external, this->poseidon_internal };
+            return RefArray{ this->pub_inputs, this->arithmetic, this->delta_range,        this->elliptic,
+                             this->aux,        this->lookup,     this->poseidon2_external, this->poseidon2_internal };
         }
 
         void summarize() const
@@ -132,8 +132,8 @@ template <typename FF_> class UltraArith {
             info("elliptic   :\t", this->elliptic.size());
             info("auxiliary  :\t", this->aux.size());
             info("lookups    :\t", this->lookup.size());
-            info("poseidon ext  :\t", this->poseidon_external.size());
-            info("poseidon int  :\t", this->poseidon_internal.size());
+            info("poseidon ext  :\t", this->poseidon2_external.size());
+            info("poseidon int  :\t", this->poseidon2_internal.size());
         }
 
         size_t get_total_structured_size()

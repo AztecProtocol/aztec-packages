@@ -54,14 +54,14 @@ pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, Az
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
 
-    // docs:start:txe_test_store_note
-    // Store a note in the cache so we can redeem it
-    env.store_note_in_cache(
+    // docs:start:txe_test_add_note
+    // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
+    env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash),
         Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
-    // docs:end:txe_test_store_note
+    // docs:end:txe_test_add_note
 
     // Redeem our shielded tokens
     let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);
