@@ -98,7 +98,9 @@ Documented with Noir v0.33.0 <> BB v0.47.1:
 
 Refer to all available `bb` commands linked above for full list of functionality.
 
-##### Generating Solidity verifier
+##### Generating proofs for verifying in Solidity
+
+Barretenberg UltraHonk comes with the capability to verify proofs in Solidity, i.e. in smart contracts on EVM chains.
 
 1. Follow [the Noir docs](https://noir-lang.org/docs/getting_started/hello_noir/) to compile and generate witness of your Noir program
 
@@ -107,7 +109,9 @@ Refer to all available `bb` commands linked above for full list of functionality
     ```bash
     bb prove_keccak_ultra_honk -b ./target/hello_world.json -w ./target/witness-name.gz -o ./target/proof
     ```
-    
+
+    **Note:** `prove_keccak_ultra_honk` is used to generate UltraHonk proofs with Keccak hashes, as it is what the Solidity verifier is designed to be compatible with given the better gas efficiency when verifying on-chain; `prove_ultra_honk` in comparison generates proofs with Poseidon hashes, more efficient in recursions but not on-chain verifications.
+
 3. Compute the verification key for your Noir program running:
 
     ```bash
