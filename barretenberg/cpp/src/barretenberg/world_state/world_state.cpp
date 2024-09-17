@@ -97,13 +97,11 @@ StateReference WorldState::get_state_reference(WorldStateRevision revision) cons
 {
     Signal signal(static_cast<uint32_t>(_trees.size()));
     StateReference state_reference;
-    // multiple threads want to write to state_reference
-    std::mutex state_ref_mutex;
 
     bool uncommitted = include_uncommitted(revision);
 
     for (const auto& [id, tree] : _trees) {
-        auto callback = [&signal, &state_reference, &state_ref_mutex, id](const TypedResponse<TreeMetaResponse>& meta) {
+        auto callback = [&](const TypedResponse<TreeMetaResponse>& meta) {
             std::lock_guard<std::mutex> lock(state_ref_mutex);
             state_reference.insert({ id, { meta.inner.root, meta.inner.size } });
             signal.signal_decrement();
