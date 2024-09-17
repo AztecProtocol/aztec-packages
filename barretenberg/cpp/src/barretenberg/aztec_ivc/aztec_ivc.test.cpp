@@ -8,7 +8,7 @@
 
 using namespace bb;
 
-class AztecIVCTests : public ::testing::Test {
+class ClientIVCTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
@@ -16,15 +16,15 @@ class AztecIVCTests : public ::testing::Test {
         srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
-    using Flavor = AztecIVC::Flavor;
+    using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
-    using Builder = AztecIVC::ClientCircuit;
-    using DeciderProvingKey = AztecIVC::DeciderProvingKey;
-    using DeciderVerificationKey = AztecIVC::DeciderVerificationKey;
-    using FoldProof = AztecIVC::FoldProof;
-    using DeciderProver = AztecIVC::DeciderProver;
-    using DeciderVerifier = AztecIVC::DeciderVerifier;
+    using Builder = ClientIVC::ClientCircuit;
+    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
+    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
+    using FoldProof = ClientIVC::FoldProof;
+    using DeciderProver = ClientIVC::DeciderProver;
+    using DeciderVerifier = ClientIVC::DeciderVerifier;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
@@ -38,7 +38,7 @@ class AztecIVCTests : public ::testing::Test {
      * only necessary if the structured trace is not in use).
      *
      */
-    static Builder create_mock_circuit(AztecIVC& ivc, size_t log2_num_gates = 16)
+    static Builder create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
     {
         Builder circuit{ ivc.goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
@@ -46,7 +46,7 @@ class AztecIVCTests : public ::testing::Test {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
         // function circuit because we cannot support zero commtiments. While the builder handles this at
         // finalisation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other MegaHonk
-        // circuits (where we don't explicitly need to add goblin ops), in AztecIVC merge proving happens prior to
+        // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(circuit);
         return circuit;
@@ -57,12 +57,12 @@ class AztecIVCTests : public ::testing::Test {
      *
      */
     class MockCircuitProducer {
-        using ClientCircuit = AztecIVC::ClientCircuit;
+        using ClientCircuit = ClientIVC::ClientCircuit;
 
         bool is_kernel = false;
 
       public:
-        ClientCircuit create_next_circuit(AztecIVC& ivc, size_t log2_num_gates = 16)
+        ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
         {
             ClientCircuit circuit{ ivc.goblin.op_queue };
             circuit = create_mock_circuit(ivc, log2_num_gates); // construct mock base logic
@@ -78,7 +78,7 @@ class AztecIVCTests : public ::testing::Test {
                                           TraceStructure trace_structure,
                                           size_t log2_num_gates = 16)
         {
-            AztecIVC ivc; // temporary IVC instance needed to produce the complete kernel circuits
+            ClientIVC ivc; // temporary IVC instance needed to produce the complete kernel circuits
             ivc.trace_structure = trace_structure;
 
             std::vector<std::shared_ptr<VerificationKey>> vkeys;
@@ -115,9 +115,9 @@ class AztecIVCTests : public ::testing::Test {
  * verfication occurs.
  *
  */
-TEST_F(AztecIVCTests, Basic)
+TEST_F(ClientIVCTests, Basic)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
 
     MockCircuitProducer circuit_producer;
 
@@ -134,12 +134,12 @@ TEST_F(AztecIVCTests, Basic)
 
 /**
  * @brief A simple test demonstrating IVC for four mock circuits, which is slightly more than minimal.
- * @details When accumulating only four circuits, we execute all the functionality of a full AztecIVC run.
+ * @details When accumulating only four circuits, we execute all the functionality of a full ClientIVC run.
  *
  */
-TEST_F(AztecIVCTests, BasicFour)
+TEST_F(ClientIVCTests, BasicFour)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
 
     MockCircuitProducer circuit_producer;
     for (size_t idx = 0; idx < 4; ++idx) {
@@ -157,11 +157,11 @@ TEST_F(AztecIVCTests, BasicFour)
  * fail.
  *
  */
-TEST_F(AztecIVCTests, BadProofFailure)
+TEST_F(ClientIVCTests, BadProofFailure)
 {
     // Confirm that the IVC verifies if nothing is tampered with
     {
-        AztecIVC ivc;
+        ClientIVC ivc;
         ivc.trace_structure = TraceStructure::SMALL_TEST;
 
         MockCircuitProducer circuit_producer;
@@ -177,7 +177,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
 
     // The IVC throws an exception if the FIRST fold proof is tampered with
     {
-        AztecIVC ivc;
+        ClientIVC ivc;
         ivc.trace_structure = TraceStructure::SMALL_TEST;
 
         MockCircuitProducer circuit_producer;
@@ -202,7 +202,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
 
     // The IVC fails if the SECOND fold proof is tampered with
     {
-        AztecIVC ivc;
+        ClientIVC ivc;
         ivc.trace_structure = TraceStructure::SMALL_TEST;
 
         MockCircuitProducer circuit_producer;
@@ -227,7 +227,7 @@ TEST_F(AztecIVCTests, BadProofFailure)
 
     // The IVC fails if the 3rd/FINAL fold proof is tampered with
     {
-        AztecIVC ivc;
+        ClientIVC ivc;
         ivc.trace_structure = TraceStructure::SMALL_TEST;
 
         MockCircuitProducer circuit_producer;
@@ -253,9 +253,9 @@ TEST_F(AztecIVCTests, BadProofFailure)
  * @brief Prove and verify accumulation of an arbitrary set of circuits
  *
  */
-TEST_F(AztecIVCTests, BasicLarge)
+TEST_F(ClientIVCTests, BasicLarge)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
 
     MockCircuitProducer circuit_producer;
 
@@ -274,9 +274,9 @@ TEST_F(AztecIVCTests, BasicLarge)
  * @brief Using a structured trace allows for the accumulation of circuits of varying size
  *
  */
-TEST_F(AztecIVCTests, BasicStructured)
+TEST_F(ClientIVCTests, BasicStructured)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     MockCircuitProducer circuit_producer;
@@ -298,9 +298,9 @@ TEST_F(AztecIVCTests, BasicStructured)
  * @brief Prove and verify accumulation of an arbitrary set of circuits using precomputed verification keys
  *
  */
-TEST_F(AztecIVCTests, PrecomputedVerificationKeys)
+TEST_F(ClientIVCTests, PrecomputedVerificationKeys)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
 
     size_t NUM_CIRCUITS = 4;
 
@@ -321,9 +321,9 @@ TEST_F(AztecIVCTests, PrecomputedVerificationKeys)
  * @brief Perform accumulation with a structured trace and precomputed verification keys
  *
  */
-TEST_F(AztecIVCTests, StructuredPrecomputedVKs)
+TEST_F(ClientIVCTests, StructuredPrecomputedVKs)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     size_t NUM_CIRCUITS = 4;

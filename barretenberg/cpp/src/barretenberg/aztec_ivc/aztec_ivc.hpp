@@ -22,7 +22,7 @@ namespace bb {
  * of circuits being accumulated is even.
  *
  */
-class AztecIVC {
+class ClientIVC {
 
   public:
     using Flavor = MegaFlavor;
@@ -138,8 +138,8 @@ class AztecIVC {
     static bool verify(const Proof& proof,
                        const std::shared_ptr<DeciderVerificationKey>& accumulator,
                        const std::shared_ptr<DeciderVerificationKey>& final_stack_vk,
-                       const std::shared_ptr<AztecIVC::ECCVMVerificationKey>& eccvm_vk,
-                       const std::shared_ptr<AztecIVC::TranslatorVerificationKey>& translator_vk);
+                       const std::shared_ptr<ClientIVC::ECCVMVerificationKey>& eccvm_vk,
+                       const std::shared_ptr<ClientIVC::TranslatorVerificationKey>& translator_vk);
 
     bool verify(const Proof& proof, const std::vector<std::shared_ptr<DeciderVerificationKey>>& vk_stack);
 

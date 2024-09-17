@@ -15,7 +15,7 @@ class ClientIVCRecursiveVerifier {
     using GoblinVerifier = GoblinRecursiveVerifier;
 
   public:
-    using Proof = AztecIVC::Proof;
+    using Proof = ClientIVC::Proof;
     using FoldVerifierInput = FoldingVerifier::VerifierInput;
     using GoblinVerifierInput = GoblinVerifier::VerifierInput;
     struct VerifierInput {
@@ -27,7 +27,7 @@ class ClientIVCRecursiveVerifier {
         : builder(builder)
         , verifier_input(verifier_input){};
 
-    void verify(const AztecIVC::Proof&);
+    void verify(const ClientIVC::Proof&);
 
   private:
     std::shared_ptr<Builder> builder;

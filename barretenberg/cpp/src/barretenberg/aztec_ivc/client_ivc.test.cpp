@@ -8,7 +8,7 @@
 
 using namespace bb;
 
-class AztecIVCAutoVerifyTests : public ::testing::Test {
+class ClientIVCAutoVerifyTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
@@ -16,15 +16,15 @@ class AztecIVCAutoVerifyTests : public ::testing::Test {
         srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
-    using Flavor = AztecIVC::Flavor;
+    using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
-    using Builder = AztecIVC::ClientCircuit;
-    using DeciderProvingKey = AztecIVC::DeciderProvingKey;
-    using DeciderVerificationKey = AztecIVC::DeciderVerificationKey;
-    using FoldProof = AztecIVC::FoldProof;
-    using DeciderProver = AztecIVC::DeciderProver;
-    using DeciderVerifier = AztecIVC::DeciderVerifier;
+    using Builder = ClientIVC::ClientCircuit;
+    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
+    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
+    using FoldProof = ClientIVC::FoldProof;
+    using DeciderProver = ClientIVC::DeciderProver;
+    using DeciderVerifier = ClientIVC::DeciderVerifier;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
@@ -36,7 +36,7 @@ class AztecIVCAutoVerifyTests : public ::testing::Test {
      * polynomials will bump size to next power of 2)
      *
      */
-    static Builder create_mock_circuit(AztecIVC& ivc, size_t log2_num_gates = 16)
+    static Builder create_mock_circuit(ClientIVC& ivc, size_t log2_num_gates = 16)
     {
         Builder circuit{ ivc.goblin.op_queue };
         MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates);
@@ -44,7 +44,7 @@ class AztecIVCAutoVerifyTests : public ::testing::Test {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
         // function circuit because we cannot support zero commtiments. While the builder handles this at
         // finalisation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other MegaHonk
-        // circuits (where we don't explicitly need to add goblin ops), in AztecIVC merge proving happens prior to
+        // circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(circuit);
         return circuit;
@@ -55,9 +55,9 @@ class AztecIVCAutoVerifyTests : public ::testing::Test {
  * @brief A simple-as-possible test demonstrating IVC for two mock circuits
  *
  */
-TEST_F(AztecIVCAutoVerifyTests, Basic)
+TEST_F(ClientIVCAutoVerifyTests, Basic)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.auto_verify_mode = true;
 
     {
@@ -79,9 +79,9 @@ TEST_F(AztecIVCAutoVerifyTests, Basic)
  * @brief Prove and verify accumulation of an arbitrary set of circuits
  *
  */
-TEST_F(AztecIVCAutoVerifyTests, BasicLarge)
+TEST_F(ClientIVCAutoVerifyTests, BasicLarge)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.auto_verify_mode = true;
 
     // Construct a set of arbitrary circuits
@@ -103,9 +103,9 @@ TEST_F(AztecIVCAutoVerifyTests, BasicLarge)
  * @brief Using a structured trace allows for the accumulation of circuits of varying size
  *
  */
-TEST_F(AztecIVCAutoVerifyTests, BasicStructured)
+TEST_F(ClientIVCAutoVerifyTests, BasicStructured)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
@@ -128,9 +128,9 @@ TEST_F(AztecIVCAutoVerifyTests, BasicStructured)
  * @brief Prove and verify accumulation of an arbitrary set of circuits using precomputed verification keys
  *
  */
-TEST_F(AztecIVCAutoVerifyTests, PrecomputedVerificationKeys)
+TEST_F(ClientIVCAutoVerifyTests, PrecomputedVerificationKeys)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.auto_verify_mode = true;
 
     // Construct a set of arbitrary circuits
@@ -155,9 +155,9 @@ TEST_F(AztecIVCAutoVerifyTests, PrecomputedVerificationKeys)
  * @brief Perform accumulation with a structured trace and precomputed verification keys
  *
  */
-TEST_F(AztecIVCAutoVerifyTests, StructuredPrecomputedVKs)
+TEST_F(ClientIVCAutoVerifyTests, StructuredPrecomputedVKs)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 

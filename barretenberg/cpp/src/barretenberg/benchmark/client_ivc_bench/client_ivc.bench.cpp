@@ -22,7 +22,7 @@ class ClientIVCBench : public benchmark::Fixture {
   public:
     using Builder = MegaCircuitBuilder;
     using DeciderVerificationKey = DeciderVerificationKey_<MegaFlavor>;
-    using Proof = AztecIVC::Proof;
+    using Proof = ClientIVC::Proof;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 
     // Number of function circuits to accumulate(based on Zacs target numbers)
@@ -38,7 +38,7 @@ class ClientIVCBench : public benchmark::Fixture {
      * @brief Verify an IVC proof
      *
      */
-    static bool verify_ivc(Proof& proof, AztecIVC& ivc)
+    static bool verify_ivc(Proof& proof, ClientIVC& ivc)
     {
         auto verifier_inst = std::make_shared<DeciderVerificationKey>(ivc.verification_queue[0].honk_verification_key);
         bool verified = ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
@@ -57,7 +57,7 @@ class ClientIVCBench : public benchmark::Fixture {
      *
      * @param NUM_CIRCUITS Number of circuits to accumulate (apps + kernels)
      */
-    static void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS, AztecIVC& ivc, auto& precomputed_vks)
+    static void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS, ClientIVC& ivc, auto& precomputed_vks)
     {
         ASSERT(precomputed_vks.size() == NUM_CIRCUITS); // ensure presence of a precomputed VK for each circuit
 
@@ -81,7 +81,7 @@ class ClientIVCBench : public benchmark::Fixture {
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
 
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits

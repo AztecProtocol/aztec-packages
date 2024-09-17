@@ -493,11 +493,11 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
  * @return MegaCircuitBuilder
  */
 MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
-                                         AztecIVC& ivc,
+                                         ClientIVC& ivc,
                                          const WitnessVector& witness,
                                          const size_t size_hint)
 {
-    using StdlibVerificationKey = AztecIVC::RecursiveVerificationKey;
+    using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
 
     // Construct the main kernel circuit logic excluding recursive verifiers
     auto circuit = create_circuit<MegaCircuitBuilder>(constraint_system,

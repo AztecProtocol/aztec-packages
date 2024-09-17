@@ -14,7 +14,7 @@ class ClientIVCRecursionTests : public testing::Test {
     using DeciderVerificationKey = FoldVerifierInput::DeciderVK;
     using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
     using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
-    using Proof = AztecIVC::Proof;
+    using Proof = ClientIVC::Proof;
     using Flavor = UltraRecursiveFlavor_<Builder>;
     using NativeFlavor = Flavor::NativeFlavor;
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<Flavor>;
@@ -34,9 +34,9 @@ class ClientIVCRecursionTests : public testing::Test {
      * @brief Construct a genuine ClientIVC prover output based on accumulation of an arbitrary set of mock circuits
      *
      */
-    static ClientIVCProverOutput construct_client_ivc_prover_output(AztecIVC& ivc)
+    static ClientIVCProverOutput construct_client_ivc_prover_output(ClientIVC& ivc)
     {
-        using Builder = AztecIVC::ClientCircuit;
+        using Builder = ClientIVC::ClientCircuit;
 
         size_t NUM_CIRCUITS = 2;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -62,7 +62,7 @@ class ClientIVCRecursionTests : public testing::Test {
  */
 TEST_F(ClientIVCRecursionTests, NativeVerification)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.auto_verify_mode = true;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
@@ -83,7 +83,7 @@ TEST_F(ClientIVCRecursionTests, NativeVerification)
 TEST_F(ClientIVCRecursionTests, Basic)
 {
     // Generate a genuine ClientIVC prover output
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.auto_verify_mode = true;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
@@ -105,7 +105,7 @@ TEST_F(ClientIVCRecursionTests, Basic)
 TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 {
     // Generate a genuine ClientIVC prover output
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.auto_verify_mode = true;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 

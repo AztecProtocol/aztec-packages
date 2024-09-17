@@ -13,7 +13,7 @@ using namespace bb;
  * @brief A test suite that mirrors the logic in the nominal IVC benchmark case
  *
  */
-class AztecIVCIntegrationTests : public ::testing::Test {
+class ClientIVCIntegrationTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
@@ -21,10 +21,10 @@ class AztecIVCIntegrationTests : public ::testing::Test {
         srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
     }
 
-    using Flavor = AztecIVC::Flavor;
+    using Flavor = ClientIVC::Flavor;
     using FF = typename Flavor::FF;
     using VerificationKey = Flavor::VerificationKey;
-    using Builder = AztecIVC::ClientCircuit;
+    using Builder = ClientIVC::ClientCircuit;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 };
 
@@ -34,9 +34,9 @@ class AztecIVCIntegrationTests : public ::testing::Test {
  * circuits total (3 app, 3 kernel) to save time.
  *
  */
-TEST_F(AztecIVCIntegrationTests, BenchmarkCaseSimple)
+TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
 
     MockCircuitProducer circuit_producer;
@@ -57,9 +57,9 @@ TEST_F(AztecIVCIntegrationTests, BenchmarkCaseSimple)
  * verification keys
  *
  */
-TEST_F(AztecIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
+TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
 
     size_t NUM_CIRCUITS = 6;
@@ -87,9 +87,9 @@ TEST_F(AztecIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
  * causes failure of the IVC to verify.
  *
  */
-TEST_F(AztecIVCIntegrationTests, DatabusFailure)
+TEST_F(ClientIVCIntegrationTests, DatabusFailure)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
 
     MockCircuitProducer circuit_producer;

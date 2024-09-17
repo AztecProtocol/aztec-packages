@@ -405,7 +405,7 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
         test_name, /*honk_recursion=*/false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
                                               // Assumes Flavor is not UltraHonk
 
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 

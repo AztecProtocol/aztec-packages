@@ -210,7 +210,7 @@ Builder create_circuit(AcirFormat& constraint_system,
                        bool collect_gates_per_opcode = false);
 
 MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
-                                         AztecIVC& ivc,
+                                         ClientIVC& ivc,
                                          const WitnessVector& witness = {},
                                          const size_t size_hint = 0);
 

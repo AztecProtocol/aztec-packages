@@ -17,7 +17,7 @@ namespace {
  */
 class MockDatabusProducer {
   private:
-    using ClientCircuit = AztecIVC::ClientCircuit;
+    using ClientCircuit = ClientIVC::ClientCircuit;
     using Flavor = MegaFlavor;
     using FF = Flavor::FF;
     using BusDataArray = std::vector<FF>;
@@ -83,7 +83,7 @@ class MockDatabusProducer {
  * checks.
  */
 class PrivateFunctionExecutionMockCircuitProducer {
-    using ClientCircuit = AztecIVC::ClientCircuit;
+    using ClientCircuit = ClientIVC::ClientCircuit;
     using Flavor = MegaFlavor;
     using VerificationKey = Flavor::VerificationKey;
 
@@ -95,7 +95,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
     /**
      * @brief Create a the next circuit (app/kernel) in a mocked private function execution stack
      */
-    ClientCircuit create_next_circuit(AztecIVC& ivc)
+    ClientCircuit create_next_circuit(ClientIVC& ivc)
     {
         circuit_counter++;
 
@@ -131,7 +131,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
      */
     auto precompute_verification_keys(const size_t num_circuits, TraceStructure trace_structure)
     {
-        AztecIVC ivc; // temporary IVC instance needed to produce the complete kernel circuits
+        ClientIVC ivc; // temporary IVC instance needed to produce the complete kernel circuits
         ivc.trace_structure = trace_structure;
 
         std::vector<std::shared_ptr<VerificationKey>> vkeys;
