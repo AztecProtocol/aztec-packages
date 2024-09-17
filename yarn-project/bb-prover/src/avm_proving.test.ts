@@ -1,14 +1,9 @@
 import { GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
-
-
 import { mock } from 'jest-mock-extended';
 
-
-
 import { proveAndVerifyAvmTestContract } from '../src/test/test_avm.js';
-
 
 const TIMEOUT = 60_000;
 const TIMESTAMP = new Fr(99833);

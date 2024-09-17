@@ -1,12 +1,14 @@
 import { type BBSuccess, BB_RESULT, generateProof, verifyProof } from '@aztec/bb-prover';
 import { proveAvmTestContract } from '@aztec/bb-prover';
-import { AVM_PROOF_LENGTH_IN_FIELDS, AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH } from '@aztec/circuits.js/constants';
+import {
+  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+} from '@aztec/circuits.js/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
-
-
 
 import { jest } from '@jest/globals';
 import fs from 'fs/promises';
@@ -16,7 +18,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { MockPublicKernelCircuit, witnessGenMockPublicKernelCircuit } from './index.js';
-
 
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
