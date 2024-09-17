@@ -5,7 +5,7 @@ pragma solidity >=0.8.18;
 import {IInbox} from "../interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "../interfaces/messagebridge/IOutbox.sol";
 
-import {SignatureLib} from "../sequencer_selection/SignatureLib.sol";
+import {SignatureLib} from "../libraries/SignatureLib.sol";
 import {DataStructures} from "../libraries/DataStructures.sol";
 
 interface ITestRollup {
