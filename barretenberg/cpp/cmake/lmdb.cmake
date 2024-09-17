@@ -12,12 +12,13 @@ ExternalProject_Add(
     GIT_TAG ddd0a773e2f44d38e4e31ec9ed81af81f4e4ccbb
     BUILD_IN_SOURCE YES
     CONFIGURE_COMMAND "" # No configure step
-    BUILD_COMMAND make -C libraries/liblmdb -e XCFLAGS=-fPIC liblmdb.a
+    BUILD_COMMAND make -C libraries/liblmdb -e liblmdb.a
     INSTALL_COMMAND ""
     UPDATE_COMMAND "" # No update step
     BUILD_BYPRODUCTS ${LMDB_LIB} ${LMDB_INCLUDE}
 )
 
+# XCFLAGS=-fPIC
 add_library(lmdb STATIC IMPORTED GLOBAL)
 add_dependencies(lmdb lmdb_repo)
 set_target_properties(lmdb PROPERTIES IMPORTED_LOCATION ${LMDB_LIB})
