@@ -97,6 +97,38 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
      */
     void find_low_leaf(const fr& leaf_key, bool includeUncommitted, const FindLowLeafCallback& on_completion) const;
 
+    void get_leaf(const index_t& index,
+                  const index_t& blockNumber,
+                  bool includeUncommitted,
+                  const LeafCallback& completion) const;
+
+    /**
+     * @brief Find the index of the provided leaf value if it exists
+     */
+    void find_leaf_index(
+        const LeafValueType& leaf,
+        const index_t& blockNumber,
+        bool includeUncommitted,
+        const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
+
+    /**
+     * @brief Find the index of the provided leaf value if it exists, only considers indexed beyond the value provided
+     */
+    void find_leaf_index_from(
+        const LeafValueType& leaf,
+        const index_t& blockNumber,
+        index_t start_index,
+        bool includeUncommitted,
+        const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const;
+
+    /**
+     * @brief Find the leaf with the value immediately lower then the value provided
+     */
+    void find_low_leaf(const fr& leaf_key,
+                       const index_t& blockNumber,
+                       bool includeUncommitted,
+                       const FindLowLeafCallback& on_completion) const;
+
     using ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path;
 
   private:
@@ -254,12 +286,56 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
 }
 
 template <typename Store, typename HashingPolicy>
+void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& index,
+                                                                 const index_t& blockNumber,
+                                                                 bool includeUncommitted,
+                                                                 const LeafCallback& completion) const
+{
+    auto job = [=, this]() {
+        execute_and_report<GetIndexedLeafResponse<LeafValueType>>(
+            [=, this](TypedResponse<GetIndexedLeafResponse<LeafValueType>>& response) {
+                ReadTransactionPtr tx = store_.create_read_transaction();
+                BlockPayload blockData;
+                if (!store_.get_block_data(blockNumber, blockData, *tx)) {
+                    throw std::runtime_error("Data for block unavailable");
+                }
+                RequestContext requestContext;
+                requestContext.includeUncommitted = includeUncommitted;
+                requestContext.latestBlock = false;
+                requestContext.root = blockData.root;
+                requestContext.sizeAtBlock = blockData.size;
+                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext.root, *tx, includeUncommitted);
+                if (leaf_hash.has_value()) {
+                    std::optional<IndexedLeafValueType> leaf =
+                        store_.get_leaf_by_hash(leaf_hash.value(), *tx, includeUncommitted);
+                    if (leaf.has_value()) {
+                        response.success = true;
+                        response.inner.indexed_leaf = leaf.value();
+                    }
+                }
+            },
+            completion);
+    };
+    workers_.enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index(
     const LeafValueType& leaf,
     bool includeUncommitted,
     const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
 {
     find_leaf_index_from(leaf, 0, includeUncommitted, on_completion);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index(
+    const LeafValueType& leaf,
+    const index_t& blockNumber,
+    bool includeUncommitted,
+    const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
+{
+    find_leaf_index_from(leaf, blockNumber, 0, includeUncommitted, on_completion);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -290,6 +366,39 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
 }
 
 template <typename Store, typename HashingPolicy>
+void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
+    const LeafValueType& leaf,
+    const index_t& blockNumber,
+    index_t start_index,
+    bool includeUncommitted,
+    const ContentAddressedAppendOnlyTree<Store, HashingPolicy>::FindLeafCallback& on_completion) const
+{
+    auto job = [=, this]() -> void {
+        execute_and_report<FindLeafIndexResponse>(
+            [=, this](TypedResponse<FindLeafIndexResponse>& response) {
+                typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
+                BlockPayload blockData;
+                if (!store_.get_block_data(blockNumber, blockData, *tx)) {
+                    throw std::runtime_error("Data for block unavailable");
+                }
+                RequestContext requestContext;
+                requestContext.includeUncommitted = includeUncommitted;
+                requestContext.latestBlock = false;
+                requestContext.sizeAtBlock = blockData.size;
+                requestContext.root = blockData.root;
+                std::optional<index_t> leaf_index =
+                    store_.find_leaf_index_from(leaf, start_index, requestContext, *tx, includeUncommitted);
+                response.success = leaf_index.has_value();
+                if (response.success) {
+                    response.inner.leaf_index = leaf_index.value();
+                }
+            },
+            on_completion);
+    };
+    workers_.enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& leaf_key,
                                                                       bool includeUncommitted,
                                                                       const FindLowLeafCallback& on_completion) const
@@ -302,6 +411,35 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
+                std::pair<bool, index_t> result = store_.find_low_value(leaf_key, requestContext, *tx);
+                response.inner.index = result.second;
+                response.inner.is_already_present = result.first;
+            },
+            on_completion);
+    };
+
+    workers_.enqueue(job);
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& leaf_key,
+                                                                      const index_t& blockNumber,
+                                                                      bool includeUncommitted,
+                                                                      const FindLowLeafCallback& on_completion) const
+{
+    auto job = [=, this]() {
+        execute_and_report<GetLowIndexedLeafResponse>(
+            [=, this](TypedResponse<GetLowIndexedLeafResponse>& response) {
+                typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
+                BlockPayload blockData;
+                if (!store_.get_block_data(blockNumber, blockData, *tx)) {
+                    throw std::runtime_error("Data for block unavailable");
+                }
+                RequestContext requestContext;
+                requestContext.includeUncommitted = includeUncommitted;
+                requestContext.latestBlock = false;
+                requestContext.sizeAtBlock = blockData.size;
+                requestContext.root = blockData.root;
                 std::pair<bool, index_t> result = store_.find_low_value(leaf_key, requestContext, *tx);
                 response.inner.index = result.second;
                 response.inner.is_already_present = result.first;
@@ -573,6 +711,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                 ReadTransactionPtr tx = store_.create_read_transaction();
                 TreeMeta meta;
                 store_.get_meta(meta, *tx, true);
+                RequestContext requestContext;
+                requestContext.latestBlock = true;
+                requestContext.includeUncommitted = true;
+                requestContext.sizeAtBlock = meta.committedSize;
                 // Ensure that the tree is not going to be overfilled
                 index_t new_total_size = num_leaves_to_be_inserted + meta.size;
                 if (new_total_size > max_size_) {
@@ -594,9 +736,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                     // This gives us the leaf that need updating
                     index_t low_leaf_index = 0;
                     bool is_already_present = false;
-                    RequestContext requestContext;
-                    requestContext.latestBlock = true;
-                    requestContext.includeUncommitted = true;
+
                     requestContext.root = store_.get_current_root(*tx, true);
                     // std::cout << "Here 3" << std::endl;
                     std::tie(is_already_present, low_leaf_index) =

@@ -428,54 +428,6 @@ std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_lea
     return std::optional<fr>(hash);
 }
 
-// template <typename Store, typename HashingPolicy>
-// ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath ContentAddressedAppendOnlyTree<
-//     Store,
-//     HashingPolicy>::get_subtree_sibling_path_internal(const index_t leaf_index,
-//                                                       const uint32_t subtree_depth,
-//                                                       ReadTransaction& tx,
-//                                                       bool includeUncommitted) const
-// {
-//     // skip the first levels, all the way to the subtree_root
-//     OptionalSiblingPath path;
-//     if (subtree_depth >= depth_) {
-//         return path;
-//     }
-//     path.resize(depth_ - subtree_depth);
-//     size_t path_index = path.size() - 1;
-
-//     index_t mask = index_t(1) << (depth_ - 1);
-//     // std::cout << "Depth: " << depth_ << ", mask: " << mask << ", sub tree depth: " << subtree_depth
-//     //           << ", leaf index: " << leaf_index << std::endl;
-//     fr hash = store_.get_current_root(tx, includeUncommitted);
-//     // std::cout << "Getting sibling path for root: " << hash << std::endl;
-
-//     for (uint32_t level = 0; level < depth_ - subtree_depth; ++level) {
-//         NodePayload nodePayload;
-//         store_.get_node_by_hash(hash, nodePayload, tx, includeUncommitted);
-//         bool is_right = static_cast<bool>(leaf_index & mask);
-//         // std::cout << "Level: " << level << ", mask: " << mask << ", is right: " << is_right << ", parent: " <<
-//         hash
-//         //           << ", left has value: " << nodePayload.left.has_value()
-//         //           << ", right has value: " << nodePayload.right.has_value() << std::endl;
-//         // if (nodePayload.left.has_value()) {
-//         //     std::cout << "LEFT " << nodePayload.left.value() << std::endl;
-//         // }
-//         // if (nodePayload.right.has_value()) {
-//         //     std::cout << "RIGHT " << nodePayload.right.value() << std::endl;
-//         // }
-//         mask >>= 1;
-//         std::optional<fr> sibling = is_right ? nodePayload.left : nodePayload.right;
-//         std::optional<fr> child = is_right ? nodePayload.right : nodePayload.left;
-//         hash = child.has_value() ? child.value() : zero_hashes_[level + 1];
-//         // fr sib = (sibling.has_value() ? sibling.value() : zero_hashes_[level + 1]);
-//         // std::cout << "Pushed sibling: " << sib << ", hash: " << hash << ", path index " << path_index <<
-//         std::endl; path[path_index--] = sibling;
-//     }
-
-//     return path;
-// }
-
 template <typename Store, typename HashingPolicy>
 ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath ContentAddressedAppendOnlyTree<
     Store,
