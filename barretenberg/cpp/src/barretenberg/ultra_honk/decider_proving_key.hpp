@@ -83,6 +83,8 @@ template <class Flavor> class DeciderProvingKey_ {
         }
 
         // First and last lagrange polynomials (in the full circuit size)
+        proving_key.polynomials.lagrange_first = Polynomial(dyadic_circuit_size);
+        proving_key.polynomials.lagrange_last = Polynomial(dyadic_circuit_size);
         proving_key.polynomials.lagrange_first.at(0) = 1;
         proving_key.polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
 

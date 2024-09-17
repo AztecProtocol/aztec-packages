@@ -41,6 +41,12 @@ template <class Flavor>
 void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires IsGoblinFlavor<Flavor>
 {
+    // Allocate the databus polynomials and databus_id
+    for (auto& databus_poly : proving_key.polynomials.get_databus_entities()) {
+        databus_poly = Polynomial(proving_key.circuit_size);
+    }
+    proving_key.polynomials.databus_id = Polynomial(proving_key.circuit_size);
+
     auto& public_calldata = proving_key.polynomials.calldata;
     auto& calldata_read_counts = proving_key.polynomials.calldata_read_counts;
     auto& calldata_read_tags = proving_key.polynomials.calldata_read_tags;

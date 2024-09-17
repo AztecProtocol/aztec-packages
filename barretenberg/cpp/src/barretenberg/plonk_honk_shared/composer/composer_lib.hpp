@@ -14,6 +14,12 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
                                         size_t dyadic_circuit_size,
                                         size_t additional_offset = 0)
 {
+    // Allocate the table polynomials
+    if constexpr (IsHonkFlavor<Flavor>) {
+        for (auto& poly : table_polynomials) {
+            poly = typename Flavor::Polynomial(dyadic_circuit_size);
+        }
+    }
     // Create lookup selector polynomials which interpolate each table column.
     // Our selector polys always need to interpolate the full subgroup size, so here we offset so as to
     // put the table column's values at the end. (The first gates are for non-lookup constraints).
@@ -51,6 +57,11 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::CircuitBuilder& circuit,
                                   size_t dyadic_circuit_size)
 {
+    // Allocate the read counts and tags polynomials
+    if constexpr (IsHonkFlavor<Flavor>) {
+        read_counts = typename Flavor::Polynomial(dyadic_circuit_size);
+        read_tags = typename Flavor::Polynomial(dyadic_circuit_size);
+    }
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     size_t offset = dyadic_circuit_size - circuit.get_tables_size();
 

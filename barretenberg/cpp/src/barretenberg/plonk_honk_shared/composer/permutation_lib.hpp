@@ -384,6 +384,13 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
             compute_monomial_and_coset_fft_polynomials_from_lagrange<Flavor::NUM_WIRES>("id", key);
         }
     } else if constexpr (IsUltraFlavor<Flavor>) { // any UltraHonk flavor
+        // Allocate sigma and id polynomials
+        for (auto& sigma : key->polynomials.get_sigmas()) {
+            sigma = Polynomial(key->circuit_size);
+        }
+        for (auto& id : key->polynomials.get_ids()) {
+            id = Polynomial(key->circuit_size);
+        }
         // Compute Honk-style sigma and ID polynomials from the corresponding mappings
         {
             ZoneScopedN("compute_honk_style_permutation_lagrange_polynomials_from_mapping");

@@ -56,6 +56,16 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
     ZoneScopedN("construct_trace_data");
+    // Allocate the wires and selectors polynomials
+    if constexpr (IsHonkFlavor<Flavor>) {
+        for (auto wire : proving_key.polynomials.get_wires()) {
+            wire = Polynomial(proving_key.circuit_size);
+        }
+        for (auto selector : proving_key.polynomials.get_selectors()) {
+            selector = Polynomial(proving_key.circuit_size);
+        }
+    }
+
     TraceData trace_data{ builder, proving_key };
 
     // Complete the public inputs execution trace block from builder.public_inputs
@@ -134,6 +144,13 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
                                                               typename Flavor::ProvingKey& proving_key)
     requires IsGoblinFlavor<Flavor>
 {
+    // Allocate the ecc op wires and selector
+    if constexpr (IsHonkFlavor<Flavor>) {
+        for (auto wire : proving_key.polynomials.get_ecc_op_wires()) {
+            wire = Polynomial(proving_key.circuit_size);
+        }
+        proving_key.polynomials.lagrange_ecc_op = Polynomial(proving_key.circuit_size);
+    }
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
     auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
