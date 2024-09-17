@@ -150,12 +150,9 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     override(ITestRollup)
     onlyOwner
   {
-    // the first condition ensures that we actually need to adjust the proven tip,
-    // since assumeProvenUntilBlockNumber is exclusive.
-    // e.g. if the arg is 5, we don't need to move the proven tip if it is already 4.
-    // the second condition ensures we have a valid slot number for the proven tip.
     if (
-      blockNumber > state.provenTip.blockNumber + 1 && blockNumber <= state.pendingTip.blockNumber
+      blockNumber > (state.provenTip.blockNumber + 1)
+        && blockNumber <= (state.pendingTip.blockNumber + 1)
     ) {
       state.provenTip =
         ChainTip({blockNumber: blockNumber - 1, slotNumber: blocks[blockNumber - 1].slotNumber});

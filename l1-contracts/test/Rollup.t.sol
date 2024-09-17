@@ -438,12 +438,6 @@ contract RollupTest is DecoderBase {
       }
     }
 
-    // uint256 pendingBlockNum = rollup.pendingBlockNum();
-    // full.block.decodedHeader.globalVariables.blockNumber = pendingBlockNum + 1;
-    // assembly {
-    //   mstore(add(header, add(0x20, 0x0174)), add(pendingBlockNum, 1))
-    // }
-
     // We jump to the time of the block. (unless it is in the past)
     vm.warp(max(block.timestamp, full.block.decodedHeader.globalVariables.timestamp));
 
