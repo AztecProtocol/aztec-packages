@@ -11,6 +11,7 @@
  * satisfied in general by random inputs) only that the two implementations are equivalent.
  *
  */
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/relations/auxiliary_relation.hpp"
@@ -46,6 +47,15 @@ struct InputElements {
         std::generate(result._data.begin(), result._data.end(), [&] {
             idx += FF(1);
             return idx;
+        });
+        return result;
+    }
+
+    InputElements scaled(const FF& scalar) const
+    {
+        InputElements result{ _data };
+        std::transform(result._data.begin(), result._data.end(), result._data.begin(), [&scalar](const auto& x) {
+            return x * scalar;
         });
         return result;
     }
@@ -111,23 +121,53 @@ class UltraRelationConsistency : public testing::Test {
         Relation::accumulate(accumulator, input_elements, parameters, 1);
         EXPECT_EQ(accumulator, expected_values);
     };
-    template <template <typename, bool> typename Relation>
-    static void validate_homogenization_consistency(const InputElements& input_elements)
-    {
-        const auto parameters = RelationParameters<FF>::get_random(&engine);
 
+    template <template <typename, bool> typename Relation> static void validate_homogenization_consistency()
+    {
         using Rel = Relation<FF, /* HOMOGENIZED= */ false>;
         using RelHomog = Relation<FF, /* HOMOGENIZED= */ true>;
+
+        InputElements in = InputElements::get_random();
+        in.homogenizer = 1;
 
         typename Rel::SumcheckArrayOfValuesOverSubrelations accumulator;
         std::fill(accumulator.begin(), accumulator.end(), FF(0));
         typename RelHomog::SumcheckArrayOfValuesOverSubrelations accumulator_homog;
         std::fill(accumulator_homog.begin(), accumulator_homog.end(), FF(0));
 
-        FF scaling_factor{ 1 };
-        Rel::accumulate(accumulator, input_elements, parameters, scaling_factor);
-        RelHomog::accumulate(accumulator_homog, input_elements, parameters, scaling_factor);
+        const auto parameters = RelationParameters<FF>::get_random(&engine);
+        const FF separator{ 1 };
+
+        Rel::accumulate(accumulator, in, parameters, separator);
+        RelHomog::accumulate(accumulator_homog, in, parameters, separator);
+
         EXPECT_EQ(accumulator, accumulator_homog);
+    };
+
+    template <template <typename, bool> typename Relation> static void validate_homogeneity()
+    {
+        using Rel = Relation<FF, /* HOMOGENIZED= */ true>;
+
+        const InputElements in = InputElements::get_random();
+        typename Rel::SumcheckArrayOfValuesOverSubrelations acc;
+        std::fill(acc.begin(), acc.end(), FF(0));
+        typename Rel::SumcheckArrayOfValuesOverSubrelations acc_scaled_input;
+        std::fill(acc_scaled_input.begin(), acc_scaled_input.end(), FF(0));
+        const FF scalar = FF::random_element(&engine);
+        const InputElements in_scaled = in.scaled(scalar);
+
+        const auto params = RelationParameters<FF>::get_random(&engine);
+        const RelationParameters<FF> params_scaled{ params };
+        const FF separator{ 1 };
+
+        Rel::accumulate(acc, in, params, separator); // f(in) = (f_i(in))_i   (i over subrelations of f)
+        Rel::accumulate(acc_scaled_input, in_scaled, params_scaled, separator); // f_i(s*in) will be (s^d_i*f_i(in))_i
+        for (auto [x, len] : zip_view(acc, Rel::SUBRELATION_TOTAL_LENGTHS)) {   // compute (s^d_i*f_i(in))_i
+            ASSERT(len > 1);
+            x *= scalar.pow(len - 1);
+        }
+
+        EXPECT_EQ(acc, acc_scaled_input);
     };
 };
 
@@ -617,18 +657,12 @@ TEST_F(UltraRelationConsistency, Poseidon2InternalRelation)
     run_test(/*random_inputs=*/true);
 };
 
-TEST_F(UltraRelationConsistency, HomogenizedArithmetic)
+TEST_F(UltraRelationConsistency, HomogenizationConsistency)
 {
-    const auto run_test = [](const bool random_inputs) {
-        const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
+    validate_homogenization_consistency<UltraArithmeticRelation>();
+};
 
-        std::vector<FF> valid_selector_values = { 0, 1, 2, 3, 4 };
-        for (const auto& val : valid_selector_values) {
-            input_elements.q_arith = val;
-            input_elements.homogenizer = 1;
-            validate_homogenization_consistency<UltraArithmeticRelation>(input_elements);
-        }
-    };
-    run_test(/* random_inputs = */ false);
-    run_test(/* random_inputs = */ true);
+TEST_F(UltraRelationConsistency, Homogeneity)
+{
+    validate_homogeneity<UltraArithmeticRelation>();
 };

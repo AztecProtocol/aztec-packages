@@ -151,6 +151,9 @@ concept isSkippable = requires(const AllEntities& input) {
     } -> std::same_as<bool>;
 };
 
+template <typename T>
+concept ArrayAccessOnEntity = requires(T a, size_t i) { a.get_all()[0].value_at(i); };
+
 /**
  * @brief A wrapper for Relations to expose methods used by the Sumcheck prover or verifier to add the
  * contribution of a given relation to the corresponding accumulator.
