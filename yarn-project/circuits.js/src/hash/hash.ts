@@ -1,12 +1,9 @@
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { pedersenHashBuffer, poseidon2HashWithSeparator, sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { numToUInt8, numToUInt16BE, numToUInt32BE } from '@aztec/foundation/serialize';
 
-import chunk from 'lodash.chunk';
-
-import { ARGS_HASH_CHUNK_COUNT, ARGS_HASH_CHUNK_LENGTH, GeneratorIndex, MAX_ARGS_LENGTH } from '../constants.gen.js';
+import { GeneratorIndex } from '../constants.gen.js';
 import { type ScopedL2ToL1Message, VerificationKey } from '../structs/index.js';
 
 /**
@@ -103,22 +100,8 @@ export function computeVarArgsHash(args: Fr[]) {
   if (args.length === 0) {
     return Fr.ZERO;
   }
-  if (args.length > MAX_ARGS_LENGTH) {
-    throw new Error(`Hashing ${args.length} args exceeds max of ${MAX_ARGS_LENGTH}`);
-  }
 
-  let chunksHashes = chunk(args, ARGS_HASH_CHUNK_LENGTH).map((c: Fr[]) => {
-    if (c.length < ARGS_HASH_CHUNK_LENGTH) {
-      c = padArrayEnd(c, Fr.ZERO, ARGS_HASH_CHUNK_LENGTH);
-    }
-    return poseidon2HashWithSeparator(c, GeneratorIndex.FUNCTION_ARGS);
-  });
-
-  if (chunksHashes.length < ARGS_HASH_CHUNK_COUNT) {
-    chunksHashes = padArrayEnd(chunksHashes, Fr.ZERO, ARGS_HASH_CHUNK_COUNT);
-  }
-
-  return poseidon2HashWithSeparator(chunksHashes, GeneratorIndex.FUNCTION_ARGS);
+  return poseidon2HashWithSeparator(args, GeneratorIndex.FUNCTION_ARGS);
 }
 
 /**

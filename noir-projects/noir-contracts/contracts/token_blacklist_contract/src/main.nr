@@ -13,7 +13,8 @@ contract TokenBlacklist {
     use dep::aztec::{
         hash::compute_secret_hash,
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note, utils::comparison::Comparator
+        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
+        utils::comparison::Comparator
     };
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
@@ -214,8 +215,8 @@ contract TokenBlacklist {
         }
 
         let amount = U128::from_integer(amount);
-        storage.balances.sub(from, amount).emit(encode_and_encrypt_note(&mut context, from, from));
-        storage.balances.add(to, amount).emit(encode_and_encrypt_note(&mut context, from, to));
+        storage.balances.sub(from, amount).emit(encode_and_encrypt_note_unconstrained(&mut context, from, from));
+        storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(&mut context, from, to));
     }
 
     #[aztec(private)]

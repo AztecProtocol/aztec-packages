@@ -155,9 +155,6 @@ e2e-cheat-codes:
 e2e-counter-contract:
   DO +E2E_TEST --test=./src/e2e_counter_contract.test.ts
 
-e2e-cross-chain-messaging:
-  DO +E2E_TEST --test=./src/e2e_cross_chain_messaging.test.ts
-
 e2e-crowdfunding-and-claim:
   DO +E2E_TEST --test=./src/e2e_crowdfunding_and_claim.test.ts
 
@@ -233,11 +230,8 @@ e2e-fees-fee-juice-payments:
 e2e-fees-account-init:
   DO +E2E_TEST --test=./src/e2e_fees/account_init.test.ts
 
-e2e-public-cross-chain-messaging:
-  DO +E2E_TEST --test=./src/e2e_public_cross_chain_messaging
-
-e2e-public-to-private-messaging:
-  DO +E2E_TEST --test=./src/e2e_public_to_private_messaging.test.ts
+e2e-cross-chain-messaging:
+  DO +E2E_TEST --test=./src/e2e_cross_chain_messaging
 
 e2e-state-vars:
   DO +E2E_TEST --test=./src/e2e_state_vars.test.ts

@@ -46,8 +46,13 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
         ? tx.data.forRollup?.rollupValidationRequests || tx.data.forPublic!.validationRequests.forRollup
         : tx.data.rollupValidationRequests;
     const maxBlockNumber = target.maxBlockNumber;
+
     if (maxBlockNumber.isSome && maxBlockNumber.value < this.blockNumber) {
-      this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for low max block number`);
+      this.#log.warn(
+        `Rejecting tx ${Tx.getHash(tx)} for low max block number. Tx max block number: ${
+          maxBlockNumber.value
+        }, current block number: ${this.blockNumber}.`,
+      );
       return false;
     } else {
       return true;
