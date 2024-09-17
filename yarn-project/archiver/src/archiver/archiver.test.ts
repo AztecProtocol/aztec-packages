@@ -31,10 +31,6 @@ interface MockRollupContractRead {
   archiveAt: (args: readonly [bigint]) => Promise<`0x${string}`>;
 }
 
-class MockRollupContract {
-  constructor(public read: MockRollupContractRead, public address: `0x${string}`) {}
-}
-
 describe('Archiver', () => {
   const rollupAddress = EthAddress.ZERO;
   const inboxAddress = EthAddress.ZERO;
@@ -74,10 +70,9 @@ describe('Archiver', () => {
 
     blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
 
-    const mockRollupRead = mock<MockRollupContractRead>({
+    ((archiver as any).rollup as any).read = mock<MockRollupContractRead>({
       archiveAt: (args: readonly [bigint]) => Promise.resolve(blocks[Number(args[0] - 1n)].archive.root.toString()),
     });
-    (archiver as any).rollup = new MockRollupContract(mockRollupRead, rollupAddress.toString());
   });
 
   afterEach(async () => {
