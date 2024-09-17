@@ -32,13 +32,14 @@ export class PeerScoring {
   peerPenalties: { [key in PeerErrorSeverity]: number };
 
   constructor(config: P2PConfig) {
+    const orderedValues = config.peerPenaltyValues.sort((a, b) => a - b);
     this.peerPenalties = {
       [PeerErrorSeverity.HighToleranceError]:
-        config.peerPenaltyValues[0] ?? DefaultPeerPenalties[PeerErrorSeverity.LowToleranceError],
+        orderedValues[0] ?? DefaultPeerPenalties[PeerErrorSeverity.LowToleranceError],
       [PeerErrorSeverity.MidToleranceError]:
-        config.peerPenaltyValues[1] ?? DefaultPeerPenalties[PeerErrorSeverity.MidToleranceError],
+        orderedValues[1] ?? DefaultPeerPenalties[PeerErrorSeverity.MidToleranceError],
       [PeerErrorSeverity.LowToleranceError]:
-        config.peerPenaltyValues[2] ?? DefaultPeerPenalties[PeerErrorSeverity.HighToleranceError],
+        orderedValues[2] ?? DefaultPeerPenalties[PeerErrorSeverity.HighToleranceError],
     };
   }
 

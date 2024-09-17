@@ -83,4 +83,22 @@ describe('PeerScoring', () => {
     peerScoring.updateScore(testPeerId, 10);
     expect(peerScoring.getScore(testPeerId)).toBeCloseTo(10, 1);
   });
+
+  test('should handle penalties in the correct order', () => {
+    const testConfig = {
+      ...getP2PDefaultConfig(),
+      peerPenaltyValues: [50, 2, 11],
+    };
+
+    const peerScoring = new PeerScoring(testConfig);
+
+    peerScoring.updateScore(testPeerId, -peerScoring.peerPenalties[PeerErrorSeverity.HighToleranceError]);
+    expect(peerScoring.getScore(testPeerId)).toBe(-2);
+
+    peerScoring.updateScore(testPeerId, -peerScoring.peerPenalties[PeerErrorSeverity.MidToleranceError]);
+    expect(peerScoring.getScore(testPeerId)).toBe(-13);
+
+    peerScoring.updateScore(testPeerId, -peerScoring.peerPenalties[PeerErrorSeverity.LowToleranceError]);
+    expect(peerScoring.getScore(testPeerId)).toBe(-63);
+  });
 });
