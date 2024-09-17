@@ -43,7 +43,7 @@ import {
 import { type PubSubLibp2p, convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
-import { PeerErrorSeverity, PeerPenalty } from './peer_scoring.js';
+import { PeerErrorSeverity } from './peer_scoring.js';
 import { pingHandler, statusHandler } from './reqresp/handlers.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
