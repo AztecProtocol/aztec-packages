@@ -259,7 +259,7 @@ contract SpartaTest is DecoderBase {
     (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
-    if (rollup.provenBlockNum() >= full.block.decodedHeader.globalVariables.blockNumber) {
+    if (rollup.getProvenBlockNumber() >= full.block.decodedHeader.globalVariables.blockNumber) {
       assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
     } else {
       assertEq(root, bytes32(0), "Invalid outbox root");

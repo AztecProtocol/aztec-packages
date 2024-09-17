@@ -11,13 +11,13 @@ import {DataStructures} from "../libraries/DataStructures.sol";
 interface ITestRollup {
   function setVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
-  function setAssumeProvenUntilBlockNumber(uint256 blockNumber) external;
+  function setAssumeProvenThroughBlockNumber(uint256 blockNumber) external;
 }
 
 interface IRollup {
   event L2BlockProposed(uint256 indexed blockNumber);
   event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
-  event PrunedPending(uint256 provenBlockNumber);
+  event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
 
   function prune() external;
 
@@ -68,7 +68,7 @@ interface IRollup {
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
-  function provenBlockNum() external view returns (uint256);
-  function pendingBlockNum() external view returns (uint256);
+  function getProvenBlockNumber() external view returns (uint256);
+  function getPendingBlockNumber() external view returns (uint256);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }

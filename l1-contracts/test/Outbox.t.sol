@@ -12,10 +12,10 @@ import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 
 contract FakeRollup {
-  uint256 public provenBlockNum = 0;
+  uint256 public getProvenBlockNumber = 0;
 
   function setProvenBlockNum(uint256 _provenBlockNum) public {
-    provenBlockNum = _provenBlockNum;
+    getProvenBlockNumber = _provenBlockNum;
   }
 }
 
