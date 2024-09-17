@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726602661385,
+  "lastUpdate": 1726605474220,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "leizciw@gmail.com",
-            "name": "Leila Wang",
-            "username": "LeilaWang"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2be14157abe3b277c58780ecc03bb1eff8dec20e",
-          "message": "feat: verify public validation requests (#8150)\n\nVerify note hash read requests and l1tol2msg read requests in public\r\nkernel tail.\r\n\r\n---------\r\n\r\nCo-authored-by: Ilyas Ridhuan <ilyas@aztecprotocol.com>",
-          "timestamp": "2024-09-05T14:13:36+01:00",
-          "tree_id": "5c0148e3ea4c2f01a29352f652d0c57e6e8676c7",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2be14157abe3b277c58780ecc03bb1eff8dec20e"
-        },
-        "date": 1725542953255,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13333.934631000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10200.208337000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5098.504270000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4627.799031000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 40288.236933,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 40288237000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14699.454278000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14699453000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3690950535,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3690950535 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 148616842,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 148616842 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3018613349,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3018613349 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 122119688,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 122119688 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 127532559,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127532559 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "iakovenkos",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a4f61b39c39bf01a1071b52bbf042408f29d5564",
+          "message": "refactor: Protogalaxy recursive verifier matches native verifier (#8568)\n\nContinuation of PG refactoring\r\n\r\n- PG recursive verifier made similar to native PG verifier\r\n- In recursive setting: accumulator is mutated in place. \r\n- Sharing the code with prover_verifier_shared for functions that\r\ncompute powers of round challenges and update gate challenges\r\n- Renaming + Constifying a lot",
+          "timestamp": "2024-09-17T16:20:19-04:00",
+          "tree_id": "1df387ff8a7d7bd043de9aca225be8b871a75fee",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a4f61b39c39bf01a1071b52bbf042408f29d5564"
+        },
+        "date": 1726605466969,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 34307.31013900001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 31796.502915999994 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5074.393954000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4636.150490999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 100058.847086,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 100058847000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14510.670655,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14510671000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8604802654,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8604802654 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 154480379,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 154480379 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6921775776,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6921775776 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125932802,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125932802 ns\nthreads: 1"
           }
         ]
       }
