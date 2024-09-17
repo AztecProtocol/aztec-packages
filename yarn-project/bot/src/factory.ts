@@ -149,7 +149,7 @@ export class BotFactory {
 
       calls.push(
         isStandardToken
-          ? token.methods.mint_private(MINT_BALANCE, Fr.ZERO).request()
+          ? token.methods.privately_mint_private_note(MINT_BALANCE).request()
           : token.methods.mint(MINT_BALANCE, sender, sender).request(),
       );
     }
