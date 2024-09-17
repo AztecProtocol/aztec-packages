@@ -140,6 +140,11 @@ std::array<field_t<Builder>, 64> extend_witness(const std::array<field_t<Builder
             w_out = witness_t<Builder>(
                 ctx, fr(w_out_raw.get_value().from_montgomery_form().data[0] & (uint64_t)0xffffffffULL));
         }
+        field_pt divisor = w_out_raw / w_out;
+        ctx->create_new_range_constraint(divisor.witness_index, 3);
+        fr power_two = fr(1).pow(32);
+        ctx->create_add_gate(
+            { divisor.witness_index, w_out.witness_index, w_out_raw.witness_index, power_two, fr(1), fr(-1), fr(0) });
         w_sparse[i] = sparse_witness_limbs(w_out);
     }
 
@@ -308,7 +313,6 @@ std::array<field_t<Builder>, 8> sha256_block(const std::array<field_t<Builder>, 
     output[5] = add_normalize(f.normal, h_init[5]);
     output[6] = add_normalize(g.normal, h_init[6]);
     output[7] = add_normalize(h.normal, h_init[7]);
-
     /**
      * At this point, a malicilous prover could tweak the add_normalise function and the result could be 'overflowed'.
      * Thus, we need 32-bit range checks on the outputs. Note that we won't need range checks while applying the SHA-256
