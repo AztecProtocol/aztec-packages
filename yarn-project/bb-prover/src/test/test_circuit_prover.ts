@@ -1,7 +1,8 @@
 import {
-  type AvmProofAndVerificationKey,
+  type ProofAndVerificationKey,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
+  makeProofAndVerificationKey,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/circuit-types';
 import {
@@ -273,12 +274,9 @@ export class TestCircuitProver implements ServerCircuitProver {
 
   public async getTubeProof(
     _tubeInput: TubeInputs,
-  ): Promise<{ tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> }> {
+  ): Promise<ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>> {
     await this.delay();
-    return {
-      tubeVK: VerificationKeyData.makeFakeHonk(),
-      tubeProof: makeEmptyRecursiveProof(TUBE_PROOF_LENGTH),
-    };
+    return makeProofAndVerificationKey(makeEmptyRecursiveProof(TUBE_PROOF_LENGTH), VerificationKeyData.makeFakeHonk());
   }
 
   /**
@@ -546,15 +544,15 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public async getAvmProof(_inputs: AvmCircuitInputs): Promise<AvmProofAndVerificationKey> {
+  public async getAvmProof(_inputs: AvmCircuitInputs): Promise<ProofAndVerificationKey<Proof>> {
     // We can't simulate the AVM because we don't have enough context to do so (e.g., DBs).
     // We just return an empty proof and VK data.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
     await this.delay();
-    return {
-      proof: makeEmptyProof(),
-      verificationKey: VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
-    };
+    return makeProofAndVerificationKey(
+      makeEmptyProof(),
+      VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+    );
   }
 
   private async delay(): Promise<void> {

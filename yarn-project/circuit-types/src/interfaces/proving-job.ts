@@ -30,29 +30,30 @@ import {
 
 import { type CircuitName } from '../stats/index.js';
 
-export type AvmProofAndVerificationKey = {
-  proof: Proof;
+export type ProofAndVerificationKey<P> = {
+  proof: P;
   verificationKey: VerificationKeyData;
 };
 
-export type PublicInputsAndRecursiveProof<T> = {
+export function makeProofAndVerificationKey<P>(
+  proof: P,
+  verificationKey: VerificationKeyData,
+): ProofAndVerificationKey<P> {
+  return { proof, verificationKey };
+}
+
+export type PublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RECURSIVE_PROOF_LENGTH> = {
   inputs: T;
-  proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
+  proof: RecursiveProof<N>;
   verificationKey: VerificationKeyData;
 };
 
-export type PublicInputsAndTubeProof<T> = {
-  inputs: T;
-  proof: RecursiveProof<typeof TUBE_PROOF_LENGTH>;
-  verificationKey: VerificationKeyData;
-};
-
-export function makePublicInputsAndRecursiveProof<T>(
+export function makePublicInputsAndRecursiveProof<T, N extends number = typeof NESTED_RECURSIVE_PROOF_LENGTH>(
   inputs: T,
-  proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
+  proof: RecursiveProof<N>,
   verificationKey: VerificationKeyData,
 ) {
-  const result: PublicInputsAndRecursiveProof<T> = {
+  const result: PublicInputsAndRecursiveProof<T, N> = {
     inputs,
     proof,
     verificationKey,
@@ -187,7 +188,7 @@ export type ProvingRequest =
 
 export type ProvingRequestPublicInputs = {
   [ProvingRequestType.PRIVATE_KERNEL_EMPTY]: PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>;
-  [ProvingRequestType.PUBLIC_VM]: AvmProofAndVerificationKey;
+  [ProvingRequestType.PUBLIC_VM]: ProofAndVerificationKey<Proof>;
 
   [ProvingRequestType.PUBLIC_KERNEL_INNER]: PublicInputsAndRecursiveProof<VMCircuitPublicInputs>;
   [ProvingRequestType.PUBLIC_KERNEL_MERGE]: PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>;
@@ -202,8 +203,7 @@ export type ProvingRequestPublicInputs = {
 
   [ProvingRequestType.BASE_PARITY]: RootParityInput<typeof RECURSIVE_PROOF_LENGTH>;
   [ProvingRequestType.ROOT_PARITY]: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
-  // TODO(#7369) properly structure tube proof flow
-  [ProvingRequestType.TUBE_PROOF]: { tubeVK: VerificationKeyData; tubeProof: RecursiveProof<typeof TUBE_PROOF_LENGTH> };
+  [ProvingRequestType.TUBE_PROOF]: ProofAndVerificationKey<RecursiveProof<typeof TUBE_PROOF_LENGTH>>;
 };
 
 export type ProvingRequestResult<T extends ProvingRequestType> = ProvingRequestPublicInputs[T];
