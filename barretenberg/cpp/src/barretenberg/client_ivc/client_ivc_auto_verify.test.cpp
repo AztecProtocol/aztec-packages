@@ -8,6 +8,8 @@
 
 using namespace bb;
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): These tests are for the auto_verify_mode version of
+// ClientIVC and can be removed altogether when that functionality is removed.
 class ClientIVCAutoVerifyTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()

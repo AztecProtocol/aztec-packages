@@ -79,6 +79,8 @@ describe('Client IVC Integration', () => {
       tx,
     });
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): While using auto_veriy_mode, we can only process an even
+    // number of circuits into the IVC. This restriction can be removed once we remove use of auto_verify_mode.
     // const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
     //   prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
     // });

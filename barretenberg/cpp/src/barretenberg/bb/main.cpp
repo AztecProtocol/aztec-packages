@@ -359,6 +359,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
         folding_stack.push_back(program_stack.back());
     }
     // TODO(#7371) dedupe this with the rest of the similar code
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     ClientIVC ivc;
     ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
@@ -488,6 +489,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     init_bn254_crs(1 << 22);
     init_grumpkin_crs(1 << 16);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     ClientIVC ivc;
     ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
