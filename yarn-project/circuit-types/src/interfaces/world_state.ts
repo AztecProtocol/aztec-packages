@@ -1,4 +1,4 @@
-import { type MerkleTreeAdminOperations, type MerkleTreeOperations } from '../world-state-db/index.js';
+import type { MerkleTreeAdminOperations, MerkleTreeOperations } from './merkle_tree_operations.js';
 
 /**
  * Defines the possible states of the world state synchronizer.

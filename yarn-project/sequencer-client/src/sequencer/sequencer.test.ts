@@ -15,6 +15,8 @@ import {
   TxHash,
   type UnencryptedL2Log,
   UnencryptedTxL2Logs,
+  WorldStateRunningState,
+  type WorldStateSynchronizer,
   makeProcessedTx,
   mockTxForRollup,
 } from '@aztec/circuit-types';
@@ -35,7 +37,6 @@ import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simula
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
-import { WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 

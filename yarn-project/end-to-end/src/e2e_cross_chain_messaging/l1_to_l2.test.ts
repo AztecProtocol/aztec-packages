@@ -10,10 +10,10 @@ import {
 import { TestContract } from '@aztec/noir-contracts.js';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
-import { PublicCrossChainMessagingContractTest } from './public_cross_chain_messaging_contract_test.js';
+import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
-describe('e2e_public_cross_chain_messaging l1_to_l2', () => {
-  const t = new PublicCrossChainMessagingContractTest('l1_to_l2');
+describe('e2e_cross_chain_messaging l1_to_l2', () => {
+  const t = new CrossChainMessagingTest('l1_to_l2');
 
   let { crossChainTestHarness, aztecNode, user1Wallet } = t;
 

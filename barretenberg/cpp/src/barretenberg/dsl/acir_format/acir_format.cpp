@@ -7,6 +7,7 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "proof_surgeon.hpp"
 #include <cstddef>
+#include <cstdint>
 
 namespace acir_format {
 
@@ -55,7 +56,11 @@ void build_constraints(Builder& builder,
     // Add range constraint
     for (size_t i = 0; i < constraint_system.range_constraints.size(); ++i) {
         const auto& constraint = constraint_system.range_constraints.at(i);
-        builder.create_range_constraint(constraint.witness, constraint.num_bits, "");
+        uint32_t range = constraint.num_bits;
+        if (constraint_system.minimal_range.contains(constraint.witness)) {
+            range = constraint_system.minimal_range[constraint.witness];
+        }
+        builder.create_range_constraint(constraint.witness, range, "");
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.range_constraints.at(i));
     }
@@ -212,10 +217,10 @@ void build_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.bigint_to_le_bytes_constraints.at(i));
     }
+
     // assert equals
     for (size_t i = 0; i < constraint_system.assert_equalities.size(); ++i) {
         const auto& constraint = constraint_system.assert_equalities.at(i);
-
         builder.assert_equal(constraint.a, constraint.b);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.assert_equalities.at(i));

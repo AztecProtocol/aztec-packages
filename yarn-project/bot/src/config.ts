@@ -11,6 +11,11 @@ import {
 const botFollowChain = ['NONE', 'PENDING', 'PROVEN'] as const;
 type BotFollowChain = (typeof botFollowChain)[number];
 
+export enum SupportedTokenContracts {
+  TokenContract = 'TokenContract',
+  EasyPrivateTokenContract = 'EasyPrivateTokenContract',
+}
+
 export type BotConfig = {
   /** The URL to the Aztec node to check for tx pool status. */
   nodeUrl: string | undefined;
@@ -46,6 +51,8 @@ export type BotConfig = {
   l2GasLimit: number | undefined;
   /** DA gas limit for the tx (empty to have the bot trigger an estimate gas). */
   daGasLimit: number | undefined;
+  /** Token contract to use */
+  contract: SupportedTokenContracts;
 };
 
 export const botConfigMappings: ConfigMappingsType<BotConfig> = {
@@ -141,6 +148,21 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     env: 'BOT_DA_GAS_LIMIT',
     description: 'DA gas limit for the tx (empty to have the bot trigger an estimate gas).',
     ...optionalNumberConfigHelper(),
+  },
+  contract: {
+    env: 'BOT_TOKEN_CONTRACT',
+    description: 'Token contract to use',
+    defaultValue: SupportedTokenContracts.TokenContract,
+    parseEnv(val) {
+      if (!Object.values(SupportedTokenContracts).includes(val as any)) {
+        throw new Error(
+          `Invalid value for BOT_TOKEN_CONTRACT: ${val}. Valid values: ${Object.values(SupportedTokenContracts).join(
+            ', ',
+          )}`,
+        );
+      }
+      return val as SupportedTokenContracts;
+    },
   },
 };
 
