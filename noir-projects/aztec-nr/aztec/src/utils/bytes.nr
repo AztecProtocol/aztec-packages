@@ -29,9 +29,18 @@ pub fn fields_to_bytes<let N: u32, let M: u32>(input: [Field; M]) -> [u8; N] {
         // in `bytes_to_fields` so we can safely convert it to 31 bytes.
         let field_value_bytes: [u8; 31] = input[field_index].to_be_bytes();
 
+        let remaining_bytes = N - field_index * 31;
+        let mut field_value_bytes_start_index = 0;
+        if remaining_bytes < 31 {
+            // If the remaining bytes are less than 31, we only copy the remaining bytes
+            field_value_bytes_start_index = 31 - remaining_bytes;
+        }
+
         for i in 0..31 {
             let byte_index = field_index * 31 + i;
-            output[byte_index] = field_value_bytes[i];
+            if byte_index < N {
+                output[byte_index] = field_value_bytes[field_value_bytes_start_index + i];
+            }
         }
     }
 
