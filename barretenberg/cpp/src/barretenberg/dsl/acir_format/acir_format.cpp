@@ -484,7 +484,7 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
 
 /**
  * @brief Create a kernel circuit from a constraint system and an IVC instance
- * @details This method processes ivc_recursion_constraints using the kernel completion logic contained in AztecIvc.
+ * @details This method processes ivc_recursion_constraints using the kernel completion logic contained in ClientIVC.
  * Since verification keys are known at the time of acir generation, the verification key witnesses contained in the
  * constraints are used directly to instantiate the recursive verifiers. On the other hand, the proof witnesses
  * contained in the constraints are generally 'dummy' values since proofs are not known during acir generation (with the
@@ -498,11 +498,11 @@ MegaCircuitBuilder create_circuit(AcirFormat& constraint_system,
  * @return MegaCircuitBuilder
  */
 MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
-                                         AztecIVC& ivc,
+                                         ClientIVC& ivc,
                                          const WitnessVector& witness,
                                          const size_t size_hint)
 {
-    using StdlibVerificationKey = AztecIVC::RecursiveVerificationKey;
+    using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
 
     // Construct the main kernel circuit logic excluding recursive verifiers
     auto circuit = create_circuit<MegaCircuitBuilder>(constraint_system,

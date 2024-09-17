@@ -60,26 +60,9 @@ template <typename FF_> class MegaArith {
         }
     };
 
-    // A minimal structuring specifically tailored to the medium complexity transaction for the ClientIvc benchmark
+    // A minimal structuring specifically tailored to the medium complexity transaction for the ClientIVC benchmark
     struct ClientIvcBenchStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         ClientIvcBenchStructuredBlockSizes()
-        {
-            this->ecc_op = 1 << 10;
-            this->pub_inputs = 1 << 7;
-            this->arithmetic = 1 << 16;
-            this->delta_range = 1 << 15;
-            this->elliptic = 1 << 14;
-            this->aux = 1 << 16;
-            this->lookup = 1 << 15;
-            this->busread = 1 << 7;
-            this->poseidon2_external = 1 << 11;
-            this->poseidon2_internal = 1 << 14;
-        }
-    };
-
-    // A minimal structuring specifically tailored to the medium complexity transaction for the AztecIvc benchmark
-    struct AztecIvcBenchStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
-        AztecIvcBenchStructuredBlockSizes()
         {
             this->ecc_op = 1 << 10;
             this->pub_inputs = 1 << 7;
@@ -98,7 +81,7 @@ template <typename FF_> class MegaArith {
     struct E2eStructuredBlockSizes : public MegaTraceBlocks<uint32_t> {
         E2eStructuredBlockSizes()
         {
-            this->ecc_op = 1 << 9;
+            this->ecc_op = 1 << 10;
             this->pub_inputs = 4000;
             this->arithmetic = 200000;
             this->delta_range = 25000;
@@ -185,9 +168,6 @@ template <typename FF_> class MegaArith {
                 break;
             case TraceStructure::CLIENT_IVC_BENCH:
                 fixed_block_sizes = ClientIvcBenchStructuredBlockSizes();
-                break;
-            case TraceStructure::AZTEC_IVC_BENCH:
-                fixed_block_sizes = AztecIvcBenchStructuredBlockSizes();
                 break;
             case TraceStructure::E2E_FULL_TEST:
                 fixed_block_sizes = E2eStructuredBlockSizes();

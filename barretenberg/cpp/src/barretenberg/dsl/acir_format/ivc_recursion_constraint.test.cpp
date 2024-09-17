@@ -1,6 +1,6 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -20,9 +20,9 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     using Builder = MegaCircuitBuilder;
     using Flavor = MegaFlavor;
     using FF = Flavor::FF;
-    using VerifierInputs = AztecIVC::VerifierInputs;
-    using QUEUE_TYPE = AztecIVC::QUEUE_TYPE;
-    using VerificationQueue = AztecIVC::VerificationQueue;
+    using VerifierInputs = ClientIVC::VerifierInputs;
+    using QUEUE_TYPE = ClientIVC::QUEUE_TYPE;
+    using VerificationQueue = ClientIVC::VerificationQueue;
     using ArithmeticConstraint = AcirFormat::PolyTripleConstraint;
 
     /**
@@ -31,7 +31,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
      * from another in testing.
      *
      */
-    static Builder construct_mock_app_circuit(AztecIVC& ivc)
+    static Builder construct_mock_app_circuit(ClientIVC& ivc)
     {
         Builder circuit{ ivc.goblin.op_queue };
         GoblinMockCircuits::construct_simple_circuit(circuit);
@@ -160,7 +160,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
  */
 TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     // construct a mock app_circuit
@@ -185,7 +185,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwo)
  */
 TEST_F(IvcRecursionConstraintTest, AccumulateFour)
 {
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     // construct a mock app_circuit
@@ -232,7 +232,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwoFailure)
     // then proving and verifying the full IVC.
     VerifierInputs alternative_verification_queue_entry;
     {
-        AztecIVC ivc;
+        ClientIVC ivc;
         ivc.trace_structure = TraceStructure::SMALL_TEST;
 
         // construct and accumulate a mock app circuit with a single unique public input
@@ -254,7 +254,7 @@ TEST_F(IvcRecursionConstraintTest, AccumulateTwoFailure)
     // Repeat a similar IVC but use the alternative queue entry just created to provide different (but independently
     // valid) witnesses during constraint system construction VS recursive verifier construction.
 
-    AztecIVC ivc;
+    ClientIVC ivc;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     // construct and accumulate a mock app circuit with a single unique public input
