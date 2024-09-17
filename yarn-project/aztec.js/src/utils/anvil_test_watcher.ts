@@ -61,7 +61,7 @@ export class AnvilTestWatcher {
   async mineIfSlotFilled() {
     try {
       const currentSlot = await this.rollup.read.getCurrentSlot();
-      const pendingBlockNumber = BigInt(await this.rollup.read.pendingBlockNum());
+      const pendingBlockNumber = BigInt(await this.rollup.read.getPendingBlockNumber());
       const [, , lastSlotNumber] = await this.rollup.read.blocks([pendingBlockNumber]);
 
       if (currentSlot === lastSlotNumber) {

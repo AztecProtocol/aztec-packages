@@ -138,8 +138,8 @@ contract RollupTest is DecoderBase {
     uint256 timeOfPrune = rollup.getTimestampForSlot(prunableAt);
     vm.warp(timeOfPrune);
 
-    assertEq(rollup.pendingBlockNum(), 1, "Invalid pending block number");
-    assertEq(rollup.provenBlockNum(), 0, "Invalid proven block number");
+    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
     // @note  Get the root and min height that we have in the outbox.
     //        We read it directly in storage because it is not yet proven, so the getter will give (0, 0).
@@ -154,8 +154,8 @@ contract RollupTest is DecoderBase {
 
     rollup.prune();
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
-    assertEq(rollup.pendingBlockNum(), 0, "Invalid pending block number");
-    assertEq(rollup.provenBlockNum(), 0, "Invalid proven block number");
+    assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
     // @note  We alter what slot is specified in the empty block!
     //        This means that we keep the `empty_block_1` mostly as is, but replace the slot number
@@ -166,8 +166,8 @@ contract RollupTest is DecoderBase {
 
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
     assertEq(inbox.getRoot(2), inboxRoot2, "Invalid inbox root");
-    assertEq(rollup.pendingBlockNum(), 1, "Invalid pending block number");
-    assertEq(rollup.provenBlockNum(), 0, "Invalid proven block number");
+    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
     // We check that the roots in the outbox have correctly been updated.
     bytes32 rootEmpty = vm.load(address(outbox), keccak256(abi.encode(1, 0)));
@@ -232,8 +232,8 @@ contract RollupTest is DecoderBase {
   function testMixedBlock(bool _toProve) public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", _toProve);
 
-    assertEq(rollup.pendingBlockNum(), 1, "Invalid pending block number");
-    assertEq(rollup.provenBlockNum(), _toProve ? 1 : 0, "Invalid proven block number");
+    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), _toProve ? 1 : 0, "Invalid proven block number");
   }
 
   function testConsecutiveMixedBlocks(uint256 _blocksToProve) public setUpFor("mixed_block_1") {
@@ -242,8 +242,8 @@ contract RollupTest is DecoderBase {
     _testBlock("mixed_block_1", toProve > 0);
     _testBlock("mixed_block_2", toProve > 1);
 
-    assertEq(rollup.pendingBlockNum(), 2, "Invalid pending block number");
-    assertEq(rollup.provenBlockNum(), 0 + toProve, "Invalid proven block number");
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0 + toProve, "Invalid proven block number");
   }
 
   function testConsecutiveMixedBlocksNonSequentialProof() public setUpFor("mixed_block_1") {
@@ -261,14 +261,14 @@ contract RollupTest is DecoderBase {
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonSequentialProving.selector));
     rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
 
-    assertEq(rollup.pendingBlockNum(), 2, "Invalid pending block number");
-    assertEq(rollup.provenBlockNum(), 0, "Invalid proven block number");
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
   }
 
   function testEmptyBlock(bool _toProve) public setUpFor("empty_block_1") {
     _testBlock("empty_block_1", _toProve);
-    assertEq(rollup.pendingBlockNum(), 1, "Invalid pending block number");
-    assertEq(rollup.provenBlockNum(), _toProve ? 1 : 0, "Invalid proven block number");
+    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), _toProve ? 1 : 0, "Invalid proven block number");
   }
 
   function testConsecutiveEmptyBlocks(uint256 _blocksToProve) public setUpFor("empty_block_1") {
@@ -276,8 +276,8 @@ contract RollupTest is DecoderBase {
     _testBlock("empty_block_1", toProve > 0);
     _testBlock("empty_block_2", toProve > 1);
 
-    assertEq(rollup.pendingBlockNum(), 2, "Invalid pending block number");
-    assertEq(rollup.provenBlockNum(), 0 + toProve, "Invalid proven block number");
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0 + toProve, "Invalid proven block number");
   }
 
   function testRevertInvalidBlockNumber() public setUpFor("empty_block_1") {
@@ -347,27 +347,27 @@ contract RollupTest is DecoderBase {
   }
 
   function testBlocksWithAssumeProven() public setUpFor("mixed_block_1") {
-    rollup.setAssumeProvenUntilBlockNumber(2);
-    assertEq(rollup.pendingBlockNum(), 0, "Invalid pending block number");
-    assertEq(rollup.provenBlockNum(), 0, "Invalid proven block number");
+    rollup.setAssumeProvenThroughBlockNumber(1);
+    assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
     _testBlock("mixed_block_1", false);
     _testBlock("mixed_block_2", false);
 
-    assertEq(rollup.pendingBlockNum(), 2, "Invalid pending block number");
-    assertEq(rollup.provenBlockNum(), 1, "Invalid proven block number");
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 1, "Invalid proven block number");
   }
 
   function testSetAssumeProvenAfterBlocksProcessed() public setUpFor("mixed_block_1") {
-    assertEq(rollup.pendingBlockNum(), 0, "Invalid pending block number");
-    assertEq(rollup.provenBlockNum(), 0, "Invalid proven block number");
+    assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
     _testBlock("mixed_block_1", false);
     _testBlock("mixed_block_2", false);
-    rollup.setAssumeProvenUntilBlockNumber(2);
+    rollup.setAssumeProvenThroughBlockNumber(1);
 
-    assertEq(rollup.pendingBlockNum(), 2, "Invalid pending block number");
-    assertEq(rollup.provenBlockNum(), 1, "Invalid proven block number");
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 1, "Invalid proven block number");
   }
 
   function testSubmitProofNonExistantBlock() public setUpFor("empty_block_1") {
@@ -446,11 +446,11 @@ contract RollupTest is DecoderBase {
     rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
 
     if (_submitProof) {
-      uint256 pre = rollup.provenBlockNum();
+      uint256 pre = rollup.getProvenBlockNumber();
 
       rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
 
-      assertEq(pre + 1, rollup.provenBlockNum(), "Block not proven");
+      assertEq(pre + 1, rollup.getProvenBlockNumber(), "Block not proven");
     }
 
     bytes32 l2ToL1MessageTreeRoot;
@@ -484,7 +484,7 @@ contract RollupTest is DecoderBase {
     (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
-    if (rollup.provenBlockNum() >= full.block.decodedHeader.globalVariables.blockNumber) {
+    if (rollup.getProvenBlockNumber() >= full.block.decodedHeader.globalVariables.blockNumber) {
       assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
     } else {
       assertEq(root, bytes32(0), "Invalid outbox root");
