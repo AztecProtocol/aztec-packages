@@ -86,7 +86,6 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
     };
     let body_expr = body_quote.as_expr();
     assert(body_expr.is_some(), f"Body is not an expression: {body_quote}");
-    println(body_expr.unwrap());
     body_expr.unwrap()
 }
 
