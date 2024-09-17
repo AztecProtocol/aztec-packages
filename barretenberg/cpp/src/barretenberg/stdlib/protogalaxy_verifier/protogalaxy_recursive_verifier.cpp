@@ -25,7 +25,7 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::prepare_for_folding
     if (!inst->is_accumulator) {
         receive_and_finalise_key(inst, domain_separator);
         inst->target_sum = 0;
-        inst->gate_challenges = std::vector<FF>(static_cast<size_t>(inst->verification_key->log_circuit_size), 0);
+        inst->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);
     }
     index++;
 
@@ -47,12 +47,11 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
 
     auto delta = transcript->template get_challenge<FF>("delta");
     auto accumulator = get_accumulator();
-    auto deltas =
-        compute_round_challenge_pows(static_cast<size_t>(accumulator->verification_key->log_circuit_size), delta);
+    auto deltas = compute_round_challenge_pows(static_cast<size_t>(CONST_PG_LOG_N), delta);
 
-    std::vector<FF> perturbator_coeffs(static_cast<size_t>(accumulator->verification_key->log_circuit_size) + 1, 0);
+    std::vector<FF> perturbator_coeffs(static_cast<size_t>(CONST_PG_LOG_N) + 1, 0);
     if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= static_cast<size_t>(accumulator->verification_key->log_circuit_size); idx++) {
+        for (size_t idx = 1; idx <= static_cast<size_t>(CONST_PG_LOG_N); idx++) {
             perturbator_coeffs[idx] =
                 transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
         }

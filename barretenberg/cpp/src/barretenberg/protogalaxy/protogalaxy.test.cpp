@@ -213,6 +213,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
 
         auto accumulator = std::make_shared<DeciderProvingKey>();
         accumulator->proving_key.polynomials = std::move(full_polynomials);
+        accumulator->proving_key.log_circuit_size = log_size;
         accumulator->gate_challenges = betas;
         accumulator->target_sum = target_sum;
         accumulator->relation_parameters = relation_parameters;
