@@ -386,10 +386,10 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
     } else if constexpr (IsUltraFlavor<Flavor>) { // any UltraHonk flavor
         // Allocate sigma and id polynomials
         for (auto& sigma : key->polynomials.get_sigmas()) {
-            sigma = Polynomial(key->circuit_size);
+            sigma = typename Flavor::Polynomial(key->circuit_size);
         }
         for (auto& id : key->polynomials.get_ids()) {
-            id = Polynomial(key->circuit_size);
+            id = typename Flavor::Polynomial(key->circuit_size);
         }
         // Compute Honk-style sigma and ID polynomials from the corresponding mappings
         {
