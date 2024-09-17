@@ -1,5 +1,5 @@
 // An integration test for the p2p client to test req resp protocols
-import { mockTx } from '@aztec/circuit-types';
+import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -14,10 +14,9 @@ import { BootstrapNode } from '../../bootstrap/bootstrap.js';
 import { createP2PClient } from '../../client/index.js';
 import { MockBlockSource } from '../../client/mocks.js';
 import { type P2PClient } from '../../client/p2p_client.js';
-import { type BootnodeConfig, type P2PConfig } from '../../config.js';
+import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import { type TxPool } from '../../tx_pool/index.js';
 import { createLibP2PPeerId } from '../index.js';
-import { DEFAULT_P2P_REQRESP_CONFIG } from './config.js';
 
 /**
  * Mockify helper for testing purposes.
@@ -60,6 +59,8 @@ describe('Req Resp p2p client integration', () => {
   let attestationPool: Mockify<AttestationPool>;
   let blockSource: MockBlockSource;
   let kvStore: AztecKVStore;
+  let worldStateSynchronizer: WorldStateSynchronizer;
+  let proofVerifier: ClientProtocolCircuitVerifier;
   const logger = createDebugLogger('p2p-client-integration-test');
 
   const makeBootstrapNode = async (): Promise<[BootstrapNode, string]> => {
@@ -76,6 +77,7 @@ describe('Req Resp p2p client integration', () => {
       const addr = `127.0.0.1:${i + 1 + BOOT_NODE_UDP_PORT}`;
       const listenAddr = `0.0.0.0:${i + 1 + BOOT_NODE_UDP_PORT}`;
       const config: P2PConfig & DataStoreConfig = {
+        ...getP2PDefaultConfig(),
         p2pEnabled: true,
         peerIdPrivateKey: peerIdPrivateKeys[i],
         tcpListenAddress: listenAddr, // run on port 0
@@ -91,9 +93,9 @@ describe('Req Resp p2p client integration', () => {
         maxPeerCount: 10,
         keepProvenTxsInPoolFor: 0,
         queryForIp: false,
+        l1ChainId: 31337,
         dataDirectory: undefined,
         l1Contracts: { rollupAddress: EthAddress.ZERO },
-        ...DEFAULT_P2P_REQRESP_CONFIG,
       };
 
       txPool = {
@@ -125,6 +127,8 @@ describe('Req Resp p2p client integration', () => {
         config,
         attestationPool as unknown as AttestationPool,
         blockSource,
+        proofVerifier,
+        worldStateSynchronizer,
         undefined,
         deps,
       );

@@ -61,10 +61,9 @@ if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_subdirectory(barretenberg/world_state_napi)
 endif()
 
-add_subdirectory(barretenberg/aztec_ivc)
+add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/bb)
 add_subdirectory(barretenberg/circuit_checker)
-add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/commitment_schemes_recursion)
 add_subdirectory(barretenberg/common)
@@ -112,10 +111,9 @@ include(GNUInstallDirs)
 message(STATUS "Compiling all-in-one barretenberg archive")
 
 set(BARRETENBERG_TARGET_OBJECTS
-    $<TARGET_OBJECTS:aztec_ivc_objects>
+    $<TARGET_OBJECTS:client_ivc_objects>
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
-    $<TARGET_OBJECTS:client_ivc_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>
     $<TARGET_OBJECTS:crypto_blake3s_objects>

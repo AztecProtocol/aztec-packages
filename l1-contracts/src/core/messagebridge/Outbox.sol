@@ -81,7 +81,7 @@ contract Outbox is IOutbox {
     uint256 _leafIndex,
     bytes32[] calldata _path
   ) external override(IOutbox) {
-    if (_l2BlockNumber >= ROLLUP.provenBlockCount()) {
+    if (_l2BlockNumber > ROLLUP.getProvenBlockNumber()) {
       revert Errors.Outbox__BlockNotProven(_l2BlockNumber);
     }
 
@@ -157,7 +157,7 @@ contract Outbox is IOutbox {
     override(IOutbox)
     returns (bytes32 root, uint256 minHeight)
   {
-    if (_l2BlockNumber >= ROLLUP.provenBlockCount()) {
+    if (_l2BlockNumber > ROLLUP.getProvenBlockNumber()) {
       return (bytes32(0), 0);
     }
     RootData storage rootData = roots[_l2BlockNumber];

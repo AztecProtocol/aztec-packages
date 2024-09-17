@@ -26,18 +26,18 @@
  * Previous results. The `blockCount` is the number of blocks we will construct with `txCount`
  * transactions of the `complexity` provided.
  * The `numberOfBlocks` is the total number of blocks, including deployments of canonical contracts
- * and setup before we start the "actual" test. Similar, `numberOfTransactions` is the total number
- * of transactions across these blocks.
- * blockCount: 10, txCount: 36, complexity: Deployment:      {"numberOfBlocks":16, "syncTime":17.490706521987914, "numberOfTransactions":366}
- * blockCount: 10, txCount: 36, complexity: PrivateTransfer: {"numberOfBlocks":19, "syncTime":20.846745924949644, "numberOfTransactions":474}
- * blockCount: 10, txCount: 36, complexity: PublicTransfer:  {"numberOfBlocks":18, "syncTime":21.340179460525512, "numberOfTransactions":438}
- * blockCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387,  "numberOfTransactions":105}
+ * and setup before we start the "actual" test.
+ * blockCount: 10, txCount: 36, complexity: Deployment:      {"numberOfBlocks":16, "syncTime":17.490706521987914}
+ * blockCount: 10, txCount: 36, complexity: PrivateTransfer: {"numberOfBlocks":19, "syncTime":20.846745924949644}
+ * blockCount: 10, txCount: 36, complexity: PublicTransfer:  {"numberOfBlocks":18, "syncTime":21.340179460525512}
+ * blockCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387}
  */
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   type AccountWalletWithSecretKey,
+  AnvilTestWatcher,
   BatchCall,
   type DebugLogger,
   Fr,
@@ -49,15 +49,17 @@ import {
 import { ExtendedNote, L2Block, Note, type TxHash } from '@aztec/circuit-types';
 import { type AztecAddress, ETHEREUM_SLOT_DURATION } from '@aztec/circuits.js';
 import { Timer } from '@aztec/foundation/timer';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { SpamContract, TokenContract } from '@aztec/noir-contracts.js';
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import * as fs from 'fs';
+import { getContract } from 'viem';
 
 import { addAccounts } from './fixtures/snapshot_manager.js';
-import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
+import { type EndToEndContext, getPrivateKeyFromIndex, setup, setupPXEService } from './fixtures/utils.js';
 
 const SALT = 420;
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
@@ -276,13 +278,6 @@ class TestVariant {
     return (json['blocks'] as string[]).map(b => L2Block.fromString(b));
   }
 
-  async writeStats(content: Record<string, string | number>) {
-    await this.writeJson(`stats`, {
-      description: this.description(),
-      ...content,
-    });
-  }
-
   numberOfBlocksStored() {
     const files = fs.readdirSync(this.dir());
     return files.filter(file => file.startsWith('block_')).length;
@@ -365,7 +360,11 @@ describe('e2e_l1_with_wall_time', () => {
     1_200_000,
   );
 
-  it.each(variants)('replay and then sync - %s', async (variant: TestVariant) => {
+  const testTheVariant = async (
+    variant: TestVariant,
+    beforeSync: (opts: Partial<EndToEndContext>) => Promise<void> = () => Promise.resolve(),
+    afterSync: (opts: Partial<EndToEndContext>) => Promise<void> = () => Promise.resolve(),
+  ) => {
     if (AZTEC_GENERATE_TEST_DATA) {
       return;
     }
@@ -407,6 +406,8 @@ describe('e2e_l1_with_wall_time', () => {
       await publisher.proposeL2Block(block);
     }
 
+    await beforeSync({ deployL1ContractsValues, cheatCodes, config, logger });
+
     // All the blocks have been "re-played" and we are now to simply get a new node up to speed
     const timer = new Timer();
     const freshNode = await AztecNodeService.createAndSync(
@@ -415,19 +416,79 @@ describe('e2e_l1_with_wall_time', () => {
     );
     const syncTime = timer.s();
 
-    const txCount = blocks.map(b => b.getStats().txCount).reduce((acc, curr) => acc + curr, 0);
     const blockNumber = await freshNode.getBlockNumber();
 
-    // @note  We should consider storing these stats to see changes over time etc.
-    // await variant.writeStats({ numberOfBlocks: blockNumber, syncTime, numberOfTransactions: txCount });
     logger.info(
       `Stats: ${variant.description()}: ${JSON.stringify({
         numberOfBlocks: blockNumber,
         syncTime,
-        numberOfTransactions: txCount,
       })}`,
     );
 
+    await afterSync({ deployL1ContractsValues, cheatCodes, config, logger });
+
     await teardown();
+  };
+
+  it.each(variants)('replay and then sync - %s', async (variant: TestVariant) => {
+    await testTheVariant(variant);
+  });
+
+  it('replay, then prune and only then perform an initial sync', async () => {
+    if (AZTEC_GENERATE_TEST_DATA) {
+      return;
+    }
+
+    const variant = variants[0];
+
+    const beforeSync = async (opts: Partial<EndToEndContext>) => {
+      const rollup = getContract({
+        address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
+        abi: RollupAbi,
+        client: opts.deployL1ContractsValues!.walletClient,
+      });
+
+      const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
+      await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
+
+      const timeliness = await rollup.read.TIMELINESS_PROVING_IN_SLOTS();
+      const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
+      const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+
+      await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+
+      await rollup.write.prune();
+    };
+
+    // After we have synched the chain, we will publish a block. Here we are VERY interested in seeing the block number.
+    const afterSync = async (opts: Partial<EndToEndContext>) => {
+      const watcher = new AnvilTestWatcher(
+        opts.cheatCodes!.eth,
+        opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+        opts.deployL1ContractsValues!.publicClient,
+      );
+      await watcher.start();
+
+      // The sync here could likely be avoided by using the node we just synched.
+      const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+      const sequencer = aztecNode.getSequencer();
+
+      const { pxe } = await setupPXEService(aztecNode!);
+
+      variant.setPXE(pxe);
+
+      const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
+
+      sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+      const txs = await variant.createAndSendTxs();
+      await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
+
+      const blockAfter = await aztecNode.getBlock(await aztecNode.getBlockNumber());
+
+      expect(blockAfter!.number).toEqual(blockBefore!.number + 1);
+      expect(blockAfter!.header.lastArchive).toEqual(blockBefore!.archive);
+    };
+
+    await testTheVariant(variant, beforeSync, afterSync);
   });
 });

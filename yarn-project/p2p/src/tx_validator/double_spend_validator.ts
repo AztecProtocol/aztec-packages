@@ -10,7 +10,7 @@ export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
   #log = createDebugLogger('aztec:sequencer:tx_validator:tx_double_spend');
   #nullifierSource: NullifierSource;
 
-  constructor(nullifierSource: NullifierSource) {
+  constructor(nullifierSource: NullifierSource, private readonly isValidatingBlock: boolean = true) {
     this.#nullifierSource = nullifierSource;
   }
 
@@ -41,13 +41,15 @@ export class DoubleSpendTxValidator<T extends AnyTx> implements TxValidator<T> {
       return false;
     }
 
-    for (const nullifier of nullifiers) {
-      if (thisBlockNullifiers.has(nullifier)) {
-        this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for repeating a nullifier in the same block`);
-        return false;
-      }
+    if (this.isValidatingBlock) {
+      for (const nullifier of nullifiers) {
+        if (thisBlockNullifiers.has(nullifier)) {
+          this.#log.warn(`Rejecting tx ${Tx.getHash(tx)} for repeating a nullifier in the same block`);
+          return false;
+        }
 
-      thisBlockNullifiers.add(nullifier);
+        thisBlockNullifiers.add(nullifier);
+      }
     }
 
     const nullifierIndexes = await Promise.all(nullifiers.map(n => this.#nullifierSource.getNullifierIndex(new Fr(n))));
