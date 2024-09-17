@@ -8,6 +8,7 @@ mod completion_tests {
                     completion_item_with_detail, completion_item_with_sort_text,
                     completion_item_with_trigger_parameter_hints_command, module_completion_item,
                     simple_completion_item, snippet_completion_item,
+                    trait_impl_method_completion_item,
                 },
                 sort_text::{auto_import_sort_text, self_mismatch_sort_text},
             },
@@ -1967,5 +1968,155 @@ mod completion_tests {
             )],
         )
         .await;
+    }
+
+    #[test]
+    async fn test_suggests_trait_impl_function() {
+        let src = r#"
+        trait Trait {
+            fn foo(x: i32) -> i32;
+        }
+
+        struct Foo {}
+
+        impl Trait for Foo {
+            fn f>|<
+        }"#;
+
+        assert_completion(
+            src,
+            vec![trait_impl_method_completion_item(
+                "fn foo(..)",
+                "foo(x: i32) -> i32 {\n    ${1}\n}",
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_trait_impl_default_function() {
+        let src = r#"
+        trait Trait {
+            fn foo(x: i32) -> i32 { 1 }
+        }
+
+        struct Foo {}
+
+        impl Trait for Foo {
+            fn f>|<
+        }"#;
+
+        assert_completion(
+            src,
+            vec![trait_impl_method_completion_item(
+                "fn foo(..)",
+                "foo(x: i32) -> i32 {\n    ${1}\n}",
+            )],
+        )
+        .await;
+    }
+
+    #[test]
+    async fn test_suggests_when_assignment_follows_in_chain_1() {
+        let src = r#"
+        struct Foo {
+            bar: Bar
+        }
+
+        struct Bar {
+            baz: Field
+        }
+
+        fn f(foo: Foo) {
+            let mut x = 1;
+
+            foo.bar.>|<
+
+            x = 2;
+        }"#;
+
+        assert_completion(src, vec![field_completion_item("baz", "Field")]).await;
+    }
+
+    #[test]
+    async fn test_suggests_when_assignment_follows_in_chain_2() {
+        let src = r#"
+        struct Foo {
+            bar: Bar
+        }
+
+        struct Bar {
+            baz: Baz
+        }
+
+        struct Baz {
+            qux: Field
+        }
+
+        fn f(foo: Foo) {
+            let mut x = 1;
+
+            foo.bar.baz.>|<
+
+            x = 2;
+        }"#;
+
+        assert_completion(src, vec![field_completion_item("qux", "Field")]).await;
+    }
+
+    #[test]
+    async fn test_suggests_when_assignment_follows_in_chain_3() {
+        let src = r#"
+        struct Foo {
+            foo: Field
+        }
+
+        fn execute() {
+            let a = Foo { foo: 1 };
+            a.>|<
+
+            x = 1;
+        }"#;
+
+        assert_completion(src, vec![field_completion_item("foo", "Field")]).await;
+    }
+
+    #[test]
+    async fn test_suggests_when_assignment_follows_in_chain_4() {
+        let src = r#"
+        struct Foo {
+            bar: Bar
+        }
+
+        struct Bar {
+            baz: Field
+        }
+
+        fn execute() {
+            let foo = Foo { foo: 1 };
+            foo.bar.>|<
+
+            x = 1;
+        }"#;
+
+        assert_completion(src, vec![field_completion_item("baz", "Field")]).await;
+    }
+
+    #[test]
+    async fn test_suggests_when_assignment_follows_in_chain_with_index() {
+        let src = r#"
+        struct Foo {
+            bar: Field
+        }
+
+        fn f(foos: [Foo; 3]) {
+            let mut x = 1;
+
+            foos[0].>|<
+
+            x = 2;
+        }"#;
+
+        assert_completion(src, vec![field_completion_item("bar", "Field")]).await;
     }
 }
