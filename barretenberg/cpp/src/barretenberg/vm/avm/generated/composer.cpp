@@ -45,10 +45,8 @@ std::shared_ptr<Flavor::ProvingKey> AvmComposer::compute_proving_key(CircuitCons
     }
 
     // Initialize proving_key
-    {
-        const size_t subgroup_size = circuit_constructor.get_circuit_subgroup_size();
-        proving_key = std::make_shared<Flavor::ProvingKey>(subgroup_size, 0);
-    }
+    const size_t subgroup_size = circuit_constructor.get_circuit_subgroup_size();
+    proving_key = std::make_shared<Flavor::ProvingKey>(subgroup_size, 0);
 
     return proving_key;
 }

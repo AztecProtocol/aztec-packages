@@ -1,14 +1,12 @@
 #ifndef DISABLE_AZTEC_VM
 
 #include "avm_recursion_constraint.hpp"
-#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/vm/avm/recursion/avm_recursive_flavor.hpp"
 #include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
 #include "proof_surgeon.hpp"
 #include <cstddef>
 
@@ -40,19 +38,21 @@ void create_dummy_vkey_and_proof(Builder& builder,
 {
     using Flavor = AvmFlavor;
 
+    size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Flavor::Commitment>();
+    size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<Flavor::FF>();
+
     // Relevant source for proof layout: AvmFlavor::Transcript::serialize_full_transcript()
-    assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
-            Flavor::NUM_ALL_ENTITIES * Flavor::NUM_FRS_FR - 2 * Flavor::NUM_FRS_COM - Flavor::NUM_FRS_FR) %
-               (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * Flavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
+    assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm - Flavor::NUM_ALL_ENTITIES * num_frs_fr -
+            2 * num_frs_comm) %
+               (num_frs_comm + num_frs_fr * Flavor::BATCHED_RELATION_PARTIAL_LENGTH) ==
            0);
 
     // Derivation of circuit size based on the proof
     // Here, we should always get CONST_PROOF_SIZE_LOG_N which is not what is
     // usually set for the AVM proof. As it is a dummy key/proof, it should not matter.
-    auto log_circuit_size =
-        (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
-         Flavor::NUM_ALL_ENTITIES * Flavor::NUM_FRS_FR - 2 * Flavor::NUM_FRS_COM - Flavor::NUM_FRS_FR) /
-        (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
+    auto log_circuit_size = (proof_size - Flavor::NUM_WITNESS_ENTITIES * num_frs_comm -
+                             Flavor::NUM_ALL_ENTITIES * num_frs_fr - 2 * num_frs_comm) /
+                            (num_frs_comm + num_frs_fr * Flavor::BATCHED_RELATION_PARTIAL_LENGTH);
 
     /***************************************************************************
      *                  Construct Dummy Verification Key

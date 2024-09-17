@@ -26,9 +26,6 @@
     },
     {
       "path": "../ethereum"
-    },
-    {
-      "path": "../types"
     }
   ],
   "include": ["src"]
