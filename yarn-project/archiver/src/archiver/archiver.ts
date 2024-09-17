@@ -206,7 +206,6 @@ export class Archiver implements ArchiveSource {
      * This code does not handle reorgs.
      */
     const {
-      blockBodiesSynchedTo = this.l1StartBlock,
       blocksSynchedTo = this.l1StartBlock,
       messagesSynchedTo = this.l1StartBlock,
       provenLogsSynchedTo = this.l1StartBlock,
@@ -216,7 +215,6 @@ export class Archiver implements ArchiveSource {
     if (
       currentL1BlockNumber <= blocksSynchedTo &&
       currentL1BlockNumber <= messagesSynchedTo &&
-      currentL1BlockNumber <= blockBodiesSynchedTo &&
       currentL1BlockNumber <= provenLogsSynchedTo
     ) {
       // chain hasn't moved forward
@@ -226,7 +224,6 @@ export class Archiver implements ArchiveSource {
         blocksSynchedTo,
         messagesSynchedTo,
         provenLogsSynchedTo,
-        blockBodiesSynchedTo,
       });
       return;
     }
@@ -252,7 +249,21 @@ export class Archiver implements ArchiveSource {
 
     // ********** Events that are processed per L1 block **********
 
+    await this.handleL1ToL2Messages(blockUntilSynced, messagesSynchedTo, currentL1BlockNumber);
+    await this.updateLastProvenL2Block(provenLogsSynchedTo + 1n, currentL1BlockNumber);
+
     // ********** Events that are processed per L2 block **********
+    await this.handleL2blocks(blockUntilSynced, blocksSynchedTo, currentL1BlockNumber);
+  }
+
+  private async handleL1ToL2Messages(
+    blockUntilSynced: boolean,
+    messagesSynchedTo: bigint,
+    currentL1BlockNumber: bigint,
+  ) {
+    if (currentL1BlockNumber <= messagesSynchedTo) {
+      return;
+    }
 
     const retrievedL1ToL2Messages = await retrieveL1ToL2Messages(
       this.inbox,
@@ -262,14 +273,61 @@ export class Archiver implements ArchiveSource {
     );
 
     if (retrievedL1ToL2Messages.retrievedData.length !== 0) {
+      await this.store.addL1ToL2Messages(retrievedL1ToL2Messages);
+
       this.log.verbose(
         `Retrieved ${retrievedL1ToL2Messages.retrievedData.length} new L1 -> L2 messages between L1 blocks ${
           messagesSynchedTo + 1n
         } and ${currentL1BlockNumber}.`,
       );
     }
+  }
 
-    await this.store.addL1ToL2Messages(retrievedL1ToL2Messages);
+  private async updateLastProvenL2Block(provenLogsSynchedTo: bigint, currentL1BlockNumber: bigint) {
+    if (currentL1BlockNumber <= provenLogsSynchedTo) {
+      return;
+    }
+
+    const logs = await retrieveL2ProofVerifiedEvents(
+      this.publicClient,
+      this.rollupAddress,
+      provenLogsSynchedTo + 1n,
+      currentL1BlockNumber,
+    );
+    const lastLog = logs[logs.length - 1];
+    if (!lastLog) {
+      return;
+    }
+
+    const provenBlockNumber = lastLog.l2BlockNumber;
+    if (!provenBlockNumber) {
+      throw new Error(`Missing argument blockNumber from L2ProofVerified event`);
+    }
+
+    await this.emitProofVerifiedMetrics(logs);
+
+    const currentProvenBlockNumber = await this.store.getProvenL2BlockNumber();
+    if (provenBlockNumber > currentProvenBlockNumber) {
+      // Update the last proven block number
+      this.log.verbose(`Updated last proven block number from ${currentProvenBlockNumber} to ${provenBlockNumber}`);
+      await this.store.setProvenL2BlockNumber({
+        retrievedData: Number(provenBlockNumber),
+        lastProcessedL1BlockNumber: lastLog.l1BlockNumber,
+      });
+      this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
+    } else {
+      // We set the last processed L1 block number to the last L1 block number in the range to avoid duplicate processing
+      await this.store.setProvenL2BlockNumber({
+        retrievedData: Number(currentProvenBlockNumber),
+        lastProcessedL1BlockNumber: lastLog.l1BlockNumber,
+      });
+    }
+  }
+
+  private async handleL2blocks(blockUntilSynced: boolean, blocksSynchedTo: bigint, currentL1BlockNumber: bigint) {
+    if (currentL1BlockNumber <= blocksSynchedTo) {
+      return;
+    }
 
     this.log.debug(`Retrieving blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
     const retrievedBlocks = await retrieveBlockFromRollup(
@@ -280,8 +338,6 @@ export class Archiver implements ArchiveSource {
       currentL1BlockNumber,
       this.log,
     );
-
-    // Add the body
 
     (retrievedBlocks.length ? this.log.verbose : this.log.debug)(
       `Retrieved ${retrievedBlocks.length || 'no'} new L2 blocks between L1 blocks ${
@@ -298,13 +354,16 @@ export class Archiver implements ArchiveSource {
         .join(',')} with last processed L1 block ${lastProcessedL1BlockNumber}`,
     );
 
+    // If we actually received something, we will use it.
     if (retrievedBlocks.length > 0) {
       await Promise.all(
         retrievedBlocks.map(block => {
-          const noteEncryptedLogs = block.data.body.noteEncryptedLogs;
-          const encryptedLogs = block.data.body.encryptedLogs;
-          const unencryptedLogs = block.data.body.unencryptedLogs;
-          return this.store.addLogs(noteEncryptedLogs, encryptedLogs, unencryptedLogs, block.data.number);
+          return this.store.addLogs(
+            block.data.body.noteEncryptedLogs,
+            block.data.body.encryptedLogs,
+            block.data.body.unencryptedLogs,
+            block.data.number,
+          );
         }),
       );
 
@@ -334,45 +393,8 @@ export class Archiver implements ArchiveSource {
       this.log.verbose(`Processed ${retrievedBlocks.length} new L2 blocks up to ${lastL2BlockNumber}`);
     }
 
-    // Fetch the logs for proven blocks in the block range and update the last proven block number.
-    if (currentL1BlockNumber > provenLogsSynchedTo) {
-      await this.updateLastProvenL2Block(provenLogsSynchedTo + 1n, currentL1BlockNumber);
-    }
-
     if (retrievedBlocks.length > 0 || blockUntilSynced) {
       (blockUntilSynced ? this.log.info : this.log.verbose)(`Synced to L1 block ${currentL1BlockNumber}`);
-    }
-  }
-
-  private async updateLastProvenL2Block(fromBlock: bigint, toBlock: bigint) {
-    const logs = await retrieveL2ProofVerifiedEvents(this.publicClient, this.rollupAddress, fromBlock, toBlock);
-    const lastLog = logs[logs.length - 1];
-    if (!lastLog) {
-      return;
-    }
-
-    const provenBlockNumber = lastLog.l2BlockNumber;
-    if (!provenBlockNumber) {
-      throw new Error(`Missing argument blockNumber from L2ProofVerified event`);
-    }
-
-    await this.emitProofVerifiedMetrics(logs);
-
-    const currentProvenBlockNumber = await this.store.getProvenL2BlockNumber();
-    if (provenBlockNumber > currentProvenBlockNumber) {
-      // Update the last proven block number
-      this.log.verbose(`Updated last proven block number from ${currentProvenBlockNumber} to ${provenBlockNumber}`);
-      await this.store.setProvenL2BlockNumber({
-        retrievedData: Number(provenBlockNumber),
-        lastProcessedL1BlockNumber: lastLog.l1BlockNumber,
-      });
-      this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
-    } else {
-      // We set the last processed L1 block number to the last L1 block number in the range to avoid duplicate processing
-      await this.store.setProvenL2BlockNumber({
-        retrievedData: Number(currentProvenBlockNumber),
-        lastProcessedL1BlockNumber: lastLog.l1BlockNumber,
-      });
     }
   }
 
