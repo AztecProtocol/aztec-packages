@@ -57,7 +57,7 @@ export class CrossChainMessagingTest {
   }
 
   async assumeProven() {
-    await this.rollup.write.setAssumeProvenUntilBlockNumber([await this.rollup.read.pendingBlockCount()]);
+    await this.rollup.write.setAssumeProvenThroughBlockNumber([await this.rollup.read.getPendingBlockNumber()]);
   }
 
   async setup() {

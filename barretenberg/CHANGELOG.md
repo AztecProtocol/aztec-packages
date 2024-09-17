@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.55.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.55.0...barretenberg-v0.55.1) (2024-09-17)
+
+
+### Bug Fixes
+
+* Native world state test issues ([#8546](https://github.com/AztecProtocol/aztec-packages/issues/8546)) ([aab8773](https://github.com/AztecProtocol/aztec-packages/commit/aab87733b4381d8d64b85f5e5a6bff4e31ee1abd))
+
+
+### Miscellaneous
+
+* 7791: Disable world_state test suite ([#8594](https://github.com/AztecProtocol/aztec-packages/issues/8594)) ([ee21583](https://github.com/AztecProtocol/aztec-packages/commit/ee21583aea137eea31cb1b4e6e0643061ef0d59f))
+* Moves add gate out of aux ([#8541](https://github.com/AztecProtocol/aztec-packages/issues/8541)) ([c3ad163](https://github.com/AztecProtocol/aztec-packages/commit/c3ad163dbcf79067b49553f1c139c49a6aa066cb))
+* Protogalaxy verifier matches prover 2 ([#8477](https://github.com/AztecProtocol/aztec-packages/issues/8477)) ([58882b1](https://github.com/AztecProtocol/aztec-packages/commit/58882b199081b18e33fb65f8d05cfce7fe458f1e))
+
 ## [0.55.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg-v0.54.0...barretenberg-v0.55.0) (2024-09-13)
 
 

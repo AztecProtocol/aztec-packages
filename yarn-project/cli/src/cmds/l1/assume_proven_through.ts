@@ -2,9 +2,9 @@ import { createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { type LogFn } from '@aztec/foundation/log';
 
-import { setAssumeProvenUntil } from '../../utils/aztec.js';
+import { setAssumeProvenThrough } from '../../utils/aztec.js';
 
-export async function assumeProvenUntil(
+export async function assumeProvenThrough(
   blockNumberOrLatest: number | undefined,
   l1RpcUrl: string,
   rpcUrl: string,
@@ -20,6 +20,6 @@ export async function assumeProvenUntil(
   const rollupAddress = await pxe.getNodeInfo().then(i => i.l1ContractAddresses.rollupAddress);
   const blockNumber = blockNumberOrLatest ?? (await pxe.getBlockNumber());
 
-  await setAssumeProvenUntil(blockNumber + 1, rollupAddress, walletClient);
-  log(`Assumed proven until block ${blockNumber}`);
+  await setAssumeProvenThrough(blockNumber, rollupAddress, walletClient);
+  log(`Assumed proven through block ${blockNumber}`);
 }

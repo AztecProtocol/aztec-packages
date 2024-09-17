@@ -25,6 +25,7 @@
 #include "recursion_constraint.hpp"
 #include "schnorr_verify.hpp"
 #include "sha256_constraint.hpp"
+#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -125,6 +126,7 @@ struct AcirFormat {
 
     // Set of constrained witnesses
     std::set<uint32_t> constrained_witness = {};
+    std::map<uint32_t, uint32_t> minimal_range = {};
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
