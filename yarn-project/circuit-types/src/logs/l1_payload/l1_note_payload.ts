@@ -95,11 +95,10 @@ export class L1NotePayload extends L1Payload {
    * @returns The decrypted log payload
    */
   public static decryptAsIncoming(content: Buffer | bigint[], ivsk: GrumpkinScalar) {
-    const input = Buffer.isBuffer(content) ? content : Buffer.from(content.map((x: bigint) => Number(x)));
-    const [publicValues, remainingCiphertext] = this.#getPublicValuesAndRemainingCiphertext(input);
+    const [ciphertext, publicValues] = this.#getCiphertextAndPublicValues(content);
 
     const [address, incomingBody] = super._decryptAsIncoming(
-      remainingCiphertext,
+      ciphertext,
       ivsk,
       EncryptedNoteLogIncomingBody.fromCiphertext,
     );
@@ -124,11 +123,10 @@ export class L1NotePayload extends L1Payload {
    * @returns The decrypted log payload
    */
   public static decryptAsOutgoing(content: Buffer | bigint[], ovsk: GrumpkinScalar) {
-    const input = Buffer.isBuffer(content) ? content : Buffer.from(content.map((x: bigint) => Number(x)));
-    const [publicValues, remainingCiphertext] = this.#getPublicValuesAndRemainingCiphertext(input);
+    const [ciphertext, publicValues] = this.#getCiphertextAndPublicValues(content);
 
     const [address, incomingBody] = super._decryptAsOutgoing(
-      remainingCiphertext,
+      ciphertext,
       ovsk,
       EncryptedNoteLogIncomingBody.fromCiphertext,
     );
@@ -149,7 +147,7 @@ export class L1NotePayload extends L1Payload {
   }
 
   /**
-   * Extracts the public values and the remaining ciphertext from the input buffer.
+   * Extracts the ciphertext and the public values from the log content.
    * Input byte layout:
    * +-----------------------------------+
    * | Byte | Description                |
@@ -165,25 +163,22 @@ export class L1NotePayload extends L1Payload {
    * | end  |                            |
    * +-----------------------------------+
    */
-  static #getPublicValuesAndRemainingCiphertext(input: Buffer): [Fr[], Buffer] {
+  static #getCiphertextAndPublicValues(content: Buffer | bigint[]): [Buffer, Fr[]] {
+    const input = Buffer.isBuffer(content) ? content : Buffer.from(content.map((x: bigint) => Number(x)));
+
     const reader = BufferReader.asReader(input);
     const numPublicValues = reader.readUInt8();
 
-    const remainingData = reader.readToEnd();
-    const publicValuesData = remainingData.subarray(
-      remainingData.length - numPublicValues * Fr.SIZE_IN_BYTES,
-      remainingData.length,
-    );
-    if (publicValuesData.length % Fr.SIZE_IN_BYTES !== 0) {
-      throw new Error(`Public values byte length is not a multiple of Fr size. Length: ${publicValuesData.length}`);
-    }
-    const publicValues = [];
-    for (let i = 0; i < publicValuesData.length; i += Fr.SIZE_IN_BYTES) {
-      publicValues.push(Fr.fromBuffer(publicValuesData.subarray(i, i + Fr.SIZE_IN_BYTES)));
+    const ciphertextLength = reader.getLength() - numPublicValues * Fr.SIZE_IN_BYTES - 1;
+    const ciphertext = reader.readBytes(ciphertextLength);
+
+    const publicValuesLength = reader.getLength() - ciphertextLength - 1;
+    if (publicValuesLength % Fr.SIZE_IN_BYTES !== 0) {
+      throw new Error(`Public values byte length is not a multiple of Fr size. Length: ${publicValuesLength}`);
     }
 
-    const remainingCiphertext = remainingData.subarray(0, remainingData.length - publicValuesData.length);
+    const publicValues = reader.readArray(numPublicValues, Fr);
 
-    return [publicValues, remainingCiphertext];
+    return [ciphertext, publicValues];
   }
 }
