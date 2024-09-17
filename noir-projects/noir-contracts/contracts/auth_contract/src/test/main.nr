@@ -56,7 +56,7 @@ unconstrained fn main() {
 
         // We need to always advance the block one more time to get the current value in private, compared to the value in public.
         // To see why let's see this diagram.
-        // When we make a change in public, lets say we are at block 2 (building a tx to be included in block 2), which means the latest committed block is block 1.
+        // When we schedule a change in public, lets say we are at block 2 (building a tx to be included in block 2), which means the latest committed block is block 1.
         // Thus, the value change will be set to block 7 (2 + 5).
         // If we now advance our env by 5 blocks, we will be at block 7 (building a tx to be included in block 7), which means the latest committed block is block 6.
         // Reading the value in public will work, because it will use the current block (7), and the current block is the block of change; but
