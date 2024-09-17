@@ -17,7 +17,7 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
     // Allocate the table polynomials
     if constexpr (IsHonkFlavor<Flavor>) {
         for (auto& poly : table_polynomials) {
-            poly = typename Flavor::Polynomial(dyadic_circuit_size);
+            poly = Flavor::Polynomial::shiftable(dyadic_circuit_size);
         }
     }
     // Create lookup selector polynomials which interpolate each table column.

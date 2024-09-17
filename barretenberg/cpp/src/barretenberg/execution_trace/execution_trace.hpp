@@ -37,7 +37,6 @@ template <class Flavor> class ExecutionTrace_ {
                 for (auto [selector, other_selector] : zip_view(selectors, proving_key.polynomials.get_selectors())) {
                     selector = other_selector.share();
                 }
-                proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly
             } else {
                 // Initialize and share the wire and selector polynomials
                 for (size_t idx = 0; idx < NUM_WIRES; ++idx) {

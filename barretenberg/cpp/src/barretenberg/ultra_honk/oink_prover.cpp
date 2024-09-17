@@ -164,9 +164,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
     proving_key->relation_parameters.beta = beta;
     proving_key->relation_parameters.gamma = gamma;
 
-    // Allocate the lookup_inverses polynomial
-    proving_key->proving_key.polynomials.lookup_inverses =
-        typename Flavor::Polynomial(proving_key->proving_key.circuit_size);
     // Compute the inverses used in log-derivative lookup relations
     proving_key->proving_key.compute_logderivative_inverses(proving_key->relation_parameters);
 
@@ -186,8 +183,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
                       proving_key->proving_key.polynomials.get_databus_inverses(),
                       commitment_labels.get_databus_inverses())) {
             {
-                // Allocate the databus inverse polynomial
-                polynomial = typename Flavor::Polynomial(proving_key->proving_key.circuit_size);
                 BB_OP_COUNT_TIME_NAME("COMMIT::databus_inverses");
                 commitment = commitment_key->commit_sparse(polynomial);
             }
@@ -203,8 +198,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
 template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_grand_product_computation_round()
 {
     BB_OP_COUNT_TIME_NAME("OinkProver::execute_grand_product_computation_round");
-    // Allocate the z_perm polynomial
-    proving_key->proving_key.polynomials.z_perm = typename Flavor::Polynomial(proving_key->proving_key.circuit_size);
     // Compute the permutation and lookup grand product polynomials
     proving_key->proving_key.compute_grand_product_polynomials(proving_key->relation_parameters);
 

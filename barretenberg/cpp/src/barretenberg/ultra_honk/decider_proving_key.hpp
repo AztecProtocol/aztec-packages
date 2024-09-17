@@ -108,6 +108,21 @@ template <class Flavor> class DeciderProvingKey_ {
         if constexpr (IsGoblinFlavor<Flavor>) { // Set databus commitment propagation data
             proving_key.databus_propagation_data = circuit.databus_propagation_data;
         }
+
+        // Allocate the inverse polynomials
+        // Allocate the lookup_inverses polynomial
+        proving_key.polynomials.lookup_inverses = Polynomial(proving_key.circuit_size);
+        if constexpr (IsGoblinFlavor<Flavor>) {
+            for (auto& inverse_databus_poly : proving_key.polynomials.get_databus_inverses()) {
+                // Allocate the databus inverse polynomial
+                inverse_databus_poly = Polynomial(proving_key.circuit_size);
+            }
+        }
+        // Allocate the z_perm polynomial
+        proving_key.polynomials.z_perm = Polynomial::shiftable(proving_key.circuit_size);
+
+        // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are defined.
+        proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly
     }
 
     DeciderProvingKey_() = default;

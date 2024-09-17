@@ -58,11 +58,11 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     ZoneScopedN("construct_trace_data");
     // Allocate the wires and selectors polynomials
     if constexpr (IsHonkFlavor<Flavor>) {
-        for (auto wire : proving_key.polynomials.get_wires()) {
-            wire = Polynomial(proving_key.circuit_size);
+        for (auto& wire : proving_key.polynomials.get_wires()) {
+            wire = Polynomial::shiftable(proving_key.circuit_size);
         }
-        for (auto selector : proving_key.polynomials.get_selectors()) {
-            selector = Polynomial(proving_key.circuit_size);
+        for (auto& selector : proving_key.polynomials.get_selectors()) {
+            selector = Polynomial::shiftable(proving_key.circuit_size);
         }
     }
 
@@ -146,10 +146,10 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
 {
     // Allocate the ecc op wires and selector
     if constexpr (IsHonkFlavor<Flavor>) {
-        for (auto wire : proving_key.polynomials.get_ecc_op_wires()) {
-            wire = Polynomial(proving_key.circuit_size);
+        for (auto& wire : proving_key.polynomials.get_ecc_op_wires()) {
+            wire = Polynomial::shiftable(proving_key.circuit_size);
         }
-        proving_key.polynomials.lagrange_ecc_op = Polynomial(proving_key.circuit_size);
+        proving_key.polynomials.lagrange_ecc_op = Polynomial::shiftable(proving_key.circuit_size);
     }
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
     auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;

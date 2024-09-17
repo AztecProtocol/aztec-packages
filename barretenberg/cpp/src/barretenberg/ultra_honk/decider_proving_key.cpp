@@ -23,7 +23,6 @@ template <class Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(C
 
     // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
     // to allow for shifts.
-    size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     size_t total_num_gates = num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
 
     // Next power of 2 (dyadic circuit size)
