@@ -71,6 +71,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                    const RelationParameters<FF>& relation_parameters)
 
     {
+
         BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::compute_row_evaluations");
         const size_t polynomial_size = polynomials.get_polynomial_size();
         std::vector<FF> full_honk_evaluations(polynomial_size);

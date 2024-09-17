@@ -13,7 +13,7 @@ impl Serialize<2> for Note {
 
 impl Deserialize<2> for Note {
     fn deserialize(wire: [Field; 2]) -> Note {
-        Note {a: wire[0], b: wire[1]}
+        Note { a: wire[0], b: wire[1] }
     }
 }
 
@@ -22,6 +22,7 @@ contract AvmTest {
 
     global big_field_128_bits: Field = 0x001234567890abcdef1234567890abcdef;
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
+    global big_field_254_bits: Field = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
 
     // Libs
     use std::embedded_curve_ops::{multi_scalar_mul, EmbeddedCurvePoint};
@@ -123,6 +124,11 @@ contract AvmTest {
     #[aztec(public)]
     fn set_opcode_big_field() -> Field {
         big_field_136_bits
+    }
+
+    #[aztec(public)]
+    fn set_opcode_really_big_field() -> Field {
+        big_field_254_bits
     }
 
     #[aztec(public)]

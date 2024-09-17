@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.55.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.54.0...barretenberg.js-v0.55.0) (2024-09-13)
+
+
+### Features
+
+* New test programs for wasm benchmarking ([#8389](https://github.com/AztecProtocol/aztec-packages/issues/8389)) ([0b46e96](https://github.com/AztecProtocol/aztec-packages/commit/0b46e96e8e5d05876a3700b9e50d29d6f349ea6e))
+
+## [0.54.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.53.0...barretenberg.js-v0.54.0) (2024-09-10)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
 ## [0.53.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.52.0...barretenberg.js-v0.53.0) (2024-09-09)
 
 

@@ -1,16 +1,20 @@
 // @attribution: lodestar impl for inspiration
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
+import { executeTimeoutWithCustomError } from '@aztec/foundation/timer';
 
-import { type IncomingStreamData, type PeerId } from '@libp2p/interface';
+import { type IncomingStreamData, type PeerId, type Stream } from '@libp2p/interface';
 import { pipe } from 'it-pipe';
 import { type Libp2p } from 'libp2p';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
+import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { type P2PReqRespConfig } from './config.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   type ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
 } from './interface.js';
+import { RequestResponseRateLimiter } from './rate_limiter/rate_limiter.js';
 
 /**
  * The Request Response Service
@@ -28,10 +32,19 @@ export class ReqResp {
 
   private abortController: AbortController = new AbortController();
 
-  private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
+  private overallRequestTimeoutMs: number;
+  private individualRequestTimeoutMs: number;
 
-  constructor(protected readonly libp2p: Libp2p) {
+  private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
+  private rateLimiter: RequestResponseRateLimiter;
+
+  constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p) {
     this.logger = createDebugLogger('aztec:p2p:reqresp');
+
+    this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
+    this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
+
+    this.rateLimiter = new RequestResponseRateLimiter();
   }
 
   /**
@@ -43,6 +56,7 @@ export class ReqResp {
     for (const subProtocol of Object.keys(this.subProtocolHandlers)) {
       await this.libp2p.handle(subProtocol, this.streamHandler.bind(this, subProtocol as ReqRespSubProtocol));
     }
+    this.rateLimiter.start();
   }
 
   /**
@@ -53,6 +67,7 @@ export class ReqResp {
     for (const protocol of Object.keys(this.subProtocolHandlers)) {
       await this.libp2p.unhandle(protocol);
     }
+    this.rateLimiter.stop();
     await this.libp2p.stop();
     this.abortController.abort();
   }
@@ -65,20 +80,33 @@ export class ReqResp {
    * @returns - The response from the peer, otherwise undefined
    */
   async sendRequest(subProtocol: ReqRespSubProtocol, payload: Buffer): Promise<Buffer | undefined> {
-    // Get active peers
-    const peers = this.libp2p.getPeers();
+    const requestFunction = async () => {
+      // Get active peers
+      const peers = this.libp2p.getPeers();
 
-    // Attempt to ask all of our peers
-    for (const peer of peers) {
-      const response = await this.sendRequestToPeer(peer, subProtocol, payload);
+      // Attempt to ask all of our peers
+      for (const peer of peers) {
+        const response = await this.sendRequestToPeer(peer, subProtocol, payload);
 
-      // If we get a response, return it, otherwise we iterate onto the next peer
-      // We do not consider it a success if we have an empty buffer
-      if (response && response.length > 0) {
-        return response;
+        // If we get a response, return it, otherwise we iterate onto the next peer
+        // We do not consider it a success if we have an empty buffer
+        if (response && response.length > 0) {
+          return response;
+        }
       }
+      return undefined;
+    };
+
+    try {
+      return await executeTimeoutWithCustomError<Buffer | undefined>(
+        requestFunction,
+        this.overallRequestTimeoutMs,
+        () => new CollectiveReqRespTimeoutError(),
+      );
+    } catch (e: any) {
+      this.logger.error(`${e.message} | subProtocol: ${subProtocol}`);
+      return undefined;
     }
-    return undefined;
   }
 
   /**
@@ -94,15 +122,37 @@ export class ReqResp {
     subProtocol: ReqRespSubProtocol,
     payload: Buffer,
   ): Promise<Buffer | undefined> {
+    let stream: Stream | undefined;
     try {
-      const stream = await this.libp2p.dialProtocol(peerId, subProtocol);
+      stream = await this.libp2p.dialProtocol(peerId, subProtocol);
 
-      const result = await pipe([payload], stream, this.readMessage);
+      this.logger.debug(`Stream opened with ${peerId.toString()} for ${subProtocol}`);
+
+      const result = await executeTimeoutWithCustomError<Buffer>(
+        (): Promise<Buffer> => pipe([payload], stream!, this.readMessage),
+        this.individualRequestTimeoutMs,
+        () => new IndiviualReqRespTimeoutError(),
+      );
+
+      await stream.close();
+      this.logger.debug(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
+
       return result;
-    } catch (e) {
-      this.logger.warn(`Failed to send request to peer ${peerId.publicKey}`);
-      return undefined;
+    } catch (e: any) {
+      this.logger.error(`${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`);
+    } finally {
+      if (stream) {
+        try {
+          await stream.close();
+          this.logger.debug(`Stream closed with ${peerId.toString()} for ${subProtocol}`);
+        } catch (closeError) {
+          this.logger.error(
+            `Error closing stream: ${closeError instanceof Error ? closeError.message : 'Unknown error'}`,
+          );
+        }
+      }
     }
+    return undefined;
   }
 
   /**
@@ -123,8 +173,16 @@ export class ReqResp {
    *
    * @param param0 - The incoming stream data
    */
-  private async streamHandler(protocol: ReqRespSubProtocol, { stream }: IncomingStreamData) {
+  private async streamHandler(protocol: ReqRespSubProtocol, { stream, connection }: IncomingStreamData) {
     // Store a reference to from this for the async generator
+    if (!this.rateLimiter.allow(protocol, connection.remotePeer)) {
+      this.logger.warn(`Rate limit exceeded for ${protocol} from ${connection.remotePeer}`);
+
+      // TODO(#8483): handle changing peer scoring for failed rate limit, maybe differentiate between global and peer limits here when punishing
+      await stream.close();
+      return;
+    }
+
     const handler = this.subProtocolHandlers[protocol];
 
     try {

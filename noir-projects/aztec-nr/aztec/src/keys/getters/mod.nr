@@ -1,19 +1,15 @@
 use dep::protocol_types::{
-    header::Header, abis::validation_requests::KeyValidationRequest, address::AztecAddress,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, point::Point, storage::map::derive_storage_slot_in_map,
-    traits::is_empty
+    header::Header, address::AztecAddress, constants::CANONICAL_KEY_REGISTRY_ADDRESS,
+    storage::map::derive_storage_slot_in_map
 };
 use crate::{
     context::{PrivateContext, UnconstrainedContext},
     oracle::{keys::get_public_keys_and_partial_address, key_validation_request::get_key_validation_request},
     keys::{
     public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH}, stored_keys::StoredKeys,
-    constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX}
+    constants::{NULLIFIER_INDEX, OUTGOING_INDEX}
 },
-    state_vars::{
-    shared_mutable::shared_mutable_private_getter::SharedMutablePrivateGetter,
-    public_mutable::PublicMutable, map::Map
-}
+    state_vars::{public_mutable::PublicMutable, map::Map}
 };
 
 mod test;
@@ -24,8 +20,19 @@ global KEY_REGISTRY_UPDATE_BLOCKS = 5;
 
 global KEY_REGISTRY_STORAGE_SLOT = 1;
 
+// A helper function that gets app-siloed nullifier secret key for a given `npk_m_hash`. This function is used
+// in unconstrained contexts only - in Note::compute_nullifier_without_context which in turn is called by
+// `compute_note_hash_and_optionally_a_nullifier` function that is used by the NoteProcessor. The safe alternative
+// is `request_nsk_app` function define on `PrivateContext`.
 unconstrained pub fn get_nsk_app(npk_m_hash: Field) -> Field {
     get_key_validation_request(npk_m_hash, NULLIFIER_INDEX).sk_app
+}
+
+// A helper function that gets app-siloed outgoing viewing key for a given `ovpk_m_hash`. This function is used
+// in unconstrained contexts only - when computing unconstrained note logs. The safe alternative is `request_ovsk_app`
+// function defined on `PrivateContext`.
+unconstrained pub fn get_ovsk_app(ovpk_m_hash: Field) -> Field {
+    get_key_validation_request(ovpk_m_hash, OUTGOING_INDEX).sk_app
 }
 
 // Returns all current public keys for a given account, applying proper constraints to the context. We read all

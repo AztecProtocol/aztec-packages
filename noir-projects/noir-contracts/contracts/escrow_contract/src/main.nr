@@ -1,6 +1,6 @@
 // Sample escrow contract that stores a balance of a private token on behalf of an owner.
 contract Escrow {
-    use dep::aztec::prelude::{AztecAddress, EthAddress, FunctionSelector, NoteHeader, PrivateContext, PrivateImmutable};
+    use dep::aztec::prelude::{AztecAddress, PrivateImmutable};
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
         keys::getters::get_current_public_keys

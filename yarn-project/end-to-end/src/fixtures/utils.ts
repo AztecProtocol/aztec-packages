@@ -44,8 +44,6 @@ import { NULL_KEY, isAnvilTestChain } from '@aztec/ethereum';
 import { bufferAsFields } from '@aztec/foundation/abi';
 import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
 import {
-  AvailabilityOracleAbi,
-  AvailabilityOracleBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
   InboxAbi,
@@ -132,10 +130,6 @@ export const setupL1Contracts = async (
     outbox: {
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
-    },
-    availabilityOracle: {
-      contractAbi: AvailabilityOracleAbi,
-      contractBytecode: AvailabilityOracleBytecode,
     },
     rollup: {
       contractAbi: RollupAbi,
@@ -286,6 +280,7 @@ async function setupWithRemoteEnvironment(
     wallets,
     logger,
     cheatCodes,
+    watcher: undefined,
     teardown,
   };
 }
@@ -304,6 +299,8 @@ type SetupOptions = {
   initialValidators?: EthAddress[];
   /** Anvil block time (interval) */
   l1BlockTime?: number;
+  /** Anvil Start time */
+  l1StartTime?: number;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -326,6 +323,8 @@ export type EndToEndContext = {
   logger: DebugLogger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
+  /** The anvil test watcher (undefined if connected to remove environment) */
+  watcher: AnvilTestWatcher | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -370,9 +369,14 @@ export async function setup(
     setupMetricsLogger(filename);
   }
 
+  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
+
   if (opts.stateLoad) {
-    const ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
     await ethCheatCodes.loadChainState(opts.stateLoad);
+  }
+
+  if (opts.l1StartTime) {
+    await ethCheatCodes.warp(opts.l1StartTime);
   }
 
   let publisherPrivKey = undefined;
@@ -388,6 +392,9 @@ export async function setup(
     publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
     config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   }
+
+  // Made as separate values such that keys can change, but for test they will be the same.
+  config.validatorPrivateKey = config.publisherPrivateKey;
 
   if (PXE_URL) {
     // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
@@ -413,10 +420,6 @@ export async function setup(
   );
 
   await watcher.start();
-
-  // Run the test with validators enabled
-  const validatorPrivKey = getPrivateKeyFromIndex(1);
-  config.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
 
   logger.verbose('Creating and synching an aztec node...');
 
@@ -496,6 +499,7 @@ export async function setup(
     logger,
     cheatCodes,
     sequencer,
+    watcher,
     teardown,
   };
 }

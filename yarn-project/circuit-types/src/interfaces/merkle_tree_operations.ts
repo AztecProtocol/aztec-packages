@@ -11,6 +11,8 @@ import { type SiblingPath } from '../sibling_path/sibling_path.js';
  */
 export type IndexedTreeId = MerkleTreeId.NULLIFIER_TREE | MerkleTreeId.PUBLIC_DATA_TREE;
 
+export type FrTreeId = Exclude<MerkleTreeId, IndexedTreeId>;
+
 /**
  * All of the data to be return during batch insertion.
  */

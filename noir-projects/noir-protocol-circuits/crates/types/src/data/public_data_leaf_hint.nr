@@ -10,9 +10,6 @@ struct PublicDataLeafHint {
 
 impl Empty for PublicDataLeafHint {
     fn empty() -> Self {
-        PublicDataLeafHint {
-            preimage: PublicDataTreeLeafPreimage::empty(),
-            membership_witness: MembershipWitness::empty(),
-        }
+        PublicDataLeafHint { preimage: PublicDataTreeLeafPreimage::empty(), membership_witness: MembershipWitness::empty() }
     }
 }

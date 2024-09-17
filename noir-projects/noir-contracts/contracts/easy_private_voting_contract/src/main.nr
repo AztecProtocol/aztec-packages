@@ -1,6 +1,6 @@
 contract EasyPrivateVoting {
     // docs:start:imports
-    use dep::aztec::prelude::{AztecAddress, FunctionSelector, PrivateContext, Map, PublicMutable, SharedImmutable};
+    use dep::aztec::prelude::{AztecAddress, Map, PublicMutable, SharedImmutable};
     use dep::aztec::keys::getters::get_historical_public_keys;
     // docs:end:imports
     // docs:start:storage_struct

@@ -7,6 +7,7 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { TxHash } from '../tx/tx_hash.js';
 import { BlockAttestation } from './block_attestation.js';
 import { BlockProposal } from './block_proposal.js';
+import { get0xStringHashedSignaturePayload } from './block_utils.js';
 import { Signature } from './signature.js';
 
 export const makeBlockProposal = async (signer?: PrivateKeyAccount): Promise<BlockProposal> => {
@@ -15,7 +16,8 @@ export const makeBlockProposal = async (signer?: PrivateKeyAccount): Promise<Blo
   const blockHeader = makeHeader(1);
   const archive = Fr.random();
   const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
-  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: archive.toString() } }));
+  const hash = get0xStringHashedSignaturePayload(archive, txs);
+  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: hash } }));
 
   return new BlockProposal(blockHeader, archive, txs, signature);
 };
@@ -26,9 +28,11 @@ export const makeBlockAttestation = async (signer?: PrivateKeyAccount): Promise<
 
   const blockHeader = makeHeader(1);
   const archive = Fr.random();
-  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: archive.toString() } }));
+  const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
+  const hash = get0xStringHashedSignaturePayload(archive, txs);
+  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: hash } }));
 
-  return new BlockAttestation(blockHeader, archive, signature);
+  return new BlockAttestation(blockHeader, archive, txs, signature);
 };
 
 export const randomSigner = (): PrivateKeyAccount => {

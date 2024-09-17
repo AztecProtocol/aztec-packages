@@ -11,33 +11,27 @@ struct FeeRecipient {
 
 // TODO(#7346): Should the default empty value be MAX_FIELD? The zero addr may be a valid recipient
 impl Empty for FeeRecipient {
-  fn empty() -> Self {
-    FeeRecipient {
-      recipient: EthAddress::zero(),
-      value: 0,
+    fn empty() -> Self {
+        FeeRecipient { recipient: EthAddress::zero(), value: 0 }
     }
-  }
 }
 
 impl Serialize<2> for FeeRecipient {
-  fn serialize(self) -> [Field; 2] {
-    [self.recipient.to_field(), self.value]
-  }
+    fn serialize(self) -> [Field; 2] {
+        [self.recipient.to_field(), self.value]
+    }
 }
 
 impl Deserialize<2> for FeeRecipient {
-  fn deserialize(values: [Field; 2]) -> Self {
-    Self {
-      recipient: EthAddress::from_field(values[0]),
-      value: values[1]
+    fn deserialize(values: [Field; 2]) -> Self {
+        Self { recipient: EthAddress::from_field(values[0]), value: values[1] }
     }
-  }
 }
 
 impl Eq for FeeRecipient {
-  fn eq(self, other: Self) -> bool {
-    (self.recipient.eq(other.recipient)) & (self.value == other.value)
-  }
+    fn eq(self, other: Self) -> bool {
+        (self.recipient.eq(other.recipient)) & (self.value == other.value)
+    }
 }
 
 // TODO: instead of archives + global vars, use ConstantRollupData x2? It also includes vk root
@@ -67,67 +61,67 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             out_hash: 0,
             fees: [FeeRecipient::empty(); 32],
             vk_tree_root: 0,
-            prover_id: 0,
+            prover_id: 0
         }
     }
 }
 
 impl Eq for BlockRootOrBlockMergePublicInputs {
-  fn eq(self, other: Self) -> bool {
-    (self.previous_archive.eq(other.previous_archive)) &
-    (self.new_archive.eq(other.new_archive)) &
-    (self.previous_block_hash == other.previous_block_hash) &
-    (self.end_block_hash == other.end_block_hash) &
-    (self.start_global_variables.eq(other.start_global_variables)) &
-    (self.end_global_variables.eq(other.end_global_variables)) &
-    (self.out_hash == other.out_hash) &
-    (self.fees.eq(other.fees)) &
-    (self.vk_tree_root == other.vk_tree_root) &
-    (self.prover_id == other.prover_id)
-  }
+    fn eq(self, other: Self) -> bool {
+        (self.previous_archive.eq(other.previous_archive))
+            & (self.new_archive.eq(other.new_archive))
+            & (self.previous_block_hash == other.previous_block_hash)
+            & (self.end_block_hash == other.end_block_hash)
+            & (self.start_global_variables.eq(other.start_global_variables))
+            & (self.end_global_variables.eq(other.end_global_variables))
+            & (self.out_hash == other.out_hash)
+            & (self.fees.eq(other.fees))
+            & (self.vk_tree_root == other.vk_tree_root)
+            & (self.prover_id == other.prover_id)
+    }
 }
 
 impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBlockMergePublicInputs {
-  fn serialize(self) -> [Field; BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH] {
-    let mut fields: BoundedVec<Field, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
+    fn serialize(self) -> [Field; BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH] {
+        let mut fields: BoundedVec<Field, BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
 
-    fields.extend_from_array(self.previous_archive.serialize());
-    fields.extend_from_array(self.new_archive.serialize());
-    fields.push(self.previous_block_hash as Field);
-    fields.push(self.end_block_hash as Field);
-    fields.extend_from_array(self.start_global_variables.serialize());
-    fields.extend_from_array(self.end_global_variables.serialize());
-    fields.push(self.out_hash as Field);
-    for i in 0..32 {
-      fields.extend_from_array(self.fees[i].serialize());
+        fields.extend_from_array(self.previous_archive.serialize());
+        fields.extend_from_array(self.new_archive.serialize());
+        fields.push(self.previous_block_hash as Field);
+        fields.push(self.end_block_hash as Field);
+        fields.extend_from_array(self.start_global_variables.serialize());
+        fields.extend_from_array(self.end_global_variables.serialize());
+        fields.push(self.out_hash as Field);
+        for i in 0..32 {
+            fields.extend_from_array(self.fees[i].serialize());
+        }
+        fields.push(self.vk_tree_root as Field);
+        fields.push(self.prover_id as Field);
+        assert_eq(fields.len(), BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH);
+
+        fields.storage
     }
-    fields.push(self.vk_tree_root as Field);
-    fields.push(self.prover_id as Field);
-    assert_eq(fields.len(), BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH);
-
-    fields.storage
-  }
 }
 
 impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBlockMergePublicInputs {
-  fn deserialize(fields: [Field; BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH]) -> BlockRootOrBlockMergePublicInputs {
-    let mut reader = Reader::new(fields);
-    let item = Self {
-        previous_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
-        new_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
-        previous_block_hash: reader.read(),
-        end_block_hash: reader.read(),
-        start_global_variables: reader.read_struct(GlobalVariables::deserialize),
-        end_global_variables: reader.read_struct(GlobalVariables::deserialize),
-        out_hash: reader.read(),
-        fees: reader.read_struct_array(FeeRecipient::deserialize, [FeeRecipient::empty(); 32]),
-        vk_tree_root: reader.read(),
-        prover_id: reader.read(),
-    };
+    fn deserialize(fields: [Field; BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH]) -> BlockRootOrBlockMergePublicInputs {
+        let mut reader = Reader::new(fields);
+        let item = Self {
+            previous_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
+            new_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
+            previous_block_hash: reader.read(),
+            end_block_hash: reader.read(),
+            start_global_variables: reader.read_struct(GlobalVariables::deserialize),
+            end_global_variables: reader.read_struct(GlobalVariables::deserialize),
+            out_hash: reader.read(),
+            fees: reader.read_struct_array(FeeRecipient::deserialize, [FeeRecipient::empty(); 32]),
+            vk_tree_root: reader.read(),
+            prover_id: reader.read()
+        };
 
-    reader.finish();
-    item
-  }
+        reader.finish();
+        item
+    }
 }
 
 #[test]

@@ -945,6 +945,7 @@ __metadata:
     "@types/node": ^18.7.23
     "@types/source-map-support": ^0.5.10
     commander: ^12.1.0
+    get-port: ^7.1.0
     jest: ^29.5.0
     jest-mock-extended: ^3.0.3
     lodash.chunk: ^4.2.0
@@ -1223,6 +1224,7 @@ __metadata:
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
     jest: ^29.5.0
+    jest-mock-extended: ^3.0.7
     koa: ^2.14.2
     koa-router: ^12.0.0
     ts-node: ^10.9.1
@@ -1246,13 +1248,16 @@ __metadata:
     "@aztec/telemetry-client": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
+    "@types/bindings": ^1.5.5
     "@types/jest": ^29.5.0
     "@types/levelup": ^5.1.2
     "@types/memdown": ^3.0.0
     "@types/node": ^18.7.23
+    bindings: ^1.5.0
     jest: ^29.5.0
     jest-mock-extended: ^3.0.5
     memdown: ^6.1.1
+    msgpackr: ^1.10.2
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
@@ -3361,7 +3366,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.33.0
+    "@noir-lang/types": 0.34.0
     glob: ^10.3.10
     ts-command-line-args: ^2.5.1
   bin:
@@ -3370,13 +3375,13 @@ __metadata:
   linkType: soft
 
 "@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.33.0
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=e4c9c2&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 0.34.0
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=0a6cc4&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/acvm_js": 0.49.0
-    "@noir-lang/noirc_abi": 0.33.0
-    "@noir-lang/types": 0.33.0
-  checksum: 82d759db2487b4c2fd298ec989cb0f4547f5dfef4cc70bf37531e1d92e04bfecf425576497b8f63769a3249a584a1a31c2751615a2633a51b2dd815e296044b1
+    "@noir-lang/acvm_js": 0.50.0
+    "@noir-lang/noirc_abi": 0.34.0
+    "@noir-lang/types": 0.34.0
+  checksum: 432f14d70d911c94aacab42012e7813b5823d9a8971d1d9a543b82ab3b2e38739bf1e065788c08e8f44bebd75fb3ab0f8dba3151b74bbb3aa2ec5c105f4bca61
   languageName: node
   linkType: hard
 
@@ -3384,7 +3389,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.33.0
+    "@noir-lang/types": 0.34.0
   languageName: node
   linkType: soft
 
@@ -4095,6 +4100,15 @@ __metadata:
   dependencies:
     "@babel/types": ^7.20.7
   checksum: 608e0ab4fc31cd47011d98942e6241b34d461608c0c0e153377c5fd822c436c475f1ded76a56bfa76a1adf8d9266b727bbf9bfac90c4cb152c97f30dadc5b7e8
+  languageName: node
+  linkType: hard
+
+"@types/bindings@npm:^1.5.5":
+  version: 1.5.5
+  resolution: "@types/bindings@npm:1.5.5"
+  dependencies:
+    "@types/node": "*"
+  checksum: 0205bd031677e9af479437b4f358d4ea96d9d1a7d57132657915201d9a8be968d5f8341f526cc79481142fe9456f82e093cf62a0b2bcf6c3cfd4577962603b22
   languageName: node
   linkType: hard
 
@@ -5942,7 +5956,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bindings@npm:^1.3.0":
+"bindings@npm:^1.3.0, bindings@npm:^1.5.0":
   version: 1.5.0
   resolution: "bindings@npm:1.5.0"
   dependencies:
@@ -10806,7 +10820,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"jest-mock-extended@npm:^3.0.3, jest-mock-extended@npm:^3.0.4, jest-mock-extended@npm:^3.0.5":
+"jest-mock-extended@npm:^3.0.3, jest-mock-extended@npm:^3.0.4, jest-mock-extended@npm:^3.0.5, jest-mock-extended@npm:^3.0.7":
   version: 3.0.7
   resolution: "jest-mock-extended@npm:3.0.7"
   dependencies:
@@ -12381,6 +12395,18 @@ __metadata:
   bin:
     download-msgpackr-prebuilds: bin/download-prebuilds.js
   checksum: 5adb809b965bac41c310e60373d54c955fe78e4d134ab036d0f9ee5b322cec0a739878d395e17c1ac82d840705896b2dafae6a8cc04ad34c14d2de4b06b58330
+  languageName: node
+  linkType: hard
+
+"msgpackr@npm:^1.10.2":
+  version: 1.10.2
+  resolution: "msgpackr@npm:1.10.2"
+  dependencies:
+    msgpackr-extract: ^3.0.2
+  dependenciesMeta:
+    msgpackr-extract:
+      optional: true
+  checksum: f7d9aae68196b3612e522a81c939b226045d115e97233541bf8475d170ca686f814bfdb6255865912d052f87f37466dbadf09ca17541b315f03d9ad9f6b439ef
   languageName: node
   linkType: hard
 

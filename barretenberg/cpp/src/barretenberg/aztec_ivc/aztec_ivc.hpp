@@ -6,7 +6,7 @@
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
-#include "barretenberg/sumcheck/instance/instances.hpp"
+#include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
 #include <algorithm>
@@ -111,7 +111,8 @@ class AztecIVC {
 
     bool initialized = false; // Is the IVC accumulator initialized
 
-    void instantiate_stdlib_verification_queue(ClientCircuit& circuit);
+    void instantiate_stdlib_verification_queue(
+        ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});
 
     void perform_recursive_verification_and_databus_consistency_checks(
         ClientCircuit& circuit,

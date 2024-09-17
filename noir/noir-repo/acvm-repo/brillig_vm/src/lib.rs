@@ -213,6 +213,13 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                     self.increment_program_counter()
                 }
             }
+            Opcode::Not { destination, source, bit_size } => {
+                if let Err(error) = self.process_not(*source, *destination, *bit_size) {
+                    self.fail(error)
+                } else {
+                    self.increment_program_counter()
+                }
+            }
             Opcode::Cast { destination: destination_address, source: source_address, bit_size } => {
                 let source_value = self.memory.read(*source_address);
                 let casted_value = self.cast(*bit_size, source_value);
@@ -449,17 +456,16 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                         }
                         HeapValueType::Array { value_types, size } => {
                             let array_address = self.memory.read_ref(value_address);
-                            let array_start = self.memory.read_ref(array_address);
-                            self.read_slice_of_values_from_memory(array_start, *size, value_types)
+                            let items_start = MemoryAddress(array_address.to_usize() + 1);
+                            self.read_slice_of_values_from_memory(items_start, *size, value_types)
                         }
                         HeapValueType::Vector { value_types } => {
                             let vector_address = self.memory.read_ref(value_address);
-                            let vector_start = self.memory.read_ref(vector_address);
-                            let size_address: MemoryAddress =
-                                (vector_address.to_usize() + 1).into();
+                            let size_address = MemoryAddress(vector_address.to_usize() + 1);
+                            let items_start = MemoryAddress(vector_address.to_usize() + 2);
                             let vector_size = self.memory.read(size_address).to_usize();
                             self.read_slice_of_values_from_memory(
-                                vector_start,
+                                items_start,
                                 vector_size,
                                 value_types,
                             )
@@ -646,8 +652,8 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
                                 current_pointer = MemoryAddress(current_pointer.to_usize() + 1);
                             }
                             HeapValueType::Array { .. } => {
-                                let destination = self.memory.read_ref(current_pointer);
-                                let destination = self.memory.read_ref(destination);
+                                let destination =
+                                    MemoryAddress(self.memory.read_ref(current_pointer).0 + 1);
                                 self.write_slice_of_values_to_memory(
                                     destination,
                                     values,
@@ -707,6 +713,36 @@ impl<'a, F: AcirField, B: BlackBoxFunctionSolver<F>> VM<'a, F, B> {
 
         let result_value = evaluate_binary_int_op(&op, lhs_value, rhs_value, bit_size)?;
         self.memory.write(result, result_value);
+        Ok(())
+    }
+
+    fn process_not(
+        &mut self,
+        source: MemoryAddress,
+        destination: MemoryAddress,
+        op_bit_size: IntegerBitSize,
+    ) -> Result<(), String> {
+        let (value, bit_size) = self
+            .memory
+            .read(source)
+            .extract_integer()
+            .ok_or("Not opcode source is not an integer")?;
+
+        if bit_size != op_bit_size {
+            return Err(format!(
+                "Not opcode source bit size {} does not match expected bit size {}",
+                bit_size, op_bit_size
+            ));
+        }
+
+        let negated_value = if let IntegerBitSize::U128 = bit_size {
+            !value
+        } else {
+            let bit_size: u32 = bit_size.into();
+            let mask = (1_u128 << bit_size as u128) - 1;
+            (!value) & mask
+        };
+        self.memory.write(destination, MemoryValue::new_integer(negated_value, bit_size));
         Ok(())
     }
 
@@ -951,6 +987,62 @@ mod tests {
 
         let casted_value = memory.read(MemoryAddress::from(1));
         assert_eq!(casted_value.to_field(), (2_u128.pow(8) - 1).into());
+    }
+
+    #[test]
+    fn not_opcode() {
+        let calldata: Vec<FieldElement> = vec![(1_usize).into()];
+
+        let opcodes = &[
+            Opcode::Const {
+                destination: MemoryAddress(0),
+                bit_size: BitSize::Integer(IntegerBitSize::U32),
+                value: FieldElement::from(1u64),
+            },
+            Opcode::Const {
+                destination: MemoryAddress(1),
+                bit_size: BitSize::Integer(IntegerBitSize::U32),
+                value: FieldElement::from(0u64),
+            },
+            Opcode::CalldataCopy {
+                destination_address: MemoryAddress(0),
+                size_address: MemoryAddress(0),
+                offset_address: MemoryAddress(1),
+            },
+            Opcode::Cast {
+                destination: MemoryAddress::from(1),
+                source: MemoryAddress::from(0),
+                bit_size: BitSize::Integer(IntegerBitSize::U128),
+            },
+            Opcode::Not {
+                destination: MemoryAddress::from(1),
+                source: MemoryAddress::from(1),
+                bit_size: IntegerBitSize::U128,
+            },
+            Opcode::Stop { return_data_offset: 1, return_data_size: 1 },
+        ];
+        let mut vm = VM::new(calldata, opcodes, vec![], &StubbedBlackBoxSolver);
+
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::InProgress);
+        let status = vm.process_opcode();
+        assert_eq!(status, VMStatus::Finished { return_data_offset: 1, return_data_size: 1 });
+
+        let VM { memory, .. } = vm;
+
+        let (negated_value, _) = memory
+            .read(MemoryAddress::from(1))
+            .extract_integer()
+            .expect("Expected integer as the output of Not");
+        assert_eq!(negated_value, !1_u128);
     }
 
     #[test]
@@ -2005,33 +2097,31 @@ mod tests {
             vec![MemoryValue::new_field(FieldElement::from(9u128))];
 
         // construct memory by declaring all inner arrays/vectors first
+        // Declare v2
         let v2_ptr: usize = 0usize;
-        let mut memory = v2.clone();
-        let v2_start = memory.len();
-        memory.extend(vec![MemoryValue::from(v2_ptr), v2.len().into(), MemoryValue::from(1_u32)]);
+        let mut memory = vec![MemoryValue::from(1_u32), v2.len().into()];
+        memory.extend(v2.clone());
         let a4_ptr = memory.len();
+        memory.extend(vec![MemoryValue::from(1_u32)]);
         memory.extend(a4.clone());
-        let a4_start = memory.len();
-        memory.extend(vec![MemoryValue::from(a4_ptr), MemoryValue::from(1_u32)]);
         let v6_ptr = memory.len();
+        memory.extend(vec![MemoryValue::from(1_u32), v6.len().into()]);
         memory.extend(v6.clone());
-        let v6_start = memory.len();
-        memory.extend(vec![MemoryValue::from(v6_ptr), v6.len().into(), MemoryValue::from(1_u32)]);
         let a9_ptr = memory.len();
+        memory.extend(vec![MemoryValue::from(1_u32)]);
         memory.extend(a9.clone());
-        let a9_start = memory.len();
-        memory.extend(vec![MemoryValue::from(a9_ptr), MemoryValue::from(1_u32)]);
         // finally we add the contents of the outer array
-        let outer_ptr = memory.len();
+        memory.extend(vec![MemoryValue::from(1_u32)]);
+        let outer_start = memory.len();
         let outer_array = vec![
             MemoryValue::new_field(FieldElement::from(1u128)),
             MemoryValue::from(v2.len() as u32),
-            MemoryValue::from(v2_start),
-            MemoryValue::from(a4_start),
+            MemoryValue::from(v2_ptr),
+            MemoryValue::from(a4_ptr),
             MemoryValue::new_field(FieldElement::from(5u128)),
             MemoryValue::from(v6.len() as u32),
-            MemoryValue::from(v6_start),
-            MemoryValue::from(a9_start),
+            MemoryValue::from(v6_ptr),
+            MemoryValue::from(a9_ptr),
         ];
         memory.extend(outer_array.clone());
 
@@ -2075,7 +2165,7 @@ mod tests {
             // input = 0
             Opcode::Const {
                 destination: r_input,
-                value: (outer_ptr).into(),
+                value: (outer_start).into(),
                 bit_size: BitSize::Integer(IntegerBitSize::U32),
             },
             // some_function(input)

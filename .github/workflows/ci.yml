@@ -3,6 +3,12 @@ on:
   push:
     branches: [master, provernet]
   pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+      - labeled
     branches-ignore: [devnet]
   workflow_dispatch:
     inputs: {}
@@ -108,7 +114,7 @@ jobs:
 
   build:
     needs: [build-images, changes]
-    if: needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true'
+    if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
@@ -128,15 +134,29 @@ jobs:
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' | grep -v "+network" | grep -v 'devnet' | sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
+          else
+            LABELS=""
+          fi
+          echo Labels: $LABELS
+          echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
+          else
+            LABELS=""
+          fi
+          echo Labels: $LABELS
+          echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:
     needs: [build, changes]
-    if: needs.changes.outputs.non-barretenberg-cpp == 'true'
+    if: needs.changes.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -166,7 +186,7 @@ jobs:
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
     needs: [build, changes]
-    if: needs.changes.outputs.non-barretenberg-cpp == 'true'
+    if: needs.changes.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench')
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -705,9 +725,10 @@ jobs:
       - boxes
       - boxes-test
       # - protocol-circuits-gates-report # non-blocking
-    if: github.event.pull_request.draft == false && always()
+    if: always()
     steps:
-      - name: Report overall success
+      - name: Report overall success (non-draft)
+        if: github.event.pull_request.draft == false
         env:
           # We treat any skipped or failing jobs as a failure for the workflow as a whole.
           FAIL: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
@@ -719,6 +740,9 @@ jobs:
               echo "All jobs succeeded, merge allowed."
               exit 0
           fi
+      - name: Block merge (draft)
+        if: github.event.pull_request.draft
+        run: echo "Can't merge drafts." && exit 1
 
   rerun-check:
     runs-on: ubuntu-20.04

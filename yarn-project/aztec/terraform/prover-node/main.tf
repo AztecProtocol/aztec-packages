@@ -58,6 +58,7 @@ locals {
   node_p2p_private_keys = var.NODE_P2P_PRIVATE_KEYS
   node_count            = length(local.prover_private_keys)
   data_dir              = "/usr/src/yarn-project/aztec"
+  eth_host              = var.ETHEREUM_HOST != "" ? var.ETHEREUM_HOST : "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/admin-${var.API_KEY}"
 }
 
 output "node_count" {
@@ -237,7 +238,7 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "DEBUG", value = "aztec:*,-json-rpc:json_proxy:*,-aztec:avm_simulator:*" },
         { name = "DEPLOY_TAG", value = var.DEPLOY_TAG },
         { name = "NETWORK_NAME", value = "${var.DEPLOY_TAG}" },
-        { name = "ETHEREUM_HOST", value = "https://${var.DEPLOY_TAG}-mainnet-fork.aztec.network:8545/${var.API_KEY}" },
+        { name = "ETHEREUM_HOST", value = "${local.eth_host}" },
         { name = "L1_CHAIN_ID", value = var.L1_CHAIN_ID },
         { name = "DATA_DIRECTORY", value = "${local.data_dir}/prover_node_${count.index + 1}/data" },
         { name = "DEPLOY_AZTEC_CONTRACTS", value = "false" },
@@ -272,7 +273,6 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "INBOX_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.inbox_contract_address },
         { name = "OUTBOX_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.outbox_contract_address },
         { name = "REGISTRY_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.registry_contract_address },
-        { name = "AVAILABILITY_ORACLE_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.availability_oracle_contract_address },
         { name = "FEE_JUICE_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.fee_juice_contract_address },
         { name = "FEE_JUICE_PORTAL_CONTRACT_ADDRESS", value = data.terraform_remote_state.l1_contracts.outputs.FEE_JUICE_PORTAL_CONTRACT_ADDRESS },
 
