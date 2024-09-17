@@ -1,6 +1,7 @@
 import { GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
+import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { proveAndVerifyAvmTestContract } from '../src/test/test_avm.js';
