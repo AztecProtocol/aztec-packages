@@ -17,6 +17,7 @@ fn compute_raw_note_log<Note, let N: u32, let NB: u32, let M: u32>(
     let note_hash_counter = note_header.note_hash_counter;
     let storage_slot = note_header.storage_slot;
 
+    // TODO(#8589): use typesystem to skip this check when not needed
     let note_exists = context.note_hashes.storage.any(|n: NoteHash| n.counter == note_hash_counter);
     assert(note_exists, "Can only emit a note log for an existing note.");
 
