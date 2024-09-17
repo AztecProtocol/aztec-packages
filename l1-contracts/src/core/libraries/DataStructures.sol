@@ -6,6 +6,8 @@ import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
 import {Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
+import {SignatureLib} from "./SignatureLib.sol";
+
 /**
  * @title Data Structures Library
  * @author Aztec Labs
