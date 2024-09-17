@@ -209,7 +209,7 @@ impl TestEnvironment {
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
     /// not having an encrypted log emitted. TXE alternative to `PXE.addNote(...)`.
-    pub fn add_note<Note, let N: u32, let M: u32>(
+    pub fn add_note<Note, let N: u32>(
         _self: Self,
         note: &mut Note,
         storage_slot: Field,

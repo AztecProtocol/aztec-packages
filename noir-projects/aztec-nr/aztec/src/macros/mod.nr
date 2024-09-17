@@ -157,8 +157,8 @@ pub comptime fn aztec(m: Module) -> Quoted {
     let note_exports = generate_note_exports();
 
     quote {
+        $note_exports
         $interface
         $compute_note_hash_and_optionally_a_nullifier
-        $note_exports
     }
 }

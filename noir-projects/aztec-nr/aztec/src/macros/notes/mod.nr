@@ -156,10 +156,9 @@ pub(crate) comptime fn generate_note_export(s: StructDefinition, note_type_id: F
     let global_export_name = f"{name}_EXPORTS".quoted_contents();
     let note_name_as_str = name.as_str_quote();
     let note_name_str_len = unquote!(quote { $note_name_as_str.as_bytes().len() });
-    let note_type_id_hex = f"0x{note_type_id}".quoted_contents();
     quote {
         #[abi(notes)]
-        global $global_export_name: (Field, str<$note_name_str_len>) = ($note_type_id_hex,$note_name_as_str);
+        global $global_export_name: (Field, str<$note_name_str_len>) = ($note_type_id,$note_name_as_str);
     }
 }
 

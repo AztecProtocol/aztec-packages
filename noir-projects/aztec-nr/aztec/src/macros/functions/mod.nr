@@ -208,7 +208,7 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
     } else {
         quote {}
     };
-    let init_check = if module_has_initializer & !fn_has_noinitcheck(f) {
+    let init_check = if module_has_initializer & !fn_has_noinitcheck(f) & !is_fn_initializer(f) {
         create_init_check(f)
     } else {
         quote {}
