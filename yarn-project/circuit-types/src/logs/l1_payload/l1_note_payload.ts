@@ -148,7 +148,7 @@ export class L1NotePayload extends L1Payload {
     );
   }
 
-  static #getPublicValuesAndRemainingCipherText(input: Buffer): [Fr[], Buffer] {
+  static #getPublicValuesAndRemainingCiphertext(input: Buffer): [Fr[], Buffer] {
     const reader = BufferReader.asReader(input);
     const numPubliclyDeliveredValues = reader.readUInt8();
 
