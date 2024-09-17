@@ -15,7 +15,7 @@ interface ITestRollup {
 }
 
 interface IRollup {
-  event L2BlockProposed(uint256 indexed blockNumber);
+  event L2BlockProposed(uint256 indexed blockNumber, bytes32 indexed archive);
   event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
 

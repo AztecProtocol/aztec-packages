@@ -30,3 +30,4 @@ export * as worker from './worker/index.js';
 export * as testing from './testing/index.js';
 export * as config from './config/index.js';
 export * as buffer from './buffer/index.js';
+export * as ethSignature from './eth-signature/index.js';
