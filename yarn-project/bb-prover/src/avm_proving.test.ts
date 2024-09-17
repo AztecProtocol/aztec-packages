@@ -1,7 +1,14 @@
 import { GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
+
+
+import { mock } from 'jest-mock-extended';
+
+
+
 import { proveAndVerifyAvmTestContract } from '../src/test/test_avm.js';
+
 
 const TIMEOUT = 60_000;
 const TIMESTAMP = new Fr(99833);
@@ -30,7 +37,7 @@ describe('AVM WitGen, proof generation and verification', () => {
   it.each(avmFunctionsAndCalldata)(
     'Should prove %s',
     async (name, calldata) => {
-      await proveAndVerifyAvmTestContract(name, calldata);
+      await proveAndVerifyAvmTestContract(jest, mock, name, calldata);
     },
     TIMEOUT,
   );
@@ -76,7 +83,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     it.each(avmHashFunctions)(
       'Should prove %s',
       async (name, calldata) => {
-        await proveAndVerifyAvmTestContract(name, calldata);
+        await proveAndVerifyAvmTestContract(jest, mock, name, calldata);
       },
       TIMEOUT * 2, // We need more for keccak for now
     );
@@ -85,7 +92,7 @@ describe('AVM WitGen, proof generation and verification', () => {
   it(
     'Should prove that timestamp matches',
     async () => {
-      await proveAndVerifyAvmTestContract('assert_timestamp', [TIMESTAMP], undefined, GLOBAL_VARIABLES);
+      await proveAndVerifyAvmTestContract(jest, mock, 'assert_timestamp', [TIMESTAMP], undefined, GLOBAL_VARIABLES);
     },
     TIMEOUT,
   );
@@ -95,6 +102,8 @@ describe('AVM WitGen, proof generation and verification', () => {
     async () => {
       // The error assertion string must match with that of assert_timestamp noir function.
       await proveAndVerifyAvmTestContract(
+        jest,
+        mock,
         'assert_timestamp',
         [TIMESTAMP.add(new Fr(1))],
         'timestamp does not match',
@@ -116,7 +125,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     it.each(avmEmbeddedCurveFunctions)(
       'Should prove %s',
       async (name, calldata) => {
-        await proveAndVerifyAvmTestContract(name, calldata);
+        await proveAndVerifyAvmTestContract(jest, mock, name, calldata);
       },
       TIMEOUT,
     );
@@ -145,7 +154,7 @@ describe('AVM WitGen, proof generation and verification', () => {
     it.each(avmContextFunctions)(
       'Should prove %s',
       async contextFunction => {
-        await proveAndVerifyAvmTestContract(contextFunction);
+        await proveAndVerifyAvmTestContract(jest, mock, contextFunction);
       },
       TIMEOUT,
     );
