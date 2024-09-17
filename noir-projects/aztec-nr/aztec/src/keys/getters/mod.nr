@@ -5,7 +5,10 @@ use dep::protocol_types::{
 use crate::{
     context::{PrivateContext, UnconstrainedContext},
     oracle::{keys::get_public_keys_and_partial_address, key_validation_request::get_key_validation_request},
-    keys::{public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH}, stored_keys::StoredKeys, constants::NULLIFIER_INDEX},
+    keys::{
+    public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH}, stored_keys::StoredKeys,
+    constants::{NULLIFIER_INDEX, OUTGOING_INDEX}
+},
     state_vars::{public_mutable::PublicMutable, map::Map}
 };
 
