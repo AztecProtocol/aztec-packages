@@ -67,10 +67,10 @@ export class L1NotePayload extends L1Payload {
   }
 
   public encrypt(ephSk: GrumpkinScalar, recipient: AztecAddress, ivpk: PublicKey, ovKeys: KeyValidationRequest) {
-    // TODO(#8558): numPubliclyDeliveredValues could occupy just a single bit if we store info about partial fields
+    // TODO(#8558): numPublicValues could occupy just a single bit if we store info about partial fields
     // in the ABI
     // We always set the value to 0 here as we don't need partial notes encryption support in TS
-    const numPubliclyDeliveredValues = 0;
+    const numPublicValues = 0;
     const encryptedPayload = super._encrypt(
       this.contractAddress,
       ephSk,
@@ -79,7 +79,7 @@ export class L1NotePayload extends L1Payload {
       ovKeys,
       new EncryptedNoteLogIncomingBody(this.storageSlot, this.noteTypeId, this.note),
     );
-    return Buffer.concat([Buffer.alloc(1, numPubliclyDeliveredValues), encryptedPayload]);
+    return Buffer.concat([Buffer.alloc(1, numPublicValues), encryptedPayload]);
   }
 
   /**
@@ -148,13 +148,30 @@ export class L1NotePayload extends L1Payload {
     );
   }
 
+  /**
+   * Extracts the public values and the remaining ciphertext from the input buffer.
+   * Input byte layout:
+   * +-----------------------------------+
+   * | Byte | Description                |
+   * |------|----------------------------|
+   * |  0   | num_pub_vals               |
+   * |------|----------------------------|
+   * | 1 to | Ciphertext                 |
+   * |  N   | (N = total_length - 1      |
+   * |      |  - num_pub_vals * 32)      |
+   * |------|----------------------------|
+   * | N+1  | Public values              |
+   * |  to  | (num_pub_vals * 32 bytes)  |
+   * | end  |                            |
+   * +-----------------------------------+
+   */
   static #getPublicValuesAndRemainingCiphertext(input: Buffer): [Fr[], Buffer] {
     const reader = BufferReader.asReader(input);
-    const numPubliclyDeliveredValues = reader.readUInt8();
+    const numPublicValues = reader.readUInt8();
 
     const remainingData = reader.readToEnd();
     const publicValuesData = remainingData.subarray(
-      remainingData.length - numPubliclyDeliveredValues * Fr.SIZE_IN_BYTES,
+      remainingData.length - numPublicValues * Fr.SIZE_IN_BYTES,
       remainingData.length,
     );
     if (publicValuesData.length % Fr.SIZE_IN_BYTES !== 0) {
