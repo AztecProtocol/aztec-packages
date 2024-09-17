@@ -61,7 +61,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
     // different
     if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= accumulator->proving_key.log_circuit_size; idx++) {
+        for (size_t idx = 1; idx <= perturbator.size(); idx++) {
             transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
         }
     }
