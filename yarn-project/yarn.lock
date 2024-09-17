@@ -292,6 +292,7 @@ __metadata:
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/simulator": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@msgpack/msgpack": ^3.0.0-beta2
     "@noir-lang/noirc_abi": "portal:../../noir/packages/noirc_abi"
@@ -700,6 +701,7 @@ __metadata:
     "@types/node": ^18.7.23
     change-case: ^5.4.4
     jest: ^29.5.0
+    jest-mock-extended: ^4.0.0-beta1
     levelup: ^5.1.1
     memdown: ^6.1.1
     ts-node: ^10.9.1
@@ -10833,6 +10835,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"jest-mock-extended@npm:^4.0.0-beta1":
+  version: 4.0.0-beta1
+  resolution: "jest-mock-extended@npm:4.0.0-beta1"
+  dependencies:
+    ts-essentials: ^10.0.2
+  peerDependencies:
+    "@jest/globals": ^28.0.0 || ^29.0.0
+    jest: ^24.0.0 || ^25.0.0 || ^26.0.0 || ^27.0.0 || ^28.0.0 || ^29.0.0
+    typescript: ^3.0.0 || ^4.0.0 || ^5.0.0
+  checksum: de84487f07a4a812fcfdcfde5234dedb35676103a8542bd30b4dd8b7ee4fdaa4f5d5c60b6c076539d10a8d303af36cbee24a9a16a20aa4f43413a69427a4e99b
+  languageName: node
+  linkType: hard
+
 "jest-mock@npm:^29.7.0":
   version: 29.7.0
   resolution: "jest-mock@npm:29.7.0"
@@ -15353,6 +15368,18 @@ __metadata:
     typescript:
       optional: true
   checksum: 29c789b32b1885211bc7429410529810fabc0d6a6f3b13e05f15e2ca6540581c019a66296864ddc5d4510c4eec4dfee0627631857bedae12b48b368d9f62b230
+  languageName: node
+  linkType: hard
+
+"ts-essentials@npm:^10.0.2":
+  version: 10.0.2
+  resolution: "ts-essentials@npm:10.0.2"
+  peerDependencies:
+    typescript: ">=4.5.0"
+  peerDependenciesMeta:
+    typescript:
+      optional: true
+  checksum: f2d612b543b405f27cb890f15667454ad48d7bd3e699d62adf0fedd8c3797dc4ecd93d33ba5983a02f97912cb6383f2ca349d02747bd57fd4384fc1f264f1826
   languageName: node
   linkType: hard
 
