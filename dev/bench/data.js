@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726588987458,
+  "lastUpdate": 1726593879838,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e2150a7e5fc84932b65af07025514fc3c57f1cbc",
-          "message": "chore(avm): remove some unused deps (#8366)",
-          "timestamp": "2024-09-04T11:49:51+01:00",
-          "tree_id": "6de5fa133ea2ef7820199daf1ecf5a51cb61a070",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e2150a7e5fc84932b65af07025514fc3c57f1cbc"
-        },
-        "date": 1725447383580,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13490.814172,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10280.600525999998 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5175.230903,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4739.960201000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39541.081373,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39541081000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14843.483035,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14843484000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3733695960,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3733695960 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 145204727,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 145204727 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3063142128,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3063142128 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 121085924,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 121085924 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 113060849,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 113060849 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1c7b06d6621d9873f84147b2b7f1f22bf21bbacb",
+          "message": "feat: use new IVC scheme (#8480)\n\nReplaces the old `ClientIvc` with `AztecIvc` (renamed to `ClientIVC`).\r\nThis was facilitated by the introduction of `auto_verify_mode` which\r\nmakes the new class behave a bit like the old one by automatically\r\n\"completing\" the kernel circuits with recursive verifiers if\r\n`auto_verify_mode == true`. (Note: a notable difference is that the old\r\nmodel appended recursion logic to _any_ circuit, not just kernels. This\r\nchange means that it does not make sense to accumulate an odd number of\r\ncircuits into the IVC).",
+          "timestamp": "2024-09-17T10:07:10-07:00",
+          "tree_id": "2559931c3439b30ce63d7ea3a89142e652f18121",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1c7b06d6621d9873f84147b2b7f1f22bf21bbacb"
+        },
+        "date": 1726593872758,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 34453.184685999986,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 31931.99281900001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5111.101091999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4694.678341000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 100513.030599,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 100513031000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14607.624747000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14607623000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8682744319,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8682744319 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152341570,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152341570 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6949782032,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6949782032 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128306188,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128306188 ns\nthreads: 1"
           }
         ]
       }
