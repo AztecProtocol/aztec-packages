@@ -138,14 +138,11 @@ export class BotFactory {
     let publicBalance = 0n;
 
     if (isStandardToken) {
-      const { privateBalance: _privateBalance, publicBalance: _publicBalance } = await getBalances(token, sender);
-      privateBalance = _privateBalance;
-      publicBalance = _publicBalance;
+      ({ privateBalance, publicBalance } = await getBalances(token, sender));
     } else {
       privateBalance = await getPrivateBalance(token, sender);
     }
 
-    // const { privateBalance, publicBalance } = await getBalances(token, sender);
     const calls: FunctionCall[] = [];
     if (privateBalance < MIN_BALANCE) {
       this.log.info(`Minting private tokens for ${sender.toString()}`);
