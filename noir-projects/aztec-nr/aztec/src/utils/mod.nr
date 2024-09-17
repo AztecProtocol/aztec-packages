@@ -1,3 +1,4 @@
+mod byte_array;
 mod collapse_array;
 mod comparison;
 mod point;
