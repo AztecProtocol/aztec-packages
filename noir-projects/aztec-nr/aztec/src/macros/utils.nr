@@ -34,15 +34,7 @@ pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
 
 // This is probably a terrible hack
 pub(crate) comptime fn expr_as_quoted_fixed(expr: Expr) -> Quoted {
-    if expr.as_let().is_some() {
-        let quoted = expr.quoted();
-        // Let statements lose semicolons
-        quote { $quoted; }
-    } else if expr.as_assert().is_some() {
-        let (assertion, _message) = expr.as_assert().unwrap();
-        // Assertions with messages bork the compiler at compiler/noirc_frontend/src/node_interner.rs:1145
-        quote { assert($assertion); }
-    } else if expr.as_unsafe().is_some() {
+    if expr.as_unsafe().is_some() {
         // Unsafe blocks require semicolons for some reason? Not if I write them manually
         let unsafe_expr = expr.as_unsafe().unwrap();
         let unsafe_quote = expr_slice_as_quoted_fixed(unsafe_expr);

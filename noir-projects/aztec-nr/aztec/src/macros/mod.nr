@@ -79,7 +79,7 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
     }
 }
 
-pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier(m: Module) -> Quoted {
+pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     let mut max_note_length: u32 = 0;
     let note_types = NOTES.keys();
     let use_statements = note_types.map(
@@ -136,7 +136,7 @@ pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier(m: Module)
     }
 }
 
-pub comptime fn generate_note_exports(m: Module) -> Quoted {
+pub comptime fn generate_note_exports() -> Quoted {
     let notes = NOTES.values();
     notes.map(
         | (s, _, note_type_id): (StructDefinition, u32, Field) | {
@@ -153,8 +153,8 @@ pub comptime fn aztec(m: Module) -> Quoted {
         transform_unconstrained(f);
     }
 
-    let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier(m);
-    let note_exports = generate_note_exports(m);
+    let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
+    let note_exports = generate_note_exports();
 
     quote {
         $interface
