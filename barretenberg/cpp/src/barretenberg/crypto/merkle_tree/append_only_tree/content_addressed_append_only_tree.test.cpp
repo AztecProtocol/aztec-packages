@@ -167,13 +167,54 @@ void check_find_leaf_index(
     Signal signal;
     auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
-        if (expected_success) {
+        if (response.success) {
             EXPECT_EQ(response.inner.leaf_index, expected_index);
         }
         signal.signal_level();
     };
 
     tree.find_leaf_index(leaf, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+void check_find_historic_leaf_index(TreeType& tree,
+                                    const index_t& block_number,
+                                    const fr& leaf,
+                                    index_t expected_index,
+                                    bool expected_success,
+                                    bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index(leaf, block_number, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+void check_find_historic_leaf_index_from(TreeType& tree,
+                                         const index_t& block_number,
+                                         const fr& leaf,
+                                         index_t start_index,
+                                         index_t expected_index,
+                                         bool expected_success,
+                                         bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index_from(leaf, start_index, block_number, includeUncommitted, completion);
     signal.wait_for_level();
 }
 
@@ -187,7 +228,7 @@ void check_find_leaf_index_from(TreeType& tree,
     Signal signal;
     auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
-        if (expected_success) {
+        if (response.success) {
             EXPECT_EQ(response.inner.leaf_index, expected_index);
         }
         signal.signal_level();
@@ -203,7 +244,25 @@ void check_leaf(
     Signal signal;
     tree.get_leaf(leaf_index, includeUncommitted, [&](const TypedResponse<GetLeafResponse>& response) {
         EXPECT_EQ(response.success, expected_success);
-        if (expected_success) {
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf, leaf);
+        }
+        signal.signal_level();
+    });
+    signal.wait_for_level();
+}
+
+void check_historic_leaf(TreeType& tree,
+                         const index_t& blockNumber,
+                         const fr& leaf,
+                         index_t leaf_index,
+                         bool expected_success,
+                         bool includeUncommitted = true)
+{
+    Signal signal;
+    tree.get_leaf(leaf_index, blockNumber, includeUncommitted, [&](const TypedResponse<GetLeafResponse>& response) {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
             EXPECT_EQ(response.inner.leaf, leaf);
         }
         signal.signal_level();
@@ -762,6 +821,82 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_siblin
         historicPathsZeroIndex.push_back(memdb.get_sibling_path(0));
         historicPathsMaxIndex.push_back(memdb.get_sibling_path(expected_size - 1));
     }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, retrieves_historic_leaves)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    Store store(name, depth, db);
+    ThreadPool pool(1);
+    TreeType tree(store, pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    constexpr uint32_t num_blocks = 10;
+    constexpr uint32_t batch_size = 4;
+
+    for (uint32_t i = 0; i < num_blocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < batch_size; ++j) {
+            size_t ind = i * batch_size + j;
+            memdb.update_element(ind, VALUES[ind]);
+            to_add.push_back(VALUES[ind]);
+        }
+        add_values(tree, to_add);
+        commit_tree(tree);
+    }
+
+    for (uint32_t i = 0; i < num_blocks; i++) {
+        for (uint32_t j = 0; j < num_blocks; j++) {
+            index_t indexToQuery = j * batch_size;
+            fr expectedLeaf = j <= i ? VALUES[indexToQuery] : fr::zero();
+            check_historic_leaf(tree, i + 1, expectedLeaf, indexToQuery, j <= i, false);
+        }
+    }
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_historic_leaf_index)
+{
+    constexpr size_t depth = 5;
+    std::string name = random_string();
+    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    Store store(name, depth, db);
+    ThreadPool pool(1);
+    TreeType tree(store, pool);
+
+    std::vector<fr> values{ 30, 10, 20, 40 };
+    add_values(tree, values);
+
+    commit_tree(tree);
+
+    values = { 15, 18, 26, 2 };
+    add_values(tree, values);
+
+    commit_tree(tree);
+
+    values = { 16, 4, 18, 22 };
+    add_values(tree, values);
+
+    // should not be present at block 1
+    check_find_historic_leaf_index(tree, 1, 26, 0, false);
+    // should be present at block 2
+    check_find_historic_leaf_index(tree, 2, 26, 6, true);
+
+    // at block 1 leaf 18 should not be found if only considering committed
+    check_find_historic_leaf_index_from(tree, 1, 18, 2, 0, false, false);
+    // at block 2 it should be
+    check_find_historic_leaf_index_from(tree, 2, 18, 2, 5, true);
+    // at block 2, from index 6 it should not be found if looking only at committed
+    check_find_historic_leaf_index_from(tree, 2, 18, 6, 5, false, false);
+    // at block 2, from index 6 it should be found if looking at uncommitted too
+    check_find_historic_leaf_index_from(tree, 2, 18, 6, 10, true);
+
+    commit_tree(tree);
+
+    // at block 3, from index 6 it should now be found in committed only
+    check_find_historic_leaf_index_from(tree, 3, 18, 6, 10, true, false);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_be_filled)

@@ -508,6 +508,11 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                 if (!store_.get_block_data(blockNumber, blockData, *tx)) {
                     throw std::runtime_error("Data for block unavailable");
                 }
+                if (blockData.size < leaf_index) {
+                    response.message = "Data for block unavailable";
+                    response.success = false;
+                    return;
+                }
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = false;
@@ -587,7 +592,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
                 requestContext.root = blockData.root;
                 requestContext.sizeAtBlock = blockData.size;
                 std::optional<index_t> leaf_index =
-                    store_.find_leaf_index_from(leaf, start_index, *tx, includeUncommitted);
+                    store_.find_leaf_index_from(leaf, start_index, requestContext, *tx, includeUncommitted);
                 response.success = leaf_index.has_value();
                 if (response.success) {
                     response.inner.leaf_index = leaf_index.value();
