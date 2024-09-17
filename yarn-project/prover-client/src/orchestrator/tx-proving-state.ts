@@ -141,15 +141,15 @@ export class TxProvingState {
     proof: RecursiveProof<typeof RECURSIVE_PROOF_LENGTH>,
     verificationKey: VerificationKeyData,
   ): TxProvingInstruction {
-    if (!this.publicFunctions.length) {
+    const nextFunctionIndex = this.publicFunctions.findIndex(
+      (fn, i) => i > 0 && fn.previousProofType === ProvingRequestType.TUBE_PROOF,
+    );
+    if (nextFunctionIndex === -1) {
       // There are no public functions to be processed, we are done!
       return { code: TX_PROVING_CODE.COMPLETED, function: undefined };
     }
 
     // There is more work to do, are we ready?
-    const nextFunctionIndex = this.publicFunctions.findIndex(
-      (fn, i) => i > 0 && fn.previousProofType === ProvingRequestType.TUBE_PROOF,
-    );
     const nextFunction = this.publicFunctions[nextFunctionIndex];
 
     // pass both the proof and verification key forward to the next circuit

@@ -52,7 +52,7 @@ impl VMCircuitOutputComposer {
         self.propagate_revert_flag(public_call);
         self.propagate_validation_requests(public_call);
         self.propagate_accumulated_data(public_call);
-        self.end_side_effect_counter = public_call.end_side_effect_counter;
+        self.propagate_end_side_effect_counter(public_call);
         // Other values should be the same through out the entire enqueued call.
         *self
     }
@@ -141,5 +141,11 @@ impl VMCircuitOutputComposer {
     fn propagate_call_requests(&mut self, public_call: PublicCircuitPublicInputs) {
         let call_requests = array_to_bounded_vec(public_call.public_call_requests);
         self.public_call_stack.extend_from_bounded_vec(call_requests);
+    }
+
+    fn propagate_end_side_effect_counter(&mut self, public_call: PublicCircuitPublicInputs) {
+        if public_call.end_side_effect_counter > self.end_side_effect_counter {
+            self.end_side_effect_counter = public_call.end_side_effect_counter;
+        }
     }
 }
