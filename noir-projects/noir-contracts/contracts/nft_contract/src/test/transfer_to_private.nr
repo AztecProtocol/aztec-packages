@@ -51,7 +51,7 @@ unconstrained fn transfer_to_private_to_a_different_account() {
     // Store the finalized note in the cache
     let mut context = env.private();
     let recipient_npk_m_hash = get_current_public_keys(&mut context, recipient).npk_m.hash();
-    let private_nfts_recipient_slot = derive_storage_slot_in_map(NFT::storage().private_nfts.slot, recipient);
+    let private_nfts_recipient_slot = derive_storage_slot_in_map(NFT::storage_layout().private_nfts.slot, recipient);
 
     env.add_note(
         &mut NFTNote { token_id, npk_m_hash: recipient_npk_m_hash, randomness: note_randomness, header: NoteHeader::empty() },

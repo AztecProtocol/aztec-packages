@@ -485,12 +485,12 @@ contract Token {
             encode_and_encrypt_note_with_keys_unconstrained(&mut context, user_keys.ovpk_m, user_keys.ivpk_m, user)
         );
         // 4. Now we get the note hiding points.
-        let mut fee_payer_point = TokenNote::hiding_point().initialize(
+        let mut fee_payer_point = TokenNote::hiding_point().new(
             fee_payer_npk_m_hash,
             fee_payer_randomness,
             storage.balances.at(fee_payer).set.storage_slot
         );
-        let mut user_point = TokenNote::hiding_point().initialize(
+        let mut user_point = TokenNote::hiding_point().new(
             user_npk_m_hash,
             user_randomness,
             storage.balances.at(user).set.storage_slot

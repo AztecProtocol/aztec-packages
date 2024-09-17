@@ -7,11 +7,11 @@ use crate::{
 };
 
 trait ProveNoteInclusion {
-    fn prove_note_inclusion<Note, N, M>(header: Header, note: Note) where Note: NoteInterface<N> + NullifiableNote;
+    fn prove_note_inclusion<Note, N>(header: Header, note: Note) where Note: NoteInterface<N> + NullifiableNote;
 }
 
 impl ProveNoteInclusion for Header {
-    fn prove_note_inclusion<Note, N, M>(
+    fn prove_note_inclusion<Note, N>(
         self,
         note: Note
     ) where Note: NoteInterface<N> + NullifiableNote {

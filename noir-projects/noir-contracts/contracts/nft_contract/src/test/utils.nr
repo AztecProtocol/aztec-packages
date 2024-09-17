@@ -73,7 +73,7 @@ pub fn setup_mint_and_transfer_to_private(with_account_contracts: bool) -> (&mut
     // Store the finalized note in the cache
     let mut context = env.private();
     let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
-    let private_nfts_owner_slot = derive_storage_slot_in_map(NFT::storage().private_nfts.slot, owner);
+    let private_nfts_owner_slot = derive_storage_slot_in_map(NFT::storage_layout().private_nfts.slot, owner);
 
     env.add_note(
         &mut NFTNote {
@@ -94,7 +94,7 @@ pub fn get_nft_exists(nft_contract_address: AztecAddress, token_id: Field) -> bo
     cheatcodes::set_contract_address(nft_contract_address);
     let block_number = get_block_number();
 
-    let nft_exists_slot = NFT::storage().nft_exists.slot;
+    let nft_exists_slot = NFT::storage_layout().nft_exists.slot;
     let nft_slot = derive_storage_slot_in_map(nft_exists_slot, token_id);
     let exists: bool = storage_read(nft_contract_address, nft_slot, block_number);
     cheatcodes::set_contract_address(current_contract_address);

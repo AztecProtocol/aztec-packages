@@ -105,7 +105,7 @@ comptime fn generate_note_interface(
             }
 
             fn compute_note_hash(self) -> Field {
-                $hiding_point_name::new($fixed_fields_args).finalize($nullable_fields_args)
+                $hiding_point_name::empty().new($fixed_fields_args).finalize($nullable_fields_args)
             }
         }
     }, content_len)
@@ -173,7 +173,7 @@ comptime fn generate_note_hiding_point(
 
     let mut new_generators_list = &[];
     let mut new_scalars_list = &[];
-    let mut new_args_list = &[];
+    let mut new_args_list = &[quote {mut self}];
     let mut new_generics_list = &[];
     let mut new_trait_bounds_list = &[];
 
@@ -258,29 +258,19 @@ comptime fn generate_note_hiding_point(
         quote {}
     };
 
-    let initialize_args = if new_args_list.len() > 0 {
-        &[quote {mut self}].append(new_args_list).join(quote {,})
-    } else {
-        quote {mut self}
-    };
-
     (quote {
         struct $hiding_point_name {
             inner: aztec::protocol_types::point::Point
         }
 
         impl $hiding_point_name {
-
-            fn empty() -> $hiding_point_name {
-                $hiding_point_name { inner: aztec::protocol_types::point::Point::empty() }
-            }
-
             fn new$new_generics($new_args) -> $hiding_point_name $new_trait_bounds {
                 let point = std::embedded_curve_ops::multi_scalar_mul(
                     [$new_generators],
                     [$new_scalars]
                 );
-                $hiding_point_name { inner: point }
+                self.inner = point;
+                self
             }
 
             fn from_point(mut self, point: aztec::protocol_types::point::Point) -> $hiding_point_name {
@@ -288,14 +278,6 @@ comptime fn generate_note_hiding_point(
                 self
             }
 
-            fn initialize$new_generics($initialize_args) -> $hiding_point_name $new_trait_bounds {
-                let point = std::embedded_curve_ops::multi_scalar_mul(
-                    [$new_generators],
-                    [$new_scalars]
-                );
-                self.inner = point;
-                self
-            }
 
             fn $finalize_name($finalize_args) -> Field $finalize_trait_bounds {
                 $finalize_body
@@ -307,6 +289,25 @@ comptime fn generate_note_hiding_point(
                 self.inner.serialize()
             }
         }
+
+        impl aztec::protocol_types::traits::Deserialize<aztec::protocol_types::point::POINT_LENGTH> for $hiding_point_name {
+            fn deserialize(serialized: [Field; aztec::protocol_types::point::POINT_LENGTH]) -> $hiding_point_name {
+                $hiding_point_name { inner: aztec::protocol_types::point::Point::deserialize(serialized) }
+            }
+        }
+
+        impl aztec::protocol_types::traits::Empty for $hiding_point_name {
+            fn empty() -> Self {
+                Self { inner: aztec::protocol_types::point::Point::empty() }
+            }
+        }
+
+        impl Eq for $hiding_point_name {
+            fn eq(self, other: Self) -> bool {
+                self.inner == other.inner
+            }
+        }
+
     }, hiding_point_name)
 }
 

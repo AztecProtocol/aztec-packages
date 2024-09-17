@@ -1,6 +1,9 @@
 mod types;
 
+use dep::aztec::macros::aztec;
+
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
+#[aztec]
 contract Spam {
 
     use dep::aztec::{
@@ -13,18 +16,19 @@ contract Spam {
         MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL, GENERATOR_INDEX__NOTE_NULLIFIER,
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
     }
-    }
+    },
+        macros::{storage::storage, functions::{private, public, internal}}
     };
 
     use crate::types::{token_note::TokenNote, balance_set::BalanceSet};
 
-    #[aztec(storage)]
-    struct Storage {
-        balances: Map<AztecAddress, BalanceSet<TokenNote>>,
-        public_balances: Map<Field, PublicMutable<U128>>,
+    #[storage]
+    struct Storage<Context> {
+        balances: Map<AztecAddress, BalanceSet<TokenNote, Context>, Context>,
+        public_balances: Map<Field, PublicMutable<U128, Context>, Context>,
     }
 
-    #[aztec(private)]
+    #[private]
     fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
         let caller = context.msg_sender();
         let caller_keys = get_current_public_keys(&mut context, caller);
@@ -56,8 +60,8 @@ contract Spam {
         }
     }
 
-    #[aztec(public)]
-    #[aztec(internal)]
+    #[public]
+    #[internal]
     fn public_spam(start: u32, end: u32) {
         let one = U128::from_integer(1);
         for i in start..end {
