@@ -698,9 +698,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                 std::make_shared<std::vector<IndexedLeafValueType>>(values.size(), IndexedLeafValueType::empty());
             index_t num_leaves_to_be_inserted = values.size();
             std::set<uint256_t> unique_values;
-            // std::unordered_map<index_t, IndexedLeafValueType> leaves_pre;
 
-            // std::cout << "Here 2" << std::endl;
             {
                 ReadTransactionPtr tx = store_.create_read_transaction();
                 TreeMeta meta;
@@ -730,17 +728,13 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                     bool is_already_present = false;
 
                     requestContext.root = store_.get_current_root(*tx, true);
-                    // std::cout << "Here 3" << std::endl;
                     std::tie(is_already_present, low_leaf_index) =
                         store_.find_low_value(value_pair.first.get_key(), requestContext, *tx);
                     // std::cout << "Found low leaf index " << low_leaf_index << std::endl;
 
                     // Try and retrieve the leaf pre-image from the cache first.
-                    // I unsuccessful, derive from the tree and hash based lookup
-                    // auto pre_iter = leaves_pre.find(low_leaf_index);
+                    // If unsuccessful, derive from the tree and hash based lookup
                     std::optional<IndexedLeafValueType> optional_low_leaf =
-                        // pre_iter == leaves_pre.end() ? std::nullopt
-                        //                              : std::optional<IndexedLeafValueType>(pre_iter->second);
                         store_.get_cached_leaf_by_index(low_leaf_index);
                     IndexedLeafValueType low_leaf;
 

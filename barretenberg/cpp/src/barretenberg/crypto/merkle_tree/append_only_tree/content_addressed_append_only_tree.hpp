@@ -656,9 +656,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
     new_size = meta.size + number_to_insert;
 
     // std::cout << "Appending new leaves" << std::endl;
-
-    // std::cout << "Here hash local: " << hashes_local[0] << std::endl;
-
     if (values->empty()) {
         return;
     }
@@ -666,8 +663,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
     if (new_size > max_size_) {
         throw std::runtime_error("Tree is full");
     }
-
-    // std::cout << "Here" << std::endl;
 
     // Add the values at the leaf nodes of the tree
     for (uint32_t i = 0; i < number_to_insert; ++i) {
@@ -677,8 +672,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
         store_.put_cached_node_by_index(level, i + index, hashes_local[i]);
     }
 
-    // std::cout << "Here 5" << std::endl;
-
     // If we have been told to add these leaves to the index then do so now
     if (update_index) {
         for (uint32_t i = 0; i < number_to_insert; ++i) {
@@ -686,8 +679,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
             store_.update_index(index + i, hashes_local[i]);
         }
     }
-
-    // std::cout << "Here 6" << std::endl;
 
     // Hash the values as a sub tree and insert them
     while (number_to_insert > 1) {
@@ -744,7 +735,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
         // std::cout << "Writing node hash " << new_hash << " level " << level << " index " << index << std::endl;
     }
 
-    // std::cout << "Here 9" << std::endl;
     new_root = new_hash;
     meta.root = new_hash;
     meta.size = new_size;
