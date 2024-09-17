@@ -59,10 +59,8 @@ ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
     // different
-    if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
-            transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
-        }
+    for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
+        transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
 
     return std::make_tuple(deltas, perturbator);

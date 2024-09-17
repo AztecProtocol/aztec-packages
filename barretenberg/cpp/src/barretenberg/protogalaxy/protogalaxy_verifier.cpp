@@ -82,11 +82,8 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     const FF delta = transcript->template get_challenge<FF>("delta");
     const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
     std::vector<FF> perturbator_coeffs(CONST_PG_LOG_N + 1, 0);
-    if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
-            perturbator_coeffs[idx] =
-                transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
-        }
+    for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
+        perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
     const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 
