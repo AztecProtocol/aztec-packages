@@ -233,7 +233,7 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, s
                 } else if (af.minimal_range.contains(pt.b)) {
                     af.minimal_range[pt.a] = af.minimal_range[pt.b];
                 } else if (af.minimal_range.contains(pt.a)) {
-                    af.minimal_range[pt.a] = af.minimal_range[pt.b];
+                    af.minimal_range[pt.b] = af.minimal_range[pt.a];
                 }
 
                 af.assert_equalities.push_back(pt);
