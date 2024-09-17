@@ -140,6 +140,14 @@ std::array<field_t<Builder>, 64> extend_witness(const std::array<field_t<Builder
             w_out = witness_t<Builder>(
                 ctx, fr(w_out_raw.get_value().from_montgomery_form().data[0] & (uint64_t)0xffffffffULL));
         }
+<<<<<<< HEAD
+=======
+        constexpr fr inv_power_two = fr(2).pow(32).invert();
+        field_pt w_out_raw_power_two = w_out_raw * inv_power_two;
+        field_pt w_out_power_two = w_out * inv_power_two;
+        field_pt divisor = w_out_raw_power_two - w_out_power_two;
+        ctx->create_new_range_constraint(divisor.witness_index, 3);
+>>>>>>> d186a46ab7 (redesign of tests + patch for extend_witness)
         w_sparse[i] = sparse_witness_limbs(w_out);
     }
 
