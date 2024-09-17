@@ -202,8 +202,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     OptionalSiblingPath get_subtree_sibling_path_internal(const index_t& leaf_index,
                                                           uint32_t subtree_depth,
                                                           const RequestContext& requestContext,
-                                                          ReadTransaction& tx,
-                                                          bool includeUncommitted) const;
+                                                          ReadTransaction& tx) const;
 
     std::optional<fr> find_leaf_hash(index_t leaf_index,
                                      const fr& reference_root,
@@ -291,12 +290,11 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
                 }
 
                 RequestContext requestContext;
-                requestContext.includeCommitted = includeUncommitted;
+                requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = false;
                 requestContext.root = blockData.root;
                 requestContext.sizeAtBlock = blockData.size;
-                OptionalSiblingPath optional_path =
-                    get_subtree_sibling_path_internal(index, 0, requestContext, *tx, includeUncommitted);
+                OptionalSiblingPath optional_path = get_subtree_sibling_path_internal(index, 0, requestContext, *tx);
                 response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
             },
             on_completion);
@@ -315,11 +313,11 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_p
                 TreeMeta meta;
                 store_.get_meta(meta, *tx, includeUncommitted);
                 RequestContext requestContext;
-                requestContext.includeCommitted = includeUncommitted;
+                requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
-                OptionalSiblingPath optional_path = get_subtree_sibling_path_internal(
-                    meta.size, subtree_depth, requestContext, *tx, includeUncommitted);
+                OptionalSiblingPath optional_path =
+                    get_subtree_sibling_path_internal(meta.size, subtree_depth, requestContext, *tx);
                 response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
             },
             on_completion);
@@ -339,11 +337,11 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_p
             [=, this](TypedResponse<GetSiblingPathResponse>& response) {
                 ReadTransactionPtr tx = store_.create_read_transaction();
                 RequestContext requestContext;
-                requestContext.includeCommitted = includeUncommitted;
+                requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
-                OptionalSiblingPath optional_path = get_subtree_sibling_path_internal(
-                    leaf_index, subtree_depth, requestContext, *tx, includeUncommitted);
+                OptionalSiblingPath optional_path =
+                    get_subtree_sibling_path_internal(leaf_index, subtree_depth, requestContext, *tx);
                 response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
             },
             on_completion);
@@ -484,8 +482,7 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath Conten
     HashingPolicy>::get_subtree_sibling_path_internal(const index_t& leaf_index,
                                                       const uint32_t subtree_depth,
                                                       const RequestContext& requestContext,
-                                                      ReadTransaction& tx,
-                                                      bool includeUncommitted) const
+                                                      ReadTransaction& tx) const
 {
     // skip the first levels, all the way to the subtree_root
     OptionalSiblingPath path;
@@ -503,7 +500,7 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath Conten
 
     for (uint32_t level = 0; level < depth_ - subtree_depth; ++level) {
         NodePayload nodePayload;
-        store_.get_node_by_hash(hash, nodePayload, tx, includeUncommitted);
+        store_.get_node_by_hash(hash, nodePayload, tx, requestContext.includeUncommitted);
         bool is_right = static_cast<bool>(leaf_index & mask);
         // std::cout << "Level: " << level << ", mask: " << mask << ", is right: " << is_right << ", parent: " << hash
         //           << ", left has value: " << nodePayload.left.has_value()
@@ -536,7 +533,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
             [=, this](TypedResponse<GetLeafResponse>& response) {
                 ReadTransactionPtr tx = store_.create_read_transaction();
                 RequestContext requestContext;
-                requestContext.includeCommitted = includeUncommitted;
+                requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext.root, *tx, includeUncommitted);
@@ -565,7 +562,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                     throw std::runtime_error("Data for block unavailable");
                 }
                 RequestContext requestContext;
-                requestContext.includeCommitted = includeUncommitted;
+                requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = false;
                 requestContext.root = blockData.root;
                 requestContext.sizeAtBlock = blockData.size;
@@ -607,7 +604,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
                 typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
                 RequestContext requestContext;
                 requestContext.latestBlock = true;
-                requestContext.includeCommitted = includeUncommitted;
+                requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 std::optional<index_t> leaf_index =
                     store_.find_leaf_index_from(leaf, start_index, requestContext, *tx, includeUncommitted);
@@ -638,7 +635,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
                     throw std::runtime_error("Data for block unavailable");
                 }
                 RequestContext requestContext;
-                requestContext.includeCommitted = includeUncommitted;
+                requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = false;
                 requestContext.root = blockData.root;
                 requestContext.sizeAtBlock = blockData.size;
@@ -769,9 +766,10 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
 
     // std::cout << "LEVEL: " << level << " hash " << new_hash << std::endl;
     RequestContext requestContext;
+    requestContext.includeUncommitted = true;
     requestContext.root = store_.get_current_root(*tx, true);
     OptionalSiblingPath optional_sibling_path_to_root =
-        get_subtree_sibling_path_internal(meta.size, depth_ - level, requestContext, *tx, true);
+        get_subtree_sibling_path_internal(meta.size, depth_ - level, requestContext, *tx);
     fr_sibling_path sibling_path_to_root = optional_sibling_path_to_full_sibling_path(optional_sibling_path_to_root);
     size_t sibling_path_index = 0;
 

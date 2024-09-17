@@ -235,7 +235,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
             [=, this](TypedResponse<GetIndexedLeafResponse<LeafValueType>>& response) {
                 ReadTransactionPtr tx = store_.create_read_transaction();
                 RequestContext requestContext;
-                requestContext.includeCommitted = includeUncommitted;
+                requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext.root, *tx, includeUncommitted);
@@ -274,7 +274,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
                 typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
                 RequestContext requestContext;
-                requestContext.includeCommitted = includeUncommitted;
+                requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 std::optional<index_t> leaf_index =
@@ -299,7 +299,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
             [=, this](TypedResponse<GetLowIndexedLeafResponse>& response) {
                 typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
                 RequestContext requestContext;
-                requestContext.includeCommitted = includeUncommitted;
+                requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 std::pair<bool, index_t> result = store_.find_low_value(leaf_key, requestContext, *tx);
@@ -596,7 +596,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                     bool is_already_present = false;
                     RequestContext requestContext;
                     requestContext.latestBlock = true;
-                    requestContext.includeCommitted = true;
+                    requestContext.includeUncommitted = true;
                     requestContext.root = store_.get_current_root(*tx, true);
                     // std::cout << "Here 3" << std::endl;
                     std::tie(is_already_present, low_leaf_index) =

@@ -6,7 +6,7 @@ namespace bb::crypto::merkle_tree {
 using index_t = uint64_t;
 
 struct RequestContext {
-    bool includeCommitted;
+    bool includeUncommitted;
     bool latestBlock;
     index_t blockNumber;
     bb::fr root;

@@ -244,7 +244,7 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
     fr found_key = dataStore.find_low_leaf(new_leaf_key, committed, requestContext, tx);
     auto db_index = committed.indices[0];
     uint256_t retrieved_value = found_key;
-    if (!requestContext.includeCommitted || retrieved_value == new_value_as_number || indices.empty()) {
+    if (!requestContext.includeUncommitted || retrieved_value == new_value_as_number || indices.empty()) {
         return std::make_pair(new_value_as_number == retrieved_value, db_index);
     }
 
@@ -526,6 +526,8 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
                     dataStore.write_block_data(meta.unfinalisedBlockHeight, block, *tx);
                 }
             }
+            meta.committedSize = meta.size;
+            std::cout << "Committed size: " << meta.committedSize << std::endl;
             persist_meta(meta, *tx);
             tx->commit();
         } catch (std::exception& e) {
@@ -645,6 +647,7 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
     // No meta data available. Write the initial state down
     meta.name = name;
     meta.size = 0;
+    meta.committedSize = 0;
     meta.root = fr::zero();
     meta.initialRoot = fr::zero();
     meta.depth = depth;
@@ -671,10 +674,10 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
         ReadTransactionPtr tx = create_read_transaction();
         bool success = read_persisted_meta(meta, *tx);
         if (success) {
-            if (name == meta.name && depth == meta.depth) {
-                return;
+            if (name != meta.name || depth != meta.depth) {
+                throw std::runtime_error("Invalid tree meta data");
             }
-            throw std::runtime_error("Invalid tree meta data");
+
         } else {
             throw std::runtime_error("Tree must be initialised");
         }
@@ -696,6 +699,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::enrich_meta_from_block(Tree
 {
     if (initialised_from_block.has_value()) {
         m.size = initialised_from_block->size;
+        m.committedSize = initialised_from_block->size;
         m.root = initialised_from_block->root;
     }
 }
