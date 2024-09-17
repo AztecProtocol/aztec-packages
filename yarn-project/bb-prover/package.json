@@ -74,6 +74,7 @@
   },
   "devDependencies": {
     "@aztec/ethereum": "workspace:^",
+    "@aztec/types": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/memdown": "^3.0.0",

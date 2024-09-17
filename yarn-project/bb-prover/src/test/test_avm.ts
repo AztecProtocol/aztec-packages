@@ -34,6 +34,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmSimulator, type PublicContractsDB, type PublicExecutionResult, type PublicStateDB } from '@aztec/simulator';
+import { PublicSideEffectTrace } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
   initContext,
@@ -42,6 +43,7 @@ import {
   initPersistableStateManager,
   resolveAvmTestContractAssertionMessage,
 } from '@aztec/simulator/avm/fixtures';
+import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -49,8 +51,6 @@ import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'path';
 
-import { PublicSideEffectTrace } from '../../../simulator/src/public/side_effect_trace.js';
-import { SerializableContractInstance } from '../../../types/src/contracts/contract_instance.js';
 import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from '../bb/execute.js';
 import { extractAvmVkData } from '../verification_key/verification_key_data.js';
 
