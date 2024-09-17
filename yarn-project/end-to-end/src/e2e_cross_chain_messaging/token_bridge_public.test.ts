@@ -1,10 +1,10 @@
 import { Fr } from '@aztec/aztec.js';
 
 import { NO_L1_TO_L2_MSG_ERROR } from '../fixtures/fixtures.js';
-import { PublicCrossChainMessagingContractTest } from './public_cross_chain_messaging_contract_test.js';
+import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
-describe('e2e_public_cross_chain_messaging deposits', () => {
-  const t = new PublicCrossChainMessagingContractTest('deposits');
+describe('e2e_cross_chain_messaging token_bridge_public', () => {
+  const t = new CrossChainMessagingTest('token_bridge_public');
 
   let {
     crossChainTestHarness,

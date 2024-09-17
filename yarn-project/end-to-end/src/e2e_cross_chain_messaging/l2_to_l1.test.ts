@@ -5,10 +5,10 @@ import { TestContract } from '@aztec/noir-contracts.js';
 
 import { type Hex, decodeEventLog } from 'viem';
 
-import { PublicCrossChainMessagingContractTest } from './public_cross_chain_messaging_contract_test.js';
+import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
-describe('e2e_public_cross_chain_messaging l2_to_l1', () => {
-  const t = new PublicCrossChainMessagingContractTest('l2_to_l1');
+describe('e2e_cross_chain_messaging l2_to_l1', () => {
+  const t = new CrossChainMessagingTest('l2_to_l1');
 
   let { crossChainTestHarness, aztecNode, user1Wallet, outbox } = t;
 
