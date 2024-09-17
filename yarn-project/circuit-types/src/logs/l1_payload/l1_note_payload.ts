@@ -96,7 +96,7 @@ export class L1NotePayload extends L1Payload {
    */
   public static decryptAsIncoming(ciphertext: Buffer | bigint[], ivsk: GrumpkinScalar) {
     const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
-    const [publicValues, remainingCiphertext] = this.#getPublicValuesAndRemainingCipherText(input);
+    const [publicValues, remainingCiphertext] = this.#getPublicValuesAndRemainingCiphertext(input);
 
     const [address, incomingBody] = super._decryptAsIncoming(
       remainingCiphertext,
@@ -125,7 +125,7 @@ export class L1NotePayload extends L1Payload {
    */
   public static decryptAsOutgoing(ciphertext: Buffer | bigint[], ovsk: GrumpkinScalar) {
     const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
-    const [publicValues, remainingCiphertext] = this.#getPublicValuesAndRemainingCipherText(input);
+    const [publicValues, remainingCiphertext] = this.#getPublicValuesAndRemainingCiphertext(input);
 
     const [address, incomingBody] = super._decryptAsOutgoing(
       remainingCiphertext,
