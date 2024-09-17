@@ -1,5 +1,5 @@
-#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
 #include "barretenberg/bb/file_io.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"

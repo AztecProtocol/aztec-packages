@@ -1,6 +1,6 @@
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
-#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/test.hpp"
 
 namespace bb::stdlib::recursion::honk {

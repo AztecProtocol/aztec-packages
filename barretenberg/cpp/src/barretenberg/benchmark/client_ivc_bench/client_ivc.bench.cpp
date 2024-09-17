@@ -1,8 +1,8 @@
 
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
-#include "barretenberg/aztec_ivc/mock_circuit_producer.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
@@ -82,7 +82,7 @@ class ClientIVCBench : public benchmark::Fixture {
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {
     ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
+    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
 
     auto total_num_circuits = 2 * static_cast<size_t>(state.range(0)); // 2x accounts for kernel circuits
 

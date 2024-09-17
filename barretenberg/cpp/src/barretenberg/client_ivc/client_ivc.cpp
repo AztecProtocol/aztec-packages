@@ -1,4 +1,4 @@
-#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 
 namespace bb {

@@ -1,5 +1,5 @@
-#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
-#include "barretenberg/aztec_ivc/mock_circuit_producer.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -24,7 +24,7 @@ class MockKernelTest : public ::testing::Test {
 TEST_F(MockKernelTest, PinFoldingKernelSizes)
 {
     ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::AZTEC_IVC_BENCH;
+    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
 
     MockCircuitProducer circuit_producer;
 
