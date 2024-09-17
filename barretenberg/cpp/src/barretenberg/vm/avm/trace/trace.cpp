@@ -2542,7 +2542,6 @@ void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_
 /**
  * @brief External Call with direct or indirect memory access.
  *
- * TODO: Use the indirect later to support all the indirect accesses
  * NOTE: we do not constrain this here as it's behaviour will change fully once we have a full enqueued function
  * call in one vm circuit
  * @param indirect byte encoding information about indirect/direct memory access.
@@ -2593,10 +2592,11 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
     // TODO: constrain this
     auto args_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset));
 
-    gas_trace_builder.constrain_gas_for_external_call(clk,
-                                                      /*dyn_gas_multiplier=*/args_size + ret_size,
-                                                      static_cast<uint32_t>(hint.l2_gas_used),
-                                                      static_cast<uint32_t>(hint.da_gas_used));
+    gas_trace_builder.constrain_gas(clk,
+                                    OpCode::CALL,
+                                    /*dyn_gas_multiplier=*/args_size + ret_size,
+                                    static_cast<uint32_t>(hint.l2_gas_used),
+                                    static_cast<uint32_t>(hint.da_gas_used));
 
     // We read the input and output addresses in one row as they should contain FF elements
     main_trace.push_back(Row{
@@ -2636,6 +2636,103 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
 
     // Adjust the side_effect_counter to the value at the end of the external call.
     side_effect_counter = static_cast<uint32_t>(hint.end_side_effect_counter);
+}
+
+/**
+ * @brief Static Call with direct or indirect memory access.
+ *
+ * NOTE: we do not constrain this here as it's behaviour will change fully once we have a full enqueued function
+ * call in one vm circuit
+ * @param indirect byte encoding information about indirect/direct memory access.
+ * @param gas_offset An index in memory pointing to the first of the gas value tuple (l2Gas, daGas)
+ * @param addr_offset An index in memory pointing to the target contract address
+ * @param args_offset An index in memory pointing to the first value of the input array for the external call
+ * @param args_size The number of values in the input array for the static call
+ * @param ret_offset An index in memory pointing to where the first value of the static call return value should
+ * be stored.
+ * @param ret_size The number of values in the return array
+ * @param success_offset An index in memory pointing to where the success flag (U8) of the static call should be
+ * stored
+ * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
+ */
+void AvmTraceBuilder::op_static_call(uint8_t indirect,
+                                     uint32_t gas_offset,
+                                     uint32_t addr_offset,
+                                     uint32_t args_offset,
+                                     uint32_t args_size_offset,
+                                     uint32_t ret_offset,
+                                     uint32_t ret_size,
+                                     uint32_t success_offset,
+                                     [[maybe_unused]] uint32_t function_selector_offset)
+{
+    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    const ExternalCallHint& hint = execution_hints.externalcall_hints.at(external_call_counter);
+
+    auto [resolved_gas_offset,
+          resolved_addr_offset,
+          resolved_args_offset,
+          resolved_args_size_offset,
+          resolved_ret_offset,
+          resolved_success_offset] =
+        unpack_indirects<6>(indirect,
+                            { gas_offset, addr_offset, args_offset, args_size_offset, ret_offset, success_offset });
+
+    // Should read the address next to read_gas as well (tuple of gas values (l2Gas, daGas))
+    auto read_gas_l2 = constrained_read_from_memory(
+        call_ptr, clk, resolved_gas_offset, AvmMemoryTag::FF, AvmMemoryTag::U0, IntermRegister::IA);
+    auto read_gas_da = mem_trace_builder.read_and_load_from_memory(
+        call_ptr, clk, IntermRegister::IB, read_gas_l2.direct_address + 1, AvmMemoryTag::FF, AvmMemoryTag::U0);
+    auto read_addr = constrained_read_from_memory(
+        call_ptr, clk, resolved_addr_offset, AvmMemoryTag::FF, AvmMemoryTag::U0, IntermRegister::IC);
+    auto read_args = constrained_read_from_memory(
+        call_ptr, clk, resolved_args_offset, AvmMemoryTag::FF, AvmMemoryTag::U0, IntermRegister::ID);
+    bool tag_match = read_gas_l2.tag_match && read_gas_da.tag_match && read_addr.tag_match && read_args.tag_match;
+
+    // TODO: constrain this
+    auto args_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset));
+
+    gas_trace_builder.constrain_gas(clk,
+                                    OpCode::STATICCALL,
+                                    /*dyn_gas_multiplier=*/args_size + ret_size,
+                                    static_cast<uint32_t>(hint.l2_gas_used),
+                                    static_cast<uint32_t>(hint.da_gas_used));
+
+    // We read the input and output addresses in one row as they should contain FF elements
+    main_trace.push_back(Row{
+        .main_clk = clk,
+        .main_ia = read_gas_l2.val, /* gas_offset_l2 */
+        .main_ib = read_gas_da.val, /* gas_offset_da */
+        .main_ic = read_addr.val,   /* addr_offset */
+        .main_id = read_args.val,   /* args_offset */
+        .main_ind_addr_a = FF(read_gas_l2.indirect_address),
+        .main_ind_addr_c = FF(read_addr.indirect_address),
+        .main_ind_addr_d = FF(read_args.indirect_address),
+        .main_internal_return_ptr = FF(internal_return_ptr),
+        .main_mem_addr_a = FF(read_gas_l2.direct_address),
+        .main_mem_addr_b = FF(read_gas_l2.direct_address + 1),
+        .main_mem_addr_c = FF(read_addr.direct_address),
+        .main_mem_addr_d = FF(read_args.direct_address),
+        .main_pc = FF(pc++),
+        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)),
+        .main_sel_mem_op_a = FF(1),
+        .main_sel_mem_op_b = FF(1),
+        .main_sel_mem_op_c = FF(1),
+        .main_sel_mem_op_d = FF(1),
+        .main_sel_op_static_call = FF(1),
+        .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_gas_l2.is_indirect)),
+        .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(read_addr.is_indirect)),
+        .main_sel_resolve_ind_addr_d = FF(static_cast<uint32_t>(read_args.is_indirect)),
+        .main_tag_err = FF(static_cast<uint32_t>(!tag_match)),
+    });
+
+    // The return data hint is used for now, we check it has the same length as the ret_size
+    ASSERT(hint.return_data.size() == ret_size);
+    // Write the return data to memory
+    write_slice_to_memory(resolved_ret_offset, AvmMemoryTag::FF, hint.return_data);
+    // Write the success flag to memory
+    write_slice_to_memory(resolved_success_offset, AvmMemoryTag::U8, std::vector<FF>{ hint.success });
+    external_call_counter++;
+    // No adjustement of side_effect_counter in a static call.
 }
 
 /**

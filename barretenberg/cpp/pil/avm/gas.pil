@@ -54,16 +54,16 @@ namespace main(256);
 
     // Constrain that the gas decrements correctly per instruction
     #[L2_GAS_REMAINING_DECREMENT_NOT_CALL]
-    sel_execution_row * (1 - sel_op_external_call) * (l2_gas_remaining' - l2_gas_remaining + base_l2_gas_op_cost + (dyn_l2_gas_op_cost * dyn_gas_multiplier)) = 0;
+    sel_execution_row * (1 - sel_op_external_call - sel_op_static_call) * (l2_gas_remaining' - l2_gas_remaining + base_l2_gas_op_cost + (dyn_l2_gas_op_cost * dyn_gas_multiplier)) = 0;
     #[DA_GAS_REMAINING_DECREMENT_NOT_CALL]
-    sel_execution_row * (1 - sel_op_external_call) * (da_gas_remaining' - da_gas_remaining + base_da_gas_op_cost + (dyn_da_gas_op_cost * dyn_gas_multiplier)) = 0;
+    sel_execution_row * (1 - sel_op_external_call - sel_op_static_call) * (da_gas_remaining' - da_gas_remaining + base_da_gas_op_cost + (dyn_da_gas_op_cost * dyn_gas_multiplier)) = 0;
     // We need to special-case external calls since the gas cost format is
     // base_l2 + nested_call_cost + dyn_gas_cost * dyn_gas_multiplier.
     // TODO: Unconstrained until CALL is properly implemented.
     // #[L2_GAS_REMAINING_DECREMENT_CALL]
-    // sel_execution_row * sel_op_external_call * (l2_gas_remaining' - l2_gas_remaining + base_l2_gas_op_cost + (dyn_l2_gas_op_cost * dyn_gas_multiplier)) = 0;
+    // sel_execution_row * (sel_op_external_call + sel_op_static_call) * (l2_gas_remaining' - l2_gas_remaining + base_l2_gas_op_cost + (dyn_l2_gas_op_cost * dyn_gas_multiplier)) = 0;
     // #[DA_GAS_REMAINING_DECREMENT_CALL]
-    // sel_execution_row * sel_op_external_call * (da_gas_remaining' - da_gas_remaining + base_da_gas_op_cost + (dyn_da_gas_op_cost * dyn_gas_multiplier)) = 0;
+    // sel_execution_row * (sel_op_external_call + sel_op_static_call) * (da_gas_remaining' - da_gas_remaining + base_da_gas_op_cost + (dyn_da_gas_op_cost * dyn_gas_multiplier)) = 0;
 
     // Prove that XX_out_of_gas == 0 <==> XX_gas_remaining' >= 0
     // TODO: Ensure that remaining gas values are initialized as u32 and that gas l2_gas_op_cost/da_gas_op_cost are u32.

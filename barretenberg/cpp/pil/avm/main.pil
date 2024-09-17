@@ -87,7 +87,7 @@ namespace main(256);
     pol commit sel_op_ecadd;
     pol commit sel_op_pedersen_commit;
     pol commit sel_op_msm;
-    
+
     //===== Memory Slice Gadget Selectors =========================================
     pol commit sel_op_calldata_copy;
     pol commit sel_op_external_return;
@@ -100,18 +100,19 @@ namespace main(256);
 
     //===== CONTROL FLOW ==========================================================
     // Program counter
-    pol commit pc; 
+    pol commit pc;
     // Return Pointer
     pol commit internal_return_ptr;
     // Call Pointer (nested call)
     pol commit call_ptr;
-    
+
     pol commit sel_op_internal_call;
     pol commit sel_op_internal_return;
     pol commit sel_op_jump;
     pol commit sel_op_jumpi;
     pol commit sel_op_external_call;
-    
+    pol commit sel_op_static_call;
+
     // Memory Space Identifier
     pol commit space_id;
 
@@ -119,7 +120,7 @@ namespace main(256);
     pol commit sel_op_set;
     pol commit sel_op_mov;
     pol commit sel_op_cmov;
-    
+
     //===== TABLE SUBOP-TR ========================================================
     // Boolean selectors for (sub-)operations. Only one operation is activated at
     // a time.
@@ -170,7 +171,7 @@ namespace main(256);
     pol commit ib;
     pol commit ic;
     pol commit id;
-    
+
     // Memory operation selector per intermediate register
     // They signal that a memory operation is performed on the register.
     // This does NOT take into consideration indirections.
@@ -185,7 +186,7 @@ namespace main(256);
     pol commit rwb;
     pol commit rwc;
     pol commit rwd;
-    
+
     // Indirect register values
     // Cell ind_addr_x holds the indirect address to be resolved into mem_addr_ix.
     pol commit ind_addr_a;
@@ -207,11 +208,11 @@ namespace main(256);
     pol commit sel_resolve_ind_addr_b;
     pol commit sel_resolve_ind_addr_c;
     pol commit sel_resolve_ind_addr_d;
-  
+
     // Track the last line of the execution trace. It does NOT correspond to the last row of the whole table
     // of size N. As this depends on the supplied bytecode, this polynomial cannot be constant.
     pol commit sel_last;
-    
+
     // Relations on type constraints
     // TODO: Very likely, we can remove these constraints as the selectors should be derived during
     // opcode decomposition.
@@ -273,6 +274,7 @@ namespace main(256);
     sel_op_jump * (1 - sel_op_jump) = 0;
     sel_op_jumpi * (1 - sel_op_jumpi) = 0;
     sel_op_external_call * (1 - sel_op_external_call) = 0;
+    sel_op_static_call * (1 - sel_op_static_call) = 0;
 
     sel_op_calldata_copy * (1 - sel_op_calldata_copy) = 0;
     sel_op_external_return * (1 - sel_op_external_return) = 0;
@@ -364,10 +366,10 @@ namespace main(256);
     // For the finite field division, we could lower the degree from 4 to 3
     // (sel_op_fdiv - op_fdiv_err) * (ic * ib - ia) = 0;
     // Same for the relations related to the error activation:
-    // (ib * inv - 1 + op_fdiv_err) = 0 && op_err * (1 - inv) = 0 
+    // (ib * inv - 1 + op_fdiv_err) = 0 && op_err * (1 - inv) = 0
     // This works in combination with op_fdiv_err * (sel_op_fdiv - 1) = 0;
     // Drawback is the need to paralllelize the latter.
-    
+
     //===== CONTROL FLOW =======================================================
     // pol commit sel_halted;
     // sel_halted * (1 - sel_halted) = 0;
@@ -384,7 +386,7 @@ namespace main(256);
     //===== INTERNAL_CALL ======================================================
     // - The program counter in the next row should be equal to the value loaded from the ia register
     // - We then write the return location (pc + 1) into the call stack (in memory)
-    
+
     #[RETURN_POINTER_INCREMENT]
     sel_op_internal_call * (internal_return_ptr' - (internal_return_ptr + 1)) = 0;
     sel_op_internal_call * (internal_return_ptr - mem_addr_b) = 0;
@@ -394,9 +396,9 @@ namespace main(256);
     // TODO(md): Below relations may be removed through sub-op table lookup
     sel_op_internal_call * (rwb - 1) = 0;
     sel_op_internal_call * (sel_mem_op_b  - 1) = 0;
-    
+
     //===== INTERNAL_RETURN ===================================================
-    // - We load the memory pointer to be the internal_return_ptr 
+    // - We load the memory pointer to be the internal_return_ptr
     // - Constrain then next program counter to be the loaded value
     // - decrement the internal_return_ptr
 
@@ -411,7 +413,7 @@ namespace main(256);
 
     //===== CONTROL_FLOW_CONSISTENCY ============================================
     pol SEL_ALL_CTRL_FLOW = sel_op_jump + sel_op_jumpi + sel_op_internal_call
-                          + sel_op_internal_return + sel_op_external_call + sel_op_external_return;
+                          + sel_op_internal_return + sel_op_external_call + sel_op_static_call + sel_op_external_return;
     pol SEL_ALU_R_TAG = sel_op_add + sel_op_sub + sel_op_mul + sel_op_div + sel_op_not + sel_op_eq
                       + sel_op_lt + sel_op_lte + sel_op_shr + sel_op_shl;
     pol SEL_ALU_W_TAG = sel_op_cast;
