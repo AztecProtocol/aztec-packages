@@ -2,6 +2,8 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import {SignatureLib} from "./SignatureLib.sol";
+
 /**
  * @title Data Structures Library
  * @author Aztec Labs
@@ -78,5 +80,14 @@ library DataStructures {
   struct ExecutionFlags {
     bool ignoreDA;
     bool ignoreSignatures;
+  }
+
+  struct EpochProofQuote {
+    SignatureLib.Signature signature;
+    uint256 epochToProve;
+    uint256 validUntilSlot;
+    uint256 bondAmount;
+    address rollup;
+    uint32 basisPointFee;
   }
 }

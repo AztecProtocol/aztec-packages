@@ -6,7 +6,7 @@ import {DecoderBase} from "../decoders/Base.sol";
 
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
-import {SignatureLib} from "../../src/core/sequencer_selection/SignatureLib.sol";
+import {SignatureLib} from "../../src/core/libraries/SignatureLib.sol";
 
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
 import {Inbox} from "../../src/core/messagebridge/Inbox.sol";

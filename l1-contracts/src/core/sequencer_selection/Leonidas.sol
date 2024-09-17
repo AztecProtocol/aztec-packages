@@ -6,8 +6,8 @@ import {DataStructures} from "../libraries/DataStructures.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {SignatureLib} from "./SignatureLib.sol";
 import {SampleLib} from "./SampleLib.sol";
+import {SignatureLib} from "../libraries/SignatureLib.sol";
 import {Constants} from "../libraries/ConstantsGen.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 

@@ -6,6 +6,7 @@ import {DecoderBase} from "./decoders/Base.sol";
 
 import {DataStructures} from "../src/core/libraries/DataStructures.sol";
 import {Constants} from "../src/core/libraries/ConstantsGen.sol";
+import {SignatureLib} from "../src/core/libraries/SignatureLib.sol";
 
 import {Registry} from "../src/core/messagebridge/Registry.sol";
 import {Inbox} from "../src/core/messagebridge/Inbox.sol";
@@ -15,7 +16,6 @@ import {Rollup} from "../src/core/Rollup.sol";
 import {IFeeJuicePortal} from "../src/core/interfaces/IFeeJuicePortal.sol";
 import {FeeJuicePortal} from "../src/core/FeeJuicePortal.sol";
 import {Leonidas} from "../src/core/sequencer_selection/Leonidas.sol";
-import {SignatureLib} from "../src/core/sequencer_selection/SignatureLib.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {PortalERC20} from "./portals/PortalERC20.sol";

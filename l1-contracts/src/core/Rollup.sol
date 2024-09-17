@@ -4,6 +4,7 @@ pragma solidity >=0.8.18;
 
 // Interfaces
 import {IRollup, ITestRollup} from "./interfaces/IRollup.sol";
+import {IProofCommitmentEscrow} from "./interfaces/IProofCommitmentEscrow.sol";
 import {IInbox} from "./interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "./interfaces/messagebridge/IOutbox.sol";
 import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
@@ -15,13 +16,14 @@ import {HeaderLib} from "./libraries/HeaderLib.sol";
 import {Errors} from "./libraries/Errors.sol";
 import {Constants} from "./libraries/ConstantsGen.sol";
 import {MerkleLib} from "./libraries/MerkleLib.sol";
-import {SignatureLib} from "./sequencer_selection/SignatureLib.sol";
+import {SignatureLib} from "./libraries/SignatureLib.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {DataStructures} from "./libraries/DataStructures.sol";
 import {TxsDecoder} from "./libraries/decoders/TxsDecoder.sol";
 
 // Contracts
 import {MockVerifier} from "../mock/MockVerifier.sol";
+import {MockProofCommitmentEscrow} from "../mock/MockProofCommitmentEscrow.sol";
 import {Inbox} from "./messagebridge/Inbox.sol";
 import {Outbox} from "./messagebridge/Outbox.sol";
 import {Leonidas} from "./sequencer_selection/Leonidas.sol";
@@ -55,6 +57,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   IRegistry public immutable REGISTRY;
   IInbox public immutable INBOX;
   IOutbox public immutable OUTBOX;
+  IProofCommitmentEscrow public immutable PROOF_COMMITMENT_ESCROW;
   uint256 public immutable VERSION;
   IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
   IVerifier public verifier;
@@ -84,6 +87,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     verifier = new MockVerifier();
     REGISTRY = _registry;
     FEE_JUICE_PORTAL = _fpcJuicePortal;
+    PROOF_COMMITMENT_ESCROW = new MockProofCommitmentEscrow();
     INBOX = new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
     OUTBOX = new Outbox(address(this));
     vkTreeRoot = _vkTreeRoot;
