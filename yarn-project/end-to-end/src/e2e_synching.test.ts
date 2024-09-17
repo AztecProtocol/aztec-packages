@@ -448,11 +448,11 @@ describe('e2e_l1_with_wall_time', () => {
         client: opts.deployL1ContractsValues!.walletClient,
       });
 
-      const pendingCount = await rollup.read.pendingBlockCount();
-      await rollup.write.setAssumeProvenUntilBlockNumber([pendingCount - BigInt(variant.blockCount) / 2n]);
+      const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
+      await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
       const timeliness = await rollup.read.TIMELINESS_PROVING_IN_SLOTS();
-      const [, , slot] = await rollup.read.blocks([await rollup.read.provenBlockCount()]);
+      const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
       const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
 
       await opts.cheatCodes!.eth.warp(Number(timeJumpTo));

@@ -390,7 +390,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    * @return bytes32 - The archive root of the block
    */
   function archiveAt(uint256 _blockNumber) external view override(IRollup) returns (bytes32) {
-    if (_blockNumber < pendingBlockCount) {
+    if (_blockNumber <= tips.pendingBlockNumber) {
       return blocks[_blockNumber].archive;
     }
     return bytes32(0);
