@@ -621,6 +621,7 @@ jobs:
   boxes:
     needs: build
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'boxes') || contains(github.event.pull_request.labels.*.name, 'e2e-all')
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
