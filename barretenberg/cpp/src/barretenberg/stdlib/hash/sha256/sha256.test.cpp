@@ -458,6 +458,6 @@ TEST(stdlib_sha256, test_boomerang_value_regression)
         result2 = result2 || CircuitChecker::check(builder);
         builder.variables[builder.real_variable_index[variable_index]] = backup;
     }
-    // If at least on of the updated witnesses hasn't caused the circuit to fail, we're in trouble
+    // If at least one of the updated witnesses hasn't caused the circuit to fail, we're in trouble
     EXPECT_EQ(result2, false);
 }
