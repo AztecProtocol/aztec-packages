@@ -68,6 +68,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     ].append(current_params)
     );
     let mut body = f.body().as_block().unwrap();
+    // TODO: Optimize args_hasher for small number of arguments
     let args_hasher_name = quote { args_hasher };
     let args_hasher = current_params.fold(
         quote {

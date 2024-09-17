@@ -80,19 +80,17 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
 }
 
 pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier(m: Module) -> Quoted {
-    let contract_notes = NOTES.get(m);
     let mut max_note_length: u32 = 0;
-    let empty_body = quote {
-            assert(false, "This contract does not use private notes");
-            [0, 0, 0, 0]
-    };
-    let body = if contract_notes.is_none() {
-        empty_body
-    } else if contract_notes.unwrap().len() == 0 { // no short circuiting :(
-        empty_body
-    } else {
-        let notes = contract_notes.unwrap();
-
+    let note_types = NOTES.keys();
+    let use_statements = note_types.map(
+        | typ: Type | {
+            quote {
+                use $typ;
+            }
+        }
+    ).join(quote {});
+    let notes = NOTES.values();
+    let body = if notes.len() > 0 {
         max_note_length = notes.fold(0, | acc, (_, len, _): (StructDefinition, u32, Field) | {
             acc + len
         });
@@ -100,7 +98,7 @@ pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier(m: Module)
             | (note, _, _): (StructDefinition, u32, Field) | {
                 let note_name = note.name();
                 quote {
-                    if note_type_id == $note_name::get_note_type_id() {
+                    if note_type_id == $note_name::get_note_type_id(); {
                         aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($note_name::deserialize_content, note_header, compute_nullifier, serialized_note)
                     }
                 }
@@ -115,9 +113,16 @@ pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier(m: Module)
                 [0, 0, 0, 0]
             }
         }
+    } else {
+        quote {
+            assert(false, "No notes defined");
+            [0, 0, 0, 0]
+        }
     };
 
     quote {
+        $use_statements
+
         unconstrained fn compute_note_hash_and_optionally_a_nullifier(
             contract_address: aztec::protocol_types::address::AztecAddress,
             nonce: Field,
@@ -132,21 +137,12 @@ pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier(m: Module)
 }
 
 pub comptime fn generate_note_exports(m: Module) -> Quoted {
-    let contract_notes = NOTES.get(m);
-    let note_exports = if contract_notes.is_some() {
-        let notes = contract_notes.unwrap();
-        notes.map(
-            | (s, _, note_type_id): (StructDefinition, u32, Field) | {
+    let notes = NOTES.values();
+    notes.map(
+        | (s, _, note_type_id): (StructDefinition, u32, Field) | {
             generate_note_export(s, note_type_id)
         }
-        ).join(quote {})
-    } else {
-        quote {}
-    };
-
-    quote {
-        $note_exports
-    }
+    ).join(quote {})
 }
 
 pub comptime fn aztec(m: Module) -> Quoted {

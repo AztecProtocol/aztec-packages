@@ -9,7 +9,7 @@ use std::meta::typ::fresh_type_variable;
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 
-comptime mut global NOTES: UHashMap<Module, [(StructDefinition, u32, Field)], BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
+comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field), BuildHasherDefault<Poseidon2Hasher>> = UHashMap::default();
 
 comptime fn compute_note_type_id(name: Quoted) -> Field {
     let name_as_str_quote = name.as_str_quote();
@@ -323,15 +323,7 @@ comptime fn generate_partial_note_impl(s: StructDefinition, hiding_point_name: Q
 }
 
 comptime fn register_note(note: StructDefinition, note_serialized_len: u32, note_type_id: Field) {
-    let current_notes = unsafe {
-        NOTES.get(note.module())
-    };
-    let notes_to_insert = if current_notes.is_some() {
-        current_notes.unwrap().push_back((note, note_serialized_len, note_type_id))
-    } else {
-        &[(note, note_serialized_len, note_type_id)]
-    };
-    NOTES.insert(note.module(), notes_to_insert);
+    NOTES.insert(note.as_type(), (note, note_serialized_len, note_type_id));
 }
 
 comptime fn extract_fixed_fields(s: StructDefinition, nullable_fields: [Quoted]) -> [(Quoted, Type)] {

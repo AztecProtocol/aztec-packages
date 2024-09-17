@@ -17,10 +17,8 @@ import { Fr } from '@aztec/foundation/fields';
 import {
   AZTEC_INITIALIZER_ATTRIBUTE,
   AZTEC_INTERNAL_ATTRIBUTE,
-  AZTEC_META_PRIVATE_ATTRIBUTE,
   AZTEC_PRIVATE_ATTRIBUTE,
   AZTEC_PUBLIC_ATTRIBUTE,
-  AZTEC_PUBLIC_VM_ATTRIBUTE,
   AZTEC_VIEW_ATTRIBUTE,
   type NoirCompiledContract,
 } from '../noir/index.js';
@@ -188,15 +186,9 @@ function generateFunctionArtifact(fn: NoirCompiledContractFunction, contract: No
 }
 
 function getFunctionType(fn: NoirCompiledContractFunction): FunctionType {
-  if (
-    fn.custom_attributes.includes(AZTEC_PRIVATE_ATTRIBUTE) ||
-    fn.custom_attributes.includes(AZTEC_META_PRIVATE_ATTRIBUTE)
-  ) {
+  if (fn.custom_attributes.includes(AZTEC_PRIVATE_ATTRIBUTE)) {
     return FunctionType.PRIVATE;
-  } else if (
-    fn.custom_attributes.includes(AZTEC_PUBLIC_ATTRIBUTE) ||
-    fn.custom_attributes.includes(AZTEC_PUBLIC_VM_ATTRIBUTE)
-  ) {
+  } else if (fn.custom_attributes.includes(AZTEC_PUBLIC_ATTRIBUTE)) {
     return FunctionType.PUBLIC;
   } else if (fn.is_unconstrained) {
     return FunctionType.UNCONSTRAINED;
