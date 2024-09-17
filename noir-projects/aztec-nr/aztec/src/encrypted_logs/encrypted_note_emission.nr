@@ -23,8 +23,8 @@ fn compute_raw_note_log<Note, let N: u32, let NB: u32, let M: u32>(
 
     let contract_address: AztecAddress = context.this_address();
 
-    // Number of publicly delivered values is always 0 here because `compute(...)` is only called
-    // in the non-partial note flow.
+    // Number of public values is always 0 here because `compute_raw_note_log(...)` is only called in the non-partial
+    // note flow.
     let num_public_values = 0;
     let encrypted_log: [u8; M] = compute_encrypted_note_log(
         contract_address,
