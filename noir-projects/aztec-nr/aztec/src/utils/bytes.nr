@@ -1,7 +1,7 @@
 // Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 bytes.
 // This implies that M = ceil(N / 31).
 pub fn bytes_to_fields<let N: u32, let M: u32>(input: [u8; N]) -> [Field; M] {
-    let mut output = [0; M];
+    let mut dst = [0; M];
 
     for field_index in 0..M {
         let mut field_value = 0;
@@ -14,37 +14,40 @@ pub fn bytes_to_fields<let N: u32, let M: u32>(input: [u8; N]) -> [Field; M] {
             }
         }
 
-        output[field_index] = field_value;
+        dst[field_index] = field_value;
     }
 
-    output
+    dst
 }
 
-// Converts the input array of fields into bytes. Each field of input has to contain only 31 bytes.
+// Converts an input array of fields into bytes. Each field of input has to contain only 31 bytes.
 pub fn fields_to_bytes<let N: u32, let M: u32>(input: [Field; M]) -> [u8; N] {
-    let mut output = [0; N];
+    let mut dst = [0; N];
 
     for field_index in 0..M {
         // We convert the field to 31 bytes. Normally a field is 254 bits, but we only used 248 bits
         // in `bytes_to_fields` so we can safely convert it to 31 bytes.
-        let field_value_bytes: [u8; 31] = input[field_index].to_be_bytes();
+        let src: [u8; 31] = input[field_index].to_be_bytes();
 
+        // Since some of the bytes might not be occupied (if the source value requiring less than 31 bytes),
+        // we have to compute the start index from which to copy.
         let remaining_bytes = N - field_index * 31;
-        let mut field_value_bytes_start_index = 0;
-        if remaining_bytes < 31 {
+        let src_start_index = if remaining_bytes < 31 {
             // If the remaining bytes are less than 31, we only copy the remaining bytes
-            field_value_bytes_start_index = 31 - remaining_bytes;
-        }
+            31 - remaining_bytes
+        } else {
+            0
+        };
 
         for i in 0..31 {
             let byte_index = field_index * 31 + i;
             if byte_index < N {
-                output[byte_index] = field_value_bytes[field_value_bytes_start_index + i];
+                dst[byte_index] = src[src_start_index + i];
             }
         }
     }
 
-    output
+    dst
 }
 
 mod test {
