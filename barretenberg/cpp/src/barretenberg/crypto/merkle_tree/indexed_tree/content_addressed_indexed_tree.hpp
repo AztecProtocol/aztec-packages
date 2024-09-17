@@ -268,7 +268,6 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 ReadTransactionPtr tx = store_.create_read_transaction();
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
                 if (leaf_hash.has_value()) {
@@ -300,10 +299,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                     throw std::runtime_error("Data for block unavailable");
                 }
                 RequestContext requestContext;
+                requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.latestBlock = false;
                 requestContext.root = blockData.root;
-                requestContext.sizeAtBlock = blockData.size;
                 std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
                 if (leaf_hash.has_value()) {
                     std::optional<IndexedLeafValueType> leaf =
@@ -351,7 +349,6 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
                 typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 std::optional<index_t> leaf_index =
                     store_.find_leaf_index_from(leaf, start_index, requestContext, *tx, includeUncommitted);
@@ -382,9 +379,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
                     throw std::runtime_error("Data for block unavailable");
                 }
                 RequestContext requestContext;
+                requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.latestBlock = false;
-                requestContext.sizeAtBlock = blockData.size;
                 requestContext.root = blockData.root;
                 std::optional<index_t> leaf_index =
                     store_.find_leaf_index_from(leaf, start_index, requestContext, *tx, includeUncommitted);
@@ -409,7 +405,6 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
                 typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 std::pair<bool, index_t> result = store_.find_low_value(leaf_key, requestContext, *tx);
                 response.inner.index = result.second;
@@ -436,9 +431,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
                     throw std::runtime_error("Data for block unavailable");
                 }
                 RequestContext requestContext;
+                requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.latestBlock = false;
-                requestContext.sizeAtBlock = blockData.size;
                 requestContext.root = blockData.root;
                 std::pair<bool, index_t> result = store_.find_low_value(leaf_key, requestContext, *tx);
                 response.inner.index = result.second;
@@ -712,10 +706,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                 TreeMeta meta;
                 store_.get_meta(meta, *tx, true);
                 RequestContext requestContext;
-                requestContext.latestBlock = true;
                 requestContext.includeUncommitted = true;
-                requestContext.sizeAtBlock = meta.committedSize;
-                // Ensure that the tree is not going to be overfilled
+                //  Ensure that the tree is not going to be overfilled
                 index_t new_total_size = num_leaves_to_be_inserted + meta.size;
                 if (new_total_size > max_size_) {
                     throw std::runtime_error("Tree is full");

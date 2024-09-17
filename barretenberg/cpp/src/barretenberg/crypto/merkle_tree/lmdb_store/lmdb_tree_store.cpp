@@ -12,6 +12,7 @@
 #include <cstring>
 #include <exception>
 #include <lmdb.h>
+#include <optional>
 #include <vector>
 
 namespace bb::crypto::merkle_tree {
@@ -163,7 +164,7 @@ void LMDBTreeStore::write_node(const fr& nodeHash, const NodePayload& nodeData, 
 
 fr LMDBTreeStore::find_low_leaf(const fr& leafValue,
                                 Indices& indices,
-                                const RequestContext& requestContext,
+                                std::optional<index_t> sizeLimit,
                                 ReadTransaction& tx)
 {
     std::vector<uint8_t> data;
@@ -171,9 +172,9 @@ fr LMDBTreeStore::find_low_leaf(const fr& leafValue,
     auto is_valid = [&](const std::vector<uint8_t>& data) {
         Indices tmp;
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(tmp);
-        return tmp.indices[0] <= requestContext.sizeAtBlock;
+        return tmp.indices[0] <= sizeLimit.value();
     };
-    if (requestContext.latestBlock) {
+    if (!sizeLimit.has_value()) {
         tx.get_value_or_previous(key, data, *_leafValueToIndexDatabase);
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
     } else {

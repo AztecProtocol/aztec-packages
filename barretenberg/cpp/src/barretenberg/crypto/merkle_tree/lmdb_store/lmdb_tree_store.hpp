@@ -13,10 +13,12 @@
 namespace bb::crypto::merkle_tree {
 
 struct BlockPayload {
-    uint64_t size;
+
+    index_t size;
+    index_t blockNumber;
     fr root;
 
-    MSGPACK_FIELDS(size, root)
+    MSGPACK_FIELDS(size, blockNumber, root)
 };
 
 struct Indices {
@@ -66,7 +68,7 @@ class LMDBTreeStore {
 
     bool read_leaf_indices(const fr& leafValue, Indices& indices, ReadTransaction& tx);
 
-    fr find_low_leaf(const fr& leafValue, Indices& indices, const RequestContext& requestContext, ReadTransaction& tx);
+    fr find_low_leaf(const fr& leafValue, Indices& indices, std::optional<index_t> sizeLimit, ReadTransaction& tx);
 
     void write_leaf_indices(const fr& leafValue, const Indices& indices, WriteTransaction& tx);
 

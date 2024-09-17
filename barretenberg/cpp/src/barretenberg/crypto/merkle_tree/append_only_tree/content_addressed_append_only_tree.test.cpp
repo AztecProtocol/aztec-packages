@@ -115,11 +115,11 @@ void check_historic_sibling_path(TreeType& tree,
     signal.wait_for_level();
 }
 
-void commit_tree(TreeType& tree)
+void commit_tree(TreeType& tree, bool expected_success = true)
 {
     Signal signal;
     auto completion = [&](const Response& response) -> void {
-        EXPECT_EQ(response.success, true);
+        EXPECT_EQ(response.success, expected_success);
         signal.signal_level();
     };
     tree.commit(completion);
@@ -1015,4 +1015,91 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, returns_sibling_path)
             EXPECT_EQ(resp.inner.path, expected_sibling_path);
         },
         true);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_historic_blocks)
+{
+    constexpr size_t depth = 5;
+    std::string name = random_string();
+    ThreadPool pool(1);
+    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+    size_t index = 0;
+
+    Store store1(name, depth, db);
+    TreeType tree1(store1, pool);
+
+    std::vector<fr> values{ 30, 10, 20, 40 };
+    add_values(tree1, values);
+    for (auto v : values) {
+        memdb.update_element(index++, v);
+    }
+
+    commit_tree(tree1);
+
+    fr_sibling_path block1SiblingPathIndex3 = memdb.get_sibling_path(3);
+
+    values = { 15, 18, 26, 2 };
+    add_values(tree1, values);
+    for (auto v : values) {
+        memdb.update_element(index++, v);
+    }
+
+    commit_tree(tree1);
+
+    fr block2Root = memdb.root();
+
+    fr_sibling_path block2SiblingPathIndex7 = memdb.get_sibling_path(7);
+    fr_sibling_path block2SiblingPathIndex3 = memdb.get_sibling_path(3);
+
+    values = { 16, 4, 18, 22 };
+    add_values(tree1, values);
+    for (auto v : values) {
+        memdb.update_element(index++, v);
+    }
+
+    commit_tree(tree1);
+
+    fr_sibling_path block3SiblingPathIndex11 = memdb.get_sibling_path(11);
+    fr_sibling_path block3SiblingPathIndex7 = memdb.get_sibling_path(7);
+    fr_sibling_path block3SiblingPathIndex3 = memdb.get_sibling_path(3);
+
+    // Create a new image at block 2
+    Store storeAtBlock2(name, depth, 2, db);
+    TreeType treeAtBlock2(storeAtBlock2, pool);
+
+    check_root(treeAtBlock2, block2Root);
+    check_sibling_path(treeAtBlock2, 3, block2SiblingPathIndex3, false, true);
+    check_leaf(treeAtBlock2, 20, 2, true);
+    check_find_leaf_index(treeAtBlock2, 10, 1, true);
+    check_find_leaf_index_from(treeAtBlock2, 15, 1, 4, true);
+
+    // should not exist in our image
+    check_leaf(treeAtBlock2, 4, 9, false);
+    check_find_leaf_index(treeAtBlock2, 4, 0, false);
+
+    // now add the same values to our image
+    add_values(treeAtBlock2, values);
+
+    // the state of our image should match the original tree
+    check_sibling_path(tree1, 3, block3SiblingPathIndex3, false, true);
+    check_sibling_path(tree1, 7, block3SiblingPathIndex7, false, true);
+
+    //  needs to use uncommitted for this check
+    check_sibling_path(treeAtBlock2, 3, block3SiblingPathIndex3, true, true);
+    check_sibling_path(treeAtBlock2, 7, block3SiblingPathIndex7, true, true);
+
+    // now check historic data
+    check_historic_sibling_path(treeAtBlock2, 3, block1SiblingPathIndex3, 1);
+    check_find_historic_leaf_index(treeAtBlock2, 1, 10, 1, true);
+    check_find_historic_leaf_index(treeAtBlock2, 3, 16, 8, true, true);
+    check_find_historic_leaf_index(treeAtBlock2, 3, 16, 8, false, false);
+
+    check_find_historic_leaf_index_from(treeAtBlock2, 1, 18, 3, 0, false, false);
+    check_find_historic_leaf_index_from(treeAtBlock2, 1, 20, 0, 2, true, false);
+
+    check_unfinalised_block_height(treeAtBlock2, 2);
+
+    // It should be impossible to commit using the image
+    commit_tree(treeAtBlock2, false);
 }

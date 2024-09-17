@@ -289,10 +289,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
                 }
 
                 RequestContext requestContext;
+                requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.latestBlock = false;
                 requestContext.root = blockData.root;
-                requestContext.sizeAtBlock = blockData.size;
                 OptionalSiblingPath optional_path = get_subtree_sibling_path_internal(index, 0, requestContext, *tx);
                 response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
             },
@@ -313,7 +312,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_p
                 store_.get_meta(meta, *tx, includeUncommitted);
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 OptionalSiblingPath optional_path =
                     get_subtree_sibling_path_internal(meta.size, subtree_depth, requestContext, *tx);
@@ -337,7 +335,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_p
                 ReadTransactionPtr tx = store_.create_read_transaction();
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 OptionalSiblingPath optional_path =
                     get_subtree_sibling_path_internal(leaf_index, subtree_depth, requestContext, *tx);
@@ -481,7 +478,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                 ReadTransactionPtr tx = store_.create_read_transaction();
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext, *tx);
                 response.success = leaf_hash.has_value();
@@ -514,10 +510,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                     return;
                 }
                 RequestContext requestContext;
+                requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.latestBlock = false;
                 requestContext.root = blockData.root;
-                requestContext.sizeAtBlock = blockData.size;
                 std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext, *tx);
                 response.success = leaf_hash.has_value();
                 if (response.success) {
@@ -555,7 +550,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
                 typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
                 RequestContext requestContext;
-                requestContext.latestBlock = true;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 std::optional<index_t> leaf_index =
@@ -587,10 +581,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
                     throw std::runtime_error("Data for block unavailable");
                 }
                 RequestContext requestContext;
+                requestContext.blockNumber = blockNumber;
                 requestContext.includeUncommitted = includeUncommitted;
-                requestContext.latestBlock = false;
                 requestContext.root = blockData.root;
-                requestContext.sizeAtBlock = blockData.size;
                 std::optional<index_t> leaf_index =
                     store_.find_leaf_index_from(leaf, start_index, requestContext, *tx, includeUncommitted);
                 response.success = leaf_index.has_value();
@@ -718,6 +711,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
 
     // std::cout << "LEVEL: " << level << " hash " << new_hash << std::endl;
     RequestContext requestContext;
+    // requestContext.latestBlock = true;
     requestContext.includeUncommitted = true;
     requestContext.root = store_.get_current_root(*tx, true);
     OptionalSiblingPath optional_sibling_path_to_root =

@@ -207,6 +207,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     void persist_node(const std::optional<fr>& optional_hash, uint32_t level, WriteTransaction& tx);
 
+    index_t constrain_tree_size(const RequestContext& requestContext, ReadTransaction& tx) const;
+
     WriteTransactionPtr create_write_transaction() const { return dataStore.create_write_transaction(); }
 };
 
@@ -236,12 +238,31 @@ ContentAddressedCachedTreeStore<LeafValueType>::ContentAddressedCachedTreeStore(
 }
 
 template <typename LeafValueType>
+index_t ContentAddressedCachedTreeStore<LeafValueType>::constrain_tree_size(const RequestContext& requestContext,
+                                                                            ReadTransaction& tx) const
+{
+    index_t sizeLimit = meta.committedSize;
+    if (requestContext.blockNumber.has_value()) {
+        BlockPayload blockData;
+        if (dataStore.read_block_data(requestContext.blockNumber.value(), blockData, tx)) {
+            sizeLimit = std::min(meta.committedSize, blockData.size);
+        }
+    }
+    return sizeLimit;
+}
+
+template <typename LeafValueType>
 std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_low_value(
     const fr& new_leaf_key, const RequestContext& requestContext, ReadTransaction& tx) const
 {
     auto new_value_as_number = uint256_t(new_leaf_key);
     Indices committed;
-    fr found_key = dataStore.find_low_leaf(new_leaf_key, committed, requestContext, tx);
+    std::optional<index_t> sizeLimit = std::nullopt;
+    index_t constrainedLimit = constrain_tree_size(requestContext, tx);
+    if (constrainedLimit < meta.committedSize) {
+        sizeLimit = constrainedLimit;
+    }
+    fr found_key = dataStore.find_low_leaf(new_leaf_key, committed, sizeLimit, tx);
     auto db_index = committed.indices[0];
     uint256_t retrieved_value = found_key;
     if (!requestContext.includeUncommitted || retrieved_value == new_value_as_number || indices.empty()) {
@@ -374,13 +395,14 @@ std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_leaf
     std::vector<uint8_t> value;
     bool success = dataStore.read_leaf_indices(key, committed, tx);
     if (success) {
+        index_t sizeLimit = constrain_tree_size(requestContext, tx);
         if (!committed.indices.empty()) {
             for (size_t i = 0; i < committed.indices.size(); ++i) {
                 index_t ind = committed.indices[i];
                 if (ind < start_index) {
                     continue;
                 }
-                if (!requestContext.latestBlock && ind >= requestContext.sizeAtBlock) {
+                if (ind >= sizeLimit) {
                     continue;
                 }
                 if (!result.has_value()) {
@@ -494,6 +516,10 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
 {
     fr currentRoot = fr::zero();
     bool dataPresent = false;
+    // We don't allow commits using images/forks
+    if (initialised_from_block.has_value()) {
+        throw std::runtime_error("Committing an image is forbidden");
+    }
     {
         ReadTransactionPtr tx = create_read_transaction();
         dataPresent = get_cached_node_by_index(0, 0, currentRoot);
@@ -522,12 +548,13 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
                 persist_node(std::optional<fr>(currentRoot), 0, *tx);
                 if (asBlock) {
                     ++meta.unfinalisedBlockHeight;
-                    BlockPayload block{ .size = meta.size, .root = currentRoot };
+                    BlockPayload block{ .size = meta.size,
+                                        .blockNumber = meta.unfinalisedBlockHeight,
+                                        .root = currentRoot };
                     dataStore.write_block_data(meta.unfinalisedBlockHeight, block, *tx);
                 }
             }
             meta.committedSize = meta.size;
-            std::cout << "Committed size: " << meta.committedSize << std::endl;
             persist_meta(meta, *tx);
             tx->commit();
         } catch (std::exception& e) {
@@ -686,11 +713,11 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
             throw std::runtime_error("Unable to initialise from future block");
         }
         BlockPayload blockData;
-        if (get_block_data(blockNumber, blockData, tx) == false) {
+        if (get_block_data(blockNumber, blockData, *tx) == false) {
             throw std::runtime_error("Failed to retrieve block data");
         }
         initialised_from_block = blockData;
-        enrich_meta_from_block(meta, tx);
+        enrich_meta_from_block(meta);
     }
 }
 
@@ -701,6 +728,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::enrich_meta_from_block(Tree
         m.size = initialised_from_block->size;
         m.committedSize = initialised_from_block->size;
         m.root = initialised_from_block->root;
+        m.unfinalisedBlockHeight = initialised_from_block->blockNumber;
     }
 }
 
