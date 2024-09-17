@@ -2,6 +2,7 @@ import {
   type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
+  getDefaultConfig,
   numberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
@@ -306,15 +307,7 @@ export function getP2PConfigEnvVars(): P2PConfig {
 }
 
 export function getP2PDefaultConfig(): P2PConfig {
-  const result: Partial<P2PConfig> = {};
-
-  for (const [key, mapping] of Object.entries(p2pConfigMappings)) {
-    if (mapping.defaultValue !== undefined) {
-      result[key as keyof P2PConfig] = mapping.defaultValue;
-    }
-  }
-
-  return result as P2PConfig;
+  return getDefaultConfig<P2PConfig>(p2pConfigMappings);
 }
 
 /**
