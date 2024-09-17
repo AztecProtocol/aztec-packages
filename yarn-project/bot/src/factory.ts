@@ -99,12 +99,12 @@ export class BotFactory {
     const deployOpts: DeployOptions = { contractAddressSalt: this.config.tokenSalt, universalDeploy: true };
     if (this.config.contract === SupportedTokenContracts.TokenContract) {
       deploy = TokenContract.deploy(wallet, wallet.getAddress(), 'BotToken', 'BOT', 18);
+    } else if (this.config.contract === SupportedTokenContracts.EasyPrivateTokenContract) {
+      deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, wallet.getAddress(), wallet.getAddress());
       deployOpts.skipPublicDeployment = true;
       deployOpts.skipClassRegistration = true;
       deployOpts.skipInitialization = false;
       deployOpts.skipPublicSimulation = true;
-    } else if (this.config.contract === SupportedTokenContracts.EasyPrivateTokenContract) {
-      deploy = EasyPrivateTokenContract.deploy(wallet, MINT_BALANCE, wallet.getAddress(), wallet.getAddress());
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }

@@ -51,18 +51,18 @@ describe('e2e_bot', () => {
   });
 
   it('sends token from the bot using EasyPrivateToken', async () => {
-    const bot = await Bot.create(
+    const easyBot = await Bot.create(
       {
         ...config,
         contract: SupportedTokenContracts.EasyPrivateTokenContract,
       },
       { pxe },
     );
-    const { recipient: recipientBefore } = await bot.getBalances();
+    const { recipient: recipientBefore } = await easyBot.getBalances();
 
-    await bot.run();
-    const { recipient: recipientAfter } = await bot.getBalances();
+    await easyBot.run();
+    const { recipient: recipientAfter } = await easyBot.getBalances();
     expect(recipientAfter.privateBalance - recipientBefore.privateBalance).toEqual(1n);
-    expect(recipientAfter.publicBalance - recipientBefore.publicBalance).toEqual(1n);
+    expect(recipientAfter.publicBalance - recipientBefore.publicBalance).toEqual(0n);
   });
 });
