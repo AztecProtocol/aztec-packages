@@ -2,11 +2,7 @@ import { SignerlessWallet, type WaitOpts, createPXEClient, makeFetch } from '@az
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type LogFn } from '@aztec/foundation/log';
 
-import {
-  deployCanonicalAuthRegistry,
-  deployCanonicalKeyRegistry,
-  deployCanonicalL2FeeJuice,
-} from '../misc/deploy_contracts.js';
+import { deployCanonicalAuthRegistry, deployCanonicalL2FeeJuice } from '../misc/deploy_contracts.js';
 
 const waitOpts: WaitOpts = {
   timeout: 180,
@@ -22,9 +18,6 @@ export async function deployProtocolContracts(rpcUrl: string, l1ChainId: number,
   const pxe = createPXEClient(rpcUrl, makeFetch([], true));
   const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, 1));
 
-  // Deploy Key Registry
-  const keyRegistryAddress = await deployCanonicalKeyRegistry(deployer, waitOpts);
-
   // Deploy Auth Registry
   const authRegistryAddress = await deployCanonicalAuthRegistry(deployer, waitOpts);
 
@@ -36,7 +29,6 @@ export async function deployProtocolContracts(rpcUrl: string, l1ChainId: number,
     log(
       JSON.stringify(
         {
-          keyRegistryAddress: keyRegistryAddress.toString(),
           authRegistryAddress: authRegistryAddress.toString(),
           feeJuiceAddress: feeJuiceAddress.toString(),
         },
@@ -45,7 +37,6 @@ export async function deployProtocolContracts(rpcUrl: string, l1ChainId: number,
       ),
     );
   } else {
-    log(`Key Registry: ${keyRegistryAddress}`);
     log(`Auth Registry: ${authRegistryAddress}`);
     log(`Fee Juice: ${feeJuiceAddress}`);
   }

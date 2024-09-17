@@ -257,16 +257,6 @@ describe('Private Execution test suite', () => {
       }
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
-    // This oracle gets called when reading ivpk_m from key registry --> we return zero witness indicating that
-    // the keys were not registered. This triggers non-registered keys flow in which getCompleteAddress oracle
-    // gets called and we constrain the result by hashing address preimage and checking it matches.
-    oracle.getPublicDataTreeWitness.mockResolvedValue(
-      new PublicDataWitness(
-        0n,
-        PublicDataTreeLeafPreimage.empty(),
-        SiblingPath.ZERO(PUBLIC_DATA_TREE_HEIGHT, INITIAL_LEAF, new Poseidon()),
-      ),
-    );
 
     node = mock<AztecNode>();
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

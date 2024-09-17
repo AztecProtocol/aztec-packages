@@ -42,8 +42,4 @@ export class SignerlessWallet extends BaseWallet {
   createAuthWit(_intent: Fr | Buffer | IntentInnerHash | IntentAction): Promise<AuthWitness> {
     throw new Error('SignerlessWallet: Method createAuthWit not implemented.');
   }
-
-  rotateNullifierKeys(_newNskM: Fq): Promise<void> {
-    throw new Error('SignerlessWallet: Method rotateNullifierKeys not implemented.');
-  }
 }

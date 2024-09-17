@@ -4,6 +4,5 @@ export type ProtocolContractAddresses = {
   classRegisterer: AztecAddress;
   feeJuice: AztecAddress;
   instanceDeployer: AztecAddress;
-  keyRegistry: AztecAddress;
   multiCallEntrypoint: AztecAddress;
 };

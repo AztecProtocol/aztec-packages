@@ -120,18 +120,6 @@ export interface PXE {
   getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
-   * Rotates master nullifier keys.
-   * @param address - The address of the account we want to rotate our key for.
-   * @param newNskM - The new master nullifier secret key we want to use.
-   * @remarks - One should not use this function directly without also calling the canonical key registry to rotate
-   * the new master nullifier secret key's derived master nullifier public key.
-   * Therefore, it is preferred to use rotateNullifierKeys on AccountWallet, as that handles the call to the Key Registry as well.
-   *
-   * This does not hinder our ability to spend notes tied to a previous master nullifier public key, provided we have the master nullifier secret key for it.
-   */
-  rotateNskM(address: AztecAddress, newNskM: Fq): Promise<void>;
-
-  /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.
    *
    * @param artifact - The build artifact for the contract class.

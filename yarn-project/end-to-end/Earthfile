@@ -173,9 +173,6 @@ e2e-encryption:
 e2e-escrow-contract:
   DO +E2E_TEST --test=./src/e2e_escrow_contract.test.ts
 
-e2e-key-registry:
-  DO +E2E_TEST --test=./src/e2e_key_registry.test.ts
-
 e2e-keys:
   DO +E2E_TEST --test=./src/e2e_keys.test.ts
 

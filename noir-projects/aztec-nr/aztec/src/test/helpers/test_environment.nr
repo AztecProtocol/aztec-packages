@@ -7,7 +7,7 @@ use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
-use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer}, keys};
+use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer}};
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
 use crate::hash::hash_args;
 
@@ -69,14 +69,6 @@ impl TestEnvironment {
 
     fn create_account(_self: Self) -> AztecAddress {
         let test_account = cheatcodes::create_account();
-        let address = test_account.address;
-        let keys = test_account.keys;
-
-        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
-        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
-        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
-        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m);
-
         test_account.address
     }
 
@@ -84,13 +76,6 @@ impl TestEnvironment {
         let test_account = cheatcodes::add_account(secret);
         let address = test_account.address;
         cheatcodes::advance_blocks_by(1);
-
-        let keys = test_account.keys;
-
-        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
-        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
-        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
-        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m);
 
         let selector = FunctionSelector::from_signature("constructor(Field,Field)");
 
