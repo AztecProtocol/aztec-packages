@@ -270,7 +270,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
-                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext.root, *tx, includeUncommitted);
+                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
                 if (leaf_hash.has_value()) {
                     std::optional<IndexedLeafValueType> leaf =
                         store_.get_leaf_by_hash(leaf_hash.value(), *tx, includeUncommitted);
@@ -304,7 +304,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 requestContext.latestBlock = false;
                 requestContext.root = blockData.root;
                 requestContext.sizeAtBlock = blockData.size;
-                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext.root, *tx, includeUncommitted);
+                std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
                 if (leaf_hash.has_value()) {
                     std::optional<IndexedLeafValueType> leaf =
                         store_.get_leaf_by_hash(leaf_hash.value(), *tx, includeUncommitted);
@@ -758,8 +758,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                         //           << std::endl;
                     } else {
                         // std::cout << "Looking for leaf" << std::endl;
-                        std::optional<fr> low_leaf_hash =
-                            find_leaf_hash(low_leaf_index, requestContext.root, *tx, true, true);
+                        std::optional<fr> low_leaf_hash = find_leaf_hash(low_leaf_index, requestContext, *tx, true);
 
                         if (!low_leaf_hash.has_value()) {
                             // std::cout << "Failed to find low leaf" << std::endl;

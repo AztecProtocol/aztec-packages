@@ -205,9 +205,8 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
                                                           ReadTransaction& tx) const;
 
     std::optional<fr> find_leaf_hash(index_t leaf_index,
-                                     const fr& reference_root,
+                                     const RequestContext& requestContext,
                                      ReadTransaction& tx,
-                                     bool includeUncommitted,
                                      bool updateNodesByIndexCache = false) const;
 
     Store& store_;
@@ -368,13 +367,9 @@ fr_sibling_path ContentAddressedAppendOnlyTree<Store, HashingPolicy>::optional_s
 
 template <typename Store, typename HashingPolicy>
 std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_hash(
-    index_t leaf_index,
-    const fr& reference_root,
-    ReadTransaction& tx,
-    bool includeUncommitted,
-    bool updateNodesByIndexCache) const
+    index_t leaf_index, const RequestContext& requestContext, ReadTransaction& tx, bool updateNodesByIndexCache) const
 {
-    fr hash = reference_root;
+    fr hash = requestContext.root;
     // std::cout << "Finding leaf hash for root " << hash << " at index " << leaf_index << std::endl;
     index_t mask = static_cast<index_t>(1) << (depth_ - 1);
     index_t child_index_at_level = 0;
@@ -382,7 +377,7 @@ std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_lea
 
         // Extract the node data
         NodePayload nodePayload;
-        bool success = store_.get_node_by_hash(hash, nodePayload, tx, includeUncommitted);
+        bool success = store_.get_node_by_hash(hash, nodePayload, tx, requestContext.includeUncommitted);
         if (!success) {
             // std::cout << "No root" << std::endl;
             return std::nullopt;
@@ -488,7 +483,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.latestBlock = true;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
-                std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext.root, *tx, includeUncommitted);
+                std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext, *tx);
                 response.success = leaf_hash.has_value();
                 if (response.success) {
                     response.inner.leaf = leaf_hash.value();
@@ -518,7 +513,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                 requestContext.latestBlock = false;
                 requestContext.root = blockData.root;
                 requestContext.sizeAtBlock = blockData.size;
-                std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext, *tx, includeUncommitted);
+                std::optional<fr> leaf_hash = find_leaf_hash(leaf_index, requestContext, *tx);
                 response.success = leaf_hash.has_value();
                 if (response.success) {
                     response.inner.leaf = leaf_hash.value();
