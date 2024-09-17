@@ -8,6 +8,8 @@ import {
   Tx,
   type TxHash,
   type TxValidator,
+  type WorldStateStatus,
+  type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
@@ -28,7 +30,6 @@ import { type P2P } from '@aztec/p2p';
 import { type PublicProcessorFactory } from '@aztec/simulator';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec/telemetry-client';
 import { type ValidatorClient } from '@aztec/validator-client';
-import { type WorldStateStatus, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type BlockBuilderFactory } from '../block_builder/index.js';
 import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
