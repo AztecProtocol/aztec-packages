@@ -149,7 +149,7 @@ contract Outbox is IOutbox {
    * @param _l2BlockNumber - The block number to fetch the root data for
    *
    * @return root - The root of the merkle tree containing the L2 to L1 messages
-   * @return minHeight - The min height for the the merkle tree that the root corresponds to
+   * @return minHeight - The min height for the merkle tree that the root corresponds to
    */
   function getRootData(uint256 _l2BlockNumber)
     external
