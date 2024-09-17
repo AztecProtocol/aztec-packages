@@ -2,6 +2,7 @@ import { Body, InboxLeaf, L2Block, type ViemSignature } from '@aztec/circuit-typ
 import { AppendOnlyTreeSnapshot, Header, Proof } from '@aztec/circuits.js';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { type DebugLogger } from '@aztec/foundation/log';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
@@ -47,6 +48,7 @@ export async function processL2BlockProposedLogs(
   rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
   logs: Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProposed'>[],
+  logger: DebugLogger,
 ): Promise<L1Published<L2Block>[]> {
   const retrievedBlocks: L1Published<L2Block>[] = [];
   for (const log of logs) {
@@ -66,6 +68,10 @@ export async function processL2BlockProposedLogs(
       };
 
       retrievedBlocks.push({ data: block, l1 });
+    } else {
+      logger.warn(
+        `Archive mismatch matching, ignoring block ${blockNum} with archive: ${archive}, expected ${archiveFromChain}`,
+      );
     }
   }
 

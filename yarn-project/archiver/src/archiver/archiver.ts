@@ -268,6 +268,7 @@ export class Archiver implements ArchiveSource {
       blockUntilSynced,
       blocksSynchedTo + 1n,
       currentL1BlockNumber,
+      this.log,
     );
 
     // Add the body

@@ -62,7 +62,7 @@ export async function retrieveBlockFromRollup(
       `Got L2 block processed logs for ${l2BlockProposedLogs[0].blockNumber}-${lastLog.blockNumber} between ${searchStartBlock}-${searchEndBlock} L1 blocks`,
     );
 
-    const newBlocks = await processL2BlockProposedLogs(rollup, publicClient, l2BlockProposedLogs);
+    const newBlocks = await processL2BlockProposedLogs(rollup, publicClient, l2BlockProposedLogs, logger);
     retrievedBlocks.push(...newBlocks);
     searchStartBlock = lastLog.blockNumber! + 1n;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
