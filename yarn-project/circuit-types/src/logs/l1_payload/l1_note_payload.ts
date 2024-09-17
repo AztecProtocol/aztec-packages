@@ -83,19 +83,19 @@ export class L1NotePayload extends L1Payload {
   }
 
   /**
-   * Decrypts a ciphertext as an incoming log.
+   * Extracts public values and decrypts a ciphertext as an incoming log.
    *
    * This is executable by the recipient of the note, and uses the ivsk to decrypt the payload.
    * The outgoing parts of the log are ignored entirely.
    *
    * Produces the same output as `decryptAsOutgoing`.
    *
-   * @param ciphertext - The ciphertext for the log
+   * @param content - Content of the log. Contains ciphertext and public values.
    * @param ivsk - The incoming viewing secret key, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsIncoming(ciphertext: Buffer | bigint[], ivsk: GrumpkinScalar) {
-    const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
+  public static decryptAsIncoming(content: Buffer | bigint[], ivsk: GrumpkinScalar) {
+    const input = Buffer.isBuffer(content) ? content : Buffer.from(content.map((x: bigint) => Number(x)));
     const [publicValues, remainingCiphertext] = this.#getPublicValuesAndRemainingCiphertext(input);
 
     const [address, incomingBody] = super._decryptAsIncoming(
@@ -111,7 +111,7 @@ export class L1NotePayload extends L1Payload {
   }
 
   /**
-   * Decrypts a ciphertext as an outgoing log.
+   * Extracts public values and decrypts a ciphertext as an outgoing log.
    *
    * This is executable by the sender of the note, and uses the ovsk to decrypt the payload.
    * The outgoing parts are decrypted to retrieve information that allows the sender to
@@ -119,12 +119,12 @@ export class L1NotePayload extends L1Payload {
    *
    * Produces the same output as `decryptAsIncoming`.
    *
-   * @param ciphertext - The ciphertext for the log
+   * @param content - Content of the log. Contains ciphertext and public values.
    * @param ovsk - The outgoing viewing secret key, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsOutgoing(ciphertext: Buffer | bigint[], ovsk: GrumpkinScalar) {
-    const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
+  public static decryptAsOutgoing(content: Buffer | bigint[], ovsk: GrumpkinScalar) {
+    const input = Buffer.isBuffer(content) ? content : Buffer.from(content.map((x: bigint) => Number(x)));
     const [publicValues, remainingCiphertext] = this.#getPublicValuesAndRemainingCiphertext(input);
 
     const [address, incomingBody] = super._decryptAsOutgoing(
