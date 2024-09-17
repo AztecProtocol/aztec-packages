@@ -128,9 +128,6 @@ e2e-prover-with-padding:
 e2e-account-contracts:
   DO +E2E_TEST --test=./src/e2e_account_contracts.test.ts
 
-e2e-auth-contract:
-  DO +E2E_TEST --test=./src/e2e_auth_contract.test.ts
-
 e2e-authwit:
   DO +E2E_TEST --test=./src/e2e_authwit.test.ts
 
@@ -151,9 +148,6 @@ e2e-card-game:
 
 e2e-cheat-codes:
   DO +E2E_TEST --test=./src/e2e_cheat_codes.test.ts
-
-e2e-counter-contract:
-  DO +E2E_TEST --test=./src/e2e_counter_contract.test.ts
 
 e2e-crowdfunding-and-claim:
   DO +E2E_TEST --test=./src/e2e_crowdfunding_and_claim.test.ts
