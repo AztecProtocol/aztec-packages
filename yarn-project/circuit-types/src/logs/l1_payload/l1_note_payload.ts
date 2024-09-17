@@ -168,15 +168,9 @@ export class L1NotePayload extends L1Payload {
 
     const reader = BufferReader.asReader(input);
     const numPublicValues = reader.readUInt8();
-
     const ciphertextLength = reader.getLength() - numPublicValues * Fr.SIZE_IN_BYTES - 1;
+
     const ciphertext = reader.readBytes(ciphertextLength);
-
-    const publicValuesLength = reader.getLength() - ciphertextLength - 1;
-    if (publicValuesLength % Fr.SIZE_IN_BYTES !== 0) {
-      throw new Error(`Public values byte length is not a multiple of Fr size. Length: ${publicValuesLength}`);
-    }
-
     const publicValues = reader.readArray(numPublicValues, Fr);
 
     return [ciphertext, publicValues];
