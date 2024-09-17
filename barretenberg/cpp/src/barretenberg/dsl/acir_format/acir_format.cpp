@@ -7,6 +7,7 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "proof_surgeon.hpp"
 #include <cstddef>
+#include <cstdint>
 
 namespace acir_format {
 
@@ -55,7 +56,11 @@ void build_constraints(Builder& builder,
     // Add range constraint
     for (size_t i = 0; i < constraint_system.range_constraints.size(); ++i) {
         const auto& constraint = constraint_system.range_constraints.at(i);
-        builder.create_range_constraint(constraint.witness, constraint_system.minimal_range[constraint.witness], "");
+        uint32_t range = constraint.num_bits;
+        if (constraint_system.minimal_range.contains(constraint.witness)) {
+            range = constraint_system.minimal_range[constraint.witness];
+        }
+        builder.create_range_constraint(constraint.witness, range, "");
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.range_constraints.at(i));
     }
