@@ -40,6 +40,12 @@ contract SpartaTest is DecoderBase {
     bool shouldRevert;
   }
 
+  struct StructToAvoidDeepStacks {
+    uint256 needed;
+    address proposer;
+    bool shouldRevert;
+  }
+
   Registry internal registry;
   Inbox internal inbox;
   Outbox internal outbox;

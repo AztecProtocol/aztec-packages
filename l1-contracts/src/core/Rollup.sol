@@ -720,6 +720,36 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return tips.pendingBlockNumber;
   }
 
+  function _prune() internal {
+    uint256 pending = tips.pendingBlockNumber;
+
+    // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
+    //        We can do because any new block proposed will overwrite a previous block in the block log,
+    //        so no values should "survive".
+    //        People must therefore read the chain using the pendingTip as a boundary.
+    tips.pendingBlockNumber = tips.provenBlockNumber;
+
+    emit PrunedPending(tips.provenBlockNumber, pending);
+  }
+
+  function _canPrune() internal view returns (bool) {
+    if (tips.pendingBlockNumber == tips.provenBlockNumber) {
+      return false;
+    }
+
+    uint256 currentSlot = getCurrentSlot();
+    uint256 oldestPendingEpoch = getEpochAt(blocks[tips.provenBlockNumber + 1].slotNumber);
+    uint256 startSlotOfPendingEpoch = oldestPendingEpoch * Constants.AZTEC_EPOCH_DURATION;
+
+    // TODO: #8608 adds a proof claim, which will allow us to prune the chain more aggressively.
+    //       That is what will add a `CLAIM_DURATION` to the pruning logic.
+    if (currentSlot < startSlotOfPendingEpoch + 2 * Constants.AZTEC_EPOCH_DURATION) {
+      return false;
+    }
+
+    return true;
+  }
+
   /**
    * @notice  Get the epoch that should be proven
    *
