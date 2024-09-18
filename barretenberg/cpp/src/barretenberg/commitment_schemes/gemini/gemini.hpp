@@ -4,8 +4,6 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-#include <vector>
-
 /**
  * @brief Protocol for opening several multi-linear polynomials at the same point.
  *
@@ -106,7 +104,7 @@ template <typename Curve> class GeminiProver_ {
                                                             Polynomial&& batched_to_be_shifted);
 
     static std::vector<Claim> compute_fold_polynomial_evaluations(std::span<const Fr> multilinear_evaluations,
-                                                                  std::vector<Polynomial>&& gemini_polynomials,
+                                                                  std::vector<Polynomial>&& fold_polynomials,
                                                                   const Fr& r_challenge);
 
     // TODO(Mara):  consider if we should template this by transcript to use with a test transcript
@@ -165,7 +163,7 @@ template <typename Curve> class GeminiVerifier_ {
         }
 
         // Get polynomials Fold_i, i = 1,...,m-1 from transcript
-        const std::vector<Commitment> commitments = get_gemini_commitments(num_variables, transcript);
+        const std::vector<Commitment> commitments = get_fold_commitments(num_variables, transcript);
 
         // compute vector of powers of random evaluation point r
         const Fr r = transcript->template get_challenge<Fr>("Gemini:r");
@@ -198,16 +196,16 @@ template <typename Curve> class GeminiVerifier_ {
         return fold_polynomial_opening_claims;
     }
 
-    static std::vector<Commitment> get_gemini_commitments(const size_t log_circuit_size, auto& transcript)
+    static std::vector<Commitment> get_fold_commitments(const size_t log_circuit_size, auto& transcript)
     {
-        std::vector<Commitment> gemini_commitments;
-        gemini_commitments.reserve(log_circuit_size - 1);
+        std::vector<Commitment> fold_commitments;
+        fold_commitments.reserve(log_circuit_size - 1);
         for (size_t i = 0; i < log_circuit_size - 1; ++i) {
             const Commitment commitment =
                 transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
-            gemini_commitments.emplace_back(commitment);
+            fold_commitments.emplace_back(commitment);
         }
-        return gemini_commitments;
+        return fold_commitments;
     }
     static std::vector<Fr> get_gemini_evaluations(const size_t log_circuit_size, auto& transcript)
     {

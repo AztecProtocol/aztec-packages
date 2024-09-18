@@ -166,17 +166,17 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto gemini_polynomials = GeminiProver::compute_fold_polynomials(
+    auto fold_polynomials = GeminiProver::compute_fold_polynomials(
         mle_opening_point, std::move(batched_unshifted), std::move(batched_to_be_shifted));
 
     std::vector<Commitment> prover_commitments;
     for (size_t l = 0; l < log_n - 1; ++l) {
-        auto commitment = this->ck()->commit(gemini_polynomials[l + 2]);
+        auto commitment = this->ck()->commit(fold_polynomials[l + 2]);
         prover_commitments.emplace_back(commitment);
     }
 
     const auto opening_claims = GeminiProver::compute_fold_polynomial_evaluations(
-        mle_opening_point, std::move(gemini_polynomials), gemini_eval_challenge);
+        mle_opening_point, std::move(fold_polynomials), gemini_eval_challenge);
 
     std::vector<Fr> prover_evaluations;
     for (size_t l = 0; l < log_n; ++l) {

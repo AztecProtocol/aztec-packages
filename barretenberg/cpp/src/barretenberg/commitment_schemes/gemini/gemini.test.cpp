@@ -3,9 +3,6 @@
 #include "../commitment_key.test.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include <cstddef>
-#include <gtest/gtest.h>
-#include <span>
 
 using namespace bb;
 
@@ -16,8 +13,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GroupElement = typename Curve::Element;
 
   public:
-    void execute_gemini_and_verify_claims([[maybe_unused]] size_t log_n,
-                                          std::vector<Fr>& multilinear_evaluation_point,
+    void execute_gemini_and_verify_claims(std::vector<Fr>& multilinear_evaluation_point,
                                           std::vector<Fr>& multilinear_evaluations,
                                           std::vector<Polynomial<Fr>>& multilinear_polynomials,
                                           std::vector<Polynomial<Fr>>& multilinear_polynomials_to_be_shifted,
@@ -82,8 +78,7 @@ TYPED_TEST(GeminiTest, Single)
     std::vector<GroupElement> multilinear_commitments = { commitment };
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = {};
 
-    this->execute_gemini_and_verify_claims(log_n,
-                                           u,
+    this->execute_gemini_and_verify_claims(u,
                                            multilinear_evaluations,
                                            multilinear_polynomials,
                                            multilinear_polynomials_to_be_shifted,
@@ -114,8 +109,7 @@ TYPED_TEST(GeminiTest, SingleShift)
     std::vector<GroupElement> multilinear_commitments = {};
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = { commitment };
 
-    this->execute_gemini_and_verify_claims(log_n,
-                                           u,
+    this->execute_gemini_and_verify_claims(u,
                                            multilinear_evaluations,
                                            multilinear_polynomials,
                                            multilinear_polynomials_to_be_shifted,
@@ -149,8 +143,7 @@ TYPED_TEST(GeminiTest, Double)
     std::vector<GroupElement> multilinear_commitments = { commitment1, commitment2 };
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = {};
 
-    this->execute_gemini_and_verify_claims(log_n,
-                                           u,
+    this->execute_gemini_and_verify_claims(u,
                                            multilinear_evaluations,
                                            multilinear_polynomials,
                                            multilinear_polynomials_to_be_shifted,
@@ -185,8 +178,7 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
     std::vector<GroupElement> multilinear_commitments = { commitment1, commitment2 };
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = { commitment2 };
 
-    this->execute_gemini_and_verify_claims(log_n,
-                                           u,
+    this->execute_gemini_and_verify_claims(u,
                                            multilinear_evaluations,
                                            multilinear_polynomials,
                                            multilinear_polynomials_to_be_shifted,
