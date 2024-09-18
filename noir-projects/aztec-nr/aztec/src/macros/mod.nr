@@ -81,15 +81,17 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
 
 pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     let mut max_note_length: u32 = 0;
-    let notes = NOTES.values();
+    let notes = NOTES.entries();
     let body = if notes.len() > 0 {
-        max_note_length = notes.fold(0, | acc, (_, len, _): (StructDefinition, u32, Field) | {
+        max_note_length = notes.fold(0, | acc, (_, (_, len, _)): (Type, (StructDefinition, u32, Field)) | {
             acc + len
         });
+
         let if_statements = notes.map(
-            | (note, _, _): (StructDefinition, u32, Field) | {
+            | (_, (note, _, _)): (Type, (StructDefinition, u32, Field)) | {
                 let note_name = note.name();
                 quote {
+                    // $note
                     if note_type_id == $note_name::get_note_type_id() {
                         aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($note_name::deserialize_content, note_header, compute_nullifier, serialized_note)
                     }
@@ -138,7 +140,9 @@ pub comptime fn generate_note_exports() -> Quoted {
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
 
-    let unconstrained_functions = m.functions().filter(| f: FunctionDefinition | f.is_unconstrained() & !f.has_named_attribute("test"));
+    let unconstrained_functions = m.functions().filter(
+        | f: FunctionDefinition | f.is_unconstrained() & !f.has_named_attribute("test") & !f.has_named_attribute("public")
+    );
     for f in unconstrained_functions {
         transform_unconstrained(f);
     }

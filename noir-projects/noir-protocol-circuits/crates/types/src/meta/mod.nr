@@ -1,6 +1,5 @@
 use super::traits::{Serialize, Deserialize};
 
-// TODO: This is bad and incomplete. Fix it!
 pub comptime fn pack_from_fields<N>(
     name: Quoted,
     typ: Type,
@@ -9,7 +8,7 @@ pub comptime fn pack_from_fields<N>(
     replacements: [(Quoted, Quoted)]
 ) -> (Quoted, u32) {
     let mut result = quote {};
-    let mut consumed: u32 = already_consumed;
+    let mut consumed: u32 = 0;
 
     let found_replacements = replacements.filter(| (to_omit, _): (Quoted, Quoted) | to_omit == name);
 
@@ -20,8 +19,8 @@ pub comptime fn pack_from_fields<N>(
     };
 
     if replacement == quote {} {
-        if typ.is_field() | typ.as_integer().is_some() {
-            result = quote { $buffer[$consumed] as $typ };
+        if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
+            result = quote { $buffer[$already_consumed] as $typ };
             consumed = 1;
         } else if typ.as_struct().is_some() {
             let (nested_def, _) = typ.as_struct().unwrap();
@@ -33,7 +32,7 @@ pub comptime fn pack_from_fields<N>(
                     quote { $field_name },
                     field_type,
                     quote { $buffer },
-                    consumed,
+                    consumed + already_consumed,
                     replacements
                 );
                 consumed += consumed_by_field;
@@ -49,12 +48,12 @@ pub comptime fn pack_from_fields<N>(
             let (element_type, array_len) = typ.as_array().unwrap();
             let array_len = array_len.as_constant().unwrap();
             let mut array_fields_list = &[];
-            for i in 0..array_len {
+            for _ in 0..array_len {
                 let (deserialized_field, consumed_by_field) = pack_from_fields(
                     quote { $name },
                     element_type,
                     quote { $buffer },
-                    consumed,
+                    consumed + already_consumed,
                     replacements
                 );
                 array_fields_list = array_fields_list.push_back(deserialized_field);
@@ -62,6 +61,23 @@ pub comptime fn pack_from_fields<N>(
             }
             let array_fields = array_fields_list.join(quote {,});
             result = quote { [ $array_fields ] };
+        } else if typ.as_str().is_some() {
+            let length_type = typ.as_str().unwrap();
+            let str_len = length_type.as_constant().unwrap();
+            let mut byte_list = &[];
+            for _ in 0..str_len {
+                let (deserialized_field, consumed_by_field) = pack_from_fields(
+                    quote { $name },
+                    quote { u8}.as_type(),
+                    quote { $buffer },
+                    consumed + already_consumed,
+                    replacements
+                );
+                byte_list = byte_list.push_back(deserialized_field);
+                consumed += consumed_by_field;
+            }
+            let bytes = byte_list.join(quote {,});
+            result = quote { [ $bytes ].as_str_unchecked() };
         } else {
             assert(false, f"Unsupported type for serialization of argument {name} and type {typ}");
             std::mem::zeroed()
@@ -77,7 +93,7 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
     let mut aux_vars = &[];
 
     if omit.all(| to_omit | to_omit != name) {
-        if typ.is_field() | typ.as_integer().is_some() {
+        if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
             fields = fields.push_back(quote { $name as Field });
         } else if typ.as_struct().is_some() {
             let nested_struct = typ.as_struct().unwrap();
@@ -163,7 +179,13 @@ struct Smol {
     b: Field,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Eq)]
+struct HasArray {
+    a: [Field; 2],
+    b: bool
+}
+
+#[derive(Serialize, Deserialize, Eq)]
 struct Fancier {
     a: Smol,
     b: [Field; 2],
@@ -185,6 +207,15 @@ fn smol_test() {
 }
 
 #[test]
+fn has_array_test() {
+    let has_array = HasArray { a: [1, 2], b: true };
+    let serialized = has_array.serialize();
+    assert(serialized == [1, 2, 1], serialized);
+    let deserialized = HasArray::deserialize(serialized);
+    assert(deserialized == has_array);
+}
+
+#[test]
 fn fancier_test() {
     let fancier = Fancier { a: Smol { a: 1, b: 2 }, b: [0, 1], c: [1, 2, 3], d: "metaprogramming!" };
     let serialized = fancier.serialize();
@@ -193,4 +224,6 @@ fn fancier_test() {
             1, 2, 0, 1, 1, 2, 3, 0x6d, 0x65, 0x74, 0x61, 0x70, 0x72, 0x6f, 0x67, 0x72, 0x61, 0x6d, 0x6d, 0x69, 0x6e, 0x67, 0x21
         ], serialized
     );
+    let deserialized = Fancier::deserialize(serialized);
+    assert(deserialized == fancier);
 }
