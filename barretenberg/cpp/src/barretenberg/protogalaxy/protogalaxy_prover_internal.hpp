@@ -214,7 +214,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             using View = typename Accumulator::View;
 
             static constexpr size_t DEG = Accumulator::LENGTH - 1;
-            auto tmp = View(L_0_pows[DEG]) * std::get<idx>(subrelation_values_on_accumulator);
+            auto tmp = View(L_0_pows.at(DEG)) * std::get<idx>(subrelation_values_on_accumulator);
             tmp *= scaling_factor;
             std::get<idx>(relation_accumulator) += tmp;
         });
@@ -376,7 +376,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         auto lagrange_powers =
             compute_lagrange_powers<FF,
-                                    Flavor::MAX_TOTAL_RELATION_LENGTH,
+                                    Flavor::MAX_TOTAL_RELATION_LENGTH + 10,
                                     std::tuple_element_t<0, std::tuple_element_t<0, TupleOfTuples>>::SKIP_COUNT>();
 
         // Construct extended univariates containers; one per thread

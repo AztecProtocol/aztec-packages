@@ -20,13 +20,23 @@ TEST(Protogalaxy, LagrangePowers)
     using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
     using Univ = Univariate<FF, DEG, 0, SKIP_COUNT>;
 
-    std::array<Univ, DEG> pows = Fun::compute_lagrange_powers<FF, DEG, SKIP_COUNT>();
+    std::array<Univ, DEG> powers = Fun::compute_lagrange_powers<FF, DEG, SKIP_COUNT>();
 
-    EXPECT_EQ(pows[0], Univ({ 1, 1, 1, 1, 1 }));
-    EXPECT_EQ(pows[1], Univ({ 1, 0, -1, -2, -3 }));
-    EXPECT_EQ(pows[2], Univ({ 1, 0, 1, 4, 9 }));
-    EXPECT_EQ(pows[3], Univ({ 1, 0, -1, -8, -27 }));
-    EXPECT_EQ(pows[4], Univ({ 1, 0, 1, 16, 81 }));
+    EXPECT_EQ(powers[0], Univ({ 1, 1, 1, 1, 1 }));
+    EXPECT_EQ(powers[1], Univ({ 1, 0, -1, -2, -3 }));
+    EXPECT_EQ(powers[2], Univ({ 1, 0, 1, 4, 9 }));
+    EXPECT_EQ(powers[3], Univ({ 1, 0, -1, -8, -27 }));
+    EXPECT_EQ(powers[4], Univ({ 1, 0, 1, 16, 81 }));
+
+    auto acc = std::make_tuple(Univariate<FF, 5, 0, 1>(0), Univariate<FF, 4, 0, 1>(0));
+    std::array<FF, 2> values{ 2, 3 };
+    FF scaling_factor = 16;
+    Fun::accumulate_zero_incoming_contribution(acc, powers, values, scaling_factor);
+    auto expected_0 = Univariate<FF, 5, 0, 1>{ 1, 0, 1, 16, 81 } * 2 * scaling_factor;
+    auto expected_1 = Univariate<FF, 4, 0, 1>{ 1, 0, -1, -8 } * 3 * scaling_factor;
+
+    EXPECT_EQ(std::get<0>(acc), expected_0);
+    EXPECT_EQ(std::get<1>(acc), expected_1);
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/780): Improve combiner tests to check more than the

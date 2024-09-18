@@ -125,7 +125,7 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
                 tmp += (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + (q_4 * w_4) + q_c;
                 tmp += (q_arith - 1) * w_4_shift;
                 tmp *= q_arith;
-                tmp *= scaling_factor;
+                tmp *= scaling_factor; // WORKTODO: mul by pow_i(beta) done _could_ be done later...
                 std::get<0>(evals) += tmp;
             }
         }
