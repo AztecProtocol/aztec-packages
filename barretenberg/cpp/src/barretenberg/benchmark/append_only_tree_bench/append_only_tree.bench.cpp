@@ -1,13 +1,12 @@
-#include "barretenberg/crypto/merkle_tree/append_only_tree/append_only_tree.hpp"
 #include "barretenberg/common/thread_pool.hpp"
+#include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_tree.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/array_store.hpp"
-#include "barretenberg/crypto/merkle_tree/node_store/cached_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
+#include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <benchmark/benchmark.h>
@@ -18,13 +17,13 @@ using namespace benchmark;
 using namespace bb::crypto::merkle_tree;
 
 namespace {
-using StoreType = CachedIndexAddressedTreeStore<LMDBStore, fr>;
+using StoreType = ContentAddressedCachedTreeStore<bb::fr>;
 
-using Pedersen = IndexAddressedAppendOnlyTree<StoreType, PedersenHashPolicy>;
-using Poseidon2 = IndexAddressedAppendOnlyTree<StoreType, Poseidon2HashPolicy>;
+using Pedersen = ContentAddressedAppendOnlyTree<StoreType, PedersenHashPolicy>;
+using Poseidon2 = ContentAddressedAppendOnlyTree<StoreType, Poseidon2HashPolicy>;
 
 const size_t TREE_DEPTH = 32;
-const size_t MAX_BATCH_SIZE = 128;
+const size_t MAX_BATCH_SIZE = 64;
 
 template <typename TreeType> void perform_batch_insert(TreeType& tree, const std::vector<fr>& values)
 {
@@ -52,9 +51,9 @@ template <typename TreeType> void append_only_tree_bench(State& state) noexcept
     std::string name = random_string();
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 16;
-    LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 2, num_threads);
+    LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 4, num_threads);
 
-    LMDBStore db(environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(environment, name, false, false, integer_key_cmp);
     StoreType store(name, depth, db);
     ThreadPool workers(num_threads);
     TreeType tree = TreeType(store, workers);

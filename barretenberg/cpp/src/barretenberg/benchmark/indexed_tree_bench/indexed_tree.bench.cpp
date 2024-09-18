@@ -1,10 +1,10 @@
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/content_addressed_indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
-#include "barretenberg/crypto/merkle_tree/node_store/cached_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include <benchmark/benchmark.h>
@@ -13,13 +13,13 @@
 using namespace benchmark;
 using namespace bb::crypto::merkle_tree;
 
-using StoreType = CachedIndexAddressedTreeStore<LMDBStore, NullifierLeafValue>;
+using StoreType = ContentAddressedCachedTreeStore<NullifierLeafValue>;
 
-using Poseidon2 = IndexAddressedIndexedTree<StoreType, Poseidon2HashPolicy>;
-using Pedersen = IndexAddressedIndexedTree<StoreType, PedersenHashPolicy>;
+using Poseidon2 = ContentAddressedIndexedTree<StoreType, Poseidon2HashPolicy>;
+using Pedersen = ContentAddressedIndexedTree<StoreType, PedersenHashPolicy>;
 
 const size_t TREE_DEPTH = 40;
-const size_t MAX_BATCH_SIZE = 128;
+const size_t MAX_BATCH_SIZE = 64;
 
 template <typename TreeType> void add_values(TreeType& tree, const std::vector<NullifierLeafValue>& values)
 {
@@ -39,9 +39,9 @@ template <typename TreeType> void multi_thread_indexed_tree_bench(State& state) 
     std::string name = random_string();
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 16;
-    LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 2, num_threads);
+    LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 4, num_threads);
 
-    LMDBStore db(environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(environment, name, false, false, integer_key_cmp);
     StoreType store(name, depth, db);
     ThreadPool workers(num_threads);
     TreeType tree = TreeType(store, workers, batch_size);
@@ -66,9 +66,9 @@ template <typename TreeType> void single_thread_indexed_tree_bench(State& state)
     std::string name = random_string();
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 1;
-    LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 2, num_threads);
+    LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 4, num_threads);
 
-    LMDBStore db(environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(environment, name, false, false, integer_key_cmp);
     StoreType store(name, depth, db);
     ThreadPool workers(num_threads);
     TreeType tree = TreeType(store, workers, batch_size);
@@ -83,27 +83,29 @@ template <typename TreeType> void single_thread_indexed_tree_bench(State& state)
         add_values(tree, values);
     }
 }
-BENCHMARK(single_thread_indexed_tree_bench<Pedersen>)
-    ->Unit(benchmark::kMillisecond)
-    ->RangeMultiplier(2)
-    ->Range(2, MAX_BATCH_SIZE)
-    ->Iterations(100);
-
-BENCHMARK(multi_thread_indexed_tree_bench<Pedersen>)
-    ->Unit(benchmark::kMillisecond)
-    ->RangeMultiplier(2)
-    ->Range(2, MAX_BATCH_SIZE)
-    ->Iterations(100);
 
 BENCHMARK(single_thread_indexed_tree_bench<Poseidon2>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
+
+BENCHMARK(single_thread_indexed_tree_bench<Poseidon2>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(512, 8192)
+    ->Iterations(10);
+
 BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2>)
     ->Unit(benchmark::kMillisecond)
     ->RangeMultiplier(2)
     ->Range(2, MAX_BATCH_SIZE)
     ->Iterations(1000);
+
+BENCHMARK(multi_thread_indexed_tree_bench<Poseidon2>)
+    ->Unit(benchmark::kMillisecond)
+    ->RangeMultiplier(2)
+    ->Range(512, 8192)
+    ->Iterations(10);
 
 BENCHMARK_MAIN();
