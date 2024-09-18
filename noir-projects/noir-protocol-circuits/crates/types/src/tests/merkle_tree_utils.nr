@@ -90,6 +90,10 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, le
         _supertree_height: [Field; SUPERTREE_HEIGHT],
         _subtree_height: [Field; SUBTREE_HEIGHT]
     ) -> Self {
+        // Hack to get around us converting a u32 to a u8.
+        // TODO: improve this.
+        (SUBTREE_HEIGHT as Field).assert_max_bit_size(8);
+
         assert_eq(
             TREE_HEIGHT, SUPERTREE_HEIGHT + SUBTREE_HEIGHT, "tree height must be the sum of supertree and subtree height"
         );
