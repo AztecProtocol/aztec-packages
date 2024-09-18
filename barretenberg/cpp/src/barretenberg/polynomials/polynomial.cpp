@@ -158,8 +158,11 @@ template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) co
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan<const Fr> other)
 {
     // Compute the subset that is defined in both polynomials
-    ASSERT(start_index() <= other.start_index);
-    ASSERT(end_index() >= other.end_index());
+    // ASSERT(start_index() <= other.start_index);
+    // ASSERT(end_index() >= other.end_index());
+    if (other.start_index < start_index() || other.end_index() > end_index()) {
+        *this = expand(std::min(start_index(), other.start_index), std::max(end_index(), other.end_index()));
+    }
     size_t num_threads = calculate_num_threads(other.size());
     size_t range_per_thread = other.size() / num_threads;
     size_t leftovers = other.size() - (range_per_thread * num_threads);
@@ -287,8 +290,11 @@ Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationD
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
 {
     // Compute the subset that is defined in both polynomials
-    ASSERT(start_index() <= other.start_index);
-    ASSERT(end_index() >= other.end_index());
+    // ASSERT(start_index() <= other.start_index);
+    // ASSERT(end_index() >= other.end_index());
+    if (other.start_index < start_index() || other.end_index() > end_index()) {
+        *this = expand(std::min(start_index(), other.start_index), std::max(end_index(), other.end_index()));
+    }
     size_t num_threads = calculate_num_threads(other.size());
     size_t range_per_thread = other.size() / num_threads;
     size_t leftovers = other.size() - (range_per_thread * num_threads);
@@ -318,18 +324,32 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scali
     return *this;
 }
 
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::expand(size_t new_start_idx, size_t new_end_idx) const
+{
+    ASSERT(new_end_idx <= virtual_size());
+    ASSERT((new_start_idx <= start_index() && new_end_idx >= end_index()));
+    if (new_start_idx == start_index() && new_end_idx == end_index()) {
+        return *this;
+    }
+    Polynomial result = *this;
+    // Make new_start_idx..new_end_idx usable
+    result.coefficients_ = _clone(coefficients_, new_end_idx - end_index(), start_index() - new_start_idx);
+    return result;
+}
+
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 {
-    Polynomial result = *this;
     // Make 0..virtual_size usable
-    result.coefficients_ = _clone(coefficients_, virtual_size() - end_index(), start_index());
-    return result;
+    return expand(0, virtual_size());
 }
 template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &
 {
     // Compute the subset that is defined in both polynomials
-    ASSERT(start_index() <= other.start_index);
-    ASSERT(end_index() >= other.end_index());
+    // ASSERT(start_index() <= other.start_index);
+    // ASSERT(end_index() >= other.end_index());
+    if (other.start_index < start_index() || other.end_index() > end_index()) {
+        *this = expand(std::min(start_index(), other.start_index), std::max(end_index(), other.end_index()));
+    }
     size_t num_threads = calculate_num_threads(other.size());
     size_t range_per_thread = other.size() / num_threads;
     size_t leftovers = other.size() - (range_per_thread * num_threads);
