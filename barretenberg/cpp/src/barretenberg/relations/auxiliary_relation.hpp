@@ -70,6 +70,14 @@ template <typename FF_> class AuxiliaryRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_aux.is_zero(); }
 
+    template <typename AllEntities>
+    inline static bool incoming_contribution_is_zero([[maybe_unused]] const AllEntities& in)
+        requires ArrayAccessOnEntity<AllEntities>
+    {
+        // For folding multiple instances, we would do a constexpr loop over { idx = 1; idx < NUM_KEYS }
+        return false;
+    }
+
     /**
      * @brief Expression for the generalized permutation sort gate.
      * @details The following explanation is reproduced from the Plonk analog 'plookup_auxiliary_widget':

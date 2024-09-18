@@ -46,6 +46,14 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         return in.q_lookup.is_zero() && in.lookup_read_counts.is_zero();
     }
 
+    template <typename AllEntities>
+    inline static bool incoming_contribution_is_zero([[maybe_unused]] const AllEntities& in)
+        requires ArrayAccessOnEntity<AllEntities>
+    {
+        // For folding multiple instances, we would do a constexpr loop over { idx = 1; idx < NUM_KEYS }
+        return false;
+    }
+
     /**
      * @brief Does the provided row contain data relevant to table lookups; Used to determine whether the polynomial of
      * inverses must be computed at a given row

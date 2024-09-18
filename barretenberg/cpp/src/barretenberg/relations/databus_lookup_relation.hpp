@@ -95,6 +95,14 @@ template <typename FF_> class DatabusLookupRelationImpl {
                in.secondary_calldata_read_counts.is_zero() && in.return_data_read_counts.is_zero();
     }
 
+    template <typename AllEntities>
+    inline static bool incoming_contribution_is_zero([[maybe_unused]] const AllEntities& in)
+        requires ArrayAccessOnEntity<AllEntities>
+    {
+        // For folding multiple instances, we would do a constexpr loop over { idx = 1; idx < NUM_KEYS }
+        return false;
+    }
+
     // Interface for easy access of databus components by column (bus_idx)
     template <size_t bus_idx, typename AllEntities> struct BusData;
 

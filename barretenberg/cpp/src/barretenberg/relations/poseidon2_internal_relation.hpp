@@ -35,6 +35,14 @@ template <typename FF_> class Poseidon2InternalRelationImpl {
         return in.q_poseidon2_internal.is_zero();
     }
 
+    template <typename AllEntities>
+    inline static bool incoming_contribution_is_zero([[maybe_unused]] const AllEntities& in)
+        requires ArrayAccessOnEntity<AllEntities>
+    {
+        // For folding multiple instances, we would do a constexpr loop over { idx = 1; idx < NUM_KEYS }
+        return false;
+    }
+
     /**
      * @brief Expression for the poseidon2 internal round relation, based on I_i in Section 6 of
      * https://eprint.iacr.org/2023/323.pdf.

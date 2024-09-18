@@ -33,11 +33,20 @@ template <typename FF_> class EccOpQueueRelationImpl {
         1  // op-queue-wire vanishes sub-relation 4
     };
 
+    // WORKTODO: is the verifier skipping this too?
     template <typename AllEntities> inline static bool skip([[maybe_unused]] const AllEntities& in)
     {
         // The prover can skip execution of this relation altogether since an honest input will lead to a zero
         // contribution at every row, even when the selector lagrange_ecc_op is on
         return true;
+    }
+
+    template <typename AllEntities>
+    inline static bool incoming_contribution_is_zero([[maybe_unused]] const AllEntities& in)
+        requires ArrayAccessOnEntity<AllEntities>
+    {
+        // For folding multiple instances, we would do a constexpr loop over { idx = 1; idx < NUM_KEYS }
+        return false;
     }
 
     /**

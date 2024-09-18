@@ -171,7 +171,8 @@
       "description": "Build with globally installed Clang-16 in release with ASSERTs mode",
       "inherits": "clang16",
       "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "OFF"
       }
     },
     {

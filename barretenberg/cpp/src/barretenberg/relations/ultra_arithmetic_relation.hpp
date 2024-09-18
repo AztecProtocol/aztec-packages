@@ -28,7 +28,7 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
         requires ArrayAccessOnEntity<AllEntities>
     {
         // For folding multiple instances, we would do a constexpr loop over { idx = 1; idx < NUM_KEYS }
-        return in.q_arith.value_at(1) == 0;
+        return in.q_arith.value_at(1) == 0; // WORKTODO: this should suffice but...
     }
 
     /**

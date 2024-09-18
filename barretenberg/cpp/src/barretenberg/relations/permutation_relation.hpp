@@ -57,6 +57,15 @@ template <typename FF_> class UltraPermutationRelationImpl {
         return (in.z_perm - in.z_perm_shift).is_zero();
     }
 
+    template <typename AllEntities>
+    inline static bool incoming_contribution_is_zero([[maybe_unused]] const AllEntities& in)
+        requires ArrayAccessOnEntity<AllEntities>
+    {
+        // For folding multiple instances, we would do a constexpr loop over { idx = 1; idx < NUM_KEYS }
+        // return (in.z_perm - in.z_perm_shift)[1] == 0;
+        return false;
+    }
+
     inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
     inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
 
