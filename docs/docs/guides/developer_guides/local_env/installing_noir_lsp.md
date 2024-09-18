@@ -4,7 +4,7 @@ sidebar_position: 1
 tags: [sandbox]
 ---
 
-Install the Noir Language Support extension to get syntax highlighting, syntax error detection and go-to definitions for your Aztec contracts.
+Install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) to get syntax highlighting, syntax error detection and go-to definitions for your Aztec contracts.
 
 Once the extension is installed, check your nargo binary by hovering over Nargo in the status bar on the bottom right of the application window. Click to choose the path to aztec-nargo (or regular nargo, if you have that installed).
 

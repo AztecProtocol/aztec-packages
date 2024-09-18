@@ -141,3 +141,7 @@
 [[redirects]]
     from = "/reference/sandbox_reference"
     to = "/guides/developer_guides/getting_started" 
+
+[[redirects]]
+    from = "/guides/developer_guides/getting_started/quickstart"
+    to = "/guides/developer_guides/getting_started" 

@@ -72,7 +72,7 @@ You'll know the sandbox is ready to go when you see something like this:
 Now you have the sandbox running, let's create an account. Open a new terminal window and run:
 
 ```bash
-aztec-wallet create-account
+aztec-cli create-account
 ```
 
 This will create a new account in your sandbox. You will see logs telling you the address, public key, secret key, and more.

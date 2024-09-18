@@ -69,7 +69,7 @@ When declaring a mapping in private storage, we have to specify which type of No
 
 In the Storage struct:
 
-#include_code storage-private-mutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code private_map boxes/boxes/react/src/contracts/src/main.nr rust
 
 #### Public Example
 
