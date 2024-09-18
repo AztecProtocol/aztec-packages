@@ -307,7 +307,7 @@ export class EnqueuedCallsProcessor {
 
     return {
       publicKernelOutput,
-      provingRequests,
+      provingRequests: revertReason ? [] : provingRequests,
       durationMs: phaseTimer.ms(),
       gasUsed,
       returnValues,
