@@ -11,7 +11,8 @@ fn compute_raw_note_log<Note, let N: u32, let NB: u32, let M: u32>(
     ovsk_app: Field,
     ovpk: OvpkM,
     ivpk: IvpkM,
-    recipient: AztecAddress
+    recipient: AztecAddress,
+    num_public_values: u8 // Number of values to be appended to the log in public (used in partial note flow).
 ) -> (u32, [u8; M], Field) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
     let note_header = note.get_header();
     let note_hash_counter = note_header.note_hash_counter;
@@ -30,7 +31,8 @@ fn compute_raw_note_log<Note, let N: u32, let NB: u32, let M: u32>(
         ovpk,
         ivpk,
         recipient,
-        note
+        note,
+        num_public_values
     );
     let log_hash = sha256_to_field(encrypted_log);
 
@@ -42,10 +44,11 @@ unconstrained fn compute_raw_note_log_unconstrained<Note, let N: u32, let NB: u3
     note: Note,
     ovpk: OvpkM,
     ivpk: IvpkM,
-    recipient: AztecAddress
+    recipient: AztecAddress,
+    num_public_values: u8 // Number of values to be appended to the log in public (used in partial note flow).
 ) -> (u32, [u8; M], Field) where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
     let ovsk_app = get_ovsk_app(ovpk.hash());
-    compute_raw_note_log(context, note, ovsk_app, ovpk, ivpk, recipient)
+    compute_raw_note_log(context, note, ovsk_app, ovpk, ivpk, recipient, num_public_values)
 }
 
 pub fn encode_and_encrypt_note<Note, let N: u32, let NB: u32, let M: u32>(
@@ -58,7 +61,10 @@ pub fn encode_and_encrypt_note<Note, let N: u32, let NB: u32, let M: u32>(
         let ivpk = get_current_public_keys(context, iv).ivpk_m;
         let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
 
-        let (note_hash_counter, encrypted_log, log_hash) = compute_raw_note_log(*context, e.note, ovsk_app, ovpk, ivpk, iv);
+        // Number of public values is always 0 here because `encode_and_encrypt_note(...)` is only called
+        // in the non-partial note flow.
+        let num_public_values = 0;
+        let (note_hash_counter, encrypted_log, log_hash) = compute_raw_note_log(*context, e.note, ovsk_app, ovpk, ivpk, iv, num_public_values);
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
 }
@@ -74,10 +80,14 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32, let NB: u32, let 
         let ovpk = get_current_public_keys(context, ov).ovpk_m;
         let ivpk = get_current_public_keys(context, iv).ivpk_m;
 
+        // Number of public values is always 0 here because `encode_and_encrypt_note_unconstrained(...)` is only called
+        // in the non-partial note flow.
+        let num_public_values = 0;
+
         // See the comment in `encode_and_encrypt_note_with_keys_unconstrained` for why having note hash counter
         // and log hash unconstrained here is fine.
         let (note_hash_counter, encrypted_log, log_hash) = unsafe {
-            compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, iv)
+            compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, iv, num_public_values)
         };
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
@@ -92,7 +102,11 @@ pub fn encode_and_encrypt_note_with_keys<Note, let N: u32, let NB: u32, let M: u
     | e: NoteEmission<Note> | {
         let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
 
-        let (note_hash_counter, encrypted_log, log_hash) = compute_raw_note_log(*context, e.note, ovsk_app, ovpk, ivpk, recipient);
+        // Number of public values is always 0 here because `encode_and_encrypt_note_unconstrained(...)` is only called
+        // in the non-partial note flow.
+        let num_public_values = 0;
+
+        let (note_hash_counter, encrypted_log, log_hash) = compute_raw_note_log(*context, e.note, ovsk_app, ovpk, ivpk, recipient, num_public_values);
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
 }
@@ -104,6 +118,10 @@ pub fn encode_and_encrypt_note_with_keys_unconstrained<Note, let N: u32, let NB:
     recipient: AztecAddress
 ) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](NoteEmission<Note>) -> () where Note: NoteInterface<N, NB>, [Field; N]: LensForEncryptedLog<N, M> {
     | e: NoteEmission<Note> | {
+        // Number of public values is always 0 here because `encode_and_encrypt_note_with_keys_unconstrained(...)` is only called
+        // in the non-partial note flow.
+        let num_public_values = 0;
+
         //   Having the log hash be unconstrained here is fine because the way this works is we send the log hash
         // to the kernel, and it gets included as part of its public inputs. Then we send the tx to the sequencer,
         // which includes the kernel proof and the log preimages. The sequencer computes the hashes of the logs
@@ -124,7 +142,7 @@ pub fn encode_and_encrypt_note_with_keys_unconstrained<Note, let N: u32, let NB:
         // whatever), or cause for the log to not be deleted when it should have (which is also fine - it'll be a log
         // for a note that doesn't exist).
         let (note_hash_counter, encrypted_log, log_hash) = unsafe {
-            compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, recipient)
+            compute_raw_note_log_unconstrained(*context, e.note, ovpk, ivpk, recipient, num_public_values)
         };
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
     }
