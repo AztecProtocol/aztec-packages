@@ -8,8 +8,8 @@ import net from 'net';
  *
  * @returns a random port that is free to use.
  */
-export async function getRandomPort(): Promise<number | undefined> {
-  return new Promise((resolve) => {
+export function getRandomPort(): Promise<number | undefined> {
+  return new Promise(resolve => {
     const server = net.createServer();
     server.listen(0, () => {
       const address = server.address();

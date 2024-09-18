@@ -3,9 +3,9 @@ import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx
 import { EthAddress } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { getRandomPort } from '@aztec/foundation/testing';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig, openTmpStore } from '@aztec/kv-store/utils';
-import { getRandomPort } from '@aztec/foundation/testing';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { generatePrivateKey } from 'viem/accounts';
@@ -77,7 +77,7 @@ describe('Req Resp p2p client integration', () => {
     const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfPeers);
     for (let i = 0; i < numberOfPeers; i++) {
       // Note these bindings are important
-      const port = (await getRandomPort()) || (bootNodePort + i + 1);
+      const port = (await getRandomPort()) || bootNodePort + i + 1;
       const addr = `127.0.0.1:${port}`;
       const listenAddr = `0.0.0.0:${port}`;
       const config: P2PConfig & DataStoreConfig = {
