@@ -3,6 +3,7 @@ import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx
 import { EthAddress } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { getRandomPort } from '@aztec/foundation/testing';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig, openTmpStore } from '@aztec/kv-store/utils';
 
@@ -27,7 +28,7 @@ type Mockify<T> = {
 
 const TEST_TIMEOUT = 80000;
 
-const BOOT_NODE_UDP_PORT = 40400;
+const DEFAULT_BOOT_NODE_UDP_PORT = 40400;
 async function createBootstrapNode(port: number) {
   const peerId = await createLibP2PPeerId();
   const bootstrapNode = new BootstrapNode();
@@ -61,10 +62,12 @@ describe('Req Resp p2p client integration', () => {
   let kvStore: AztecKVStore;
   let worldStateSynchronizer: WorldStateSynchronizer;
   let proofVerifier: ClientProtocolCircuitVerifier;
+  let bootNodePort: number;
   const logger = createDebugLogger('p2p-client-integration-test');
 
   const makeBootstrapNode = async (): Promise<[BootstrapNode, string]> => {
-    const bootstrapNode = await createBootstrapNode(BOOT_NODE_UDP_PORT);
+    bootNodePort = (await getRandomPort()) || DEFAULT_BOOT_NODE_UDP_PORT;
+    const bootstrapNode = await createBootstrapNode(bootNodePort);
     const enr = bootstrapNode.getENR().encodeTxt();
     return [bootstrapNode, enr];
   };
@@ -74,8 +77,9 @@ describe('Req Resp p2p client integration', () => {
     const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfPeers);
     for (let i = 0; i < numberOfPeers; i++) {
       // Note these bindings are important
-      const addr = `127.0.0.1:${i + 1 + BOOT_NODE_UDP_PORT}`;
-      const listenAddr = `0.0.0.0:${i + 1 + BOOT_NODE_UDP_PORT}`;
+      const port = (await getRandomPort()) || bootNodePort + i + 1;
+      const addr = `127.0.0.1:${port}`;
+      const listenAddr = `0.0.0.0:${port}`;
       const config: P2PConfig & DataStoreConfig = {
         ...getP2PDefaultConfig(),
         p2pEnabled: true,
