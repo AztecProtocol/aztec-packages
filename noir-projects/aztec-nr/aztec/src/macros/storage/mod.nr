@@ -10,8 +10,8 @@ comptime mut global STORAGE_LAYOUT_NAME: UHashMap<Module, Quoted, BuildHasherDef
 
 pub comptime fn is_storage_map(typ: Type) -> bool {
     if typ.as_struct().is_some() {
-        let (_, generics) = typ.as_struct().unwrap();
-        let maybe_map = if generics.len() == 3 {
+        let (def, generics) = typ.as_struct().unwrap();
+        let maybe_map = if (def.name() == quote { Map }) & (generics.len() == 3) {
             let maybe_key = generics[0];
             let maybe_value = generics[1];
             let maybe_context = generics[2];

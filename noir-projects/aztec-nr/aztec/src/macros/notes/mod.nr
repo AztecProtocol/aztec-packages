@@ -53,17 +53,11 @@ comptime fn generate_note_interface(
         typ,
         quote { value },
         0,
-        &[(quote {header}, quote { NoteHeader::empty() })]
+        &[(quote {header}, quote { aztec::note::note_header::NoteHeader::empty() })]
     );
 
     let fixed_fields_args = fixed_fields.map(| (name, _): (Quoted, Type) | quote{self.$name}).push_back(quote {self.get_header().storage_slot}).join(quote {,});
     let nullable_fields_args = nullable_fields.map(|field| quote { self.$field }).join(quote {,});
-
-    let deserialize_content_lambda = quote {
-        | value: [Field; $content_len] | {
-            $deserialized_content
-        }
-    };
 
     (quote {
         impl aztec::note::note_interface::NoteInterface<$content_len> for $name {

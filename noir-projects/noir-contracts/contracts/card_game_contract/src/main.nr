@@ -14,6 +14,8 @@ contract CardGame {
     use crate::game::{PLAYABLE_CARDS, PlayerEntry, Game};
     use dep::aztec::macros::{storage::storage, functions::{private, public, internal}};
 
+    use value_note::value_note::ValueNote;
+
     #[storage]
     struct Storage<Context> {
         collections: Map<AztecAddress, Deck<Context>, Context>,

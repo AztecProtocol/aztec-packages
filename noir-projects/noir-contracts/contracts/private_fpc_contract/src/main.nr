@@ -9,7 +9,7 @@ contract PrivateFPC {
         state_vars::SharedImmutable,
         macros::{storage::storage, functions::{private, initializer, public}}
     };
-    use dep::token::Token;
+    use token::Token;
     use crate::settings::Settings;
 
     #[storage]

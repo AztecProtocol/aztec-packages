@@ -39,7 +39,6 @@ contract AvmTest {
     use dep::aztec::macros::{storage::storage, functions::{public, private}};
     use dep::aztec::context::gas::GasOpts;
 
-
     #[storage]
     struct Storage<Context> {
         single: PublicMutable<Field, Context>,

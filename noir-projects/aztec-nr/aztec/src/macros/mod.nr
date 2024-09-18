@@ -20,8 +20,8 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
         quote {}
     };
 
-    let has_storage = module_has_storage(m);
-    let storage_layout_getter = if has_storage & STORAGE_LAYOUT_NAME.get(m).is_some() {
+    let has_storage_layout = module_has_storage(m) & STORAGE_LAYOUT_NAME.get(m).is_some();
+    let storage_layout_getter = if has_storage_layout {
         let storage_layout_name = STORAGE_LAYOUT_NAME.get(m).unwrap();
         quote {
             pub fn storage_layout() -> StorageLayout {
@@ -32,7 +32,7 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
         quote {}
     };
 
-    let library_storage_layout_getter = if has_storage {
+    let library_storage_layout_getter = if has_storage_layout {
         quote {
             #[contract_library_method]
             $storage_layout_getter
@@ -91,7 +91,6 @@ pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quote
             | (_, (note, _, _)): (Type, (StructDefinition, u32, Field)) | {
                 let note_name = note.name();
                 quote {
-                    // $note
                     if note_type_id == $note_name::get_note_type_id() {
                         aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($note_name::deserialize_content, note_header, compute_nullifier, serialized_note)
                     }
@@ -147,12 +146,12 @@ pub comptime fn aztec(m: Module) -> Quoted {
         transform_unconstrained(f);
     }
 
-    let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
+    //let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
     let note_exports = generate_note_exports();
 
     quote {
         $note_exports
         $interface
-        $compute_note_hash_and_optionally_a_nullifier
+        //$compute_note_hash_and_optionally_a_nullifier
     }
 }

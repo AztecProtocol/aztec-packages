@@ -3,13 +3,12 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract Claim {
     use dep::aztec::{
-        note::utils::compute_note_hash_for_nullify,
-        protocol_types::address::AztecAddress,
+        note::utils::compute_note_hash_for_nullify, protocol_types::address::AztecAddress,
         state_vars::SharedImmutable,
         macros::{storage::storage, functions::{private, public, initializer}}
     };
     use dep::value_note::value_note::ValueNote;
-    use dep::token::Token;
+    use token::Token;
 
     #[storage]
     struct Storage<Context> {

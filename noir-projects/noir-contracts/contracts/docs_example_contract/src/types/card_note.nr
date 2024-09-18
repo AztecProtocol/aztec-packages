@@ -6,7 +6,7 @@ use dep::aztec::{
 };
 
 // docs:start:state_vars-CardNote
-global CARD_NOTE_LEN: u64 = 3; // 3 plus a header.
+global CARD_NOTE_LEN: u32 = 3; // 3 plus a header.
 
 #[note]
 struct CardNote {

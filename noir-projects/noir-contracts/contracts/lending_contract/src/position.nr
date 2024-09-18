@@ -6,7 +6,7 @@ struct Position {
     debt: Field,
 }
 
-global POSITION_SERIALIZED_LEN: Field = 3;
+global POSITION_SERIALIZED_LEN: u32 = 3;
 
 impl Serialize<POSITION_SERIALIZED_LEN> for Position {
     fn serialize(position: Position) -> [Field; POSITION_SERIALIZED_LEN] {

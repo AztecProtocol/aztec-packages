@@ -9,8 +9,7 @@ contract Crowdfunding {
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
         keys::getters::get_current_public_keys, prelude::{AztecAddress, PrivateSet, SharedImmutable},
-        utils::comparison::Comparator,
-        unencrypted_logs::unencrypted_event_emission::encode_event,
+        utils::comparison::Comparator, unencrypted_logs::unencrypted_event_emission::encode_event,
         macros::{storage::storage, events::event, functions::{public, initializer, private, internal}},
         protocol_types::traits::Serialize
     };
@@ -18,7 +17,7 @@ contract Crowdfunding {
     // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
     // docs:end:import_valuenote
-    use dep::token::Token;
+    use token::Token;
     use router::utils::privately_check_timestamp;
     // docs:end:all-deps
 
