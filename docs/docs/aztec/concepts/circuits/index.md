@@ -1,6 +1,7 @@
 ---
 title: Circuits
 sidebar_position: 7
+tags: [protocol, circuits]
 ---
 
 Central to Aztec's operations are 'circuits' derived both from the core protocol and the developer-written Aztec.nr contracts.
@@ -21,7 +22,7 @@ This page focusses on the core protocol circuits. These circuits check that the 
 When a function in an Ethereum smart contract is executed, the EVM performs checks to ensure that Ethereum's transaction rules are being adhered-to correctly. Stuff like:
 
 - "Does this tx have a valid signature?"
-- "Does this contract address contain deployed code?
+- "Does this contract address contain deployed code?"
 - "Does this function exist in the requested contract?"
 - "Is this function allowed to call this function?"
 - "How much gas has been paid, and how much is left?"
@@ -62,11 +63,11 @@ So what kinds of core protocol circuits does Aztec have?
 
 ### Kernel Circuits
 
-Read more about the Kernel circuits in the protocol specs [here](../../../protocol-specs/circuits/high-level-topology).
+Read more about the Kernel circuits in the protocol specs [here](../../../protocol-specs/circuits/high-level-topology.md).
 
 ### Rollup Circuits
 
-- [Rollup Circuits](../../../protocol-specs/rollup-circuits)
+- [Rollup Circuits](../../../protocol-specs/rollup-circuits/index.md)
 
 #### Squisher Circuits
 

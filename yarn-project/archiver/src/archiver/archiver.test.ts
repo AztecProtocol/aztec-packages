@@ -1,5 +1,4 @@
 import {
-  type Body,
   EncryptedL2BlockL2Logs,
   EncryptedNoteL2BlockL2Logs,
   L2Block,
@@ -9,9 +8,9 @@ import {
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
-import { AvailabilityOracleAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   type Chain,
@@ -25,50 +24,78 @@ import {
 
 import { Archiver } from './archiver.js';
 import { type ArchiverDataStore } from './archiver_store.js';
+import { type ArchiverInstrumentation } from './instrumentation.js';
 import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
+
+interface MockRollupContractRead {
+  archiveAt: (args: readonly [bigint]) => Promise<`0x${string}`>;
+}
+
+class MockRollupContract {
+  constructor(public read: MockRollupContractRead, public address: `0x${string}`) {}
+}
 
 describe('Archiver', () => {
   const rollupAddress = EthAddress.ZERO;
   const inboxAddress = EthAddress.ZERO;
   const registryAddress = EthAddress.ZERO;
-  const availabilityOracleAddress = EthAddress.ZERO;
   const blockNumbers = [1, 2, 3];
 
   let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
+  let instrumentation: MockProxy<ArchiverInstrumentation>;
   let archiverStore: ArchiverDataStore;
   let proverId: Fr;
+  let now: number;
+
+  let archiver: Archiver;
+  let blocks: L2Block[];
 
   beforeEach(() => {
-    publicClient = mock<PublicClient<HttpTransport, Chain>>();
+    now = +new Date();
+    publicClient = mock<PublicClient<HttpTransport, Chain>>({
+      getBlock: ((args: any) => ({
+        timestamp: args.blockNumber * 1000n + BigInt(now),
+      })) as any,
+    });
+
+    instrumentation = mock({ isEnabled: () => true });
     archiverStore = new MemoryArchiverStore(1000);
     proverId = Fr.random();
-  });
 
-  it('can start, sync and stop and handle l1 to l2 messages and logs', async () => {
-    const archiver = new Archiver(
+    archiver = new Archiver(
       publicClient,
       rollupAddress,
-      availabilityOracleAddress,
       inboxAddress,
       registryAddress,
       archiverStore,
       1000,
-      new NoopTelemetryClient(),
+      instrumentation,
     );
 
+    blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
+
+    const mockRollupRead = mock<MockRollupContractRead>({
+      archiveAt: (args: readonly [bigint]) => Promise.resolve(blocks[Number(args[0] - 1n)].archive.root.toString()),
+    });
+    (archiver as any).rollup = new MockRollupContract(mockRollupRead, rollupAddress.toString());
+  });
+
+  afterEach(async () => {
+    await archiver?.stop();
+  });
+
+  it('can start, sync and stop and handle l1 to l2 messages and logs', async () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
-    const publishTxs = blocks.map(block => block.body).map(makePublishTx);
+    blocks.forEach((b, i) => (b.header.globalVariables.timestamp = new Fr(now + 1000 * (i + 1))));
     const rollupTxs = blocks.map(makeRollupTx);
 
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n).mockResolvedValueOnce(2600n).mockResolvedValueOnce(2700n);
 
     mockGetLogs({
       messageSent: [makeMessageSentEvent(98n, 1n, 0n), makeMessageSentEvent(99n, 1n, 1n)],
-      txPublished: [makeTxsPublishedEvent(101n, blocks[0].body.getTxsEffectsHash())],
-      l2BlockProcessed: [makeL2BlockProcessedEvent(101n, 1n)],
+      L2BlockProposed: [makeL2BlockProposedEvent(101n, 1n, blocks[0].archive.root.toString())],
       proofVerified: [makeProofVerifiedEvent(102n, 1n, proverId)],
     });
 
@@ -79,17 +106,14 @@ describe('Archiver', () => {
         makeMessageSentEvent(2505n, 2n, 2n),
         makeMessageSentEvent(2506n, 3n, 1n),
       ],
-      txPublished: [
-        makeTxsPublishedEvent(2510n, blocks[1].body.getTxsEffectsHash()),
-        makeTxsPublishedEvent(2520n, blocks[2].body.getTxsEffectsHash()),
+      L2BlockProposed: [
+        makeL2BlockProposedEvent(2510n, 2n, blocks[1].archive.root.toString()),
+        makeL2BlockProposedEvent(2520n, 3n, blocks[2].archive.root.toString()),
       ],
-      l2BlockProcessed: [makeL2BlockProcessedEvent(2510n, 2n), makeL2BlockProcessedEvent(2520n, 3n)],
     });
 
-    publicClient.getTransaction.mockResolvedValueOnce(publishTxs[0]);
     publicClient.getTransaction.mockResolvedValueOnce(rollupTxs[0]);
 
-    publishTxs.slice(1).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     rollupTxs.slice(1).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
 
     await archiver.start(false);
@@ -157,28 +181,18 @@ describe('Archiver', () => {
     expect((await archiver.getBlocks(1, 100)).map(b => b.number)).toEqual([1, 2, 3]);
     expect((await archiver.getBlocks(1, 100, true)).map(b => b.number)).toEqual([1]);
 
-    await archiver.stop();
+    // Check instrumentation of proven blocks
+    expect(instrumentation.processProofsVerified).toHaveBeenCalledWith([
+      { delay: 1000n, l1BlockNumber: 102n, l2BlockNumber: 1n, proverId: proverId.toString() },
+    ]);
   }, 10_000);
 
   it('does not sync past current block number', async () => {
-    const numL2BlocksInTest = 2;
-    const archiver = new Archiver(
-      publicClient,
-      rollupAddress,
-      availabilityOracleAddress,
-      inboxAddress,
-      registryAddress,
-      archiverStore,
-      1000,
-      new NoopTelemetryClient(),
-    );
-
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
+    const numL2BlocksInTest = 2;
 
-    const publishTxs = blocks.map(block => block.body).map(makePublishTx);
     const rollupTxs = blocks.map(makeRollupTx);
 
     // Here we set the current L1 block number to 102. L1 to L2 messages after this should not be read.
@@ -186,73 +200,91 @@ describe('Archiver', () => {
 
     mockGetLogs({
       messageSent: [makeMessageSentEvent(66n, 1n, 0n), makeMessageSentEvent(68n, 1n, 1n)],
-      txPublished: [
-        makeTxsPublishedEvent(70n, blocks[0].body.getTxsEffectsHash()),
-        makeTxsPublishedEvent(80n, blocks[1].body.getTxsEffectsHash()),
+      L2BlockProposed: [
+        makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString()),
+        makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString()),
       ],
-      l2BlockProcessed: [makeL2BlockProcessedEvent(70n, 1n), makeL2BlockProcessedEvent(80n, 2n)],
     });
 
     mockGetLogs({});
 
-    publishTxs.slice(0, numL2BlocksInTest).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
     rollupTxs.slice(0, numL2BlocksInTest).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
 
     await archiver.start(false);
 
-    // Wait until block 3 is processed. If this won't happen the test will fail with timeout.
     while ((await archiver.getBlockNumber()) !== numL2BlocksInTest) {
       await sleep(100);
     }
 
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(numL2BlocksInTest);
+  }, 10_000);
 
-    await archiver.stop();
+  it('ignores block 3 because it have been pruned (simulate pruning)', async () => {
+    const loggerSpy = jest.spyOn((archiver as any).log, 'warn');
+
+    let latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+
+    const numL2BlocksInTest = 2;
+
+    const rollupTxs = blocks.map(makeRollupTx);
+
+    // Here we set the current L1 block number to 102. L1 to L2 messages after this should not be read.
+    publicClient.getBlockNumber.mockResolvedValue(102n);
+
+    const badArchive = Fr.random().toString();
+
+    mockGetLogs({
+      messageSent: [makeMessageSentEvent(66n, 1n, 0n), makeMessageSentEvent(68n, 1n, 1n)],
+      L2BlockProposed: [
+        makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString()),
+        makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString()),
+        makeL2BlockProposedEvent(90n, 3n, badArchive),
+      ],
+    });
+
+    mockGetLogs({});
+
+    rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+
+    await archiver.start(false);
+
+    while ((await archiver.getBlockNumber()) !== numL2BlocksInTest) {
+      await sleep(100);
+    }
+
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(numL2BlocksInTest);
+    const errorMessage = `Archive mismatch matching, ignoring block ${3} with archive: ${badArchive}, expected ${blocks[2].archive.root.toString()}`;
+    expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
   }, 10_000);
 
   // logs should be created in order of how archiver syncs.
   const mockGetLogs = (logs: {
     messageSent?: ReturnType<typeof makeMessageSentEvent>[];
-    txPublished?: ReturnType<typeof makeTxsPublishedEvent>[];
-    l2BlockProcessed?: ReturnType<typeof makeL2BlockProcessedEvent>[];
+    L2BlockProposed?: ReturnType<typeof makeL2BlockProposedEvent>[];
     proofVerified?: ReturnType<typeof makeProofVerifiedEvent>[];
   }) => {
     publicClient.getLogs
       .mockResolvedValueOnce(logs.messageSent ?? [])
-      .mockResolvedValueOnce(logs.txPublished ?? [])
-      .mockResolvedValueOnce(logs.l2BlockProcessed ?? [])
+      .mockResolvedValueOnce(logs.L2BlockProposed ?? [])
       .mockResolvedValueOnce(logs.proofVerified ?? []);
   };
 });
 
 /**
- * Makes a fake L2BlockProcessed event for testing purposes.
+ * Makes a fake L2BlockProposed event for testing purposes.
  * @param l1BlockNum - L1 block number.
  * @param l2BlockNum - L2 Block number.
- * @returns An L2BlockProcessed event log.
+ * @returns An L2BlockProposed event log.
  */
-function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
+function makeL2BlockProposedEvent(l1BlockNum: bigint, l2BlockNum: bigint, archive: `0x${string}`) {
   return {
     blockNumber: l1BlockNum,
-    args: { blockNumber: l2BlockNum },
+    args: { blockNumber: l2BlockNum, archive },
     transactionHash: `0x${l2BlockNum}`,
-  } as Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>;
-}
-
-/**
- * Makes a fake TxsPublished event for testing purposes.
- * @param l1BlockNum - L1 block number.
- * @param txsEffectsHash - txsEffectsHash for the body.
- * @returns A TxsPublished event log.
- */
-function makeTxsPublishedEvent(l1BlockNum: bigint, txsEffectsHash: Buffer) {
-  return {
-    blockNumber: l1BlockNum,
-    args: {
-      txsEffectsHash: txsEffectsHash.toString('hex'),
-    },
-  } as Log<bigint, number, false, undefined, true, typeof AvailabilityOracleAbi, 'TxsPublished'>;
+  } as Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProposed'>;
 }
 
 /**
@@ -290,26 +322,13 @@ function makeProofVerifiedEvent(l1BlockNum: bigint, l2BlockNumber: bigint, prove
  */
 function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
+  const body = toHex(l2Block.body.toBuffer());
   const archive = toHex(l2Block.archive.root.toBuffer());
+  const blockHash = toHex(l2Block.header.hash().toBuffer());
   const input = encodeFunctionData({
     abi: RollupAbi,
-    functionName: 'process',
-    args: [header, archive],
-  });
-  return { input } as Transaction<bigint, number>;
-}
-
-/**
- * Makes a fake availability oracle tx for testing purposes.
- * @param blockBody - The block body posted by the simulated tx.
- * @returns A fake tx with calldata that corresponds to calling publish in the Availability Oracle contract.
- */
-function makePublishTx(blockBody: Body) {
-  const body = toHex(blockBody.toBuffer());
-  const input = encodeFunctionData({
-    abi: AvailabilityOracleAbi,
-    functionName: 'publish',
-    args: [body],
+    functionName: 'propose',
+    args: [header, archive, blockHash, [], [], body],
   });
   return { input } as Transaction<bigint, number>;
 }

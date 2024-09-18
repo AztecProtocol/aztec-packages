@@ -13,7 +13,7 @@ As for that, we highly recommend reading [this very nice post](https://dba.xyz/d
 Essentially Data Publication $\subset$ Data Availability, since if it is available, it must also have been published.
 This difference might be small but becomes important in a few moments.
 
-Progressing the state of the validating light node requires that we can convince it (and therefore the [availability oracle](./index.md#availability-oracle)) that the data was published - as it needs to compute the public inputs for the proof.
+Progressing the state of the validating light node requires that we can convince it that the data was published - as it needs to compute the public inputs for the proof.
 The exact method of computing these public inputs can vary depending on the data layer, but generally, it could be by providing the data directly or by using data availability sampling or a data availability committee.
 
 The exact mechanism greatly impacts the security and cost of the system, and will be discussed in the following sections.
@@ -30,7 +30,7 @@ From distributed systems, the _security_ of a protocol or system is defined by:
 :::
 
 In the context of blockchain, this _security_ is defined by the confirmation rule, while this can be chosen individually by the user, our validating light node (L1 bridge) can be seen as a user, after all, it's "just" another node.
-For the case of a validity proof based blockchain, a good confirmation rule should satisfy the following sub-properties (inspired by [Sreeram's framing](https://twitter.com/sreeramkannan/status/1683735050897207296)):
+For the case of a validity proof based blockchain, a good confirmation rule should satisfy the following sub-properties (inspired by [Sreeram's framing](https://x.com/sreeramkannan/status/1683735050897207296)):
 
 - **Liveness**:
   - Data Availability - The chain data must be available for anyone to reconstruct the state and build blocks
@@ -246,7 +246,7 @@ Assuming that this is a decent guess, and we can estimate the data requirements 
 Using the values from just above for transaction data requirements, we can get a ball park estimate of what we can expect to require at different throughput levels.
 
 <!-- prettier-ignore -->
-|Throughput | Everyone | Someone | Total | 
+|Throughput | Everyone | Someone | Total |
 |:-----:|:-----:|:-----:|:-----:|
 | 1 TPS | $512 \dfrac{byte}{s}$ | $1036 \dfrac{byte}{s}$ | $1548 \dfrac{byte}{s}$ |
 | 10 TPS | $5120 \dfrac{byte}{s}$ | $10360 \dfrac{byte}{s}$ | $15480 \dfrac{byte}{s}$ |
@@ -318,5 +318,5 @@ Of these, Celestia has the current best "out-the-box" solution, but Eigen-da and
 - https://forum.celestia.org/t/security-levels-for-data-availability-for-light-nodes/919
 - https://ethresear.ch/t/peerdas-a-simpler-das-approach-using-battle-tested-p2p-components/16541
 - https://jumpcrypto.com/writing/bridging-and-finality-ethereum/
-- https://twitter.com/sreeramkannan/status/1683735050897207296
+- https://x.com/sreeramkannan/status/1683735050897207296
 - https://blog.celestia.org/introducing-blobstream/

@@ -64,7 +64,6 @@ const CPP_CONSTANTS = [
   'VERSION_SELECTOR',
   'BLOCK_NUMBER_SELECTOR',
   'TIMESTAMP_SELECTOR',
-  'COINBASE_SELECTOR',
   'FEE_PER_DA_GAS_SELECTOR',
   'FEE_PER_L2_GAS_SELECTOR',
   'END_GLOBAL_VARIABLES',
@@ -103,7 +102,6 @@ const PIL_CONSTANTS = [
   'VERSION_SELECTOR',
   'BLOCK_NUMBER_SELECTOR',
   'TIMESTAMP_SELECTOR',
-  'COINBASE_SELECTOR',
   'FEE_PER_DA_GAS_SELECTOR',
   'FEE_PER_L2_GAS_SELECTOR',
   'END_GLOBAL_VARIABLES',
@@ -149,7 +147,7 @@ function processConstantsTS(constants: { [key: string]: string }): string {
 function processConstantsCpp(constants: { [key: string]: string }): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    if (CPP_CONSTANTS.includes(key)) {
+    if (CPP_CONSTANTS.includes(key) || key.startsWith('AVM_')) {
       code.push(`#define ${key} ${value}`);
     }
   });
@@ -203,7 +201,9 @@ function processEnumTS(enumName: string, enumValues: { [key: string]: number }):
 function processConstantsSolidity(constants: { [key: string]: string }, prefix = ''): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    code.push(`  uint256 internal constant ${prefix}${key} = ${value};`);
+    if (!key.startsWith('AVM_')) {
+      code.push(`  uint256 internal constant ${prefix}${key} = ${value};`);
+    }
   });
   return code.join('\n');
 }
@@ -287,8 +287,10 @@ function parseNoirFile(fileContent: string): ParsedContent {
     const [, name, _type, value] = line.match(/global\s+(\w+)(\s*:\s*\w+)?\s*=\s*(.+?);/) || [];
 
     if (!name || !value) {
-      // eslint-disable-next-line no-console
-      console.warn(`Unknown content: ${line}`);
+      if (!line.includes('use crate')) {
+        // eslint-disable-next-line no-console
+        console.warn(`Unknown content: ${line}`);
+      }
       return;
     }
 
@@ -325,6 +327,8 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         // Remove 'as u8' and 'as u32' castings
         .replaceAll(' as u8', '')
         .replaceAll(' as u32', '')
+        // Remove the 'AztecAddress::from_field(...)' pattern
+        .replace(/AztecAddress::from_field\((0x[a-fA-F0-9]+)\)/g, '$1')
         // We make some space around the parentheses, so that constant numbers are still split.
         .replace(/\(/g, '( ')
         .replace(/\)/g, ' )')

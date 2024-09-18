@@ -1,6 +1,7 @@
 ---
 title: State Model
 sidebar_position: 4
+tags: [state]
 ---
 
 Aztec has a hybrid public/private state model. Aztec contract developers can specify which data is public and which data is private, as well as the functions that can operate on that data.
@@ -31,16 +32,6 @@ This is achieved with two main features:
 
 1. Users sign over transactions, not over specific UTXO's
 2. Aztec.nr contracts support developer defined `unconstrained` getter functions to help dApp's make sense of UTXO's. e.g `getBalance()`. These functions can be called outside of a transaction context to read private state.
-
-## To be documented soon
-
-- The lifecycle of a note
-- Custom notes
-- Injection of data by the kernel
-- Nonce & contract address
-- Custom nullifiers
-- Emission of custom note data to L1
-- Decrypting and storing encrypted note data
 
 ## Further reading
 

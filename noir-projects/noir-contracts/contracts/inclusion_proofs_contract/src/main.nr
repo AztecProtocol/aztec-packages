@@ -1,12 +1,11 @@
 // A demonstration of inclusion and non-inclusion proofs.
 contract InclusionProofs {
-    use dep::aztec::prelude::{
-        AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, PrivateContext, Map,
-        PrivateSet, PublicMutable
+    use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, Map, PrivateSet, PublicMutable};
+    use dep::aztec::{
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        keys::getters::get_current_public_keys
     };
-    use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
 
-    use dep::aztec::protocol_types::{contract_class_id::ContractClassId, header::Header};
     use dep::aztec::{note::note_getter_options::NoteStatus};
     // docs:start:value_note_imports
     use dep::value_note::value_note::ValueNote;
@@ -29,8 +28,7 @@ contract InclusionProofs {
     #[aztec(private)]
     fn create_note(owner: AztecAddress, value: Field) {
         let owner_private_values = storage.private_values.at(owner);
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
         owner_private_values.insert(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
@@ -74,7 +72,7 @@ contract InclusionProofs {
         block_number: u32 // The block at which we'll prove that the note exists
     ) {
         let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
         let mut note = ValueNote::new(1, owner_npk_m_hash);
 
         let header = if (use_block_number) {
@@ -149,10 +147,8 @@ contract InclusionProofs {
         let private_values = storage.private_values.at(owner);
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
-        let notes = private_values.get_notes(options);
-        let note = notes.get(0);
-
-        private_values.remove(note);
+        let notes = private_values.pop_notes(options);
+        assert(notes.len() == 1, "note not popped");
     }
     // docs:end:nullify_note
 

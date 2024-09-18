@@ -4,8 +4,8 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   type PublicKernelCircuitPublicInputs,
 } from '@aztec/circuits.js';
+import { type Buffer32 } from '@aztec/foundation/buffer';
 import { arraySerializedSizeOfNonEmpty } from '@aztec/foundation/collection';
-import { type BaseHashType } from '@aztec/foundation/hash';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type GetUnencryptedLogsResponse } from '../logs/get_unencrypted_logs_response.js';
@@ -64,7 +64,7 @@ export class Tx extends Gossipable {
   }
 
   // Gossipable method
-  override p2pMessageIdentifier(): BaseHashType {
+  override p2pMessageIdentifier(): Buffer32 {
     return this.getTxHash();
   }
 
@@ -217,7 +217,7 @@ export class Tx extends Gossipable {
                 .toBigInt() === 0x43417bb1n
               ? 'fpc_public'
               : 'fpc_private'
-            : 'native'
+            : 'fee_juice'
           : 'none',
       classRegisteredCount: this.unencryptedLogs
         .unrollLogs()
@@ -296,7 +296,7 @@ export class Tx extends Gossipable {
    * @param out the output to put passing logs in, to keep this function abstract
    */
   public filterRevertedLogs(kernelOutput: PublicKernelCircuitPublicInputs) {
-    this.encryptedLogs = this.encryptedLogs.filter(
+    this.encryptedLogs = this.encryptedLogs.filterScoped(
       kernelOutput.endNonRevertibleData.encryptedLogsHashes,
       EncryptedTxL2Logs.empty(),
     );

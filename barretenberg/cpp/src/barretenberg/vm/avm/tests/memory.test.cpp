@@ -38,10 +38,11 @@ TEST_F(AvmMemoryTests, mismatchedTagAddOperation)
 {
     std::vector<FF> const calldata = { 98, 12 };
     trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
-    trace_builder.op_calldata_copy(0, 0, 2, 0);
+    trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
 
     trace_builder.op_add(0, 0, 1, 4, AvmMemoryTag::U8);
-    trace_builder.halt();
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the addition selector
@@ -88,7 +89,7 @@ TEST_F(AvmMemoryTests, mismatchedTagEqOperation)
     trace_builder.op_set(0, 5, 1, AvmMemoryTag::U16);
 
     trace_builder.op_eq(0, 0, 1, 2, AvmMemoryTag::U32);
-    trace_builder.halt();
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the equality selector
@@ -132,7 +133,7 @@ TEST_F(AvmMemoryTests, mLastAccessViolation)
 
     //                           Memory layout:     [4,9,0,0,0,0,....]
     trace_builder.op_sub(0, 1, 0, 2, AvmMemoryTag::U8); // [4,9,5,0,0,0.....]
-    trace_builder.halt();
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
     // Find the row with subtraction operation
@@ -231,10 +232,11 @@ TEST_F(AvmMemoryTests, readUninitializedMemoryViolation)
 TEST_F(AvmMemoryTests, mismatchedTagErrorViolation)
 {
     trace_builder = AvmTraceBuilder(public_inputs, {}, 0, { 98, 12 });
-    trace_builder.op_calldata_copy(0, 0, 2, 0);
+    trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
 
     trace_builder.op_sub(0, 0, 1, 4, AvmMemoryTag::U8);
-    trace_builder.halt();
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the subtraction selector
@@ -266,9 +268,10 @@ TEST_F(AvmMemoryTests, mismatchedTagErrorViolation)
 TEST_F(AvmMemoryTests, consistentTagNoErrorViolation)
 {
     trace_builder = AvmTraceBuilder(public_inputs, {}, 0, std::vector<FF>{ 84, 7 });
-    trace_builder.op_calldata_copy(0, 0, 2, 0);
-    trace_builder.op_fdiv(0, 0, 1, 4);
-    trace_builder.halt();
+    trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
+    trace_builder.op_fdiv(0, 0, 1, 4, AvmMemoryTag::FF);
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector
@@ -292,9 +295,10 @@ TEST_F(AvmMemoryTests, consistentTagNoErrorViolation)
 TEST_F(AvmMemoryTests, noErrorTagWriteViolation)
 {
     trace_builder = AvmTraceBuilder(public_inputs, {}, 0, { 84, 7 });
-    trace_builder.op_calldata_copy(0, 0, 2, 0);
-    trace_builder.op_fdiv(0, 0, 1, 4);
-    trace_builder.halt();
+    trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
+    trace_builder.op_calldata_copy(0, 0, 1, 0);
+    trace_builder.op_fdiv(0, 0, 1, 4, AvmMemoryTag::FF);
+    trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
 
     // Find the first row enabling the fdiv selector

@@ -50,9 +50,9 @@ describe('Key Registry', () => {
   afterAll(() => teardown());
 
   describe('using nsk_app to detect nullification', () => {
-    //    This test checks that it possible to detect that a note has been nullified just by using nsk_app. Note that
-    // this only works for non-transient notes as transient ones never emit a note hash which makes it impossible
-    // to brute force their nullifier.
+    //    This test checks that it is possible to detect that a note has been nullified just by using nsk_app. Note
+    // that this only works for non-transient notes as transient ones never emit a note hash which makes it
+    // impossible to brute force their nullifier.
     //    This might seem to make the scheme useless in practice. This could not be the case because if you have
     // a note of funds, when you create the transient you are nullifying that note. So even if I cannot see when you
     // nullified the transient ones, I can see that you nullified the first.
@@ -63,9 +63,8 @@ describe('Key Registry', () => {
     //    There are some examples where the action is fully hidden though. One of those examples is shielding where you
     // instantly consume the note after creating it. In this case, the nullifier is never emitted and hence the action
     // is impossible to detect with this scheme.
-    //    Another example is a withdraw is withdrawing from DeFi and then immediately spending the funds. In this case,
-    // we would need nsk_app and the contract address of the DeFi contract to detect the nullification of the initial
-    // note.
+    //    Another example is withdrawing from DeFi and then immediately spending the funds. In this case, we would
+    // need nsk_app and the contract address of the DeFi contract to detect the nullification of the initial note.
     it('nsk_app and contract address are enough to detect note nullification', async () => {
       const masterNullifierSecretKey = deriveMasterNullifierSecretKey(secret);
       const nskApp = computeAppNullifierSecretKey(masterNullifierSecretKey, testContract.address);

@@ -25,40 +25,67 @@ std::string to_string(OpCode opcode)
 {
     switch (opcode) {
     // Compute
-    // Compute - Arithmetic
-    case OpCode::ADD:
-        return "ADD";
-    case OpCode::SUB:
-        return "SUB";
-    case OpCode::MUL:
-        return "MUL";
-    case OpCode::DIV:
-        return "DIV";
-    case OpCode::FDIV:
-        return "FDIV";
-    // Compute - Comparators
-    case OpCode::EQ:
-        return "EQ";
-    case OpCode::LT:
-        return "LT";
-    case OpCode::LTE:
-        return "LTE";
-    // Compute - Bitwise
-    case OpCode::AND:
-        return "AND";
-    case OpCode::OR:
-        return "OR";
-    case OpCode::XOR:
-        return "XOR";
-    case OpCode::NOT:
-        return "NOT";
-    case OpCode::SHL:
-        return "SHL";
-    case OpCode::SHR:
-        return "SHR";
+    case OpCode::ADD_8:
+        return "ADD_8";
+    case OpCode::ADD_16:
+        return "ADD_16";
+    case OpCode::SUB_8:
+        return "SUB_8";
+    case OpCode::SUB_16:
+        return "SUB_16";
+    case OpCode::MUL_8:
+        return "MUL_8";
+    case OpCode::MUL_16:
+        return "MUL_16";
+    case OpCode::DIV_8:
+        return "DIV_8";
+    case OpCode::DIV_16:
+        return "DIV_16";
+    case OpCode::FDIV_8:
+        return "FDIV_8";
+    case OpCode::FDIV_16:
+        return "FDIV_16";
+    case OpCode::EQ_8:
+        return "EQ_8";
+    case OpCode::EQ_16:
+        return "EQ_16";
+    case OpCode::LT_8:
+        return "LT_8";
+    case OpCode::LT_16:
+        return "LT_16";
+    case OpCode::LTE_8:
+        return "LTE_8";
+    case OpCode::LTE_16:
+        return "LTE_16";
+    case OpCode::AND_8:
+        return "AND_8";
+    case OpCode::AND_16:
+        return "AND_16";
+    case OpCode::OR_8:
+        return "OR_8";
+    case OpCode::OR_16:
+        return "OR_16";
+    case OpCode::XOR_8:
+        return "XOR_8";
+    case OpCode::XOR_16:
+        return "XOR_16";
+    case OpCode::NOT_8:
+        return "NOT_8";
+    case OpCode::NOT_16:
+        return "NOT_16";
+    case OpCode::SHL_8:
+        return "SHL_8";
+    case OpCode::SHL_16:
+        return "SHL_16";
+    case OpCode::SHR_8:
+        return "SHR_8";
+    case OpCode::SHR_16:
+        return "SHR_16";
     // Compute - Type Conversions
-    case OpCode::CAST:
-        return "CAST";
+    case OpCode::CAST_8:
+        return "CAST_8";
+    case OpCode::CAST_16:
+        return "CAST_16";
     // Execution Environment
     case OpCode::ADDRESS:
         return "ADDRESS";
@@ -79,16 +106,10 @@ std::string to_string(OpCode opcode)
         return "BLOCKNUMBER";
     case OpCode::TIMESTAMP:
         return "TIMESTAMP";
-    case OpCode::COINBASE:
-        return "COINBASE";
     case OpCode::FEEPERL2GAS:
         return "FEEPERL2GAS";
     case OpCode::FEEPERDAGAS:
         return "FEEPERDAGAS";
-    case OpCode::BLOCKL2GASLIMIT:
-        return "BLOCKL2GASLIMIT";
-    case OpCode::BLOCKDAGASLIMIT:
-        return "BLOCKDAGASLIMIT";
     // Execution Environment - Calldata
     case OpCode::CALLDATACOPY:
         return "CALLDATACOPY";
@@ -99,19 +120,31 @@ std::string to_string(OpCode opcode)
     case OpCode::DAGASLEFT:
         return "DAGASLEFT";
     // Machine State - Internal Control Flow
-    case OpCode::JUMP:
-        return "JUMP";
-    case OpCode::JUMPI:
-        return "JUMPI";
+    case OpCode::JUMP_16:
+        return "JUMP_16";
+    case OpCode::JUMPI_16:
+        return "JUMPI_16";
     case OpCode::INTERNALCALL:
         return "INTERNALCALL";
     case OpCode::INTERNALRETURN:
         return "INTERNALRETURN";
     // Machine State - Memory
-    case OpCode::SET:
-        return "SET";
-    case OpCode::MOV:
-        return "MOV";
+    case OpCode::SET_8:
+        return "SET_8";
+    case OpCode::SET_16:
+        return "SET_16";
+    case OpCode::SET_32:
+        return "SET_32";
+    case OpCode::SET_64:
+        return "SET_64";
+    case OpCode::SET_128:
+        return "SET_128";
+    case OpCode::SET_FF:
+        return "SET_FF";
+    case OpCode::MOV_8:
+        return "MOV_8";
+    case OpCode::MOV_16:
+        return "MOV_16";
     case OpCode::CMOV:
         return "CMOV";
     // World State
@@ -129,8 +162,6 @@ std::string to_string(OpCode opcode)
         return "EMITNULLIFIER";
     case OpCode::L1TOL2MSGEXISTS:
         return "L1TOL2MSGEXISTS";
-    case OpCode::HEADERMEMBER:
-        return "HEADERMEMBER";
     case OpCode::GETCONTRACTINSTANCE:
         return "GETCONTRACTINSTANCE";
     // Accrued Substate
@@ -147,8 +178,10 @@ std::string to_string(OpCode opcode)
         return "DELEGATECALL";
     case OpCode::RETURN:
         return "RETURN";
-    case OpCode::REVERT:
-        return "REVERT";
+    case OpCode::REVERT_8:
+        return "REVERT_8";
+    case OpCode::REVERT_16:
+        return "REVERT_16";
     // Misc
     case OpCode::DEBUGLOG:
         return "DEBUGLOG";

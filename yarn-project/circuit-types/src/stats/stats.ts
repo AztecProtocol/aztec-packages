@@ -76,10 +76,13 @@ export type CircuitName =
   | 'root-parity'
   | 'base-rollup'
   | 'merge-rollup'
+  | 'block-root-rollup'
+  | 'block-merge-rollup'
   | 'root-rollup'
   | 'private-kernel-init'
   | 'private-kernel-inner'
   | 'private-kernel-reset-full'
+  | 'private-kernel-reset-full-inner'
   | 'private-kernel-reset-big'
   | 'private-kernel-reset-medium'
   | 'private-kernel-reset-small'
@@ -93,7 +96,8 @@ export type CircuitName =
   | 'public-kernel-tail'
   | 'avm-circuit'
   | 'empty-nested'
-  | 'private-kernel-empty';
+  | 'private-kernel-empty'
+  | 'tube-circuit';
 
 /** Stats for circuit simulation. */
 export type CircuitSimulationStats = {
@@ -257,7 +261,7 @@ export type TxStats = {
   /** How many classes were registered through the canonical class registerer. */
   classRegisteredCount: number;
   /** How this tx pays for its fee */
-  feePaymentMethod: 'none' | 'native' | 'fpc_public' | 'fpc_private';
+  feePaymentMethod: 'none' | 'fee_juice' | 'fpc_public' | 'fpc_private';
 };
 
 /**

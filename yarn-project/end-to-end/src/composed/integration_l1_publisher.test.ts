@@ -1,6 +1,14 @@
 import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecAddress, Body, Fr, GlobalVariables, type L2Block, createDebugLogger, mockTx } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  EthCheatCodes,
+  Fr,
+  GlobalVariables,
+  type L2Block,
+  createDebugLogger,
+  mockTx,
+} from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
   type BlockProver,
@@ -10,26 +18,30 @@ import {
   makeProcessedTx,
 } from '@aztec/circuit-types';
 import {
+  ETHEREUM_SLOT_DURATION,
   EthAddress,
+  GENESIS_ARCHIVE_ROOT,
   GasFees,
   type Header,
   KernelCircuitPublicInputs,
+  LogHash,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
+  ScopedLogHash,
 } from '@aztec/circuits.js';
 import { fr, makeScopedL2ToL1Message } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { AvailabilityOracleAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { TxProver } from '@aztec/prover-client';
-import { type L1Publisher, getL1Publisher } from '@aztec/sequencer-client';
+import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees, ServerWorldStateSynchronizer, type WorldStateConfig } from '@aztec/world-state';
 
@@ -44,7 +56,6 @@ import {
   type HttpTransport,
   type PublicClient,
   type WalletClient,
-  decodeEventLog,
   encodeFunctionData,
   getAbiItem,
   getAddress,
@@ -72,11 +83,9 @@ describe('L1Publisher integration', () => {
   let deployerAccount: PrivateKeyAccount;
 
   let rollupAddress: Address;
-  let inboxAddress: Address;
   let outboxAddress: Address;
 
   let rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
-  let inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>;
   let outbox: GetContractReturnType<typeof OutboxAbi, PublicClient<HttpTransport, Chain>>;
 
   let publisher: L1Publisher;
@@ -90,26 +99,39 @@ describe('L1Publisher integration', () => {
 
   let blockSource: MockProxy<ArchiveSource>;
 
-  const chainId = createEthereumChain(config.rpcUrl, config.l1ChainId).chainInfo.id;
+  const chainId = createEthereumChain(config.l1RpcUrl, config.l1ChainId).chainInfo.id;
 
   let coinbase: EthAddress;
   let feeRecipient: AztecAddress;
+
+  let ethCheatCodes: EthCheatCodes;
+  let worldStateSynchronizer: ServerWorldStateSynchronizer;
 
   // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
   // If you have issues with RPC_URL, it is likely that you need to set the RPC_URL in the shell as well
   // If running ANVIL locally, you can use ETHEREUM_HOST="http://0.0.0.0:8545"
   const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 
+  const progressTimeBySlot = async (slotsToJump = 1n) => {
+    const currentTime = (await publicClient.getBlock()).timestamp;
+    const currentSlot = await rollup.read.getCurrentSlot();
+    const timestamp = await rollup.read.getTimestampForSlot([currentSlot + slotsToJump]);
+    if (timestamp > currentTime) {
+      await ethCheatCodes.warp(Number(timestamp));
+    }
+  };
+
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
     ({ l1ContractAddresses, publicClient, walletClient } = await setupL1Contracts(
-      config.rpcUrl,
+      config.l1RpcUrl,
       deployerAccount,
       logger,
     ));
 
+    ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
+
     rollupAddress = getAddress(l1ContractAddresses.rollupAddress.toString());
-    inboxAddress = getAddress(l1ContractAddresses.inboxAddress.toString());
     outboxAddress = getAddress(l1ContractAddresses.outboxAddress.toString());
 
     // Set up contract instances
@@ -118,11 +140,6 @@ describe('L1Publisher integration', () => {
       abi: RollupAbi,
       client: publicClient,
     });
-    inbox = getContract({
-      address: inboxAddress,
-      abi: InboxAbi,
-      client: walletClient,
-    });
     outbox = getContract({
       address: outboxAddress,
       abi: OutboxAbi,
@@ -130,7 +147,7 @@ describe('L1Publisher integration', () => {
     });
 
     const tmpStore = openTmpStore();
-    builderDb = await MerkleTrees.new(tmpStore);
+    builderDb = await MerkleTrees.new(tmpStore, new NoopTelemetryClient());
     blockSource = mock<ArchiveSource>();
     blockSource.getBlocks.mockResolvedValue([]);
     const worldStateConfig: WorldStateConfig = {
@@ -138,14 +155,14 @@ describe('L1Publisher integration', () => {
       l2QueueSize: 10,
       worldStateProvenBlocksOnly: false,
     };
-    const worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
+    worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
     builder = await TxProver.new(config, new NoopTelemetryClient());
     prover = builder.createBlockProver(builderDb.asLatest());
 
-    publisher = getL1Publisher(
+    publisher = new L1Publisher(
       {
-        rpcUrl: config.rpcUrl,
+        l1RpcUrl: config.l1RpcUrl,
         requiredConfirmations: 1,
         l1Contracts: l1ContractAddresses,
         publisherPrivateKey: sequencerPK,
@@ -159,6 +176,10 @@ describe('L1Publisher integration', () => {
     feeRecipient = config.feeRecipient || AztecAddress.random();
 
     prevHeader = builderDb.getInitialHeader();
+
+    // We jump to the next epoch such that the committee can be setup.
+    const timeToJump = await rollup.read.EPOCH_DURATION();
+    await progressTimeBySlot(timeToJump);
   });
 
   const makeEmptyProcessedTx = () =>
@@ -183,7 +204,12 @@ describe('L1Publisher integration', () => {
     processedTx.data.end.nullifiers = makeTuple(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200);
     processedTx.data.end.nullifiers[processedTx.data.end.nullifiers.length - 1] = Fr.ZERO;
     processedTx.data.end.l2ToL1Msgs = makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x300);
-    processedTx.data.end.encryptedLogsHash = Fr.fromBuffer(processedTx.encryptedLogs.hash());
+    processedTx.encryptedLogs.unrollLogs().forEach((log, i) => {
+      processedTx.data.end.encryptedLogsHashes[i] = new ScopedLogHash(
+        new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)),
+        log.maskedContractAddress,
+      );
+    });
 
     return processedTx;
   };
@@ -295,32 +321,9 @@ describe('L1Publisher integration', () => {
     return blockTicket;
   };
 
-  it('Block body is correctly published to AvailabilityOracle', async () => {
-    const body = Body.random();
-    // `sendPublishTx` function is private so I am hacking around TS here. I think it's ok for test purposes.
-    const txHash = await (publisher as any).sendPublishTx(body.toBuffer());
-    const txReceipt = await publicClient.waitForTransactionReceipt({
-      hash: txHash,
-    });
-
-    // Exactly 1 event should be emitted in the transaction
-    expect(txReceipt.logs.length).toBe(1);
-
-    // We decode the event log before checking it
-    const txLog = txReceipt.logs[0];
-    const topics = decodeEventLog({
-      abi: AvailabilityOracleAbi,
-      data: txLog.data,
-      topics: txLog.topics,
-    });
-    // Sol gives bytes32 txsHash, so we pad the ts bytes31 version
-    // We check that the txsHash in the TxsPublished event is as expected
-    expect(topics.args.txsEffectsHash).toEqual(`0x${body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`);
-  });
-
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
-    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
+    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
     const blockNumber = await publicClient.getBlockNumber();
     // random recipient address, just kept consistent for easy testing ts/sol.
@@ -331,10 +334,10 @@ describe('L1Publisher integration', () => {
     let currentL1ToL2Messages: Fr[] = [];
     let nextL1ToL2Messages: Fr[] = [];
 
-    // We store which tree is about to be consumed so that we can later check the value advanced
-    let toConsume = await inbox.read.toConsume();
-
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
+      // @note  Make sure that the state is up to date before we start building.
+      await worldStateSynchronizer.syncImmediate();
+
       const l1ToL2Content = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 128 * i + 1 + 0x400).map(fr);
 
       for (let j = 0; j < l1ToL2Content.length; j++) {
@@ -350,12 +353,14 @@ describe('L1Publisher integration', () => {
         makeBloatedProcessedTx(totalNullifiersPerBlock * i + 4 * MAX_NULLIFIERS_PER_TX),
       ];
 
+      const ts = (await publicClient.getBlock()).timestamp;
+      const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
-        new Fr(1 + i) /** slot number */,
-        new Fr(await rollup.read.lastBlockTs()),
+        new Fr(slot),
+        new Fr(await rollup.read.getTimestampForSlot([slot])),
         coinbase,
         feeRecipient,
         GasFees.empty(),
@@ -371,20 +376,20 @@ describe('L1Publisher integration', () => {
 
       const l2ToL1MsgsArray = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
 
-      const [emptyRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
+      const [emptyRoot] = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
 
       // Check that we have not yet written a root to this blocknumber
       expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
       writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
-      await publisher.processL2Block(block);
+      await publisher.proposeL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
         event: getAbiItem({
           abi: RollupAbi,
-          name: 'L2BlockProcessed',
+          name: 'L2BlockProposed',
         }),
         fromBlock: blockNumber + 1n,
       });
@@ -397,15 +402,17 @@ describe('L1Publisher integration', () => {
 
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
-        functionName: 'process',
-        args: [`0x${block.header.toBuffer().toString('hex')}`, `0x${block.archive.root.toBuffer().toString('hex')}`],
+        functionName: 'propose',
+        args: [
+          `0x${block.header.toBuffer().toString('hex')}`,
+          `0x${block.archive.root.toBuffer().toString('hex')}`,
+          `0x${block.header.hash().toBuffer().toString('hex')}`,
+          [],
+          [],
+          `0x${block.body.toBuffer().toString('hex')}`,
+        ],
       });
       expect(ethTx.input).toEqual(expectedData);
-
-      // Check a tree have been consumed from the inbox
-      const newToConsume = await inbox.read.toConsume();
-      expect(newToConsume).toEqual(toConsume + 1n);
-      toConsume = newToConsume;
 
       const treeHeight = Math.ceil(Math.log2(l2ToL1MsgsArray.length));
 
@@ -420,34 +427,48 @@ describe('L1Publisher integration', () => {
       await tree.appendLeaves(l2ToL1MsgsArray);
 
       const expectedRoot = tree.getRoot(true);
-      const [actualRoot] = await outbox.read.roots([block.header.globalVariables.blockNumber.toBigInt()]);
+      const [returnedRoot] = await outbox.read.getRootData([block.header.globalVariables.blockNumber.toBigInt()]);
 
       // check that values are inserted into the outbox
-      expect(`0x${expectedRoot.toString('hex')}`).toEqual(actualRoot);
+      expect(Fr.ZERO.toString()).toEqual(returnedRoot);
+
+      const actualRoot = await ethCheatCodes.load(
+        EthAddress.fromString(outbox.address),
+        ethCheatCodes.keccak256(0n, 1n + BigInt(i)),
+      );
+      expect(`0x${expectedRoot.toString('hex')}`).toEqual(new Fr(actualRoot).toString());
 
       // There is a 1 block lag between before messages get consumed from the inbox
       currentL1ToL2Messages = nextL1ToL2Messages;
       // We wipe the messages from previous iteration
       nextL1ToL2Messages = [];
+
+      // Make sure that time have progressed to the next slot!
+      await progressTimeBySlot();
     }
   });
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 2 empty txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
-    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(Buffer.alloc(32, 0));
+    expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
 
     const blockNumber = await publicClient.getBlockNumber();
 
     for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
+      // @note  Make sure that the state is up to date before we start building.
+      await worldStateSynchronizer.syncImmediate();
+
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
       const txs = [makeEmptyProcessedTx(), makeEmptyProcessedTx()];
 
+      const ts = (await publicClient.getBlock()).timestamp;
+      const slot = await rollup.read.getSlotAt([ts + BigInt(ETHEREUM_SLOT_DURATION)]);
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
         new Fr(config.version),
         new Fr(1 + i),
-        new Fr(1 + i) /** slot number */,
-        new Fr(await rollup.read.lastBlockTs()),
+        new Fr(slot),
+        new Fr(await rollup.read.getTimestampForSlot([slot])),
         coinbase,
         feeRecipient,
         GasFees.empty(),
@@ -464,13 +485,13 @@ describe('L1Publisher integration', () => {
 
       writeJson(`empty_block_${block.number}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
-      await publisher.processL2Block(block);
+      await publisher.proposeL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
         event: getAbiItem({
           abi: RollupAbi,
-          name: 'L2BlockProcessed',
+          name: 'L2BlockProposed',
         }),
         fromBlock: blockNumber + 1n,
       });
@@ -483,10 +504,19 @@ describe('L1Publisher integration', () => {
 
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
-        functionName: 'process',
-        args: [`0x${block.header.toBuffer().toString('hex')}`, `0x${block.archive.root.toBuffer().toString('hex')}`],
+        functionName: 'propose',
+        args: [
+          `0x${block.header.toBuffer().toString('hex')}`,
+          `0x${block.archive.root.toBuffer().toString('hex')}`,
+          `0x${block.header.hash().toBuffer().toString('hex')}`,
+          [],
+          [],
+          `0x${block.body.toBuffer().toString('hex')}`,
+        ],
       });
       expect(ethTx.input).toEqual(expectedData);
+
+      await progressTimeBySlot();
     }
   });
 });

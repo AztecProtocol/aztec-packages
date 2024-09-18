@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { SignerlessWallet } from '@aztec/aztec.js';
+import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
 import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, deployCanonicalL2FeeJuice } from '@aztec/cli/misc';
@@ -14,8 +14,6 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import {
-  AvailabilityOracleAbi,
-  AvailabilityOracleBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
   InboxAbi,
@@ -42,7 +40,7 @@ import { type HDAccount, type PrivateKeyAccount, createPublicClient, http as htt
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-export const { MNEMONIC = 'test test test test test test test test test test test junk' } = process.env;
+export const defaultMnemonic = 'test test test test test test test test test test test junk';
 
 const logger = createDebugLogger('aztec:sandbox');
 
@@ -52,7 +50,7 @@ const localAnvil = foundry;
  * Helper function that waits for the Ethereum RPC server to respond before deploying L1 contracts.
  */
 async function waitThenDeploy(config: AztecNodeConfig, deployFunction: () => Promise<DeployL1Contracts>) {
-  const chain = createEthereumChain(config.rpcUrl, config.l1ChainId);
+  const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
   // wait for ETH RPC to respond to a request.
   const publicClient = createPublicClient({
     chain: chain.chainInfo,
@@ -90,6 +88,7 @@ export async function deployContractsToL1(
   aztecNodeConfig: AztecNodeConfig,
   hdAccount: HDAccount | PrivateKeyAccount,
   contractDeployLogger = logger,
+  opts: { assumeProvenThroughBlockNumber?: number; salt?: number } = {},
 ) {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     registry: {
@@ -103,10 +102,6 @@ export async function deployContractsToL1(
     outbox: {
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
-    },
-    availabilityOracle: {
-      contractAbi: AvailabilityOracleAbi,
-      contractBytecode: AvailabilityOracleBytecode,
     },
     rollup: {
       contractAbi: RollupAbi,
@@ -122,10 +117,16 @@ export async function deployContractsToL1(
     },
   };
 
+  const chain = aztecNodeConfig.l1RpcUrl
+    ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
+    : { chainInfo: localAnvil };
+
   const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
-    deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, contractDeployLogger, l1Artifacts, {
+    deployL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, chain.chainInfo, contractDeployLogger, l1Artifacts, {
       l2FeeJuiceAddress: FeeJuiceAddress,
       vkTreeRoot: getVKTreeRoot(),
+      assumeProvenThrough: opts.assumeProvenThroughBlockNumber,
+      salt: opts.salt,
     }),
   );
 
@@ -149,18 +150,39 @@ export type SandboxConfig = AztecNodeConfig & {
  */
 export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
-  const hdAccount = mnemonicToAccount(config.l1Mnemonic ?? MNEMONIC);
-  if (aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
+  const hdAccount = mnemonicToAccount(config.l1Mnemonic || defaultMnemonic);
+  if (!aztecNodeConfig.publisherPrivateKey || aztecNodeConfig.publisherPrivateKey === NULL_KEY) {
     const privKey = hdAccount.getHdKey().privateKey;
     aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
-
-  if (!aztecNodeConfig.p2pEnabled) {
-    await deployContractsToL1(aztecNodeConfig, hdAccount);
+  if (!aztecNodeConfig.validatorPrivateKey || aztecNodeConfig.validatorPrivateKey === NULL_KEY) {
+    const privKey = hdAccount.getHdKey().privateKey;
+    aztecNodeConfig.validatorPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
 
-  const client = createAndStartTelemetryClient(getTelemetryClientConfig());
-  const node = await createAztecNode(client, aztecNodeConfig);
+  let watcher: AnvilTestWatcher | undefined = undefined;
+  if (!aztecNodeConfig.p2pEnabled) {
+    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount);
+
+    const chain = aztecNodeConfig.l1RpcUrl
+      ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)
+      : { chainInfo: localAnvil };
+
+    const publicClient = createPublicClient({
+      chain: chain.chainInfo,
+      transport: httpViemTransport(aztecNodeConfig.l1RpcUrl),
+    });
+
+    watcher = new AnvilTestWatcher(
+      new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
+      l1ContractAddresses.rollupAddress,
+      publicClient,
+    );
+    await watcher.start();
+  }
+
+  const client = await createAndStartTelemetryClient(getTelemetryClientConfig());
+  const node = await createAztecNode(aztecNodeConfig, client);
   const pxe = await createAztecPXE(node);
 
   await deployCanonicalKeyRegistry(
@@ -180,6 +202,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const stop = async () => {
     await pxe.stop();
     await node.stop();
+    await watcher?.stop();
   };
 
   return { node, pxe, aztecNodeConfig, stop };
@@ -189,7 +212,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
  * Create and start a new Aztec RPC HTTP Server
  * @param config - Optional Aztec node settings.
  */
-export async function createAztecNode(telemetryClient: TelemetryClient, config: Partial<AztecNodeConfig> = {}) {
+export async function createAztecNode(config: Partial<AztecNodeConfig> = {}, telemetryClient?: TelemetryClient) {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const node = await AztecNodeService.createAndSync(aztecNodeConfig, telemetryClient);
   return node;

@@ -43,9 +43,8 @@ variable "BOT_TX_MINED_WAIT_SECONDS" {
   type = string
 }
 
-variable "BOT_NO_WAIT_FOR_TRANSFERS" {
-  type    = string
-  default = true
+variable "BOT_FOLLOW_CHAIN" {
+  type = string
 }
 
 variable "PROVING_ENABLED" {
@@ -57,3 +56,32 @@ variable "BOT_COUNT" {
   type    = string
   default = "1"
 }
+
+variable "BOT_FLUSH_SETUP_TRANSACTIONS" {
+  type    = bool
+  default = false
+}
+
+variable "BOT_MAX_PENDING_TXS" {
+  type    = number
+  default = 1
+}
+
+variable "BOT_SKIP_PUBLIC_SIMULATION" {
+  type    = bool
+  default = false
+}
+
+variable "BOT_L2_GAS_LIMIT" {
+  type = string
+}
+
+variable "BOT_DA_GAS_LIMIT" {
+  type = string
+}
+
+variable "BOT_TOKEN_CONTRACT" {
+  type    = string
+  default = "TokenContract"
+}
+

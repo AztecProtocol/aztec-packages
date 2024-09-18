@@ -5,24 +5,21 @@
 
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
 
 AvmVerifier::AvmVerifier(std::shared_ptr<Flavor::VerificationKey> verifier_key)
-    : key(verifier_key)
+    : key(std::move(verifier_key))
 {}
 
 AvmVerifier::AvmVerifier(AvmVerifier&& other) noexcept
     : key(std::move(other.key))
-    , pcs_verification_key(std::move(other.pcs_verification_key))
 {}
 
 AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
 {
     key = other.key;
-    pcs_verification_key = (std::move(other.pcs_verification_key));
     commitments.clear();
     return *this;
 }
@@ -54,9 +51,9 @@ bool AvmVerifier::verify_proof(const HonkProof& proof,
     using Flavor = AvmFlavor;
     using FF = Flavor::FF;
     using Commitment = Flavor::Commitment;
-    // using PCS = Flavor::PCS;
-    // using Curve = Flavor::Curve;
-    // using ZeroMorph = ZeroMorphVerifier_<Curve>;
+    using PCS = Flavor::PCS;
+    using Curve = Flavor::Curve;
+    using ZeroMorph = ZeroMorphVerifier_<Curve>;
     using VerifierCommitments = Flavor::VerifierCommitments;
     using CommitmentLabels = Flavor::CommitmentLabels;
 
@@ -110,22 +107,22 @@ bool AvmVerifier::verify_proof(const HonkProof& proof,
     std::vector<FF> mle_challenge(multivariate_challenge.begin(),
                                   multivariate_challenge.begin() + static_cast<int>(log_circuit_size));
 
-    FF kernel_kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], circuit_size, mle_challenge);
-    if (kernel_kernel_inputs_evaluation != claimed_evaluations.kernel_kernel_inputs) {
+    FF main_kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], circuit_size, mle_challenge);
+    if (main_kernel_inputs_evaluation != claimed_evaluations.main_kernel_inputs) {
         return false;
     }
-    FF kernel_kernel_value_out_evaluation = evaluate_public_input_column(public_inputs[1], circuit_size, mle_challenge);
-    if (kernel_kernel_value_out_evaluation != claimed_evaluations.kernel_kernel_value_out) {
+    FF main_kernel_value_out_evaluation = evaluate_public_input_column(public_inputs[1], circuit_size, mle_challenge);
+    if (main_kernel_value_out_evaluation != claimed_evaluations.main_kernel_value_out) {
         return false;
     }
-    FF kernel_kernel_side_effect_out_evaluation =
+    FF main_kernel_side_effect_out_evaluation =
         evaluate_public_input_column(public_inputs[2], circuit_size, mle_challenge);
-    if (kernel_kernel_side_effect_out_evaluation != claimed_evaluations.kernel_kernel_side_effect_out) {
+    if (main_kernel_side_effect_out_evaluation != claimed_evaluations.main_kernel_side_effect_out) {
         return false;
     }
-    FF kernel_kernel_metadata_out_evaluation =
+    FF main_kernel_metadata_out_evaluation =
         evaluate_public_input_column(public_inputs[3], circuit_size, mle_challenge);
-    if (kernel_kernel_metadata_out_evaluation != claimed_evaluations.kernel_kernel_metadata_out) {
+    if (main_kernel_metadata_out_evaluation != claimed_evaluations.main_kernel_metadata_out) {
         return false;
     }
     FF main_calldata_evaluation = evaluate_public_input_column(public_inputs[4], circuit_size, mle_challenge);
@@ -139,20 +136,19 @@ bool AvmVerifier::verify_proof(const HonkProof& proof,
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.
-    // NOTE: temporarily disabled - facing integration issues
-    // auto opening_claim = ZeroMorph::verify(circuit_size,
-    //                                        commitments.get_unshifted(),
-    //                                        commitments.get_to_be_shifted(),
-    //                                        claimed_evaluations.get_unshifted(),
-    //                                        claimed_evaluations.get_shifted(),
-    //                                        multivariate_challenge,
-    //                                        pcs_verification_key->get_g1_identity(),
-    //                                        transcript);
 
-    // auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
-    // auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
-    // return sumcheck_verified.value() && verified;
-    return sumcheck_verified.value();
+    auto opening_claim = ZeroMorph::verify(circuit_size,
+                                           commitments.get_unshifted(),
+                                           commitments.get_to_be_shifted(),
+                                           claimed_evaluations.get_unshifted(),
+                                           claimed_evaluations.get_shifted(),
+                                           multivariate_challenge,
+                                           key->pcs_verification_key->get_g1_identity(),
+                                           transcript);
+
+    auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
+    auto verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    return sumcheck_verified.value() && verified;
 }
 
 } // namespace bb

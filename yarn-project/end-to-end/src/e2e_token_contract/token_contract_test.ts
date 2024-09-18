@@ -12,6 +12,8 @@ import {
 } from '@aztec/aztec.js';
 import { DocsExampleContract, TokenContract } from '@aztec/noir-contracts.js';
 
+import { jest } from '@jest/globals';
+
 import {
   type ISnapshotManager,
   type SubsystemsContext,
@@ -46,6 +48,9 @@ export class TokenContractTest {
    * 2. Publicly deploy accounts, deploy token contract and a "bad account".
    */
   async applyBaseSnapshots() {
+    // Adding a timeout of 2 minutes in here such that it is propagated to the underlying tests
+    jest.setTimeout(120_000);
+
     await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
       this.wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
@@ -94,7 +99,7 @@ export class TokenContractTest {
         this.badAccount = await DocsExampleContract.at(badAccountAddress, this.wallets[0]);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
-        expect(await this.asset.methods.admin().simulate()).toBe(this.accounts[0].address.toBigInt());
+        expect(await this.asset.methods.get_admin().simulate()).toBe(this.accounts[0].address.toBigInt());
       },
     );
 

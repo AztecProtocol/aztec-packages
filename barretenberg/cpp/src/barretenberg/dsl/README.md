@@ -4,7 +4,7 @@ This package adds support to use [ACIR](https://github.com/noir-lang/noir/tree/m
 
 ## Serialization Changes
 
-There are two types of breaking serialization changes. One that alters that alters the internal ACIR structure passed to barretenberg, and one that changes how we serialize the buffer passed to barretenberg.
+There are two types of breaking serialization changes. One that alters the internal ACIR structure passed to barretenberg, and one that changes how we serialize the buffer passed to barretenberg.
 
 1. Internal Structure Change
 

@@ -1,5 +1,6 @@
 import { toBigIntBE } from '../bigint-buffer/index.js';
-import { poseidon2Hash, randomBoolean } from '../crypto/index.js';
+import { poseidon2Hash } from '../crypto/poseidon/index.js';
+import { randomBoolean } from '../crypto/random/index.js';
 import { BufferReader, FieldReader, serializeToBuffer } from '../serialize/index.js';
 import { Fr } from './fields.js';
 
@@ -223,6 +224,13 @@ export class Point {
   toNoirStruct() {
     /* eslint-disable camelcase */
     return { x: this.x, y: this.y, is_infinite: this.isInfinite };
+    /* eslint-enable camelcase */
+  }
+
+  // Used for IvpkM, OvpkM, NpkM and TpkM. TODO(#8124): Consider removing this method.
+  toWrappedNoirStruct() {
+    /* eslint-disable camelcase */
+    return { inner: this.toNoirStruct() };
     /* eslint-enable camelcase */
   }
 

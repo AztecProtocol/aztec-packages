@@ -2,6 +2,7 @@ import { type L2Block, type MerkleTreeId, type ProvingResult } from '@aztec/circ
 import {
   type AppendOnlyTreeSnapshot,
   type BaseOrMergeRollupPublicInputs,
+  type BlockRootOrBlockMergePublicInputs,
   type Fr,
   type GlobalVariables,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -11,7 +12,6 @@ import {
   type RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootParityInput,
-  type RootRollupPublicInputs,
   type VerificationKeyAsFields,
 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
@@ -46,8 +46,7 @@ export class ProvingState {
   private mergeRollupInputs: MergeRollupInputData[] = [];
   private rootParityInputs: Array<RootParityInput<typeof RECURSIVE_PROOF_LENGTH> | undefined> = [];
   private finalRootParityInputs: RootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
-  public rootRollupPublicInputs: RootRollupPublicInputs | undefined;
-  public finalAggregationObject: Fr[] | undefined;
+  public blockRootRollupPublicInputs: BlockRootOrBlockMergePublicInputs | undefined;
   public finalProof: Proof | undefined;
   public block: L2Block | undefined;
   private txs: TxProvingState[] = [];
@@ -143,6 +142,11 @@ export class ProvingState {
     return this.txs;
   }
 
+  /** Returns the block number as an epoch number. Used for prioritizing proof requests. */
+  public get epochNumber(): number {
+    return this.globalVariables.blockNumber.toNumber();
+  }
+
   /**
    * Stores the inputs to a merge circuit and determines if the circuit is ready to be executed
    * @param mergeInputs - The inputs to store
@@ -188,8 +192,8 @@ export class ProvingState {
     return this.mergeRollupInputs[indexOfMerge];
   }
 
-  // Returns true if we have sufficient inputs to execute the root rollup
-  public isReadyForRootRollup() {
+  // Returns true if we have sufficient inputs to execute the block root rollup
+  public isReadyForBlockRootRollup() {
     return !(
       this.mergeRollupInputs[0] === undefined ||
       this.finalRootParityInput === undefined ||

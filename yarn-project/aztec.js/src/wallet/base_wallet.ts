@@ -10,6 +10,7 @@ import {
   type OutgoingNotesFilter,
   type PXE,
   type PXEInfo,
+  type SiblingPath,
   type SimulatedTx,
   type SyncStatus,
   type Tx,
@@ -17,6 +18,7 @@ import {
   type TxExecutionRequest,
   type TxHash,
   type TxReceipt,
+  type UniqueNote,
 } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import {
@@ -24,6 +26,7 @@ import {
   type CompleteAddress,
   type Fq,
   type Fr,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,
   type Point,
 } from '@aztec/circuits.js';
@@ -55,6 +58,10 @@ export abstract class BaseWallet implements Wallet {
 
   setScopes(scopes: AztecAddress[]) {
     this.scopes = scopes;
+  }
+
+  getScopes() {
+    return this.scopes;
   }
 
   getAddress() {
@@ -108,8 +115,13 @@ export abstract class BaseWallet implements Wallet {
   proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
     return this.pxe.proveTx(txRequest, simulatePublic, this.scopes);
   }
-  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean, msgSender?: AztecAddress): Promise<SimulatedTx> {
-    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, this.scopes);
+  simulateTx(
+    txRequest: TxExecutionRequest,
+    simulatePublic: boolean,
+    msgSender?: AztecAddress,
+    skipTxValidation?: boolean,
+  ): Promise<SimulatedTx> {
+    return this.pxe.simulateTx(txRequest, simulatePublic, msgSender, skipTxValidation, this.scopes);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.pxe.sendTx(tx);
@@ -120,15 +132,11 @@ export abstract class BaseWallet implements Wallet {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.pxe.getTxReceipt(txHash);
   }
-  getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]> {
+  getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getIncomingNotes(filter);
   }
-  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]> {
+  getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
     return this.pxe.getOutgoingNotes(filter);
-  }
-  // TODO(#4956): Un-expose this
-  getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
-    return this.pxe.getNoteNonces(note);
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.pxe.getPublicStorageAt(contract, storageSlot);
@@ -203,5 +211,12 @@ export abstract class BaseWallet implements Wallet {
     ],
   ) {
     return this.pxe.getEvents(type, eventMetadata, from, limit, vpks);
+  }
+  public getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
+    return this.pxe.getL1ToL2MembershipWitness(contractAddress, messageHash, secret);
   }
 }

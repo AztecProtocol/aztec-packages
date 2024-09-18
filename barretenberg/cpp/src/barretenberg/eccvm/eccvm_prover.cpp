@@ -6,7 +6,6 @@
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_library.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
@@ -136,7 +135,7 @@ void ECCVMProver::execute_pcs_rounds()
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/768): fix IPA to avoid the need for the hack polynomial
     Polynomial hack(key->circuit_size);
     for (size_t idx = 0; idx < key->circuit_size; idx++) {
-        hack[idx] = 1;
+        hack.at(idx) = 1;
     }
     transcript->send_to_verifier("Translation:hack_commitment", commitment_key->commit(hack));
 

@@ -13,8 +13,9 @@ use crate::{
     merkle_tree::root::root_from_sibling_path,
     messaging::l2_to_l1_message::{L2ToL1Message, ScopedL2ToL1Message},
     recursion::verification_key::VerificationKey, traits::{is_empty, ToField},
-    utils::field::field_from_bytes_32_trunc, point::Point
+    utils::field::field_from_bytes_32_trunc
 };
+use super::utils::field::field_from_bytes;
 
 pub fn sha256_to_field<let N: u32>(bytes_to_hash: [u8; N]) -> Field {
     let sha256_hashed = std::hash::sha256(bytes_to_hash);
@@ -90,27 +91,26 @@ pub fn silo_nullifier(nullifier: ScopedNullifier) -> Field {
     }
 }
 
-pub fn compute_siloed_encrypted_log_hash(address: AztecAddress, randomness: Field, log_hash: Field) -> Field {
-    // TODO: Using 0 GENERATOR_INDEX here as interim before we move to posiedon
-    // NB: A unique separator will be needed for masked_contract_address
-    let mut masked_contract_address = poseidon2_hash_with_separator([address.to_field(), randomness], 0);
-    if randomness == 0 {
-        // In some cases, we actually want to reveal the contract address we are siloing with:
-        // e.g. 'handshaking' contract w/ known address
-        // An app providing randomness = 0 signals to not mask the address.
-        masked_contract_address = address.to_field();
-    }
-    accumulate_sha256([masked_contract_address, log_hash])
-}
-
-pub fn silo_encrypted_log_hash(log_hash: ScopedEncryptedLogHash) -> Field {
+pub fn silo_encrypted_log_hash(log_hash: ScopedLogHash) -> Field {
+    // We assume contract address has already been masked
     if log_hash.contract_address.is_zero() {
         0
     } else {
-        compute_siloed_encrypted_log_hash(
-            log_hash.contract_address,
-            log_hash.log_hash.randomness,
-            log_hash.log_hash.value
+        accumulate_sha256([log_hash.contract_address.to_field(), log_hash.log_hash.value])
+    }
+}
+
+pub fn mask_encrypted_log_hash(scoped_log: ScopedEncryptedLogHash) -> AztecAddress {
+    if scoped_log.contract_address.is_zero() {
+        AztecAddress::from_field(0)
+    } else if (scoped_log.log_hash.randomness == 0) {
+        scoped_log.contract_address
+    } else {
+        AztecAddress::from_field(
+            poseidon2_hash_with_separator(
+                [scoped_log.contract_address.to_field(), scoped_log.log_hash.randomness],
+                0
+            )
         )
     }
 }
@@ -151,7 +151,7 @@ pub fn compute_l2_to_l1_hash(
     let inputs = [contract_address.to_field(), rollup_version_id, recipient.to_field(), chain_id, content];
     for i in 0..inputs.len() {
         // TODO are bytes be in fr.to_buffer() ?
-        let item_bytes = inputs[i].to_be_bytes(32);
+        let item_bytes: [u8; 32] = inputs[i].to_be_bytes();
         for j in 0..32 {
             bytes.push(item_bytes[j]);
         }
@@ -196,7 +196,7 @@ pub fn accumulate_sha256(input: [Field; 2]) -> Field {
     // accumulate_sha256 assumes that the inputs are pre-truncated 31 byte numbers
     let mut hash_input_flattened = [0; 64];
     for offset in 0..input.len() {
-        let input_as_bytes = input[offset].to_be_bytes(32);
+        let input_as_bytes: [u8; 32] = input[offset].to_be_bytes();
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
@@ -212,7 +212,7 @@ pub fn compute_tx_logs_hash(logs: [LogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_ENCRYPTED_LOGS_PER_TX * 32];
     for offset in 0..MAX_ENCRYPTED_LOGS_PER_TX {
-        let input_as_bytes = logs[offset].value.to_be_bytes(32);
+        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_bytes();
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
@@ -233,7 +233,7 @@ pub fn compute_tx_note_logs_hash(logs: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX]
     // Convert each field element into a byte array and append the bytes to `hash_input_flattened`
     let mut hash_input_flattened = [0; MAX_NOTE_ENCRYPTED_LOGS_PER_TX * 32];
     for offset in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
-        let input_as_bytes = logs[offset].value.to_be_bytes(32);
+        let input_as_bytes: [u8; 32] = logs[offset].value.to_be_bytes();
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }
@@ -277,8 +277,48 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(
     sponge.squeeze()
 }
 
-pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
-    std::hash::pedersen_commitment_with_separator(inputs, hash_index)
+pub fn poseidon2_hash_with_separator_slice<T>(inputs: [Field], separator: T) -> Field where T: ToField {
+    let in_len = inputs.len() + 1;
+    let two_pow_64 = 18446744073709551616;
+    let iv : Field = (in_len as Field) * two_pow_64;
+    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
+    sponge.absorb(separator.to_field());
+
+    for i in 0..inputs.len() {
+        sponge.absorb(inputs[i]);
+    }
+
+    sponge.squeeze()
+}
+
+#[no_predicates]
+pub fn poseidon2_hash_bytes<let N: u32>(inputs: [u8; N]) -> Field {
+    // We manually hash the inputs here, since we cannot express with the type system a constant size inputs array of Math.ceil(N/31)
+    let mut in_len = N / 31;
+    let mut has_padding = false;
+    if N % 31 != 0 {
+        in_len += 1;
+        has_padding = true;
+    }
+
+    let two_pow_64 = 18446744073709551616;
+    let iv : Field = (in_len as Field) * two_pow_64;
+    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
+
+    let mut current_field = [0; 31];
+    for i in 0..inputs.len() {
+        let index = i % 31;
+        current_field[index] = inputs[i];
+        if index == 30 {
+            sponge.absorb(field_from_bytes(current_field, false));
+            current_field = [0; 31];
+        }
+    }
+    if has_padding {
+        sponge.absorb(field_from_bytes(current_field, false));
+    }
+
+    sponge.squeeze()
 }
 
 #[test]

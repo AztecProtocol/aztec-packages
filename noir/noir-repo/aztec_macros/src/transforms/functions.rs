@@ -1,6 +1,6 @@
 use convert_case::{Case, Casing};
 use noirc_errors::Span;
-use noirc_frontend::ast::{self, FunctionKind};
+use noirc_frontend::ast::{self, Documented, FunctionKind};
 use noirc_frontend::ast::{
     BlockExpression, ConstrainKind, ConstrainStatement, Expression, ExpressionKind,
     ForLoopStatement, ForRange, FunctionReturnType, Ident, Literal, NoirFunction, NoirStruct,
@@ -131,7 +131,7 @@ pub fn transform_function(
 // Generates a global struct containing the original (before transform_function gets executed) function abi that gets exported
 // in the contract artifact after compilation. The abi will be later used to decode the function return values in the simulator.
 pub fn export_fn_abi(
-    types: &mut Vec<NoirStruct>,
+    types: &mut Vec<Documented<NoirStruct>>,
     func: &NoirFunction,
     empty_spans: bool,
 ) -> Result<(), AztecMacroError> {
@@ -267,7 +267,7 @@ fn create_inputs(ty: &str) -> Param {
     let path_snippet = ty.to_case(Case::Snake); // e.g. private_context_inputs
     let type_path = chained_dep!("aztec", "context", "inputs", &path_snippet, ty);
 
-    let context_type = make_type(UnresolvedTypeData::Named(type_path, vec![], true));
+    let context_type = make_type(UnresolvedTypeData::Named(type_path, Default::default(), true));
     let visibility = Visibility::Private;
 
     Param { pattern: context_pattern, typ: context_type, visibility, span: Span::default() }
@@ -396,7 +396,7 @@ fn serialize_to_hasher(
                         Signedness::Unsigned,
                         ast::IntegerBitSize::ThirtyTwo,
                     ),
-                    span: None,
+                    span: Span::default(),
                 },
                 hasher_name,
             ))
@@ -595,7 +595,7 @@ fn abstract_return_values(func: &NoirFunction) -> Result<Option<Vec<Statement>>,
                 serialize_to_hasher(&ident(return_value_name), &current_return_type, hasher_name)
                     .ok_or_else(|| AztecMacroError::UnsupportedFunctionReturnType {
                     typ: current_return_type.clone(),
-                    span: func.return_type().span.unwrap_or_default(),
+                    span: func.return_type().span,
                 })?;
 
             replacement_statements.extend(serialization_statements);

@@ -6,8 +6,9 @@
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/goblin/types.hpp"
-#include "barretenberg/plonk_honk_shared/instance_inspector.hpp"
-#include "barretenberg/stdlib/honk_recursion/verifier/merge_recursive_verifier.hpp"
+#include "barretenberg/plonk_honk_shared/proving_key_inspector.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/stdlib/goblin_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
@@ -29,7 +30,7 @@ class GoblinProver {
     using Builder = MegaCircuitBuilder;
     using Fr = bb::fr;
     using Transcript = NativeTranscript;
-    using MegaProverInstance = ProverInstance_<MegaFlavor>;
+    using MegaDeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
     using OpQueue = bb::ECCOpQueue;
     using ECCVMFlavor = bb::ECCVMFlavor;
     using ECCVMBuilder = bb::ECCVMCircuitBuilder;
@@ -40,8 +41,10 @@ class GoblinProver {
     using TranslatorProver = bb::TranslatorProver;
     using TranslatorProvingKey = bb::TranslatorFlavor::ProvingKey;
     using RecursiveMergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaCircuitBuilder>;
+    using PairingPoints = RecursiveMergeVerifier::PairingPoints;
     using MergeProver = bb::MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
+    using MergeProof = std::vector<FF>;
     /**
      * @brief Output of goblin::accumulate; an Ultra proof and the corresponding verification key
      *
@@ -49,7 +52,7 @@ class GoblinProver {
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
 
-    HonkProof merge_proof;
+    MergeProof merge_proof;
     GoblinProof goblin_proof;
 
     // on the first call to accumulate there is no merge proof to verify
@@ -89,10 +92,10 @@ class GoblinProver {
         }
 
         // Construct a Honk proof for the main circuit
-        auto instance = std::make_shared<MegaProverInstance>(circuit_builder);
-        MegaProver prover(instance);
+        auto proving_key = std::make_shared<MegaDeciderProvingKey>(circuit_builder);
+        MegaProver prover(proving_key);
         auto ultra_proof = prover.construct_proof();
-        auto verification_key = std::make_shared<VerificationKey>(instance->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
 
         // Construct and store the merge proof to be recursively verified on the next call to accumulate
         MergeProver merge_prover{ circuit_builder.op_queue };
@@ -115,29 +118,51 @@ class GoblinProver {
      */
     void merge(MegaCircuitBuilder& circuit_builder)
     {
-        BB_OP_COUNT_TIME_NAME("Goblin::merge");
-        // Complete the circuit logic by recursively verifying previous merge proof if it exists
+        // Append a recursive merge verification of the merge proof
         if (merge_proof_exists) {
-            RecursiveMergeVerifier merge_verifier{ &circuit_builder };
-            [[maybe_unused]] auto pairing_points = merge_verifier.verify_proof(merge_proof);
+            [[maybe_unused]] auto pairing_points = verify_merge(circuit_builder, merge_proof);
         }
 
+        // Construct a merge proof for the present circuit
+        merge_proof = prove_merge(circuit_builder);
+    };
+
+    /**
+     * @brief Append recursive verification of a merge proof to a provided circuit
+     *
+     * @param circuit_builder
+     * @return PairingPoints
+     */
+    PairingPoints verify_merge(MegaCircuitBuilder& circuit_builder, MergeProof& proof) const
+    {
+        BB_OP_COUNT_TIME_NAME("Goblin::merge");
+        RecursiveMergeVerifier merge_verifier{ &circuit_builder };
+        return merge_verifier.verify_proof(proof);
+    };
+
+    /**
+     * @brief Construct a merge proof for the goblin ECC ops in the provided circuit
+     *
+     * @param circuit_builder
+     */
+    MergeProof prove_merge(MegaCircuitBuilder& circuit_builder)
+    {
+        BB_OP_COUNT_TIME_NAME("Goblin::merge");
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/993): Some circuits (particularly on the first call
         // to accumulate) may not have any goblin ecc ops prior to the call to merge(), so the commitment to the new
         // contribution (C_t_shift) in the merge prover will be the point at infinity. (Note: Some dummy ops are added
-        // in 'add_gates_to_ensure...' but not until instance construction which comes later). See issue for ideas about
-        // how to resolve.
+        // in 'add_gates_to_ensure...' but not until proving_key construction which comes later). See issue for ideas
+        // about how to resolve.
         if (circuit_builder.blocks.ecc_op.size() == 0) {
             MockCircuits::construct_goblin_ecc_op_circuit(circuit_builder); // Add some arbitrary goblin ECC ops
         }
 
-        // Construct and store the merge proof to be recursively verified on the next call to accumulate
-        MergeProver merge_prover{ circuit_builder.op_queue };
-        merge_proof = merge_prover.construct_proof();
-
         if (!merge_proof_exists) {
             merge_proof_exists = true;
         }
+
+        MergeProver merge_prover{ circuit_builder.op_queue };
+        return merge_prover.construct_proof();
     };
 
     /**
@@ -171,11 +196,18 @@ class GoblinProver {
      *
      * @return Proof
      */
-    GoblinProof prove()
+    GoblinProof prove(MergeProof merge_proof_in = {})
     {
-        goblin_proof.merge_proof = std::move(merge_proof);
-        prove_eccvm();
-        prove_translator();
+        ZoneScopedN("Goblin::prove");
+        goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
+        {
+            ZoneScopedN("prove_eccvm");
+            prove_eccvm();
+        }
+        {
+            ZoneScopedN("prove_translator");
+            prove_translator();
+        }
         return goblin_proof;
     };
 };

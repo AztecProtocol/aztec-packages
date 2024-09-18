@@ -15,7 +15,11 @@ struct CallContext {
 
 impl Eq for CallContext {
     fn eq(self, other: CallContext) -> bool {
-        self.serialize() == other.serialize()
+        (self.msg_sender == other.msg_sender)
+            & (self.storage_contract_address == other.storage_contract_address)
+            & (self.function_selector == other.function_selector)
+            & (self.is_delegate_call == other.is_delegate_call)
+            & (self.is_static_call == other.is_static_call)
     }
 }
 
@@ -28,7 +32,7 @@ impl Serialize<CALL_CONTEXT_LENGTH> for CallContext {
         serialized.push(self.function_selector.to_field());
         serialized.push(self.is_delegate_call as Field);
         serialized.push(self.is_static_call as Field);
-    
+
         serialized.storage
     }
 }
@@ -41,7 +45,7 @@ impl Deserialize<CALL_CONTEXT_LENGTH> for CallContext {
             storage_contract_address: AztecAddress::from_field(reader.read()),
             function_selector: FunctionSelector::from_field(reader.read()),
             is_delegate_call: reader.read() as bool,
-            is_static_call: reader.read() as bool,
+            is_static_call: reader.read() as bool
         }
     }
 }
@@ -53,7 +57,7 @@ impl Empty for CallContext {
             storage_contract_address: AztecAddress::empty(),
             function_selector: FunctionSelector::empty(),
             is_delegate_call: false,
-            is_static_call: false,
+            is_static_call: false
         }
     }
 }

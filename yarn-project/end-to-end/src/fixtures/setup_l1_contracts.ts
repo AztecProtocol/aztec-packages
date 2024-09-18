@@ -1,7 +1,5 @@
 import { type DebugLogger, type L1ContractArtifactsForDeployment, deployL1Contracts } from '@aztec/aztec.js';
 import {
-  AvailabilityOracleAbi,
-  AvailabilityOracleBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
   InboxAbi,
@@ -41,10 +39,6 @@ export const setupL1Contracts = async (
       contractAbi: OutboxAbi,
       contractBytecode: OutboxBytecode,
     },
-    availabilityOracle: {
-      contractAbi: AvailabilityOracleAbi,
-      contractBytecode: AvailabilityOracleBytecode,
-    },
     rollup: {
       contractAbi: RollupAbi,
       contractBytecode: RollupBytecode,
@@ -62,6 +56,7 @@ export const setupL1Contracts = async (
   const l1Data = await deployL1Contracts(l1RpcUrl, account, foundry, logger, l1Artifacts, {
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
+    salt: undefined,
   });
 
   return l1Data;

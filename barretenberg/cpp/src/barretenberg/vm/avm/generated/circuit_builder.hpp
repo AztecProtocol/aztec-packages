@@ -3,8 +3,6 @@
 
 #include <vector>
 
-#include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
-
 #include "barretenberg/vm/avm/generated/flavor.hpp"
 #include "barretenberg/vm/avm/generated/full_row.hpp"
 
@@ -20,8 +18,6 @@ class AvmCircuitBuilder {
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
-    static constexpr size_t num_fixed_columns = 703;
-    static constexpr size_t num_polys = 703 + 74;
     std::vector<Row> rows;
 
     void set_trace(std::vector<Row>&& trace) { rows = std::move(trace); }

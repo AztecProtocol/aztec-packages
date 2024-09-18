@@ -10,6 +10,7 @@ use crate::graph::CrateId;
 use crate::hir::def_map::LocalModuleId;
 use crate::macros_api::{BlockExpression, StructId};
 use crate::node_interner::{ExprId, NodeInterner, TraitId, TraitImplId};
+use crate::token::CustomAttribute;
 use crate::{ResolvedGeneric, Type};
 
 /// A Hir function is a block expression with a list of statements.
@@ -164,6 +165,9 @@ pub struct FuncMeta {
     /// If this function is from an impl (trait or regular impl), this
     /// is the object type of the impl. Otherwise this is None.
     pub self_type: Option<Type>,
+
+    /// Custom attributes attached to this function.
+    pub custom_attributes: Vec<CustomAttribute>,
 }
 
 #[derive(Debug, Clone)]
@@ -194,9 +198,9 @@ impl FuncMeta {
     /// Gives the (uninstantiated) return type of this function.
     pub fn return_type(&self) -> &Type {
         match &self.typ {
-            Type::Function(_, ret, _env) => ret,
+            Type::Function(_, ret, _env, _unconstrained) => ret,
             Type::Forall(_, typ) => match typ.as_ref() {
-                Type::Function(_, ret, _env) => ret,
+                Type::Function(_, ret, _env, _unconstrained) => ret,
                 _ => unreachable!(),
             },
             _ => unreachable!(),

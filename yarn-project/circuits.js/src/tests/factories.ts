@@ -24,8 +24,6 @@ import {
   BaseParityInputs,
   BaseRollupInputs,
   CallContext,
-  ClientIvcProof,
-  CombineHints,
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantRollupData,
@@ -39,12 +37,14 @@ import {
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_TREE_HEIGHT,
   L2ToL1Message,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_CALL,
   MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_CALL,
   MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
+  MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_CALL,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_ENCRYPTED_LOGS_PER_CALL,
@@ -75,6 +75,7 @@ import {
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
+  NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -107,7 +108,6 @@ import {
   PublicCircuitPublicInputs,
   PublicDataHint,
   PublicDataRead,
-  PublicDataReadRequestHintsBuilder,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
@@ -146,9 +146,23 @@ import { GasFees } from '../structs/gas_fees.js';
 import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
-import { PublicValidationRequests, ScopedL2ToL1Message, ScopedNoteHash } from '../structs/index.js';
+import {
+  PublicDataLeafHint,
+  PublicValidationRequests,
+  ScopedL2ToL1Message,
+  ScopedNoteHash,
+  TreeLeafReadRequest,
+  TreeLeafReadRequestHint,
+} from '../structs/index.js';
 import { KernelCircuitPublicInputs } from '../structs/kernel/kernel_circuit_public_inputs.js';
 import { KernelData } from '../structs/kernel/kernel_data.js';
+import { BlockMergeRollupInputs } from '../structs/rollup/block_merge_rollup.js';
+import {
+  BlockRootOrBlockMergePublicInputs,
+  FeeRecipient,
+} from '../structs/rollup/block_root_or_block_merge_public_inputs.js';
+import { BlockRootRollupInputs } from '../structs/rollup/block_root_rollup.js';
+import { PreviousRollupBlockData } from '../structs/rollup/previous_rollup_block_data.js';
 import { RollupValidationRequests } from '../structs/rollup_validation_requests.js';
 
 /**
@@ -232,6 +246,14 @@ function makeScopedReadRequest(n: number): ScopedReadRequest {
   return new ScopedReadRequest(makeReadRequest(n), AztecAddress.fromBigInt(BigInt(n + 2)));
 }
 
+function makeTreeLeafReadRequest(seed: number) {
+  return new TreeLeafReadRequest(new Fr(seed), new Fr(seed + 1));
+}
+
+function makeTreeLeafReadRequestHint<N extends number>(seed: number, size: N) {
+  return new TreeLeafReadRequestHint(size, makeSiblingPath(seed, size));
+}
+
 /**
  * Creates arbitrary KeyValidationRequest from the given seed.
  * @param seed - The seed to use for generating the KeyValidationRequest.
@@ -273,7 +295,7 @@ export function makeEmptyPublicDataUpdateRequest(): PublicDataUpdateRequest {
  * @returns A public data read.
  */
 export function makePublicDataRead(seed = 1): PublicDataRead {
-  return new PublicDataRead(fr(seed), fr(seed + 1));
+  return new PublicDataRead(fr(seed), fr(seed + 1), 0);
 }
 
 /**
@@ -281,7 +303,7 @@ export function makePublicDataRead(seed = 1): PublicDataRead {
  * @returns An empty public data read.
  */
 export function makeEmptyPublicDataRead(): PublicDataRead {
-  return new PublicDataRead(fr(0), fr(0));
+  return new PublicDataRead(fr(0), fr(0), 0);
 }
 
 /**
@@ -305,8 +327,10 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 function makePublicValidationRequests(seed = 1) {
   return new PublicValidationRequests(
     makeRollupValidationRequests(seed),
-    makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
+    makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, makeTreeLeafReadRequest, seed + 0x10),
+    makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x80),
     makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, makeScopedReadRequest, seed + 0x95),
+    makeTuple(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, makeTreeLeafReadRequest, seed + 0x100),
     makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
   );
 }
@@ -336,8 +360,8 @@ export function makeCombinedAccumulatedData(seed = 1, full = false): CombinedAcc
     tupleGenerator(MAX_NOTE_HASHES_PER_TX, fr, seed + 0x120, Fr.zero),
     tupleGenerator(MAX_NULLIFIERS_PER_TX, fr, seed + 0x200, Fr.zero),
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
-    fr(seed + 0x700), // note encrypted logs hash
-    fr(seed + 0x800), // encrypted logs hash
+    tupleGenerator(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x700, LogHash.empty),
+    tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x800, ScopedLogHash.empty),
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs
     fr(seed + 0xa00), // note_encrypted_log_preimages_length
     fr(seed + 0xb00), // encrypted_log_preimages_length
@@ -369,7 +393,7 @@ function makePublicAccumulatedData(seed = 1, full = false): PublicAccumulatedDat
     tupleGenerator(MAX_NULLIFIERS_PER_TX, makeNullifier, seed + 0x200, Nullifier.empty),
     tupleGenerator(MAX_L2_TO_L1_MSGS_PER_TX, makeScopedL2ToL1Message, seed + 0x600, ScopedL2ToL1Message.empty),
     tupleGenerator(MAX_NOTE_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x700, LogHash.empty), // note encrypted logs hashes
-    tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeLogHash, seed + 0x800, LogHash.empty), // encrypted logs hashes
+    tupleGenerator(MAX_ENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x800, ScopedLogHash.empty), // encrypted logs hashes
     tupleGenerator(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x900, ScopedLogHash.empty), // unencrypted logs hashes
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -416,10 +440,20 @@ export function makePublicCircuitPublicInputs(
     makeCallContext(seed, { storageContractAddress: storageContractAddress ?? makeAztecAddress(seed) }),
     fr(seed + 0x100),
     fr(seed + 0x200),
-    tupleGenerator(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x300, ReadRequest.empty),
+    tupleGenerator(
+      MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
+      makeTreeLeafReadRequest,
+      seed + 0x300,
+      TreeLeafReadRequest.empty,
+    ),
     tupleGenerator(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x400, ReadRequest.empty),
     tupleGenerator(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x420, ReadRequest.empty),
-    tupleGenerator(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, makeReadRequest, seed + 0x440, ReadRequest.empty),
+    tupleGenerator(
+      MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL,
+      makeTreeLeafReadRequest,
+      seed + 0x440,
+      TreeLeafReadRequest.empty,
+    ),
     tupleGenerator(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       makeContractStorageUpdateRequest,
@@ -513,6 +547,10 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
   );
 }
 
+function makeSiblingPath<N extends number>(seed: number, size: N) {
+  return makeTuple(size, fr, seed);
+}
+
 /**
  * Creates arbitrary/mocked membership witness where the sibling paths is an array of fields in an ascending order starting from `start`.
  * @param size - The size of the membership witness.
@@ -520,7 +558,7 @@ export function makeKernelCircuitPublicInputs(seed = 1, fullAccumulatedData = tr
  * @returns A membership witness.
  */
 export function makeMembershipWitness<N extends number>(size: N, start: number): MembershipWitness<N> {
-  return new MembershipWitness(size, BigInt(start), makeTuple(size, fr, start));
+  return new MembershipWitness(size, BigInt(start), makeSiblingPath(start, size));
 }
 
 /**
@@ -660,32 +698,7 @@ export function makePublicCallData(seed = 1, full = false): PublicCallData {
  * @returns Public kernel inputs.
  */
 export function makePublicKernelCircuitPrivateInputs(seed = 1): PublicKernelCircuitPrivateInputs {
-  return new PublicKernelCircuitPrivateInputs(
-    makePublicKernelData(seed),
-    ClientIvcProof.empty(),
-    makePublicCallData(seed + 0x1000),
-  );
-}
-
-export function makeCombineHints(seed = 1): CombineHints {
-  return CombineHints.from({
-    sortedNoteHashes: makeTuple(MAX_NOTE_HASHES_PER_TX, makeScopedNoteHash, seed + 0x100),
-    sortedNoteHashesIndexes: makeTuple(MAX_NOTE_HASHES_PER_TX, i => i, seed + 0x200),
-    sortedUnencryptedLogsHashes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, makeScopedLogHash, seed + 0x300),
-    sortedUnencryptedLogsHashesIndexes: makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, i => i, seed + 0x400),
-    sortedPublicDataUpdateRequests: makeTuple(
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      makePublicDataUpdateRequest,
-      seed + 0x300,
-    ),
-    sortedPublicDataUpdateRequestsIndexes: makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, seed + 0x400),
-    dedupedPublicDataUpdateRequests: makeTuple(
-      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-      makePublicDataUpdateRequest,
-      seed + 0x500,
-    ),
-    dedupedPublicDataUpdateRequestsRuns: makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, i => i, seed + 0x600),
-  });
+  return new PublicKernelCircuitPrivateInputs(makePublicKernelData(seed), makePublicCallData(seed + 0x1000));
 }
 
 /**
@@ -696,12 +709,20 @@ export function makeCombineHints(seed = 1): CombineHints {
 export function makePublicKernelTailCircuitPrivateInputs(seed = 1): PublicKernelTailCircuitPrivateInputs {
   return new PublicKernelTailCircuitPrivateInputs(
     makePublicKernelData(seed),
+    makeTuple(
+      MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+      s => makeTreeLeafReadRequestHint(s, NOTE_HASH_TREE_HEIGHT),
+      seed + 0x20,
+    ),
     NullifierReadRequestHintsBuilder.empty(MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX),
     NullifierNonExistentReadRequestHintsBuilder.empty(),
-    makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataHint.empty, seed + 0x100),
-    PublicDataReadRequestHintsBuilder.empty(),
+    makeTuple(
+      MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX,
+      s => makeTreeLeafReadRequestHint(s, L1_TO_L2_MSG_TREE_HEIGHT),
+      seed + 0x80,
+    ),
+    makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataLeafHint.empty),
     makePartialStateReference(seed + 0x200),
-    makeCombineHints(seed + 0x300),
   );
 }
 
@@ -787,6 +808,10 @@ export function makeGlobalVariables(
 
 export function makeGasFees(seed = 1) {
   return new GasFees(fr(seed), fr(seed + 1));
+}
+
+export function makeFeeRecipient(seed = 1) {
+  return new FeeRecipient(EthAddress.fromField(fr(seed)), fr(seed + 1));
 }
 
 /**
@@ -879,6 +904,30 @@ export function makeBaseOrMergeRollupPublicInputs(
 }
 
 /**
+ * Makes arbitrary block merge or block root rollup circuit public inputs.
+ * @param seed - The seed to use for generating the block merge or block root rollup circuit public inputs.
+ * @param blockNumber - The block number to use for generating the block merge or block root rollup circuit public inputs.
+ * @returns A block merge or block root rollup circuit public inputs.
+ */
+export function makeBlockRootOrBlockMergeRollupPublicInputs(
+  seed = 0,
+  globalVariables: GlobalVariables | undefined = undefined,
+): BlockRootOrBlockMergePublicInputs {
+  return new BlockRootOrBlockMergePublicInputs(
+    makeAppendOnlyTreeSnapshot(seed + 0x200),
+    makeAppendOnlyTreeSnapshot(seed + 0x300),
+    fr(seed + 0x400),
+    fr(seed + 0x500),
+    globalVariables ?? makeGlobalVariables(seed + 0x501),
+    globalVariables ?? makeGlobalVariables(seed + 0x502),
+    fr(seed + 0x600),
+    makeTuple(32, () => makeFeeRecipient(seed), 0x700),
+    fr(seed + 0x800),
+    fr(seed + 0x900),
+  );
+}
+
+/**
  * Makes arbitrary previous rollup data.
  * @param seed - The seed to use for generating the previous rollup data.
  * @param globalVariables - The global variables to use when generating the previous rollup data.
@@ -897,21 +946,53 @@ export function makePreviousRollupData(
 }
 
 /**
+ * Makes arbitrary previous rollup block data.
+ * @param seed - The seed to use for generating the previous rollup block data.
+ * @param globalVariables - The global variables to use when generating the previous rollup block data.
+ * @returns A previous rollup block data.
+ */
+export function makePreviousRollupBlockData(
+  seed = 0,
+  globalVariables: GlobalVariables | undefined = undefined,
+): PreviousRollupBlockData {
+  return new PreviousRollupBlockData(
+    makeBlockRootOrBlockMergeRollupPublicInputs(seed, globalVariables),
+    makeRecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x50),
+    VerificationKeyAsFields.makeFake(),
+    makeMembershipWitness(VK_TREE_HEIGHT, seed + 0x120),
+  );
+}
+
+/**
  * Makes root rollup inputs.
  * @param seed - The seed to use for generating the root rollup inputs.
- * @param blockNumber - The block number to use for generating the root rollup inputs.
+ * @param globalVariables - The global variables to use.
  * @returns A root rollup inputs.
  */
 export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): RootRollupInputs {
   return new RootRollupInputs(
+    [makePreviousRollupBlockData(seed, globalVariables), makePreviousRollupBlockData(seed + 0x1000, globalVariables)],
+    fr(seed + 0x2000),
+  );
+}
+
+/**
+ * Makes block root rollup inputs.
+ * @param seed - The seed to use for generating the root rollup inputs.
+ * @param globalVariables - The global variables to use.
+ * @returns A block root rollup inputs.
+ */
+export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): BlockRootRollupInputs {
+  return new BlockRootRollupInputs(
     [makePreviousRollupData(seed, globalVariables), makePreviousRollupData(seed + 0x1000, globalVariables)],
     makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
     makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100),
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeTuple(ARCHIVE_HEIGHT, fr, 0x2400),
-    fr(0x2500),
+    makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
+    fr(seed + 0x2400),
+    fr(seed + 0x2500),
   );
 }
 
@@ -955,17 +1036,19 @@ export function makeRootParityInputs(seed = 0): RootParityInputs {
  * @param blockNumber - The block number to use in the global variables of a header.
  * @returns A root rollup public inputs.
  */
-export function makeRootRollupPublicInputs(
-  seed = 0,
-  blockNumber: number | undefined = undefined,
-  slotNumber: number | undefined = undefined,
-): RootRollupPublicInputs {
-  return RootRollupPublicInputs.from({
-    archive: makeAppendOnlyTreeSnapshot(seed + 0x100),
-    header: makeHeader(seed + 0x200, blockNumber, slotNumber),
-    vkTreeRoot: fr(seed + 0x300),
-    proverId: fr(seed + 0x400),
-  });
+export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
+  return new RootRollupPublicInputs(
+    makeAppendOnlyTreeSnapshot(seed + 0x200),
+    makeAppendOnlyTreeSnapshot(seed + 0x300),
+    fr(seed + 0x400),
+    fr(seed + 0x500),
+    fr(seed + 0x600),
+    fr(seed + 0x700),
+    fr(seed + 0x800),
+    makeTuple(32, () => makeFeeRecipient(seed), 0x900),
+    fr(seed + 0x100),
+    fr(seed + 0x200),
+  );
 }
 
 /**
@@ -1039,6 +1122,15 @@ export function makePartialStateReference(seed = 0): PartialStateReference {
  */
 export function makeMergeRollupInputs(seed = 0): MergeRollupInputs {
   return new MergeRollupInputs([makePreviousRollupData(seed), makePreviousRollupData(seed + 0x1000)]);
+}
+
+/**
+ * Makes arbitrary block merge rollup inputs.
+ * @param seed - The seed to use for generating the merge rollup inputs.
+ * @returns A block merge rollup inputs.
+ */
+export function makeBlockMergeRollupInputs(seed = 0): BlockMergeRollupInputs {
+  return new BlockMergeRollupInputs([makePreviousRollupBlockData(seed), makePreviousRollupBlockData(seed + 0x1000)]);
 }
 
 /**

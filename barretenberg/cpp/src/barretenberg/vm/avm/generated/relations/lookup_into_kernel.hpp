@@ -21,7 +21,7 @@ class lookup_into_kernel_lookup_settings {
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in.main_sel_q_kernel_lookup == 1 || in.kernel_q_public_input_kernel_add_to_table == 1);
+        return (in.main_sel_q_kernel_lookup == 1 || in.main_sel_kernel_inputs == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
@@ -29,31 +29,31 @@ class lookup_into_kernel_lookup_settings {
     {
         using View = typename Accumulator::View;
         const auto is_operation = View(in.main_sel_q_kernel_lookup);
-        const auto is_table_entry = View(in.kernel_q_public_input_kernel_add_to_table);
+        const auto is_table_entry = View(in.main_sel_kernel_inputs);
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.lookup_into_kernel,
+        return std::forward_as_tuple(in.lookup_into_kernel_inv,
                                      in.lookup_into_kernel_counts,
                                      in.main_sel_q_kernel_lookup,
-                                     in.kernel_q_public_input_kernel_add_to_table,
+                                     in.main_sel_kernel_inputs,
                                      in.main_ia,
-                                     in.kernel_kernel_in_offset,
-                                     in.kernel_kernel_inputs,
+                                     in.main_kernel_in_offset,
+                                     in.main_kernel_inputs,
                                      in.main_clk);
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.lookup_into_kernel,
+        return std::forward_as_tuple(in.lookup_into_kernel_inv,
                                      in.lookup_into_kernel_counts,
                                      in.main_sel_q_kernel_lookup,
-                                     in.kernel_q_public_input_kernel_add_to_table,
+                                     in.main_sel_kernel_inputs,
                                      in.main_ia,
-                                     in.kernel_kernel_in_offset,
-                                     in.kernel_kernel_inputs,
+                                     in.main_kernel_in_offset,
+                                     in.main_kernel_inputs,
                                      in.main_clk);
     }
 };

@@ -7,14 +7,14 @@ use crate::ast::{
 };
 use crate::hir::def_collector::errors::DefCollectorErrorKind;
 use crate::macros_api::StructId;
-use crate::node_interner::ExprId;
-use crate::token::{Attributes, Token, Tokens};
+use crate::node_interner::{ExprId, InternedExpressionKind, InternedStatementKind, QuotedTypeId};
+use crate::token::{Attributes, FunctionAttribute, Token, Tokens};
 use crate::{Kind, Type};
 use acvm::{acir::AcirField, FieldElement};
 use iter_extended::vecmap;
 use noirc_errors::{Span, Spanned};
 
-use super::UnaryRhsMemberAccess;
+use super::{AsTraitPath, UnaryRhsMemberAccess};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum ExpressionKind {
@@ -36,11 +36,22 @@ pub enum ExpressionKind {
     Quote(Tokens),
     Unquote(Box<Expression>),
     Comptime(BlockExpression, Span),
+    Unsafe(BlockExpression, Span),
+    AsTraitPath(AsTraitPath),
 
     // This variant is only emitted when inlining the result of comptime
     // code. It is used to translate function values back into the AST while
     // guaranteeing they have the same instantiated type and definition id without resolving again.
     Resolved(ExprId),
+
+    // This is an interned ExpressionKind during comptime code.
+    // The actual ExpressionKind can be retrieved with a NodeInterner.
+    Interned(InternedExpressionKind),
+
+    /// Interned statements are allowed to be parsed as expressions in case they resolve
+    /// to an StatementKind::Expression or StatementKind::Semi.
+    InternedStatement(InternedStatementKind),
+
     Error,
 }
 
@@ -51,16 +62,24 @@ pub type UnresolvedGenerics = Vec<UnresolvedGeneric>;
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub enum UnresolvedGeneric {
     Variable(Ident),
-    Numeric { ident: Ident, typ: UnresolvedType },
+    Numeric {
+        ident: Ident,
+        typ: UnresolvedType,
+    },
+
+    /// Already-resolved generics can be parsed as generics when a macro
+    /// splices existing types into a generic list. In this case we have
+    /// to validate the type refers to a named generic and treat that
+    /// as a ResolvedGeneric when this is resolved.
+    Resolved(QuotedTypeId, Span),
 }
 
 impl UnresolvedGeneric {
     pub fn span(&self) -> Span {
         match self {
             UnresolvedGeneric::Variable(ident) => ident.0.span(),
-            UnresolvedGeneric::Numeric { ident, typ } => {
-                ident.0.span().merge(typ.span.unwrap_or_default())
-            }
+            UnresolvedGeneric::Numeric { ident, typ } => ident.0.span().merge(typ.span),
+            UnresolvedGeneric::Resolved(_, span) => *span,
         }
     }
 
@@ -70,6 +89,9 @@ impl UnresolvedGeneric {
             UnresolvedGeneric::Numeric { typ, .. } => {
                 let typ = self.resolve_numeric_kind_type(typ)?;
                 Ok(Kind::Numeric(Box::new(typ)))
+            }
+            UnresolvedGeneric::Resolved(..) => {
+                panic!("Don't know the kind of a resolved generic here")
             }
         }
     }
@@ -94,6 +116,7 @@ impl UnresolvedGeneric {
     pub(crate) fn ident(&self) -> &Ident {
         match self {
             UnresolvedGeneric::Variable(ident) | UnresolvedGeneric::Numeric { ident, .. } => ident,
+            UnresolvedGeneric::Resolved(..) => panic!("UnresolvedGeneric::Resolved no ident"),
         }
     }
 }
@@ -103,6 +126,7 @@ impl Display for UnresolvedGeneric {
         match self {
             UnresolvedGeneric::Variable(ident) => write!(f, "{ident}"),
             UnresolvedGeneric::Numeric { ident, typ } => write!(f, "let {ident}: {typ}"),
+            UnresolvedGeneric::Resolved(..) => write!(f, "(resolved)"),
         }
     }
 }
@@ -180,9 +204,11 @@ impl ExpressionKind {
         ExpressionKind::Literal(Literal::FmtStr(contents))
     }
 
-    pub fn constructor((type_name, fields): (Path, Vec<(Ident, Expression)>)) -> ExpressionKind {
+    pub fn constructor(
+        (typ, fields): (UnresolvedType, Vec<(Ident, Expression)>),
+    ) -> ExpressionKind {
         ExpressionKind::Constructor(Box::new(ConstructorExpression {
-            type_name,
+            typ,
             fields,
             struct_type: None,
         }))
@@ -461,6 +487,20 @@ pub struct FunctionDefinition {
     pub return_visibility: Visibility,
 }
 
+impl FunctionDefinition {
+    pub fn is_private(&self) -> bool {
+        self.visibility == ItemVisibility::Private
+    }
+
+    pub fn is_test(&self) -> bool {
+        if let Some(attribute) = &self.attributes.function {
+            matches!(attribute, FunctionAttribute::Test(..))
+        } else {
+            false
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Param {
     pub visibility: Visibility,
@@ -502,7 +542,7 @@ pub struct MethodCallExpression {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ConstructorExpression {
-    pub type_name: Path,
+    pub typ: UnresolvedType,
     pub fields: Vec<(Ident, Expression)>,
 
     /// This may be filled out during macro expansion
@@ -571,13 +611,17 @@ impl Display for ExpressionKind {
             Lambda(lambda) => lambda.fmt(f),
             Parenthesized(sub_expr) => write!(f, "({sub_expr})"),
             Comptime(block, _) => write!(f, "comptime {block}"),
+            Unsafe(block, _) => write!(f, "unsafe {block}"),
             Error => write!(f, "Error"),
             Resolved(_) => write!(f, "?Resolved"),
+            Interned(_) => write!(f, "?Interned"),
             Unquote(expr) => write!(f, "$({expr})"),
             Quote(tokens) => {
                 let tokens = vecmap(&tokens.0, ToString::to_string);
                 write!(f, "quote {{ {} }}", tokens.join(" "))
             }
+            AsTraitPath(path) => write!(f, "{path}"),
+            InternedStatement(_) => write!(f, "?InternedStatement"),
         }
     }
 }
@@ -680,7 +724,7 @@ impl Display for ConstructorExpression {
         let fields =
             self.fields.iter().map(|(ident, expr)| format!("{ident}: {expr}")).collect::<Vec<_>>();
 
-        write!(f, "({} {{ {} }})", self.type_name, fields.join(", "))
+        write!(f, "({} {{ {} }})", self.typ, fields.join(", "))
     }
 }
 
@@ -737,6 +781,12 @@ impl Display for Lambda {
     }
 }
 
+impl Display for AsTraitPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<{} as {}>::{}", self.typ, self.trait_path, self.impl_item)
+    }
+}
+
 impl FunctionDefinition {
     pub fn normal(
         name: &Ident,
@@ -752,7 +802,7 @@ impl FunctionDefinition {
                 visibility: Visibility::Private,
                 pattern: Pattern::Identifier(ident.clone()),
                 typ: unresolved_type.clone(),
-                span: ident.span().merge(unresolved_type.span.unwrap()),
+                span: ident.span().merge(unresolved_type.span),
             })
             .collect();
 
@@ -809,7 +859,7 @@ impl FunctionReturnType {
     pub fn get_type(&self) -> Cow<UnresolvedType> {
         match self {
             FunctionReturnType::Default(span) => {
-                Cow::Owned(UnresolvedType { typ: UnresolvedTypeData::Unit, span: Some(*span) })
+                Cow::Owned(UnresolvedType { typ: UnresolvedTypeData::Unit, span: *span })
             }
             FunctionReturnType::Ty(typ) => Cow::Borrowed(typ),
         }

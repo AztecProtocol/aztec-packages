@@ -11,15 +11,22 @@ import {
   type HttpTransport,
   type PublicClient,
   type WalletClient,
+  concatHex,
   createPublicClient,
   createWalletClient,
+  encodeDeployData,
   getAddress,
   getContract,
+  getContractAddress,
   http,
+  numberToHex,
+  padHex,
+  zeroAddress,
 } from 'viem';
 import { type HDAccount, type PrivateKeyAccount, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { isAnvilTestChain } from './ethereum_chain.js';
 import { type L1ContractAddresses } from './l1_contract_addresses.js';
 
 /**
@@ -67,10 +74,6 @@ export interface L1ContractArtifactsForDeployment {
    */
   outbox: ContractArtifacts;
   /**
-   * Availability Oracle contract artifacts
-   */
-  availabilityOracle: ContractArtifacts;
-  /**
    * Registry contract artifacts
    */
   registry: ContractArtifacts;
@@ -83,7 +86,7 @@ export interface L1ContractArtifactsForDeployment {
    */
   feeJuice: ContractArtifacts;
   /**
-   * Gas portal contract artifacts. Optional for now as gas is not strictly enforced
+   * Fee juice portal contract artifacts. Optional for now as gas is not strictly enforced
    */
   feeJuicePortal: ContractArtifacts;
 }
@@ -141,80 +144,149 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
-  args: { l2FeeJuiceAddress: AztecAddress; vkTreeRoot: Fr },
+  args: {
+    l2FeeJuiceAddress: AztecAddress;
+    vkTreeRoot: Fr;
+    assumeProvenThrough?: number;
+    salt: number | undefined;
+    initialValidators?: EthAddress[];
+  },
 ): Promise<DeployL1Contracts> => {
-  logger.debug('Deploying contracts...');
+  // We are assuming that you are running this on a local anvil node which have 1s block times
+  // To align better with actual deployment, we update the block interval to 12s
+  // The code is same as `setBlockInterval` in `cheat_codes.ts`
+  const rpcCall = async (method: string, params: any[]) => {
+    const paramsString = JSON.stringify(params);
+    const content = {
+      body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${paramsString}, "id": 1}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    };
+    return await (await fetch(rpcUrl, content)).json();
+  };
+  if (isAnvilTestChain(chain.id)) {
+    const interval = 12;
+    const res = await rpcCall('anvil_setBlockTimestampInterval', [interval]);
+    if (res.error) {
+      throw new Error(`Error setting block interval: ${res.error.message}`);
+    }
+    logger.info(`Set block interval to ${interval}`);
+  }
 
-  const walletClient = createWalletClient({
-    account,
-    chain,
-    transport: http(rpcUrl),
-  });
-  const publicClient = createPublicClient({
-    chain,
-    transport: http(rpcUrl),
-  });
+  logger.info(`Deploying contracts from ${account.address.toString()}...`);
 
-  const registryAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.registry.contractAbi,
-    contractsToDeploy.registry.contractBytecode,
-  );
+  const walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
+  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  const deployer = new L1Deployer(walletClient, publicClient, args.salt, logger);
+
+  const registryAddress = await deployer.deploy(contractsToDeploy.registry, [account.address.toString()]);
   logger.info(`Deployed Registry at ${registryAddress}`);
 
-  const availabilityOracleAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.availabilityOracle.contractAbi,
-    contractsToDeploy.availabilityOracle.contractBytecode,
-  );
-  logger.info(`Deployed AvailabilityOracle at ${availabilityOracleAddress}`);
-
-  const feeJuiceAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.feeJuice.contractAbi,
-    contractsToDeploy.feeJuice.contractBytecode,
-  );
+  const feeJuiceAddress = await deployer.deploy(contractsToDeploy.feeJuice);
 
   logger.info(`Deployed Fee Juice at ${feeJuiceAddress}`);
 
-  const rollupAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.rollup.contractAbi,
-    contractsToDeploy.rollup.contractBytecode,
-    [
-      getAddress(registryAddress.toString()),
-      getAddress(availabilityOracleAddress.toString()),
-      getAddress(feeJuiceAddress.toString()),
-      args.vkTreeRoot.toString(),
-    ],
-  );
+  const feeJuicePortalAddress = await deployer.deploy(contractsToDeploy.feeJuicePortal, [account.address.toString()]);
+
+  logger.info(`Deployed Gas Portal at ${feeJuicePortalAddress}`);
+
+  const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
+    getAddress(registryAddress.toString()),
+    getAddress(feeJuicePortalAddress.toString()),
+    args.vkTreeRoot.toString(),
+    account.address.toString(),
+    args.initialValidators?.map(v => v.toString()) ?? [],
+  ]);
   logger.info(`Deployed Rollup at ${rollupAddress}`);
 
-  // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
-  let inboxAddress!: EthAddress;
-  {
-    const rollup = getContract({
-      address: getAddress(rollupAddress.toString()),
-      abi: contractsToDeploy.rollup.contractAbi,
-      client: publicClient,
-    });
-    inboxAddress = EthAddress.fromString((await rollup.read.INBOX([])) as any);
+  await deployer.waitForDeployments();
+  logger.info(`All contracts deployed`);
+
+  const feeJuicePortal = getContract({
+    address: feeJuicePortalAddress.toString(),
+    abi: contractsToDeploy.feeJuicePortal.contractAbi,
+    client: walletClient,
+  });
+
+  const feeJuice = getContract({
+    address: feeJuiceAddress.toString(),
+    abi: contractsToDeploy.feeJuice.contractAbi,
+    client: walletClient,
+  });
+
+  const rollup = getContract({
+    address: getAddress(rollupAddress.toString()),
+    abi: contractsToDeploy.rollup.contractAbi,
+    client: walletClient,
+  });
+
+  // Transaction hashes to await
+  const txHashes: Hex[] = [];
+
+  // @note  This value MUST match what is in `constants.nr`. It is currently specified here instead of just importing
+  //        because there is circular dependency hell. This is a temporary solution. #3342
+  // @todo  #8084
+  // fund the portal contract with Fee Juice
+  const FEE_JUICE_INITIAL_MINT = 20000000000;
+  const mintTxHash = await feeJuice.write.mint([feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT], {} as any);
+
+  // @note  This is used to ensure we fully wait for the transaction when running against a real chain
+  //        otherwise we execute subsequent transactions too soon
+  await publicClient.waitForTransactionReceipt({ hash: mintTxHash });
+  logger.info(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
+
+  if ((await feeJuicePortal.read.registry([])) === zeroAddress) {
+    const initPortalTxHash = await feeJuicePortal.write.initialize([
+      registryAddress.toString(),
+      feeJuiceAddress.toString(),
+      args.l2FeeJuiceAddress.toString(),
+    ]);
+    txHashes.push(initPortalTxHash);
+    logger.verbose(
+      `Fee juice portal initializing with registry ${registryAddress.toString()} in tx ${initPortalTxHash}`,
+    );
+  } else {
+    logger.verbose(`Fee juice portal is already initialized`);
   }
+
+  logger.info(
+    `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
+  );
+
+  if (isAnvilTestChain(chain.id)) {
+    // @note  We make a time jump PAST the very first slot to not have to deal with the edge case of the first slot.
+    //        The edge case being that the genesis block is already occupying slot 0, so we cannot have another block.
+    try {
+      // Need to get the time
+      const currentSlot = (await rollup.read.getCurrentSlot([])) as bigint;
+
+      if (BigInt(currentSlot) === 0n) {
+        const ts = Number(await rollup.read.getTimestampForSlot([1]));
+        await rpcCall('evm_setNextBlockTimestamp', [ts]);
+        await rpcCall('hardhat_mine', [1]);
+        const currentSlot = (await rollup.read.getCurrentSlot([])) as bigint;
+
+        if (BigInt(currentSlot) !== 1n) {
+          throw new Error(`Error jumping time: current slot is ${currentSlot}`);
+        }
+        logger.info(`Jumped to slot 1`);
+      }
+    } catch (e) {
+      throw new Error(`Error jumping time: ${e}`);
+    }
+  }
+
+  // Set initial blocks as proven if requested
+  if (args.assumeProvenThrough && args.assumeProvenThrough > 0) {
+    await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(args.assumeProvenThrough)], { account });
+    logger.info(`Set Rollup assumedProvenUntil to ${args.assumeProvenThrough}`);
+  }
+
+  // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.
+  const inboxAddress = EthAddress.fromString((await rollup.read.INBOX([])) as any);
   logger.info(`Inbox available at ${inboxAddress}`);
 
-  let outboxAddress!: EthAddress;
-  {
-    const rollup = getContract({
-      address: getAddress(rollupAddress.toString()),
-      abi: contractsToDeploy.rollup.contractAbi,
-      client: publicClient,
-    });
-    outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX([])) as any);
-  }
+  const outboxAddress = EthAddress.fromString((await rollup.read.OUTBOX([])) as any);
   logger.info(`Outbox available at ${outboxAddress}`);
 
   // We need to call a function on the registry to set the various contract addresses.
@@ -223,51 +295,21 @@ export const deployL1Contracts = async (
     abi: contractsToDeploy.registry.contractAbi,
     client: walletClient,
   });
-  await registryContract.write.upgrade(
-    [getAddress(rollupAddress.toString()), getAddress(inboxAddress.toString()), getAddress(outboxAddress.toString())],
-    { account },
-  );
+  if (!(await registryContract.read.isRollupRegistered([getAddress(rollupAddress.toString())]))) {
+    const upgradeTxHash = await registryContract.write.upgrade([getAddress(rollupAddress.toString())], { account });
+    logger.verbose(
+      `Upgrading registry contract at ${registryAddress} to rollup ${rollupAddress} in tx ${upgradeTxHash}`,
+    );
+    txHashes.push(upgradeTxHash);
+  } else {
+    logger.verbose(`Registry ${registryAddress} has already registered rollup ${rollupAddress}`);
+  }
 
-  // this contract remains uninitialized because at this point we don't know the address of the Fee Juice on L2
-  const feeJuicePortalAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    contractsToDeploy.feeJuicePortal.contractAbi,
-    contractsToDeploy.feeJuicePortal.contractBytecode,
-  );
-
-  logger.info(`Deployed Gas Portal at ${feeJuicePortalAddress}`);
-
-  const feeJuicePortal = getContract({
-    address: feeJuicePortalAddress.toString(),
-    abi: contractsToDeploy.feeJuicePortal.contractAbi,
-    client: walletClient,
-  });
-
-  await publicClient.waitForTransactionReceipt({
-    hash: await feeJuicePortal.write.initialize([
-      registryAddress.toString(),
-      feeJuiceAddress.toString(),
-      args.l2FeeJuiceAddress.toString(),
-    ]),
-  });
-
-  logger.info(
-    `Initialized Gas Portal at ${feeJuicePortalAddress} to bridge between L1 ${feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
-  );
-
-  // fund the rollup contract with Fee Juice
-  const feeJuice = getContract({
-    address: feeJuiceAddress.toString(),
-    abi: contractsToDeploy.feeJuice.contractAbi,
-    client: walletClient,
-  });
-  const receipt = await feeJuice.write.mint([rollupAddress.toString(), 100000000000000000000n], {} as any);
-  await publicClient.waitForTransactionReceipt({ hash: receipt });
-  logger.info(`Funded rollup contract with Fee Juice`);
+  // Wait for all actions to be mined
+  await Promise.all(txHashes.map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })));
+  logger.verbose(`All transactions for L1 deployment have been mined`);
 
   const l1Contracts: L1ContractAddresses = {
-    availabilityOracleAddress,
     rollupAddress,
     registryAddress,
     inboxAddress,
@@ -283,6 +325,42 @@ export const deployL1Contracts = async (
   };
 };
 
+class L1Deployer {
+  private salt: Hex | undefined;
+  private txHashes: Hex[] = [];
+  constructor(
+    private walletClient: WalletClient<HttpTransport, Chain, Account>,
+    private publicClient: PublicClient<HttpTransport, Chain>,
+    maybeSalt: number | undefined,
+    private logger: DebugLogger,
+  ) {
+    this.salt = maybeSalt ? padHex(numberToHex(maybeSalt), { size: 32 }) : undefined;
+  }
+
+  async deploy(
+    params: { contractAbi: Narrow<Abi | readonly unknown[]>; contractBytecode: Hex },
+    args: readonly unknown[] = [],
+  ): Promise<EthAddress> {
+    const { txHash, address } = await deployL1Contract(
+      this.walletClient,
+      this.publicClient,
+      params.contractAbi,
+      params.contractBytecode,
+      args,
+      this.salt,
+      this.logger,
+    );
+    if (txHash) {
+      this.txHashes.push(txHash);
+    }
+    return address;
+  }
+
+  async waitForDeployments(): Promise<void> {
+    await Promise.all(this.txHashes.map(txHash => this.publicClient.waitForTransactionReceipt({ hash: txHash })));
+  }
+}
+
 // docs:start:deployL1Contract
 /**
  * Helper function to deploy ETH contracts.
@@ -291,6 +369,7 @@ export const deployL1Contracts = async (
  * @param abi - The ETH contract's ABI (as abitype's Abi).
  * @param bytecode  - The ETH contract's bytecode.
  * @param args - Constructor arguments for the contract.
+ * @param maybeSalt - Optional salt for CREATE2 deployment (does not wait for deployment tx to be mined if set, does not send tx if contract already exists).
  * @returns The ETH address the contract was deployed to.
  */
 export async function deployL1Contract(
@@ -299,23 +378,39 @@ export async function deployL1Contract(
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
   args: readonly unknown[] = [],
-): Promise<EthAddress> {
-  const hash = await walletClient.deployContract({
-    abi,
-    bytecode,
-    args,
-  });
+  maybeSalt?: Hex,
+  logger?: DebugLogger,
+): Promise<{ address: EthAddress; txHash: Hex | undefined }> {
+  let txHash: Hex | undefined = undefined;
+  let address: Hex | null | undefined = undefined;
 
-  const receipt = await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 100 });
-  const contractAddress = receipt.contractAddress;
-  if (!contractAddress) {
-    throw new Error(
-      `No contract address found in receipt: ${JSON.stringify(receipt, (_, val) =>
-        typeof val === 'bigint' ? String(val) : val,
-      )}`,
-    );
+  if (maybeSalt) {
+    const salt = padHex(maybeSalt, { size: 32 });
+    const deployer: Hex = '0x4e59b44847b379578588920cA78FbF26c0B4956C';
+    const calldata = encodeDeployData({ abi, bytecode, args });
+    address = getContractAddress({ from: deployer, salt, bytecode: calldata, opcode: 'CREATE2' });
+    const existing = await publicClient.getBytecode({ address });
+
+    if (existing === undefined || existing === '0x') {
+      txHash = await walletClient.sendTransaction({ to: deployer, data: concatHex([salt, calldata]) });
+      logger?.verbose(`Deploying contract with salt ${salt} to address ${address} in tx ${txHash}`);
+    } else {
+      logger?.verbose(`Skipping existing deployment of contract with salt ${salt} to address ${address}`);
+    }
+  } else {
+    txHash = await walletClient.deployContract({ abi, bytecode, args });
+    logger?.verbose(`Deploying contract in tx ${txHash}`);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash, pollingInterval: 100 });
+    address = receipt.contractAddress;
+    if (!address) {
+      throw new Error(
+        `No contract address found in receipt: ${JSON.stringify(receipt, (_, val) =>
+          typeof val === 'bigint' ? String(val) : val,
+        )}`,
+      );
+    }
   }
 
-  return EthAddress.fromString(receipt.contractAddress!);
+  return { address: EthAddress.fromString(address!), txHash };
 }
 // docs:end:deployL1Contract

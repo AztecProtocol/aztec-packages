@@ -1,9 +1,9 @@
 contract TestLog {
     use dep::aztec::prelude::PrivateSet;
-    use dep::aztec::protocol_types::{traits::Serialize, point::Point, scalar::Scalar, address::AztecAddress};
+    use dep::aztec::protocol_types::{scalar::Scalar, address::AztecAddress};
+    use dep::aztec::keys::public_keys::IvpkM;
     use dep::value_note::value_note::ValueNote;
     use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
-    use dep::aztec::event::event_interface::EventInterface;
     use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
 
@@ -30,7 +30,7 @@ contract TestLog {
     #[aztec(private)]
     fn compute_incoming_log_body_ciphertext(
         secret: Scalar,
-        point: Point,
+        ivpk: IvpkM,
         randomness: Field,
         event_type_id: Field,
         preimage: [Field; 2]
@@ -38,7 +38,7 @@ contract TestLog {
         EncryptedLogIncomingBody::from_event(
             ExampleEvent0 { value0: preimage[0], value1: preimage[1] },
             randomness
-        ).compute_ciphertext(secret, point).as_array()
+        ).compute_ciphertext(secret, ivpk).as_array()
     }
 
     #[aztec(private)]

@@ -2,7 +2,7 @@ import {
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type L1ToL2MessageSource,
-  L2Block,
+  type L2Block,
   type L2BlockL2Logs,
   type L2BlockSource,
   type L2LogsSource,
@@ -24,10 +24,13 @@ import {
 import { createEthereumChain } from '@aztec/ethereum';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import { compactArray, unique } from '@aztec/foundation/collection';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
+import { Timer } from '@aztec/foundation/timer';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import {
@@ -40,18 +43,22 @@ import {
 } from '@aztec/types/contracts';
 
 import groupBy from 'lodash.groupby';
-import { type Chain, type HttpTransport, type PublicClient, createPublicClient, http } from 'viem';
+import {
+  type Chain,
+  type GetContractReturnType,
+  type HttpTransport,
+  type PublicClient,
+  createPublicClient,
+  getContract,
+  http,
+} from 'viem';
 
 import { type ArchiverDataStore } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
-import {
-  type DataRetrieval,
-  retrieveBlockBodiesFromAvailabilityOracle,
-  retrieveBlockMetadataFromRollup,
-  retrieveL1ToL2Messages,
-  retrieveL2ProofVerifiedEvents,
-} from './data_retrieval.js';
+import { retrieveBlockFromRollup, retrieveL1ToL2Messages, retrieveL2ProofVerifiedEvents } from './data_retrieval.js';
+import { getL1BlockTime } from './eth_log_handlers.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
+import { type SingletonDataRetrieval } from './structs/data_retrieval.js';
 
 /**
  * Helper interface to combine all sources this archiver implementation provides.
@@ -69,8 +76,7 @@ export class Archiver implements ArchiveSource {
    */
   private runningPromise?: RunningPromise;
 
-  /** Capture runtime metrics */
-  private instrumentation: ArchiverInstrumentation;
+  private rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
 
   /**
    * Creates a new instance of the Archiver.
@@ -85,15 +91,19 @@ export class Archiver implements ArchiveSource {
   constructor(
     private readonly publicClient: PublicClient<HttpTransport, Chain>,
     private readonly rollupAddress: EthAddress,
-    private readonly availabilityOracleAddress: EthAddress,
     private readonly inboxAddress: EthAddress,
     private readonly registryAddress: EthAddress,
     private readonly store: ArchiverDataStore,
     private readonly pollingIntervalMs = 10_000,
-    telemetry: TelemetryClient,
+    private readonly instrumentation: ArchiverInstrumentation,
+    private readonly l1StartBlock: bigint = 0n,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
   ) {
-    this.instrumentation = new ArchiverInstrumentation(telemetry);
+    this.rollup = getContract({
+      address: rollupAddress.toString(),
+      abi: RollupAbi,
+      client: publicClient,
+    });
   }
 
   /**
@@ -109,22 +119,30 @@ export class Archiver implements ArchiveSource {
     telemetry: TelemetryClient,
     blockUntilSynced = true,
   ): Promise<Archiver> {
-    const chain = createEthereumChain(config.rpcUrl, config.l1ChainId);
+    const chain = createEthereumChain(config.l1RpcUrl, config.l1ChainId);
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
       transport: http(chain.rpcUrl),
       pollingInterval: config.viemPollingIntervalMS,
     });
 
+    const rollup = getContract({
+      address: config.l1Contracts.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: publicClient,
+    });
+
+    const l1StartBlock = await rollup.read.L1_BLOCK_AT_GENESIS();
+
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
-      config.l1Contracts.availabilityOracleAddress,
       config.l1Contracts.inboxAddress,
       config.l1Contracts.registryAddress,
       archiverStore,
       config.archiverPollingIntervalMS,
-      telemetry,
+      new ArchiverInstrumentation(telemetry),
+      BigInt(l1StartBlock),
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -144,8 +162,19 @@ export class Archiver implements ArchiveSource {
       await this.sync(blockUntilSynced);
     }
 
-    this.runningPromise = new RunningPromise(() => this.sync(false), this.pollingIntervalMs);
+    this.runningPromise = new RunningPromise(() => this.safeSync(), this.pollingIntervalMs);
     this.runningPromise.start();
+  }
+
+  /**
+   * Syncs and catches exceptions.
+   */
+  private async safeSync() {
+    try {
+      await this.sync(false);
+    } catch (error) {
+      this.log.error('Error syncing archiver', error);
+    }
   }
 
   /**
@@ -165,13 +194,29 @@ export class Archiver implements ArchiveSource {
      *
      * This code does not handle reorgs.
      */
-    const { blocksSynchedTo, messagesSynchedTo } = await this.store.getSynchPoint();
+    const {
+      blockBodiesSynchedTo = this.l1StartBlock,
+      blocksSynchedTo = this.l1StartBlock,
+      messagesSynchedTo = this.l1StartBlock,
+      provenLogsSynchedTo = this.l1StartBlock,
+    } = await this.store.getSynchPoint();
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
 
-    if (currentL1BlockNumber <= blocksSynchedTo && currentL1BlockNumber <= messagesSynchedTo) {
+    if (
+      currentL1BlockNumber <= blocksSynchedTo &&
+      currentL1BlockNumber <= messagesSynchedTo &&
+      currentL1BlockNumber <= blockBodiesSynchedTo &&
+      currentL1BlockNumber <= provenLogsSynchedTo
+    ) {
       // chain hasn't moved forward
       // or it's been rolled back
-      this.log.debug(`Nothing to sync`, { currentL1BlockNumber, blocksSynchedTo, messagesSynchedTo });
+      this.log.debug(`Nothing to sync`, {
+        currentL1BlockNumber,
+        blocksSynchedTo,
+        messagesSynchedTo,
+        provenLogsSynchedTo,
+        blockBodiesSynchedTo,
+      });
       return;
     }
 
@@ -216,99 +261,81 @@ export class Archiver implements ArchiveSource {
 
     await this.store.addL1ToL2Messages(retrievedL1ToL2Messages);
 
-    // Read all data from chain and then write to our stores at the end
-    const nextExpectedL2BlockNum = BigInt((await this.store.getSynchedL2BlockNumber()) + 1);
-
-    const retrievedBlockBodies = await retrieveBlockBodiesFromAvailabilityOracle(
+    this.log.debug(`Retrieving blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+    const retrievedBlocks = await retrieveBlockFromRollup(
+      this.rollup,
       this.publicClient,
-      this.availabilityOracleAddress,
       blockUntilSynced,
       blocksSynchedTo + 1n,
       currentL1BlockNumber,
+      this.log,
     );
 
-    const blockBodies = retrievedBlockBodies.retrievedData.map(([blockBody]) => blockBody);
-    await this.store.addBlockBodies(blockBodies);
+    // Add the body
 
-    // Now that we have block bodies we will retrieve block metadata and build L2 blocks from the bodies and
-    // the metadata
-    let retrievedBlocks: DataRetrieval<L2Block>;
-    {
-      const retrievedBlockMetadata = await retrieveBlockMetadataFromRollup(
-        this.publicClient,
-        this.rollupAddress,
-        blockUntilSynced,
-        blocksSynchedTo + 1n,
-        currentL1BlockNumber,
-        nextExpectedL2BlockNum,
-      );
-
-      const retrievedBodyHashes = retrievedBlockMetadata.retrievedData.map(
-        ([header]) => header.contentCommitment.txsEffectsHash,
-      );
-
-      const blockBodiesFromStore = await this.store.getBlockBodies(retrievedBodyHashes);
-
-      if (retrievedBlockMetadata.retrievedData.length !== blockBodiesFromStore.length) {
-        throw new Error('Block headers length does not equal block bodies length');
-      }
-
-      const blocks = retrievedBlockMetadata.retrievedData.map(
-        (blockMetadata, i) => new L2Block(blockMetadata[1], blockMetadata[0], blockBodiesFromStore[i]),
-      );
-
-      (blocks.length ? this.log.verbose : this.log.debug)(
-        `Retrieved ${blocks.length || 'no'} new L2 blocks between L1 blocks ${
-          blocksSynchedTo + 1n
-        } and ${currentL1BlockNumber}.`,
-      );
-
-      retrievedBlocks = {
-        lastProcessedL1BlockNumber: retrievedBlockMetadata.lastProcessedL1BlockNumber,
-        retrievedData: blocks,
-      };
-    }
-
-    await Promise.all(
-      retrievedBlocks.retrievedData.map(block => {
-        const noteEncryptedLogs = block.body.noteEncryptedLogs;
-        const encryptedLogs = block.body.encryptedLogs;
-        const unencryptedLogs = block.body.unencryptedLogs;
-        return this.store.addLogs(noteEncryptedLogs, encryptedLogs, unencryptedLogs, block.number);
-      }),
+    (retrievedBlocks.length ? this.log.verbose : this.log.debug)(
+      `Retrieved ${retrievedBlocks.length || 'no'} new L2 blocks between L1 blocks ${
+        blocksSynchedTo + 1n
+      } and ${currentL1BlockNumber}.`,
     );
 
-    // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
-    await Promise.all(
-      retrievedBlocks.retrievedData.map(async block => {
-        const blockLogs = block.body.txEffects
-          .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
-          .flatMap(txLog => txLog.unrollLogs());
-        await this.storeRegisteredContractClasses(blockLogs, block.number);
-        await this.storeDeployedContractInstances(blockLogs, block.number);
-        await this.storeBroadcastedIndividualFunctions(blockLogs, block.number);
-      }),
+    const lastProcessedL1BlockNumber =
+      retrievedBlocks.length > 0 ? retrievedBlocks[retrievedBlocks.length - 1].l1.blockNumber : blocksSynchedTo;
+
+    this.log.debug(
+      `Processing retrieved blocks ${retrievedBlocks
+        .map(b => b.data.number)
+        .join(',')} with last processed L1 block ${lastProcessedL1BlockNumber}`,
     );
 
-    if (retrievedBlocks.retrievedData.length > 0) {
+    if (retrievedBlocks.length > 0) {
+      await Promise.all(
+        retrievedBlocks.map(block => {
+          const noteEncryptedLogs = block.data.body.noteEncryptedLogs;
+          const encryptedLogs = block.data.body.encryptedLogs;
+          const unencryptedLogs = block.data.body.unencryptedLogs;
+          return this.store.addLogs(noteEncryptedLogs, encryptedLogs, unencryptedLogs, block.data.number);
+        }),
+      );
+
+      // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
+      await Promise.all(
+        retrievedBlocks.map(async block => {
+          const blockLogs = block.data.body.txEffects
+            .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
+            .flatMap(txLog => txLog.unrollLogs());
+          await this.storeRegisteredContractClasses(blockLogs, block.data.number);
+          await this.storeDeployedContractInstances(blockLogs, block.data.number);
+          await this.storeBroadcastedIndividualFunctions(blockLogs, block.data.number);
+        }),
+      );
+
+      const timer = new Timer();
+      await this.store.addBlockBodies({
+        lastProcessedL1BlockNumber: lastProcessedL1BlockNumber,
+        retrievedData: retrievedBlocks.map(b => b.data.body),
+      });
       await this.store.addBlocks(retrievedBlocks);
-      this.instrumentation.processNewBlocks(retrievedBlocks.retrievedData);
-      const lastL2BlockNumber = retrievedBlocks.retrievedData[retrievedBlocks.retrievedData.length - 1].number;
-      this.log.verbose(`Processed ${retrievedBlocks.retrievedData.length} new L2 blocks up to ${lastL2BlockNumber}`);
+      this.instrumentation.processNewBlocks(
+        timer.ms() / retrievedBlocks.length,
+        retrievedBlocks.map(b => b.data),
+      );
+      const lastL2BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].data.number;
+      this.log.verbose(`Processed ${retrievedBlocks.length} new L2 blocks up to ${lastL2BlockNumber}`);
     }
 
     // Fetch the logs for proven blocks in the block range and update the last proven block number.
-    // Note it's ok to read repeated data here, since we're just using the largest number we see on the logs.
-    await this.updateLastProvenL2Block(blocksSynchedTo, currentL1BlockNumber);
+    if (currentL1BlockNumber > provenLogsSynchedTo) {
+      await this.updateLastProvenL2Block(provenLogsSynchedTo + 1n, currentL1BlockNumber);
+    }
 
-    if (retrievedBlocks.retrievedData.length > 0 || blockUntilSynced) {
+    if (retrievedBlocks.length > 0 || blockUntilSynced) {
       (blockUntilSynced ? this.log.info : this.log.verbose)(`Synced to L1 block ${currentL1BlockNumber}`);
     }
   }
 
   private async updateLastProvenL2Block(fromBlock: bigint, toBlock: bigint) {
     const logs = await retrieveL2ProofVerifiedEvents(this.publicClient, this.rollupAddress, fromBlock, toBlock);
-
     const lastLog = logs[logs.length - 1];
     if (!lastLog) {
       return;
@@ -319,11 +346,69 @@ export class Archiver implements ArchiveSource {
       throw new Error(`Missing argument blockNumber from L2ProofVerified event`);
     }
 
+    await this.emitProofVerifiedMetrics(logs);
+
     const currentProvenBlockNumber = await this.store.getProvenL2BlockNumber();
     if (provenBlockNumber > currentProvenBlockNumber) {
+      // Update the last proven block number
       this.log.verbose(`Updated last proven block number from ${currentProvenBlockNumber} to ${provenBlockNumber}`);
-      await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
+      await this.store.setProvenL2BlockNumber({
+        retrievedData: Number(provenBlockNumber),
+        lastProcessedL1BlockNumber: lastLog.l1BlockNumber,
+      });
+      this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
+    } else {
+      // We set the last processed L1 block number to the last L1 block number in the range to avoid duplicate processing
+      await this.store.setProvenL2BlockNumber({
+        retrievedData: Number(currentProvenBlockNumber),
+        lastProcessedL1BlockNumber: lastLog.l1BlockNumber,
+      });
     }
+  }
+
+  /**
+   * Emits as metrics the block number proven, who proved it, and how much time passed since it was submitted.
+   * @param logs - The ProofVerified logs to emit metrics for, as collected from `retrieveL2ProofVerifiedEvents`.
+   **/
+  private async emitProofVerifiedMetrics(logs: { l1BlockNumber: bigint; l2BlockNumber: bigint; proverId: Fr }[]) {
+    if (!logs.length || !this.instrumentation.isEnabled()) {
+      return;
+    }
+
+    const l1BlockTimes = new Map(
+      await Promise.all(
+        unique(logs.map(log => log.l1BlockNumber)).map(
+          async blockNumber => [blockNumber, await getL1BlockTime(this.publicClient, blockNumber)] as const,
+        ),
+      ),
+    );
+
+    // Collect L2 block times for all the blocks verified, this is the time in which the block proven was
+    // originally submitted to L1, using the L1 timestamp of the transaction.
+    const getL2BlockTime = async (blockNumber: bigint) =>
+      (await this.store.getBlocks(Number(blockNumber), 1))[0]?.l1.timestamp;
+
+    const l2BlockTimes = new Map(
+      await Promise.all(
+        unique(logs.map(log => log.l2BlockNumber)).map(
+          async blockNumber => [blockNumber, await getL2BlockTime(blockNumber)] as const,
+        ),
+      ),
+    );
+
+    // Emit the prover id and the time difference between block submission and proof.
+    this.instrumentation.processProofsVerified(
+      compactArray(
+        logs.map(log => {
+          const l1BlockTime = l1BlockTimes.get(log.l1BlockNumber)!;
+          const l2BlockTime = l2BlockTimes.get(log.l2BlockNumber);
+          if (!l2BlockTime) {
+            return undefined;
+          }
+          return { ...log, delay: l1BlockTime - l2BlockTime, proverId: log.proverId.toString() };
+        }),
+      ),
+    );
   }
 
   /**
@@ -424,7 +509,7 @@ export class Archiver implements ArchiveSource {
     const limitWithProven = proven
       ? Math.min(limit, Math.max((await this.store.getProvenL2BlockNumber()) - from + 1, 0))
       : limit;
-    return limitWithProven === 0 ? [] : this.store.getBlocks(from, limitWithProven);
+    return limitWithProven === 0 ? [] : (await this.store.getBlocks(from, limitWithProven)).map(b => b.data);
   }
 
   /**
@@ -438,7 +523,7 @@ export class Archiver implements ArchiveSource {
       number = await this.store.getSynchedL2BlockNumber();
     }
     const blocks = await this.store.getBlocks(number, 1);
-    return blocks.length === 0 ? undefined : blocks[0];
+    return blocks.length === 0 ? undefined : blocks[0].data;
   }
 
   public getTxEffect(txHash: TxHash): Promise<TxEffect | undefined> {
@@ -507,7 +592,7 @@ export class Archiver implements ArchiveSource {
   }
 
   /** Forcefully updates the last proven block number. Use for testing. */
-  public setProvenBlockNumber(block: number): Promise<void> {
+  public setProvenBlockNumber(block: SingletonDataRetrieval<number>): Promise<void> {
     return this.store.setProvenL2BlockNumber(block);
   }
 

@@ -10,6 +10,7 @@
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/vm/stats.hpp"
 
 namespace bb {
 
@@ -18,19 +19,40 @@ namespace bb {
     ProverPolynomials polys;
 
     // Allocate mem for each column
-    for (auto& poly : polys.get_all()) {
-        poly = Polynomial(num_rows);
-    }
+    AVM_TRACK_TIME("circuit_builder/init_polys_to_be_shifted", ({
+                       for (auto& poly : polys.get_to_be_shifted()) {
+                           poly = Polynomial{ /*memory size*/ num_rows - 1,
+                                              /*largest possible index*/ num_rows,
+                                              /*make shiftable with offset*/ 1 };
+                       }
+                   }));
+    // catch-all with fully formed polynomials
+    AVM_TRACK_TIME("circuit_builder/init_polys_unshifted", ({
+                       auto unshifted = polys.get_unshifted();
+                       bb::parallel_for(unshifted.size(), [&](size_t i) {
+                           auto& poly = unshifted[i];
+                           if (poly.is_empty()) {
+                               // Not set above
+                               poly = Polynomial{ /*memory size*/ num_rows, /*largest possible index*/ num_rows };
+                           }
+                       });
+                   }));
 
-    for (size_t i = 0; i < rows.size(); i++) {
+    AVM_TRACK_TIME(
+        "circuit_builder/set_polys_unshifted", ({
+            bb::parallel_for(rows.size(), [&](size_t i) {
         {{#each all_cols_without_inverses as |poly|}}
-        polys.{{poly}}[i] = rows[i].{{poly}};
+        polys.{{poly}}.set_if_valid_index(i, rows[i].{{poly}});
         {{/each}}
-    }
+        });
+    }));
 
-    for (auto [shifted, to_be_shifted] : zip_view(polys.get_shifted(), polys.get_to_be_shifted())) {
-        shifted = to_be_shifted.shifted();
-    }
+    AVM_TRACK_TIME(
+        "circuit_builder/set_polys_shifted", ({
+        for (auto [shifted, to_be_shifted] : zip_view(polys.get_shifted(), polys.get_to_be_shifted())) {
+            shifted = to_be_shifted.shifted();
+        }
+    }));
 
     return polys;
 }
@@ -65,16 +87,20 @@ bool {{name}}CircuitBuilder::check_circuit() const {
                 r = 0;
             }
 
+            std::array<bool, result.size()> subrelation_failed = { false };
             for (size_t r = 0; r < num_rows; ++r) {
                 Relation::accumulate(result, polys.get_row(r), {}, 1);
                 for (size_t j = 0; j < result.size(); ++j) {
-                    if (result[j] != 0) {
+                    if (!subrelation_failed[j] && result[j] != 0) {
                         signal_error(format("Relation ",
                                             Relation::NAME,
                                             ", subrelation ",
                                             Relation::get_subrelation_label(j),
                                             " failed at row ",
                                             r));
+                        // We will not check this subrelation for any other rows.
+                        // Since the accumulation will keep being != 0.
+                        subrelation_failed[j] = true;
                     }
                 }
             }
@@ -117,5 +143,5 @@ bool {{name}}CircuitBuilder::check_circuit() const {
 
     return errors.empty();
 }
-    
+
 }  // namespace bb

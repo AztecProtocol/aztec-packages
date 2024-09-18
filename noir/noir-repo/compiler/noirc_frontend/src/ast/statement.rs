@@ -7,12 +7,13 @@ use iter_extended::vecmap;
 use noirc_errors::{Span, Spanned};
 
 use super::{
-    BlockExpression, Expression, ExpressionKind, IndexExpression, MemberAccessExpression,
-    MethodCallExpression, UnresolvedType,
+    BlockExpression, ConstructorExpression, Expression, ExpressionKind, GenericTypeArgs,
+    IndexExpression, ItemVisibility, MemberAccessExpression, MethodCallExpression, UnresolvedType,
 };
 use crate::elaborator::types::SELF_TYPE_NAME;
 use crate::lexer::token::SpannedToken;
-use crate::macros_api::SecondaryAttribute;
+use crate::macros_api::{NodeInterner, SecondaryAttribute, UnresolvedTypeData};
+use crate::node_interner::{InternedExpressionKind, InternedPattern, InternedStatementKind};
 use crate::parser::{ParserError, ParserErrorReason};
 use crate::token::Token;
 
@@ -45,6 +46,9 @@ pub enum StatementKind {
     Comptime(Box<Statement>),
     // This is an expression with a trailing semi-colon
     Semi(Expression),
+    // This is an interned StatementKind during comptime code.
+    // The actual StatementKind can be retrieved with a NodeInterner.
+    Interned(InternedStatementKind),
     // This statement is the result of a recovered parse error.
     // To avoid issuing multiple errors in later steps, it should
     // be skipped in any future analysis if possible.
@@ -97,10 +101,15 @@ impl StatementKind {
             // A semicolon on a for loop is optional and does nothing
             StatementKind::For(_) => self,
 
+            // No semicolon needed for a resolved statement
+            StatementKind::Interned(_) => self,
+
             StatementKind::Expression(expr) => {
                 match (&expr.kind, semi, last_statement_in_block) {
                     // Semicolons are optional for these expressions
-                    (ExpressionKind::Block(_), semi, _) | (ExpressionKind::If(_), semi, _) => {
+                    (ExpressionKind::Block(_), semi, _)
+                    | (ExpressionKind::Unsafe(..), semi, _)
+                    | (ExpressionKind::If(_), semi, _) => {
                         if semi.is_some() {
                             StatementKind::Semi(expr)
                         } else {
@@ -127,7 +136,9 @@ impl Recoverable for StatementKind {
 
 impl StatementKind {
     pub fn new_let(
-        ((pattern, r#type), expression): ((Pattern, UnresolvedType), Expression),
+        pattern: Pattern,
+        r#type: UnresolvedType,
+        expression: Expression,
     ) -> StatementKind {
         StatementKind::Let(LetStatement {
             pattern,
@@ -281,6 +292,7 @@ pub trait Recoverable {
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ModuleDeclaration {
     pub ident: Ident,
+    pub outer_attributes: Vec<SecondaryAttribute>,
 }
 
 impl std::fmt::Display for ModuleDeclaration {
@@ -291,6 +303,7 @@ impl std::fmt::Display for ModuleDeclaration {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ImportStatement {
+    pub visibility: ItemVisibility,
     pub path: Path,
     pub alias: Option<Ident>,
 }
@@ -339,7 +352,7 @@ pub enum UseTreeKind {
 }
 
 impl UseTree {
-    pub fn desugar(self, root: Option<Path>) -> Vec<ImportStatement> {
+    pub fn desugar(self, root: Option<Path>, visibility: ItemVisibility) -> Vec<ImportStatement> {
         let prefix = if let Some(mut root) = root {
             root.segments.extend(self.prefix.segments);
             root
@@ -349,13 +362,29 @@ impl UseTree {
 
         match self.kind {
             UseTreeKind::Path(name, alias) => {
-                vec![ImportStatement { path: prefix.join(name), alias }]
+                vec![ImportStatement { visibility, path: prefix.join(name), alias }]
             }
             UseTreeKind::List(trees) => {
-                trees.into_iter().flat_map(|tree| tree.desugar(Some(prefix.clone()))).collect()
+                let trees = trees.into_iter();
+                trees.flat_map(|tree| tree.desugar(Some(prefix.clone()), visibility)).collect()
             }
         }
     }
+}
+
+/// A special kind of path in the form `<MyType as Trait>::ident`.
+/// Note that this path must consist of exactly two segments.
+///
+/// An AsTraitPath may be used in either a type context where `ident`
+/// refers to an associated type of a particular impl, or in a value
+/// context where `ident` may refer to an associated constant or a
+/// function within the impl.
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+pub struct AsTraitPath {
+    pub typ: UnresolvedType,
+    pub trait_path: Path,
+    pub trait_generics: GenericTypeArgs,
+    pub impl_item: Ident,
 }
 
 // Note: Path deliberately doesn't implement Recoverable.
@@ -517,6 +546,7 @@ pub enum LValue {
     MemberAccess { object: Box<LValue>, field_name: Ident, span: Span },
     Index { array: Box<LValue>, index: Expression, span: Span },
     Dereference(Box<LValue>, Span),
+    Interned(InternedExpressionKind, Span),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -535,6 +565,7 @@ pub enum Pattern {
     Mutable(Box<Pattern>, Span, /*is_synthesized*/ bool),
     Tuple(Vec<Pattern>, Span),
     Struct(Path, Vec<(Ident, Pattern)>, Span),
+    Interned(InternedPattern, Span),
 }
 
 impl Pattern {
@@ -547,7 +578,8 @@ impl Pattern {
             Pattern::Identifier(ident) => ident.span(),
             Pattern::Mutable(_, span, _)
             | Pattern::Tuple(_, span)
-            | Pattern::Struct(_, _, span) => *span,
+            | Pattern::Struct(_, _, span)
+            | Pattern::Interned(_, span) => *span,
         }
     }
     pub fn name_ident(&self) -> &Ident {
@@ -565,6 +597,39 @@ impl Pattern {
             other => panic!("Pattern::into_ident called on {other} pattern with no identifier"),
         }
     }
+
+    pub(crate) fn try_as_expression(&self, interner: &NodeInterner) -> Option<Expression> {
+        match self {
+            Pattern::Identifier(ident) => Some(Expression {
+                kind: ExpressionKind::Variable(Path::from_ident(ident.clone())),
+                span: ident.span(),
+            }),
+            Pattern::Mutable(_, _, _) => None,
+            Pattern::Tuple(patterns, span) => {
+                let mut expressions = Vec::new();
+                for pattern in patterns {
+                    expressions.push(pattern.try_as_expression(interner)?);
+                }
+                Some(Expression { kind: ExpressionKind::Tuple(expressions), span: *span })
+            }
+            Pattern::Struct(path, patterns, span) => {
+                let mut fields = Vec::new();
+                for (field, pattern) in patterns {
+                    let expression = pattern.try_as_expression(interner)?;
+                    fields.push((field.clone(), expression));
+                }
+                Some(Expression {
+                    kind: ExpressionKind::Constructor(Box::new(ConstructorExpression {
+                        typ: UnresolvedType::from_path(path.clone()),
+                        fields,
+                        struct_type: None,
+                    })),
+                    span: *span,
+                })
+            }
+            Pattern::Interned(id, _) => interner.get_pattern(*id).try_as_expression(interner),
+        }
+    }
 }
 
 impl Recoverable for Pattern {
@@ -574,7 +639,7 @@ impl Recoverable for Pattern {
 }
 
 impl LValue {
-    fn as_expression(&self) -> Expression {
+    pub fn as_expression(&self) -> Expression {
         let kind = match self {
             LValue::Ident(ident) => ExpressionKind::Variable(Path::from_ident(ident.clone())),
             LValue::MemberAccess { object, field_name, span: _ } => {
@@ -595,9 +660,44 @@ impl LValue {
                     rhs: lvalue.as_expression(),
                 }))
             }
+            LValue::Interned(id, _) => ExpressionKind::Interned(*id),
         };
         let span = self.span();
         Expression::new(kind, span)
+    }
+
+    pub fn from_expression(expr: Expression) -> LValue {
+        LValue::from_expression_kind(expr.kind, expr.span)
+    }
+
+    pub fn from_expression_kind(expr: ExpressionKind, span: Span) -> LValue {
+        match expr {
+            ExpressionKind::Variable(path) => LValue::Ident(path.as_ident().unwrap().clone()),
+            ExpressionKind::MemberAccess(member_access) => LValue::MemberAccess {
+                object: Box::new(LValue::from_expression(member_access.lhs)),
+                field_name: member_access.rhs,
+                span,
+            },
+            ExpressionKind::Index(index) => LValue::Index {
+                array: Box::new(LValue::from_expression(index.collection)),
+                index: index.index,
+                span,
+            },
+            ExpressionKind::Prefix(prefix) => {
+                if matches!(
+                    prefix.operator,
+                    crate::ast::UnaryOp::Dereference { implicitly_added: false }
+                ) {
+                    LValue::Dereference(Box::new(LValue::from_expression(prefix.rhs)), span)
+                } else {
+                    panic!("Called LValue::from_expression with an invalid prefix operator")
+                }
+            }
+            ExpressionKind::Interned(id) => LValue::Interned(id, span),
+            _ => {
+                panic!("Called LValue::from_expression with an invalid expression")
+            }
+        }
     }
 
     pub fn span(&self) -> Span {
@@ -606,6 +706,7 @@ impl LValue {
             LValue::MemberAccess { span, .. }
             | LValue::Index { span, .. }
             | LValue::Dereference(_, span) => *span,
+            LValue::Interned(_, span) => *span,
         }
     }
 }
@@ -654,13 +755,11 @@ impl ForRange {
 
                 // let fresh1 = array;
                 let let_array = Statement {
-                    kind: StatementKind::Let(LetStatement {
-                        pattern: Pattern::Identifier(array_ident.clone()),
-                        r#type: UnresolvedType::unspecified(),
-                        expression: array,
-                        comptime: false,
-                        attributes: vec![],
-                    }),
+                    kind: StatementKind::new_let(
+                        Pattern::Identifier(array_ident.clone()),
+                        UnresolvedTypeData::Unspecified.with_span(Default::default()),
+                        array,
+                    ),
                     span: array_span,
                 };
 
@@ -700,13 +799,11 @@ impl ForRange {
 
                 // let elem = array[i];
                 let let_elem = Statement {
-                    kind: StatementKind::Let(LetStatement {
-                        pattern: Pattern::Identifier(identifier),
-                        r#type: UnresolvedType::unspecified(),
-                        expression: Expression::new(loop_element, array_span),
-                        comptime: false,
-                        attributes: vec![],
-                    }),
+                    kind: StatementKind::new_let(
+                        Pattern::Identifier(identifier),
+                        UnresolvedTypeData::Unspecified.with_span(Default::default()),
+                        Expression::new(loop_element, array_span),
+                    ),
                     span: array_span,
                 };
 
@@ -731,8 +828,10 @@ impl ForRange {
                 let block = ExpressionKind::Block(BlockExpression {
                     statements: vec![let_array, for_loop],
                 });
-                let kind = StatementKind::Expression(Expression::new(block, for_loop_span));
-                Statement { kind, span: for_loop_span }
+                Statement {
+                    kind: StatementKind::Expression(Expression::new(block, for_loop_span)),
+                    span: for_loop_span,
+                }
             }
         }
     }
@@ -758,6 +857,7 @@ impl Display for StatementKind {
             StatementKind::Continue => write!(f, "continue"),
             StatementKind::Comptime(statement) => write!(f, "comptime {}", statement.kind),
             StatementKind::Semi(semi) => write!(f, "{semi};"),
+            StatementKind::Interned(_) => write!(f, "(resolved);"),
             StatementKind::Error => write!(f, "Error"),
         }
     }
@@ -790,6 +890,7 @@ impl Display for LValue {
             }
             LValue::Index { array, index, span: _ } => write!(f, "{array}[{index}]"),
             LValue::Dereference(lvalue, _span) => write!(f, "*{lvalue}"),
+            LValue::Interned(_, _) => write!(f, "?Interned"),
         }
     }
 }
@@ -838,6 +939,9 @@ impl Display for Pattern {
             Pattern::Struct(typename, fields, _) => {
                 let fields = vecmap(fields, |(name, pattern)| format!("{name}: {pattern}"));
                 write!(f, "{} {{ {} }}", typename, fields.join(", "))
+            }
+            Pattern::Interned(_, _) => {
+                write!(f, "?Interned")
             }
         }
     }

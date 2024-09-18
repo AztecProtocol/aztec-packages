@@ -1,14 +1,6 @@
 // Serde test for the block attestation type
-import { makeHeader } from '@aztec/circuits.js/testing';
-
 import { BlockAttestation } from './block_attestation.js';
-
-const makeBlockAttestation = (): BlockAttestation => {
-  const blockHeader = makeHeader(1);
-  const signature = Buffer.alloc(64, 1);
-
-  return new BlockAttestation(blockHeader, signature);
-};
+import { makeBlockAttestation, randomSigner } from './mocks.js';
 
 describe('Block Attestation serialization / deserialization', () => {
   it('Should serialize / deserialize', () => {
@@ -18,5 +10,19 @@ describe('Block Attestation serialization / deserialization', () => {
     const deserialized = BlockAttestation.fromBuffer(serialized);
 
     expect(deserialized).toEqual(attestation);
+  });
+
+  it('Should serialize / deserialize + recover sender', () => {
+    const account = randomSigner();
+
+    const proposal = makeBlockAttestation(account);
+    const serialized = proposal.toBuffer();
+    const deserialized = BlockAttestation.fromBuffer(serialized);
+
+    expect(deserialized).toEqual(proposal);
+
+    // Recover signature
+    const sender = deserialized.getSender();
+    expect(sender).toEqual(account.address);
   });
 });

@@ -9,7 +9,7 @@
 namespace bb {
 
 template <typename Flavor>
-void construct_lookup_table_polynomials(RefArray<typename Flavor::Polynomial, 4> table_polynomials,
+void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomial, 4>& table_polynomials,
                                         const typename Flavor::CircuitBuilder& circuit,
                                         size_t dyadic_circuit_size,
                                         size_t additional_offset = 0)
@@ -29,10 +29,10 @@ void construct_lookup_table_polynomials(RefArray<typename Flavor::Polynomial, 4>
         const fr table_index(table.table_index);
 
         for (size_t i = 0; i < table.size(); ++i) {
-            table_polynomials[0][offset] = table.column_1[i];
-            table_polynomials[1][offset] = table.column_2[i];
-            table_polynomials[2][offset] = table.column_3[i];
-            table_polynomials[3][offset] = table_index;
+            table_polynomials[0].at(offset) = table.column_1[i];
+            table_polynomials[1].at(offset) = table.column_2[i];
+            table_polynomials[2].at(offset) = table.column_3[i];
+            table_polynomials[3].at(offset) = table_index;
             ++offset;
         }
     }
@@ -68,8 +68,8 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
 
             // increment the read count at the corresponding index in the full polynomial
             size_t index_in_poly = table_offset + index_in_table;
-            read_counts[index_in_poly]++;
-            read_tags[index_in_poly] = 1; // tag is 1 if entry has been read 1 or more times
+            read_counts.at(index_in_poly)++;
+            read_tags.at(index_in_poly) = 1; // tag is 1 if entry has been read 1 or more times
         }
         table_offset += table.size(); // set the offset of the next table within the polynomials
     }

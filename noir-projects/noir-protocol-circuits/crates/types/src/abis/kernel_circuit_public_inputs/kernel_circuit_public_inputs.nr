@@ -1,10 +1,10 @@
 use crate::{
     abis::{
     accumulated_data::CombinedAccumulatedData, combined_constant_data::CombinedConstantData,
-    validation_requests::RollupValidationRequests, gas::Gas, gas_fees::GasFees
+    validation_requests::RollupValidationRequests, gas_fees::GasFees
 },
     address::AztecAddress, partial_state_reference::PartialStateReference,
-    traits::{Empty, Eq, Serialize, Deserialize}, constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+    traits::{Empty, Serialize, Deserialize}, constants::KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH,
     utils::reader::Reader
 };
 
@@ -38,48 +38,48 @@ impl Empty for KernelCircuitPublicInputs {
 }
 
 impl Eq for KernelCircuitPublicInputs {
-  fn eq(self, other: Self) -> bool {
-    (self.rollup_validation_requests.eq(other.rollup_validation_requests)) &
-    (self.end.eq(other.end)) &
-    (self.constants.eq(other.constants)) &
-    (self.start_state.eq(other.start_state)) &
-    (self.revert_code == other.revert_code) &
-    (self.fee_payer.eq(other.fee_payer))
-  }
+    fn eq(self, other: Self) -> bool {
+        (self.rollup_validation_requests.eq(other.rollup_validation_requests))
+            & (self.end.eq(other.end))
+            & (self.constants.eq(other.constants))
+            & (self.start_state.eq(other.start_state))
+            & (self.revert_code == other.revert_code)
+            & (self.fee_payer.eq(other.fee_payer))
+    }
 }
 
 impl Serialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInputs {
-  fn serialize(self) -> [Field; KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
-    let mut fields: BoundedVec<Field, KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
+    fn serialize(self) -> [Field; KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
+        let mut fields: BoundedVec<Field, KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
 
-    fields.extend_from_array(self.rollup_validation_requests.serialize());
-    fields.extend_from_array(self.end.serialize());
-    fields.extend_from_array(self.constants.serialize());
-    fields.extend_from_array(self.start_state.serialize());
-    fields.push(self.revert_code as Field);
-    fields.extend_from_array(self.fee_payer.serialize());
+        fields.extend_from_array(self.rollup_validation_requests.serialize());
+        fields.extend_from_array(self.end.serialize());
+        fields.extend_from_array(self.constants.serialize());
+        fields.extend_from_array(self.start_state.serialize());
+        fields.push(self.revert_code as Field);
+        fields.extend_from_array(self.fee_payer.serialize());
 
-    assert_eq(fields.len(), KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
+        assert_eq(fields.len(), KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH);
 
-    fields.storage
-  }
+        fields.storage
+    }
 }
 
 impl Deserialize<KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH> for KernelCircuitPublicInputs {
-  fn deserialize(fields: [Field; KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH]) -> KernelCircuitPublicInputs {
-    let mut reader = Reader::new(fields);
-    let item = Self {
-        rollup_validation_requests: reader.read_struct(RollupValidationRequests::deserialize),
-        end: reader.read_struct(CombinedAccumulatedData::deserialize),
-        constants: reader.read_struct(CombinedConstantData::deserialize),
-        start_state: reader.read_struct(PartialStateReference::deserialize),
-        revert_code: reader.read() as u8,
-        fee_payer: reader.read_struct(AztecAddress::deserialize),
-    };
+    fn deserialize(fields: [Field; KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH]) -> KernelCircuitPublicInputs {
+        let mut reader = Reader::new(fields);
+        let item = Self {
+            rollup_validation_requests: reader.read_struct(RollupValidationRequests::deserialize),
+            end: reader.read_struct(CombinedAccumulatedData::deserialize),
+            constants: reader.read_struct(CombinedConstantData::deserialize),
+            start_state: reader.read_struct(PartialStateReference::deserialize),
+            revert_code: reader.read() as u8,
+            fee_payer: reader.read_struct(AztecAddress::deserialize)
+        };
 
-    reader.finish();
-    item
-  }
+        reader.finish();
+        item
+    }
 }
 
 mod tests {

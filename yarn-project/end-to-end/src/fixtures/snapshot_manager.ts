@@ -1,7 +1,10 @@
 import { SchnorrAccountContractArtifact, getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
+  AnvilTestWatcher,
   type AztecAddress,
+  type AztecNode,
   BatchCall,
   type CompleteAddress,
   type DebugLogger,
@@ -9,6 +12,7 @@ import {
   EthCheatCodes,
   Fr,
   GrumpkinScalar,
+  type PXE,
   SignerlessWallet,
   type Wallet,
 } from '@aztec/aztec.js';
@@ -19,7 +23,9 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { resolver, reviver } from '@aztec/foundation/serialize';
+import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import { type PXEService, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
 
 import { type Anvil, createAnvil } from '@viem/anvil';
@@ -33,7 +39,12 @@ import { MNEMONIC } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry } from './utils.js';
+import {
+  deployCanonicalAuthRegistry,
+  deployCanonicalKeyRegistry,
+  deployCanonicalRouter,
+  getPrivateKeyFromIndex,
+} from './utils.js';
 
 export type SubsystemsContext = {
   anvil: Anvil;
@@ -43,6 +54,8 @@ export type SubsystemsContext = {
   aztecNodeConfig: AztecNodeConfig;
   pxe: PXEService;
   deployL1ContractsValues: DeployL1Contracts;
+  proverNode: ProverNode;
+  watcher: AnvilTestWatcher;
 };
 
 type SnapshotEntry = {
@@ -151,7 +164,7 @@ class SnapshotManager implements ISnapshotManager {
     await restore(snapshotData, context);
 
     // Save the snapshot data.
-    const ethCheatCodes = new EthCheatCodes(context.aztecNodeConfig.rpcUrl);
+    const ethCheatCodes = new EthCheatCodes(context.aztecNodeConfig.l1RpcUrl);
     const anvilStateFile = `${this.livePath}/anvil.dat`;
     await ethCheatCodes.dumpChainState(anvilStateFile);
     writeFileSync(`${this.livePath}/${name}.json`, JSON.stringify(snapshotData || {}, resolver));
@@ -216,10 +229,40 @@ async function teardown(context: SubsystemsContext | undefined) {
   if (!context) {
     return;
   }
+  await context.proverNode.stop();
   await context.aztecNode.stop();
   await context.pxe.stop();
   await context.acvmConfig?.cleanup();
   await context.anvil.stop();
+  await context.watcher.stop();
+}
+
+export async function createAndSyncProverNode(
+  proverNodePrivateKey: `0x${string}`,
+  aztecNodeConfig: AztecNodeConfig,
+  aztecNode: AztecNode,
+) {
+  // Creating temp store and archiver for simulated prover node
+  const archiverConfig = { ...aztecNodeConfig, dataDirectory: undefined };
+  const archiver = await createArchiver(archiverConfig, new NoopTelemetryClient(), { blockUntilSync: true });
+
+  // Prover node config is for simulated proofs
+  const proverConfig: ProverNodeConfig = {
+    ...aztecNodeConfig,
+    txProviderNodeUrl: undefined,
+    dataDirectory: undefined,
+    proverId: new Fr(42),
+    realProofs: false,
+    proverAgentConcurrency: 2,
+    publisherPrivateKey: proverNodePrivateKey,
+    proverNodeMaxPendingJobs: 100,
+  };
+  const proverNode = await createProverNode(proverConfig, {
+    aztecNodeTxProvider: aztecNode,
+    archiver: archiver as Archiver,
+  });
+  proverNode.start();
+  return proverNode;
 }
 
 /**
@@ -244,7 +287,7 @@ async function setupFromFresh(
   const anvil = await retry(
     async () => {
       const ethereumHostPort = await getPort();
-      aztecNodeConfig.rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
+      aztecNodeConfig.l1RpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
       const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
       await anvil.start();
       return anvil;
@@ -255,13 +298,26 @@ async function setupFromFresh(
 
   // Deploy our L1 contracts.
   logger.verbose('Deploying L1 contracts...');
-  const hdAccount = mnemonicToAccount(MNEMONIC);
-  const privKeyRaw = hdAccount.getHdKey().privateKey;
-  const publisherPrivKey = privKeyRaw === null ? null : Buffer.from(privKeyRaw);
-  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, logger);
+  const hdAccount = mnemonicToAccount(MNEMONIC, { accountIndex: 0 });
+  const publisherPrivKeyRaw = hdAccount.getHdKey().privateKey;
+  const publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+
+  const validatorPrivKey = getPrivateKeyFromIndex(1);
+  const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+  aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
+
+  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger);
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
+
+  const watcher = new AnvilTestWatcher(
+    new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
+    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    deployL1ContractsValues.publicClient,
+  );
+  await watcher.start();
 
   const acvmConfig = await getACVMConfig(logger);
   if (acvmConfig) {
@@ -275,9 +331,16 @@ async function setupFromFresh(
     aztecNodeConfig.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
   }
 
-  const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
+  const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
   logger.verbose('Creating and synching an aztec node...');
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
+
+  logger.verbose('Creating and syncing a simulated prover node...');
+  const proverNode = await createAndSyncProverNode(
+    `0x${proverNodePrivateKey!.toString('hex')}`,
+    aztecNodeConfig,
+    aztecNode,
+  );
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -290,6 +353,10 @@ async function setupFromFresh(
   );
   logger.verbose('Deploying auth registry...');
   await deployCanonicalAuthRegistry(
+    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
+  );
+  logger.verbose('Deploying router...');
+  await deployCanonicalRouter(
     new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
   );
 
@@ -305,6 +372,8 @@ async function setupFromFresh(
     acvmConfig,
     bbConfig,
     deployL1ContractsValues,
+    proverNode,
+    watcher,
   };
 }
 
@@ -324,12 +393,12 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   const ethereumHostPort = await getPort();
-  aztecNodeConfig.rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
+  aztecNodeConfig.l1RpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
   const anvil = createAnvil({ anvilBinary: './scripts/anvil_kill_wrapper.sh', port: ethereumHostPort });
   await anvil.start();
   // Load anvil state.
   const anvilStateFile = `${statePath}/anvil.dat`;
-  const ethCheatCodes = new EthCheatCodes(aztecNodeConfig.rpcUrl);
+  const ethCheatCodes = new EthCheatCodes(aztecNodeConfig.l1RpcUrl);
   await ethCheatCodes.loadChainState(anvilStateFile);
 
   // TODO: Encapsulate this in a NativeAcvm impl.
@@ -346,11 +415,23 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   }
 
   logger.verbose('Creating ETH clients...');
-  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.rpcUrl, mnemonicToAccount(MNEMONIC));
+  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrl, mnemonicToAccount(MNEMONIC));
+
+  const watcher = new AnvilTestWatcher(
+    new EthCheatCodes(aztecNodeConfig.l1RpcUrl),
+    aztecNodeConfig.l1Contracts.rollupAddress,
+    publicClient,
+  );
+  await watcher.start();
 
   logger.verbose('Creating aztec node...');
-  const telemetry = createAndStartTelemetryClient(getTelemetryConfig());
+  const telemetry = await createAndStartTelemetryClient(getTelemetryConfig());
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig, telemetry);
+
+  const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+
+  logger.verbose('Creating and syncing a simulated prover node...');
+  const proverNode = await createAndSyncProverNode(`0x${proverNodePrivateKey!}`, aztecNodeConfig, aztecNode);
 
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
@@ -364,11 +445,13 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     pxe,
     acvmConfig,
     bbConfig,
+    proverNode,
     deployL1ContractsValues: {
       walletClient,
       publicClient,
       l1ContractAddresses: aztecNodeConfig.l1Contracts,
     },
+    watcher,
   };
 }
 
@@ -377,8 +460,8 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
  * The 'restore' function is not provided, as it must be a closure within the test context to capture the results.
  */
 export const addAccounts =
-  (numberOfAccounts: number, logger: DebugLogger) =>
-  async ({ pxe }: SubsystemsContext) => {
+  (numberOfAccounts: number, logger: DebugLogger, waitUntilProven = true) =>
+  async ({ pxe }: { pxe: PXE }) => {
     // Generate account keys.
     const accountKeys: [Fr, GrumpkinScalar][] = Array.from({ length: numberOfAccounts }).map(_ => [
       Fr.random(),
@@ -404,7 +487,7 @@ export const addAccounts =
 
     logger.verbose('Deploying accounts...');
     const txs = await Promise.all(accountManagers.map(account => account.deploy()));
-    await Promise.all(txs.map(tx => tx.wait({ interval: 0.1 })));
+    await Promise.all(txs.map(tx => tx.wait({ interval: 0.1, proven: waitUntilProven })));
 
     return { accountKeys };
   };
@@ -415,12 +498,16 @@ export const addAccounts =
  * @param sender - Wallet to send the deployment tx.
  * @param accountsToDeploy - Which accounts to publicly deploy.
  */
-export async function publicDeployAccounts(sender: Wallet, accountsToDeploy: (CompleteAddress | AztecAddress)[]) {
+export async function publicDeployAccounts(
+  sender: Wallet,
+  accountsToDeploy: (CompleteAddress | AztecAddress)[],
+  waitUntilProven = true,
+) {
   const accountAddressesToDeploy = accountsToDeploy.map(a => ('address' in a ? a.address : a));
   const instances = await Promise.all(accountAddressesToDeploy.map(account => sender.getContractInstance(account)));
   const batch = new BatchCall(sender, [
     (await registerContractClass(sender, SchnorrAccountContractArtifact)).request(),
     ...instances.map(instance => deployInstance(sender, instance!).request()),
   ]);
-  await batch.send().wait();
+  await batch.send().wait({ proven: waitUntilProven });
 }

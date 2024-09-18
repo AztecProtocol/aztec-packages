@@ -65,13 +65,13 @@ class AcirIntegrationTest : public ::testing::Test {
         builder.blocks.summarize();
         info("num gates          = ", builder.get_num_gates());
         info("total circuit size = ", builder.get_total_circuit_size());
-        info("circuit size       = ", prover.instance->proving_key.circuit_size);
-        info("log circuit size   = ", prover.instance->proving_key.log_circuit_size);
+        info("circuit size       = ", prover.proving_key->proving_key.circuit_size);
+        info("log circuit size   = ", prover.proving_key->proving_key.log_circuit_size);
 #endif
         auto proof = prover.construct_proof();
 
         // Verify Honk proof
-        auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+        auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
         Verifier verifier{ verification_key };
         return verifier.verify_proof(proof);
     }
@@ -406,6 +406,7 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
                                               // Assumes Flavor is not UltraHonk
 
     ClientIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     while (!program_stack.empty()) {
@@ -418,7 +419,7 @@ TEST_P(AcirIntegrationFoldingTest, DISABLED_FoldAndVerifyProgramStack)
         ivc.accumulate(circuit);
 
         CircuitChecker::check(circuit);
-        // EXPECT_TRUE(prove_and_verify_honk<Flavor>(ivc.prover_instance));
+        // EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
 
         program_stack.pop_back();
     }
@@ -539,6 +540,28 @@ TEST_F(AcirIntegrationTest, DISABLED_UpdateAcirCircuit)
     add_some_simple_RAM_gates(circuit);
 
     // Confirm that the result is still valid
+    EXPECT_TRUE(CircuitChecker::check(circuit));
+    EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
+}
+
+/**
+ * @brief Test recursive honk recursive verification
+ *
+ */
+TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
+{
+    using Flavor = UltraFlavor;
+    using Builder = Flavor::CircuitBuilder;
+
+    std::string test_name = "verify_honk_proof"; // arbitrary program with RAM gates
+    // Note: honk_recursion set to false here because the selection of the honk recursive verifier is indicated by the
+    // proof_type field of the constraint generated from noir.
+    auto acir_program = get_program_data_from_test_file(test_name,
+                                                        /*honk_recursion=*/false);
+
+    // Construct a bberg circuit from the acir representation
+    auto circuit = acir_format::create_circuit<Builder>(acir_program.constraints, 0, acir_program.witness);
+
     EXPECT_TRUE(CircuitChecker::check(circuit));
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
 }

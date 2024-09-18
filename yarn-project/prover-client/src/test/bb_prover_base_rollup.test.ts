@@ -23,7 +23,7 @@ describe('prover/bb_prover/base-rollup', () => {
       prover = await BBNativeRollupProver.new(bbConfig, new NoopTelemetryClient());
       return prover;
     };
-    context = await TestContext.new(logger, 1, buildProver);
+    context = await TestContext.new(logger, 'legacy', 1, buildProver);
   });
 
   afterAll(async () => {
@@ -41,9 +41,13 @@ describe('prover/bb_prover/base-rollup', () => {
     const tx = makePaddingProcessedTxFromTubeProof(paddingTxPublicInputsAndProof);
 
     logger.verbose('Building base rollup inputs');
+    const baseRollupInputProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
+    baseRollupInputProof.proof[0] = paddingTxPublicInputsAndProof.verificationKey.keyAsFields.key[0];
+    baseRollupInputProof.proof[1] = paddingTxPublicInputsAndProof.verificationKey.keyAsFields.key[1];
+    baseRollupInputProof.proof[2] = paddingTxPublicInputsAndProof.verificationKey.keyAsFields.key[2];
     const baseRollupInputs = await buildBaseRollupInput(
       tx,
-      makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
+      baseRollupInputProof,
       context.globalVariables,
       context.actualDb,
       paddingTxPublicInputsAndProof.verificationKey,

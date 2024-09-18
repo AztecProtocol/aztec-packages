@@ -4,6 +4,8 @@ import {
   ClientIvcProof,
   GasSettings,
   LogHash,
+  MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_UNENCRYPTED_LOGS_PER_TX,
@@ -12,6 +14,7 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   PublicAccumulatedDataBuilder,
   ScopedLogHash,
+  computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -23,13 +26,13 @@ import {
 } from '@aztec/circuits.js/testing';
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
-import { times } from '@aztec/foundation/collection';
+import { padArrayEnd, times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
 
 import { EncryptedNoteTxL2Logs, EncryptedTxL2Logs, Note, UnencryptedTxL2Logs } from './logs/index.js';
-import { ExtendedNote } from './notes/index.js';
+import { ExtendedNote, UniqueNote } from './notes/index.js';
 import { PublicExecutionRequest } from './public_execution_request.js';
 import { NestedProcessReturnValues, PublicSimulationOutput, SimulatedTx, Tx, TxHash } from './tx/index.js';
 
@@ -118,11 +121,14 @@ export const mockTx = (
         functionLog.logs.forEach(log => {
           // ts complains if we dont check .forPublic here, even though it is defined ^
           if (data.forPublic) {
-            const hash = new LogHash(
-              Fr.fromBuffer(log.getSiloedHash()),
-              i++,
-              // +4 for encoding the length of the buffer
-              new Fr(log.length + 4),
+            const hash = new ScopedLogHash(
+              new LogHash(
+                Fr.fromBuffer(log.hash()),
+                i++,
+                // +4 for encoding the length of the buffer
+                new Fr(log.length + 4),
+              ),
+              log.maskedContractAddress,
             );
             // make the first log non-revertible
             if (functionCount === 0) {
@@ -162,8 +168,21 @@ export const mockTx = (
     }
   } else {
     data.forRollup!.end.nullifiers[0] = firstNullifier.value;
-    data.forRollup!.end.noteEncryptedLogsHash = Fr.fromBuffer(noteEncryptedLogs.hash());
-    data.forRollup!.end.encryptedLogsHash = Fr.fromBuffer(encryptedLogs.hash());
+    data.forRollup!.end.noteEncryptedLogsHashes = padArrayEnd(
+      noteEncryptedLogs.unrollLogs().map(log => new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length))),
+      LogHash.empty(),
+      MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+    );
+    data.forRollup!.end.encryptedLogsHashes = padArrayEnd(
+      encryptedLogs
+        .unrollLogs()
+        .map(
+          log =>
+            new ScopedLogHash(new LogHash(Fr.fromBuffer(log.hash()), 0, new Fr(log.length)), log.maskedContractAddress),
+        ),
+      ScopedLogHash.empty(),
+      MAX_ENCRYPTED_LOGS_PER_TX,
+    );
     data.forRollup!.end.unencryptedLogsHashes = makeTuple(MAX_UNENCRYPTED_LOGS_PER_TX, ScopedLogHash.empty);
     unencryptedLogs.unrollLogs().forEach((log, i) => {
       data.forRollup!.end.unencryptedLogsHashes[i] = new ScopedLogHash(
@@ -218,8 +237,11 @@ export const randomContractArtifact = (): ContractArtifact => ({
 
 export const randomContractInstanceWithAddress = (
   opts: { contractClassId?: Fr } = {},
-  address: AztecAddress = AztecAddress.random(),
-): ContractInstanceWithAddress => SerializableContractInstance.random(opts).withAddress(address);
+  address?: AztecAddress,
+): ContractInstanceWithAddress => {
+  const instance = SerializableContractInstance.random(opts);
+  return instance.withAddress(address ?? computeContractAddressFromInstance(instance));
+};
 
 export const randomDeployedContract = () => {
   const artifact = randomContractArtifact();
@@ -236,4 +258,16 @@ export const randomExtendedNote = ({
   noteTypeId = NoteSelector.random(),
 }: Partial<ExtendedNote> = {}) => {
   return new ExtendedNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
+};
+
+export const randomUniqueNote = ({
+  note = Note.random(),
+  owner = AztecAddress.random(),
+  contractAddress = AztecAddress.random(),
+  txHash = randomTxHash(),
+  storageSlot = Fr.random(),
+  noteTypeId = NoteSelector.random(),
+  nonce = Fr.random(),
+}: Partial<UniqueNote> = {}) => {
+  return new UniqueNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash, nonce);
 };

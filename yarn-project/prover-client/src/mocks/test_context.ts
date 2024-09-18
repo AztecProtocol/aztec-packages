@@ -1,6 +1,7 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
 import {
   type BlockProver,
+  type MerkleTreeAdminOperations,
   type ProcessedTx,
   type PublicExecutionRequest,
   type ServerCircuitProver,
@@ -23,10 +24,13 @@ import {
   type WorldStatePublicDB,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { MerkleTrees } from '@aztec/world-state';
+import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import * as fs from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
@@ -42,7 +46,7 @@ export class TestContext {
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
-    public actualDb: MerkleTreeOperations,
+    public actualDb: MerkleTreeAdminOperations,
     public prover: ServerCircuitProver,
     public proverAgent: ProverAgent,
     public orchestrator: ProvingOrchestrator,
@@ -57,19 +61,33 @@ export class TestContext {
 
   static async new(
     logger: DebugLogger,
+    worldState: 'native' | 'legacy' = 'legacy',
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
       Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator())),
     blockNumber = 3,
   ) {
+    const directoriesToCleanup: string[] = [];
     const globalVariables = makeGlobals(blockNumber);
 
     const publicExecutor = mock<PublicExecutor>();
     const publicContractsDB = mock<ContractsDataSourcePublicDB>();
     const publicWorldStateDB = mock<WorldStatePublicDB>();
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
-    const actualDb = await MerkleTrees.new(openTmpStore()).then(t => t.asLatest());
     const telemetry = new NoopTelemetryClient();
+
+    let actualDb: MerkleTreeAdminOperations;
+
+    if (worldState === 'native') {
+      const dir = await fs.mkdtemp(join(tmpdir(), 'prover-client-world-state-'));
+      directoriesToCleanup.push(dir);
+      const ws = await NativeWorldStateService.create(dir);
+      actualDb = ws.asLatest();
+    } else {
+      const ws = await MerkleTrees.new(openTmpStore(), telemetry);
+      actualDb = ws.asLatest();
+    }
+
     const processor = new PublicProcessor(
       actualDb,
       publicExecutor,
@@ -99,6 +117,10 @@ export class TestContext {
       localProver = await createProver(bbConfig);
     }
 
+    if (config?.directoryToCleanup) {
+      directoriesToCleanup.push(config.directoryToCleanup);
+    }
+
     const queue = new MemoryProvingQueue(telemetry);
     const orchestrator = new ProvingOrchestrator(actualDb, queue, telemetry);
     const agent = new ProverAgent(localProver, proverCount);
@@ -118,7 +140,7 @@ export class TestContext {
       agent,
       orchestrator,
       blockNumber,
-      [config?.directoryToCleanup ?? ''],
+      directoriesToCleanup,
       logger,
     );
   }

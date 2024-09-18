@@ -126,7 +126,7 @@ pub fn mimc_bn254<let N: u32>(array: [Field; N]) -> Field {
     r
 }
 
-struct MimcHasher {
+pub struct MimcHasher {
     _state: [Field],
 }
 
@@ -142,15 +142,13 @@ impl Hasher for MimcHasher {
         r
     }
 
-    fn write(&mut self, input: Field){
+    fn write(&mut self, input: Field) {
         self._state = self._state.push_back(input);
     }
 }
 
-impl Default for MimcHasher{
-    fn default() -> Self{
-        MimcHasher {
-            _state: &[],
-        }
+impl Default for MimcHasher {
+    fn default() -> Self {
+        MimcHasher { _state: &[] }
     }
 }

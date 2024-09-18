@@ -1,5 +1,6 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Enable the following warnings project wide.
 # If any compilation issues arise in the future, they should not be silenced here but rather in the
@@ -21,6 +22,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         message(STATUS "Compiling with memory checks.")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
     endif()
+
     if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 18)
         # We target clang18 and need this, eventually warning should be fixed or this will be unconditional.
         add_compile_options(-Wno-vla-cxx-extension)
@@ -41,7 +43,7 @@ if(WASM)
     add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE})
 
 # I feel this should be limited to ecc, however it's currently used in headers that go across libraries,
 # and there currently isn't an easy way to inherit the DDISABLE_ASM parameter.
@@ -52,10 +54,16 @@ else()
     message(STATUS "Using optimized assembly for field arithmetic.")
 endif()
 
-add_subdirectory(barretenberg/aztec_ivc)
+if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  message("Building with Position Independent Code")
+  set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
+  set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -fPIC")
+  add_subdirectory(barretenberg/world_state_napi)
+endif()
+
+add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/bb)
 add_subdirectory(barretenberg/circuit_checker)
-add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/commitment_schemes_recursion)
 add_subdirectory(barretenberg/common)
@@ -63,7 +71,6 @@ add_subdirectory(barretenberg/crypto)
 add_subdirectory(barretenberg/dsl)
 add_subdirectory(barretenberg/ecc)
 add_subdirectory(barretenberg/eccvm)
-add_subdirectory(barretenberg/eccvm_recursion)
 add_subdirectory(barretenberg/env)
 add_subdirectory(barretenberg/execution_trace)
 add_subdirectory(barretenberg/examples)
@@ -84,11 +91,10 @@ add_subdirectory(barretenberg/stdlib_circuit_builders)
 add_subdirectory(barretenberg/sumcheck)
 add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
-add_subdirectory(barretenberg/translator_vm_recursion)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm)
 add_subdirectory(barretenberg/wasi)
-
+add_subdirectory(barretenberg/world_state)
 
 if(SMT)
     add_subdirectory(barretenberg/smt_verification)
@@ -108,7 +114,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:client_ivc_objects>
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
-    $<TARGET_OBJECTS:client_ivc_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>
     $<TARGET_OBJECTS:crypto_blake3s_objects>
@@ -122,7 +127,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:dsl_objects>
     $<TARGET_OBJECTS:ecc_objects>
     $<TARGET_OBJECTS:eccvm_objects>
-     $<TARGET_OBJECTS:eccvm_recursion_objects>
     $<TARGET_OBJECTS:execution_trace_objects>
     $<TARGET_OBJECTS:simple_example_objects>
     $<TARGET_OBJECTS:flavor_objects>
@@ -138,25 +142,33 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_blake2s_objects>
     $<TARGET_OBJECTS:stdlib_blake3s_objects>
     $<TARGET_OBJECTS:stdlib_circuit_builders_objects>
+    $<TARGET_OBJECTS:stdlib_client_ivc_verifier_objects>
+    $<TARGET_OBJECTS:stdlib_eccvm_verifier_objects>
+    $<TARGET_OBJECTS:stdlib_honk_verifier_objects>
+    $<TARGET_OBJECTS:stdlib_goblin_verifier_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>
-    $<TARGET_OBJECTS:crypto_merkle_tree_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
+    $<TARGET_OBJECTS:stdlib_plonk_recursion_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
-    $<TARGET_OBJECTS:stdlib_honk_recursion_objects>
-    $<TARGET_OBJECTS:stdlib_plonk_recursion_objects>
+    $<TARGET_OBJECTS:stdlib_protogalaxy_verifier_objects>
     $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
+    $<TARGET_OBJECTS:stdlib_translator_vm_verifier_objects>
     $<TARGET_OBJECTS:sumcheck_objects>
     $<TARGET_OBJECTS:transcript_objects>
     $<TARGET_OBJECTS:translator_vm_objects>
-    $<TARGET_OBJECTS:translator_vm_recursion_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
 if(NOT DISABLE_AZTEC_VM)
     # enable AVM
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm_objects>)
+endif()
+
+if(NOT WASM)
+    # enable merkle trees
+    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
 endif()
 
 add_library(

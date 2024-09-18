@@ -82,16 +82,26 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   underlyingERC20: any;
 }> {
   if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
+    underlyingERC20Address = await deployL1Contract(
+      walletClient,
+      publicClient,
+      PortalERC20Abi,
+      PortalERC20Bytecode,
+    ).then(({ address }) => address);
   }
   const underlyingERC20 = getContract({
-    address: underlyingERC20Address.toString(),
+    address: underlyingERC20Address!.toString(),
     abi: PortalERC20Abi,
     client: walletClient,
   });
 
   // deploy the token portal
-  const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
+  const { address: tokenPortalAddress } = await deployL1Contract(
+    walletClient,
+    publicClient,
+    TokenPortalAbi,
+    TokenPortalBytecode,
+  );
   const tokenPortal = getContract({
     address: tokenPortalAddress.toString(),
     abi: TokenPortalAbi,
@@ -104,7 +114,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   // deploy l2 token bridge and attach to the portal
   const bridge = await TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send().deployed();
 
-  if ((await token.methods.admin().simulate()) !== owner.toBigInt()) {
+  if ((await token.methods.get_admin().simulate()) !== owner.toBigInt()) {
     throw new Error(`Token admin is not ${owner}`);
   }
 
@@ -120,7 +130,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
 
   // initialize portal
   await tokenPortal.write.initialize(
-    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), bridge.address.toString()],
+    [rollupRegistryAddress.toString(), underlyingERC20Address!.toString(), bridge.address.toString()],
     {} as any,
   );
 

@@ -42,7 +42,7 @@ ENV ACVM_WORKING_DIRECTORY=/usr/src/yarn-project/acvm
 RUN mkdir -p $BB_WORKING_DIRECTORY $ACVM_WORKING_DIRECTORY && \
   test $(arch) = "x86_64" && \
   echo -n RootRollupArtifact PrivateKernelTailArtifact PrivateKernelTailToPublicArtifact | xargs -d ' ' -P 3 -I {} node bb-prover/dest/bb/index.js write-vk -c {} && \
-  node bb-prover/dest/bb/index.js write-contract -c RootRollupArtifact -n UltraVerifier.sol || \
+  node bb-prover/dest/bb/index.js write-contract -c RootRollupArtifact -n UltraHonkVerifier.sol || \
   echo "Skipping VK generation arch=$(arch)"
 
 RUN yarn workspaces focus @aztec/aztec @aztec/cli-wallet --production && yarn cache clean
@@ -62,5 +62,5 @@ ENV COMMIT_TAG=$COMMIT_TAG
 COPY --from=builder /usr/src /usr/src
 WORKDIR /usr/src/yarn-project
 # add curl to be able to download CRS file
-RUN apt update && apt install -y curl
+RUN apt update && apt install -y curl jq
 ENTRYPOINT ["yarn"]

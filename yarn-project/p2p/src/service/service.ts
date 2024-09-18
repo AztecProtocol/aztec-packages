@@ -1,8 +1,10 @@
-import type { Tx } from '@aztec/circuit-types';
+import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/circuit-types';
 
 import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import type EventEmitter from 'events';
+
+import { type ReqRespSubProtocol, type SubProtocolMap } from './reqresp/interface.js';
 
 export enum PeerDiscoveryState {
   RUNNING = 'running',
@@ -27,9 +29,26 @@ export interface P2PService {
 
   /**
    * Called to have the given transaction propagated through the P2P network.
-   * @param tx - The transaction to be propagated.
+   * @param message - The message to be propagated.
    */
-  propagateTx(tx: Tx): void;
+  propagate<T extends Gossipable>(message: T): void;
+
+  /**
+   * Request information from peers via the request response protocol.
+   *
+   * @param protocol - The request response protocol to use
+   * @param request - The request type, corresponding to the protocol
+   * @returns The response type, corresponding to the protocol
+   */
+  sendRequest<Protocol extends ReqRespSubProtocol>(
+    protocol: Protocol,
+    request: InstanceType<SubProtocolMap[Protocol]['request']>,
+  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined>;
+
+  // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
+  registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
+
+  getEnr(): ENR | undefined;
 }
 
 /**
@@ -71,4 +90,6 @@ export interface PeerDiscoveryService extends EventEmitter {
   emit(event: 'peer:discovered', enr: ENR): boolean;
 
   getStatus(): PeerDiscoveryState;
+
+  getEnr(): ENR | undefined;
 }

@@ -35,24 +35,24 @@ class lookup_pow_2_0_lookup_settings {
 
     template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
     {
-        return std::forward_as_tuple(in.lookup_pow_2_0,
+        return std::forward_as_tuple(in.lookup_pow_2_0_inv,
                                      in.lookup_pow_2_0_counts,
                                      in.alu_sel_shift_which,
                                      in.main_sel_rng_8,
                                      in.alu_ib,
-                                     in.alu_two_pow_s,
+                                     in.alu_b_pow,
                                      in.main_clk,
                                      in.powers_power_of_2);
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
     {
-        return std::forward_as_tuple(in.lookup_pow_2_0,
+        return std::forward_as_tuple(in.lookup_pow_2_0_inv,
                                      in.lookup_pow_2_0_counts,
                                      in.alu_sel_shift_which,
                                      in.main_sel_rng_8,
                                      in.alu_ib,
-                                     in.alu_two_pow_s,
+                                     in.alu_b_pow,
                                      in.main_clk,
                                      in.powers_power_of_2);
     }

@@ -7,7 +7,7 @@ The Aztec CLI `aztec-cli` is a command-line interface (CLI) tool for interacting
 1. In your terminal, download the sandbox by running
 
 ```
-bash -i <(curl -s install.aztec.network)
+bash -i <(curl -s https://install.aztec.network)
 ```
 
 2. Verify the installation: After the installation is complete, run the following command to verify that `aztec-cli` is installed correctly:
@@ -35,7 +35,7 @@ Replace `<command>` with the actual command you want to execute and `[options]` 
 Some options can be set globally as environment variables to avoid having to re-enter them every time you call `aztec-cli.`
 These options are:
 
-- `PRIVATE_KEY` -> `-k, --private-key` for all commands that require a private key.
+- `SECRET_KEY` -> `-sk, --secret-key` for all commands that require an Aztec secret key.
 - `PUBLIC_KEY` -> `-k, --public-key` for all commands that require a public key.
 - `PXE_URL` -> `-u, --rpc-url` for commands that require a PXE
 - `ETHEREUM_RPC_HOST` -> `-u, --rpc-url` for `deploy-l1-contracts`.

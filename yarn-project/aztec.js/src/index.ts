@@ -29,6 +29,7 @@ export {
   type ContractStorageLayout,
   DefaultWaitOpts,
   DeployMethod,
+  DeployOptions,
   DeploySentTx,
   type SendMethodOptions,
   SentTx,
@@ -39,6 +40,7 @@ export { ContractDeployer } from './deployment/index.js';
 
 export {
   AztecAddressLike,
+  AnvilTestWatcher,
   CheatCodes,
   EthAddressLike,
   EthCheatCodes,
@@ -102,6 +104,7 @@ export {
   EncryptedLogOutgoingBody,
   EventType,
   ExtendedNote,
+  UniqueNote,
   FunctionCall,
   L1Actor,
   L1ToL2Message,

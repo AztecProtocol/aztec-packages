@@ -7,7 +7,7 @@ use crate::{
     components::{compute_tx_effects_hash, compute_kernel_out_hash}
 };
 use dep::types::{
-    hash::{sha256_to_field, silo_l2_to_l1_message},
+    hash::silo_l2_to_l1_message,
     data::{
     public_data_hint::PublicDataHint,
     hash::{compute_public_data_tree_index, compute_public_data_tree_value}
@@ -15,27 +15,23 @@ use dep::types::{
     storage::map::derive_storage_slot_in_map, address::AztecAddress,
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, nullifier_leaf_preimage::NullifierLeafPreimage,
-    public_data_update_request::PublicDataUpdateRequest, public_data_read::PublicDataRead,
-    kernel_data::KernelData
+    public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
-    NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
     PUBLIC_DATA_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, MAX_NOTE_HASHES_PER_TX,
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, MAX_NULLIFIERS_PER_TX,
-    MAX_L2_TO_L1_MSGS_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
-    PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT,
-    PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ARCHIVE_HEIGHT, FEE_JUICE_ADDRESS,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_KERNEL_TAIL_INDEX, PRIVATE_KERNEL_EMPTY_INDEX,
-    PRIVATE_KERNEL_TAIL_INDEX
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
+    PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, PUBLIC_DATA_SUBTREE_HEIGHT, ARCHIVE_HEIGHT,
+    FEE_JUICE_ADDRESS, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PUBLIC_KERNEL_TAIL_INDEX,
+    PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX
 },
     merkle_tree::{
     append_only_tree, assert_check_membership, calculate_empty_tree_root, calculate_subtree_root,
     indexed_tree, MembershipWitness
 },
-    partial_state_reference::PartialStateReference, public_data_tree_leaf::PublicDataTreeLeaf,
-    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::is_empty,
-    utils::{field::{full_field_less_than, full_field_greater_than}, uint256::U256}
+    partial_state_reference::PartialStateReference,
+    data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage}, traits::is_empty,
+    utils::{field::{full_field_less_than, full_field_greater_than}}
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
@@ -132,14 +128,14 @@ impl BaseRollupInputs {
         let siloed_l2_to_l1_msgs = self.kernel_data.public_inputs.end.l2_to_l1_msgs.map(
             |message: ScopedL2ToL1Message| silo_l2_to_l1_message(message, self.kernel_data.public_inputs.constants.tx_context.version, self.kernel_data.public_inputs.constants.tx_context.chain_id)
         );
+        let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
         let tx_effects_hash = compute_tx_effects_hash(
             self.kernel_data.public_inputs.end,
             self.kernel_data.public_inputs.revert_code,
             transaction_fee,
             all_public_data_update_requests,
-            siloed_l2_to_l1_msgs
+            out_hash
         );
-        let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
 
         // Perform membership checks that the notes provided exist within the historical trees data
         self.perform_archive_membership_checks();
@@ -210,7 +206,7 @@ impl BaseRollupInputs {
         )
     }
 
-    fn create_nullifier_subtree<N>(leaves: [NullifierLeafPreimage; N]) -> Field {
+    fn create_nullifier_subtree<let N: u32>(leaves: [NullifierLeafPreimage; N]) -> Field {
         calculate_subtree_root(leaves.map(|leaf:NullifierLeafPreimage| leaf.hash()))
     }
 
@@ -280,7 +276,9 @@ impl BaseRollupInputs {
 
             if read_hint.leaf_slot == 0 {
                 // Is there a balance update already in this tx? If so, update it and return its index.
-                let existing_update_index = self.find_fee_payer_fee_juice_update_index(leaf_slot);
+                let existing_update_index = unsafe {
+                    self.find_fee_payer_fee_juice_update_index(leaf_slot)
+                };
                 let existing_update = self.kernel_data.public_inputs.end.public_data_update_requests[existing_update_index];
                 assert(
                     existing_update.leaf_slot == leaf_slot, "Wrong leaf slot for Fee Juice balance update request"
@@ -420,9 +418,11 @@ fn insert_public_data_update_requests(
 
 fn compute_fee_payer_fee_juice_balance_leaf_slot(fee_payer: AztecAddress) -> Field {
     let balances_slot_in_fee_juice_contract = 1;
-    let fee_juice = AztecAddress::from_field(FEE_JUICE_ADDRESS);
     let fee_payer_balance_slot_in_fee_juice_contract = derive_storage_slot_in_map(balances_slot_in_fee_juice_contract, fee_payer);
-    compute_public_data_tree_index(fee_juice, fee_payer_balance_slot_in_fee_juice_contract)
+    compute_public_data_tree_index(
+        FEE_JUICE_ADDRESS,
+        fee_payer_balance_slot_in_fee_juice_contract
+    )
 }
 
 #[test]
@@ -458,38 +458,32 @@ mod tests {
     },
         base::{
         state_diff_hints::StateDiffHints,
-        base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_fee_juice_balance_leaf_slot, ALLOWED_PREVIOUS_CIRCUITS}
+        base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_fee_juice_balance_leaf_slot}
     },
-        components::{TX_EFFECTS_HASH_INPUT_FIELDS, compute_kernel_out_hash}
+        components::TX_EFFECTS_HASH_INPUT_FIELDS
     };
     use dep::types::{
         abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        nullifier_leaf_preimage::NullifierLeafPreimage, public_data_read::PublicDataRead,
-        public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
-        accumulated_data::CombinedAccumulatedData, gas::Gas
+        nullifier_leaf_preimage::NullifierLeafPreimage,
+        public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData
     },
         messaging::l2_to_l1_message::ScopedL2ToL1Message, merkle_tree::MembershipWitness,
         hash::silo_l2_to_l1_message, data::public_data_hint::PublicDataHint,
         address::{AztecAddress, EthAddress},
         constants::{
-        ARCHIVE_HEIGHT, MAX_PUBLIC_DATA_READS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
-        NOTE_HASH_TREE_HEIGHT, NOTE_HASH_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-        NULLIFIER_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT,
-        PUBLIC_DATA_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, MAX_L2_TO_L1_MSGS_PER_TX,
+        ARCHIVE_HEIGHT, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX, NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH, NOTE_HASH_TREE_HEIGHT,
+        NOTE_HASH_SUBTREE_HEIGHT, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH, NULLIFIER_TREE_HEIGHT,
+        NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT,
+        PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH, MAX_L2_TO_L1_MSGS_PER_TX,
         PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-        BASE_ROLLUP_INDEX, PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX,
-        PUBLIC_KERNEL_TAIL_INDEX
+        PRIVATE_KERNEL_EMPTY_INDEX, PRIVATE_KERNEL_TAIL_INDEX, PUBLIC_KERNEL_TAIL_INDEX
     },
-        contract_class_id::ContractClassId, partial_state_reference::PartialStateReference,
-        public_data_tree_leaf::PublicDataTreeLeaf,
-        public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-        tests::{
-        fixtures, fixture_builder::FixtureBuilder,
-        merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}, sort::sort_high_to_low
-    },
-        utils::{field::{full_field_less_than, field_from_bytes_32_trunc, field_from_bytes}, uint256::U256},
+        partial_state_reference::PartialStateReference,
+        data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
+        tests::{fixtures, fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree},
+        utils::{arrays::get_sorted_tuple::get_sorted_tuple, field::{full_field_less_than, field_from_bytes_32_trunc}},
         traits::Empty
     };
 
@@ -501,7 +495,7 @@ mod tests {
     global MAX_nullifiers_PER_TEST = 4;
     global MAX_PUBLIC_DATA_READS_PER_TEST = 2;
 
-    fn update_public_data_tree<EXISTING_LEAVES, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>(
+    fn update_public_data_tree<let EXISTING_LEAVES: u32, let SUBTREE_SIBLING_PATH_LENGTH: u32, let SUBTREE_HEIGHT: u32>(
         public_data_tree: &mut NonEmptyMerkleTree<EXISTING_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,
         kernel_data: &mut KernelData,
         snapshot: AppendOnlyTreeSnapshot,
@@ -535,14 +529,16 @@ mod tests {
             final_public_data_writes.extend_from_array(protocol_public_data_writes.storage);
         }
 
-        let mut sorted_write_tuples = sort_high_to_low(
-            final_public_data_writes.storage,
-            |(_, leaf_a): (u32, PublicDataTreeLeaf),(_,leaf_b):(u32, PublicDataTreeLeaf)| full_field_less_than(leaf_a.slot, leaf_b.slot)
-        );
+        let mut sorted_write_tuples = unsafe {
+            get_sorted_tuple(
+                final_public_data_writes.storage,
+                |(_, leaf_a): (u32, PublicDataTreeLeaf), (_, leaf_b): (u32, PublicDataTreeLeaf)| full_field_less_than(leaf_b.slot, leaf_a.slot)
+            )
+        };
 
         for i in 0..MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX {
             if i < final_public_data_writes.len() {
-                let (low_leaf_index, leaf): (u32, PublicDataTreeLeaf) = sorted_write_tuples[i].value;
+                let (low_leaf_index, leaf): (u32, PublicDataTreeLeaf) = sorted_write_tuples[i].elem;
 
                 sorted_public_data_writes[i] = leaf;
                 sorted_public_data_writes_indexes[i] = sorted_write_tuples[i].original_index;
@@ -610,10 +606,6 @@ mod tests {
         fee_payer_fee_juice_balance_pre_existing_public_data_index: Option<u32>
     }
 
-    fn test_compute_empty_root<N>(size: [Field; N]) -> Field {
-        compute_zero_hashes(size)[N - 1]
-    }
-
     impl BaseRollupInputsBuilder {
         fn new() -> Self {
             let mut inputs = BaseRollupInputsBuilder::empty();
@@ -648,7 +640,7 @@ mod tests {
             )
         }
 
-        fn extract_subtree_sibling_path<FULL_HEIGHT, SIBLING_PATH_LENGTH>(
+        fn extract_subtree_sibling_path<let FULL_HEIGHT: u32, let SIBLING_PATH_LENGTH: u32>(
             path: [Field; FULL_HEIGHT],
             mut sibling_path: [Field; SIBLING_PATH_LENGTH]
         ) -> [Field; SIBLING_PATH_LENGTH] {
@@ -668,17 +660,19 @@ mod tests {
             let mut nullifier_predecessor_preimages = [NullifierLeafPreimage::empty(); MAX_NULLIFIERS_PER_TX];
             let mut low_nullifier_membership_witness = [MembershipWitness::empty(); MAX_NULLIFIERS_PER_TX];
 
-            let sorted_new_nullifier_tuples = sort_high_to_low(
-                self.nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value),
-                full_field_less_than
-            );
+            let sorted_new_nullifier_tuples = unsafe {
+                get_sorted_tuple(
+                    self.nullifiers.storage.map(|insertion: NullifierInsertion| insertion.value),
+                    |a, b| full_field_less_than(b, a)
+                )
+            };
 
             let mut sorted_nullifiers = [0; MAX_NULLIFIERS_PER_TX];
             let mut sorted_nullifiers_indexes = [0; MAX_NULLIFIERS_PER_TX];
 
             for i in 0..MAX_NULLIFIERS_PER_TX {
                 if (i as u32) < (MAX_nullifiers_PER_TEST as u32) {
-                    sorted_nullifiers[i] = sorted_new_nullifier_tuples[i].value;
+                    sorted_nullifiers[i] = sorted_new_nullifier_tuples[i].elem;
                     sorted_nullifiers_indexes[i] = sorted_new_nullifier_tuples[i].original_index;
                 } else {
                     sorted_nullifiers[i] = 0;
@@ -691,7 +685,7 @@ mod tests {
             for i in 0..MAX_nullifiers_PER_TEST {
                 if i < self.nullifiers.len() {
                     let sorted_tuple = sorted_new_nullifier_tuples[i];
-                    let new_nullifier = sorted_tuple.value;
+                    let new_nullifier = sorted_tuple.elem;
                     let original_index = sorted_tuple.original_index;
 
                     let low_index = self.nullifiers.get_unchecked(original_index).existing_index;
@@ -899,10 +893,6 @@ mod tests {
 
     #[test]
     unconstrained fn new_nullifier_tree_empty() {
-        /**
-        * DESCRIPTION
-        */
-
         // This test checks for insertions of all 0 values
         // In this special case we will not need to provide sibling paths to check insertion of the nullifier values
         // This is because 0 values are not actually inserted into the tree, rather the inserted subtree is left
@@ -1082,12 +1072,7 @@ mod tests {
     #[test]
     unconstrained fn empty_block_out_hash() {
         let outputs = BaseRollupInputsBuilder::new().execute();
-        // For now setting an empty out hash to be H(0,0) to keep consistent
-        // with prev work.
-        let hash_input_flattened = [0; 64];
-        let sha_digest = std::hash::sha256(hash_input_flattened);
-        let expected_out_hash = field_from_bytes_32_trunc(sha_digest);
-        assert_eq(outputs.out_hash, expected_out_hash);
+        assert_eq(outputs.out_hash, 0);
     }
 
     #[test]

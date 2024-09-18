@@ -1,5 +1,5 @@
 use crate::test::utils;
-use dep::aztec::{test::helpers::cheatcodes, oracle::unsafe_rand::unsafe_rand};
+use dep::aztec::oracle::unsafe_rand::unsafe_rand;
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 use crate::Token;
 
@@ -63,20 +63,18 @@ unconstrained fn public_transfer_failure_more_than_balance() {
     utils::check_public_balance(token_contract_address, owner, mint_amount);
 }
 
-#[test]
+#[test(should_fail_with="invalid nonce")]
 unconstrained fn public_transfer_failure_on_behalf_of_self_non_zero_nonce() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
+    let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount / 10;
     let public_transfer_call_interface = Token::at(token_contract_address).transfer_public(owner, recipient, transfer_amount, unsafe_rand());
     // Try to transfer tokens
-    env.assert_public_call_fails(public_transfer_call_interface);
-
-    // Check balances
-    utils::check_public_balance(token_contract_address, owner, mint_amount);
+    env.call_public(public_transfer_call_interface);
 }
 
+// Not checking error message here with should_fail_with because noir panics when I try doing that.
 #[test]
 unconstrained fn public_transfer_failure_on_behalf_of_other_without_approval() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
@@ -92,7 +90,7 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_without_approval() {
     utils::check_public_balance(token_contract_address, recipient, 0);
 }
 
-#[test]
+#[test(should_fail_with="attempt to subtract with underflow")]
 unconstrained fn public_transfer_failure_on_behalf_of_other_more_than_balance() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.
     let (env, token_contract_address, owner, recipient, mint_amount) = utils::setup_and_mint(/* with_account_contracts */ true);
@@ -104,12 +102,10 @@ unconstrained fn public_transfer_failure_on_behalf_of_other_more_than_balance() 
     // Impersonate recipient to perform the call
     env.impersonate(recipient);
     // Try to transfer tokens
-    env.assert_public_call_fails(public_transfer_from_call_interface);
-    // Check balances
-    utils::check_public_balance(token_contract_address, owner, mint_amount);
-    utils::check_public_balance(token_contract_address, recipient, 0);
+    env.call_public(public_transfer_from_call_interface);
 }
 
+// Not checking error message here with should_fail_with because noir panics when I try doing that.
 #[test]
 unconstrained fn public_transfer_failure_on_behalf_of_other_wrong_caller() {
     // Setup with account contracts. Slower since we actually deploy them, but needed for authwits.

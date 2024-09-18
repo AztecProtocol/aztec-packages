@@ -9,9 +9,11 @@ global BN254_FR_MODULUS_DIV_2: Field = 10944121435919637611123202872628637544274
 /// We don't serialize the point at infinity flag because this function is used in situations where we do not want
 /// to waste the extra byte (encrypted log).
 pub fn point_to_bytes(pk: Point) -> [u8; 32] {
+    // Note that there is 1 more free bit in the 32 bytes (254 bits currently occupied by the x coordinate, 1 bit for
+    // the "sign") so it's possible to use that last bit as an "is_infinite" flag if desired in the future.
     assert(!pk.is_infinite, "Cannot serialize point at infinity as bytes.");
 
-    let mut result = pk.x.to_be_bytes(32);
+    let mut result: [u8; 32] = pk.x.to_be_bytes();
 
     // We store only a "sign" of the y coordinate because the rest can be derived from the x coordinate. To get
     // the sign we check if the y coordinate is less or equal than the curve's order minus 1 divided by 2.
@@ -25,7 +27,7 @@ pub fn point_to_bytes(pk: Point) -> [u8; 32] {
         result[0] += 128;
     }
 
-    result.as_array()
+    result
 }
 
 mod test {
@@ -46,10 +48,7 @@ mod test {
             154, 244, 31, 93, 233, 100, 70, 220, 55, 118, 161, 235, 45, 152, 187, 149, 107, 122, 205, 153, 121, 166, 120, 84, 190, 198, 250, 124, 41, 115, 189, 115
         ];
 
-        assert_eq(expected_compressed_point_positive_sign.len(), compressed_point.len());
-        for i in 0..expected_compressed_point_positive_sign.len() {
-            assert_eq(compressed_point[i], expected_compressed_point_positive_sign[i]);
-        }
+        assert_eq(expected_compressed_point_positive_sign, compressed_point);
     }
 
     #[test]
@@ -66,9 +65,6 @@ mod test {
             36, 115, 113, 101, 46, 85, 221, 116, 201, 175, 141, 190, 159, 180, 73, 49, 186, 41, 169, 34, 153, 148, 56, 75, 215, 7, 119, 150, 193, 78, 226, 181
         ];
 
-        assert_eq(expected_compressed_point_negative_sign.len(), compressed_point.len());
-        for i in 0..expected_compressed_point_negative_sign.len() {
-            assert_eq(compressed_point[i], expected_compressed_point_negative_sign[i]);
-        }
+        assert_eq(expected_compressed_point_negative_sign, compressed_point);
     }
 }

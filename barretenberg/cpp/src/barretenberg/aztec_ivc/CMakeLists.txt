@@ -1,1 +1,0 @@
-barretenberg_module(aztec_ivc goblin)

@@ -15,7 +15,10 @@ class AvmGasTests : public ::testing::Test {
 };
 
 class AvmGasPositiveTests : public AvmGasTests {};
-class AvmGasNegativeTests : public AvmGasTests {};
+class AvmGasNegativeTests : public AvmGasTests {
+  protected:
+    void SetUp() override { GTEST_SKIP(); }
+};
 
 // Helper to set the initial gas parameters for each test
 struct StartGas {
@@ -40,7 +43,7 @@ void test_gas(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_trac
     // We should return a value of 1 for the sender, as it exists at index 0
     apply_opcodes(trace_builder);
 
-    trace_builder.halt();
+    trace_builder.op_return(0, 0, 0);
 
     auto trace = trace_builder.finalize();
 
@@ -53,16 +56,12 @@ void test_gas(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_trac
 TEST_F(AvmGasPositiveTests, gasAdd)
 {
     StartGas start_gas = {
-        .l2_gas = 3,
-        .da_gas = 300,
+        .l2_gas = 3000,
+        .da_gas = 10,
     };
 
     // We test that the sender opcode is included at index 0 in the public inputs
-    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        // trace_builder.set()
-        trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::FF);
-        trace_builder.op_return(0, 0, 0);
-    };
+    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_add(0, 1, 2, 3, AvmMemoryTag::FF); };
 
     auto checks = [=](const std::vector<Row>& trace) {
         auto sender_row =

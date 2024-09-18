@@ -43,17 +43,17 @@ data "terraform_remote_state" "aztec-network_iac" {
   }
 }
 
-data "terraform_remote_state" "aztec-network_node" {
+data "terraform_remote_state" "aztec-network_prover-node" {
   backend = "s3"
   config = {
     bucket = "aztec-terraform"
-    key    = "${var.DEPLOY_TAG}/aztec-node"
+    key    = "${var.DEPLOY_TAG}/aztec-prover-node"
     region = "eu-west-2"
   }
 }
 
 locals {
-  node_count        = data.terraform_remote_state.aztec-network_node.outputs.node_count
+  node_count        = data.terraform_remote_state.aztec-network_prover-node.outputs.node_count
   agents_per_prover = var.AGENTS_PER_PROVER
 }
 
@@ -101,12 +101,12 @@ EOF
 }
 
 # Launch template for our prover agents
-# 32 cores and 128 GB memory
+# 16 cores and 128 GB memory
 resource "aws_launch_template" "proving-agent-launch-template" {
   count                  = local.node_count
   name                   = "${var.DEPLOY_TAG}-proving-agent-launch-template-${count.index + 1}"
   image_id               = "ami-0cd4858f2b923aa6b"
-  instance_type          = "m5.8xlarge"
+  instance_type          = "r5a.4xlarge"
   vpc_security_group_ids = [data.terraform_remote_state.setup_iac.outputs.security_group_private_id]
 
   iam_instance_profile {
@@ -237,8 +237,8 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
     "image": "${var.DOCKERHUB_ACCOUNT}/aztec:${var.IMAGE_TAG}",
     "command": ["start", "--prover"],
     "essential": true,
-    "cpu": 32768,
-    "memoryReservation": 122880,
+    "cpu": 16384,
+    "memoryReservation": 127800,
     "portMappings": [
       {
         "containerPort": 80
@@ -259,10 +259,14 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
       },
       {
         "name": "AZTEC_NODE_URL",
-        "value": "http://${var.DEPLOY_TAG}-aztec-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}"
+        "value": "http://${var.DEPLOY_TAG}-aztec-prover-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-prover-node-${count.index + 1}/${var.API_KEY}"
       },
       {
-        "name": "PROVER_AGENTS",
+        "name": "PROVER_AGENT_ENABLED",
+        "value": "true"
+      },
+      {
+        "name": "PROVER_AGENT_CONCURRENCY",
         "value": "1"
       },
       {
@@ -270,16 +274,20 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
         "value": "${var.PROVING_ENABLED}"
       },
       {
-        "name": "TEL_COLLECTOR_BASE_URL",
-        "value": "http://aztec-otel.local:4318"
+        "name": "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT",
+        "value": "http://aztec-otel.local:4318/v1/metrics"
       },
       {
-        "name": "TEL_SERVICE_NAME",
+        "name": "OTEL_SERVICE_NAME",
         "value": "${var.DEPLOY_TAG}-aztec-proving-agent-group-${count.index + 1}"
       },
       {
-        "name": "TEL_NETWORK_ID",
+        "name": "NETWORK_NAME",
         "value": "${var.DEPLOY_TAG}"
+      },
+      {
+        "name": "LOG_JSON",
+        "value": "1"
       }
     ],
     "logConfiguration": {
@@ -296,13 +304,14 @@ DEFINITIONS
 }
 
 resource "aws_ecs_service" "aztec-proving-agent" {
-  count   = local.node_count
-  name    = "${var.DEPLOY_TAG}-aztec-proving-agent-group-${count.index + 1}"
-  cluster = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
-  #launch_type                        = "EC2"
-  desired_count                      = 1
+  count                              = local.node_count
+  name                               = "${var.DEPLOY_TAG}-aztec-proving-agent-group-${count.index + 1}"
+  cluster                            = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id
+  launch_type                        = "EC2"
+  desired_count                      = local.agents_per_prover
   deployment_maximum_percent         = 100
   deployment_minimum_healthy_percent = 0
+  enable_execute_command             = true
   #platform_version                   = "1.4.0"
 
   # Associate the EC2 capacity provider
@@ -335,92 +344,92 @@ resource "aws_ecs_service" "aztec-proving-agent" {
 
 
 # Create CloudWatch metrics for the proving agents
-resource "aws_cloudwatch_metric_alarm" "cpu_high" {
-  count               = local.node_count
-  alarm_name          = "${var.DEPLOY_TAG}-proving-agent-cpu-high-${count.index + 1}"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "1"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/ECS"
-  period              = "60"
-  datapoints_to_alarm = 1
-  statistic           = "Maximum"
-  threshold           = "20"
-  alarm_description   = "Alert when CPU utilization is greater than 20%"
-  dimensions = {
-    ClusterName = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name
-    ServiceName = "${aws_ecs_service.aztec-proving-agent[count.index].name}"
-  }
-  alarm_actions = [aws_appautoscaling_policy.scale_out[count.index].arn]
-}
+# resource "aws_cloudwatch_metric_alarm" "cpu_high" {
+#   count               = local.node_count
+#   alarm_name          = "${var.DEPLOY_TAG}-proving-agent-cpu-high-${count.index + 1}"
+#   comparison_operator = "GreaterThanThreshold"
+#   evaluation_periods  = "1"
+#   metric_name         = "CPUUtilization"
+#   namespace           = "AWS/ECS"
+#   period              = "60"
+#   datapoints_to_alarm = 1
+#   statistic           = "Maximum"
+#   threshold           = "20"
+#   alarm_description   = "Alert when CPU utilization is greater than 20%"
+#   dimensions = {
+#     ClusterName = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name
+#     ServiceName = "${aws_ecs_service.aztec-proving-agent[count.index].name}"
+#   }
+#   alarm_actions = [aws_appautoscaling_policy.scale_out[count.index].arn]
+# }
 
-resource "aws_cloudwatch_metric_alarm" "cpu_low" {
-  count               = local.node_count
-  alarm_name          = "${var.DEPLOY_TAG}-proving-agent-cpu-low-${count.index + 1}"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = "3"
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/ECS"
-  period              = "60"
-  datapoints_to_alarm = 3
-  statistic           = "Maximum"
-  threshold           = "20"
-  alarm_description   = "Alarm when CPU utilization is less than 20%"
-  dimensions = {
-    ClusterName = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name
-    ServiceName = "${aws_ecs_service.aztec-proving-agent[count.index].name}"
-  }
-  alarm_actions = [aws_appautoscaling_policy.scale_in[count.index].arn]
-}
+# resource "aws_cloudwatch_metric_alarm" "cpu_low" {
+#   count               = local.node_count
+#   alarm_name          = "${var.DEPLOY_TAG}-proving-agent-cpu-low-${count.index + 1}"
+#   comparison_operator = "LessThanThreshold"
+#   evaluation_periods  = "3"
+#   metric_name         = "CPUUtilization"
+#   namespace           = "AWS/ECS"
+#   period              = "60"
+#   datapoints_to_alarm = 3
+#   statistic           = "Maximum"
+#   threshold           = "20"
+#   alarm_description   = "Alarm when CPU utilization is less than 20%"
+#   dimensions = {
+#     ClusterName = data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name
+#     ServiceName = "${aws_ecs_service.aztec-proving-agent[count.index].name}"
+#   }
+#   alarm_actions = [aws_appautoscaling_policy.scale_in[count.index].arn]
+# }
 
-# Create Auto Scaling Target for ECS Service
-resource "aws_appautoscaling_target" "ecs_proving_agent" {
-  count              = local.node_count
-  max_capacity       = local.agents_per_prover
-  min_capacity       = 1
-  resource_id        = "service/${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id}/${aws_ecs_service.aztec-proving-agent[count.index].name}"
-  scalable_dimension = "ecs:service:DesiredCount"
-  service_namespace  = "ecs"
-}
+# # Create Auto Scaling Target for ECS Service
+# resource "aws_appautoscaling_target" "ecs_proving_agent" {
+#   count              = local.node_count
+#   max_capacity       = local.agents_per_prover
+#   min_capacity       = 1
+#   resource_id        = "service/${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_id}/${aws_ecs_service.aztec-proving-agent[count.index].name}"
+#   scalable_dimension = "ecs:service:DesiredCount"
+#   service_namespace  = "ecs"
+# }
 
-# Create Scaling Policy for Scaling Out
-resource "aws_appautoscaling_policy" "scale_out" {
-  count              = local.node_count
-  name               = "${var.DEPLOY_TAG}-scale-out-${count.index + 1}"
-  policy_type        = "StepScaling"
-  resource_id        = aws_appautoscaling_target.ecs_proving_agent[count.index].resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs_proving_agent[count.index].scalable_dimension
-  service_namespace  = aws_appautoscaling_target.ecs_proving_agent[count.index].service_namespace
+# # Create Scaling Policy for Scaling Out
+# resource "aws_appautoscaling_policy" "scale_out" {
+#   count              = local.node_count
+#   name               = "${var.DEPLOY_TAG}-scale-out-${count.index + 1}"
+#   policy_type        = "StepScaling"
+#   resource_id        = aws_appautoscaling_target.ecs_proving_agent[count.index].resource_id
+#   scalable_dimension = aws_appautoscaling_target.ecs_proving_agent[count.index].scalable_dimension
+#   service_namespace  = aws_appautoscaling_target.ecs_proving_agent[count.index].service_namespace
 
-  step_scaling_policy_configuration {
-    adjustment_type         = "ExactCapacity"
-    cooldown                = 60
-    metric_aggregation_type = "Maximum"
+#   step_scaling_policy_configuration {
+#     adjustment_type         = "ExactCapacity"
+#     cooldown                = 60
+#     metric_aggregation_type = "Maximum"
 
-    step_adjustment {
-      scaling_adjustment          = local.agents_per_prover
-      metric_interval_lower_bound = 0
-    }
-  }
-}
+#     step_adjustment {
+#       scaling_adjustment          = local.agents_per_prover
+#       metric_interval_lower_bound = 0
+#     }
+#   }
+# }
 
-# Create Scaling Policy for Scaling In
-resource "aws_appautoscaling_policy" "scale_in" {
-  count              = local.node_count
-  name               = "${var.DEPLOY_TAG}-scale-in-${count.index + 1}"
-  policy_type        = "StepScaling"
-  resource_id        = aws_appautoscaling_target.ecs_proving_agent[count.index].resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs_proving_agent[count.index].scalable_dimension
-  service_namespace  = aws_appautoscaling_target.ecs_proving_agent[count.index].service_namespace
+# # Create Scaling Policy for Scaling In
+# resource "aws_appautoscaling_policy" "scale_in" {
+#   count              = local.node_count
+#   name               = "${var.DEPLOY_TAG}-scale-in-${count.index + 1}"
+#   policy_type        = "StepScaling"
+#   resource_id        = aws_appautoscaling_target.ecs_proving_agent[count.index].resource_id
+#   scalable_dimension = aws_appautoscaling_target.ecs_proving_agent[count.index].scalable_dimension
+#   service_namespace  = aws_appautoscaling_target.ecs_proving_agent[count.index].service_namespace
 
-  step_scaling_policy_configuration {
-    adjustment_type         = "ExactCapacity"
-    cooldown                = 60
-    metric_aggregation_type = "Maximum"
+#   step_scaling_policy_configuration {
+#     adjustment_type         = "ExactCapacity"
+#     cooldown                = 60
+#     metric_aggregation_type = "Maximum"
 
-    step_adjustment {
-      scaling_adjustment          = 1
-      metric_interval_upper_bound = 0
-    }
-  }
-}
+#     step_adjustment {
+#       scaling_adjustment          = 1
+#       metric_interval_upper_bound = 0
+#     }
+#   }
+# }

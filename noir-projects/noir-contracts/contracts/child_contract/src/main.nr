@@ -5,7 +5,8 @@ contract Child {
     use dep::aztec::{
         context::gas::GasOpts, protocol_types::{abis::call_context::CallContext},
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
+        keys::getters::get_current_public_keys, utils::comparison::Comparator
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -20,7 +21,7 @@ contract Child {
     fn value(input: Field) -> Field {
         input + context.chain_id() + context.version()
     }
-    // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values. 
+    // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
     // Can only be called from this contract.
     #[aztec(private)]
     #[aztec(internal)]
@@ -51,18 +52,17 @@ contract Child {
 
     #[aztec(private)]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let header = context.get_header();
-        let owner_npk_m_hash = header.get_npk_m_hash(&mut context, owner);
+        let owner_keys = get_current_public_keys(&mut context, owner);
 
-        let mut note = ValueNote::new(new_value, owner_npk_m_hash);
-        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(&mut context, owner, owner));
+        let mut note = ValueNote::new(new_value, owner_keys.npk_m.hash());
+        storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note_with_keys(&mut context, owner_keys.ovpk_m, owner_keys.ivpk_m, owner));
         new_value
     }
 
     #[aztec(private)]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let mut options = NoteGetterOptions::new();
-        options = options.select(ValueNote::properties().value, amount, Option::none()).set_limit(1);
+        options = options.select(ValueNote::properties().value, Comparator.EQ, amount).set_limit(1);
         let notes = storage.a_map_with_private_values.at(owner).get_notes(options);
         notes.get(0).value
     }
@@ -78,7 +78,7 @@ contract Child {
     }
 
     // Increments `current_value` by `new_value`. Can only be called from this contract.
-    #[aztec(public)] 
+    #[aztec(public)]
     #[aztec(internal)]
     fn pub_inc_value_internal(new_value: Field) -> Field {
         let old_value = storage.current_value.read();

@@ -26,16 +26,20 @@ export const CIRCUIT_SIZE = 'aztec.circuit.size';
 export const MEMPOOL_TX_COUNT = 'aztec.mempool.tx_count';
 export const MEMPOOL_TX_SIZE = 'aztec.mempool.tx_size';
 
+export const ARCHIVER_SYNC_DURATION = 'aztec.archiver.sync_duration';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
 export const ARCHIVER_BLOCK_SIZE = 'aztec.archiver.block_size';
+export const ARCHIVER_ROLLUP_PROOF_DELAY = 'aztec.archiver.rollup_proof_delay';
+export const ARCHIVER_ROLLUP_PROOF_COUNT = 'aztec.archiver.rollup_proof_count';
 
 export const NODE_RECEIVE_TX_DURATION = 'aztec.node.receive_tx.duration';
 export const NODE_RECEIVE_TX_COUNT = 'aztec.node.receive_tx.count';
 
-export const SEQUENCER_BLOCK_BUILD_DURATION = 'aztec.sequencer.block_build.duration';
-export const SEQUENCER_BLOCK_BUILD_COUNT = 'aztec.sequencer.block_build.ok_count';
-export const SEQUENCER_BLOCK_BUILD_CANCELLED_COUNT = 'aztec.sequencer.block_build.cancelled_count';
-export const SEQUENCER_BLOCK_BUILD_TX_COUNT = 'aztec.sequencer.block_build.tx_count';
+export const SEQUENCER_BLOCK_BUILD_DURATION = 'aztec.sequencer.block.build_duration';
+export const SEQUENCER_BLOCK_COUNT = 'aztec.sequencer.block.count';
+export const SEQUENCER_CURRENT_STATE = 'aztec.sequencer.current.state';
+export const SEQUENCER_CURRENT_BLOCK_NUMBER = 'aztec.sequencer.current.block_number';
+export const SEQUENCER_CURRENT_BLOCK_SIZE = 'aztec.sequencer.current.block_size';
 
 export const L1_PUBLISHER_GAS_PRICE = 'aztec.l1_publisher.gas_price';
 export const L1_PUBLISHER_TX_COUNT = 'aztec.l1_publisher.tx_count';
@@ -60,3 +64,12 @@ export const PROVING_ORCHESTRATOR_BASE_ROLLUP_INPUTS_DURATION =
 
 export const PROVING_QUEUE_JOB_SIZE = 'aztec.proving_queue.job_size';
 export const PROVING_QUEUE_SIZE = 'aztec.proving_queue.size';
+
+export const PROVER_NODE_JOB_DURATION = 'aztec.prover_node.job_duration';
+
+export const WORLD_STATE_FORK_DURATION = 'aztec.world_state.fork.duration';
+export const WORLD_STATE_SYNC_DURATION = 'aztec.world_state.sync.duration';
+export const WORLD_STATE_MERKLE_TREE_SIZE = 'aztec.world_state.merkle_tree_size';
+export const WORLD_STATE_DB_SIZE = 'aztec.world_state.db_size';
+
+export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';

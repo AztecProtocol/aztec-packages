@@ -5,7 +5,7 @@ import {
   EncryptedTxL2Logs,
   type EventMetadata,
   EventType,
-  ExtendedNote,
+  type ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
   type IncomingNotesFilter,
@@ -17,6 +17,7 @@ import {
   type PXE,
   type PXEInfo,
   type PrivateKernelProver,
+  type SiblingPath,
   SimulatedTx,
   SimulationError,
   TaggedLog,
@@ -26,12 +27,16 @@ import {
   type TxHash,
   type TxReceipt,
   UnencryptedTxL2Logs,
+  UniqueNote,
+  getNonNullifiedL1ToL2MessageWitness,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
 import {
   AztecAddress,
   type CompleteAddress,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,
+  computeContractAddressFromInstance,
   computeContractClassId,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
@@ -44,8 +49,8 @@ import {
   encodeArguments,
 } from '@aztec/foundation/abi';
 import { type Fq, Fr, type Point } from '@aztec/foundation/fields';
-import { SerialQueue } from '@aztec/foundation/fifo';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import { type KeyStore } from '@aztec/key-store';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
@@ -61,6 +66,7 @@ import {
   collectSortedEncryptedLogs,
   collectSortedNoteEncryptedLogs,
   collectSortedUnencryptedLogs,
+  resolveAssertionMessage,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -268,6 +274,13 @@ export class PXEService implements PXE {
           `Artifact does not match expected class id (computed ${contractClassId} but instance refers to ${instance.contractClassId})`,
         );
       }
+      if (
+        // Computed address from the instance does not match address inside instance
+        !computeContractAddressFromInstance(instance).equals(instance.address)
+      ) {
+        throw new Error('Added a contract in which the address does not match the contract instance.');
+      }
+
       await this.db.addContractArtifact(contractClassId, artifact);
       await this.node.addContractArtifact(instance.address, artifact);
     } else {
@@ -296,7 +309,7 @@ export class PXEService implements PXE {
     return await this.node.getPublicStorageAt(contract, slot, 'latest');
   }
 
-  public async getIncomingNotes(filter: IncomingNotesFilter): Promise<ExtendedNote[]> {
+  public async getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
     const noteDaos = await this.db.getIncomingNotes(filter);
 
     // TODO(#6531): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
@@ -312,12 +325,20 @@ export class PXEService implements PXE {
         }
         owner = completeAddresses.address;
       }
-      return new ExtendedNote(dao.note, owner, dao.contractAddress, dao.storageSlot, dao.noteTypeId, dao.txHash);
+      return new UniqueNote(
+        dao.note,
+        owner,
+        dao.contractAddress,
+        dao.storageSlot,
+        dao.noteTypeId,
+        dao.txHash,
+        dao.nonce,
+      );
     });
     return Promise.all(extendedNotes);
   }
 
-  public async getOutgoingNotes(filter: OutgoingNotesFilter): Promise<ExtendedNote[]> {
+  public async getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
     const noteDaos = await this.db.getOutgoingNotes(filter);
 
     // TODO(#6532): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
@@ -333,9 +354,25 @@ export class PXEService implements PXE {
         }
         owner = completeAddresses.address;
       }
-      return new ExtendedNote(dao.note, owner, dao.contractAddress, dao.storageSlot, dao.noteTypeId, dao.txHash);
+      return new UniqueNote(
+        dao.note,
+        owner,
+        dao.contractAddress,
+        dao.storageSlot,
+        dao.noteTypeId,
+        dao.txHash,
+        dao.nonce,
+      );
     });
     return Promise.all(extendedNotes);
+  }
+
+  public async getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
+    return await getNonNullifiedL1ToL2MessageWitness(this.node, contractAddress, messageHash, secret);
   }
 
   public async addNote(note: ExtendedNote, scope?: AztecAddress) {
@@ -344,7 +381,7 @@ export class PXEService implements PXE {
       throw new Error(`Unknown account: ${note.owner.toString()}`);
     }
 
-    const nonces = await this.getNoteNonces(note);
+    const nonces = await this.#getNoteNonces(note);
     if (nonces.length === 0) {
       throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
     }
@@ -394,7 +431,7 @@ export class PXEService implements PXE {
       throw new Error(`Unknown account: ${note.owner.toString()}`);
     }
 
-    const nonces = await this.getNoteNonces(note);
+    const nonces = await this.#getNoteNonces(note);
     if (nonces.length === 0) {
       throw new Error(`Cannot find the note in tx: ${note.txHash}.`);
     }
@@ -440,9 +477,8 @@ export class PXEService implements PXE {
    * @param note - The note to find the nonces for.
    * @returns The nonces of the note.
    * @remarks More than a single nonce may be returned since there might be more than one nonce for a given note.
-   * TODO(#4956): Un-expose this
    */
-  public async getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
+  async #getNoteNonces(note: ExtendedNote): Promise<Fr[]> {
     const tx = await this.node.getTxEffect(note.txHash);
     if (!tx) {
       throw new Error(`Unknown tx: ${note.txHash}`);
@@ -497,12 +533,19 @@ export class PXEService implements PXE {
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
+    skipTxValidation: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<SimulatedTx> {
     return await this.jobQueue.put(async () => {
       const simulatedTx = await this.#simulateAndProve(txRequest, this.fakeProofCreator, msgSender, scopes);
       if (simulatePublic) {
         simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
+      }
+
+      if (!skipTxValidation) {
+        if (!(await this.node.isValidTx(simulatedTx.tx, true))) {
+          throw new Error('The simulated transaction is unable to be added to state and is invalid.');
+        }
       }
 
       // We log only if the msgSender is undefined, as simulating with a different msgSender
@@ -523,6 +566,7 @@ export class PXEService implements PXE {
     }
     this.log.info(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx);
+    this.log.info(`Sent transaction ${txHash}`);
     return txHash;
   }
 
@@ -594,18 +638,21 @@ export class PXEService implements PXE {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, protocolVersion, chainId, contractAddresses, protocolContractAddresses] = await Promise.all([
-      this.node.getNodeVersion(),
-      this.node.getVersion(),
-      this.node.getChainId(),
-      this.node.getL1ContractAddresses(),
-      this.node.getProtocolContractAddresses(),
-    ]);
+    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
+      await Promise.all([
+        this.node.getNodeVersion(),
+        this.node.getVersion(),
+        this.node.getChainId(),
+        this.node.getEncodedEnr(),
+        this.node.getL1ContractAddresses(),
+        this.node.getProtocolContractAddresses(),
+      ]);
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
       l1ChainId: chainId,
       protocolVersion,
+      enr,
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,
     };
@@ -716,17 +763,25 @@ export class PXEService implements PXE {
           originalFailingFunction.functionSelector,
         );
         const noirCallStack = err.getNoirCallStack();
-        if (debugInfo && isNoirCallStackUnresolved(noirCallStack)) {
-          try {
-            const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo);
-            err.setNoirCallStack(parsedCallStack);
-          } catch (err) {
-            this.log.warn(
-              `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${originalFailingFunction.functionSelector.toString()}: ${err}`,
-            );
+        if (debugInfo) {
+          if (isNoirCallStackUnresolved(noirCallStack)) {
+            const assertionMessage = resolveAssertionMessage(noirCallStack, debugInfo);
+            if (assertionMessage) {
+              err.setOriginalMessage(err.getOriginalMessage() + `: ${assertionMessage}`);
+            }
+            try {
+              // Public functions are simulated as a single Brillig entry point.
+              // Thus, we can safely assume here that the Brillig function id is `0`.
+              const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo, 0);
+              err.setNoirCallStack(parsedCallStack);
+            } catch (err) {
+              this.log.warn(
+                `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${originalFailingFunction.functionSelector.toString()}: ${err}`,
+              );
+            }
           }
+          await this.#enrichSimulationError(err);
         }
-        await this.#enrichSimulationError(err);
       }
 
       throw err;

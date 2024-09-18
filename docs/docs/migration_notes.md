@@ -6,7 +6,142 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [Aztec.nr] Rework `NoteGetterOptions::select`
+
+The `select` function in both `NoteGetterOptions` and `NoteViewerOptions` no longer takes an `Option` of a comparator, but instead requires an explicit comparator to be passed. Additionally, the order of the parameters has been changed so that they are `(lhs, operator, rhs)`. These two changes should make invocations of the function easier to read:
+
+```diff
+- options.select(ValueNote::properties().value, amount, Option::none())
++ options.select(ValueNote::properties().value, Comparator.EQ, amount)
+```
+
+## 0.53.0
+
+### [Aztec.nr] Remove `OwnedNote` and create `UintNote`
+
+`OwnedNote` allowed having a U128 `value` in the custom note while `ValueNote` restricted to just a Field.
+
+We have removed `OwnedNote` but are introducing a more genric `UintNote` within aztec.nr
+
+```
+#[aztec(note)]
+struct UintNote {
+    // The integer stored by the note
+    value: U128,
+    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
+    npk_m_hash: Field,
+    // Randomness of the note to hide its contents
+    randomness: Field,
+}
+```
+
+### [TXE] logging
+
+You can now use `debug_log()` within your contract to print logs when using the TXE
+
+Remember to set the following environment variables to activate debug logging:
+
+```bash
+export DEBUG="aztec:*"
+export LOG_LEVEL="debug"
+```
+
+### [Account] no assert in is_valid_impl
+
+`is_valid_impl` method in account contract asserted if signature was true. Instead now we will return the verification to give flexibility to developers to handle it as they please.
+
+````diff
+- let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
+- assert(verification == true);
+- true
++ std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message)
+
+## 0.49.0
+
+### Key Rotation API overhaul
+
+Public keys (ivpk, ovpk, npk, tpk) should no longer be fetched using the old `get_[x]pk_m` methods on the `Header` struct, but rather by calling `get_current_public_keys`, which returns a `PublicKeys` struct with all four keys at once:
+
+```diff
++use dep::aztec::keys::getters::get_current_public_keys;
+
+-let header = context.header();
+-let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
+-let owner_ovpk_m = header.get_ovpk_m(&mut context, owner);
++let owner_keys = get_current_public_keys(&mut context, owner);
++let owner_ivpk_m = owner_keys.ivpk_m;
++let owner_ovpk_m = owner_keys.ovpk_m;
+````
+
+If using more than one key per account, this will result in very large circuit gate count reductions.
+
+Additionally, `get_historical_public_keys` was added to support reading historical keys using a historical header:
+
+```diff
++use dep::aztec::keys::getters::get_historical_public_keys;
+
+let historical_header = context.header_at(some_block_number);
+-let owner_ivpk_m = header.get_ivpk_m(&mut context, owner);
+-let owner_ovpk_m = header.get_ovpk_m(&mut context, owner);
++let owner_keys = get_historical_public_keys(historical_header, owner);
++let owner_ivpk_m = owner_keys.ivpk_m;
++let owner_ovpk_m = owner_keys.ovpk_m;
+```
+
 ## 0.48.0
+
+### NoteInterface changes
+
+`compute_note_hash_and_nullifier*` functions were renamed as `compute_nullifier*` and the `compute_nullifier` function now takes `note_hash_for_nullify` as an argument (this allowed us to reduce gate counts and the hash was typically computed before). Also `compute_note_hash_for_consumption` function was renamed as `compute_note_hash_for_nullify`.
+
+```diff
+impl NoteInterface<VALUE_NOTE_LEN, VALUE_NOTE_BYTES_LEN> for ValueNote {
+-    fn compute_note_hash_and_nullifier(self, context: &mut PrivateContext) -> (Field, Field) {
+-        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+-        let secret = context.request_nsk_app(self.npk_m_hash);
+-        let nullifier = poseidon2_hash_with_separator([
+-            note_hash_for_nullify,
+-            secret,
+-        ],
+-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+-        );
+-        (note_hash_for_nullify, nullifier)
+-    }
+-    fn compute_note_hash_and_nullifier_without_context(self) -> (Field, Field) {
+-        let note_hash_for_nullify = compute_note_hash_for_consumption(self);
+-        let secret = get_nsk_app(self.npk_m_hash);
+-        let nullifier = poseidon2_hash_with_separator([
+-            note_hash_for_nullify,
+-            secret,
+-        ],
+-            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
+-        );
+-        (note_hash_for_nullify, nullifier)
+-    }
+
++    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
++        let secret = context.request_nsk_app(self.npk_m_hash);
++        poseidon2_hash_with_separator([
++            note_hash_for_nullify,
++            secret
++        ],
++            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
++        )
++    }
++    fn compute_nullifier_without_context(self) -> Field {
++        let note_hash_for_nullify = compute_note_hash_for_nullify(self);
++        let secret = get_nsk_app(self.npk_m_hash);
++        poseidon2_hash_with_separator([
++            note_hash_for_nullify,
++            secret,
++        ],
++            GENERATOR_INDEX__NOTE_NULLIFIER as Field,
++        )
++    }
+}
+```
 
 ### Fee Juice rename
 
@@ -18,6 +153,42 @@ The name of the canonical Gas contract has changed to Fee Juice. Update noir cod
 ```
 
 Additionally, `NativePaymentMethod` and `NativePaymentMethodWithClaim` have been renamed to `FeeJuicePaymentMethod` and `FeeJuicePaymentMethodWithClaim`.
+
+### PrivateSet::pop_notes(...)
+
+The most common flow when working with notes is obtaining them from a `PrivateSet` via `get_notes(...)` and then removing them via `PrivateSet::remove(...)`.
+This is cumbersome and it results in unnecessary constraints due to a redundant note read request checks in the remove function.
+
+For this reason we've implemented `pop_notes(...)` which gets the notes, removes them from the set and returns them.
+This tight coupling of getting notes and removing them allowed us to safely remove the redundant read request check.
+
+Token contract diff:
+
+```diff
+-let options = NoteGetterOptions::with_filter(filter_notes_min_sum, target_amount).set_limit(max_notes);
+-let notes = self.map.at(owner).get_notes(options);
+-let mut subtracted = U128::from_integer(0);
+-for i in 0..options.limit {
+-    if i < notes.len() {
+-        let note = notes.get_unchecked(i);
+-        self.map.at(owner).remove(note);
+-        subtracted = subtracted + note.get_amount();
+-    }
+-}
+-assert(minuend >= subtrahend, "Balance too low");
++let options = NoteGetterOptions::with_filter(filter_notes_min_sum, target_amount).set_limit(max_notes);
++let notes = self.map.at(owner).pop_notes(options);
++let mut subtracted = U128::from_integer(0);
++for i in 0..options.limit {
++    if i < notes.len() {
++        let note = notes.get_unchecked(i);
++        subtracted = subtracted + note.get_amount();
++    }
++}
++assert(minuend >= subtrahend, "Balance too low");
+```
+
+Note that `pop_notes` may not have obtained and removed any notes! The caller must place checks on the returned notes, e.g. in the example above by checking a sum of balances, or by checking the number of returned notes (`assert_eq(notes.len(), expected_num_notes)`).
 
 ## 0.47.0
 
@@ -704,7 +875,7 @@ This change was made to communicate that we do not constrain the value in circui
 Historically it have been possible to "view" `unconstrained` functions to simulate them and get the return values, but not for `public` nor `private` functions.
 This has lead to a lot of bad code where we have the same function implemented thrice, once in `private`, once in `public` and once in `unconstrained`.
 It is not possible to call `simulate` on any call to get the return values!
-However, beware that it currently always returns a Field array of size 4 for private and public.  
+However, beware that it currently always returns a Field array of size 4 for private and public.
 This will change to become similar to the return values of the `unconstrained` functions with proper return types.
 
 ```diff

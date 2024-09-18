@@ -1,0 +1,9 @@
+dependencies:
+- name: opentelemetry-collector
+  repository: https://open-telemetry.github.io/opentelemetry-helm-charts
+  version: 0.104.0
+- name: eck-stack
+  repository: https://helm.elastic.co
+  version: 0.12.1
+digest: sha256:e95083de14387953eb4093eb2c6b98cf889e532cd097b21b15b1896cfa117e7c
+generated: "2024-09-06T19:31:29.086654335-04:00"

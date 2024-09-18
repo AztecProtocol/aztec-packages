@@ -1,5 +1,5 @@
 import { type MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeOperations } from '@aztec/circuit-types/interfaces';
+import { type MerkleTreeAdminOperations, type MerkleTreeOperations } from '@aztec/circuit-types/interfaces';
 import { type Fr, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/circuits.js';
 import { type IndexedTreeSnapshot, type TreeSnapshot } from '@aztec/merkle-tree';
 
@@ -32,13 +32,9 @@ type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer R
 /**
  * Defines the names of the setters on Merkle Trees.
  */
-type MerkleTreeSetters =
-  | 'appendLeaves'
-  | 'updateLeaf'
-  | 'commit'
-  | 'rollback'
-  | 'handleL2BlockAndMessages'
-  | 'batchInsert';
+type MerkleTreeSetters = 'appendLeaves' | 'updateLeaf' | 'batchInsert';
+
+type MerkleTreeAdmin = 'commit' | 'rollback' | 'handleL2BlockAndMessages';
 
 export type TreeSnapshots = {
   [MerkleTreeId.NULLIFIER_TREE]: IndexedTreeSnapshot;
@@ -48,9 +44,7 @@ export type TreeSnapshots = {
   [MerkleTreeId.ARCHIVE]: TreeSnapshot<Fr>;
 };
 
-/**
- * Defines the interface for operations on a set of Merkle Trees configuring whether to return committed or uncommitted data.
- */
+/** Defines the interface for operations on a set of Merkle Trees configuring whether to return committed or uncommitted data. */
 export type MerkleTreeDb = {
   [Property in keyof MerkleTreeOperations as Exclude<Property, MerkleTreeSetters>]: WithIncludeUncommitted<
     MerkleTreeOperations[Property]
@@ -61,9 +55,29 @@ export type MerkleTreeDb = {
      * @param block - The block number to take the snapshot at.
      */
     getSnapshot(block: number): Promise<TreeSnapshots>;
+  };
+
+/** Extends operations on MerkleTreeDb to include modifying the underlying store */
+export type MerkleTreeAdminDb = {
+  [Property in keyof MerkleTreeAdminOperations as Exclude<
+    Property,
+    MerkleTreeSetters | MerkleTreeAdmin
+  >]: WithIncludeUncommitted<MerkleTreeAdminOperations[Property]>;
+} & Pick<MerkleTreeAdminOperations, MerkleTreeSetters | MerkleTreeAdmin> & {
+    /**
+     * Returns a snapshot of the current state of the trees.
+     * @param block - The block number to take the snapshot at.
+     */
+    getSnapshot(block: number): Promise<TreeSnapshots>;
 
     /**
      * Forks the database at its current state.
      */
     fork(): Promise<MerkleTreeDb>;
+
+    /** Deletes this database. */
+    delete(): Promise<void>;
+
+    /** Stops the database */
+    stop(): Promise<void>;
   };
