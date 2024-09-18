@@ -303,7 +303,6 @@ dependencies = [
  "acvm",
  "base64 0.21.7",
  "env_logger",
- "flate2",
  "fxhash",
  "log",
  "noirc_errors",

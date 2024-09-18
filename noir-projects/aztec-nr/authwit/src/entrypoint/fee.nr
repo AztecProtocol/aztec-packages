@@ -6,12 +6,12 @@ use dep::aztec::protocol_types::{
 use crate::entrypoint::function_call::FunctionCall;
 
 // 2 * 5 (FUNCTION_CALL_SIZE) + 2
-global FEE_PAYLOAD_SIZE: Field = 12;
+global FEE_PAYLOAD_SIZE: u32 = 12;
 
 // 2 * 98 (FUNCTION_CALL_SIZE_IN_BYTES) + 32
-global FEE_PAYLOAD_SIZE_IN_BYTES: Field = 228;
+global FEE_PAYLOAD_SIZE_IN_BYTES: u32 = 228;
 
-global MAX_FEE_FUNCTION_CALLS = 2;
+global MAX_FEE_FUNCTION_CALLS: u32 = 2;
 
 // docs:start:fee-payload-struct
 struct FeePayload {

@@ -6,6 +6,7 @@
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/cbind.hpp"
@@ -966,8 +967,8 @@ void avm_prove(const std::filesystem::path& bytecode_path,
     std::vector<fr> vk_as_fields = verification_key.to_field_elements();
 
     vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("circuit size: ", vk_as_fields[0]);
-    vinfo("num of pub inputs: ", vk_as_fields[1]);
+    vinfo("circuit size: ", static_cast<size_t>(vk_as_fields[0]));
+    vinfo("num of pub inputs: ", static_cast<size_t>(vk_as_fields[1]));
 
     std::string vk_json = to_json(vk_as_fields);
     const auto proof_path = output_path / "proof";
@@ -1016,7 +1017,7 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
     std::span vk_span(vk_as_fields);
 
     vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("circuit size: ", circuit_size);
+    vinfo("circuit size: ", circuit_size, " (next or eq power: 2^", numeric::round_up_power_2(circuit_size), ")");
     vinfo("num of pub inputs: ", num_public_inputs);
 
     // Each commitment (precomputed entity) is represented as 2 Fq field elements.

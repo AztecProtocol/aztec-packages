@@ -1,5 +1,4 @@
 import {
-  type Body,
   type EncryptedL2BlockL2Logs,
   type EncryptedNoteL2BlockL2Logs,
   type FromLogType,
@@ -29,7 +28,6 @@ import {
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
 import { type DataRetrieval, type SingletonDataRetrieval } from '../structs/data_retrieval.js';
 import { type L1Published } from '../structs/published.js';
-import { BlockBodyStore } from './block_body_store.js';
 import { BlockStore } from './block_store.js';
 import { ContractArtifactsStore } from './contract_artifacts_store.js';
 import { ContractClassStore } from './contract_class_store.js';
@@ -42,7 +40,6 @@ import { ProvenStore } from './proven_store.js';
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class KVArchiverDataStore implements ArchiverDataStore {
-  #blockBodyStore: BlockBodyStore;
   #blockStore: BlockStore;
   #provenStore: ProvenStore;
   #logStore: LogStore;
@@ -54,8 +51,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   #log = createDebugLogger('aztec:archiver:data-store');
 
   constructor(db: AztecKVStore, logsMaxPageSize: number = 1000) {
-    this.#blockBodyStore = new BlockBodyStore(db);
-    this.#blockStore = new BlockStore(db, this.#blockBodyStore);
+    this.#blockStore = new BlockStore(db);
     this.#provenStore = new ProvenStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
@@ -98,25 +94,6 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   async addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
     return (await Promise.all(data.map(c => this.#contractInstanceStore.addContractInstance(c)))).every(Boolean);
-  }
-
-  /**
-   * Append new block bodies to the store's list.
-   * @param blockBodies - The L2 block bodies to be added to the store.
-   * @returns True if the operation is successful.
-   */
-  addBlockBodies(blockBodies: DataRetrieval<Body>): Promise<boolean> {
-    return this.#blockBodyStore.addBlockBodies(blockBodies);
-  }
-
-  /**
-   * Gets block bodies that have the same txHashes as we supply.
-   *
-   * @param txsEffectsHashes - A list of txsEffectsHashes (body hashes).
-   * @returns The requested L2 block bodies
-   */
-  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<(Body | undefined)[]> {
-    return this.#blockBodyStore.getBlockBodies(txsEffectsHashes);
   }
 
   /**
@@ -264,7 +241,6 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   getSynchPoint(): Promise<ArchiverL1SynchPoint> {
     return Promise.resolve({
       blocksSynchedTo: this.#blockStore.getSynchedL1BlockNumber(),
-      blockBodiesSynchedTo: this.#blockBodyStore.getSynchedL1BlockNumber(),
       messagesSynchedTo: this.#messageStore.getSynchedL1BlockNumber(),
       provenLogsSynchedTo: this.#provenStore.getSynchedL1BlockNumber(),
     });

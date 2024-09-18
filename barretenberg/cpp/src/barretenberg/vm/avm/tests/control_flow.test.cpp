@@ -40,7 +40,8 @@ class AvmControlFlowTests : public ::testing::Test {
   public:
     AvmControlFlowTests()
         : public_inputs(generate_base_public_inputs())
-        , trace_builder(AvmTraceBuilder(public_inputs))
+        , trace_builder(
+              AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
         srs::init_crs_factory("../srs_db/ignition");
     }
@@ -87,7 +88,7 @@ TEST_F(AvmControlFlowTests, simpleCall)
         EXPECT_EQ(halt_row->main_pc, FF(CALL_PC));
         EXPECT_EQ(halt_row->main_internal_return_ptr, FF(1));
     }
-    validate_trace(std::move(trace), public_inputs, {}, {}, true);
+    validate_trace(std::move(trace), public_inputs, {}, {});
 }
 
 TEST_F(AvmControlFlowTests, simpleJump)

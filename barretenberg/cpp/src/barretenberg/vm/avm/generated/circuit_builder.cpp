@@ -8,6 +8,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 #include "barretenberg/vm/stats.hpp"
@@ -16,28 +17,31 @@ namespace bb {
 
 AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() const
 {
-    const auto num_rows = get_circuit_subgroup_size();
+    const size_t circuit_subgroup_size = get_circuit_subgroup_size();
+    // FIXME: Either some algo or the Polynomial class seems to require this to be a power of 2.
+    const size_t num_rows = numeric::round_up_power_2(get_num_gates());
     ProverPolynomials polys;
 
     // Allocate mem for each column
     AVM_TRACK_TIME("circuit_builder/init_polys_to_be_shifted", ({
                        for (auto& poly : polys.get_to_be_shifted()) {
                            poly = Polynomial{ /*memory size*/ num_rows - 1,
-                                              /*largest possible index*/ num_rows,
+                                              /*largest possible index*/ circuit_subgroup_size,
                                               /*make shiftable with offset*/ 1 };
                        }
                    }));
     // catch-all with fully formed polynomials
-    AVM_TRACK_TIME("circuit_builder/init_polys_unshifted", ({
-                       auto unshifted = polys.get_unshifted();
-                       bb::parallel_for(unshifted.size(), [&](size_t i) {
-                           auto& poly = unshifted[i];
-                           if (poly.is_empty()) {
-                               // Not set above
-                               poly = Polynomial{ /*memory size*/ num_rows, /*largest possible index*/ num_rows };
-                           }
-                       });
-                   }));
+    AVM_TRACK_TIME(
+        "circuit_builder/init_polys_unshifted", ({
+            auto unshifted = polys.get_unshifted();
+            bb::parallel_for(unshifted.size(), [&](size_t i) {
+                auto& poly = unshifted[i];
+                if (poly.is_empty()) {
+                    // Not set above
+                    poly = Polynomial{ /*memory size*/ num_rows, /*largest possible index*/ circuit_subgroup_size };
+                }
+            });
+        }));
 
     AVM_TRACK_TIME(
         "circuit_builder/set_polys_unshifted", ({
@@ -107,6 +111,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.alu_sel_shift_which.set_if_valid_index(i, rows[i].alu_sel_shift_which);
                 polys.alu_u128_tag.set_if_valid_index(i, rows[i].alu_u128_tag);
                 polys.alu_u16_tag.set_if_valid_index(i, rows[i].alu_u16_tag);
+                polys.alu_u1_tag.set_if_valid_index(i, rows[i].alu_u1_tag);
                 polys.alu_u32_tag.set_if_valid_index(i, rows[i].alu_u32_tag);
                 polys.alu_u64_tag.set_if_valid_index(i, rows[i].alu_u64_tag);
                 polys.alu_u8_tag.set_if_valid_index(i, rows[i].alu_u8_tag);
@@ -152,6 +157,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.conversion_clk.set_if_valid_index(i, rows[i].conversion_clk);
                 polys.conversion_input.set_if_valid_index(i, rows[i].conversion_input);
                 polys.conversion_num_limbs.set_if_valid_index(i, rows[i].conversion_num_limbs);
+                polys.conversion_output_bits.set_if_valid_index(i, rows[i].conversion_output_bits);
                 polys.conversion_radix.set_if_valid_index(i, rows[i].conversion_radix);
                 polys.conversion_sel_to_radix_le.set_if_valid_index(i, rows[i].conversion_sel_to_radix_le);
                 polys.keccakf1600_clk.set_if_valid_index(i, rows[i].keccakf1600_clk);
@@ -721,7 +727,8 @@ bool AvmCircuitBuilder::check_circuit() const
     };
 
     auto polys = compute_polynomials();
-    const size_t num_rows = polys.get_polynomial_size();
+    // We'll only check up to the generated trace which might be << than the circuit subgroup size.
+    const size_t num_rows = get_num_gates();
 
     // Checks that we will run.
     using SignalErrorFn = const std::function<void(const std::string&)>&;

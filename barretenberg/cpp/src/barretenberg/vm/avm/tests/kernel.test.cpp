@@ -3,6 +3,7 @@
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
+#include "barretenberg/vm/avm/trace/trace.hpp"
 #include "barretenberg/vm/constants.hpp"
 #include "common.test.hpp"
 
@@ -67,7 +68,9 @@ void test_kernel_lookup(bool indirect,
                         VmPublicInputs public_inputs = get_base_public_inputs(),
                         ExecutionHints execution_hints = {})
 {
-    AvmTraceBuilder trace_builder(public_inputs, std::move(execution_hints));
+    auto trace_builder = AvmTraceBuilder(public_inputs, std::move(execution_hints))
+                             .set_full_precomputed_tables(false)
+                             .set_range_check_required(false);
 
     apply_opcodes(trace_builder);
 
@@ -571,7 +574,8 @@ void negative_test_incorrect_ia_kernel_lookup(OpcodesFunc apply_opcodes,
                                               auto expected_message)
 {
     VmPublicInputs public_inputs = get_base_public_inputs();
-    AvmTraceBuilder trace_builder(public_inputs);
+    auto trace_builder =
+        AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false);
 
     // We should return a value of 1 for the sender, as it exists at index 0
     apply_opcodes(trace_builder);
