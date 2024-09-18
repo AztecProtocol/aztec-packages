@@ -113,6 +113,29 @@ mod test {
         assert_eq(input, input_back);
     }
 
+    // I need to get an array of random values lower than 2^248 on input and since there is no u248 type and modulo
+    // operation is not supported on a Field (to do field % 2^248), I will take multiple smaller values and combine
+    // them to get a value lower than 2^248.
+    #[test]
+    fn test_large_random_input_to_bytes_and_back(
+        input1: [u64; 5],
+        input2: [u64; 5],
+        input3: [u64; 5],
+        input4: [u32; 5],
+        input5: [u16; 5],
+        input6: [u8; 5]
+    ) {
+        let mut input = [0; 5];
+        for i in 0..5 {
+            input[i] = (input1[i] as Field * 2.pow_32(184)) + (input2[i] as Field * 2.pow_32(120)) + (input3[i] as Field * 2.pow_32(56)) + (input4[i] as Field * 2.pow_32(24)) + (input5[i] as Field * 2.pow_32(8)) + input6[i] as Field;
+        }
+
+        let output = fields_to_bytes::<155, 5>(input);
+        let input_back = bytes_to_fields::<155, 5>(output);
+
+        assert_eq(input, input_back);
+    }
+
     #[test(should_fail_with="call to assert_max_bit_size")]
     fn test_fields_to_bytes_value_too_large() {
         let input = [2.pow_32(248)];
