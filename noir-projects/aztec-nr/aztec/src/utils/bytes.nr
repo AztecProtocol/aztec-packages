@@ -21,6 +21,7 @@ pub fn bytes_to_fields<let N: u32, let M: u32>(input: [u8; N]) -> [Field; M] {
 }
 
 // Converts an input array of fields into bytes. Each field of input has to contain only 31 bytes.
+// TODO(#8618): Optimize for public use.
 pub fn fields_to_bytes<let N: u32, let M: u32>(input: [Field; M]) -> [u8; N] {
     let mut dst = [0; N];
 
