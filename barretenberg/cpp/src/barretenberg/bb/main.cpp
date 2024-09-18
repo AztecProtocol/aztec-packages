@@ -343,24 +343,22 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     init_bn254_crs(1 << 24);
     init_grumpkin_crs(1 << 15);
 
-    auto program_stack = acir_format::get_acir_program_stack(bytecodePath, witnessPath, false);
+    auto gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecodePath);
+    auto witness_data = unpack_from_file<std::vector<std::string>>(witnessPath);
+    std::vector<Program> folding_stack;
+    for (auto [bincode, wit] : zip_view(gzipped_bincodes, witness_data)) {
+        // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in
+        // the future
+        std::vector<uint8_t> constraint_buf =
+            decompressedBuffer(reinterpret_cast<uint8_t*>(bincode.data()), bincode.size()); // NOLINT
+        std::vector<uint8_t> witness_buf =
+            decompressedBuffer(reinterpret_cast<uint8_t*>(wit.data()), wit.size()); // NOLINT
 
-    // auto gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecodePath);
-    // auto witness_data = unpack_from_file<std::vector<std::string>>(witnessPath);
-    // std::vector<Program> folding_stack;
-    // for (auto [bincode, wit] : zip_view(gzipped_bincodes, witness_data)) {
-    //     // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in
-    //     // the future
-    //     std::vector<uint8_t> constraint_buf =
-    //         decompressedBuffer(reinterpret_cast<uint8_t*>(bincode.data()), bincode.size()); // NOLINT
-    //     std::vector<uint8_t> witness_buf =
-    //         decompressedBuffer(reinterpret_cast<uint8_t*>(wit.data()), wit.size()); // NOLINT
+        AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/false);
+        WitnessVector witness = witness_buf_to_witness_data(witness_buf);
 
-    //     AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/false);
-    //     WitnessVector witness = witness_buf_to_witness_data(witness_buf);
-
-    //     folding_stack.push_back(Program{ constraints, witness });
-    // }
+        folding_stack.push_back(Program{ constraints, witness });
+    }
     // TODO(#7371) dedupe this with the rest of the similar code
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     ClientIVC ivc;
@@ -368,23 +366,11 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     // Accumulate the entire program stack into the IVC
-    while (!program_stack.empty()) {
-        Program program = program_stack.back();
-
-        // Construct a bberg circuit from the acir representation
+    for (Program& program : folding_stack) {
+        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
         auto circuit = create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
-
         ivc.accumulate(circuit);
-
-        program_stack.pop_back();
     }
-
-    // // Accumulate the entire program stack into the IVC
-    // for (Program& program : folding_stack) {
-    //     // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-    //     auto circuit = create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
-    //     ivc.accumulate(circuit);
-    // }
 
     // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
     // directory is passed by bb.js)
