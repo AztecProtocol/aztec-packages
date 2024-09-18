@@ -3,7 +3,7 @@ use crate::traits::{Serialize, Deserialize, FromField, ToField, Empty};
 
 global SELECTOR_SIZE = 4;
 
-struct FunctionSelector {
+pub struct FunctionSelector {
     // 1st 4-bytes of abi-encoding of function.
     inner: u32,
 }

@@ -6,6 +6,7 @@ mod history;
 mod initializer;
 mod keys;
 mod messaging;
+mod macros;
 mod note;
 mod event;
 mod oracle;
