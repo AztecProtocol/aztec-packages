@@ -139,14 +139,12 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
      * @brief Ensures that a set of opening pairs is correct by checking that evaluations are
      * correct by recomputing them from each witness polynomial.
      */
-    void verify_batch_opening_pair(std::span<const OpeningPair<Curve>> opening_pairs,
-                                   std::span<const Polynomial> witnesses)
+    void verify_batch_opening_pair(std::vector<ProverOpeningClaim<Curve>> opening_claims)
     {
-        const size_t num_pairs = opening_pairs.size();
-        ASSERT_EQ(witnesses.size(), num_pairs);
-
-        for (size_t j = 0; j < num_pairs; ++j) {
-            this->verify_opening_pair(opening_pairs[j], witnesses[j]);
+        for (auto claim : opening_claims) {
+            auto& [x, y] = claim.opening_pair;
+            Fr y_expected = claim.polynomial.evaluate(x);
+            EXPECT_EQ(y, y_expected) << "OpeningPair: evaluations mismatch";
         }
     }
 

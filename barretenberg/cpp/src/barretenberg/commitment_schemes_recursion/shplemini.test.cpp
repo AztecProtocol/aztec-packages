@@ -108,7 +108,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     };
 
     // Compute d-1 polynomials Fold^(i), i = 1, ..., d-1.
-    auto fold_polynomials = GeminiProver::compute_gemini_polynomials(
+    auto fold_polynomials = GeminiProver::compute_fold_polynomials(
         u_challenge, std::move(batched_poly_unshifted), std::move(batched_poly_to_be_shifted));
     // Comute and add to trasnscript the commitments [Fold^(i)], i = 1, ..., d-1
     for (size_t l = 0; l < log_circuit_size - 1; ++l) {
@@ -117,8 +117,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     }
     const NativeFr r_challenge = prover_transcript->template get_challenge<NativeFr>("Gemini:r");
 
-    const auto [gemini_opening_pairs, gemini_witnesses] =
-        GeminiProver::compute_fold_polynomial_evaluations(u_challenge, std::move(fold_polynomials), r_challenge);
+    const auto [gemini_opening_pairs, gemini_witnesses] = GeminiProver::compute_fold_polynomial_evaluations(
+        u_challenge, std::move(fold_polynomials), r_challenge, prover_transcript);
 
     std::vector<ProverOpeningClaim<NativeCurve>> opening_claims;
     for (size_t l = 0; l < log_circuit_size; ++l) {
