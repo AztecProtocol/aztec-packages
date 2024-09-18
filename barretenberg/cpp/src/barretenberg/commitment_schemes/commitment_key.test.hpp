@@ -100,6 +100,13 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
         EXPECT_EQ(commitment, commitment_expected) << "OpeningClaim: commitment mismatch";
     }
 
+    void verify_opening_pair(const OpeningPair<Curve>& opening_pair, const Polynomial& witness)
+    {
+        auto& [x, y] = opening_pair;
+        Fr y_expected = witness.evaluate(x);
+        EXPECT_EQ(y, y_expected) << "OpeningPair: evaluations mismatch";
+    }
+
     /**
      * @brief Ensures that a 'BatchOpeningClaim' is correct by checking that
      * - all evaluations are correct by recomputing them from each witness polynomial.

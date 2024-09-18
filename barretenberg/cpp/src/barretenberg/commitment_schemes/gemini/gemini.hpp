@@ -107,7 +107,6 @@ template <typename Curve> class GeminiProver_ {
                                                                   std::vector<Polynomial>&& fold_polynomials,
                                                                   const Fr& r_challenge);
 
-    // TODO(Mara):  consider if we should template this by transcript to use with a test transcript
     static std::vector<Claim> prove(const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                     std::span<Fr> multilinear_challenge,
                                     std::span<Fr> multilinear_evaluations,
