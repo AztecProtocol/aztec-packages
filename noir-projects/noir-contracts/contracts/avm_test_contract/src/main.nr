@@ -219,14 +219,14 @@ contract AvmTest {
         1
     }
 
-    #[aztec(public)]
+    #[public]
     fn assert_calldata_copy(args: [Field; 3]) {
         let offset = 2; // Make this 0 when PublicContextInputs is removed.
         let cd: [Field; 3] = dep::aztec::context::public_context::calldata_copy(offset, 3);
         assert(cd == args, "Calldata copy failed");
     }
 
-    #[aztec(public)]
+    #[public]
     fn return_oracle() -> [Field; 3] {
         dep::aztec::context::public_context::avm_return([1, 2, 3]);
         [4, 5, 6] // Should not get here.
@@ -495,7 +495,7 @@ contract AvmTest {
      * calls - but not blackboxes!), since otherwise the whole call will
      * be optimized away.
      ************************************************************************/
-    #[aztec(public)]
+    #[public]
     fn bulk_testing(args_field: [Field; 10], args_u8: [u8; 10]) {
         // Using "inputs" here is a bit of a hack. It's the PublicContextInputs injected
         // by the public macros. It's needed by the non-nested call to an entry point function.

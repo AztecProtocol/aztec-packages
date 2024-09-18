@@ -88,11 +88,10 @@ pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quote
         });
 
         let if_statements = notes.map(
-            | (_, (note, _, _)): (Type, (StructDefinition, u32, Field)) | {
-                let note_name = note.name();
+            | (typ, (note, _, _)): (Type, (StructDefinition, u32, Field)) | {
                 quote {
-                    if note_type_id == $note_name::get_note_type_id() {
-                        aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($note_name::deserialize_content, note_header, compute_nullifier, serialized_note)
+                    if note_type_id == $typ::get_note_type_id() {
+                        aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::deserialize_content, note_header, compute_nullifier, serialized_note)
                     }
                 }
         }
