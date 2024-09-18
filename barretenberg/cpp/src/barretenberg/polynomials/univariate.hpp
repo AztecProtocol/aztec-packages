@@ -47,6 +47,19 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
     Univariate& operator=(const Univariate& other) = default;
     Univariate& operator=(Univariate&& other) noexcept = default;
 
+    Univariate(std::initializer_list<Fr> list)
+    {
+        if (list.size() == 1) {
+            std::fill_n(evaluations.begin(), LENGTH, *list.begin());
+        } else {
+            std::copy_n(list.begin(), LENGTH, evaluations.begin());
+        }
+    }
+
+    // constructor of a constant univariate
+    Univariate(const Fr& val)
+        : Univariate({ val }){};
+
     /**
      * @brief Convert from a version with skipped evaluations to one without skipping (with zeroes in previously skipped
      * locations)
@@ -65,22 +78,6 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         }
         return result;
     }
-
-    // Construct constant Univariate from scalar which represents the value that all the points in the domain
-    // evaluate to
-    Univariate(std::initializer_list<Fr> list)
-    {
-        if (list.size() == 1) {
-            std::fill_n(evaluations.begin(), LENGTH, *list.begin());
-        } else {
-            std::copy_n(list.begin(), LENGTH, evaluations.begin());
-        }
-    }
-
-    // Construct constant Univariate from scalar which represents the value that all the points in the domain
-    // evaluate to
-    Univariate(const Fr& val)
-        : Univariate({ val }){};
 
     // Construct Univariate from UnivariateView
     explicit Univariate(UnivariateView<Fr, domain_end, domain_start, skip_count> in)
