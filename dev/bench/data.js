@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726672366880,
+  "lastUpdate": 1726678599869,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "882af1ed821c135b68a5d693a81b7fc580ad97c2",
-          "message": "feat(ci): tracy gate counter preset (#8382)\n\n- Adds options to use tracy memory stack tree view but with gates\r\ninstead of memory. Similar to how we did a flamegraph of Noir with\r\ngates, it makes sense to view them as stemming from certain function\r\ngroups like we do memory.\r\n- We hackishly pretend gate counts are pointers, and tracy plays along\r\n\r\nNOTE: You may see the occasional tracy warning - this is known, but\r\noverall it works.\r\n\r\n**How to use:**\r\n- For users with a sysbox, run the following:\r\n`export USER=...sysbox user name...`\r\n`ssh $USER-box \"cat\r\n~/aztec-packages/barretenberg/cpp/scripts/benchmark_tracy.sh\" | bash\r\n/dev/stdin $USER`\r\nAnd get a tracy breakdown for the default arguments, so client_ivc_bench\r\nwith the special tracy gates preset, going to a trace file, copying to\r\nlocal machine, building tracy profiler locally, and opening it\r\n\r\nYou should get a view like this on your local computer, with an\r\ninteractive stack tree from bottom or top with total gate counts:\r\n<img width=\"1640\" alt=\"Screenshot 2024-09-04 at 8 23 16 PM\"\r\nsrc=\"https://github.com/user-attachments/assets/33a0fb6c-1de8-402a-bf83-20afda8db9ca\">",
-          "timestamp": "2024-09-05T18:31:53Z",
-          "tree_id": "d0cbf5afbebcd3f8a9bf562c455d6471449da8cf",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/882af1ed821c135b68a5d693a81b7fc580ad97c2"
-        },
-        "date": 1725562086902,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13469.960345000003,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10336.955414999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5150.856252000011,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4697.179197 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 42261.761411,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 42261762000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14624.620496999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14624621000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3674954671,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3674954671 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 145785136,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 145785136 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3013320804,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3013320804 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 121125855,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 121125855 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 125795426,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125795426 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "178573738731e2e74e4119a035f913da39675d85",
+          "message": "feat!: add support for u1 in the avm, ToRadix's radix arg is a memory addr (#8570)",
+          "timestamp": "2024-09-18T16:42:18Z",
+          "tree_id": "f09ff08650f56572e5fed8eb421c3357f0e29b70",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/178573738731e2e74e4119a035f913da39675d85"
+        },
+        "date": 1726678592240,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 34367.03489499999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 31752.892575999995 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5091.098738,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4636.305603000002 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 100427.212132,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 100427212000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14667.392955000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14667393000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8532292416,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8532292416 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 151704228,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 151704228 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6941589044,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6941589044 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127877558,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127877558 ns\nthreads: 1"
           }
         ]
       }
