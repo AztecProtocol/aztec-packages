@@ -31,20 +31,22 @@ class PersistedContentAddressedAppendOnlyTreeTest : public testing::Test {
   protected:
     void SetUp() override
     {
-        // setup with 1MB max db size, 1 max database and 2 maximum concurrent readers
         _directory = random_temp_directory();
+        _mapSize = 1024 * 1024;
+        _maxReaders = 16;
         std::filesystem::create_directories(_directory);
-        _environment = std::make_unique<LMDBEnvironment>(_directory, 1024, 4, 2);
     }
 
     void TearDown() override { std::filesystem::remove_all(_directory); }
 
     static std::string _directory;
-
-    std::unique_ptr<LMDBEnvironment> _environment;
+    static uint64_t _maxReaders;
+    static uint64_t _mapSize;
 };
 
 std::string PersistedContentAddressedAppendOnlyTreeTest::_directory;
+uint64_t PersistedContentAddressedAppendOnlyTreeTest::_maxReaders;
+uint64_t PersistedContentAddressedAppendOnlyTreeTest::_mapSize;
 
 void check_size(TreeType& tree, index_t expected_size, bool includeUncommitted = true)
 {
@@ -293,7 +295,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     EXPECT_NO_THROW(Store store(name, depth, db));
     Store store(name, depth, db);
 
@@ -309,7 +311,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_only_recreate_with_same_
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
 
     EXPECT_ANY_THROW(Store store_wrong_name("Wrong name", depth, db));
@@ -320,7 +322,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_value_and_get_siblin
 {
     constexpr size_t depth = 3;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
 
     ThreadPool pool(1);
@@ -338,55 +340,12 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_value_and_get_siblin
     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
 }
 
-// To be implemented later
-// TEST_F(PersistedContentAddressedAppendOnlyTreeTest, requesting_sibling_path_greater_than_size_returns_error)
-// {
-//     constexpr size_t depth = 3;
-//     std::string name = random_string();
-//     LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
-//     Store store(name, depth, db);
-
-//     ThreadPool pool(1);
-//     TreeType tree(store, pool);
-
-//     // can't retrieve path that does not exist
-//     check_sibling_path(tree, 0, fr_sibling_path(), true, false);
-
-//     add_value(tree, VALUES[0]);
-
-//     // can't retrieve committed path
-//     check_sibling_path(tree, 0, fr_sibling_path(), false, false);
-
-//     // can retrieve uncommitted path
-//     check_sibling_path(tree, 0, fr_sibling_path(), true, true);
-
-//     commit_tree(tree);
-
-//     // can now retrieve committed path
-//     check_sibling_path(tree, 0, fr_sibling_path(), false, true);
-
-//     add_value(tree, VALUES[1]);
-
-//     // can't retrieve committed path
-//     check_sibling_path(tree, 1, fr_sibling_path(), false, false);
-
-//     // can retrieve uncommitted path
-//     check_sibling_path(tree, 1, fr_sibling_path(), true, true);
-
-//     commit_tree(tree);
-
-//     // can now retrieve committed path
-//     check_sibling_path(tree, 1, fr_sibling_path(), false, true);
-// }
-
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_overfilled)
 {
     constexpr size_t depth = 4;
     std::string name = random_string();
     std::string directory = random_temp_directory();
-    std::filesystem::create_directories(directory);
-    auto environment = std::make_unique<LMDBEnvironment>(directory, 1024, 4, 2);
-    LMDBStoreType db(*environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
 
     ThreadPool pool(1);
@@ -406,7 +365,6 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_
     };
     tree.add_value(VALUES[16], add_completion);
     signal.wait_for_level();
-    std::filesystem::remove_all(directory);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handled)
@@ -420,7 +378,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
 
     {
         auto environment = std::make_unique<LMDBEnvironment>(directory, 50, numDbs, 2);
-        LMDBStoreType db(*environment, name, false, false, integer_key_cmp);
+        LMDBTreeStore db(_directory, name, 50, _maxReaders, false, false, integer_key_cmp);
         Store store(name, depth, db);
 
         ThreadPool pool(1);
@@ -480,7 +438,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
 
     {
         auto environment = std::make_unique<LMDBEnvironment>(directory, 500, numDbs, 2);
-        LMDBStoreType db(*environment, name, false, false, integer_key_cmp);
+        LMDBTreeStore db(_directory, name, 500, _maxReaders, false, false, integer_key_cmp);
         Store store(name, depth, db);
 
         ThreadPool pool(1);
@@ -521,7 +479,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_restore)
     std::string name = random_string();
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
     {
-        LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+        LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
         Store store(name, depth, db);
 
         ThreadPool pool(1);
@@ -563,7 +521,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_restore)
 
     // Re-create the store and tree, it should be the same as how we left it
     {
-        LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+        LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
         Store store(name, depth, db);
 
         ThreadPool pool(1);
@@ -585,7 +543,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_size)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
     TreeType tree(store, pool);
@@ -613,7 +571,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_leaf_index)
 {
     constexpr size_t depth = 5;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
     TreeType tree(store, pool);
@@ -700,7 +658,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
     TreeType tree(store, pool);
@@ -720,7 +678,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values_in_a
 {
     constexpr size_t depth = 3;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
     TreeType tree(store, pool);
@@ -743,7 +701,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_multiple_blocks)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
     TreeType tree(store, pool);
@@ -779,7 +737,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_siblin
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
     TreeType tree(store, pool);
@@ -827,7 +785,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, retrieves_historic_leaves)
 {
     constexpr size_t depth = 10;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
     TreeType tree(store, pool);
@@ -861,7 +819,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_historic_leaf_inde
 {
     constexpr size_t depth = 5;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
     TreeType tree(store, pool);
@@ -903,7 +861,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_be_filled)
 {
     constexpr size_t depth = 3;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
     TreeType tree(store, pool);
@@ -935,7 +893,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_single_whilst_readin
 
     {
         std::string name = random_string();
-        LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+        LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
         Store store(name, depth, db);
         ThreadPool pool(8);
         TreeType tree(store, pool);
@@ -969,7 +927,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_get_inserted_leaves)
 {
     constexpr size_t depth = 3;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
     TreeType tree(store, pool);
@@ -988,7 +946,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, returns_sibling_path)
 {
     constexpr size_t depth = 4;
     std::string name = random_string();
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     Store store(name, depth, db);
     ThreadPool pool(1);
     TreeType tree(store, pool);
@@ -1022,7 +980,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_histori
     constexpr size_t depth = 5;
     std::string name = random_string();
     ThreadPool pool(1);
-    LMDBStoreType db(*_environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders, false, false, integer_key_cmp);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
     size_t index = 0;
 

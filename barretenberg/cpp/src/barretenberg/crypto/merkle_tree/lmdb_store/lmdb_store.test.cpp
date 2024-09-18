@@ -35,14 +35,14 @@ class LMDBStoreTest : public testing::Test {
         // setup with 1MB max db size, 1 max database and 2 maximum concurrent readers
         _directory = random_temp_directory();
         std::filesystem::create_directories(_directory);
-        _environment = std::make_unique<LMDBEnvironment>(_directory, 1024, 3, 2);
+        _environment = std::make_shared<LMDBEnvironment>(_directory, 1024, 3, 2);
     }
 
     void TearDown() override { std::filesystem::remove_all(_directory); }
 
     static std::string _directory;
 
-    std::unique_ptr<LMDBEnvironment> _environment;
+    std::shared_ptr<LMDBEnvironment> _environment;
 };
 
 std::string LMDBStoreTest::_directory;
@@ -50,7 +50,7 @@ std::string LMDBStoreTest::_directory;
 TEST_F(LMDBStoreTest, can_write_to_and_read_from_store)
 {
     {
-        LMDBStore store(*_environment, "DB1");
+        LMDBStore store(_environment, "DB1");
         {
             std::vector<uint8_t> buf;
             write(buf, VALUES[0]);
@@ -70,7 +70,7 @@ TEST_F(LMDBStoreTest, can_write_to_and_read_from_store)
     }
 
     {
-        LMDBStore store(*_environment, "DB2");
+        LMDBStore store(_environment, "DB2");
         {
             std::vector<uint8_t> key;
             write(key, VALUES[0]);
@@ -97,7 +97,7 @@ TEST_F(LMDBStoreTest, can_write_to_and_read_from_store)
 TEST_F(LMDBStoreTest, reading_an_empty_key_reports_correctly)
 {
     {
-        LMDBStore store(*_environment, "DB1");
+        LMDBStore store(_environment, "DB1");
 
         {
             std::vector<uint8_t> buf;
@@ -116,7 +116,7 @@ TEST_F(LMDBStoreTest, reading_an_empty_key_reports_correctly)
     }
 
     {
-        LMDBStore store(*_environment, "DB2");
+        LMDBStore store(_environment, "DB2");
 
         {
             std::vector<uint8_t> key;
@@ -142,7 +142,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple)
 {
 
     {
-        LMDBStore store(*_environment, "DB1");
+        LMDBStore store(_environment, "DB1");
 
         {
             LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
@@ -167,7 +167,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple)
     }
 
     {
-        LMDBStore store(*_environment, "DB2");
+        LMDBStore store(_environment, "DB2");
         uint32_t num_reads = 128;
 
         {
@@ -200,7 +200,7 @@ TEST_F(LMDBStoreTest, can_write_and_read_multiple)
 TEST_F(LMDBStoreTest, throws_if_write_transaction_is_reused)
 {
     {
-        LMDBStore store(*_environment, "DB1");
+        LMDBStore store(_environment, "DB1");
         {
             std::vector<uint8_t> buf;
             write(buf, VALUES[0]);
@@ -218,7 +218,7 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
     // This test is performed using integer keys of uint128_t
     // We also add keys of different sizes but with larger and smaller values
     // This ensures we don't erroneously return keys of different sizes
-    LMDBStore store(*_environment, "note hash tree", false, false, integer_key_cmp);
+    LMDBStore store(_environment, "note hash tree", false, false, integer_key_cmp);
 
     std::vector<uint32_t> values{ 1, 2, 3, 4, 5 };
 
@@ -312,7 +312,7 @@ TEST_F(LMDBStoreTest, can_retrieve_the_value_at_the_previous_key)
 
 TEST_F(LMDBStoreTest, can_not_retrieve_previous_key_from_empty_db)
 {
-    LMDBStore store(*_environment, "note hash tree", false, false);
+    LMDBStore store(_environment, "note hash tree", false, false);
     LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
     uint128_t key = 20;
     std::vector<uint8_t> data;
@@ -322,7 +322,7 @@ TEST_F(LMDBStoreTest, can_not_retrieve_previous_key_from_empty_db)
 
 TEST_F(LMDBStoreTest, can_write_and_read_at_random_keys)
 {
-    LMDBStore store(*_environment, "note hash tree");
+    LMDBStore store(_environment, "note hash tree");
 
     std::vector<size_t> keys;
 
@@ -355,7 +355,7 @@ TEST_F(LMDBStoreTest, can_recreate_the_store_and_use_again)
 {
     std::vector<size_t> keys;
     {
-        LMDBStore store(*_environment, "note hash tree");
+        LMDBStore store(_environment, "note hash tree");
 
         LMDBWriteTransaction::Ptr transaction = store.create_write_transaction();
 
@@ -370,7 +370,7 @@ TEST_F(LMDBStoreTest, can_recreate_the_store_and_use_again)
     }
 
     {
-        LMDBStore store(*_environment, "note hash tree");
+        LMDBStore store(_environment, "note hash tree");
 
         LMDBReadTransaction::Ptr transaction = store.create_read_transaction();
         for (size_t i = 0; i < SAMPLE_DATA_SIZE; i++) {
@@ -406,7 +406,7 @@ void read_loop(LMDBStore& store, size_t key, std::atomic<size_t>& flag, bb::fr s
 
 TEST_F(LMDBStoreTest, can_read_from_multiple_threads)
 {
-    LMDBStore store(*_environment, "note hash tree");
+    LMDBStore store(_environment, "note hash tree");
     const int num_threads = 50;
 
     size_t key = static_cast<size_t>(rand() % 1000000);
@@ -448,7 +448,7 @@ TEST_F(LMDBStoreTest, can_read_from_multiple_threads)
 
 TEST_F(LMDBStoreTest, can_handle_different_key_spaces)
 {
-    LMDBStore store(*_environment, "DB1", false, false, integer_key_cmp);
+    LMDBStore store(_environment, "DB1", false, false, integer_key_cmp);
 
     // create a set of keys
     std::vector<uint8_t> keys{ 10, 20, 30, 40, 50 };

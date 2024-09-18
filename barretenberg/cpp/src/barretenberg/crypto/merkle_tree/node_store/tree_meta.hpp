@@ -20,12 +20,22 @@ struct TreeMeta {
 
     MSGPACK_FIELDS(
         name, depth, size, committedSize, root, initialSize, initialRoot, finalisedBlockHeight, unfinalisedBlockHeight)
+
+    bool operator==(const TreeMeta& other) const
+    {
+        return name == other.name && depth == other.depth && size == other.size &&
+               committedSize == other.committedSize && root == other.root && initialRoot == other.initialRoot &&
+               initialSize == other.initialSize && unfinalisedBlockHeight == other.unfinalisedBlockHeight &&
+               finalisedBlockHeight == other.finalisedBlockHeight;
+    }
 };
 
 struct LeavesMeta {
     index_t size;
 
     MSGPACK_FIELDS(size)
+
+    bool operator==(const LeavesMeta& other) const { return size == other.size; }
 };
 
 } // namespace bb::crypto::merkle_tree

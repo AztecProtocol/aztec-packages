@@ -17,11 +17,18 @@
 
 namespace bb::crypto::merkle_tree {
 
-LMDBTreeStore::LMDBTreeStore(
-    LMDBEnvironment& environment, std::string name, bool integerKeys, bool reverseKeys, MDB_cmp_func* cmp)
-    : _environment(environment)
-    , _name(std::move(name))
+LMDBTreeStore::LMDBTreeStore(const std::string& directory,
+                             const std::string& name,
+                             uint64_t mapSizeKb,
+                             uint64_t maxNumReaders,
+                             bool integerKeys,
+                             bool reverseKeys,
+                             MDB_cmp_func* cmp)
+    : _name(name)
+    , _directory(directory)
+    , _environment(std::make_shared<LMDBEnvironment>(_directory, mapSizeKb, 4, maxNumReaders))
 {
+
     {
         LMDBDatabaseCreationTransaction tx(_environment);
         _blockDatabase = std::make_unique<LMDBDatabase>(
@@ -57,7 +64,7 @@ LMDBTreeStore::WriteTransaction::Ptr LMDBTreeStore::create_write_transaction() c
 }
 LMDBTreeStore::ReadTransaction::Ptr LMDBTreeStore::create_read_transaction()
 {
-    _environment.wait_for_reader();
+    _environment->wait_for_reader();
     return std::make_unique<LMDBTreeReadTransaction>(_environment);
 }
 
@@ -122,25 +129,6 @@ void LMDBTreeStore::write_leaf_indices(const fr& leafValue, const Indices& indic
     FrKeyType key(leafValue);
     tx.put_value<FrKeyType>(key, encoded, *_leafValueToIndexDatabase);
 }
-
-// bool LMDBTreeStore::read_leaf_hash(const index_t& leafIndex, fr& hash, LMDBTreeStore::ReadTransaction& tx)
-// {
-//     LeafIndexKeyType key(leafIndex);
-//     std::vector<uint8_t> data;
-//     bool success = tx.get_value<LeafIndexKeyType>(key, data, *_nodeDatabase);
-//     if (success) {
-//         hash = from_buffer<fr>(data, 0);
-//     }
-//     return success;
-// }
-
-// void LMDBTreeStore::write_leaf_hash(const index_t& leafIndex, const fr& hash, LMDBTreeStore::WriteTransaction& tx)
-// {
-//     std::vector<uint8_t> data;
-//     write(data, hash);
-//     LeafIndexKeyType key(leafIndex);
-//     tx.put_value<LeafIndexKeyType>(key, data, *_nodeDatabase);
-// }
 
 bool LMDBTreeStore::read_node(const fr& nodeHash, NodePayload& nodeData, ReadTransaction& tx)
 {

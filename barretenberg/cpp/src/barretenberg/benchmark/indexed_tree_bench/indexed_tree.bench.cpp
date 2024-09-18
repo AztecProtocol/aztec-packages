@@ -39,9 +39,8 @@ template <typename TreeType> void multi_thread_indexed_tree_bench(State& state) 
     std::string name = random_string();
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 16;
-    LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 4, num_threads);
 
-    LMDBTreeStore db(environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(directory, name, 1024 * 1024, num_threads, false, false, integer_key_cmp);
     StoreType store(name, depth, db);
     ThreadPool workers(num_threads);
     TreeType tree = TreeType(store, workers, batch_size);
@@ -66,9 +65,8 @@ template <typename TreeType> void single_thread_indexed_tree_bench(State& state)
     std::string name = random_string();
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 1;
-    LMDBEnvironment environment = LMDBEnvironment(directory, 1024 * 1024, 4, num_threads);
 
-    LMDBTreeStore db(environment, name, false, false, integer_key_cmp);
+    LMDBTreeStore db(directory, name, 1024 * 1024, num_threads, false, false, integer_key_cmp);
     StoreType store(name, depth, db);
     ThreadPool workers(num_threads);
     TreeType tree = TreeType(store, workers, batch_size);

@@ -1,13 +1,16 @@
 
 
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_write_transaction.hpp"
+
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
+#include <utility>
 
 namespace bb::crypto::merkle_tree {
 
-LMDBTreeWriteTransaction::LMDBTreeWriteTransaction(LMDBEnvironment& env)
-    : LMDBTransaction(env)
+LMDBTreeWriteTransaction::LMDBTreeWriteTransaction(LMDBEnvironment::SharedPtr env)
+    : LMDBTransaction(std::move(env))
 {}
 
 LMDBTreeWriteTransaction::~LMDBTreeWriteTransaction()

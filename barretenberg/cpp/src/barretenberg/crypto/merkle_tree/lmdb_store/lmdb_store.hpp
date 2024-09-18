@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_read_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_write_transaction.hpp"
 
@@ -15,7 +16,7 @@ class LMDBStore {
   public:
     using ReadTransaction = LMDBReadTransaction;
     using WriteTransaction = LMDBWriteTransaction;
-    LMDBStore(LMDBEnvironment& environment,
+    LMDBStore(LMDBEnvironment::SharedPtr environment,
               std::string name,
               bool integerKeys = false,
               bool reverseKeys = false,
@@ -30,8 +31,8 @@ class LMDBStore {
     LMDBReadTransaction::Ptr create_read_transaction();
 
   private:
-    LMDBEnvironment& _environment;
-    const std::string _name;
+    LMDBEnvironment::SharedPtr _environment;
+    std::string _name;
     LMDBDatabase::Ptr _database;
 };
 } // namespace bb::crypto::merkle_tree

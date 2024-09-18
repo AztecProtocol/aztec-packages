@@ -3,7 +3,7 @@
 #include <cstdint>
 
 namespace bb::crypto::merkle_tree {
-LMDBReadTransaction::LMDBReadTransaction(LMDBEnvironment& env, const LMDBDatabase& database)
+LMDBReadTransaction::LMDBReadTransaction(LMDBEnvironment::SharedPtr env, const LMDBDatabase& database)
     : LMDBTransaction(env, true)
     , _database(database)
 {}
@@ -16,7 +16,7 @@ LMDBReadTransaction::~LMDBReadTransaction()
 void LMDBReadTransaction::abort()
 {
     LMDBTransaction::abort();
-    _environment.release_reader();
+    _environment->release_reader();
 }
 
 bool LMDBReadTransaction::get_value(std::vector<uint8_t>& key, std::vector<uint8_t>& data) const

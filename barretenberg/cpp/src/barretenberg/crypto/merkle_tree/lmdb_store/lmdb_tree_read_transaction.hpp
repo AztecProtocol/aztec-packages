@@ -2,6 +2,7 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include <cstdint>
@@ -20,7 +21,7 @@ class LMDBTreeReadTransaction : public LMDBTransaction {
   public:
     using Ptr = std::unique_ptr<LMDBTreeReadTransaction>;
 
-    LMDBTreeReadTransaction(LMDBEnvironment& env);
+    LMDBTreeReadTransaction(LMDBEnvironment::SharedPtr env);
     LMDBTreeReadTransaction(const LMDBTreeReadTransaction& other) = delete;
     LMDBTreeReadTransaction(LMDBTreeReadTransaction&& other) = delete;
     LMDBTreeReadTransaction& operator=(const LMDBTreeReadTransaction& other) = delete;

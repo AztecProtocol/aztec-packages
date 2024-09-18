@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_database.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_read_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_write_transaction.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
@@ -19,12 +20,19 @@ struct BlockPayload {
     fr root;
 
     MSGPACK_FIELDS(size, blockNumber, root)
+
+    bool operator==(const BlockPayload& other) const
+    {
+        return size == other.size && blockNumber == other.blockNumber && root == other.root;
+    }
 };
 
 struct Indices {
     std::vector<index_t> indices;
 
     MSGPACK_FIELDS(indices);
+
+    bool operator==(const Indices& other) const { return indices == other.indices; }
 };
 
 struct NodePayload {
@@ -33,6 +41,11 @@ struct NodePayload {
     uint64_t ref;
 
     MSGPACK_FIELDS(left, right, ref)
+
+    bool operator==(const NodePayload& other) const
+    {
+        return left == other.left && right == other.right && ref == other.ref;
+    }
 };
 
 /**
@@ -44,8 +57,10 @@ class LMDBTreeStore {
   public:
     using ReadTransaction = LMDBTreeReadTransaction;
     using WriteTransaction = LMDBTreeWriteTransaction;
-    LMDBTreeStore(LMDBEnvironment& environment,
-                  std::string name,
+    LMDBTreeStore(const std::string& directory,
+                  const std::string& name,
+                  uint64_t mapSizeKb,
+                  uint64_t maxNumReaders,
                   bool integerKeys = false,
                   bool reverseKeys = false,
                   MDB_cmp_func* cmp = nullptr);
@@ -72,10 +87,6 @@ class LMDBTreeStore {
 
     void write_leaf_indices(const fr& leafValue, const Indices& indices, WriteTransaction& tx);
 
-    // bool read_leaf_hash(const index_t& leafIndex, fr& hash, ReadTransaction& tx);
-
-    // void write_leaf_hash(const index_t& leafIndex, const fr& hash, WriteTransaction& tx);
-
     bool read_node(const fr& nodeHash, NodePayload& nodeData, ReadTransaction& tx);
 
     void write_node(const fr& nodeHash, const NodePayload& nodeData, WriteTransaction& tx);
@@ -86,8 +97,9 @@ class LMDBTreeStore {
     void write_leaf_by_hash(const fr& leafHash, const LeafType& leafData, WriteTransaction& tx);
 
   private:
-    LMDBEnvironment& _environment;
-    const std::string _name;
+    std::string _name;
+    std::string _directory;
+    LMDBEnvironment::SharedPtr _environment;
     LMDBDatabase::Ptr _blockDatabase;
     LMDBDatabase::Ptr _nodeDatabase;
     LMDBDatabase::Ptr _leafValueToIndexDatabase;

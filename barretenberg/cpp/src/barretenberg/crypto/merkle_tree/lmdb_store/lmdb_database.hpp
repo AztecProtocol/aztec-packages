@@ -12,7 +12,7 @@ class LMDBDatabase {
   public:
     using Ptr = std::unique_ptr<LMDBDatabase>;
 
-    LMDBDatabase(const LMDBEnvironment& env,
+    LMDBDatabase(LMDBEnvironment::SharedPtr env,
                  const LMDBDatabaseCreationTransaction& transaction,
                  const std::string& name,
                  bool integerKeys = false,
@@ -30,6 +30,6 @@ class LMDBDatabase {
 
   private:
     MDB_dbi _dbi;
-    const LMDBEnvironment& _environment;
+    LMDBEnvironment::SharedPtr _environment;
 };
 } // namespace bb::crypto::merkle_tree
