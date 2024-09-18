@@ -130,8 +130,6 @@ library Constants {
   uint256 internal constant L2_GAS_PER_LOG_BYTE = 4;
   uint256 internal constant L2_GAS_PER_NOTE_HASH = 32;
   uint256 internal constant L2_GAS_PER_NULLIFIER = 64;
-  uint256 internal constant CANONICAL_KEY_REGISTRY_ADDRESS =
-    6823425185167517386380694778823032861295161686691976789058601691508103815523;
   uint256 internal constant CANONICAL_AUTH_REGISTRY_ADDRESS =
     19361441716519463065948254497947932755739298943049449145365332870925554042208;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
@@ -253,4 +251,9 @@ library Constants {
   uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 144;
   uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 160;
   uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 162;
+  uint256 internal constant PROOF_TYPE_PLONK = 0;
+  uint256 internal constant PROOF_TYPE_HONK = 1;
+  uint256 internal constant PROOF_TYPE_OINK = 2;
+  uint256 internal constant PROOF_TYPE_PG = 3;
+  uint256 internal constant PROOF_TYPE_AVM = 4;
 }
