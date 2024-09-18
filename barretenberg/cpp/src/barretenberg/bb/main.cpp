@@ -347,18 +347,33 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     for (size_t i = 0; i < gzippedBincodes.size(); i++) {
         // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in
         // the future
-        std::vector<uint8_t> buffer =
+        std::vector<uint8_t> constraint_buf =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[i][0]), gzippedBincodes[i].size()); // NOLINT
-
-        std::vector<acir_format::AcirFormat> constraint_systems =
-            acir_format::program_buf_to_acir_format(buffer,
-                                                    /*honk_recursion=*/false);
-        std::vector<uint8_t> witnessBuffer =
+        std::vector<uint8_t> witness_buf =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&witnessMaps[i][0]), witnessMaps[i].size()); // NOLINT
-        acir_format::WitnessVectorStack witness_stack = acir_format::witness_buf_to_witness_stack(witnessBuffer);
-        acir_format::AcirProgramStack program_stack{ constraint_systems, witness_stack };
-        folding_stack.push_back(program_stack.back());
+
+        acir_format::AcirFormat constraints =
+            acir_format::circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/false);
+
+        acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(witness_buf);
+        folding_stack.push_back(Program{ constraints, witness });
     }
+    // for (size_t i = 0; i < gzippedBincodes.size(); i++) {
+    //     // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in
+    //     // the future
+    //     std::vector<uint8_t> buffer =
+    //         decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[i][0]), gzippedBincodes[i].size()); //
+    //         NOLINT
+
+    //     std::vector<acir_format::AcirFormat> constraint_systems =
+    //         acir_format::program_buf_to_acir_format(buffer,
+    //                                                 /*honk_recursion=*/false);
+    //     std::vector<uint8_t> witnessBuffer =
+    //         decompressedBuffer(reinterpret_cast<uint8_t*>(&witnessMaps[i][0]), witnessMaps[i].size()); // NOLINT
+    //     acir_format::WitnessVectorStack witness_stack = acir_format::witness_buf_to_witness_stack(witnessBuffer);
+    //     acir_format::AcirProgramStack program_stack{ constraint_systems, witness_stack };
+    //     folding_stack.push_back(program_stack.back());
+    // }
     // TODO(#7371) dedupe this with the rest of the similar code
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     ClientIVC ivc;
@@ -1069,8 +1084,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
     init_bn254_crs(srs_size);
 
-    Prover prover{ builder };
-    return prover;
+    return Prover{ builder };
 }
 
 /**
@@ -1149,13 +1163,11 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
 template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePath, const std::string& outputPath)
 {
     using Prover = UltraProver_<Flavor>;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
+    // Construct a verification key from a partial form of the proving key which only has precomputed entities
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, "");
-    DeciderProvingKey& prover_inst = *prover.proving_key;
-    VerificationKey vk(
-        prover_inst.proving_key); // uses a partial form of the proving key which only has precomputed entities
+    VerificationKey vk(prover.proving_key->proving_key);
 
     auto serialized_vk = to_buffer(vk);
     if (outputPath == "-") {
