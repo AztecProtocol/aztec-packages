@@ -42,7 +42,7 @@ contract Test {
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::value_note::value_note::ValueNote;
-    // TODO investigate why the macros require EmbeddableCurvePoint and EmbeddableCurveScalar
+    // TODO investigate why the macros require EmbeddedCurvePoint and EmbeddedCurveScalar
     use std::embedded_curve_ops::{EmbeddedCurveScalar, EmbeddedCurvePoint, fixed_base_scalar_mul as derive_public_key};
     use std::meta::derive;
 
