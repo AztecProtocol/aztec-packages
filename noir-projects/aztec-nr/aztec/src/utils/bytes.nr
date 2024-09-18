@@ -81,6 +81,34 @@ mod test {
     }
 
     #[test]
+    fn test_3_small_fields_to_bytes() {
+        let input = [1, 2, 3];
+        let output = fields_to_bytes::<93, 3>(input);
+
+        // Each field should occupy 31 bytes with the non-zero value being placed in the last one.
+        assert_eq(
+            output, [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3
+        ]
+        );
+    }
+
+    #[test]
+    fn test_3_small_fields_to_less_bytes() {
+        let input = [1, 2, 3];
+        let output = fields_to_bytes::<63, 3>(input);
+
+        // First 2 fields should occupy 31 bytes with the non-zero value being placed in the last one while the last
+        // field should occupy 1 byte. There is not information destruction here because the last field fits into
+        // 1 byte.
+        assert_eq(
+            output, [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3
+        ]
+        );
+    }
+
+    #[test]
     fn test_bytes_to_2_fields() {
         let input = [
             1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59
