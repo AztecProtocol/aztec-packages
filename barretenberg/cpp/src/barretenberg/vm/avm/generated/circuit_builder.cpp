@@ -107,6 +107,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.alu_sel_shift_which.set_if_valid_index(i, rows[i].alu_sel_shift_which);
                 polys.alu_u128_tag.set_if_valid_index(i, rows[i].alu_u128_tag);
                 polys.alu_u16_tag.set_if_valid_index(i, rows[i].alu_u16_tag);
+                polys.alu_u1_tag.set_if_valid_index(i, rows[i].alu_u1_tag);
                 polys.alu_u32_tag.set_if_valid_index(i, rows[i].alu_u32_tag);
                 polys.alu_u64_tag.set_if_valid_index(i, rows[i].alu_u64_tag);
                 polys.alu_u8_tag.set_if_valid_index(i, rows[i].alu_u8_tag);
@@ -152,6 +153,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                 polys.conversion_clk.set_if_valid_index(i, rows[i].conversion_clk);
                 polys.conversion_input.set_if_valid_index(i, rows[i].conversion_input);
                 polys.conversion_num_limbs.set_if_valid_index(i, rows[i].conversion_num_limbs);
+                polys.conversion_output_bits.set_if_valid_index(i, rows[i].conversion_output_bits);
                 polys.conversion_radix.set_if_valid_index(i, rows[i].conversion_radix);
                 polys.conversion_sel_to_radix_le.set_if_valid_index(i, rows[i].conversion_sel_to_radix_le);
                 polys.keccakf1600_clk.set_if_valid_index(i, rows[i].keccakf1600_clk);

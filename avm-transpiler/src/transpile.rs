@@ -202,15 +202,6 @@ pub fn brillig_to_avm(
                     ],
                     tag: None,
                 });
-                if let IntegerBitSize::U1 = bit_size {
-                    // We need to cast the result back to u1
-                    handle_cast(
-                        &mut avm_instrs,
-                        destination,
-                        destination,
-                        BitSize::Integer(IntegerBitSize::U1),
-                    );
-                }
             }
             BrilligOpcode::CalldataCopy { destination_address, size_address, offset_address } => {
                 avm_instrs.push(AvmInstruction {
@@ -505,32 +496,8 @@ fn handle_cast(
     let source_offset = source.to_usize() as u32;
     let dest_offset = destination.to_usize() as u32;
 
-    if bit_size == BitSize::Integer(IntegerBitSize::U1) {
-        assert!(
-            matches!(tag_from_bit_size(bit_size), AvmTypeTag::UINT8),
-            "If u1 doesn't map to u8 anymore, change this code!"
-        );
-        avm_instrs.extend([
-            // We cast to Field to be able to use toradix.
-            generate_cast_instruction(source_offset, false, dest_offset, false, AvmTypeTag::FIELD),
-            // Toradix with radix 2 and 1 limb is the same as modulo 2.
-            // We need to insert an instruction explicitly because we want to fine-tune 'indirect'.
-            AvmInstruction {
-                opcode: AvmOpcode::TORADIXLE,
-                indirect: Some(ALL_DIRECT),
-                tag: None,
-                operands: vec![
-                    AvmOperand::U32 { value: dest_offset },
-                    AvmOperand::U32 { value: dest_offset },
-                    AvmOperand::U32 { value: /*radix=*/ 2},
-                    AvmOperand::U32 { value: /*limbs=*/ 1},
-                ],
-            },
-        ]);
-    } else {
-        let tag = tag_from_bit_size(bit_size);
-        avm_instrs.push(generate_cast_instruction(source_offset, false, dest_offset, false, tag));
-    }
+    let tag = tag_from_bit_size(bit_size);
+    avm_instrs.push(generate_cast_instruction(source_offset, false, dest_offset, false, tag));
 }
 
 /// Handle an AVM NOTEHASHEXISTS instruction
@@ -987,12 +954,11 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 ..Default::default()
             });
         }
-        // We ignore the output bits flag since we represent bits as bytes
-        BlackBoxOp::ToRadix { input, radix, output, output_bits: _ } => {
+        BlackBoxOp::ToRadix { input, radix, output, output_bits } => {
             let num_limbs = output.size as u32;
             let input_offset = input.0 as u32;
             let output_offset = output.pointer.0 as u32;
-            assert!(radix <= &256u32, "Radix must be less than or equal to 256");
+            let radix_offset = radix.0 as u32;
 
             avm_instrs.push(AvmInstruction {
                 opcode: AvmOpcode::TORADIXLE,
@@ -1001,8 +967,9 @@ fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &B
                 operands: vec![
                     AvmOperand::U32 { value: input_offset },
                     AvmOperand::U32 { value: output_offset },
-                    AvmOperand::U32 { value: *radix },
+                    AvmOperand::U32 { value: radix_offset },
                     AvmOperand::U32 { value: num_limbs },
+                    AvmOperand::U1 { value: *output_bits as u8 },
                 ],
             });
         }
@@ -1313,8 +1280,6 @@ pub fn map_brillig_pcs_to_avm_pcs(brillig_bytecode: &[BrilligOpcode<FieldElement
     pc_map[0] = 0; // first PC is always 0 as there are no instructions inserted by AVM at start
     for i in 0..brillig_bytecode.len() - 1 {
         let num_avm_instrs_for_this_brillig_instr = match &brillig_bytecode[i] {
-            BrilligOpcode::Cast { bit_size: BitSize::Integer(IntegerBitSize::U1), .. } => 2,
-            BrilligOpcode::Not { bit_size: IntegerBitSize::U1, .. } => 3,
             _ => 1,
         };
         // next Brillig pc will map to an AVM pc offset by the
@@ -1338,7 +1303,7 @@ fn is_integral_bit_size(bit_size: IntegerBitSize) -> bool {
 
 fn tag_from_bit_size(bit_size: BitSize) -> AvmTypeTag {
     match bit_size {
-        BitSize::Integer(IntegerBitSize::U1) => AvmTypeTag::UINT8, // temp workaround
+        BitSize::Integer(IntegerBitSize::U1) => AvmTypeTag::UINT1,
         BitSize::Integer(IntegerBitSize::U8) => AvmTypeTag::UINT8,
         BitSize::Integer(IntegerBitSize::U16) => AvmTypeTag::UINT16,
         BitSize::Integer(IntegerBitSize::U32) => AvmTypeTag::UINT32,
