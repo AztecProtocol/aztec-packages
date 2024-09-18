@@ -116,7 +116,7 @@ describe('Client IVC Integration', () => {
     };
     // Witness gen app and kernels
     const creatorAppWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-    const readerAppWitnessGenResult = await witnessGenReaderAppMockCircuit({ commitments_to_read: ['0x2', '0x0'] });
+    const readerAppWitnessGenRult = await witnessGenReaderAppMockCircuit({ commitments_to_read: ['0x2', '0x0'] });
 
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: creatorAppWitnessGenResult.publicInputs,
@@ -124,7 +124,7 @@ describe('Client IVC Integration', () => {
     });
     const innerWitnessGenResult = await witnessGenMockPrivateKernelInnerCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-      app_inputs: readerAppWitnessGenResult.publicInputs,
+      app_inputs: readerAppWitnessGenRult.publicInputs,
     });
 
     const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
@@ -153,7 +153,7 @@ describe('Client IVC Integration', () => {
     const witnessStack = [
       creatorAppWitnessGenResult.witness,
       initWitnessGenResult.witness,
-      readerAppWitnessGenResult.witness,
+      readerAppWitnessGenRult.witness,
       innerWitnessGenResult.witness,
       resetWitnessGenResult.witness,
       tailWitnessGenResult.witness,
