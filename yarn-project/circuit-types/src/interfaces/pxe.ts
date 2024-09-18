@@ -1,7 +1,6 @@
 import {
   type AztecAddress,
   type CompleteAddress,
-  type Fq,
   type Fr,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,

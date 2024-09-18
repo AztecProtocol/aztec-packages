@@ -1,5 +1,5 @@
 import { type AuthWitness, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, Fq, Fr, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
+import { type AztecAddress, Fr } from '@aztec/circuits.js';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { AuthRegistryAddress } from '@aztec/protocol-contracts/auth-registry';
 

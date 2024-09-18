@@ -2,7 +2,7 @@ import { type PublicKey } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
-  Fq,
+  type Fq,
   Fr,
   GeneratorIndex,
   GrumpkinScalar,

@@ -5,9 +5,7 @@ import {
   type L2BlockNumber,
   Note,
   PackedValues,
-  PublicDataWitness,
   PublicExecutionRequest,
-  SiblingPath,
   TxExecutionRequest,
 } from '@aztec/circuit-types';
 import {
@@ -23,7 +21,6 @@ import {
   NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   PartialStateReference,
-  PublicDataTreeLeafPreimage,
   StateReference,
   TxContext,
   computeAppNullifierSecretKey,
@@ -55,7 +52,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { type FieldsOf } from '@aztec/foundation/types';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { type AppendOnlyTree, INITIAL_LEAF, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
+import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractArtifact,
   ImportTestContractArtifact,

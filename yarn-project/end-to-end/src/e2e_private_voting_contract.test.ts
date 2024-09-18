@@ -1,5 +1,4 @@
 import { type AccountWallet, type AztecAddress, type DebugLogger, Fr } from '@aztec/aztec.js';
-import { TestContract } from '@aztec/noir-contracts.js';
 import { EasyPrivateVotingContract } from '@aztec/noir-contracts.js/EasyPrivateVoting';
 
 import { setup } from './fixtures/utils.js';
@@ -10,7 +9,6 @@ describe('e2e_voting_contract', () => {
   let logger: DebugLogger;
   let teardown: () => Promise<void>;
 
-  let testContract: TestContract;
   let votingContract: EasyPrivateVotingContract;
   let owner: AztecAddress;
 
@@ -19,7 +17,6 @@ describe('e2e_voting_contract', () => {
     ({ teardown, wallet, logger } = await setup(1));
     owner = wallet.getAddress();
 
-    testContract = await TestContract.deploy(wallet).send().deployed();
     votingContract = await EasyPrivateVotingContract.deploy(wallet, owner).send().deployed();
 
     logger.info(`Counter contract deployed at ${votingContract.address}`);
