@@ -166,8 +166,6 @@ export class RequestResponseRateLimiter {
 
   private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
-  // TODO(md): work out how the peer scoring should be handled within here
-  // TODO(md): also update the comments above
   constructor(private peerManager: PeerManager, rateLimits: ReqRespSubProtocolRateLimits = DEFAULT_RATE_LIMITS) {
     this.subProtocolRateLimiters = new Map();
 
