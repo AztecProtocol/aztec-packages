@@ -558,15 +558,13 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
             break;
         case OpCode::NOT_8:
             trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint8_t>(inst.operands.at(2)),
-                                 std::get<uint8_t>(inst.operands.at(3)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint8_t>(inst.operands.at(1)),
+                                 std::get<uint8_t>(inst.operands.at(2)));
             break;
         case OpCode::NOT_16:
             trace_builder.op_not(std::get<uint8_t>(inst.operands.at(0)),
-                                 std::get<uint16_t>(inst.operands.at(2)),
-                                 std::get<uint16_t>(inst.operands.at(3)),
-                                 std::get<AvmMemoryTag>(inst.operands.at(1)));
+                                 std::get<uint16_t>(inst.operands.at(1)),
+                                 std::get<uint16_t>(inst.operands.at(2)));
             break;
         case OpCode::SHL_8:
             trace_builder.op_shl(std::get<uint8_t>(inst.operands.at(0)),
