@@ -1,7 +1,7 @@
 use crate::utils::field::field_from_bytes;
 use crate::traits::{Serialize, Deserialize, FromField, ToField, Empty};
 
-global SELECTOR_SIZE = 4;
+global SELECTOR_SIZE: u32 = 4;
 
 struct FunctionSelector {
     // 1st 4-bytes of abi-encoding of function.

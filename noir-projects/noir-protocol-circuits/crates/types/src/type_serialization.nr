@@ -1,11 +1,11 @@
 use crate::traits::{Serialize, Deserialize};
 
-global BOOL_SERIALIZED_LEN: Field = 1;
-global U8_SERIALIZED_LEN: Field = 1;
-global U32_SERIALIZED_LEN: Field = 1;
-global U64_SERIALIZED_LEN: Field = 1;
-global U128_SERIALIZED_LEN: Field = 1;
-global FIELD_SERIALIZED_LEN: Field = 1;
+global BOOL_SERIALIZED_LEN: u32 = 1;
+global U8_SERIALIZED_LEN: u32 = 1;
+global U32_SERIALIZED_LEN: u32 = 1;
+global U64_SERIALIZED_LEN: u32 = 1;
+global U128_SERIALIZED_LEN: u32 = 1;
+global FIELD_SERIALIZED_LEN: u32 = 1;
 
 impl Serialize<BOOL_SERIALIZED_LEN> for bool {
     fn serialize(self) -> [Field; BOOL_SERIALIZED_LEN] {

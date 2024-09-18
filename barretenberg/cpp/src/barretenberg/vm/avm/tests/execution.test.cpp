@@ -30,7 +30,18 @@ class AvmExecutionTests : public ::testing::Test {
     VmPublicInputs public_inputs;
 
     AvmExecutionTests()
-        : public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH){};
+        : public_inputs_vec(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH)
+    {
+        Execution::set_trace_builder_constructor([](VmPublicInputs public_inputs,
+                                                    ExecutionHints execution_hints,
+                                                    uint32_t side_effect_counter,
+                                                    std::vector<FF> calldata) {
+            return AvmTraceBuilder(
+                       std::move(public_inputs), std::move(execution_hints), side_effect_counter, std::move(calldata))
+                .set_full_precomputed_tables(false)
+                .set_range_check_required(false);
+        });
+    };
 
   protected:
     const FixedGasTable& GAS_COST_TABLE = FixedGasTable::get();

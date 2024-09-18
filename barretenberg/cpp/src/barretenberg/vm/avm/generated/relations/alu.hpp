@@ -21,6 +21,7 @@ template <typename FF_> class aluImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+        const auto constants_MEM_TAG_U1 = FF(1);
         const auto constants_MEM_TAG_U8 = FF(2);
         const auto constants_MEM_TAG_U16 = FF(3);
         const auto constants_MEM_TAG_U32 = FF(4);
@@ -123,12 +124,13 @@ template <typename FF_> class aluImpl {
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp =
-                (new_term.alu_in_tag - ((((((new_term.alu_u1_tag + (constants_MEM_TAG_U8 * new_term.alu_u8_tag)) +
-                                            (constants_MEM_TAG_U16 * new_term.alu_u16_tag)) +
-                                           (constants_MEM_TAG_U32 * new_term.alu_u32_tag)) +
-                                          (constants_MEM_TAG_U64 * new_term.alu_u64_tag)) +
-                                         (constants_MEM_TAG_U128 * new_term.alu_u128_tag)) +
-                                        (constants_MEM_TAG_FF * new_term.alu_ff_tag)));
+                (new_term.alu_in_tag -
+                 (((((((constants_MEM_TAG_U1 * new_term.alu_u1_tag) + (constants_MEM_TAG_U8 * new_term.alu_u8_tag)) +
+                      (constants_MEM_TAG_U16 * new_term.alu_u16_tag)) +
+                     (constants_MEM_TAG_U32 * new_term.alu_u32_tag)) +
+                    (constants_MEM_TAG_U64 * new_term.alu_u64_tag)) +
+                   (constants_MEM_TAG_U128 * new_term.alu_u128_tag)) +
+                  (constants_MEM_TAG_FF * new_term.alu_ff_tag)));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }

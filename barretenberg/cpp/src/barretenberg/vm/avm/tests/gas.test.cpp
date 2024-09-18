@@ -38,7 +38,8 @@ void test_gas(StartGas startGas, OpcodesFunc apply_opcodes, CheckFunc check_trac
 
     VmPublicInputs public_inputs;
     std::get<0>(public_inputs) = kernel_inputs;
-    AvmTraceBuilder trace_builder(public_inputs);
+    auto trace_builder =
+        AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false);
 
     // We should return a value of 1 for the sender, as it exists at index 0
     apply_opcodes(trace_builder);

@@ -1,4 +1,4 @@
-global NOTE_HASH_LEAF_PREIMAGE_LENGTH: u64 = 1;
+global NOTE_HASH_LEAF_PREIMAGE_LENGTH: u32 = 1;
 
 use crate::{
     abis::{read_request::ScopedReadRequest, side_effect::Readable}, hash::compute_siloed_note_hash,
