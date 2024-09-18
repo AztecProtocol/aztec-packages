@@ -72,7 +72,7 @@ example-service   ClusterIP   10.0.0.1     <none>        80/TCP    15m
 
 ### Connecting to Spartan using k8Lens
 
-A popular GUI than can be used to connect to the Spartan cluster is the free version of k8Lens ([download link](https://k8slens.dev/)).
+A popular GUI than can be used to connect to the Spartan cluster is the free version of k8Lens. ([Download Link](https://k8slens.dev/))
 
 As long as all CLI tools have been configured, k8Lens will automatically read your local `kubeconfig` file to provide cluster access. The Spartan cluster can then be located by navigating the k8Lens "catelog" as shown below.
 
