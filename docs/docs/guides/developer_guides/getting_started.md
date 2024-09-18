@@ -4,7 +4,7 @@ sidebar_position: 0
 tags: [sandbox]
 ---
 
-This guide will teach you how to install the Aztec sandbox, deploy your first smart contract, and interact with it using the CLI.
+This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI.
 
 The Sandbox is an Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet. 
 
@@ -69,41 +69,34 @@ You'll know the sandbox is ready to go when you see something like this:
 
 ## Creating an account in the sandbox
 
-Now you have the sandbox running, let's create an account. Open a new terminal window and run:
+Now you have the sandbox running, let's create an account. For the next steps, we will use the wallet CLI. Open a new terminal window and run:
 
 ```bash
-aztec-cli create-account
+aztec-wallet create-account -a my-wallet
 ```
 
-This will create a new account in your sandbox. You will see logs telling you the address, public key, secret key, and more.
+This will create a new wallet with an account and give it the alias `my-wallet`. This will let us reference it with `accounts:my-wallet`. You will see logs telling you the address, public key, secret key, and more.
 
 On successful depoyment of the account, you should see something like this:
 
 ```bash
 New account:
 
-Address:         0x22d82b1ef045dfb4c3e0c4eac41fcf04ba29a3468d5ef5a123e4754064a4038d
-Public key:      0x24d07ed6baff3e12dd76e7299a771bfa430eed9e25b155e3253c958b0a93551f2012b9d0238581717e27b296124272053f53757942972df98ad6602369a4d2c92bdd202abb07ab331dd1e3d5595f00be5a1c9d3c3244e07453f38e83417b2a381a0039f104c8f2214611b7a645deb01bda7c79835a46cf6c78cd485bd4d1372a10844f6c07f18a8435c5998d7739be448c6b5c15688b7c228b0a7dc24b038de700d0d4af57aa6b07c4471bcdcc5228a17b1ac03f2aae84c33dd2933b6b5a1c70179399adacbfc836c8bf24741ea78d404fc803fe09cfc570560b16c1169a40be1f20f153e8e0e2f9856ee526723b49c6da81e82b382a8770e31c78f25a1784cc
-Secret key:     0x1a9af8f75b3430223b628f7b423667da14304d376a82cfd31dfe138d00a20c61
-Partial address: 0x198022f6ec9b51f3af4cdc731adf606c0143ad35f7947ad604db50e9310a31ac
+Address:         0x066108a2398e3e2ff53ec4b502e4c2e778c6de91bb889de103d5b4567530d99c
+Public key:      0x007343da506ea513e6c05ba4d5e92e3c682333d97447d45db357d05a28df0656181e47a6257e644c3277c0b11223b28f2b36c94f9b0a954523de61ac967b42662b60e402f55e3b7384ba61261335040fe4cd52cb0383f559a36eeea304daf67d1645b06c38ee6098f90858b21b90129e7e1fdc4666dd58d13ef8fab845b2211906656d11b257feee0e91a42cb28f46b80aabdc70baad50eaa6bb2c5a7acff4e30b5036e1eb8bdf96fad3c81e63836b8aa39759d11e1637bd71e3fc76e3119e500fbcc1a22e61df8f060004104c5a75b52a1b939d0f315ac29013e2f908ca6bc50529a5c4a2604c754d52c9e7e3dee158be21b7e8008e950991174e2765740f58
+Secret key:     0x1c94f8b19e91d23fd3ab6e15f7891fde7ba7cae01d3fa94e4c6afb4006ec0cfb
+Partial address: 0x2fd6b540a6bb129dd2c05ff91a9c981fb5aa2ac8beb4268f10b3aa5fb4a0fcd1
 Salt:            0x0000000000000000000000000000000000000000000000000000000000000000
-Init hash:       0x04630e3997204b1c417868aa449beb272c3c3bf0efe22315c5920665a6390db7
+Init hash:       0x28df95b579a365e232e1c63316375c45a16f6a6191af86c5606c31a940262db2
 Deployer:        0x0000000000000000000000000000000000000000000000000000000000000000
 
 Waiting for account contract deployment...
-Deploy tx hash:  09245ec0d905a461c717d6f70600e3c13b8746ee97785fd491b58f5f56111854
+Deploy tx hash:  0a632ded6269bda38ad6b54cd49bef033078218b4484b902e326c30ce9dc6a36
 Deploy tx fee:   200013616
+Account stored in database with aliases last & my-wallet
 ```
 
-You can double check by running `aztec get-accounts`.
-
-You will be needing that `Address` and `Secret key` fields later! To make it easier to reference, export them like this:
-
-```bash
-export ACCOUNT_ADDRESS=<ADDRESS>
-export SECRET_KEY=<SECRET_KEY>
-```
-Make sure to replace the `<ADDRESS>` and `<SECRET_KEY>` with the actual results that were printed.
+You can double check by running `aztec-wallet get-accounts`.
 
 With this new account, let's get some local test tokens!
 
@@ -114,73 +107,67 @@ The sandbox comes with some contracts that you can deploy and play with. One of 
 Deploy it with this:
 
 ```bash
-aztec deploy TokenContractArtifact --secret-key $SECRET_KEY --args $ACCOUNT_ADDRESS test-token TST 18
+aztec-wallet deploy TokenContractArtifact --from accounts:my-wallet --args accounts:my-wallet TestToken TST 18 -a contracts:testtoken
 ```
 
 This takes 
 - the contract artifact as the argument, which is `TokenContractArtifact`
-- the secret key of the deployer account, which we exported as `$SECRET_KEY`
-- the args that the contract constructor takes, which is the `admin` (`$ACCOUNT_ADDRESS`), `name` (`test-token`), `symbol` (`TST`), and `decimals` (`18`).
+- the deployer account, which we aliased as `my-wallet`
+- the args that the contract constructor takes, which is the `admin` (`accounts:my-wallet`), `name` (`TestToken`), `symbol` (`TST`), and `decimals` (`18`).
+- an alias `testtoken` (`-a`) so we can easily reference it later with `contracts:testtoken`
 
 On successful deployment, you should see something like this:
 
 ```bash
- aztec:cli [INFO] Using wallet with address 0x22d82b1ef045dfb4c3e0c4eac41fcf04ba29a3468d5ef5a123e4754064a4038d +0ms
-Contract deployed at 0x1eaa85d27c6ceed91f39a4885e2996f1f6de5d861c40dc9f0cfba43011b15243
-Contract partial address 0x19e957e72ec743a91c341b6e148e41f57c503741ea95e5b6e7158892dcb9f347
-Contract init hash 0x2f4bfd6cfa8f56f133bd0cd5ddfd1cb973436e0d385019491ce8fb950ae7eaf4
-Deployment tx hash: 12e43da89dcb4fbc693419d37e2a01f8f381da49b2cd1ae8492cc91b98aafd08
-Deployment salt: 0x115dd94b02568fc1f875fa782805151557684450f6aee058b28f9f010593e671
+aztec:wallet [INFO] Using wallet with address 0x066108a2398e3e2ff53ec4b502e4c2e778c6de91bb889de103d5b4567530d99c +0ms
+Contract deployed at 0x15ce68d4be65819fe9c335132f10643b725a9ebc7d86fb22871f6eb8bdbc3abd
+Contract partial address 0x25a91e546590d77108d7b184cb81b0a0999e8c0816da1a83a2fa6903480ea138
+Contract init hash 0x0abbaf0570bf684da355bd9a9a4b175548be6999625b9c8e0e9775d140c78506
+Deployment tx hash: 0a8ccd1f4e28092a8fa4d1cb85ef877f8533935c4e94b352a38af73eee17944f
+Deployment salt: 0x266295eb5da322aba96fbb24f9de10b2ba01575dde846b806f884f749d416707
 Deployment fee: 200943060
+Contract stored in database with aliases last & testtoken
 ```
-
-Nice one! Let's export the `Contract deployed at` address so we can use it to call the contract:
-
-```bash
-export CONTRACT_ADDRESS=<CONTRACT_ADDRESS>
-```
-
-Make sure to replace the `<CONTRACT_ADDRESS>` with the actual contract address that was printed.
 
 In the next step, let's mint some tokens!
 
-## Playing with public functions
+## Minting public tokens
 
 Call the public mint function like this:
 
 ```bash
-aztec send mint_public  --contract-artifact TokenContractArtifact --contract-address $CONTRACT_ADDRESS --secret-key $SECRET_KEY --args $ACCOUNT_ADDRESS 100 
+aztec-wallet send mint_public --from accounts:my-wallet --contract-address contracts:testtoken --args accounts:my-wallet 100
 ```
 
 This takes 
 - the function name as the argument, whcih is `mint_public`
-- the contract artifact, which is `TokenContractArtifact`
-- the contract address, which we exported as `$CONTRACT_ADDRESS`
-- the secret key of the caller of the function, which we exported as `$SECRET_KEY`
-- the args that the function takes, which is the account to mint the tokens into (`$ACCOUNT_ADDRESS`), and `amount` (`100`).
+- the `from` account (caller) which is `accounts:my-wallet`
+- the contract address, which is alised as `contracts:testtoken`
+- the args that the function takes, which is the account to mint the tokens into (`my-wallet`), and `amount` (`100`).
 
 This only works because we are using the secret key of the admin who has permissions to mint.
 
 A successful call should print something like this:
 
 ```bash
-aztec:cli [INFO] Using wallet with address 0x22d82b1ef045dfb4c3e0c4eac41fcf04ba29a3468d5ef5a123e4754064a4038d +0ms
+aztec:wallet [INFO] Using wallet with address 0x066108a2398e3e2ff53ec4b502e4c2e778c6de91bb889de103d5b4567530d99c +0ms
 Maximum total tx fee:   1161660
 Estimated total tx fee: 116166
 Estimated gas usage:    da=1127,l2=115039,teardownDA=0,teardownL2=0
 
-Transaction hash: 28c6a544f8074d06b4d66adba582014c6ba1c1d2086f72a9c2d31cc638f5e865
+Transaction hash: 2ac383e8e2b68216cda154b52e940207a905c1c38dadba7a103c81caacec403d
 Transaction has been mined
  Tx fee: 200106180
  Status: success
- Block number: 8
- Block hash: 2ac997cfa44bc5353acd3f82869d4171b1fc9970c11e6283df29571007f02e64
+ Block number: 17
+ Block hash: 1e27d200600bc45ab94d467c230490808d1e7d64f5ee6cee5e94a08ee9580809
+Transaction hash stored in database with aliases last & mint_public-9044
 ```
 
 You can double-check by calling the function that checks your public account balance:
 
 ```bash
-aztec simulate balance_of_public  --contract-artifact TokenContractArtifact --contract-address $CONTRACT_ADDRESS --args $ACCOUNT_ADDRESS 
+aztec-wallet simulate balance_of_public --from my-wallet --contract-address testtoken --args accounts:my-wallet
 ```
 
 This should print
@@ -191,23 +178,19 @@ Simulation result:  100n
 
 ## Playing with hybrid state and private functions
 
-In the following steps, we'll shield a token (moving it from public to private state) and recheck our public balance.
+In the following steps, we'll shield a token (moving it from public to private state), and check our private and public balance.
 
-First we need to generate a secret and secret hash:
+First we need to generate a secret and secret hash with the Aztec CLI:
 
 ```bash
  aztec generate-secret-and-hash
 ```
 
-Export the output of the `secret_hash` to use in the next command:
-
-```bash
-export SECRET_HASH=<SECRET_HASH>
-```
+You'll be using these in the following commands so don't clear your terminal!
 
 Call the `shield`` function like this:
 ```bash
-aztec send shield  --contract-artifact TokenContractArtifact --contract-address $CONTRACT_ADDRESS --secret-key $SECRET_KEY --args $ACCOUNT_ADDRESS 25 $SECRET_HASH 0
+aztec-wallet send shield --from accounts:my-wallet --contract-address contracts:testtoken --args accounts:my-wallet 25 <SECRET_HASH> 0
 ```
 
 This takes the same parameters as our previous `send` call, plus the arguments which are
@@ -221,7 +204,7 @@ A successful call should print something similar to what you've seen before.
 Now when you call `balance_of_public` again you will see 75!
 
 ```bash
-aztec simulate balance_of_public  --contract-artifact TokenContractArtifact --contract-address $CONTRACT_ADDRESS --args $ACCOUNT_ADDRESS 
+aztec-wallet simulate balance_of_public --from my-wallet --contract-address testtoken --args accounts:my-wallet
 ```
 
 This should print
@@ -230,7 +213,33 @@ This should print
 Simulation result:  75n
 ```
 
-Redeeming the tokens into your private balance requires adding a note into the Private Execution Environment (PXE), which is a bit complex for a getting-started guide. If you'd like to learn more about that flow, you can [read the PXE explainer in the Concepts section](../../aztec/concepts/pxe/index.md).
+Now we will need to add these shielded tokens into our account so that we can claim them.
+
+```bash
+aztec-wallet add-note TokenNote balances  --contract-address testtoken --transaction-hash last --address accounts:my-wallet
+```
+
+This takes
+- the type of note you are claiming (`TokenNote`)
+- the name of the storage (`balances`)
+- the contract address
+- the transaction hash the note was created in (automatically aliased as `last`)
+- the address to claim the note into (`accounts:my-wallet`)
+Now when you call `balance_of_private` you'll see your tokens!
+
+Don't worry if you don't understand what `add-note` or `TokenNote` mean just yet. When you follow the tutorials, you'll learn more. 
+
+Now you can call `balance_of_private` to check that you have your tokens!
+
+```bash
+aztec-wallet simulate balance_of_private --from my-wallet --contract-address testtoken --args accounts:my-wallet
+```
+
+This should print 
+
+```bash
+Simulation result:  25n
+```
 
 **Congratulations, you now know the fundamentals of working with the Aztec sandbox!** You are ready to move onto the more fun stuff.
 
