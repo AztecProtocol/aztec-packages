@@ -15,6 +15,7 @@ import {
   type ReqRespSubProtocolHandlers,
 } from './interface.js';
 import { RequestResponseRateLimiter } from './rate_limiter/rate_limiter.js';
+import { PeerManager } from '../peer_manager.js';
 
 /**
  * The Request Response Service
@@ -38,13 +39,13 @@ export class ReqResp {
   private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
   private rateLimiter: RequestResponseRateLimiter;
 
-  constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p) {
+  constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p, peerManager: PeerManager) {
     this.logger = createDebugLogger('aztec:p2p:reqresp');
 
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
 
-    this.rateLimiter = new RequestResponseRateLimiter();
+    this.rateLimiter = new RequestResponseRateLimiter(peerManager);
   }
 
   /**

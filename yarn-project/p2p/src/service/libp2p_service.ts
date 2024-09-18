@@ -109,7 +109,7 @@ export class LibP2PService implements P2PService {
       return this.peerManager.getPeerScore(peerId);
     };
     this.node.services.pubsub.score.params.appSpecificWeight = 10;
-    this.reqresp = new ReqResp(config, node);
+    this.reqresp = new ReqResp(config, node, this.peerManager);
 
     this.blockReceivedCallback = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
       this.logger.verbose(

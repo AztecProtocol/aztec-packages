@@ -7,6 +7,8 @@ import { type PeerId } from '@libp2p/interface';
 
 import { type ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
 import { DEFAULT_RATE_LIMITS } from './rate_limits.js';
+import { PeerManager } from '../../peer_manager.js';
+import { PeerErrorSeverity } from '../../peer_scoring.js';
 
 // Check for disconnected peers every 10 minutes
 const CHECK_DISCONNECTED_PEERS_INTERVAL_MS = 10 * 60 * 1000;
@@ -69,6 +71,12 @@ interface PeerRateLimiter {
   lastAccess: number;
 }
 
+enum RateLimitStatus {
+  Allowed,
+  DeniedGlobal,
+  DeniedPeer
+}
+
 /**
  * SubProtocolRateLimiter: A rate limiter for managing request rates on a per-peer and global basis for a specific subprotocol.
  *
@@ -98,9 +106,9 @@ export class SubProtocolRateLimiter {
     this.peerQuotaTimeMs = peerQuotaTimeMs;
   }
 
-  allow(peerId: PeerId): boolean {
+  allow(peerId: PeerId): RateLimitStatus {
     if (!this.globalLimiter.allow()) {
-      return false;
+      return RateLimitStatus.DeniedGlobal;
     }
 
     const peerIdStr = peerId.toString();
@@ -115,7 +123,11 @@ export class SubProtocolRateLimiter {
     } else {
       peerLimiter.lastAccess = Date.now();
     }
-    return peerLimiter.limiter.allow();
+    const peerLimitAllowed = peerLimiter.limiter.allow();
+    if (!peerLimitAllowed) {
+      return RateLimitStatus.DeniedPeer;
+    }
+    return RateLimitStatus.Allowed;
   }
 
   cleanupInactivePeers() {
@@ -154,7 +166,9 @@ export class RequestResponseRateLimiter {
 
   private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
-  constructor(rateLimits: ReqRespSubProtocolRateLimits = DEFAULT_RATE_LIMITS) {
+  // TODO(md): work out how the peer scoring should be handled within here
+  // TODO(md): also update the comments above
+  constructor(private peerManager: PeerManager, rateLimits: ReqRespSubProtocolRateLimits = DEFAULT_RATE_LIMITS) {
     this.subProtocolRateLimiters = new Map();
 
     for (const [subProtocol, protocolLimits] of Object.entries(rateLimits)) {
@@ -182,7 +196,18 @@ export class RequestResponseRateLimiter {
       // TODO: maybe throw an error here if no rate limiter is configured?
       return true;
     }
-    return limiter.allow(peerId);
+    const rateLimitStatus = limiter.allow(peerId);
+
+    switch (rateLimitStatus) {
+      case RateLimitStatus.DeniedPeer:
+        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+        return false;
+      case RateLimitStatus.DeniedGlobal:
+        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+        return false;
+      default:
+        return true;
+    }
   }
 
   cleanupInactivePeers() {
