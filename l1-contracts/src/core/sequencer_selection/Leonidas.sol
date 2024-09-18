@@ -311,7 +311,7 @@ contract Leonidas is Ownable, ILeonidas {
    * @return The computed slot
    */
   function getSlotAt(uint256 _ts) public view override(ILeonidas) returns (uint256) {
-    return (_ts - GENESIS_TIME) / SLOT_DURATION;
+    return _ts < GENESIS_TIME ? 0 : (_ts - GENESIS_TIME) / SLOT_DURATION;
   }
 
   /**
