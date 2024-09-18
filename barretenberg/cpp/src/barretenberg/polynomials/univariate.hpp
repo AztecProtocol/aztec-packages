@@ -49,16 +49,12 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
 
     Univariate(std::initializer_list<Fr> list)
     {
-        if (list.size() == 1) {
-            std::fill_n(evaluations.begin(), LENGTH, *list.begin());
-        } else {
-            std::copy_n(list.begin(), LENGTH, evaluations.begin());
-        }
+        ASSERT(list.size() == LENGTH);
+        std::copy_n(list.begin(), LENGTH, evaluations.begin());
     }
 
     // constructor of a constant univariate
-    Univariate(const Fr& val)
-        : Univariate({ val }){};
+    Univariate(const Fr& val) { std::fill_n(evaluations.begin(), LENGTH, val); };
 
     /**
      * @brief Convert from a version with skipped evaluations to one without skipping (with zeroes in previously skipped
