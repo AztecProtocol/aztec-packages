@@ -47,10 +47,7 @@ class AvmSliceTests : public ::testing::Test {
         trace = trace_builder.finalize();
     }
 
-    void validate_single_calldata_copy_trace(uint32_t col_offset,
-                                             uint32_t copy_size,
-                                             uint32_t dst_offset,
-                                             bool proof_verif = false)
+    void validate_single_calldata_copy_trace(uint32_t col_offset, uint32_t copy_size, uint32_t dst_offset)
     {
         // Find the first row enabling the calldata_copy selector
         auto row = std::ranges::find_if(
@@ -111,11 +108,7 @@ class AvmSliceTests : public ::testing::Test {
                           SLICE_ROW_FIELD_EQ(sel_cd_cpy, 0),
                           SLICE_ROW_FIELD_EQ(sel_start, 0)));
 
-        if (proof_verif) {
-            validate_trace(std::move(trace), public_inputs, calldata, {}, true);
-        } else {
-            validate_trace(std::move(trace), public_inputs, calldata);
-        }
+        validate_trace(std::move(trace), public_inputs, calldata);
     }
 
     VmPublicInputs public_inputs;
@@ -131,7 +124,7 @@ class AvmSliceTests : public ::testing::Test {
 TEST_F(AvmSliceTests, simpleCopyAllCDValues)
 {
     gen_single_calldata_copy(false, 12, 0, 12, 25);
-    validate_single_calldata_copy_trace(0, 12, 25, true);
+    validate_single_calldata_copy_trace(0, 12, 25);
 }
 
 TEST_F(AvmSliceTests, singleCopyCDElement)
@@ -329,7 +322,7 @@ TEST_F(AvmSliceNegativeTests, wrongCDValueInCalldataVerifier)
     trace_builder.op_return(0, 0, 0);
     trace = trace_builder.finalize();
 
-    validate_trace(std::move(trace), public_inputs, { 2, 3, 4, 5, 7 }, {}, true, true);
+    validate_trace(std::move(trace), public_inputs, { 2, 3, 4, 5, 7 }, {}, false, true);
 }
 
 TEST_F(AvmSliceNegativeTests, disableMemWriteEntry)
