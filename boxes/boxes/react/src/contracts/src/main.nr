@@ -8,9 +8,7 @@ contract BoxReact {
 
     #[aztec(storage)]
     struct Storage {
-        // docs:start:private_map
         numbers: Map<AztecAddress, PrivateMutable<ValueNote>>,
-        // docs:end:private_map
     }
 
     #[aztec(private)]

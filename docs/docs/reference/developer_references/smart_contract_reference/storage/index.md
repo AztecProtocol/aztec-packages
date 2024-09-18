@@ -65,11 +65,13 @@ You can have multiple `map`s in your contract that each have a different underly
 
 #### As private storage
 
-When declaring a mapping in private storage, we have to specify which type of Note to use. In the example below, we are specifying that we want to use the `PrivateMutable` note type.
+When declaring a mapping in private storage, we have to specify which type of Note to use. In the example below, we are specifying that we want to use the `PrivateMutable` note which will hold `ValueNote` types.
 
 In the Storage struct:
 
-#include_code private_map boxes/boxes/react/src/contracts/src/main.nr rust
+```rust
+numbers: Map<AztecAddress, PrivateMutable<ValueNote>>,
+```
 
 #### Public Example
 
