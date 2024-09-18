@@ -81,6 +81,63 @@ std::unordered_map</*relation*/ std::string, /*degrees*/ std::string> get_relati
     return relations_degrees;
 }
 
+void show_trace_info(const auto& trace)
+{
+    vinfo("Built trace size: ", trace.size(), " (next power: 2^", std::bit_width(trace.size()), ")");
+    vinfo("Number of columns: ", trace.front().SIZE);
+    vinfo("Relation degrees: ", []() {
+        std::string result;
+        for (const auto& [key, value] : sorted_entries(get_relations_degrees())) {
+            result += "\n\t" + key + ": [" + value + "]";
+        }
+        return result;
+    }());
+
+    // The following computations are expensive, so we only do them in verbose mode.
+    if (verbose_logging) {
+        return;
+    }
+
+    const size_t total_elements = trace.front().SIZE * trace.size();
+    const size_t nonzero_elements = [&]() {
+        size_t count = 0;
+        for (auto const& row : trace) {
+            for (const auto& ff : row.as_vector()) {
+                if (!ff.is_zero()) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }();
+    vinfo("Number of non-zero elements: ",
+          nonzero_elements,
+          "/",
+          total_elements,
+          " (",
+          100 * nonzero_elements / total_elements,
+          "%)");
+    const size_t non_zero_columns = [&]() {
+        bool column_is_nonzero[trace.front().SIZE];
+        for (auto const& row : trace) {
+            const auto row_vec = row.as_vector();
+            for (size_t col = 0; col < row.SIZE; col++) {
+                if (!row_vec[col].is_zero()) {
+                    column_is_nonzero[col] = true;
+                }
+            }
+        }
+        return static_cast<size_t>(std::count(column_is_nonzero, column_is_nonzero + trace.front().SIZE, true));
+    }();
+    vinfo("Number of non-zero columns: ",
+          non_zero_columns,
+          "/",
+          trace.front().SIZE,
+          " (",
+          100 * non_zero_columns / trace.front().SIZE,
+          "%)");
+}
+
 } // namespace
 
 /**
@@ -935,35 +992,7 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
     }
 
     auto trace = trace_builder.finalize();
-    vinfo("Built trace size: ", trace.size());
-    vinfo("Number of columns: ", trace.front().SIZE);
-    const size_t total_elements = trace.front().SIZE * trace.size();
-    const size_t nonzero_elements = [&]() {
-        size_t count = 0;
-        for (auto const& row : trace) {
-            for (const auto& ff : row.as_vector()) {
-                if (!ff.is_zero()) {
-                    count++;
-                }
-            }
-        }
-        return count;
-    }();
-    vinfo("Number of non-zero elements: ",
-          nonzero_elements,
-          "/",
-          total_elements,
-          " (",
-          100 * nonzero_elements / total_elements,
-          "%)");
-    vinfo("Relation degrees: ", []() {
-        std::string result;
-        for (const auto& [key, value] : sorted_entries(get_relations_degrees())) {
-            result += "\n\t" + key + ": [" + value + "]";
-        }
-        return result;
-    }());
-
+    show_trace_info(trace);
     return trace;
 }
 

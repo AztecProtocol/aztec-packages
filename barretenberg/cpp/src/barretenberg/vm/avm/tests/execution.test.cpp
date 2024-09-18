@@ -102,7 +102,7 @@ TEST_F(AvmExecutionTests, basicAddReturn)
                             ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
 
     auto trace = gen_trace_from_instr(instructions);
-    validate_trace(std::move(trace), public_inputs, {}, {}, true);
+    validate_trace(std::move(trace), public_inputs, {}, {});
 }
 
 // Positive test for SET and SUB opcodes
@@ -167,7 +167,7 @@ TEST_F(AvmExecutionTests, setAndSubOpcodes)
     // Find the first row enabling the subtraction selector
     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sub == 1; });
     EXPECT_EQ(row->main_ic, 10000); // 47123 - 37123 = 10000
-    validate_trace(std::move(trace), public_inputs, {}, {}, true);
+    validate_trace(std::move(trace), public_inputs, {}, {});
 }
 
 // Positive test for multiple MUL opcodes

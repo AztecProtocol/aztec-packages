@@ -413,7 +413,7 @@ TEST_F(AvmArithmeticTestsFF, addition)
 
     std::vector<FF> const returndata = { 37, 4, 11, 0, 41 };
 
-    validate_trace(std::move(trace), public_inputs, calldata, returndata, true);
+    validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
 // Test on basic subtraction over finite field type.
@@ -621,7 +621,7 @@ TEST_F(AvmArithmeticTestsFF, mixedOperationsWithError)
     trace_builder.op_return(0, 0, 0);
 
     auto trace = trace_builder.finalize();
-    validate_trace(std::move(trace), public_inputs, calldata, {}, true);
+    validate_trace(std::move(trace), public_inputs, calldata, {});
 }
 
 // Test of equality on FF elements
