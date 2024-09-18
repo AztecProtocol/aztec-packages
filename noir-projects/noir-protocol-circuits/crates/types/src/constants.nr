@@ -123,9 +123,6 @@ global ROOT_ROLLUP_INDEX: u32 = 24;
 
 // MISC CONSTANTS
 global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
-global ARGS_HASH_CHUNK_LENGTH: u32 = 16;
-global ARGS_HASH_CHUNK_COUNT: u32 = 16;
-global MAX_ARGS_LENGTH: u32 = ARGS_HASH_CHUNK_COUNT * ARGS_HASH_CHUNK_LENGTH;
 // The following is used in immutable state variables to compute an initialization slot whose value is used to
 // determine whether a given variable has been initialized (by asserting that the value in the slot is 0).
 // The initialization slot is computed by adding the constant below to the variable's storage slot. This constant has
@@ -191,12 +188,12 @@ global L2_GAS_PER_NOTE_HASH: u32 = 32;
 global L2_GAS_PER_NULLIFIER: u32 = 64;
 
 // CANONICAL CONTRACT ADDRESSES
-global CANONICAL_KEY_REGISTRY_ADDRESS = AztecAddress::from_field(0x156eabf84e3ea50d40e3330224f2d2e81648fff8f1f7ec1bc6d2873cca6e959d);
-global CANONICAL_AUTH_REGISTRY_ADDRESS = AztecAddress::from_field(0x24877c50868f86712240eb535d90d1c97403d074805dd3758c3aecb02958f8d4);
-global DEPLOYER_CONTRACT_ADDRESS = AztecAddress::from_field(0x2ab1a2bd6d07d8d61ea56d85861446349e52c6b7c0612b702cb1e6db6ad0b089);
-global REGISTERER_CONTRACT_ADDRESS = AztecAddress::from_field(0x05d15342d76e46e5be07d3cda0d753158431cdc5e39d29ce4e8fe1f5c070564a);
-global FEE_JUICE_ADDRESS = AztecAddress::from_field(0x16a83e3395bc921a2441db55dce24f0e0932636901a2e676fa68b9b2b9a644c1);
-global ROUTER_ADDRESS = AztecAddress::from_field(0x1011feaa54609098a884322267ec754c637b280c15aa79c3be9f1394e2b29cd3);
+global CANONICAL_KEY_REGISTRY_ADDRESS = AztecAddress::from_field(0x0f15ebfaa7e1bb0d1c542c954a8f605909d0fa0a5fd829122bfdec15b4ada163);
+global CANONICAL_AUTH_REGISTRY_ADDRESS = AztecAddress::from_field(0x2ace300b02ca5ab0a25052b1e852913a47292096997ca09f758c0e3624e84560);
+global DEPLOYER_CONTRACT_ADDRESS = AztecAddress::from_field(0x25d93dc07b5baaf53a98caeae2679df3528cb83e11e2640a57a0a53abbaaadb9);
+global REGISTERER_CONTRACT_ADDRESS = AztecAddress::from_field(0x1b6d5873cef5a35f681ab9468527f356c96e09b3c64603aef404ec2ad80aa3a9);
+global FEE_JUICE_ADDRESS = AztecAddress::from_field(0x1abe6c7f5c4caf04cbf7556495e08ad9c0a225a5f9d33554ae07285b13c494d7);
+global ROUTER_ADDRESS = AztecAddress::from_field(0x1d8f25db3e8faa6a96cb1ecf57876a2ee04581deb3c4f181488ccd817abcbdb0);
 
 // LENGTH OF STRUCTS SERIALIZED TO FIELDS
 global AZTEC_ADDRESS_LENGTH = 1;

@@ -22,9 +22,7 @@ impl Serialize<1> for EventSelector {
 
 impl Deserialize<1> for EventSelector {
     fn deserialize(fields: [Field; 1]) -> Self {
-        Self {
-            inner: fields[0] as u32
-        }
+        Self { inner: fields[0] as u32 }
     }
 }
 
@@ -53,14 +51,12 @@ impl EventSelector {
 
     pub fn from_signature<let N: u32>(signature: str<N>) -> Self {
         let bytes = signature.as_bytes();
-        let hash = std::hash::keccak256(bytes, bytes.len() as u32);
+        let hash = crate::hash::poseidon2_hash_bytes(bytes);
 
-        let mut selector_be_bytes = [0; SELECTOR_SIZE];
-        for i in 0..SELECTOR_SIZE {
-            selector_be_bytes[i] = hash[i];
-        }
+        // We choose the last SELECTOR_SIZE bytes of the hash to avoid getting the first byte that is not full
+        let hash_bytes = hash.to_be_bytes::<SELECTOR_SIZE>();
 
-        EventSelector::from_field(field_from_bytes(selector_be_bytes, true))
+        EventSelector::from_field(field_from_bytes(hash_bytes, true))
     }
 
     pub fn zero() -> Self {

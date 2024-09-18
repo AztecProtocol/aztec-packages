@@ -37,11 +37,6 @@ impl Deserialize<SERIALIZED_LEN> for Asset {
         let loan_to_value = U128 { lo: fields[3], hi: fields[4] };
         let oracle = AztecAddress::from_field(fields[5]);
 
-        Asset {
-            interest_accumulator,
-            last_updated_ts,
-            loan_to_value,
-            oracle,
-        }
+        Asset { interest_accumulator, last_updated_ts, loan_to_value, oracle }
     }
 }

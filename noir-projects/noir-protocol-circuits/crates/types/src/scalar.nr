@@ -10,7 +10,7 @@ impl Empty for Scalar {
 }
 
 impl Serialize<SCALAR_SIZE> for Scalar {
-  fn serialize(self) -> [Field; SCALAR_SIZE] {
-    [self.lo, self.hi]
-  }
+    fn serialize(self) -> [Field; SCALAR_SIZE] {
+        [self.lo, self.hi]
+    }
 }

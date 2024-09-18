@@ -3,7 +3,6 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 

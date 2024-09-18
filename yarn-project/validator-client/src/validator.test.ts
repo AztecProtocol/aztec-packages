@@ -12,10 +12,16 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { makeBlockProposal } from '../../circuit-types/src/p2p/mocks.js';
-import { AttestationTimeoutError, TransactionsNotAvailableError } from './errors/validator.error.js';
+import { type ValidatorClientConfig } from './config.js';
+import {
+  AttestationTimeoutError,
+  InvalidValidatorPrivateKeyError,
+  TransactionsNotAvailableError,
+} from './errors/validator.error.js';
 import { ValidatorClient } from './validator.js';
 
 describe('ValidationService', () => {
+  let config: ValidatorClientConfig;
   let validatorClient: ValidatorClient;
   let p2pClient: MockProxy<P2P>;
   let validatorAccount: PrivateKeyAccount;
@@ -27,13 +33,18 @@ describe('ValidationService', () => {
     const validatorPrivateKey = generatePrivateKey();
     validatorAccount = privateKeyToAccount(validatorPrivateKey);
 
-    const config = {
+    config = {
       validatorPrivateKey: validatorPrivateKey,
       attestationPoolingIntervalMs: 1000,
       attestationWaitTimeoutMs: 1000,
       disableValidator: false,
     };
     validatorClient = ValidatorClient.new(config, p2pClient);
+  });
+
+  it('Should throw error if an invalid private key is provided', () => {
+    config.validatorPrivateKey = '0x1234567890123456789';
+    expect(() => ValidatorClient.new(config, p2pClient)).toThrow(InvalidValidatorPrivateKeyError);
   });
 
   it('Should create a valid block proposal', async () => {
@@ -46,17 +57,17 @@ describe('ValidationService', () => {
     expect(blockProposal).toBeDefined();
 
     const validatorAddress = EthAddress.fromString(validatorAccount.address);
-    expect(await blockProposal.getSender()).toEqual(validatorAddress);
+    expect(blockProposal.getSender()).toEqual(validatorAddress);
   });
 
   it('Should a timeout if we do not collect enough attestations in time', async () => {
-    const proposal = await makeBlockProposal();
+    const proposal = makeBlockProposal();
 
     await expect(validatorClient.collectAttestations(proposal, 2)).rejects.toThrow(AttestationTimeoutError);
   });
 
   it('Should throw an error if the transactions are not available', async () => {
-    const proposal = await makeBlockProposal();
+    const proposal = makeBlockProposal();
 
     // mock the p2pClient.getTxStatus to return undefined for all transactions
     p2pClient.getTxStatus.mockImplementation(() => undefined);

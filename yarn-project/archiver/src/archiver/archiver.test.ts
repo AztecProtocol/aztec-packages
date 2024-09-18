@@ -10,6 +10,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   type Chain,
@@ -26,6 +27,14 @@ import { type ArchiverDataStore } from './archiver_store.js';
 import { type ArchiverInstrumentation } from './instrumentation.js';
 import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
 
+interface MockRollupContractRead {
+  archiveAt: (args: readonly [bigint]) => Promise<`0x${string}`>;
+}
+
+class MockRollupContract {
+  constructor(public read: MockRollupContractRead, public address: `0x${string}`) {}
+}
+
 describe('Archiver', () => {
   const rollupAddress = EthAddress.ZERO;
   const inboxAddress = EthAddress.ZERO;
@@ -39,6 +48,7 @@ describe('Archiver', () => {
   let now: number;
 
   let archiver: Archiver;
+  let blocks: L2Block[];
 
   beforeEach(() => {
     now = +new Date();
@@ -47,16 +57,11 @@ describe('Archiver', () => {
         timestamp: args.blockNumber * 1000n + BigInt(now),
       })) as any,
     });
+
     instrumentation = mock({ isEnabled: () => true });
     archiverStore = new MemoryArchiverStore(1000);
     proverId = Fr.random();
-  });
 
-  afterEach(async () => {
-    await archiver?.stop();
-  });
-
-  it('can start, sync and stop and handle l1 to l2 messages and logs', async () => {
     archiver = new Archiver(
       publicClient,
       rollupAddress,
@@ -67,10 +72,22 @@ describe('Archiver', () => {
       instrumentation,
     );
 
+    blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
+
+    const mockRollupRead = mock<MockRollupContractRead>({
+      archiveAt: (args: readonly [bigint]) => Promise.resolve(blocks[Number(args[0] - 1n)].archive.root.toString()),
+    });
+    (archiver as any).rollup = new MockRollupContract(mockRollupRead, rollupAddress.toString());
+  });
+
+  afterEach(async () => {
+    await archiver?.stop();
+  });
+
+  it('can start, sync and stop and handle l1 to l2 messages and logs', async () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
     blocks.forEach((b, i) => (b.header.globalVariables.timestamp = new Fr(now + 1000 * (i + 1))));
     const rollupTxs = blocks.map(makeRollupTx);
 
@@ -78,7 +95,7 @@ describe('Archiver', () => {
 
     mockGetLogs({
       messageSent: [makeMessageSentEvent(98n, 1n, 0n), makeMessageSentEvent(99n, 1n, 1n)],
-      L2BlockProposed: [makeL2BlockProposedEvent(101n, 1n)],
+      L2BlockProposed: [makeL2BlockProposedEvent(101n, 1n, blocks[0].archive.root.toString())],
       proofVerified: [makeProofVerifiedEvent(102n, 1n, proverId)],
     });
 
@@ -89,7 +106,10 @@ describe('Archiver', () => {
         makeMessageSentEvent(2505n, 2n, 2n),
         makeMessageSentEvent(2506n, 3n, 1n),
       ],
-      L2BlockProposed: [makeL2BlockProposedEvent(2510n, 2n), makeL2BlockProposedEvent(2520n, 3n)],
+      L2BlockProposed: [
+        makeL2BlockProposedEvent(2510n, 2n, blocks[1].archive.root.toString()),
+        makeL2BlockProposedEvent(2520n, 3n, blocks[2].archive.root.toString()),
+      ],
     });
 
     publicClient.getTransaction.mockResolvedValueOnce(rollupTxs[0]);
@@ -168,21 +188,10 @@ describe('Archiver', () => {
   }, 10_000);
 
   it('does not sync past current block number', async () => {
-    const numL2BlocksInTest = 2;
-    archiver = new Archiver(
-      publicClient,
-      rollupAddress,
-      inboxAddress,
-      registryAddress,
-      archiverStore,
-      1000,
-      instrumentation,
-    );
-
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    const blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
+    const numL2BlocksInTest = 2;
 
     const rollupTxs = blocks.map(makeRollupTx);
 
@@ -191,7 +200,10 @@ describe('Archiver', () => {
 
     mockGetLogs({
       messageSent: [makeMessageSentEvent(66n, 1n, 0n), makeMessageSentEvent(68n, 1n, 1n)],
-      L2BlockProposed: [makeL2BlockProposedEvent(70n, 1n), makeL2BlockProposedEvent(80n, 2n)],
+      L2BlockProposed: [
+        makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString()),
+        makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString()),
+      ],
     });
 
     mockGetLogs({});
@@ -200,13 +212,52 @@ describe('Archiver', () => {
 
     await archiver.start(false);
 
-    // Wait until block 3 is processed. If this won't happen the test will fail with timeout.
     while ((await archiver.getBlockNumber()) !== numL2BlocksInTest) {
       await sleep(100);
     }
 
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(numL2BlocksInTest);
+  }, 10_000);
+
+  it('ignores block 3 because it have been pruned (simulate pruning)', async () => {
+    const loggerSpy = jest.spyOn((archiver as any).log, 'warn');
+
+    let latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+
+    const numL2BlocksInTest = 2;
+
+    const rollupTxs = blocks.map(makeRollupTx);
+
+    // Here we set the current L1 block number to 102. L1 to L2 messages after this should not be read.
+    publicClient.getBlockNumber.mockResolvedValue(102n);
+
+    const badArchive = Fr.random().toString();
+
+    mockGetLogs({
+      messageSent: [makeMessageSentEvent(66n, 1n, 0n), makeMessageSentEvent(68n, 1n, 1n)],
+      L2BlockProposed: [
+        makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString()),
+        makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString()),
+        makeL2BlockProposedEvent(90n, 3n, badArchive),
+      ],
+    });
+
+    mockGetLogs({});
+
+    rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+
+    await archiver.start(false);
+
+    while ((await archiver.getBlockNumber()) !== numL2BlocksInTest) {
+      await sleep(100);
+    }
+
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(numL2BlocksInTest);
+    const errorMessage = `Archive mismatch matching, ignoring block ${3} with archive: ${badArchive}, expected ${blocks[2].archive.root.toString()}`;
+    expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
   }, 10_000);
 
   // logs should be created in order of how archiver syncs.
@@ -228,10 +279,10 @@ describe('Archiver', () => {
  * @param l2BlockNum - L2 Block number.
  * @returns An L2BlockProposed event log.
  */
-function makeL2BlockProposedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
+function makeL2BlockProposedEvent(l1BlockNum: bigint, l2BlockNum: bigint, archive: `0x${string}`) {
   return {
     blockNumber: l1BlockNum,
-    args: { blockNumber: l2BlockNum },
+    args: { blockNumber: l2BlockNum, archive },
     transactionHash: `0x${l2BlockNum}`,
   } as Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProposed'>;
 }

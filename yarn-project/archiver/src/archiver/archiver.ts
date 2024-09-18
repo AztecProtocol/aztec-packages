@@ -30,6 +30,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import {
@@ -42,7 +43,15 @@ import {
 } from '@aztec/types/contracts';
 
 import groupBy from 'lodash.groupby';
-import { type Chain, type HttpTransport, type PublicClient, createPublicClient, http } from 'viem';
+import {
+  type Chain,
+  type GetContractReturnType,
+  type HttpTransport,
+  type PublicClient,
+  createPublicClient,
+  getContract,
+  http,
+} from 'viem';
 
 import { type ArchiverDataStore } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
@@ -67,6 +76,8 @@ export class Archiver implements ArchiveSource {
    */
   private runningPromise?: RunningPromise;
 
+  private rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+
   /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
@@ -87,7 +98,13 @@ export class Archiver implements ArchiveSource {
     private readonly instrumentation: ArchiverInstrumentation,
     private readonly l1StartBlock: bigint = 0n,
     private readonly log: DebugLogger = createDebugLogger('aztec:archiver'),
-  ) {}
+  ) {
+    this.rollup = getContract({
+      address: rollupAddress.toString(),
+      abi: RollupAbi,
+      client: publicClient,
+    });
+  }
 
   /**
    * Creates a new instance of the Archiver and blocks until it syncs from chain.
@@ -109,6 +126,14 @@ export class Archiver implements ArchiveSource {
       pollingInterval: config.viemPollingIntervalMS,
     });
 
+    const rollup = getContract({
+      address: config.l1Contracts.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: publicClient,
+    });
+
+    const l1StartBlock = await rollup.read.L1_BLOCK_AT_GENESIS();
+
     const archiver = new Archiver(
       publicClient,
       config.l1Contracts.rollupAddress,
@@ -117,7 +142,7 @@ export class Archiver implements ArchiveSource {
       archiverStore,
       config.archiverPollingIntervalMS,
       new ArchiverInstrumentation(telemetry),
-      BigInt(config.archiverL1StartBlock),
+      BigInt(l1StartBlock),
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -236,17 +261,14 @@ export class Archiver implements ArchiveSource {
 
     await this.store.addL1ToL2Messages(retrievedL1ToL2Messages);
 
-    // Read all data from chain and then write to our stores at the end
-    const nextExpectedL2BlockNum = BigInt((await this.store.getSynchedL2BlockNumber()) + 1);
-
     this.log.debug(`Retrieving blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
     const retrievedBlocks = await retrieveBlockFromRollup(
+      this.rollup,
       this.publicClient,
-      this.rollupAddress,
       blockUntilSynced,
       blocksSynchedTo + 1n,
       currentL1BlockNumber,
-      nextExpectedL2BlockNum,
+      this.log,
     );
 
     // Add the body

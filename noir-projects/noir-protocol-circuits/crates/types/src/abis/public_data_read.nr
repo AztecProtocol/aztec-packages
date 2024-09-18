@@ -23,17 +23,15 @@ impl PublicDataRead {
 
 impl Eq for PublicDataRead {
     fn eq(self, other: PublicDataRead) -> bool {
-        (other.leaf_slot == self.leaf_slot) & (other.value == self.value) & (other.counter == self.counter)
+        (other.leaf_slot == self.leaf_slot)
+            & (other.value == self.value)
+            & (other.counter == self.counter)
     }
 }
 
 impl Empty for PublicDataRead {
     fn empty() -> Self {
-        Self {
-            leaf_slot: 0,
-            value: 0,
-            counter: 0,
-        }
+        Self { leaf_slot: 0, value: 0, counter: 0 }
     }
 }
 
@@ -50,19 +48,15 @@ impl PublicDataRead {
 }
 
 impl Serialize<PUBLIC_DATA_READ_LENGTH> for PublicDataRead {
-  fn serialize(self) -> [Field; PUBLIC_DATA_READ_LENGTH] {
-    [self.leaf_slot, self.value, self.counter as Field]
-  }
+    fn serialize(self) -> [Field; PUBLIC_DATA_READ_LENGTH] {
+        [self.leaf_slot, self.value, self.counter as Field]
+    }
 }
 
 impl Deserialize<PUBLIC_DATA_READ_LENGTH> for PublicDataRead {
-  fn deserialize(fields: [Field; PUBLIC_DATA_READ_LENGTH]) -> Self {
-    PublicDataRead {
-      leaf_slot: fields[0],
-      value: fields[1],
-      counter: fields[2] as u32,
+    fn deserialize(fields: [Field; PUBLIC_DATA_READ_LENGTH]) -> Self {
+        PublicDataRead { leaf_slot: fields[0], value: fields[1], counter: fields[2] as u32 }
     }
-  }
 }
 
 #[test]

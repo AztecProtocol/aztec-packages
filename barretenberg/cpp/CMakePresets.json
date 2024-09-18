@@ -264,6 +264,9 @@
       "description": "Build with thread sanitizer on clang16 with debugging information",
       "inherits": "clang16-dbg",
       "binaryDir": "build-tsan",
+      "cacheVariables": {
+        "HAVE_STD_REGEX": "ON"
+      },
       "environment": {
         "CFLAGS": "-fsanitize=thread",
         "CXXFLAGS": "-fsanitize=thread",
