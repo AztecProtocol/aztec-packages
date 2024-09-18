@@ -1,6 +1,7 @@
 #include "barretenberg/world_state_napi/addon.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/world_state/types.hpp"
@@ -136,7 +137,9 @@ bool WorldStateAddon::get_tree_info(msgpack::object& obj, msgpack::sbuffer& buff
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<GetTreeInfoResponse> resp_msg(
-        WorldStateMessageType::GET_TREE_INFO, header, { request.value.treeId, info.root, info.size, info.depth });
+        WorldStateMessageType::GET_TREE_INFO,
+        header,
+        { request.value.treeId, info.meta.root, info.meta.size, info.meta.depth });
 
     msgpack::pack(buffer, resp_msg);
 
@@ -313,12 +316,12 @@ bool WorldStateAddon::find_low_leaf(msgpack::object& obj, msgpack::sbuffer& buff
     TypedMessage<FindLowLeafRequest> request;
     obj.convert(request);
 
-    std::pair<bool, index_t> low_leaf_info =
+    GetLowIndexedLeafResponse low_leaf_info =
         _ws->find_low_leaf_index(revision_from_input(request.value.revision), request.value.treeId, request.value.key);
 
     MsgHeader header(request.header.messageId);
     TypedMessage<FindLowLeafResponse> response(
-        WorldStateMessageType::FIND_LOW_LEAF, header, { low_leaf_info.first, low_leaf_info.second });
+        WorldStateMessageType::FIND_LOW_LEAF, header, { low_leaf_info.is_already_present, low_leaf_info.index });
     msgpack::pack(buffer, response);
 
     return true;
