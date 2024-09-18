@@ -26,15 +26,19 @@ void deserialise_key(void* data, uint8_t& key)
     key = *p;
 }
 
+// 64 bit integers are stored in little endian byte order
 std::vector<uint8_t> serialise_key(uint64_t key)
 {
-    const uint8_t* p = reinterpret_cast<uint8_t*>(&key);
+    uint64_t le = key;
+    const uint8_t* p = reinterpret_cast<uint8_t*>(&le);
     return std::vector<uint8_t>(p, p + sizeof(key));
 }
 
 void deserialise_key(void* data, uint64_t& key)
 {
-    std::memcpy(&key, data, sizeof(key));
+    uint64_t le = 0;
+    std::memcpy(&le, data, sizeof(le));
+    key = le;
 }
 
 std::vector<uint8_t> serialise_key(uint128_t key)

@@ -55,7 +55,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_block_data)
     blockData.blockNumber = 3;
     blockData.root = VALUES[0];
     blockData.size = 45;
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders, false, false, integer_key_cmp);
+    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
         store.write_block_data(3, blockData, *transaction);
@@ -86,7 +86,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_meta_data)
     metaData.unfinalisedBlockHeight = 95;
     metaData.name = "Note hash tree";
     metaData.size = 60;
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders, false, false, integer_key_cmp);
+    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
         store.write_meta_data(metaData, *transaction);
@@ -108,7 +108,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_leaf_indices)
     indices.indices.push_back(47);
     indices.indices.push_back(86);
     bb::fr key = VALUES[5];
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders, false, false, integer_key_cmp);
+    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
         store.write_leaf_indices(key, indices, *transaction);
@@ -134,7 +134,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_nodes)
     nodePayload.right = VALUES[5];
     nodePayload.ref = 4;
     bb::fr key = VALUES[6];
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders, false, false, integer_key_cmp);
+    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
         store.write_node(key, nodePayload, *transaction);
@@ -159,7 +159,7 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_leaves_by_hash)
     leafData.slot = VALUES[0];
     leafData.value = VALUES[1];
     bb::fr key = VALUES[2];
-    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders, false, false, integer_key_cmp);
+    LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);
     {
         LMDBTreeWriteTransaction::Ptr transaction = store.create_write_transaction();
         store.write_leaf_by_hash(key, leafData, *transaction);

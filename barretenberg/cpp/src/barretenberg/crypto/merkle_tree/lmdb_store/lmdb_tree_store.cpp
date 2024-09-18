@@ -17,13 +17,31 @@
 
 namespace bb::crypto::merkle_tree {
 
+/**
+ * Integer key comparison function.
+ * Most of our databases contain only a single key size
+ * The block database uses keys of 1 byte and 8 bytes
+ */
+int fr_key_cmp(const MDB_val* a, const MDB_val* b)
+{
+    return value_cmp<numeric::uint256_t>(a, b);
+}
+
+int block_key_cmp(const MDB_val* a, const MDB_val* b)
+{
+    if (a->mv_size != b->mv_size) {
+        return size_cmp(a, b);
+    }
+    if (a->mv_size == 1) {
+        return value_cmp<uint8_t>(a, b);
+    }
+    return value_cmp<uint64_t>(a, b);
+}
+
 LMDBTreeStore::LMDBTreeStore(const std::string& directory,
                              const std::string& name,
                              uint64_t mapSizeKb,
-                             uint64_t maxNumReaders,
-                             bool integerKeys,
-                             bool reverseKeys,
-                             MDB_cmp_func* cmp)
+                             uint64_t maxNumReaders)
     : _name(name)
     , _directory(directory)
     , _environment(std::make_shared<LMDBEnvironment>(_directory, mapSizeKb, 4, maxNumReaders))
@@ -32,28 +50,28 @@ LMDBTreeStore::LMDBTreeStore(const std::string& directory,
     {
         LMDBDatabaseCreationTransaction tx(_environment);
         _blockDatabase = std::make_unique<LMDBDatabase>(
-            _environment, tx, _name + std::string("blocks"), integerKeys, reverseKeys, cmp);
+            _environment, tx, _name + std::string("blocks"), false, false, block_key_cmp);
         tx.commit();
     }
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
-        _nodeDatabase = std::make_unique<LMDBDatabase>(
-            _environment, tx, _name + std::string("nodes"), integerKeys, reverseKeys, cmp);
+        _nodeDatabase =
+            std::make_unique<LMDBDatabase>(_environment, tx, _name + std::string("nodes"), false, false, fr_key_cmp);
         tx.commit();
     }
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
         _leafValueToIndexDatabase = std::make_unique<LMDBDatabase>(
-            _environment, tx, _name + std::string("leaf indices"), integerKeys, reverseKeys, cmp);
+            _environment, tx, _name + std::string("leaf indices"), false, false, fr_key_cmp);
         tx.commit();
     }
 
     {
         LMDBDatabaseCreationTransaction tx(_environment);
         _leafHashToPreImageDatabase = std::make_unique<LMDBDatabase>(
-            _environment, tx, _name + std::string("leaf pre-images"), integerKeys, reverseKeys, cmp);
+            _environment, tx, _name + std::string("leaf pre-images"), false, false, fr_key_cmp);
         tx.commit();
     }
 }

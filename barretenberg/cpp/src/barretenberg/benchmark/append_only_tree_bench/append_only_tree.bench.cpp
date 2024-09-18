@@ -52,7 +52,7 @@ template <typename TreeType> void append_only_tree_bench(State& state) noexcept
     std::filesystem::create_directories(directory);
     uint32_t num_threads = 16;
 
-    LMDBTreeStore db(directory, name, 1024 * 1024, num_threads, false, false, integer_key_cmp);
+    LMDBTreeStore db(directory, name, 1024 * 1024, num_threads);
     StoreType store(name, depth, db);
     ThreadPool workers(num_threads);
     TreeType tree = TreeType(store, workers);
