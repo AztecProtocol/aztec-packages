@@ -188,19 +188,20 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
                                                               typename Flavor::ProvingKey& proving_key)
     requires IsGoblinFlavor<Flavor>
 {
-    // Allocate the ecc op wires and selector
-    if constexpr (IsHonkFlavor<Flavor>) {
-        for (auto& wire : proving_key.polynomials.get_ecc_op_wires()) {
-            wire = Polynomial::shiftable(proving_key.circuit_size);
-        }
-        proving_key.polynomials.lagrange_ecc_op = Polynomial(proving_key.circuit_size);
-    }
-    // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
     auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
+    // Allocate the ecc op wires and selector
+    const size_t num_ecc_ops = builder.blocks.ecc_op.size();
+    if constexpr (IsHonkFlavor<Flavor>) {
+        for (auto& wire : proving_key.polynomials.get_ecc_op_wires()) {
+            wire = Polynomial(num_ecc_ops, proving_key.circuit_size, op_wire_offset);
+        }
+        ecc_op_selector = Polynomial(num_ecc_ops, proving_key.circuit_size, op_wire_offset);
+    }
+    // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
     for (auto [ecc_op_wire, wire] :
          zip_view(proving_key.polynomials.get_ecc_op_wires(), proving_key.polynomials.get_wires())) {
-        for (size_t i = 0; i < builder.blocks.ecc_op.size(); ++i) {
+        for (size_t i = 0; i < num_ecc_ops; ++i) {
             size_t idx = i + op_wire_offset;
             ecc_op_wire.at(idx) = wire[idx];
             ecc_op_selector.at(idx) = 1; // construct selector as the indicator on the ecc op block
