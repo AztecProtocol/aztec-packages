@@ -101,11 +101,11 @@ impl TestEnvironment {
         address
     }
 
-    fn deploy<N, M>(self, path: str<N>, name: str<M>) -> Deployer<N, M> {
+    fn deploy<let N: u32, let M: u32>(self, path: str<N>, name: str<M>) -> Deployer<N, M> {
         Deployer { path, name, public_keys_hash: 0 }
     }
 
-    fn deploy_self<M>(self, name: str<M>) -> Deployer<0, M> {
+    fn deploy_self<let M: u32>(self, name: str<M>) -> Deployer<0, M> {
         Deployer { path: "", name, public_keys_hash: 0 }
     }
 

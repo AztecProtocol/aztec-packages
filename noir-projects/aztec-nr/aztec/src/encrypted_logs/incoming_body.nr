@@ -55,8 +55,8 @@ mod test {
         header: NoteHeader,
     }
 
-    global ADDRESS_NOTE_LEN: Field = 3;
-    global ADDRESS_NOTE_BYTES_LEN = 32 * 3 + 64;
+    global ADDRESS_NOTE_LEN: u32 = 3;
+    global ADDRESS_NOTE_BYTES_LEN: u32 = 32 * 3 + 64;
 
     impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
         fn compute_note_hiding_point(_self: Self) -> Point {
@@ -186,9 +186,9 @@ mod test {
         }
     }
 
-    global TEST_EVENT_LEN: Field = 3;
-    global TEST_EVENT_BYTES_LEN = 32 * 3 + 64;
-    global TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS = 32 * 3 + 32;
+    global TEST_EVENT_LEN: u32 = 3;
+    global TEST_EVENT_BYTES_LEN: u32 = 32 * 3 + 64;
+    global TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS: u32 = 32 * 3 + 32;
 
     impl EventInterface<TEST_EVENT_BYTES_LEN, TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS> for TestEvent {
         fn get_event_type_id() -> EventSelector {

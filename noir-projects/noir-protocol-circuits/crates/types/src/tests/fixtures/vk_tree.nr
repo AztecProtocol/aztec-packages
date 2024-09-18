@@ -10,7 +10,7 @@ use crate::constants::{
 };
 use crate::merkle_tree::merkle_tree::MerkleTree;
 
-global VK_TREE_WIDTH = 32;
+global VK_TREE_WIDTH: u32 = 32;
 
 #[test]
 fn check_vk_tree_width() {

@@ -1,7 +1,7 @@
 pub use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 use crate::{traits::{Deserialize, Empty, Hash, Serialize}, hash::poseidon2_hash};
 
-global POINT_LENGTH: Field = 3;
+global POINT_LENGTH: u32 = 3;
 
 impl Serialize<POINT_LENGTH> for Point {
     fn serialize(self: Self) -> [Field; POINT_LENGTH] {
