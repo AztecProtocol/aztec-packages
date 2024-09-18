@@ -358,7 +358,7 @@ class AvmBitwiseTests : public ::testing::Test {
     std::vector<Row> gen_mutated_trace_not(FF const& a, FF const& c_mutated, avm_trace::AvmMemoryTag tag)
     {
         trace_builder.op_set(0, a, 0, tag);
-        trace_builder.op_not(0, 0, 1, tag);
+        trace_builder.op_not(0, 0, 1);
         trace_builder.op_return(0, 0, 0);
         auto trace = trace_builder.finalize();
 
@@ -467,7 +467,7 @@ TEST_P(AvmBitwiseTestsNot, ParamTest)
     const auto [operands, mem_tag] = GetParam();
     const auto [a, output] = operands;
     trace_builder.op_set(0, a, 0, mem_tag);
-    trace_builder.op_not(0, 0, 1, mem_tag); // [1,254,0,0,....]
+    trace_builder.op_not(0, 0, 1); // [1,254,0,0,....]
     trace_builder.op_return(0, 0, 0);
     auto trace = trace_builder.finalize();
     common_validate_op_not(trace, a, output, FF(0), FF(1), mem_tag);
@@ -745,7 +745,7 @@ TEST_F(AvmBitwiseNegativeTestsFF, UndefinedOverFF)
     // Triggers a write row 1 of mem_trace and alu_trace
     trace_builder.op_set(0, 10, 0, AvmMemoryTag::U8);
     // Triggers a write in row 2 of alu_trace
-    trace_builder.op_not(0, 0, 1, AvmMemoryTag::U8);
+    trace_builder.op_not(0, 0, 1);
     // Finally, we will have a write in row 3 of the mem_trace to copy the result
     // from the op_not operation.
     trace_builder.op_return(0, 0, 0);
