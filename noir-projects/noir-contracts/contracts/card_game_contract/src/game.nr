@@ -144,10 +144,10 @@ impl Game {
         assert(self.started, "Game not started");
         assert(!self.finished, "Game finished");
 
-        let round_offset = self.current_round * NUMBER_OF_PLAYERS;
+        let round_offset = self.current_round * (NUMBER_OF_PLAYERS as u64);
 
         self.rounds_cards[round_offset + self.current_player] = card;
-        self.current_player = (self.current_player + 1) % NUMBER_OF_PLAYERS;
+        self.current_player = (self.current_player + 1) % (NUMBER_OF_PLAYERS as u64);
 
         if self.current_player == 0 {
             self._finish_round();
@@ -155,7 +155,7 @@ impl Game {
     }
 
     fn _finish_round(&mut self) {
-        let round_offset = self.current_round * NUMBER_OF_PLAYERS;
+        let round_offset = self.current_round as u32 * NUMBER_OF_PLAYERS;
         self.current_round += 1;
 
         let mut winner_index = 0;
