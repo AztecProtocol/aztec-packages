@@ -202,7 +202,7 @@ export class EnqueuedCallSimulator {
         // TODO(@spalladino): Check gasUsed is correct. The AVM should take care of setting gasLeft to zero upon a revert.
 
         return {
-          provingRequests: [],
+          provingRequests,
           kernelOutput,
           newUnencryptedLogs: UnencryptedFunctionL2Logs.empty(),
           returnValues: NestedProcessReturnValues.empty(),
