@@ -112,28 +112,26 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
             // info("q_arith: ", q_arith);
 
             static constexpr FF neg_half = FF(-2).invert();
-            static constexpr FF three_halves = -(neg_half + neg_half + neg_half);
             if constexpr (HOMOGENIZED) {
                 auto hom = View(in.homogenizer);
-                auto hom_to_2 = hom.sqr();
-                auto hom_to_3 = hom * hom_to_2;
-                auto q_arith_to_2 = q_arith.sqr();
-
-                auto tmp = w_l * w_r * q_m * q_arith_to_2 * neg_half                              // term
-                           + w_l * w_r * q_m * q_arith * hom * three_halves                       // term
-                           + w_l * q_l * q_arith * hom_to_2                                       // term
-                           + w_r * q_r * q_arith * hom_to_2                                       // term
-                           + w_o * q_o * q_arith * hom_to_2                                       // term
-                           + w_4 * q_4 * q_arith * hom_to_2                                       // term
-                           + w_4_shift * q_arith_to_2 * hom_to_2 - w_4_shift * q_arith * hom_to_3 // term
-                           + q_c * q_arith * hom_to_3;                                            // term
-                tmp *= scaling_factor;
-                std::get<0>(evals) += tmp;
+                auto term = q_c - w_4_shift;
+                term *= hom;
+                term += (w_l * q_l) + (w_r * q_r) + (w_o * q_o) + (w_4 * q_4) + (w_4_shift * q_arith);
+                term *= hom;
+                auto tmp = w_l * w_r * q_m * neg_half;
+                term -= tmp + tmp + tmp;
+                term *= hom;
+                term += tmp * q_arith;
+                term *= q_arith;
+                // 13 muls
+                term *= scaling_factor;
+                std::get<0>(evals) += term;
             } else {
                 auto tmp = (q_arith - 3) * (q_m * w_r * w_l) * neg_half;
                 tmp += (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + (q_4 * w_4) + q_c;
                 tmp += (q_arith - 1) * w_4_shift;
                 tmp *= q_arith;
+                // 10 muls
                 tmp *= scaling_factor; // WORKTODO: mul by pow_i(beta) done _could_ be done later...
                 std::get<0>(evals) += tmp;
             }
