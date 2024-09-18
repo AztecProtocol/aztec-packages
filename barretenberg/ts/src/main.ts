@@ -64,8 +64,11 @@ async function initUltraPlonk(bytecodePath: string, crsPath: string, subgroupSiz
   debug(`circuit size: ${circuitSize}`);
   debug(`subgroup size: ${subgroupSize}`);
   debug('loading crs...');
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
+  // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
+  // Needed here for initUltraPlonk because MegaHonk currently uses this function.
   // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(subgroupSize + 1, crsPath);
+  const crs = await Crs.new(subgroupSize + (subgroupSize * 6) / 10 + 1, crsPath);
 
   // Important to init slab allocator as first thing, to ensure maximum memory efficiency for Plonk.
   await api.commonInitSlabAllocator(subgroupSize);
