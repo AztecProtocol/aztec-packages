@@ -492,8 +492,8 @@ mod tests {
         value: Field,
     }
 
-    global MAX_nullifiers_PER_TEST = 4;
-    global MAX_PUBLIC_DATA_READS_PER_TEST = 2;
+    global MAX_nullifiers_PER_TEST: u32 = 4;
+    global MAX_PUBLIC_DATA_READS_PER_TEST: u32 = 2;
 
     fn update_public_data_tree<let EXISTING_LEAVES: u32, let SUBTREE_SIBLING_PATH_LENGTH: u32, let SUBTREE_HEIGHT: u32>(
         public_data_tree: &mut NonEmptyMerkleTree<EXISTING_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,
