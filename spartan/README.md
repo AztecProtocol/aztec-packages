@@ -1,6 +1,6 @@
 # Spartan Kubernetes Cluster
 
-The Spartan Kubernetes cluster is used to run Aztec's public-facing node infrastructure. This README explains the Spartan cluster and its `staging` and `production` deployments.
+The Spartan Kubernetes cluster is used to run Aztec's public-facing node infrastructure. This README explains the Spartan cluster and its `staging` and `production` environments.
 
 # Table of Contents
 
@@ -26,7 +26,7 @@ Before connecting to the Spartan cluster, you will need to complete the followin
 
 ## Kubernetes Primer
 
-If you are new to Kubernetes, the following resources may be helpful:
+If you are new to Kubernetes, the following resources may also be helpful:
 
 - [kubectl Quick Reference](https://kubernetes.io/docs/reference/kubectl/quick-reference/)
 - [Overview of Kubernetes Workloads](https://kubernetes.io/docs/concepts/workloads/)
@@ -35,7 +35,7 @@ If you are new to Kubernetes, the following resources may be helpful:
 
 Aztec has two permanent network deployments: `staging` and `production`. These networks are intended to be long running and are not tied to activities and testing happing within CI.
 
-Aztec's `staging` and `production` networks rely on a continuous delivery workflow (CD) and are configured to automatically refresh at the same time that node container images are released to the general public.
+Aztec's `staging` and `production` networks rely on a continuous delivery workflow (CD) and are configured to automatically refresh when node container images are released to the general public.
 
 ### Aztec staging network
 
@@ -84,7 +84,7 @@ Inside of the cluster, k8Lens can be used to visually browse workloads, as well 
 
 Selecting individual pods provides options to open a console session as well as browse logs.
 
-**NOTE**: Editing pod configurations directly is not recommended. Any direct edits will be lost during the next pod deployment and replaced by the corresponding IaC files stored in git.
+**NOTE**: Editing pod configurations directly is not recommended. Any direct edits will be lost during the next pod deployment and replaced by the corresponding IaC configuration stored in git.
 
 ![k8Lens Pod Access](./img/k8lens_3.png)
 
