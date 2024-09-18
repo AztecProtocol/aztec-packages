@@ -3,7 +3,6 @@ import { Field, TaggedMemory } from '../avm_memory_types.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
-import { TwoOperandInstruction } from './instruction_impl.js';
 
 export class Set extends Instruction {
   static readonly type: string = 'SET';
@@ -121,12 +120,27 @@ export class CMov extends Instruction {
   }
 }
 
-export class Cast extends TwoOperandInstruction {
+export class Cast extends Instruction {
   static readonly type: string = 'CAST';
   static readonly opcode = Opcode.CAST_8;
 
-  constructor(indirect: number, dstTag: number, srcOffset: number, dstOffset: number) {
-    super(indirect, dstTag, srcOffset, dstOffset);
+  static readonly wireFormat8 = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT8,
+  ];
+  static readonly wireFormat16 = [
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT8,
+    OperandType.UINT16,
+    OperandType.UINT16,
+  ];
+
+  constructor(private indirect: number, private dstTag: number, private srcOffset: number, private dstOffset: number) {
+    super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
@@ -134,10 +148,10 @@ export class Cast extends TwoOperandInstruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset, this.dstOffset], memory);
+    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.dstOffset], memory);
 
     const a = memory.get(srcOffset);
-    const casted = TaggedMemory.buildFromTagTruncating(a.toBigInt(), this.inTag);
+    const casted = TaggedMemory.buildFromTagTruncating(a.toBigInt(), this.dstTag);
 
     memory.set(dstOffset, casted);
 

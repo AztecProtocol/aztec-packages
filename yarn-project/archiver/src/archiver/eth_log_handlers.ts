@@ -3,10 +3,22 @@ import { AppendOnlyTreeSnapshot, Header, Proof } from '@aztec/circuits.js';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
+import { type DebugLogger } from '@aztec/foundation/log';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
-import { type Hex, type Log, type PublicClient, decodeFunctionData, getAbiItem, getAddress, hexToBytes } from 'viem';
+import {
+  type Chain,
+  type GetContractReturnType,
+  type Hex,
+  type HttpTransport,
+  type Log,
+  type PublicClient,
+  decodeFunctionData,
+  getAbiItem,
+  getAddress,
+  hexToBytes,
+} from 'viem';
 
 import { type L1Published, type L1PublishedData } from './structs/published.js';
 
@@ -28,33 +40,40 @@ export function processMessageSentLogs(
 
 /**
  * Processes newly received L2BlockProposed logs.
+ * @param rollup - The rollup contract
  * @param publicClient - The viem public client to use for transaction retrieval.
- * @param expectedL2BlockNumber - The next expected L2 block number.
  * @param logs - L2BlockProposed logs.
  * @returns - An array blocks.
  */
 export async function processL2BlockProposedLogs(
+  rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
-  expectedL2BlockNumber: bigint,
   logs: Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2BlockProposed'>[],
+  logger: DebugLogger,
 ): Promise<L1Published<L2Block>[]> {
   const retrievedBlocks: L1Published<L2Block>[] = [];
   for (const log of logs) {
-    const blockNum = log.args.blockNumber;
-    if (blockNum !== expectedL2BlockNumber) {
-      throw new Error('Block number mismatch. Expected: ' + expectedL2BlockNumber + ' but got: ' + blockNum + '.');
+    const blockNum = log.args.blockNumber!;
+    const archive = log.args.archive!;
+    const archiveFromChain = await rollup.read.archiveAt([blockNum]);
+
+    // The value from the event and contract will match only if the block is in the chain.
+    if (archive === archiveFromChain) {
+      // TODO: Fetch blocks from calldata in parallel
+      const block = await getBlockFromRollupTx(publicClient, log.transactionHash!, blockNum);
+
+      const l1: L1PublishedData = {
+        blockNumber: log.blockNumber,
+        blockHash: log.blockHash,
+        timestamp: await getL1BlockTime(publicClient, log.blockNumber),
+      };
+
+      retrievedBlocks.push({ data: block, l1 });
+    } else {
+      logger.warn(
+        `Archive mismatch matching, ignoring block ${blockNum} with archive: ${archive}, expected ${archiveFromChain}`,
+      );
     }
-    // TODO: Fetch blocks from calldata in parallel
-    const block = await getBlockFromRollupTx(publicClient, log.transactionHash!, log.args.blockNumber);
-
-    const l1: L1PublishedData = {
-      blockNumber: log.blockNumber,
-      blockHash: log.blockHash,
-      timestamp: await getL1BlockTime(publicClient, log.blockNumber),
-    };
-
-    retrievedBlocks.push({ data: block, l1 });
-    expectedL2BlockNumber++;
   }
 
   return retrievedBlocks;
@@ -102,7 +121,7 @@ async function getBlockFromRollupTx(
   const archive = AppendOnlyTreeSnapshot.fromBuffer(
     Buffer.concat([
       Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
-      numToUInt32BE(Number(l2BlockNum)), // L2Block.archive.nextAvailableLeafIndex
+      numToUInt32BE(Number(l2BlockNum + 1n)), // L2Block.archive.nextAvailableLeafIndex
     ]),
   );
 

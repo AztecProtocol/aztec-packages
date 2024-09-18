@@ -200,7 +200,7 @@ pub fn brillig_to_avm(
                         make_operand(bits_needed, &source.0),
                         make_operand(bits_needed, &destination.0),
                     ],
-                    tag: Some(tag_from_bit_size(BitSize::Integer(*bit_size))),
+                    tag: None,
                 });
                 if let IntegerBitSize::U1 = bit_size {
                     // We need to cast the result back to u1

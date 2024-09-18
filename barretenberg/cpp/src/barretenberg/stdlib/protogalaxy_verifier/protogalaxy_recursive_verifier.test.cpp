@@ -3,6 +3,7 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
+#include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
@@ -169,7 +170,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         fr_ct point_ct(fr_ct(&builder, point));
         auto res1 = poly.evaluate(point);
 
-        auto res2 = FoldingRecursiveVerifier::evaluate_perturbator(coeffs_ct, point_ct);
+        auto res2 = evaluate_perturbator(coeffs_ct, point_ct);
         EXPECT_EQ(res1, res2.get_value());
     };
 

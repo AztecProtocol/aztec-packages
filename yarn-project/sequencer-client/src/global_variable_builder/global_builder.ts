@@ -1,3 +1,4 @@
+import { type GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/circuit-types';
 import {
   type AztecAddress,
   ETHEREUM_SLOT_DURATION,
@@ -24,7 +25,7 @@ import type * as chains from 'viem/chains';
 /**
  * Simple global variables builder.
  */
-export class GlobalVariableBuilder {
+export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private log = createDebugLogger('aztec:sequencer:global_variable_builder');
 
   private rollupContract: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, chains.Chain>>;
