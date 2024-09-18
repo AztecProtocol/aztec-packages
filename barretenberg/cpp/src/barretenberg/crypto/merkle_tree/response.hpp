@@ -56,6 +56,13 @@ template <typename LeafValueType> struct GetIndexedLeafResponse {
 struct GetLowIndexedLeafResponse {
     bool is_already_present;
     index_t index;
+
+    MSGPACK_FIELDS(is_already_present, index);
+
+    bool operator==(const GetLowIndexedLeafResponse& other) const
+    {
+        return is_already_present == other.is_already_present && index == other.index;
+    }
 };
 
 template <typename ResponseType> struct TypedResponse {

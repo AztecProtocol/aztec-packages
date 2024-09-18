@@ -1,14 +1,18 @@
 #include "barretenberg/world_state/world_state.hpp"
-#include "barretenberg/crypto/merkle_tree/append_only_tree/append_only_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/callbacks.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
+#include <filesystem>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <tuple>
 #include <unordered_map>
@@ -17,18 +21,16 @@
 
 namespace bb::world_state {
 
-const uint WORLD_STATE_MAX_DB_COUNT = 16;
-
 using namespace bb::crypto::merkle_tree;
 
 WorldState::WorldState(uint threads, const std::string& data_dir, uint map_size_kb)
     : _workers(threads)
 {
-    _lmdb_env = std::make_unique<LMDBEnvironment>(data_dir, map_size_kb, WORLD_STATE_MAX_DB_COUNT, threads);
-
     {
         const auto* name = "nullifier_tree";
-        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, integer_key_cmp);
+        const std::string directory = data_dir + std::string("/") + std::string(name);
+        std::filesystem::create_directories(directory);
+        auto lmdb_store = std::make_unique<LMDBTreeStore>(directory, name, map_size_kb, threads);
         auto store = std::make_unique<NullifierStore>(name, NULLIFIER_TREE_HEIGHT, *lmdb_store);
         auto tree = std::make_unique<NullifierTree>(*store, _workers, 128);
         _trees.insert(
@@ -37,16 +39,20 @@ WorldState::WorldState(uint threads, const std::string& data_dir, uint map_size_
 
     {
         const auto* name = "note_hash_tree";
-        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, integer_key_cmp);
+        const std::string directory = data_dir + std::string("/") + std::string(name);
+        std::filesystem::create_directories(directory);
+        auto lmdb_store = std::make_unique<LMDBTreeStore>(directory, name, map_size_kb, threads);
         auto store = std::make_unique<FrStore>(name, NOTE_HASH_TREE_HEIGHT, *lmdb_store);
-        auto tree = std::make_unique<FrTree>(*store, this->_workers);
+        auto tree = std::make_unique<FrTree>(*store, _workers);
         _trees.insert(
             { MerkleTreeId::NOTE_HASH_TREE, TreeWithStore(std::move(tree), std::move(store), std::move(lmdb_store)) });
     }
 
     {
         const auto* name = "public_data_tree";
-        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, integer_key_cmp);
+        const std::string directory = data_dir + std::string("/") + std::string(name);
+        std::filesystem::create_directories(directory);
+        auto lmdb_store = std::make_unique<LMDBTreeStore>(directory, name, map_size_kb, threads);
         auto store = std::make_unique<PublicDataStore>(name, PUBLIC_DATA_TREE_HEIGHT, *lmdb_store);
         auto tree = std::make_unique<PublicDataTree>(*store, this->_workers, 128);
         _trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE,
@@ -55,7 +61,9 @@ WorldState::WorldState(uint threads, const std::string& data_dir, uint map_size_
 
     {
         const auto* name = "message_tree";
-        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, integer_key_cmp);
+        const std::string directory = data_dir + std::string("/") + std::string(name);
+        std::filesystem::create_directories(directory);
+        auto lmdb_store = std::make_unique<LMDBTreeStore>(directory, name, map_size_kb, threads);
         auto store = std::make_unique<FrStore>(name, L1_TO_L2_MSG_TREE_HEIGHT, *lmdb_store);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
         _trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
@@ -64,7 +72,9 @@ WorldState::WorldState(uint threads, const std::string& data_dir, uint map_size_
 
     {
         const auto* name = "archive_tree";
-        auto lmdb_store = std::make_unique<LMDBStore>(*_lmdb_env, name, false, false, integer_key_cmp);
+        const std::string directory = data_dir + std::string("/") + std::string(name);
+        std::filesystem::create_directories(directory);
+        auto lmdb_store = std::make_unique<LMDBTreeStore>(directory, name, map_size_kb, threads);
         auto store = std::make_unique<FrStore>(name, ARCHIVE_TREE_HEIGHT, *lmdb_store);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
         _trees.insert(
@@ -102,7 +112,7 @@ StateReference WorldState::get_state_reference(WorldStateRevision revision) cons
         std::visit(
             [&signal, &state_reference, id, uncommitted](auto&& wrapper) {
                 auto callback = [&signal, &state_reference, id](const TypedResponse<TreeMetaResponse>& meta) {
-                    state_reference.insert({ id, { meta.inner.root, meta.inner.size } });
+                    state_reference.insert({ id, { meta.inner.meta.root, meta.inner.meta.size } });
                     signal.signal_decrement();
                 };
                 wrapper.tree->get_meta_data(uncommitted, callback);
@@ -123,10 +133,10 @@ StateReference WorldState::get_initial_state_reference() const
         std::visit(
             [&signal, &state_reference, id](auto&& wrapper) {
                 auto callback = [&signal, &state_reference, id](const TypedResponse<TreeMetaResponse>& meta) {
-                    state_reference.insert({ id, { meta.inner.root, meta.inner.size } });
+                    state_reference.insert({ id, { meta.inner.meta.initialRoot, meta.inner.meta.initialSize } });
                     signal.signal_decrement();
                 };
-                wrapper.tree->get_initial_meta_data(callback);
+                wrapper.tree->get_meta_data(false, callback);
             },
             tree);
     }
@@ -266,13 +276,13 @@ bool WorldState::sync_block(StateReference& block_state_ref,
     throw std::runtime_error("Block state does not match world state");
 }
 
-std::pair<bool, index_t> WorldState::find_low_leaf_index(const WorldStateRevision revision,
-                                                         MerkleTreeId tree_id,
-                                                         fr leaf_key) const
+GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevision revision,
+                                                          MerkleTreeId tree_id,
+                                                          fr leaf_key) const
 {
     Signal signal;
-    std::pair<bool, index_t> low_leaf_info;
-    auto callback = [&signal, &low_leaf_info](const TypedResponse<std::pair<bool, index_t>>& response) {
+    GetLowIndexedLeafResponse low_leaf_info;
+    auto callback = [&signal, &low_leaf_info](const TypedResponse<GetLowIndexedLeafResponse>& response) {
         low_leaf_info = response.inner;
         signal.signal_level();
     };

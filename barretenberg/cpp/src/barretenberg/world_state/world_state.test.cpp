@@ -1,6 +1,7 @@
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/crypto/merkle_tree/fixtures.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include <filesystem>
@@ -64,7 +65,7 @@ void assert_leaf_index(
 void assert_tree_size(const WorldState& ws, WorldStateRevision revision, MerkleTreeId tree_id, size_t expected_size)
 {
     auto info = ws.get_tree_info(revision, tree_id);
-    EXPECT_EQ(info.size, expected_size);
+    EXPECT_EQ(info.meta.size, expected_size);
 }
 
 void assert_sibling_path(
@@ -96,39 +97,39 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NULLIFIER_TREE);
-        EXPECT_EQ(info.size, 128);
-        EXPECT_EQ(info.depth, NULLIFIER_TREE_HEIGHT);
-        EXPECT_EQ(info.root, bb::fr("0x19a8c197c12bb33da6314c4ef4f8f6fcb9e25250c085df8672adf67c8f1e3dbc"));
+        EXPECT_EQ(info.meta.size, 128);
+        EXPECT_EQ(info.meta.depth, NULLIFIER_TREE_HEIGHT);
+        EXPECT_EQ(info.meta.root, bb::fr("0x19a8c197c12bb33da6314c4ef4f8f6fcb9e25250c085df8672adf67c8f1e3dbc"));
     }
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::NOTE_HASH_TREE);
-        EXPECT_EQ(info.size, 0);
-        EXPECT_EQ(info.depth, NOTE_HASH_TREE_HEIGHT);
-        EXPECT_EQ(info.root, bb::fr("0x0b59baa35b9dc267744f0ccb4e3b0255c1fc512460d91130c6bc19fb2668568d"));
+        EXPECT_EQ(info.meta.size, 0);
+        EXPECT_EQ(info.meta.depth, NOTE_HASH_TREE_HEIGHT);
+        EXPECT_EQ(info.meta.root, bb::fr("0x0b59baa35b9dc267744f0ccb4e3b0255c1fc512460d91130c6bc19fb2668568d"));
     }
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::PUBLIC_DATA_TREE);
-        EXPECT_EQ(info.size, 128);
-        EXPECT_EQ(info.depth, PUBLIC_DATA_TREE_HEIGHT);
-        EXPECT_EQ(info.root, bb::fr("0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9"));
+        EXPECT_EQ(info.meta.size, 128);
+        EXPECT_EQ(info.meta.depth, PUBLIC_DATA_TREE_HEIGHT);
+        EXPECT_EQ(info.meta.root, bb::fr("0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9"));
     }
 
     {
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
-        EXPECT_EQ(info.size, 0);
-        EXPECT_EQ(info.depth, L1_TO_L2_MSG_TREE_HEIGHT);
-        EXPECT_EQ(info.root, bb::fr("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"));
+        EXPECT_EQ(info.meta.size, 0);
+        EXPECT_EQ(info.meta.depth, L1_TO_L2_MSG_TREE_HEIGHT);
+        EXPECT_EQ(info.meta.root, bb::fr("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"));
     }
 
     {
         // TODO (alexg) this should be the tree _after_ we insert the initial header
         // currently it's the root of an empty tree
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
-        EXPECT_EQ(info.size, 0);
-        EXPECT_EQ(info.depth, ARCHIVE_TREE_HEIGHT);
-        EXPECT_EQ(info.root, bb::fr("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"));
+        EXPECT_EQ(info.meta.size, 0);
+        EXPECT_EQ(info.meta.depth, ARCHIVE_TREE_HEIGHT);
+        EXPECT_EQ(info.meta.root, bb::fr("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"));
     }
 }
 
@@ -189,14 +190,14 @@ TEST_F(WorldStateTest, AppendOnlyTrees)
 
         auto uncommitted = ws.get_tree_info(WorldStateRevision::uncommitted(), tree_id);
         // uncommitted state diverges from committed state
-        EXPECT_EQ(uncommitted.size, initial.size + 1);
-        EXPECT_NE(uncommitted.root, initial.root);
+        EXPECT_EQ(uncommitted.meta.size, initial.meta.size + 1);
+        EXPECT_NE(uncommitted.meta.root, initial.meta.root);
 
-        assert_sibling_path(ws, WorldStateRevision::uncommitted(), tree_id, uncommitted.root, fr(42), 0);
+        assert_sibling_path(ws, WorldStateRevision::uncommitted(), tree_id, uncommitted.meta.root, fr(42), 0);
 
         auto committed = ws.get_tree_info(WorldStateRevision::committed(), tree_id);
-        EXPECT_EQ(committed.size, initial.size);
-        EXPECT_EQ(committed.root, initial.root);
+        EXPECT_EQ(committed.meta.size, initial.meta.size);
+        EXPECT_EQ(committed.meta.root, initial.meta.root);
 
         ws.commit();
         assert_leaf_value(ws, WorldStateRevision::committed(), tree_id, 0, fr(42));
@@ -204,10 +205,10 @@ TEST_F(WorldStateTest, AppendOnlyTrees)
 
         auto after_commit = ws.get_tree_info(WorldStateRevision::committed(), tree_id);
         // commiting updates the committed state
-        EXPECT_EQ(after_commit.size, uncommitted.size);
-        EXPECT_EQ(after_commit.root, uncommitted.root);
+        EXPECT_EQ(after_commit.meta.size, uncommitted.meta.size);
+        EXPECT_EQ(after_commit.meta.root, uncommitted.meta.root);
 
-        assert_sibling_path(ws, WorldStateRevision::committed(), tree_id, after_commit.root, fr(42), 0);
+        assert_sibling_path(ws, WorldStateRevision::committed(), tree_id, after_commit.meta.root, fr(42), 0);
 
         ws.append_leaves<fr>(tree_id, { fr(43) });
         assert_leaf_value(ws, WorldStateRevision::uncommitted(), tree_id, 1, fr(43));
@@ -215,8 +216,8 @@ TEST_F(WorldStateTest, AppendOnlyTrees)
         assert_leaf_index(ws, WorldStateRevision::uncommitted(), tree_id, fr(43), 1);
 
         auto before_rollback = ws.get_tree_info(WorldStateRevision::uncommitted(), tree_id);
-        EXPECT_EQ(before_rollback.size, after_commit.size + 1);
-        EXPECT_NE(before_rollback.root, after_commit.root);
+        EXPECT_EQ(before_rollback.meta.size, after_commit.meta.size + 1);
+        EXPECT_NE(before_rollback.meta.root, after_commit.meta.root);
 
         ws.rollback();
         assert_leaf_status<fr>(ws, WorldStateRevision::uncommitted(), tree_id, 1, false);
@@ -224,8 +225,8 @@ TEST_F(WorldStateTest, AppendOnlyTrees)
 
         auto after_rollback = ws.get_tree_info(WorldStateRevision::committed(), tree_id);
         // rollback restores the committed state
-        EXPECT_EQ(after_rollback.size, after_commit.size);
-        EXPECT_EQ(after_rollback.root, after_commit.root);
+        EXPECT_EQ(after_rollback.meta.size, after_commit.meta.size);
+        EXPECT_EQ(after_rollback.meta.root, after_commit.meta.root);
     }
 }
 
@@ -259,7 +260,7 @@ TEST_F(WorldStateTest, NullifierTree)
 
     auto predecessor_of_142 =
         ws.find_low_leaf_index(WorldStateRevision::committed(), tree_id, test_nullifier.get_key());
-    EXPECT_EQ(predecessor_of_142, std::make_pair(false, 127UL));
+    EXPECT_EQ(predecessor_of_142, GetLowIndexedLeafResponse(false, 127UL));
 
     ws.append_leaves<NullifierLeafValue>(tree_id, { test_nullifier });
     assert_leaf_value(ws, WorldStateRevision::uncommitted(), tree_id, 128, test_nullifier);
@@ -272,16 +273,17 @@ TEST_F(WorldStateTest, NullifierTree)
 
     auto predecessor_of_142_again =
         ws.find_low_leaf_index(WorldStateRevision::committed(), tree_id, test_nullifier.get_key());
-    EXPECT_EQ(predecessor_of_142_again, std::make_pair(true, 128UL));
+    EXPECT_EQ(predecessor_of_142_again, GetLowIndexedLeafResponse(true, 128UL));
 
     auto predecessor_of_143 = ws.find_low_leaf_index(WorldStateRevision::committed(), tree_id, 143);
-    EXPECT_EQ(predecessor_of_143, std::make_pair(false, 128UL)); // predecessor is going to be nullifier 142 on slot 127
+    EXPECT_EQ(predecessor_of_143,
+              GetLowIndexedLeafResponse(false, 128UL)); // predecessor is going to be nullifier 142 on slot 127
 
     auto info = ws.get_tree_info(WorldStateRevision::committed(), tree_id);
     assert_sibling_path(ws,
                         WorldStateRevision::committed(),
                         tree_id,
-                        info.root,
+                        info.meta.root,
                         HashPolicy::hash(test_leaf.value().get_hash_inputs()),
                         128);
 }

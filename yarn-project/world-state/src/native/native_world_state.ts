@@ -11,7 +11,10 @@ import {
   TxEffect,
 } from '@aztec/circuit-types';
 import {
+  AppendOnlyTreeSnapshot,
+  ContentCommitment,
   Fr,
+  GlobalVariables,
   Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -99,9 +102,9 @@ export class NativeWorldStateService implements MerkleTreeDb {
     const archive = await this.getTreeInfo(MerkleTreeId.ARCHIVE, false);
     if (archive.size === 0n) {
       // TODO (alexg) move this to the native module
-      // const header = await this.buildInitialHeader(true);
-      // await this.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
-      // await this.commit();
+      const header = await this.buildInitialHeader(true);
+      await this.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
+      await this.commit();
     }
   }
 
@@ -109,16 +112,16 @@ export class NativeWorldStateService implements MerkleTreeDb {
     return new MerkleTreeOperationsFacade(this, true);
   }
 
-  // async buildInitialHeader(ic: boolean = false): Promise<Header> {
-  //   const state = await this.getStateReference(ic);
-  //   return new Header(
-  //     AppendOnlyTreeSnapshot.zero(),
-  //     ContentCommitment.empty(),
-  //     state,
-  //     GlobalVariables.empty(),
-  //     Fr.ZERO,
-  //   );
-  // }
+  async buildInitialHeader(ic: boolean = false): Promise<Header> {
+    const state = await this.getStateReference(ic);
+    return new Header(
+      AppendOnlyTreeSnapshot.zero(),
+      ContentCommitment.empty(),
+      state,
+      GlobalVariables.empty(),
+      Fr.ZERO,
+    );
+  }
 
   public getInitialHeader(): Header {
     // TODO (alexg) implement this

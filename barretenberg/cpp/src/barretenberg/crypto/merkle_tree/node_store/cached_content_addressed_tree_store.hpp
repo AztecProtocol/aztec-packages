@@ -602,15 +602,13 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         dataPresent = get_cached_node_by_index(0, 0, currentRoot);
         if (!dataPresent) {
             if (asBlock) {
-                std::cout << "No data present for block" << std::endl;
-                throw std::runtime_error("No data present for block");
+                return;
             }
         } else {
             auto currentRootIter = nodes_.find(currentRoot);
             if (currentRootIter == nodes_.end()) {
                 if (asBlock) {
-                    std::cout << "Current root not found, nothing to commit!" << std::endl;
-                    throw std::runtime_error("Current root not found, nothing to commit!");
+                    return;
                 }
             } else {
                 hydrate_indices_from_persisted_store(*tx);
