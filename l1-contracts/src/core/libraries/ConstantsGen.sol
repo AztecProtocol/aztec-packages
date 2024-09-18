@@ -127,9 +127,18 @@ library Constants {
   uint256 internal constant FIXED_DA_GAS = 512;
   uint256 internal constant FIXED_L2_GAS = 512;
   uint256 internal constant FIXED_AVM_STARTUP_L2_GAS = 1024;
+  uint256 internal constant L2_GAS_DISTRIBUTED_STORAGE_PREMIUM = 1024;
+  uint256 internal constant L2_GAS_PER_READ_MERKLE_HASH = 30;
+  uint256 internal constant L2_GAS_PER_WRITE_MERKLE_HASH = 40;
+  uint256 internal constant L2_GAS_PER_PUBLIC_DATA_UPDATE = 2624;
+  uint256 internal constant L2_GAS_PER_NOTE_HASH = 2304;
+  uint256 internal constant L2_GAS_PER_NULLIFIER = 2624;
+  uint256 internal constant L2_GAS_PER_PUBLIC_DATA_READ = 1200;
+  uint256 internal constant L2_GAS_PER_NOTE_HASH_READ_REQUEST = 960;
+  uint256 internal constant L2_GAS_PER_NULLIFIER_READ_REQUEST = 1200;
+  uint256 internal constant L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST = 480;
   uint256 internal constant L2_GAS_PER_LOG_BYTE = 4;
-  uint256 internal constant L2_GAS_PER_NOTE_HASH = 32;
-  uint256 internal constant L2_GAS_PER_NULLIFIER = 64;
+  uint256 internal constant L2_GAS_PER_L2_TO_L1_MSG = 200;
   uint256 internal constant CANONICAL_AUTH_REGISTRY_ADDRESS =
     19361441716519463065948254497947932755739298943049449145365332870925554042208;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
