@@ -690,6 +690,7 @@ __metadata:
     "@aztec/bb-prover": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/simulator": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@msgpack/msgpack": ^3.0.0-beta2
