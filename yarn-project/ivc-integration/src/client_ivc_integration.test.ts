@@ -79,16 +79,22 @@ describe('Client IVC Integration', () => {
       tx,
     });
 
-    const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
-      prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-    });
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): While using auto_veriy_mode, we can only process an even
+    // number of circuits into the IVC. This restriction can be removed once we remove use of auto_verify_mode.
+    // const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
+    //   prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
+    // });
     // Create client IVC proof
     const bytecodes = [
       MockAppCreatorCircuit.bytecode,
       MockPrivateKernelInitCircuit.bytecode,
-      MockPrivateKernelTailCircuit.bytecode,
+      // MockPrivateKernelTailCircuit.bytecode,
     ];
-    const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
+    const witnessStack = [
+      appWitnessGenResult.witness,
+      initWitnessGenResult.witness,
+      // tailWitnessGenResult.witness
+    ];
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);
     await proof.writeToOutputDirectory(bbWorkingDirectory);

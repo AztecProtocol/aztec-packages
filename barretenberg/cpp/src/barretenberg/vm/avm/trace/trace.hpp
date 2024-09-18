@@ -75,7 +75,7 @@ class AvmTraceBuilder {
     void op_and(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_xor(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
-    void op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    void op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset);
     void op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
@@ -270,6 +270,7 @@ class AvmTraceBuilder {
                                       AvmMemTraceBuilder::MemOpOwner mem_op_owner = AvmMemTraceBuilder::MAIN);
 
     // TODO: remove these once everything is constrained.
+    AvmMemoryTag unconstrained_get_memory_tag(AddressWithMode addr);
     FF unconstrained_read_from_memory(AddressWithMode addr);
     template <typename T> void read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice);
     void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag);

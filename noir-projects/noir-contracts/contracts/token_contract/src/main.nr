@@ -147,7 +147,7 @@ contract Token {
     // docs:start:admin
     #[aztec(public)]
     #[aztec(view)]
-    fn admin() -> Field {
+    fn get_admin() -> Field {
         storage.admin.read().to_field()
     }
     // docs:end:admin
