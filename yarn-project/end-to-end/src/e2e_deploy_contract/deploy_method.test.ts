@@ -1,4 +1,5 @@
-import { AztecAddress, type DebugLogger, type PXE, type Wallet } from '@aztec/aztec.js';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { AztecAddress, type DebugLogger, type PXE, type Wallet, createPXEClient, makeFetch } from '@aztec/aztec.js';
 import { CounterContract, StatefulTestContract } from '@aztec/noir-contracts.js';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -97,5 +98,19 @@ describe('e2e_deploy_contract deploy method', () => {
 
   it.skip('publicly deploys and calls a public function in a tx in the same block', async () => {
     // TODO(@spalladino): Requires being able to read a nullifier on the same block it was emitted.
+  });
+
+  describe('regressions', () => {
+    it('fails properly when trying to deploy a contract with a failing constructor with a pxe client with retries', async () => {
+      const { PXE_URL } = process.env;
+      if (!PXE_URL) {
+        return;
+      }
+      const pxeClient = createPXEClient(PXE_URL, makeFetch([1, 2, 3], false));
+      const [wallet] = await getDeployedTestAccountsWallets(pxeClient);
+      await expect(
+        StatefulTestContract.deployWithOpts({ wallet, method: 'wrong_constructor' }).send().deployed(),
+      ).rejects.toThrow(/Unknown function/);
+    });
   });
 });
