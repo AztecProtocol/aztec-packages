@@ -38,7 +38,7 @@ class ClientIVCRecursionTests : public testing::Test {
     {
         using Builder = ClientIVC::ClientCircuit;
 
-        size_t NUM_CIRCUITS = 3;
+        size_t NUM_CIRCUITS = 2;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             Builder circuit{ ivc.goblin.op_queue };
             GoblinMockCircuits::construct_mock_function_circuit(circuit);
@@ -47,7 +47,7 @@ class ClientIVCRecursionTests : public testing::Test {
         }
 
         Proof proof = ivc.prove();
-        FoldVerifierInput fold_verifier_input{ ivc.verifier_accumulator, { ivc.decider_vk } };
+        FoldVerifierInput fold_verifier_input{ ivc.verifier_accumulator, { ivc.honk_vk } };
         GoblinVerifierInput goblin_verifier_input{ std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key()),
                                                    std::make_shared<TranslatorVK>(
                                                        ivc.goblin.get_translator_proving_key()) };
@@ -63,6 +63,7 @@ class ClientIVCRecursionTests : public testing::Test {
 TEST_F(ClientIVCRecursionTests, NativeVerification)
 {
     ClientIVC ivc;
+    ivc.auto_verify_mode = true;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the set of native decider vks to be processed by the folding verifier
@@ -83,6 +84,7 @@ TEST_F(ClientIVCRecursionTests, Basic)
 {
     // Generate a genuine ClientIVC prover output
     ClientIVC ivc;
+    ivc.auto_verify_mode = true;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier
@@ -104,6 +106,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 {
     // Generate a genuine ClientIVC prover output
     ClientIVC ivc;
+    ivc.auto_verify_mode = true;
     auto [proof, verifier_input] = construct_client_ivc_prover_output(ivc);
 
     // Construct the ClientIVC recursive verifier

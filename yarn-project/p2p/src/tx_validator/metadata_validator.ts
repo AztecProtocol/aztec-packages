@@ -1,14 +1,11 @@
 import { type AnyTx, Tx, type TxValidator } from '@aztec/circuit-types';
-import { type GlobalVariables } from '@aztec/circuits.js';
+import { type Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   #log = createDebugLogger('aztec:sequencer:tx_validator:tx_metadata');
-  #globalVariables: GlobalVariables;
 
-  constructor(globalVariables: GlobalVariables) {
-    this.#globalVariables = globalVariables;
-  }
+  constructor(private chainId: Fr, private blockNumber: Fr) {}
 
   validateTxs(txs: T[]): Promise<[validTxs: T[], invalidTxs: T[]]> {
     const validTxs: T[] = [];
@@ -31,11 +28,11 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   }
 
   #hasCorrectChainId(tx: T): boolean {
-    if (!tx.data.constants.txContext.chainId.equals(this.#globalVariables.chainId)) {
+    if (!tx.data.constants.txContext.chainId.equals(this.chainId)) {
       this.#log.warn(
         `Rejecting tx ${Tx.getHash(
           tx,
-        )} because of incorrect chain ${tx.data.constants.txContext.chainId.toNumber()} != ${this.#globalVariables.chainId.toNumber()}`,
+        )} because of incorrect chain ${tx.data.constants.txContext.chainId.toNumber()} != ${this.chainId.toNumber()}`,
       );
       return false;
     } else {
@@ -50,11 +47,11 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
         : tx.data.rollupValidationRequests;
     const maxBlockNumber = target.maxBlockNumber;
 
-    if (maxBlockNumber.isSome && maxBlockNumber.value < this.#globalVariables.blockNumber) {
+    if (maxBlockNumber.isSome && maxBlockNumber.value < this.blockNumber) {
       this.#log.warn(
         `Rejecting tx ${Tx.getHash(tx)} for low max block number. Tx max block number: ${
           maxBlockNumber.value
-        }, current block number: ${this.#globalVariables.blockNumber}.`,
+        }, current block number: ${this.blockNumber}.`,
       );
       return false;
     } else {

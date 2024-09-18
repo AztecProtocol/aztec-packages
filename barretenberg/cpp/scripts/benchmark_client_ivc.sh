@@ -2,16 +2,7 @@
 set -eu
 
 TARGET=${1:-"client_ivc_bench"}
-
-if [ "$TARGET" = "client_ivc_bench" ]; then
-    BENCHMARK="ClientIVCBench/Full/6"
-elif [ "$TARGET" = "aztec_ivc_bench" ]; then
-    BENCHMARK="AztecIVCBench/FullStructured/6"
-else
-    echo "Error: Unrecognized TARGET '$TARGET'."
-    exit 1
-fi
-
+BENCHMARK="ClientIVCBench/Full/6"
 BUILD_DIR="build-op-count-time"
 FILTER="${BENCHMARK}$" # '$' to ensure only specified bench is run
 
