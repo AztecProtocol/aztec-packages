@@ -17,3 +17,4 @@ namespace conversion(256);
     pol commit input;
     pol commit radix;
     pol commit num_limbs;
+    pol commit output_bits;
