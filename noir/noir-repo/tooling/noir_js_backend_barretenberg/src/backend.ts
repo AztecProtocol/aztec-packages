@@ -189,7 +189,10 @@ export class UltraHonkBackend implements Backend, VerifierBackend {
         this.acirUncompressedBytecode,
         honkRecursion,
       );
-      const crs = await Crs.new(subgroupSize + 1);
+      // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
+      // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
+      // Needed here for initUltraPlonk because MegaHonk currently uses this function.
+      const crs = await Crs.new(subgroupSize + Math.floor((subgroupSize * 6) / 10) + 1);
       await api.commonInitSlabAllocator(subgroupSize);
       await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
 
