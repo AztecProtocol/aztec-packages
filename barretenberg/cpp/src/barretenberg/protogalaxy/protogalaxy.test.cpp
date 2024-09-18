@@ -90,8 +90,7 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         return { prover_accumulator, verifier_accumulator };
     }
 
-    static void check_accumulator_target_sum_manual(std::shared_ptr<DeciderProvingKey>& accumulator,
-                                                    bool expected_result)
+    static void check_accumulator_target_sum_manual(std::shared_ptr<DeciderProvingKey>& accumulator, bool expect_true)
     {
         size_t accumulator_size = accumulator->proving_key.circuit_size;
         auto [subrelation_evaluations, expected_honk_evals] = Fun::compute_row_evaluations(
@@ -105,7 +104,11 @@ template <typename Flavor> class ProtogalaxyTests : public testing::Test {
         for (size_t idx = 0; idx < accumulator_size; idx++) {
             expected_target_sum += expected_honk_evals[idx] * expected_gate_separators[idx];
         }
-        EXPECT_EQ(accumulator->target_sum == expected_target_sum, expected_result);
+        if (expect_true) {
+            EXPECT_EQ(accumulator->target_sum, expected_target_sum);
+        } else {
+            EXPECT_NE(accumulator->target_sum, expected_target_sum);
+        }
     }
 
     static void decide_and_verify(std::shared_ptr<DeciderProvingKey>& prover_accumulator,

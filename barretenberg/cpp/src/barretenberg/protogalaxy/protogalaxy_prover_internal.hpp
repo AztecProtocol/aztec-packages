@@ -246,7 +246,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                 const RelationEvaluations& evaluations_on_accumulator)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        // using TuplesOfUnivariates = std::tuple_element_t<relation_idx, TupleOfTuplesOfUnivariates>;
+        using TuplesOfUnivariates = std::tuple_element_t<relation_idx, TupleOfTuplesOfUnivariates>;
         auto& accumulator_for_one_relation = std::get<relation_idx>(full_accumulator);
 
         //  Check if the relation is skippable to speed up accumulation
@@ -257,33 +257,42 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         } else {
             // If so, only compute the contribution if the relation is active
             if (!Relation::skip(extended_univariates)) {
-                if (Relation::incoming_contribution_is_zero(extended_univariates)) {
-                    static_assert(
-                        NUM_KEYS == 2,
-                        "Sparse Protogalaxy is not implemented for folding more than one decider key at a time.");
-                    auto& subrelation_evaluations = std::get<relation_idx>(evaluations_on_accumulator);
-                    // info("before");
-                    // constexpr_for<0, std::tuple_size_v<TuplesOfUnivariates>, 1>([&]<size_t idx>() {
-                    //     info(std::get<idx>(accumulator_for_one_relation));
-                    // });
-                    accumulate_zero_incoming_contribution(
-                        accumulator_for_one_relation, L_0_pows, subrelation_evaluations, scaling_factor);
-                    // info("after");
-                    // constexpr_for<0, std::tuple_size_v<TuplesOfUnivariates>, 1>([&]<size_t idx>() {
-                    //     info(std::get<idx>(accumulator_for_one_relation));
-                    // });
-                } else // LEFTOFFHERE: passes when both blocks run! first block does nothing?
-                {
-                    // info("before");
-                    // constexpr_for<0, std::tuple_size_v<TuplesOfUnivariates>, 1>([&]<size_t idx>() {
-                    //     info(std::get<idx>(accumulator_for_one_relation));
-                    // });
+                bool use_optimization{ false };
+                const auto print_accumulator_values = [&](bool do_it = false) {
+                    if (do_it) {
+                        constexpr_for<0, std::tuple_size_v<TuplesOfUnivariates>, 1>(
+                            [&]<size_t idx>() { info(std::get<idx>(accumulator_for_one_relation)); });
+                    }
+                };
+
+                if constexpr (std::same_as<Flavor, MegaFlavor>) {
+                    if (Relation::incoming_contribution_is_zero(extended_univariates)) {
+                        static_assert(
+                            NUM_KEYS == 2,
+                            "Sparse Protogalaxy is not implemented for folding more than one decider key at a time.");
+                        auto& subrelation_evaluations = std::get<relation_idx>(evaluations_on_accumulator);
+                        // info("opt before");
+                        print_accumulator_values();
+                        accumulate_zero_incoming_contribution(
+                            accumulator_for_one_relation, L_0_pows, subrelation_evaluations, scaling_factor);
+                        // info("opt after");
+                        print_accumulator_values();
+                        use_optimization = true;
+                    } else {
+                        if (use_optimization) {
+                            // info("normal before");
+                            print_accumulator_values();
+                        }
+                        Relation::accumulate(
+                            accumulator_for_one_relation, extended_univariates, relation_parameters, scaling_factor);
+                        if (use_optimization) {
+                            // info("normal after");
+                            print_accumulator_values();
+                        }
+                    }
+                } else {
                     Relation::accumulate(
                         accumulator_for_one_relation, extended_univariates, relation_parameters, scaling_factor);
-                    // info("after");
-                    // constexpr_for<0, std::tuple_size_v<TuplesOfUnivariates>, 1>([&]<size_t idx>() {
-                    //     info(std::get<idx>(accumulator_for_one_relation));
-                    // });
                 }
             }
         }

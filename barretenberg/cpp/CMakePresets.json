@@ -103,7 +103,8 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CFLAGS": "-gdwarf-4",
         "CXXFLAGS": "-gdwarf-4",
-        "LDFLAGS": "-gdwarf-4"
+        "LDFLAGS": "-gdwarf-4",
+        "MULTITHREADING": "OFF"
       },
       "cacheVariables": {
         "ENABLE_ASAN": "OFF",

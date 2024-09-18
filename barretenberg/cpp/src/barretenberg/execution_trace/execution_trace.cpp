@@ -124,6 +124,14 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
             trace_data.pub_inputs_offset = offset;
         }
 
+        if constexpr (std::same_as<Flavor, MegaFlavor>) {
+            if (block.is_arithmetic) {
+                for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
+                    size_t trace_row_idx = row_idx + offset;
+                    proving_key.polynomials.homogenizer.set_if_valid_index(trace_row_idx, 1);
+                }
+            }
+        }
         // If the trace is structured, we populate the data from the next block at a fixed block size offset
         // otherwise, the next block starts immediately following the previous one
         offset += block.get_fixed_size(is_structured);

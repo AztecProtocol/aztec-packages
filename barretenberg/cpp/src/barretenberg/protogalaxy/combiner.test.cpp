@@ -14,13 +14,13 @@ using FF = typename Flavor::FF;
 TEST(Protogalaxy, LagrangePowers)
 {
     constexpr size_t NUM_KEYS = 2;
-    constexpr size_t DEG = 5;
+    constexpr size_t LEN = 5;
     constexpr size_t SKIP_COUNT = 1;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor, NUM_KEYS>;
     using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
-    using Univ = Univariate<FF, DEG, 0, SKIP_COUNT>;
+    using Univ = Univariate<FF, LEN, 0, SKIP_COUNT>;
 
-    std::array<Univ, DEG> powers = Fun::compute_lagrange_powers<FF, DEG, SKIP_COUNT>();
+    std::array<Univ, LEN> powers = Fun::compute_lagrange_powers<FF, LEN, SKIP_COUNT>();
 
     EXPECT_EQ(powers[0], Univ({ 1, 1, 1, 1, 1 }));
     EXPECT_EQ(powers[1], Univ({ 1, 0, -1, -2, -3 }));
@@ -32,8 +32,8 @@ TEST(Protogalaxy, LagrangePowers)
     std::array<FF, 2> values{ 2, 3 };
     FF scaling_factor = 16;
     Fun::accumulate_zero_incoming_contribution(acc, powers, values, scaling_factor);
-    auto expected_0 = Univariate<FF, 5, 0, 1>{ 1, 0, 1, 16, 81 } * 2 * scaling_factor;
-    auto expected_1 = Univariate<FF, 4, 0, 1>{ 1, 0, -1, -8 } * 3 * scaling_factor;
+    auto expected_0 = Univariate<FF, 5, 0, 1>{ std::array<FF, 5>{ 1, 0, 1, 16, 81 } } * 2 * scaling_factor;
+    auto expected_1 = Univariate<FF, 4, 0, 1>{ std::array<FF, 4>{ 1, 0, -1, -8 } } * 3 * scaling_factor;
 
     EXPECT_EQ(std::get<0>(acc), expected_0);
     EXPECT_EQ(std::get<1>(acc), expected_1);

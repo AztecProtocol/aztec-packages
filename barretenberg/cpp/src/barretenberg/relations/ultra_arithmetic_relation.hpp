@@ -25,10 +25,14 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
 
     template <typename AllEntities>
     inline static bool incoming_contribution_is_zero(const AllEntities& in)
-        requires ArrayAccessOnEntity<AllEntities>
+        requires HOMOGENIZED && ArrayAccessOnEntity<AllEntities>
     {
         // For folding multiple instances, we would do a constexpr loop over { idx = 1; idx < NUM_KEYS }
-        return in.q_arith.value_at(1) == 0; // WORKTODO: this should suffice but...
+        return in.w_l.value_at(1) == 0 && in.w_r.value_at(1) == 0 && in.w_o.value_at(1) == 0 &&
+               in.w_4.value_at(1) == 0 && in.w_4_shift.value_at(1) == 0 && in.q_m.value_at(1) == 0 &&
+               in.q_l.value_at(1) == 0 && in.q_r.value_at(1) == 0 && in.q_o.value_at(1) == 0 &&
+               in.q_4.value_at(1) == 0 && in.q_c.value_at(1) == 0 && in.q_arith.value_at(1) == 0 &&
+               in.w_l_shift.value_at(1) == 0 /* && in.homogenizer.value_at(1) == 0 */;
     }
 
     /**
@@ -104,6 +108,8 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
             auto q_4 = View(in.q_4);
             auto q_c = View(in.q_c);
             auto q_arith = View(in.q_arith);
+            // info("in.q_arith: ", in.q_arith);
+            // info("q_arith: ", q_arith);
 
             static constexpr FF neg_half = FF(-2).invert();
             static constexpr FF three_halves = -(neg_half + neg_half + neg_half);
@@ -113,11 +119,14 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
                 auto hom_to_3 = hom * hom_to_2;
                 auto q_arith_to_2 = q_arith.sqr();
 
-                auto tmp = w_l * w_r * q_m * q_arith_to_2 * neg_half + w_l * w_r * q_m * q_arith * hom * three_halves +
-                           w_l * q_l * q_arith * hom_to_2 + w_r * q_r * q_arith * hom_to_2 +
-                           w_o * q_o * q_arith * hom_to_2 + w_4 * q_4 * q_arith * hom_to_2 +
-                           w_4_shift * q_arith_to_2 * hom_to_2 - w_4_shift * q_arith * hom_to_3 +
-                           q_c * q_arith * hom_to_3;
+                auto tmp = w_l * w_r * q_m * q_arith_to_2 * neg_half                              // term
+                           + w_l * w_r * q_m * q_arith * hom * three_halves                       // term
+                           + w_l * q_l * q_arith * hom_to_2                                       // term
+                           + w_r * q_r * q_arith * hom_to_2                                       // term
+                           + w_o * q_o * q_arith * hom_to_2                                       // term
+                           + w_4 * q_4 * q_arith * hom_to_2                                       // term
+                           + w_4_shift * q_arith_to_2 * hom_to_2 - w_4_shift * q_arith * hom_to_3 // term
+                           + q_c * q_arith * hom_to_3;                                            // term
                 tmp *= scaling_factor;
                 std::get<0>(evals) += tmp;
             } else {
