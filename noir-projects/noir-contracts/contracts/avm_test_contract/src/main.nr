@@ -215,6 +215,19 @@ contract AvmTest {
         1
     }
 
+    #[aztec(public)]
+    fn assert_calldata_copy(args: [Field; 3]) {
+        let offset = 2; // Make this 0 when PublicContextInputs is removed.
+        let cd: [Field; 3] = dep::aztec::context::public_context::calldata_copy(offset, 3);
+        assert(cd == args, "Calldata copy failed");
+    }
+
+    #[aztec(public)]
+    fn return_oracle() -> [Field; 3] {
+        dep::aztec::context::public_context::avm_return([1, 2, 3]);
+        [4, 5, 6] // Should not get here.
+    }
+
     /************************************************************************
      * Hashing functions
      ************************************************************************/
