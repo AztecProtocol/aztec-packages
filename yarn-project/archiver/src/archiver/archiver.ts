@@ -30,7 +30,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import {
@@ -55,8 +55,12 @@ import {
 
 import { type ArchiverDataStore } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
-import { retrieveBlockFromRollup, retrieveL1ToL2Messages, retrieveL2ProofVerifiedEvents } from './data_retrieval.js';
-import { getL1BlockTime } from './eth_log_handlers.js';
+import {
+  getL1BlockTime,
+  retrieveBlockFromRollup,
+  retrieveL1ToL2Messages,
+  retrieveL2ProofVerifiedEvents,
+} from './data_retrieval.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import { type SingletonDataRetrieval } from './structs/data_retrieval.js';
 
@@ -77,6 +81,7 @@ export class Archiver implements ArchiveSource {
   private runningPromise?: RunningPromise;
 
   private rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+  private inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>;
 
   /**
    * Creates a new instance of the Archiver.
@@ -102,6 +107,12 @@ export class Archiver implements ArchiveSource {
     this.rollup = getContract({
       address: rollupAddress.toString(),
       abi: RollupAbi,
+      client: publicClient,
+    });
+
+    this.inbox = getContract({
+      address: inboxAddress.toString(),
+      abi: InboxAbi,
       client: publicClient,
     });
   }
@@ -244,8 +255,7 @@ export class Archiver implements ArchiveSource {
     // ********** Events that are processed per L2 block **********
 
     const retrievedL1ToL2Messages = await retrieveL1ToL2Messages(
-      this.publicClient,
-      this.inboxAddress,
+      this.inbox,
       blockUntilSynced,
       messagesSynchedTo + 1n,
       currentL1BlockNumber,
