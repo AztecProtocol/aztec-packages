@@ -49,13 +49,13 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     let fn_parameters = f.parameters();
     // Fixes [ typ ; ( len : numeric Field ) ] error
     let fn_return_type = f.return_type();
-    let fn_return_type_quoted = if fn_return_type.as_array().is_some() {
-        let (element_type, array_len) = fn_return_type.as_array().unwrap();
-        let array_len = array_len.as_constant().unwrap();
-        quote { [$element_type; $array_len] }
-    } else {
-        quote { $fn_return_type }
-    };
+    // let fn_return_type_quoted = if fn_return_type.as_array().is_some() {
+    //     let (element_type, array_len) = fn_return_type.as_array().unwrap();
+    //     let array_len = array_len.as_constant().unwrap();
+    //     quote { [$element_type; $array_len] }
+    // } else {
+    //     quote { $fn_return_type }
+    // };
     let fn_visibility = get_fn_visibility(f);
     let is_static_call = is_fn_view(f);
     let is_void = fn_return_type == type_of(());
@@ -110,21 +110,21 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
 
     let fn_name_len: u32 = unquote!(quote { $fn_name_str.as_bytes().len()});
 
-    let arg_types_list = fn_parameters.map(|(_, typ): (_, Type)| quote { $typ }).join(quote {,});
+    let arg_types_list: Quoted = fn_parameters.map(|(_, typ): (_, Type)| quote { $typ }).join(quote {,});
     let arg_types = if fn_parameters.len() == 1 {
-        f"({arg_types_list},)".quoted_contents()
+        // Extra colon to avoid it being interpreted as a parenthesized expression instead of a tuple
+        quote { ($arg_types_list,) }
     } else {
-        f"({arg_types_list})".quoted_contents()
+        quote { ($arg_types_list) }
     };
 
-    let generics = if is_void {
-        f"{arg_types}>".quoted_contents()
+    let call_interface_generics = if is_void {
+        quote { $fn_name_len, $arg_types }
     } else {
-        f"{fn_return_type_quoted}, {arg_types}>".quoted_contents()
+        quote { $fn_name_len, $fn_return_type, $arg_types }
     };
 
     let call_interface_name = f"dep::aztec::context::call_interfaces::{fn_visibility_capitalized}{is_static_call_capitalized}{is_void_capitalized}CallInterface".quoted_contents();
-    let call_interface_name_w_generics = f"{call_interface_name}<{fn_name_len}, {generics}".quoted_contents();
 
     let fn_selector: Field = compute_fn_selector(f);
 
@@ -144,14 +144,14 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
 
     let parameter_names = if fn_parameters.len() > 0 {
         let params = fn_parameters.map(|(name, _): (Quoted, _)| name).join(quote {,});
-        f",{params}".quoted_contents()
+        quote  { inputs, $params }
     } else {
-        quote {}
+        quote {inputs}
     };
 
     let original = quote {
         | inputs: $input_type  | -> $return_type_hint {
-            $fn_name(inputs $parameter_names)
+            $fn_name($parameter_names)
         }
     };
 
@@ -162,7 +162,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     };
 
     quote {
-        pub fn $fn_name(self, $fn_parameters_list) -> $call_interface_name_w_generics {
+        pub fn $fn_name(self, $fn_parameters_list) -> $call_interface_name<$call_interface_generics> {
             $args
             let selector = dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_field($fn_selector);
             $call_interface_name {
