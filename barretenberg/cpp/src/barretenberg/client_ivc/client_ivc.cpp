@@ -107,6 +107,7 @@ void ClientIVC::process_recursive_merge_verification_queue(ClientCircuit& circui
     // Recusively verify all merge proofs in queue
     for (auto& proof : merge_verification_queue) {
         goblin.verify_merge(circuit, proof);
+        info("merged");
     }
     merge_verification_queue.clear();
 }
@@ -126,9 +127,10 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // Instantiate stdlib verifier inputs from their native counterparts
     if (stdlib_verification_queue.empty()) {
         instantiate_stdlib_verification_queue(circuit);
+        info("stdlib verification instantiated");
     }
 
-    // Peform recursive verification and databus consistency checks for each entry in the verification queue
+    // Perform recursive verification and databus consistency checks for each entry in the verification queue
     for (auto& [proof, vkey, type] : stdlib_verification_queue) {
         perform_recursive_verification_and_databus_consistency_checks(circuit, proof, vkey, type);
     }
@@ -158,6 +160,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     // Construct merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(circuit);
     merge_verification_queue.emplace_back(merge_proof);
+    info("merge proof placed in the verification queue");
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Do proper aggregation with merge recursive
     // verifier.
@@ -178,6 +181,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     // If this is the first circuit in the IVC, use oink to complete the decider proving key and generate an oink proof
     if (!initialized) {
         OinkProver<Flavor> oink_prover{ proving_key };
+        info("oink first");
         oink_prover.prove();
         proving_key->is_accumulator = true; // indicate to PG that it should not run oink on this key
         // Initialize the gate challenges to zero for use in first round of folding
@@ -192,6 +196,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
         initialized = true;
     } else { // Otherwise, fold the new key into the accumulator
         FoldingProver folding_prover({ fold_output.accumulator, proving_key });
+        info("folding");
         fold_output = folding_prover.prove();
 
         // Add fold proof and corresponding verification key to the verification queue
@@ -214,6 +219,7 @@ ClientIVC::Proof ClientIVC::prove()
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
     FoldProof& fold_proof = verification_queue[0].proof;
     MergeProof& merge_proof = merge_verification_queue[0];
+    info("end of prove");
     return { fold_proof, decider_prove(), goblin.prove(merge_proof) };
 };
 
@@ -278,7 +284,7 @@ bool ClientIVC::prove_and_verify()
  * @brief Given a set of circuits, compute the verification keys that will be required by the IVC scheme
  * @details The verification keys computed here are in general not the same as the verification keys for the
  * raw input circuits because recursive verifier circuits (merge and/or folding) may be appended to the incoming
- * circuits as part accumulation.
+ * circuits as part of accumulation.
  * @note This method exists for convenience and is not not meant to be used in practice for IVC. Given a set of
  * circuits, it could be run once and for all to compute then save the required VKs. It also provides a convenient
  * (albeit innefficient) way of separating out the cost of computing VKs from a benchmark.

@@ -37,10 +37,11 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     transcript = std::make_shared<Transcript>();
 
     size_t N = op_queue->get_current_size();
+    info("current op queue size", N);
 
     // Extract T_i, T_{i-1}
-    auto T_current = op_queue->get_aggregate_transcript();
-    auto T_prev = op_queue->get_previous_aggregate_transcript();
+    std::vector<std::span<FF>> T_current = op_queue->get_aggregate_transcript();
+    std::vector<std::span<FF>> T_prev = op_queue->get_previous_aggregate_transcript();
     // TODO(#723): Cannot currently support an empty T_{i-1}. Need to be able to properly handle zero commitment.
     ASSERT(T_prev[0].size() > 0);
     ASSERT(T_current[0].size() > T_prev[0].size()); // Must have some new ops to accumulate otherwise C_t_shift = 0
@@ -54,11 +55,12 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
 
     // Compute/get commitments [t_i^{shift}], [T_{i-1}], and [T_i] and add to transcript
     std::array<Commitment, NUM_WIRES> C_T_current;
-    for (size_t idx = 0; idx < t_shift.size(); ++idx) {
+
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Get previous transcript commitment [T_{i-1}] from op queue
         const auto& C_T_prev = op_queue->get_ultra_ops_commitments()[idx];
         // Compute commitment [t_i^{shift}] directly
-        auto C_t_shift = pcs_commitment_key->commit(t_shift[idx]);
+        const auto C_t_shift = pcs_commitment_key->commit(t_shift[idx]);
         // Compute updated aggregate transcript commitment as [T_i] = [T_{i-1}] + [t_i^{shift}]
         C_T_current[idx] = C_T_prev + C_t_shift;
 
@@ -66,6 +68,10 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
         transcript->send_to_verifier("T_PREV_" + suffix, C_T_prev);
         transcript->send_to_verifier("t_SHIFT_" + suffix, C_t_shift);
         transcript->send_to_verifier("T_CURRENT_" + suffix, C_T_current[idx]);
+
+        // info("T_PREV_" + suffix, C_T_current[idx]);
+        // info("t_SHIFT_" + suffix, C_t_shift);
+        // info("T_PREV_" + suffix, C_T_prev);
     }
 
     // Store the commitments [T_{i}] (to be used later in subsequent iterations as [T_{i-1}]).
@@ -73,37 +79,37 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
 
     // Compute evaluations T_i(\kappa), T_{i-1}(\kappa), t_i^{shift}(\kappa), add to transcript. For each polynomial
     // we add a univariate opening claim {p(X), (\kappa, p(\kappa))} to the set of claims to be checked via batched KZG.
-    FF kappa = transcript->template get_challenge<FF>("kappa");
+    const FF kappa = transcript->template get_challenge<FF>("kappa");
 
     // Add univariate opening claims for each polynomial.
     std::vector<OpeningClaim> opening_claims;
     // Compute evaluation T_{i-1}(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        auto polynomial = Polynomial(T_prev[idx]);
-        auto evaluation = polynomial.evaluate(kappa);
+        const auto previous_aggregate_transcript = Polynomial(T_prev[idx]);
+        const FF evaluation = previous_aggregate_transcript.evaluate(kappa);
         transcript->send_to_verifier("T_prev_eval_" + std::to_string(idx + 1), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ polynomial, { kappa, evaluation } });
+        opening_claims.emplace_back(OpeningClaim{ previous_aggregate_transcript, { kappa, evaluation } });
     }
     // Compute evaluation t_i^{shift}(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        auto evaluation = t_shift[idx].evaluate(kappa);
+        const FF evaluation = t_shift[idx].evaluate(kappa);
         transcript->send_to_verifier("t_shift_eval_" + std::to_string(idx + 1), evaluation);
         opening_claims.emplace_back(OpeningClaim{ t_shift[idx], { kappa, evaluation } });
     }
     // Compute evaluation T_i(\kappa)
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        auto polynomial = Polynomial(T_current[idx]);
-        auto evaluation = polynomial.evaluate(kappa);
+        const Polynomial current_aggregate_transcript = Polynomial(T_current[idx]);
+        const FF evaluation = current_aggregate_transcript.evaluate(kappa);
         transcript->send_to_verifier("T_current_eval_" + std::to_string(idx + 1), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ polynomial, { kappa, evaluation } });
+        opening_claims.emplace_back(OpeningClaim{ current_aggregate_transcript, { kappa, evaluation } });
     }
 
-    FF alpha = transcript->template get_challenge<FF>("alpha");
+    const FF alpha = transcript->template get_challenge<FF>("alpha");
 
-    // Construct batched polynomial to opened via KZG
-    auto batched_polynomial = Polynomial(N);
-    auto batched_eval = FF(0);
-    auto alpha_pow = FF(1);
+    // Construct batched polynomial to be opened via KZG
+    Polynomial batched_polynomial = Polynomial(N);
+    FF batched_eval{ 0 };
+    FF alpha_pow{ 1 };
     for (auto& claim : opening_claims) {
         batched_polynomial.add_scaled(claim.polynomial, alpha_pow);
         batched_eval += alpha_pow * claim.opening_pair.evaluation;
@@ -111,11 +117,11 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     }
 
     // Construct and commit to KZG quotient polynomial q = (f - v) / (X - kappa)
-    auto quotient = batched_polynomial;
+    auto& quotient = batched_polynomial;
     quotient.at(0) -= batched_eval;
     quotient.factor_roots(kappa);
 
-    auto quotient_commitment = pcs_commitment_key->commit(quotient);
+    const auto quotient_commitment = pcs_commitment_key->commit(quotient);
     transcript->send_to_verifier("KZG:W", quotient_commitment);
 
     return transcript->proof_data;

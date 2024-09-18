@@ -99,7 +99,21 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
             {
                 BB_OP_COUNT_TIME_NAME("COMMIT::ecc_op_wires");
                 commitment = commitment_key->commit_sparse(polynomial);
+                info("OINK", label, "  ", commitment);
+
+                size_t last_non_zero_index = 0; // Variable to track the last non-zero element index
+                size_t index = 0;               // Variable to track the current index
+
+                for (const auto& coeff : polynomial.coeffs()) {
+                    if (coeff != FF(0)) {
+                        last_non_zero_index = index; // Update last non-zero index
+                    }
+                    index += 1; // Increment the index in each iteration
+                }
+
+                info(label, " last non-zero index ", last_non_zero_index);
             }
+
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
 
