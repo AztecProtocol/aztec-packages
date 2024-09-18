@@ -395,6 +395,7 @@ fn handle_foreign_call(
             handle_get_contract_instance(avm_instrs, destinations, inputs);
         }
         "avmOpcodeCalldataCopy" => handle_calldata_copy(avm_instrs, destinations, inputs),
+        "avmOpcodeReturn" => handle_return(avm_instrs, destinations, inputs),
         "avmOpcodeStorageRead" => handle_storage_read(avm_instrs, destinations, inputs),
         "avmOpcodeStorageWrite" => handle_storage_write(avm_instrs, destinations, inputs),
         "debugLog" => handle_debug_log(avm_instrs, destinations, inputs),
@@ -1121,6 +1122,33 @@ fn handle_calldata_copy(
             AvmOperand::U32 {
                 value: dest_offset as u32, // dstOffset
             },
+        ],
+        ..Default::default()
+    });
+}
+
+// #[oracle(avmOpcodeReturn)]
+// unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
+fn handle_return(
+    avm_instrs: &mut Vec<AvmInstruction>,
+    destinations: &Vec<ValueOrArray>,
+    inputs: &Vec<ValueOrArray>,
+) {
+    assert!(inputs.len() == 1);
+    assert!(destinations.len() == 0);
+
+    // First arg is the size, which is ignored because it's redundant.
+    let (return_data_offset, return_data_size) = match inputs[0] {
+        ValueOrArray::HeapArray(HeapArray { pointer, size }) => (pointer.0 as u32, size as u32),
+        _ => panic!("Return instruction's args input should be a HeapArray"),
+    };
+
+    avm_instrs.push(AvmInstruction {
+        opcode: AvmOpcode::RETURN,
+        indirect: Some(ZEROTH_OPERAND_INDIRECT),
+        operands: vec![
+            AvmOperand::U32 { value: return_data_offset as u32 },
+            AvmOperand::U32 { value: return_data_size as u32 },
         ],
         ..Default::default()
     });
