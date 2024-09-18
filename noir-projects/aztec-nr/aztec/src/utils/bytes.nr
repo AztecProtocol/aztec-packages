@@ -25,9 +25,13 @@ pub fn fields_to_bytes<let N: u32, let M: u32>(input: [Field; M]) -> [u8; N] {
     let mut dst = [0; N];
 
     for field_index in 0..M {
-        // We convert the field to 31 bytes. Normally a field is 254 bits, but we only used 248 bits
-        // in `bytes_to_fields` so we can safely convert it to 31 bytes.
-        let src: [u8; 31] = input[field_index].to_be_bytes();
+        let field = input[field_index];
+
+        // We expect that the field contains at most 31 bytes of information.
+        field.assert_max_bit_size(248);
+
+        // Now we can safely convert the field to 31 bytes.
+        let src: [u8; 31] = field.to_be_bytes();
 
         // Since some of the bytes might not be occupied (if the source value requiring less than 31 bytes),
         // we have to compute the start index from which to copy.
@@ -116,5 +120,22 @@ mod test {
         let input_back = fields_to_bytes::<128, 5>(output);
 
         assert_eq(input, input_back);
+    }
+
+    #[test(should_fail_with="call to assert_max_bit_size")]
+    fn test_fields_to_bytes_value_too_large() {
+        let input = [2.pow_32(248)];
+        let _ignored_result = fields_to_bytes::<31, 1>(input);
+    }
+
+    #[test]
+    fn test_fields_to_bytes_max_value() {
+        let input = [2.pow_32(248) - 1];
+        let result = fields_to_bytes::<31, 1>(input);
+
+        // We check that all the bytes were set to max value (255)
+        for i in 0..31 {
+            assert_eq(result[i], 255);
+        }
     }
 }
