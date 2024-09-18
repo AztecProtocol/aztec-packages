@@ -813,7 +813,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           }),
           /*startGasLeft=*/ expect.anything(),
           /*endGasLeft=*/ expect.anything(),
-          /*bytecode=*/ expect.anything(), //decompressBytecodeIfCompressed(addBytecode),
+          /*bytecode=*/ expect.anything(),
           /*avmCallResults=*/ expect.anything(), // we don't have the NESTED call's results to check
           /*functionName=*/ expect.anything(),
         );
