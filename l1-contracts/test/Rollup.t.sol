@@ -119,7 +119,7 @@ contract RollupTest is DecoderBase {
     rollup.prune();
   }
 
-  function testPrune() public setUpFor("mixed_block_1") {
+  function testPruneDuringPropose() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false);
 
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
@@ -129,7 +129,7 @@ contract RollupTest is DecoderBase {
     bytes32 inboxRoot2 = inbox.getRoot(2);
 
     (,, uint128 slot) = rollup.blocks(1);
-    uint256 prunableAt = uint256(slot) + rollup.TIMELINESS_PROVING_IN_SLOTS();
+    uint256 prunableAt = uint256(slot) + Constants.AZTEC_EPOCH_DURATION * 2;
 
     uint256 timeOfPrune = rollup.getTimestampForSlot(prunableAt);
     vm.warp(timeOfPrune);
@@ -148,16 +148,12 @@ contract RollupTest is DecoderBase {
     assertNotEq(rootMixed, bytes32(0), "Invalid root");
     assertNotEq(minHeightMixed, 0, "Invalid min height");
 
-    rollup.prune();
-    assertEq(inbox.inProgress(), 3, "Invalid in progress");
-    assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
-    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
-
     // @note  We alter what slot is specified in the empty block!
     //        This means that we keep the `empty_block_1` mostly as is, but replace the slot number
     //        and timestamp as if it was created at a different point in time. This allow us to insert it
     //        as if it was the first block, even after we had originally inserted the mixed block.
-    //        An example where this could happen would be if no-one could proof the mixed block.
+    //        An example where this could happen would be if no-one could prove the mixed block.
+    // @note  We prune the pending chain as part of the propose call.
     _testBlock("empty_block_1", false, prunableAt);
 
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
