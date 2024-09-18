@@ -17,15 +17,15 @@ template <typename T> struct RelationParameters {
     static constexpr int NUM_CHALLENGE_POWERS_IN_GOBLIN_TRANSLATOR = 4;
     static constexpr int NUM_TO_FOLD = 7;
 
-    T eta{ 0 };                        // Lookup + Aux Memory
-    T eta_two{ 0 };                    // Lookup + Aux Memory
-    T eta_three{ 0 };                  // Lookup + Aux Memory
-    T beta{ 0 };                       // Permutation + Lookup
-    T gamma{ 0 };                      // Permutation + Lookup
-    T public_input_delta{ 0 };         // Permutation
-    T lookup_grand_product_delta{ 0 }; // Lookup
-    T beta_sqr{ 0 };
-    T beta_cube{ 0 };
+    T eta(0);                        // Lookup + Aux Memory
+    T eta_two(0);                    // Lookup + Aux Memory
+    T eta_three(0);                  // Lookup + Aux Memory
+    T beta(0);                       // Permutation + Lookup
+    T gamma(0);                      // Permutation + Lookup
+    T public_input_delta(0);         // Permutation
+    T lookup_grand_product_delta(0); // Lookup
+    T beta_sqr(0);
+    T beta_cube(0);
     // eccvm_set_permutation_delta is used in the set membership gadget in eccvm/ecc_set_relation.hpp
     // We can remove this by modifying the relation, but increases complexity
     T eccvm_set_permutation_delta = T(0);
