@@ -4,7 +4,7 @@ use crate::{
     utils::sha256_merkle_tree::Sha256MerkleTree
 };
 
-global NUM_BASE_PARITY_PER_ROOT_PARITY: u64 = 4;
+global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 struct RootParityInputs {
     children: [RootParityInput; NUM_BASE_PARITY_PER_ROOT_PARITY],
