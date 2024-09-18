@@ -18,8 +18,17 @@ interface IRollup {
   event L2BlockProposed(uint256 indexed blockNumber, bytes32 indexed archive);
   event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
+  event ProofRightClaimed(
+    uint256 indexed epoch,
+    address indexed bondProvider,
+    address indexed proposer,
+    uint256 bondAmount,
+    uint256 currentSlot
+  );
 
   function prune() external;
+
+  function claimEpochProofRight(DataStructures.EpochProofQuote calldata _quote) external;
 
   function propose(
     bytes calldata _header,
@@ -48,10 +57,13 @@ interface IRollup {
     DataStructures.ExecutionFlags memory _flags
   ) external view;
 
+  // solhint-disable-next-line func-name-mixedcase
   function INBOX() external view returns (IInbox);
 
+  // solhint-disable-next-line func-name-mixedcase
   function OUTBOX() external view returns (IOutbox);
 
+  // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 
   // TODO(#7346): Integrate batch rollups
@@ -70,5 +82,6 @@ interface IRollup {
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
   function getProvenBlockNumber() external view returns (uint256);
   function getPendingBlockNumber() external view returns (uint256);
+  function getEpochToProve() external view returns (uint256);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }
