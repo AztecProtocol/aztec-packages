@@ -154,6 +154,7 @@ template <typename Flavor> class RelationUtils {
     inline static void accumulate_relation_evaluations_without_skipping(const PolynomialEvaluations& evaluations,
                                                                         RelationEvaluations& relation_evaluations,
                                                                         const Parameters& relation_parameters,
+                                                                        // WORKTODO: rename to separator?
                                                                         const FF& partial_evaluation_result)
     {
         constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {

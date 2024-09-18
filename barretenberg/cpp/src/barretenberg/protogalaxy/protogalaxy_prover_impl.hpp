@@ -3,6 +3,7 @@
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/protogalaxy/prover_verifier_shared.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
+#include "barretenberg/relations/utils.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "protogalaxy_prover.hpp"
 
@@ -42,31 +43,41 @@ void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_each_incomplete_
 };
 
 template <class DeciderProvingKeys>
-std::tuple<std::vector<typename DeciderProvingKeys::Flavor::FF>, Polynomial<typename DeciderProvingKeys::Flavor::FF>>
+std::tuple<std::vector<typename DeciderProvingKeys::Flavor::FF>,
+           std::vector<typename ProtogalaxyProver_<DeciderProvingKeys>::RelationEvaluations>,
+           Polynomial<typename DeciderProvingKeys::Flavor::FF>>
 ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
     const std::shared_ptr<const typename DeciderProvingKeys::DeciderPK>& accumulator)
 {
     BB_OP_COUNT_TIME_NAME("ProtogalaxyProver_::perturbator_round");
 
     using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
+    const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
 
     const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::vector<FF> deltas = compute_round_challenge_pows(accumulator->proving_key.log_circuit_size, delta);
+    const std::vector<FF> deltas = compute_round_challenge_pows(log_circuit_size, delta);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
-    const Polynomial<FF> perturbator = accumulator->is_accumulator
-                                           ? Fun::compute_perturbator(accumulator, deltas)
-                                           : Polynomial<FF>(accumulator->proving_key.log_circuit_size + 1);
+    const auto [subrelation_evaluations, perturbator] =
+        accumulator->is_accumulator
+            ? Fun::compute_perturbator(accumulator, deltas)
+            : std::make_pair(std::vector<RelationEvaluations>(log_circuit_size,
+                                                              []() {
+                                                                  RelationEvaluations result;
+                                                                  RelationUtils<Flavor>::zero_elements(result);
+                                                                  return result;
+                                                              }()),
+                             Polynomial<FF>(log_circuit_size + 1));
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
     // different
     if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= accumulator->proving_key.log_circuit_size; idx++) {
+        for (size_t idx = 1; idx <= log_circuit_size; idx++) {
             transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
         }
     }
 
-    return std::make_tuple(deltas, perturbator);
+    return std::make_tuple(deltas, subrelation_evaluations, perturbator);
 };
 
 template <class DeciderProvingKeys>
@@ -175,7 +186,7 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     }
     run_oink_prover_on_each_incomplete_key();
 
-    std::tie(deltas, perturbator) = perturbator_round(accumulator);
+    std::tie(deltas, subrelation_evaluations, perturbator) = perturbator_round(accumulator);
 
     std::tie(accumulator->gate_challenges, alphas, relation_parameters, perturbator_evaluation, combiner_quotient) =
         combiner_quotient_round(accumulator->gate_challenges, deltas, keys_to_fold);
