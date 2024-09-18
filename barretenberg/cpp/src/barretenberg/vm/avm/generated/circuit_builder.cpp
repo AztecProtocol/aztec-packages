@@ -8,6 +8,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp"
 #include "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp"
 #include "barretenberg/vm/stats.hpp"
@@ -16,28 +17,31 @@ namespace bb {
 
 AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() const
 {
-    const auto num_rows = get_circuit_subgroup_size();
+    const size_t circuit_subgroup_size = get_circuit_subgroup_size();
+    // FIXME: Either some algo or the Polynomial class seems to require this to be a power of 2.
+    const size_t num_rows = numeric::round_up_power_2(get_num_gates());
     ProverPolynomials polys;
 
     // Allocate mem for each column
     AVM_TRACK_TIME("circuit_builder/init_polys_to_be_shifted", ({
                        for (auto& poly : polys.get_to_be_shifted()) {
                            poly = Polynomial{ /*memory size*/ num_rows - 1,
-                                              /*largest possible index*/ num_rows,
+                                              /*largest possible index*/ circuit_subgroup_size,
                                               /*make shiftable with offset*/ 1 };
                        }
                    }));
     // catch-all with fully formed polynomials
-    AVM_TRACK_TIME("circuit_builder/init_polys_unshifted", ({
-                       auto unshifted = polys.get_unshifted();
-                       bb::parallel_for(unshifted.size(), [&](size_t i) {
-                           auto& poly = unshifted[i];
-                           if (poly.is_empty()) {
-                               // Not set above
-                               poly = Polynomial{ /*memory size*/ num_rows, /*largest possible index*/ num_rows };
-                           }
-                       });
-                   }));
+    AVM_TRACK_TIME(
+        "circuit_builder/init_polys_unshifted", ({
+            auto unshifted = polys.get_unshifted();
+            bb::parallel_for(unshifted.size(), [&](size_t i) {
+                auto& poly = unshifted[i];
+                if (poly.is_empty()) {
+                    // Not set above
+                    poly = Polynomial{ /*memory size*/ num_rows, /*largest possible index*/ circuit_subgroup_size };
+                }
+            });
+        }));
 
     AVM_TRACK_TIME(
         "circuit_builder/set_polys_unshifted", ({
@@ -723,7 +727,8 @@ bool AvmCircuitBuilder::check_circuit() const
     };
 
     auto polys = compute_polynomials();
-    const size_t num_rows = polys.get_polynomial_size();
+    // We'll only check up to the generated trace which might be << than the circuit subgroup size.
+    const size_t num_rows = get_num_gates();
 
     // Checks that we will run.
     using SignalErrorFn = const std::function<void(const std::string&)>&;
