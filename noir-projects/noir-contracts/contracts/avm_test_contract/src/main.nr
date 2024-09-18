@@ -475,21 +475,23 @@ contract AvmTest {
     /************************************************************************
      * Bulk testing: exercise many functions in a single call.
      * It only makes sense to call functions with side effects (or oracle
-     * calls), since otherwise the whole call might be optimized away.
+     * calls - but not blackboxes!), since otherwise the whole call will
+     * be optimized away.
      ************************************************************************/
     #[aztec(public)]
-    fn bulk_testing() {
-        // Using "inputs" here is a bit of a hack.
+    fn bulk_testing(args_field: [Field; 10], args_u8: [u8; 10]) {
+        // Using "inputs" here is a bit of a hack. It's the PublicContextInputs injected
+        // by the public macros. It's needed by the non-nested call to an entry point function.
         set_storage_single(inputs, 30);
         set_storage_list(inputs, 40, 50);
         let _ = set_storage_map(inputs, context.this_address(), 60);
         let _ = add_storage_map(inputs, context.this_address(), 10);
         let _ = read_storage_map(inputs, context.this_address());
-        let _ = keccak_hash(inputs, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-        let _ = poseidon2_hash(inputs, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-        let _ = sha256_hash(inputs, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-        let _ = pedersen_hash(inputs, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-        let _ = pedersen_hash_with_index(inputs, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        let _ = keccak_hash(inputs, args_u8);
+        let _ = sha256_hash(inputs, args_u8);
+        let _ = poseidon2_hash(inputs, args_field);
+        let _ = pedersen_hash(inputs, args_field);
+        let _ = pedersen_hash_with_index(inputs, args_field);
         test_get_contract_instance(inputs);
         let _ = get_address(inputs);
         let _ = get_storage_address(inputs);
@@ -504,7 +506,6 @@ contract AvmTest {
         let _ = get_fee_per_da_gas(inputs);
         let _ = get_l2_gas_left(inputs);
         let _ = get_da_gas_left(inputs);
-        let _ = get_args_hash(inputs, 1, [1, 2, 3]);
         let _ = emit_unencrypted_log(inputs);
         let _ = note_hash_exists(inputs, 1, 2);
         let _ = new_note_hash(inputs, 1);

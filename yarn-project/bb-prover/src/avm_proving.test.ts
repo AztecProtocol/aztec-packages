@@ -62,7 +62,10 @@ describe.skip('AVM WitGen, proof generation and verification', () => {
   it(
     'Should prove and verify bulk_testing',
     async () => {
-      await proveAndVerifyAvmTestContract('bulk_testing', []);
+      await proveAndVerifyAvmTestContract(
+        'bulk_testing',
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x)),
+      );
     },
     TIMEOUT,
   );
