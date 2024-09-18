@@ -29,6 +29,7 @@ import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_sto
 
 interface MockRollupContractRead {
   archiveAt: (args: readonly [bigint]) => Promise<`0x${string}`>;
+  getProvenBlockNumber: () => Promise<bigint>;
 }
 
 describe('Archiver', () => {
@@ -40,9 +41,9 @@ describe('Archiver', () => {
   let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let archiverStore: ArchiverDataStore;
-  let proverId: Fr;
   let now: number;
 
+  let rollupRead: MockProxy<MockRollupContractRead>;
   let archiver: Archiver;
   let blocks: L2Block[];
 
@@ -56,7 +57,6 @@ describe('Archiver', () => {
 
     instrumentation = mock({ isEnabled: () => true });
     archiverStore = new MemoryArchiverStore(1000);
-    proverId = Fr.random();
 
     archiver = new Archiver(
       publicClient,
@@ -70,9 +70,11 @@ describe('Archiver', () => {
 
     blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
 
-    ((archiver as any).rollup as any).read = mock<MockRollupContractRead>({
+    rollupRead = mock<MockRollupContractRead>({
       archiveAt: (args: readonly [bigint]) => Promise.resolve(blocks[Number(args[0] - 1n)].archive.root.toString()),
     });
+
+    ((archiver as any).rollup as any).read = rollupRead;
   });
 
   afterEach(async () => {
@@ -91,8 +93,9 @@ describe('Archiver', () => {
     mockGetLogs({
       messageSent: [makeMessageSentEvent(98n, 1n, 0n), makeMessageSentEvent(99n, 1n, 1n)],
       L2BlockProposed: [makeL2BlockProposedEvent(101n, 1n, blocks[0].archive.root.toString())],
-      proofVerified: [makeProofVerifiedEvent(102n, 1n, proverId)],
     });
+
+    rollupRead.getProvenBlockNumber.mockResolvedValueOnce(1n);
 
     mockGetLogs({
       messageSent: [
@@ -175,11 +178,6 @@ describe('Archiver', () => {
     // Check getting only proven blocks
     expect((await archiver.getBlocks(1, 100)).map(b => b.number)).toEqual([1, 2, 3]);
     expect((await archiver.getBlocks(1, 100, true)).map(b => b.number)).toEqual([1]);
-
-    // Check instrumentation of proven blocks
-    expect(instrumentation.processProofsVerified).toHaveBeenCalledWith([
-      { delay: 1000n, l1BlockNumber: 102n, l2BlockNumber: 1n, proverId: proverId.toString() },
-    ]);
   }, 10_000);
 
   it('does not sync past current block number', async () => {
@@ -259,12 +257,10 @@ describe('Archiver', () => {
   const mockGetLogs = (logs: {
     messageSent?: ReturnType<typeof makeMessageSentEvent>[];
     L2BlockProposed?: ReturnType<typeof makeL2BlockProposedEvent>[];
-    proofVerified?: ReturnType<typeof makeProofVerifiedEvent>[];
   }) => {
     publicClient.getLogs
       .mockResolvedValueOnce(logs.messageSent ?? [])
-      .mockResolvedValueOnce(logs.L2BlockProposed ?? [])
-      .mockResolvedValueOnce(logs.proofVerified ?? []);
+      .mockResolvedValueOnce(logs.L2BlockProposed ?? []);
   };
 });
 
@@ -298,16 +294,6 @@ function makeMessageSentEvent(l1BlockNum: bigint, l2BlockNumber: bigint, index: 
     },
     transactionHash: `0x${l1BlockNum}`,
   } as Log<bigint, number, false, undefined, true, typeof InboxAbi, 'MessageSent'>;
-}
-
-function makeProofVerifiedEvent(l1BlockNum: bigint, l2BlockNumber: bigint, proverId: Fr) {
-  return {
-    blockNumber: l1BlockNum,
-    args: {
-      blockNumber: l2BlockNumber,
-      proverId: proverId.toString(),
-    },
-  } as Log<bigint, number, false, undefined, true, typeof RollupAbi, 'L2ProofVerified'>;
 }
 
 /**

@@ -24,7 +24,6 @@ import {
 import { createEthereumChain } from '@aztec/ethereum';
 import { type ContractArtifact } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { compactArray, unique } from '@aztec/foundation/collection';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -55,12 +54,7 @@ import {
 
 import { type ArchiverDataStore } from './archiver_store.js';
 import { type ArchiverConfig } from './config.js';
-import {
-  getL1BlockTime,
-  retrieveBlockFromRollup,
-  retrieveL1ToL2Messages,
-  retrieveL2ProofVerifiedEvents,
-} from './data_retrieval.js';
+import { retrieveBlockFromRollup, retrieveL1ToL2Messages } from './data_retrieval.js';
 import { ArchiverInstrumentation } from './instrumentation.js';
 import { type SingletonDataRetrieval } from './structs/data_retrieval.js';
 
@@ -212,22 +206,6 @@ export class Archiver implements ArchiveSource {
     } = await this.store.getSynchPoint();
     const currentL1BlockNumber = await this.publicClient.getBlockNumber();
 
-    if (
-      currentL1BlockNumber <= blocksSynchedTo &&
-      currentL1BlockNumber <= messagesSynchedTo &&
-      currentL1BlockNumber <= provenLogsSynchedTo
-    ) {
-      // chain hasn't moved forward
-      // or it's been rolled back
-      this.log.debug(`Nothing to sync`, {
-        currentL1BlockNumber,
-        blocksSynchedTo,
-        messagesSynchedTo,
-        provenLogsSynchedTo,
-      });
-      return;
-    }
-
     // ********** Ensuring Consistency of data pulled from L1 **********
 
     /**
@@ -247,10 +225,11 @@ export class Archiver implements ArchiveSource {
      * in future but for the time being it should give us the guarantees that we need
      */
 
+    await this.updateLastProvenL2Block(provenLogsSynchedTo, currentL1BlockNumber);
+
     // ********** Events that are processed per L1 block **********
 
     await this.handleL1ToL2Messages(blockUntilSynced, messagesSynchedTo, currentL1BlockNumber);
-    await this.updateLastProvenL2Block(provenLogsSynchedTo + 1n, currentL1BlockNumber);
 
     // ********** Events that are processed per L2 block **********
     await this.handleL2blocks(blockUntilSynced, blocksSynchedTo, currentL1BlockNumber);
@@ -283,43 +262,16 @@ export class Archiver implements ArchiveSource {
     }
   }
 
-  private async updateLastProvenL2Block(provenLogsSynchedTo: bigint, currentL1BlockNumber: bigint) {
-    if (currentL1BlockNumber <= provenLogsSynchedTo) {
+  private async updateLastProvenL2Block(provenSynchedTo: bigint, currentL1BlockNumber: bigint) {
+    if (currentL1BlockNumber <= provenSynchedTo) {
       return;
     }
 
-    const logs = await retrieveL2ProofVerifiedEvents(
-      this.publicClient,
-      this.rollupAddress,
-      provenLogsSynchedTo + 1n,
-      currentL1BlockNumber,
-    );
-    const lastLog = logs[logs.length - 1];
-    if (!lastLog) {
-      return;
-    }
-
-    const provenBlockNumber = lastLog.l2BlockNumber;
-    if (!provenBlockNumber) {
-      throw new Error(`Missing argument blockNumber from L2ProofVerified event`);
-    }
-
-    await this.emitProofVerifiedMetrics(logs);
-
-    const currentProvenBlockNumber = await this.store.getProvenL2BlockNumber();
-    if (provenBlockNumber > currentProvenBlockNumber) {
-      // Update the last proven block number
-      this.log.verbose(`Updated last proven block number from ${currentProvenBlockNumber} to ${provenBlockNumber}`);
+    const provenBlockNumber = await this.rollup.read.getProvenBlockNumber();
+    if (provenBlockNumber) {
       await this.store.setProvenL2BlockNumber({
         retrievedData: Number(provenBlockNumber),
-        lastProcessedL1BlockNumber: lastLog.l1BlockNumber,
-      });
-      this.instrumentation.updateLastProvenBlock(Number(provenBlockNumber));
-    } else {
-      // We set the last processed L1 block number to the last L1 block number in the range to avoid duplicate processing
-      await this.store.setProvenL2BlockNumber({
-        retrievedData: Number(currentProvenBlockNumber),
-        lastProcessedL1BlockNumber: lastLog.l1BlockNumber,
+        lastProcessedL1BlockNumber: currentL1BlockNumber,
       });
     }
   }
@@ -380,10 +332,6 @@ export class Archiver implements ArchiveSource {
       );
 
       const timer = new Timer();
-      await this.store.addBlockBodies({
-        lastProcessedL1BlockNumber: lastProcessedL1BlockNumber,
-        retrievedData: retrievedBlocks.map(b => b.data.body),
-      });
       await this.store.addBlocks(retrievedBlocks);
       this.instrumentation.processNewBlocks(
         timer.ms() / retrievedBlocks.length,
@@ -396,51 +344,6 @@ export class Archiver implements ArchiveSource {
     if (retrievedBlocks.length > 0 || blockUntilSynced) {
       (blockUntilSynced ? this.log.info : this.log.verbose)(`Synced to L1 block ${currentL1BlockNumber}`);
     }
-  }
-
-  /**
-   * Emits as metrics the block number proven, who proved it, and how much time passed since it was submitted.
-   * @param logs - The ProofVerified logs to emit metrics for, as collected from `retrieveL2ProofVerifiedEvents`.
-   **/
-  private async emitProofVerifiedMetrics(logs: { l1BlockNumber: bigint; l2BlockNumber: bigint; proverId: Fr }[]) {
-    if (!logs.length || !this.instrumentation.isEnabled()) {
-      return;
-    }
-
-    const l1BlockTimes = new Map(
-      await Promise.all(
-        unique(logs.map(log => log.l1BlockNumber)).map(
-          async blockNumber => [blockNumber, await getL1BlockTime(this.publicClient, blockNumber)] as const,
-        ),
-      ),
-    );
-
-    // Collect L2 block times for all the blocks verified, this is the time in which the block proven was
-    // originally submitted to L1, using the L1 timestamp of the transaction.
-    const getL2BlockTime = async (blockNumber: bigint) =>
-      (await this.store.getBlocks(Number(blockNumber), 1))[0]?.l1.timestamp;
-
-    const l2BlockTimes = new Map(
-      await Promise.all(
-        unique(logs.map(log => log.l2BlockNumber)).map(
-          async blockNumber => [blockNumber, await getL2BlockTime(blockNumber)] as const,
-        ),
-      ),
-    );
-
-    // Emit the prover id and the time difference between block submission and proof.
-    this.instrumentation.processProofsVerified(
-      compactArray(
-        logs.map(log => {
-          const l1BlockTime = l1BlockTimes.get(log.l1BlockNumber)!;
-          const l2BlockTime = l2BlockTimes.get(log.l2BlockNumber);
-          if (!l2BlockTime) {
-            return undefined;
-          }
-          return { ...log, delay: l1BlockTime - l2BlockTime, proverId: log.proverId.toString() };
-        }),
-      ),
-    );
   }
 
   /**
