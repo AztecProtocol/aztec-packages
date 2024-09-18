@@ -8,6 +8,7 @@ import { type Libp2p } from 'libp2p';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
 import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { type PeerManager } from '../peer_manager.js';
 import { type P2PReqRespConfig } from './config.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
@@ -15,7 +16,6 @@ import {
   type ReqRespSubProtocolHandlers,
 } from './interface.js';
 import { RequestResponseRateLimiter } from './rate_limiter/rate_limiter.js';
-import { PeerManager } from '../peer_manager.js';
 
 /**
  * The Request Response Service

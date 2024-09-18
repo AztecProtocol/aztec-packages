@@ -5,10 +5,10 @@
  */
 import { type PeerId } from '@libp2p/interface';
 
+import { type PeerManager } from '../../peer_manager.js';
+import { PeerErrorSeverity } from '../../peer_scoring.js';
 import { type ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
 import { DEFAULT_RATE_LIMITS } from './rate_limits.js';
-import { PeerManager } from '../../peer_manager.js';
-import { PeerErrorSeverity } from '../../peer_scoring.js';
 
 // Check for disconnected peers every 10 minutes
 const CHECK_DISCONNECTED_PEERS_INTERVAL_MS = 10 * 60 * 1000;
@@ -74,7 +74,7 @@ interface PeerRateLimiter {
 enum RateLimitStatus {
   Allowed,
   DeniedGlobal,
-  DeniedPeer
+  DeniedPeer,
 }
 
 /**
