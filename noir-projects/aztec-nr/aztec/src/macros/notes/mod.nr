@@ -33,8 +33,8 @@ comptime fn generate_note_interface(
     s: StructDefinition,
     note_type_id: Field,
     hiding_point_name: Quoted,
-    fixed_fields: [(Quoted, Type)],
-    nullable_fields: [Quoted]
+    indexed_fixed_fields: [(Quoted, Type, u32)],
+    indexed_nullable_fields: [(Quoted, u32)]
 ) -> (Quoted, u32) {
     let name = s.name();
     let typ = s.as_type();
@@ -56,8 +56,8 @@ comptime fn generate_note_interface(
         &[(quote {header}, quote { aztec::note::note_header::NoteHeader::empty() })]
     );
 
-    let fixed_fields_args = fixed_fields.map(| (name, _): (Quoted, Type) | quote{self.$name}).push_back(quote {self.get_header().storage_slot}).join(quote {,});
-    let nullable_fields_args = nullable_fields.map(|field| quote { self.$field }).join(quote {,});
+    let fixed_fields_args = indexed_fixed_fields.map(| (name, _, _): (Quoted, Type, u32) | quote{self.$name}).push_back(quote {self.get_header().storage_slot}).join(quote {,});
+    let nullable_fields_args = indexed_nullable_fields.map(|(name, _): (Quoted, u32)| quote { self.$name }).join(quote {,});
 
     (quote {
         impl aztec::note::note_interface::NoteInterface<$content_len> for $name {
@@ -164,8 +164,8 @@ pub(crate) comptime fn generate_note_export(s: StructDefinition, note_type_id: F
 
 comptime fn generate_note_hiding_point(
     s: StructDefinition,
-    fixed_fields: [(Quoted, Type)],
-    nullable_fields: [Quoted]
+    indexed_fixed_fields: [(Quoted, Type, u32)],
+    indexed_nullable_fields: [(Quoted, u32)]
 ) -> (Quoted, Quoted) {
     let name = s.name();
     let hiding_point_name = f"{name}HidingPoint".quoted_contents();
@@ -176,10 +176,10 @@ comptime fn generate_note_hiding_point(
     let mut new_generics_list = &[];
     let mut new_trait_bounds_list = &[];
 
-    for i in 0..fixed_fields.len() {
-        let (field_name, _) = fixed_fields[i];
+    for i in 0..indexed_fixed_fields.len() {
+        let (field_name, _, index) = indexed_fixed_fields[i];
         let arg_type = f"N{i}".quoted_contents();
-        let generator_index = i + 1;
+        let generator_index = index + 1;
         new_generators_list = new_generators_list.push_back(f"aztec::generators::Ga{generator_index}".quoted_contents());
         new_scalars_list = new_scalars_list.push_back(quote { std::hash::from_field_unsafe($field_name.to_field()) });
         new_args_list = new_args_list.push_back(quote { $field_name: $arg_type });
@@ -212,11 +212,11 @@ comptime fn generate_note_hiding_point(
     let mut finalize_generics_list = &[];
     let mut finalize_trait_bounds_list = &[];
 
-    for i in 0..nullable_fields.len() {
-        let field_name = nullable_fields[i];
+    for i in 0..indexed_nullable_fields.len() {
+        let (field_name, index) = indexed_nullable_fields[i];
         let arg_type = f"N{i}".quoted_contents();
         finalize_args_list = finalize_args_list.push_back(quote { $field_name: $arg_type });
-        let generator_index = i + 1 + fixed_fields.len();
+        let generator_index = index + 1;
         finalize_generators_list = finalize_generators_list.push_back(f"aztec::generators::Ga{generator_index}".quoted_contents());
         finalize_scalars_list = finalize_scalars_list.push_back(quote { std::hash::from_field_unsafe($field_name.to_field()) });
         finalize_generics_list = finalize_generics_list.push_back(quote { $arg_type });
@@ -229,7 +229,7 @@ comptime fn generate_note_hiding_point(
         quote {self}
     };
 
-    let finalize_body = if nullable_fields.len() > 0 {
+    let finalize_body = if indexed_nullable_fields.len() > 0 {
         let finalize_generators = finalize_generators_list.join(quote {,});
         let finalize_scalars = finalize_scalars_list.join(quote {,});
         quote {
@@ -325,16 +325,31 @@ comptime fn register_note(note: StructDefinition, note_serialized_len: u32, note
     NOTES.insert(note.as_type(), (note, note_serialized_len, note_type_id));
 }
 
-comptime fn extract_fixed_fields(s: StructDefinition, nullable_fields: [Quoted]) -> [(Quoted, Type)] {
-    s.fields().filter(
-        | (name, typ): (Quoted, Type) | (typ != NOTE_HEADER_TYPE) & nullable_fields.all(| field | field != name)
-    )
+comptime fn index_note_fields(
+    s: StructDefinition,
+    nullable_fields: [Quoted]
+) -> ([(Quoted, Type, u32)], [(Quoted, u32)]) {
+    let mut indexed_fixed_fields = &[];
+    let mut indexed_nullable_fields = &[];
+    let mut counter: u32 = 0;
+    for field in s.fields() {
+        let (name, typ) = field;
+        if (typ != NOTE_HEADER_TYPE) {
+            if nullable_fields.all(| field | field != name) {
+                indexed_fixed_fields = indexed_fixed_fields.push_back((name, typ, counter));
+            } else {
+                indexed_nullable_fields = indexed_nullable_fields.push_back((name, counter));
+            }
+        }
+        counter+=1;
+    }
+    (indexed_fixed_fields, indexed_nullable_fields)
 }
 
 comptime fn common_note_annotation(
     s: StructDefinition,
-    fixed_fields: [(Quoted, Type)],
-    nullable_fields: [Quoted]
+    indexed_fixed_fields: [(Quoted, Type, u32)],
+    indexed_nullable_fields: [(Quoted, u32)]
 ) -> (Quoted, Quoted, Field) {
     // Automatically inject header if not present
     let filtered_header = s.fields().filter(| (_, typ): (Quoted, Type) | typ == NOTE_HEADER_TYPE);
@@ -342,7 +357,7 @@ comptime fn common_note_annotation(
         let new_fields = s.fields().push_back((quote { header }, NOTE_HEADER_TYPE));
         s.set_fields(new_fields);
     }
-    let (note_hiding_point, hiding_point_name) = generate_note_hiding_point(s, fixed_fields, nullable_fields);
+    let (note_hiding_point, hiding_point_name) = generate_note_hiding_point(s, indexed_fixed_fields, indexed_nullable_fields);
     let note_properties = generate_note_properties(s);
     let note_type_id = compute_note_type_id(s.name());
 
@@ -354,14 +369,14 @@ comptime fn common_note_annotation(
 
 #[varargs]
 pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> Quoted {
-    let fixed_fields = extract_fixed_fields(s, nullable_fields);
-    let (common, hiding_point_name, note_type_id) = common_note_annotation(s, fixed_fields, nullable_fields);
+    let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, nullable_fields);
+    let (common, hiding_point_name, note_type_id) = common_note_annotation(s, indexed_fixed_fields, indexed_nullable_fields);
     let (note_interface_impl, note_serialized_len) = generate_note_interface(
         s,
         note_type_id,
         hiding_point_name,
-        fixed_fields,
-        nullable_fields
+        indexed_fixed_fields,
+        indexed_nullable_fields
     );
     let partial_note_impl = generate_partial_note_impl(s, hiding_point_name);
     register_note(s, note_serialized_len, note_type_id);
@@ -374,9 +389,15 @@ pub comptime fn partial_note(s: StructDefinition, nullable_fields: [Quoted]) -> 
 }
 
 pub comptime fn note(s: StructDefinition) -> Quoted {
-    let fixed_fields = extract_fixed_fields(s, &[]);
-    let (common, hiding_point_name, note_type_id) = common_note_annotation(s, fixed_fields, &[]);
-    let (note_interface_impl, note_serialized_len) = generate_note_interface(s, note_type_id, hiding_point_name, fixed_fields, &[]);
+    let (indexed_fixed_fields, indexed_nullable_fields) = index_note_fields(s, &[]);
+    let (common, hiding_point_name, note_type_id) = common_note_annotation(s, indexed_fixed_fields, indexed_nullable_fields);
+    let (note_interface_impl, note_serialized_len) = generate_note_interface(
+        s,
+        note_type_id,
+        hiding_point_name,
+        indexed_fixed_fields,
+        indexed_nullable_fields
+    );
     register_note(s, note_serialized_len, note_type_id);
 
     quote {
@@ -386,8 +407,8 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
 }
 
 pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
-    let fixed_fields = extract_fixed_fields(s, &[]);
-    let (common, _, note_type_id) = common_note_annotation(s, fixed_fields, &[]);
+    let (indexed_fixed_fields, indexed_nullable_fields)= index_note_fields(s, &[]);
+    let (common, _, note_type_id) = common_note_annotation(s, indexed_fixed_fields, indexed_nullable_fields);
 
     let serialized_len_type = fresh_type_variable();
     let note_interface_impl = s.as_type().get_trait_impl(quote { NoteInterface<$serialized_len_type> }.as_trait_constraint());
