@@ -74,7 +74,6 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     static constexpr size_t NUM_KEYS = DeciderVerificationKeys::NUM;
 
     const std::shared_ptr<const DeciderVK>& accumulator = keys_to_fold[0];
-    // const size_t log_circuit_size = static_cast<size_t>(accumulator->verification_key->log_circuit_size);
 
     run_oink_verifier_on_each_incomplete_key(proof);
 

@@ -172,9 +172,13 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());
         const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
-        std::span betaz{ betas.data(), log_circuit_size };
-        std::span deltaz{ deltas.data(), log_circuit_size };
-        std::vector<FF> perturbator = construct_perturbator_coefficients(betaz, deltaz, full_honk_evaluations);
+
+        // Compute the perturbator using only the first log_circuit_size-many betas/deltas
+        std::vector<FF> perturbator = construct_perturbator_coefficients(std::span{ betas.data(), log_circuit_size },
+                                                                         std::span{ deltas.data(), log_circuit_size },
+                                                                         full_honk_evaluations);
+
+        // Pupulate the remaining coefficients with zeros to reach the required constant size
         for (size_t idx = log_circuit_size; idx < CONST_PG_LOG_N; ++idx) {
             perturbator.emplace_back(FF(0));
         }

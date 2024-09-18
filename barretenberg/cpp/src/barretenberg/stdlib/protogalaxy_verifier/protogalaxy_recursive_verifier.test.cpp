@@ -416,6 +416,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
             OuterBuilder verifier_circuit;
         };
 
+        // Fold two circuits of a given size then construct a recursive PG verifier circuit
         auto produce_proof_and_verifier_circuit = [](size_t log_num_gates) -> ProofAndVerifier {
             InnerBuilder builder1;
             create_function_circuit(builder1, log_num_gates);
