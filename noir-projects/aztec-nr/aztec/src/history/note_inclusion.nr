@@ -11,7 +11,10 @@ trait ProveNoteInclusion {
 }
 
 impl ProveNoteInclusion for Header {
-    fn prove_note_inclusion<Note, let N: u32, let M: u32>(self, note: Note) where Note: NoteInterface<N, M> {
+    fn prove_note_inclusion<Note, let N: u32, let M: u32>(
+        self,
+        note: Note
+    ) where Note: NoteInterface<N, M> {
         let note_hash = compute_note_hash_for_nullify(note);
 
         let witness = unsafe {
