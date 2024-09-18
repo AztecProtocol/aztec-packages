@@ -254,7 +254,7 @@ template <typename Fr> class Polynomial {
      *
      * @return a polynomial with a larger size() but same virtual_size()
      */
-    Polynomial expand(size_t new_start_idx, size_t new_end_idx) const;
+    Polynomial expand(size_t new_start_index, size_t new_end_index) const;
 
     /**
      * @brief Copys the polynomial, but with the whole address space usable.

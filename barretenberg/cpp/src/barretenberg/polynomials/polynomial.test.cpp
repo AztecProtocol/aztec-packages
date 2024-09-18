@@ -74,24 +74,24 @@ TEST(Polynomial, AddScaledEdgeConditions)
     // Suppress warnings about fork(), we're OK with the edge cases.
     GTEST_FLAG_SET(death_test_style, "threadsafe");
     using FF = bb::fr;
-    auto test_subset_good = []() {
+    auto test_subset_good1 = []() {
         // Contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
         poly.add_scaled(bb::Polynomial<FF>::random(4, /*start index*/ 1), 1);
     };
-    ASSERT_NO_FATAL_FAILURE(test_subset_good());
-    auto test_subset_bad1 = []() {
+    ASSERT_NO_FATAL_FAILURE(test_subset_good1());
+    auto test_subset_good2 = []() {
         // Not contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 1);
         poly.add_scaled(bb::Polynomial<FF>::random(4, /*start index*/ 0), 1);
     };
-    ASSERT_DEATH(test_subset_bad1(), ".*start_index.*other.start_index.*");
-    auto test_subset_bad2 = []() {
+    ASSERT_NO_FATAL_FAILURE(test_subset_good2());
+    auto test_subset_bad = []() {
         // Not contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
         poly.add_scaled(bb::Polynomial<FF>::random(5, /*start index*/ 0), 1);
     };
-    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*other.end_index.*");
+    ASSERT_DEATH(test_subset_bad(), ".*end_index.*virtual_size.*");
 }
 
 TEST(Polynomial, OperatorAddEdgeConditions)
@@ -99,24 +99,24 @@ TEST(Polynomial, OperatorAddEdgeConditions)
     // Suppress warnings about fork(), we're OK with the edge cases.
     GTEST_FLAG_SET(death_test_style, "threadsafe");
     using FF = bb::fr;
-    auto test_subset_good = []() {
+    auto test_subset_good1 = []() {
         // Contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
         poly += bb::Polynomial<FF>::random(4, /*start index*/ 1);
     };
-    ASSERT_NO_FATAL_FAILURE(test_subset_good());
-    auto test_subset_bad1 = []() {
+    ASSERT_NO_FATAL_FAILURE(test_subset_good1());
+    auto test_subset_good2 = []() {
         // Not contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 1);
         poly += bb::Polynomial<FF>::random(4, /*start index*/ 0);
     };
-    ASSERT_DEATH(test_subset_bad1(), ".*start_index.*other.start_index.*");
+    ASSERT_NO_FATAL_FAILURE(test_subset_good2());
     auto test_subset_bad2 = []() {
         // Not contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
         poly += bb::Polynomial<FF>::random(5, /*start index*/ 0);
     };
-    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*other.end_index.*");
+    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*virtual_size.*");
 }
 
 TEST(Polynomial, OperatorSubtractEdgeConditions)
@@ -124,24 +124,24 @@ TEST(Polynomial, OperatorSubtractEdgeConditions)
     // Suppress warnings about fork(), we're OK with the edge cases.
     GTEST_FLAG_SET(death_test_style, "threadsafe");
     using FF = bb::fr;
-    auto test_subset_good = []() {
+    auto test_subset_good1 = []() {
         // Contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
         poly -= bb::Polynomial<FF>::random(4, /*start index*/ 1);
     };
-    ASSERT_NO_FATAL_FAILURE(test_subset_good());
-    auto test_subset_bad1 = []() {
+    ASSERT_NO_FATAL_FAILURE(test_subset_good1());
+    auto test_subset_good2 = []() {
         // Not contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 1);
         poly -= bb::Polynomial<FF>::random(4, /*start index*/ 0);
     };
-    ASSERT_DEATH(test_subset_bad1(), ".*start_index.*other.start_index.*");
-    auto test_subset_bad2 = []() {
+    ASSERT_NO_FATAL_FAILURE(test_subset_good2());
+    auto test_subset_bad = []() {
         // Not contained within poly
         auto poly = bb::Polynomial<FF>::random(4, /*start index*/ 0);
         poly -= bb::Polynomial<FF>::random(5, /*start index*/ 0);
     };
-    ASSERT_DEATH(test_subset_bad2(), ".*end_index.*other.end_index.*");
+    ASSERT_DEATH(test_subset_bad(), ".*end_index.*virtual_size.*");
 }
 
 // Makes a vector fully of the virtual_size aka degree + 1
@@ -161,6 +161,9 @@ TEST(Polynomial, Full)
         auto poly = bb::Polynomial<FF>::random(1, degree_plus_1, /*start index*/ degree_plus_1 - 1);
         poly -= bb::Polynomial<FF>::random(degree_plus_1, /*start index*/ 0);
     };
-    ASSERT_DEATH(no_full_bad(), ".*start_index.*other.start_index.*");
+    ASSERT_NO_FATAL_FAILURE(no_full_bad());
 }
+
+// WORKTODO: add test for expand()
+
 #endif

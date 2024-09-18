@@ -87,8 +87,10 @@ async function initUltraHonk(bytecodePath: string, crsPath: string) {
   debug(`circuit size: ${circuitSize}`);
   debug(`dyadic circuit size size: ${dyadicCircuitSize}`);
   debug('loading crs...');
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
+  // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
   // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(dyadicCircuitSize + 1, crsPath);
+  const crs = await Crs.new(dyadicCircuitSize + (dyadicCircuitSize * 6) / 10 + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -100,8 +102,10 @@ async function initClientIVC(bytecodePath: string, crsPath: string) {
   const api = await Barretenberg.new({ threads });
 
   debug('loading BN254 and Grumpkin crs...');
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
+  // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
   // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(2 ** 18 + 1, crsPath);
+  const crs = await Crs.new(2 ** 19 + 1, crsPath);
   const grumpkinCrs = await GrumpkinCrs.new(2 ** 14 + 1, crsPath);
 
   // Load CRS into wasm global CRS state.

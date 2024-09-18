@@ -324,16 +324,16 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scali
     return *this;
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::expand(size_t new_start_idx, size_t new_end_idx) const
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::expand(size_t new_start_index, size_t new_end_index) const
 {
-    ASSERT(new_end_idx <= virtual_size());
-    ASSERT((new_start_idx <= start_index() && new_end_idx >= end_index()));
-    if (new_start_idx == start_index() && new_end_idx == end_index()) {
+    ASSERT(new_end_index <= virtual_size());
+    ASSERT((new_start_index <= start_index() && new_end_index >= end_index()));
+    if (new_start_index == start_index() && new_end_index == end_index()) {
         return *this;
     }
     Polynomial result = *this;
-    // Make new_start_idx..new_end_idx usable
-    result.coefficients_ = _clone(coefficients_, new_end_idx - end_index(), start_index() - new_start_idx);
+    // Make new_start_index..new_end_index usable
+    result.coefficients_ = _clone(coefficients_, new_end_index - end_index(), start_index() - new_start_index);
     return result;
 }
 
