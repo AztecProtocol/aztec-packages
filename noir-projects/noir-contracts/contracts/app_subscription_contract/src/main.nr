@@ -8,9 +8,8 @@ contract AppSubscription {
     use crate::{dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
     use aztec::{
-        prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
-        keys::getters::get_current_public_keys, protocol_types::constants::MAX_FIELD_VALUE,
-        utils::comparison::Comparator,
+        prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable}, keys::getters::get_public_keys,
+        protocol_types::constants::MAX_FIELD_VALUE, utils::comparison::Comparator,
         encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys},
         macros::{storage::storage, functions::{public, initializer, private}}
     };
@@ -98,8 +97,8 @@ contract AppSubscription {
             &mut context
         );
 
-        let subscriber_keys = get_current_public_keys(&mut context, subscriber);
-        let msg_sender_ovpk_m = get_current_public_keys(&mut context, context.msg_sender()).ovpk_m;
+        let subscriber_keys = get_public_keys(subscriber);
+        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
 
         let mut subscription_note = SubscriptionNote::new(subscriber_keys.npk_m.hash(), expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber).initialize_or_replace(&mut subscription_note).emit(

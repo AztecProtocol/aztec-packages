@@ -2,7 +2,7 @@ use crate::{test::utils, Token, types::token_note::TokenNote};
 
 use dep::aztec::{
     prelude::NoteHeader, protocol_types::storage::map::derive_storage_slot_in_map,
-    keys::getters::get_current_public_keys
+    keys::getters::get_public_keys
 };
 use dep::authwit::cheatcodes as authwit_cheatcodes;
 
@@ -33,8 +33,8 @@ unconstrained fn setup_refund_success() {
 
     env.call_private_void(setup_refund_from_call_interface);
     let mut context = env.private();
-    let user_npk_m_hash = get_current_public_keys(&mut context, user).npk_m.hash();
-    let fee_payer_npk_m_hash = get_current_public_keys(&mut context, fee_payer).npk_m.hash();
+    let user_npk_m_hash = get_public_keys(user).npk_m.hash();
+    let fee_payer_npk_m_hash = get_public_keys(fee_payer).npk_m.hash();
 
     let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, fee_payer);
     let user_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, user);

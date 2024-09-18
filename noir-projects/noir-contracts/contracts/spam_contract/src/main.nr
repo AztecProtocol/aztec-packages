@@ -9,7 +9,7 @@ contract Spam {
     use dep::aztec::{
         prelude::{Map, AztecAddress, PublicMutable},
         encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note_with_keys_unconstrained},
-        keys::getters::get_current_public_keys,
+        keys::getters::get_public_keys,
         protocol_types::{
         hash::poseidon2_hash_with_separator,
         constants::{
@@ -31,7 +31,7 @@ contract Spam {
     #[private]
     fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
         let caller = context.msg_sender();
-        let caller_keys = get_current_public_keys(&mut context, caller);
+        let caller_keys = get_public_keys(caller);
         let amount = U128::from_integer(1);
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {

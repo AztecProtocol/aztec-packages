@@ -1,5 +1,5 @@
 use dep::aztec::{
-    hash::pedersen_hash, keys::getters::get_current_public_keys, prelude::{AztecAddress, NoteHeader},
+    hash::pedersen_hash, keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader},
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
     oracle::{execution::{get_block_number, get_contract_address}, unsafe_rand::unsafe_rand, storage::storage_read}
@@ -72,7 +72,7 @@ pub fn setup_mint_and_transfer_to_private(with_account_contracts: bool) -> (&mut
 
     // Store the finalized note in the cache
     let mut context = env.private();
-    let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
+    let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
     let private_nfts_owner_slot = derive_storage_slot_in_map(NFT::storage_layout().private_nfts.slot, owner);
 
     env.add_note(

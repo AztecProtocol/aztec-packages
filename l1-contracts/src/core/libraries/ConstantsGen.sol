@@ -219,6 +219,13 @@ library Constants {
   uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 439;
   uint256 internal constant TUBE_PROOF_LENGTH = 439;
   uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
+  uint256 internal constant MEM_TAG_U1 = 1;
+  uint256 internal constant MEM_TAG_U8 = 2;
+  uint256 internal constant MEM_TAG_U16 = 3;
+  uint256 internal constant MEM_TAG_U32 = 4;
+  uint256 internal constant MEM_TAG_U64 = 5;
+  uint256 internal constant MEM_TAG_U128 = 6;
+  uint256 internal constant MEM_TAG_FF = 7;
   uint256 internal constant SENDER_SELECTOR = 0;
   uint256 internal constant ADDRESS_SELECTOR = 1;
   uint256 internal constant STORAGE_ADDRESS_SELECTOR = 1;

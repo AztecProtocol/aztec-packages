@@ -51,7 +51,7 @@ void common_validate_cmp(Row const& row,
 
     // Check the instruction tags
     EXPECT_EQ(row.main_r_in_tag, FF(static_cast<uint32_t>(tag)));
-    EXPECT_EQ(row.main_w_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U8)));
+    EXPECT_EQ(row.main_w_in_tag, FF(static_cast<uint32_t>(AvmMemoryTag::U1)));
 
     // Check that intermediate registers are correctly copied in Alu trace
     EXPECT_EQ(alu_row.alu_ia, a);
@@ -60,6 +60,7 @@ void common_validate_cmp(Row const& row,
 }
 } // namespace
 std::vector<ThreeOpParam> positive_op_lt_test_values = { { { FF(1), FF(1), FF(0) },
+                                                           { FF(1), FF(1), FF(0) },
                                                            { FF(5323), FF(321), FF(0) },
                                                            { FF(13793), FF(10590617LLU), FF(1) },
                                                            { FF(0x7bff744e3cdf79LLU), FF(0x14ccccccccb6LLU), FF(0) },
@@ -69,6 +70,7 @@ std::vector<ThreeOpParam> positive_op_lt_test_values = { { { FF(1), FF(1), FF(0)
                                                              1 } } };
 std::vector<ThreeOpParam> positive_op_lte_test_values = {
     { { FF(1), FF(1), FF(1) },
+      { FF(1), FF(1), FF(1) },
       { FF(5323), FF(321), FF(0) },
       { FF(13793), FF(10590617LLU), FF(1) },
       { FF(0x7bff744e3cdf79LLU), FF(0x14ccccccccb6LLU), FF(0) },
@@ -78,7 +80,7 @@ std::vector<ThreeOpParam> positive_op_lte_test_values = {
 };
 
 std::vector<AvmMemoryTag> mem_tag_arr{
-    { AvmMemoryTag::U8, AvmMemoryTag::U16, AvmMemoryTag::U32, AvmMemoryTag::U64, AvmMemoryTag::U128 }
+    { AvmMemoryTag::U1, AvmMemoryTag::U8, AvmMemoryTag::U16, AvmMemoryTag::U32, AvmMemoryTag::U64, AvmMemoryTag::U128 }
 };
 
 class AvmCmpTests : public ::testing::Test {

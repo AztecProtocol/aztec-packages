@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { type MemoryValue, Uint8 } from '../avm_memory_types.js';
+import { type MemoryValue, Uint1 } from '../avm_memory_types.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { ThreeOperandInstruction } from './instruction_impl.js';
@@ -19,7 +19,7 @@ abstract class ComparatorInstruction extends ThreeOperandInstruction {
     const a = memory.get(aOffset);
     const b = memory.get(bOffset);
 
-    const dest = new Uint8(this.compare(a, b) ? 1 : 0);
+    const dest = new Uint1(this.compare(a, b) ? 1 : 0);
     memory.set(dstOffset, dest);
 
     memory.assert(memoryOperations);

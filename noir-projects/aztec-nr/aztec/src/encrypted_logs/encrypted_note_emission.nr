@@ -1,6 +1,6 @@
 use crate::{
     context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteInterface},
-    keys::{getters::{get_current_public_keys, get_ovsk_app}, public_keys::{OvpkM, IvpkM}},
+    keys::{getters::{get_public_keys, get_ovsk_app}, public_keys::{OvpkM, IvpkM}},
     encrypted_logs::payload::compute_encrypted_note_log, oracle::logs_traits::LensForEncryptedLog
 };
 use dep::protocol_types::{hash::sha256_to_field, address::AztecAddress, abis::note_hash::NoteHash};
@@ -55,10 +55,10 @@ pub fn encode_and_encrypt_note<Note, let N: u32, let M: u32>(
     context: &mut PrivateContext,
     ov: AztecAddress,
     iv: AztecAddress
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> () where Note: NoteInterface<N>, [Field; N]: LensForEncryptedLog<N, M> {
+) -> fn[(AztecAddress, AztecAddress, &mut PrivateContext)](NoteEmission<Note>) -> () where Note: NoteInterface<N>, [Field; N]: LensForEncryptedLog<N, M> {
     | e: NoteEmission<Note> | {
-        let ovpk = get_current_public_keys(context, ov).ovpk_m;
-        let ivpk = get_current_public_keys(context, iv).ivpk_m;
+        let ovpk = get_public_keys(ov).ovpk_m;
+        let ivpk = get_public_keys(iv).ivpk_m;
         let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
 
         // Number of public values is always 0 here because `encode_and_encrypt_note(...)` is only called
@@ -73,12 +73,12 @@ pub fn encode_and_encrypt_note_unconstrained<Note, let N: u32, let M: u32>(
     context: &mut PrivateContext,
     ov: AztecAddress,
     iv: AztecAddress
-) -> fn[(&mut PrivateContext, AztecAddress, AztecAddress)](NoteEmission<Note>) -> () where Note: NoteInterface<N>, [Field; N]: LensForEncryptedLog<N, M> {
+) -> fn[(AztecAddress, AztecAddress, &mut PrivateContext)](NoteEmission<Note>) -> () where Note: NoteInterface<N>, [Field; N]: LensForEncryptedLog<N, M> {
     | e: NoteEmission<Note> | {
         // Note: We could save a lot of gates by obtaining the following keys in an unconstrained context but this
         // function is currently not used anywhere so we are not optimizing it.
-        let ovpk = get_current_public_keys(context, ov).ovpk_m;
-        let ivpk = get_current_public_keys(context, iv).ivpk_m;
+        let ovpk = get_public_keys(ov).ovpk_m;
+        let ivpk = get_public_keys(iv).ivpk_m;
 
         // Number of public values is always 0 here because `encode_and_encrypt_note_unconstrained(...)` is only called
         // in the non-partial note flow.

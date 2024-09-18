@@ -8,7 +8,7 @@ contract StaticChild {
     use dep::aztec::{
         note::{note_getter_options::NoteGetterOptions},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_current_public_keys, utils::comparison::Comparator,
+        keys::getters::get_public_keys, utils::comparison::Comparator,
         macros::{storage::storage, functions::{private, public, view}}
     };
     use dep::value_note::value_note::ValueNote;
@@ -44,7 +44,7 @@ contract StaticChild {
     #[private]
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
         let mut note = ValueNote::new(new_value, owner_npk_m_hash);
         storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
         new_value
@@ -57,7 +57,7 @@ contract StaticChild {
         owner: AztecAddress,
         outgoing_viewer: AztecAddress
     ) -> Field {
-        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
         let mut note = ValueNote::new(new_value, owner_npk_m_hash);
         storage.a_private_value.insert(&mut note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
         new_value
@@ -67,7 +67,7 @@ contract StaticChild {
     #[private]
     #[view]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
-        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
         let mut options = NoteGetterOptions::new();
         options = options.select(ValueNote::properties().value, Comparator.EQ, amount).select(
             ValueNote::properties().npk_m_hash,

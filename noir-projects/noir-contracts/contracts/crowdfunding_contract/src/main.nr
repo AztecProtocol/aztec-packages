@@ -8,7 +8,7 @@ contract Crowdfunding {
     // docs:start:all-deps
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-        keys::getters::get_current_public_keys, prelude::{AztecAddress, PrivateSet, SharedImmutable},
+        keys::getters::get_public_keys, prelude::{AztecAddress, PrivateSet, SharedImmutable},
         utils::comparison::Comparator, unencrypted_logs::unencrypted_event_emission::encode_event,
         macros::{storage::storage, events::event, functions::{public, initializer, private, internal}},
         protocol_types::traits::Serialize
@@ -76,7 +76,7 @@ contract Crowdfunding {
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let donor_keys = get_current_public_keys(&mut context, donor);
+        let donor_keys = get_public_keys(donor);
         // docs:start:valuenote_new
         let mut note = ValueNote::new(amount as Field, donor_keys.npk_m.hash());
         // docs:end:valuenote_new

@@ -1,6 +1,6 @@
 use crate::test::utils;
 use dep::aztec::{
-    hash::pedersen_hash, keys::getters::get_current_public_keys, prelude::{AztecAddress, NoteHeader},
+    hash::pedersen_hash, keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader},
     oracle::unsafe_rand::unsafe_rand, protocol_types::storage::map::derive_storage_slot_in_map
 };
 use crate::{types::nft_note::NFTNote, NFT};
@@ -50,7 +50,7 @@ unconstrained fn transfer_to_private_to_a_different_account() {
 
     // Store the finalized note in the cache
     let mut context = env.private();
-    let recipient_npk_m_hash = get_current_public_keys(&mut context, recipient).npk_m.hash();
+    let recipient_npk_m_hash = get_public_keys(recipient).npk_m.hash();
     let private_nfts_recipient_slot = derive_storage_slot_in_map(NFT::storage_layout().private_nfts.slot, recipient);
 
     env.add_note(
