@@ -95,9 +95,6 @@ library Constants {
   uint256 internal constant BLOCK_MERGE_ROLLUP_INDEX = 23;
   uint256 internal constant ROOT_ROLLUP_INDEX = 24;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
-  uint256 internal constant ARGS_HASH_CHUNK_LENGTH = 16;
-  uint256 internal constant ARGS_HASH_CHUNK_COUNT = 16;
-  uint256 internal constant MAX_ARGS_LENGTH = 256;
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;

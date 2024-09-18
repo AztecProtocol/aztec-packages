@@ -198,6 +198,8 @@ class WorldState {
     std::unique_ptr<crypto::merkle_tree::LMDBEnvironment> _lmdb_env;
     std::unordered_map<MerkleTreeId, Tree> _trees;
     bb::ThreadPool _workers;
+    // Guards state reference access, flagged as mutable as used in otherwise const methods
+    mutable std::mutex state_ref_mutex;
 
     TreeStateReference get_tree_snapshot(MerkleTreeId id);
 

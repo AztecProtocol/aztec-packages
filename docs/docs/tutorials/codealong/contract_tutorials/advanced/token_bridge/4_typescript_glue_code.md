@@ -141,14 +141,14 @@ This fetches the wallets from the sandbox and deploys our cross chain harness on
 
 Paste the private flow test below the setup:
 
-#include_code e2e_private_cross_chain /yarn-project/end-to-end/src/e2e_cross_chain_messaging.test.ts typescript
+#include_code e2e_private_cross_chain /yarn-project/end-to-end/src/e2e_cross_chain_messaging/token_bridge_private.test.ts typescript
 
 ## Public flow test
 
 Paste the public flow below the private flow:
 
 ```ts
-#include_code e2e_public_cross_chain /yarn-project/end-to-end/src/e2e_public_cross_chain_messaging/deposits.test.ts raw
+#include_code e2e_public_cross_chain /yarn-project/end-to-end/src/e2e_cross_chain_messaging/token_bridge_public.test.ts raw
 })
 ```
 
@@ -165,7 +165,7 @@ Note - you might have a jest error at the end of each test saying "expected 1-2 
 
 ## Next Steps
 
-### Follow a more detailed Aztec.js tutorial 
+### Follow a more detailed Aztec.js tutorial
 
 Follow the tutorial [here](../../../aztecjs-getting-started).
 

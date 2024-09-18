@@ -15,7 +15,7 @@ Aztec is in active development and this has only been tested on MacOS. Please re
 
 ## Prerequisites
 
-For this tutorial, we will need to have the the [Sandbox](../../../reference/developer_references/sandbox_reference/index.md) installed.
+For this tutorial, we will need to have the [Sandbox](../../../reference/developer_references/sandbox_reference/index.md) installed.
 
 We also need to install Secretive, a nice open-source package that allows us to store keys on the Secure Enclave. You can head to the [secretive releases page](https://github.com/maxgoedjen/secretive/releases) and get the last release's `zip`, unzip and move to Applications, or use [Homebrew](https://brew.sh/):
 

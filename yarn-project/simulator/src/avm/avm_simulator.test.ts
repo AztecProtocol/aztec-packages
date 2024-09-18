@@ -67,8 +67,8 @@ describe('AVM simulator: injected bytecode', () => {
     ]);
   });
 
-  it('Should not be recognized as AVM bytecode (magic missing)', async () => {
-    expect(!(await isAvmBytecode(bytecode)));
+  it('Should not be recognized as AVM bytecode (magic missing)', () => {
+    expect(!isAvmBytecode(bytecode));
   });
 
   it('Should execute bytecode that performs basic addition', async () => {
@@ -117,9 +117,9 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([new Fr(0)]);
   });
 
-  it('Should be recognized as AVM bytecode (magic present)', async () => {
+  it('Should be recognized as AVM bytecode (magic present)', () => {
     const bytecode = getAvmTestContractBytecode('add_args_return');
-    expect(await isAvmBytecode(bytecode));
+    expect(isAvmBytecode(bytecode));
   });
 
   it('elliptic curve operations', async () => {
@@ -813,7 +813,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           }),
           /*startGasLeft=*/ expect.anything(),
           /*endGasLeft=*/ expect.anything(),
-          /*bytecode=*/ expect.anything(), //decompressBytecodeIfCompressed(addBytecode),
+          /*bytecode=*/ expect.anything(),
           /*avmCallResults=*/ expect.anything(), // we don't have the NESTED call's results to check
           /*functionName=*/ expect.anything(),
         );
