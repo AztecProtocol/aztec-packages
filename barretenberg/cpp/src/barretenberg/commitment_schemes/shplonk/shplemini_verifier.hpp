@@ -92,8 +92,8 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Process Gemini transcript data:
         // - Get Gemini commitments (com(A₁), com(A₂), … , com(Aₙ₋₁))
-        const std::vector<Commitment> gemini_commitments =
-            GeminiVerifier::get_gemini_commitments(log_circuit_size, transcript);
+        const std::vector<Commitment> fold_commitments =
+            GeminiVerifier::get_fold_commitments(log_circuit_size, transcript);
         // - Get Gemini evaluation challenge for Aᵢ, i = 0, … , d−1
         const Fr gemini_evaluation_challenge = transcript->template get_challenge<Fr>("Gemini:r");
         // - Get evaluations (A₀(−r), A₁(−r²), ... , Aₙ₋₁(−r²⁽ⁿ⁻¹⁾))
@@ -151,7 +151,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Place the commitments to Gemini Aᵢ to the vector of commitments, compute the contributions from
         // Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars
         batch_gemini_claims_received_from_prover(log_circuit_size,
-                                                 gemini_commitments,
+                                                 fold_commitments,
                                                  gemini_evaluations,
                                                  inverse_vanishing_evals,
                                                  shplonk_batching_challenge,
@@ -282,7 +282,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      * and adds them to the 'constant_term_accumulator'.
      *
      * @param log_circuit_size The logarithm of the circuit size, determining the depth of the Gemini protocol.
-     * @param gemini_commitments A vector containing the commitments to the Gemini fold polynomials \f$ A_i \f$.
+     * @param fold_commitments A vector containing the commitments to the Gemini fold polynomials \f$ A_i \f$.
      * @param gemini_evaluations A vector containing the evaluations of the Gemini fold polynomials \f$ A_i \f$ at
      * points \f$ -r^{2^i} \f$.
      * @param inverse_vanishing_evals A vector containing the inverse evaluations of the vanishing polynomial.
@@ -292,7 +292,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param constant_term_accumulator The accumulator for the summands of the constant term.
      */
     static void batch_gemini_claims_received_from_prover(const size_t log_circuit_size,
-                                                         const std::vector<Commitment>& gemini_commitments,
+                                                         const std::vector<Commitment>& fold_commitments,
                                                          const std::vector<Fr>& gemini_evaluations,
                                                          const std::vector<Fr>& inverse_vanishing_evals,
                                                          const Fr& shplonk_batching_challenge,
@@ -312,7 +312,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             // Update the batching challenge
             current_batching_challenge *= shplonk_batching_challenge;
             // Move com(Aᵢ) to the 'commitments' vector
-            commitments.emplace_back(std::move(gemini_commitments[j]));
+            commitments.emplace_back(std::move(fold_commitments[j]));
         }
     }
 };
