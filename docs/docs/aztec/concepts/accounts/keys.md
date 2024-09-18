@@ -25,7 +25,7 @@ Instead it's up to the account contract developer to implement it.
 
 ## Public keys retrieval
 
-The keys can be retrieved from the [Private eXecution Environment (PXE)](../pxe/index.md) using the following the getter in Aztec.nr:
+The keys can be retrieved from the [Private eXecution Environment (PXE)](../pxe/index.md) using the following getter in Aztec.nr:
 
 ```
 fn get_public_keys(account: AztecAddress) -> PublicKeys;

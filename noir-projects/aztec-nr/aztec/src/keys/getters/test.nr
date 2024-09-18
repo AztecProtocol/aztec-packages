@@ -13,7 +13,7 @@ unconstrained fn setup() -> TestAccount {
 }
 
 #[test(should_fail_with="Invalid public keys hint for address")]
-unconstrained fn test_get_current_keys_unknown() {
+unconstrained fn test_get_public_keys_unknown() {
     let account = setup();
 
     // Instead of querying for some unknown account, which would result in the oracle erroring out, we mock a bad oracle
@@ -23,7 +23,7 @@ unconstrained fn test_get_current_keys_unknown() {
 }
 
 #[test]
-unconstrained fn test_get_current_keys_known() {
+unconstrained fn test_get_public_keys_known() {
     let account = setup();
 
     assert_eq(get_public_keys(account.address), account.keys);
