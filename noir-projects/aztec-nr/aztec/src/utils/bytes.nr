@@ -44,6 +44,13 @@ pub fn fields_to_bytes<let N: u32, let M: u32>(input: [Field; M]) -> [u8; N] {
             0
         };
 
+        // Note: I tried combining this check with `assert_max_bit_size` above but `assert_max_bit_size` expects
+        // the argument to be a constant. Using comptime block to derive the number of bits also does not work
+        // because comptime is evaluated before generics.
+        for i in 0..src_start_index {
+            assert(src[i] == 0, "Field does not fit into remaining bytes");
+        }
+
         for i in 0..31 {
             let byte_index = field_index * 31 + i;
             if byte_index < N {
@@ -162,6 +169,14 @@ mod test {
         let input_back = bytes_to_fields::<155, 5>(output);
 
         assert_eq(input, input_back);
+    }
+
+    #[test(should_fail_with="Field does not fit into remaining bytes")]
+    fn test_too_few_destination_bytes() {
+        // We should get an error here because first field gets converted to 31 bytes and the second field needs
+        // at least 2 bytes but we provide it with 1.
+        let input = [1, 256];
+        let _ignored_result = fields_to_bytes::<32, 2>(input);
     }
 
     #[test(should_fail_with="call to assert_max_bit_size")]
