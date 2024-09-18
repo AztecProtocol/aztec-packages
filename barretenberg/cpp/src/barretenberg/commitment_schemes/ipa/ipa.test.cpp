@@ -77,8 +77,8 @@ TEST_F(IPATest, OpenZeroPolynomial)
     EXPECT_TRUE(result);
 }
 
-// This test makes sure that even if the whole vector \vec{b} generated from the x, at which we open the polynomial,
-// is zero, IPA behaves
+// This test makes sure that even if the whole vector \vec{b} generated from the x, at which we open the polynomial, is
+// zero, IPA behaves
 TEST_F(IPATest, OpenAtZero)
 {
     using IPA = IPA<Curve>;

@@ -140,13 +140,11 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
     using ShpleminiVerifier = ShpleminiVerifier_<TypeParam>;
     using KZG = KZG<TypeParam>;
     using Fr = typename TypeParam::ScalarField;
-    // using GroupElement = typename TypeParam::Element;
     using Commitment = typename TypeParam::AffineElement;
     using Polynomial = typename bb::Polynomial<Fr>;
 
     const size_t n = 16;
     const size_t log_n = 4;
-
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
