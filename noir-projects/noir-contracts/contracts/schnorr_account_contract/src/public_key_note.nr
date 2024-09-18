@@ -4,9 +4,9 @@ use dep::aztec::{
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator}
 };
 
-global PUBLIC_KEY_NOTE_LEN: Field = 3;
+global PUBLIC_KEY_NOTE_LEN: u32 = 3;
 // PUBLIC_KEY_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global PUBLIC_KEY_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
+global PUBLIC_KEY_NOTE_BYTES_LEN: u32 = 3 * 32 + 64;
 
 // Stores a public key composed of two fields
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?

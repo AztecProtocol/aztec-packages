@@ -68,7 +68,7 @@ struct Deck<Context> {
     set: PrivateSet<ValueNote, Context>,
 }
 
-pub fn filter_cards<N>(
+pub fn filter_cards<let N: u32>(
     notes: [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     desired_cards: [Card; N]
 ) -> [Option<ValueNote>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] {
@@ -102,8 +102,9 @@ impl<Context> Deck<Context> {
 }
 
 impl Deck<&mut PrivateContext> {
-    pub fn add_cards<N>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
+    pub fn add_cards<let N: u32>(&mut self, cards: [Card; N], owner: AztecAddress) -> [CardNote] {
         let owner_keys = get_public_keys(owner);
+
         let owner_ivpk_m = owner_keys.ivpk_m;
         let owner_npk_m_hash = owner_keys.npk_m.hash();
         let msg_sender_ovpk_m = get_public_keys(self.set.context.msg_sender()).ovpk_m;
@@ -120,7 +121,7 @@ impl Deck<&mut PrivateContext> {
         inserted_cards
     }
 
-    pub fn remove_cards<N>(&mut self, cards: [Card; N]) {
+    pub fn remove_cards<let N: u32>(&mut self, cards: [Card; N]) {
         let options = NoteGetterOptions::with_filter(filter_cards, cards);
         let notes = self.set.pop_notes(options);
         assert(notes.len() == N, "Not all cards were removed");
@@ -173,7 +174,7 @@ pub fn get_pack_cards(
     cards
 }
 
-pub fn compute_deck_strength<N>(cards: [Card; N]) -> Field {
+pub fn compute_deck_strength<let N: u32>(cards: [Card; N]) -> Field {
     cards.fold(
         0,
         |acc, card: Card| {

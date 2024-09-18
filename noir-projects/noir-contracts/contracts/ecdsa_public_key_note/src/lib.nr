@@ -5,9 +5,9 @@ use dep::aztec::{
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator}
 };
 
-global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;
+global ECDSA_PUBLIC_KEY_NOTE_LEN: u32 = 5;
 // ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global ECDSA_PUBLIC_KEY_NOTE_BYTES_LEN: Field = 5 * 32 + 64;
+global ECDSA_PUBLIC_KEY_NOTE_BYTES_LEN: u32 = 5 * 32 + 64;
 
 // Stores an ECDSA public key composed of two 32-byte elements
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
