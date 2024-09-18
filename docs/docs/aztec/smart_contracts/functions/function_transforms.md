@@ -44,7 +44,7 @@ This hashing process is important because it is used to verify the function's ex
 
 For public functions, context creation is simpler:
 
-```noir
+```rust
 let mut context = PublicContext::new(inputs);
 ```
 
