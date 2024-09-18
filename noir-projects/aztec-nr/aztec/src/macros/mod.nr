@@ -81,14 +81,6 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
 
 pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     let mut max_note_length: u32 = 0;
-    let note_types = NOTES.keys();
-    let use_statements = note_types.map(
-        | typ: Type | {
-            quote {
-                use $typ;
-            }
-        }
-    ).join(quote {});
     let notes = NOTES.values();
     let body = if notes.len() > 0 {
         max_note_length = notes.fold(0, | acc, (_, len, _): (StructDefinition, u32, Field) | {
@@ -98,7 +90,7 @@ pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quote
             | (note, _, _): (StructDefinition, u32, Field) | {
                 let note_name = note.name();
                 quote {
-                    if note_type_id == $note_name::get_note_type_id(); {
+                    if note_type_id == $note_name::get_note_type_id() {
                         aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($note_name::deserialize_content, note_header, compute_nullifier, serialized_note)
                     }
                 }
@@ -121,8 +113,6 @@ pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quote
     };
 
     quote {
-        $use_statements
-
         unconstrained fn compute_note_hash_and_optionally_a_nullifier(
             contract_address: aztec::protocol_types::address::AztecAddress,
             nonce: Field,

@@ -41,6 +41,7 @@ contract Counter {
         let counters = storage.counters;
         balance_utils::get_balance(counters.at(owner).set)
     }
+
     // docs:end:get_counter
     // docs:start:test_imports
     use dep::aztec::test::{helpers::{test_environment::TestEnvironment}};

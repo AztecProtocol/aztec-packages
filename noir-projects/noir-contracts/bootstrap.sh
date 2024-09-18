@@ -17,7 +17,7 @@ fi
 
 echo "Compiling contracts..."
 NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
-$NARGO compile --silence-warnings
+nargo compile --silence-warnings
 
 echo "Transpiling contracts..."
 scripts/transpile.sh

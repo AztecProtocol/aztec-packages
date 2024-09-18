@@ -1,9 +1,9 @@
 use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize};
 
 // 1 (ARGS_HASH) + 1 (FUNCTION_SELECTOR) + 1 (TARGET_ADDRESS) + 1 (IS_PUBLIC) + 1 (IS_STATIC)
-global FUNCTION_CALL_SIZE: Field = 5;
+global FUNCTION_CALL_SIZE: u32 = 5;
 // 3 * 32 + 2
-global FUNCTION_CALL_SIZE_IN_BYTES: Field = 98;
+global FUNCTION_CALL_SIZE_IN_BYTES: u32 = 98;
 
 struct FunctionCall {
   args_hash: Field,

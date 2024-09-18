@@ -43,11 +43,11 @@ contract Token {
     // In the first transfer iteration we are computing a lot of additional information (validating inputs, retrieving
     // keys, etc.), so the gate count is already relatively high. We therefore only read a few notes to keep the happy
     // case with few constraints.
-    global INITIAL_TRANSFER_CALL_MAX_NOTES = 2;
+    global INITIAL_TRANSFER_CALL_MAX_NOTES: u32 = 2;
     // All the recursive call does is nullify notes, meaning the gate count is low, but it is all constant overhead. We
     // therefore read more notes than in the base case to increase the efficiency of the overhead, since this results in
     // an overall small circuit regardless.
-    global RECURSIVE_TRANSFER_CALL_MAX_NOTES = 8;
+    global RECURSIVE_TRANSFER_CALL_MAX_NOTES: u32 = 8;
 
     #[event]
     #[derive(Serialize)]

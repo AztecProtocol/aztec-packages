@@ -5,12 +5,12 @@ use dep::aztec::{
     oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
 };
 
-global VALUE_NOTE_LEN: u64 = 3; // 3 plus a header.
+global VALUE_NOTE_LEN: u32 = 3; // 3 plus a header.
 
 // docs:start:value-note-def
 #[derive(Serialize)]
 #[note]
-struct ValueNote {
+pub struct ValueNote {
     value: Field,
    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
     npk_m_hash: Field,

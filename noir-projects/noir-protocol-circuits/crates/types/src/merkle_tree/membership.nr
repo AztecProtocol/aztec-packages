@@ -117,12 +117,16 @@ mod tests {
         TestLeafPreimage { value: 30, next_value: 40 },
     ];
 
-    fn build_tree() -> NonEmptyMerkleTree<4, 3, 1, 2> {
+    global test_tree_height: u8 = 3;
+    global test_supertree_height: u8 = 1;
+    global test_subtree_height: u8 = 2;
+
+    fn build_tree() -> NonEmptyMerkleTree<4, test_tree_height, test_supertree_height, test_subtree_height> {
         NonEmptyMerkleTree::new(
             leaf_preimages.map(|leaf_preimage: TestLeafPreimage| leaf_preimage.as_leaf()),
-            [0; 3],
-            [0; 1],
-            [0; 2]
+            [0; test_tree_height],
+            [0; test_supertree_height],
+            [0; test_subtree_height]
         )
     }
 

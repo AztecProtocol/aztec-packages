@@ -7,7 +7,7 @@ use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOT
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 use crate::note::note_interface::NullifiableNote;
 
-global MOCK_NOTE_LENGTH = 1;
+global MOCK_NOTE_LENGTH: u32 = 1;
 
 struct MockNote {
   header: NoteHeader,

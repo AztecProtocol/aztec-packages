@@ -32,43 +32,17 @@ pub(crate) comptime fn fn_has_noinitcheck(f: FunctionDefinition) -> bool {
     f.has_named_attribute("noinitcheck")
 }
 
-// This is probably a terrible hack
-pub(crate) comptime fn expr_as_quoted_fixed(expr: Expr) -> Quoted {
-    if expr.as_unsafe().is_some() {
-        // Unsafe blocks require semicolons for some reason? Not if I write them manually
-        let unsafe_expr = expr.as_unsafe().unwrap();
-        let unsafe_quote = expr_slice_as_quoted_fixed(unsafe_expr);
-        quote { unsafe { $unsafe_quote }; }
-    } else if expr.as_if().is_some() {
-        let (condition, if_branch, else_branch) = expr.as_if().unwrap();
-        let fixed_if = expr_as_quoted_fixed(if_branch);
-        // Fix the branches
-        if else_branch.is_some() {
-            let fixed_else = expr_as_quoted_fixed(else_branch.unwrap());
-            quote { if $condition { $fixed_if } else { $fixed_else } }
-        } else {
-            quote { if $condition { $fixed_if } }
-        }
-    } else {
-        quote { $expr }
-    }
-}
-
-pub(crate) comptime fn expr_slice_as_quoted_fixed(exprs: [Expr]) -> Quoted {
-    exprs.fold(
+pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quoted) -> Expr {
+    let mut body_quote = body.fold(
         quote {},
         |full_quote: Quoted, expr: Expr| {
-            let expr_quote = expr_as_quoted_fixed(expr);
+            let expr_quote = expr.quoted();
             quote {
                 $full_quote
                 $expr_quote
             }
         }
-    )
-}
-
-pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quoted) -> Expr {
-    let mut body_quote = expr_slice_as_quoted_fixed(body);
+    );
     body_quote = quote {
         {
             $prepend

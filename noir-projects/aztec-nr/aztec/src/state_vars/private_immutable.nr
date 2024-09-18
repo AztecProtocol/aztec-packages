@@ -42,7 +42,7 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
 
 impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:initialize
-    pub fn initialize<N>(
+    pub fn initialize<let N: u32>(
         self,
         note: &mut Note
     ) -> NoteEmission<Note> where Note: NoteInterface<N> + NullifiableNote {
@@ -55,7 +55,7 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:end:initialize
 
     // docs:start:get_note
-    pub fn get_note<N>(self) -> Note where Note: NoteInterface<N> + NullifiableNote {
+    pub fn get_note<let N: u32>(self) -> Note where Note: NoteInterface<N> + NullifiableNote {
         let storage_slot = self.storage_slot;
         get_note(self.context, storage_slot).0
     }
@@ -72,7 +72,7 @@ impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
 
     // view_note does not actually use the context, but it calls oracles that are only available in private
     // docs:start:view_note
-    unconstrained pub fn view_note<N>(self) -> Note  where Note: NoteInterface<N> + NullifiableNote {
+    unconstrained pub fn view_note<let N: u32>(self) -> Note  where Note: NoteInterface<N> + NullifiableNote {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }

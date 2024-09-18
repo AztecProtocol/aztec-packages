@@ -12,7 +12,7 @@ use crate::meta::{derive_deserialize, derive_serialize};
 // use the optional type for safety. Doing it now would lead to a worse devex
 // and would make it harder to sync up with the cpp code.
 // Preferred over Default trait to convey intent, as default doesn't necessarily mean empty.
-trait Empty {
+pub trait Empty {
     fn empty() -> Self;
 }
 
@@ -56,11 +56,11 @@ pub fn is_empty_array<T, let N: u32>(array: [T; N]) -> bool where T: Empty + Eq 
     array.all(|elem| is_empty(elem))
 }
 
-trait Hash {
+pub trait Hash {
     fn hash(self) -> Field;
 }
 
-trait ToField {
+pub trait ToField {
     fn to_field(self) -> Field;
 }
 
@@ -150,7 +150,7 @@ impl FromField for U128 {
 
 // docs:start:serialize
 #[derive_via(derive_serialize)]
-trait Serialize<let N: u32> {
+pub trait Serialize<let N: u32> {
     fn serialize(self) -> [Field; N];
 }
 // docs:end:serialize
@@ -174,7 +174,7 @@ impl<let N: u32> Serialize<N> for str<N> {
 
 // docs:start:deserialize
 #[derive_via(derive_deserialize)]
-trait Deserialize<let N: u32> {
+pub trait Deserialize<let N: u32> {
     fn deserialize(fields: [Field; N]) -> Self;
 }
 // docs:end:deserialize

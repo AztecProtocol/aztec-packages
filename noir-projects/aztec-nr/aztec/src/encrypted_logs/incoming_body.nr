@@ -52,7 +52,7 @@ mod test {
         header: NoteHeader,
     }
 
-    global ADDRESS_NOTE_LEN: Field = 3;
+    global ADDRESS_NOTE_LEN: u32 = 3;
 
     impl NullifiableNote for AddressNote {
         fn compute_nullifier(
@@ -189,9 +189,7 @@ mod test {
         }
     }
 
-    global TEST_EVENT_LEN: Field = 3;
-    global TEST_EVENT_BYTES_LEN = 32 * 3 + 64;
-    global TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS = 32 * 3 + 32;
+    global TEST_EVENT_LEN: u32 = 3;
 
     impl EventInterface<TEST_EVENT_LEN> for TestEvent {
         fn get_event_type_id() -> EventSelector {

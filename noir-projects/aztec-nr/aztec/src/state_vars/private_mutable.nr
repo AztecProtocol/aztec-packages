@@ -44,7 +44,7 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     }
 }
 
-impl<Note, N> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInterface<N> + NullifiableNote {
+impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInterface<N> + NullifiableNote {
     // docs:start:initialize
     pub fn initialize(self, note: &mut Note) -> NoteEmission<Note> {
         // Nullify the storage slot.
@@ -103,7 +103,7 @@ impl<Note, N> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInterfac
     // docs:end:get_note
 }
 
-impl<Note, N> PrivateMutable<Note, UnconstrainedContext> where Note: NoteInterface<N> + NullifiableNote {
+impl<Note, let N: u32> PrivateMutable<Note, UnconstrainedContext> where Note: NoteInterface<N> + NullifiableNote {
     unconstrained pub fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
         check_nullifier_exists(nullifier)

@@ -6,7 +6,7 @@ use crate::note::{
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 
-pub fn create_note<Note, N>(
+pub fn create_note<Note, let N: u32>(
     context: &mut PrivateContext,
     storage_slot: Field,
     note: &mut Note
@@ -35,7 +35,7 @@ pub fn create_note<Note, N>(
     NoteEmission::new(*note)
 }
 
-pub fn create_note_hash_from_public<Note, N>(
+pub fn create_note_hash_from_public<Note, let N: u32>(
     context: &mut PublicContext,
     storage_slot: Field,
     note: &mut Note
@@ -50,7 +50,7 @@ pub fn create_note_hash_from_public<Note, N>(
 }
 
 // Note: This function is currently totally unused.
-pub fn destroy_note<Note, N>(
+pub fn destroy_note<Note, let N: u32>(
     context: &mut PrivateContext,
     note: Note
 ) where Note: NoteInterface<N> + NullifiableNote {
@@ -59,7 +59,7 @@ pub fn destroy_note<Note, N>(
     destroy_note_unsafe(context, note, note_hash_for_read_request)
 }
 
-pub fn destroy_note_unsafe<Note, N>(
+pub fn destroy_note_unsafe<Note, let N: u32>(
     context: &mut PrivateContext,
     note: Note,
     note_hash_for_read_request: Field
