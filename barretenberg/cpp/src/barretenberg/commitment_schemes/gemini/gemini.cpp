@@ -1,10 +1,5 @@
-
 #include "gemini.hpp"
 #include "barretenberg/common/thread.hpp"
-
-#include <bit>
-#include <memory>
-#include <vector>
 
 /**
  * @brief Protocol for opening several multi-linear polynomials at the same point.
@@ -16,7 +11,7 @@
  * f₀, …, fₖ₋₁ = multilinear polynomials,
  * g₀, …, gₕ₋₁ = shifted multilinear polynomial,
  *  Each gⱼ is the left-shift of some f↺ᵢ, and gⱼ points to the same memory location as fᵢ.
- * v₀, …, vₖ₋₁, v↺₀, …, v↺ₕ₋₁ = multilinear evalutions s.t. fⱼ(u) = vⱼ, and gⱼ(u) = f↺ⱼ(u) = v↺ⱼ
+ * v₀, …, vₖ₋₁, v↺₀, …, v↺ₕ₋₁ = multilinear evalutions  s.t. fⱼ(u) = vⱼ, and gⱼ(u) = f↺ⱼ(u) = v↺ⱼ
  *
  * We use a challenge ρ to create a random linear combination of all fⱼ,
  * and actually define A₀ = F + G↺, where
@@ -43,6 +38,58 @@
  * since they are linear-combinations of the commitments [fⱼ] and [gⱼ].
  */
 namespace bb {
+template <typename Curve>
+std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
+    const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+    std::span<Fr> multilinear_challenge,
+    std::span<Fr> multilinear_evaluations, /* u */
+    RefSpan<Polynomial> f_polynomials,     // unshifted
+    RefSpan<Polynomial> g_polynomials,     // to-be-shifted
+    std::shared_ptr<NativeTranscript>& transcript)
+{
+    ASSERT(multilinear_evaluations.size() == f_polynomials.size() + g_polynomials.size());
+    const size_t log_n = multilinear_challenge.size();
+    const size_t n = 1 << log_n;
+
+    Fr rho = transcript->template get_challenge<Fr>("rho");
+    std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
+
+    // Compute batched multivariate evaluation
+    Fr batched_evaluation = Fr::zero();
+    for (size_t i = 0; i < rhos.size(); ++i) {
+        batched_evaluation += multilinear_evaluations[i] * rhos[i];
+    }
+
+    // Compute batched polynomials
+    Polynomial batched_unshifted(n);
+    Polynomial batched_to_be_shifted = Polynomial::shiftable(1 << log_n);
+
+    const size_t num_unshifted = f_polynomials.size();
+    const size_t num_to_be_shifted = g_polynomials.size();
+    for (size_t i = 0; i < num_unshifted; i++) {
+        batched_unshifted.add_scaled(f_polynomials[i], rhos[i]);
+    }
+    for (size_t i = 0; i < num_to_be_shifted; i++) {
+        batched_to_be_shifted.add_scaled(g_polynomials[i], rhos[num_unshifted + i]);
+    }
+
+    auto fold_polynomials =
+        compute_fold_polynomials(multilinear_challenge, std::move(batched_unshifted), std::move(batched_to_be_shifted));
+
+    for (size_t l = 0; l < log_n - 1; l++) {
+        transcript->send_to_verifier("Gemini:FOLD_" + std::to_string(l + 1),
+                                     commitment_key->commit(fold_polynomials[l + 2]));
+    }
+    const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
+    std::vector<Claim> claims =
+        compute_fold_polynomial_evaluations(multilinear_challenge, std::move(fold_polynomials), r_challenge);
+
+    for (size_t l = 1; l <= log_n; l++) {
+        transcript->send_to_verifier("Gemini:a_" + std::to_string(l), claims[l].opening_pair.evaluation);
+    }
+
+    return claims;
+};
 
 /**
  * @brief Computes d-1 fold polynomials Fold_i, i = 1, ..., d-1
@@ -53,7 +100,7 @@ namespace bb {
  * @return std::vector<Polynomial>
  */
 template <typename Curve>
-std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::compute_gemini_polynomials(
+std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::compute_fold_polynomials(
     std::span<const Fr> mle_opening_point, Polynomial&& batched_unshifted, Polynomial&& batched_to_be_shifted)
 {
     const size_t num_variables = mle_opening_point.size(); // m
@@ -67,12 +114,12 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     // The first two are populated here with the batched unshifted and to-be-shifted polynomial respectively.
     // They will eventually contain the full batched polynomial A₀ partially evaluated at the challenges r,-r.
     // This function populates the other m-1 polynomials with the foldings of A₀.
-    std::vector<Polynomial> gemini_polynomials;
-    gemini_polynomials.reserve(num_variables + 1);
+    std::vector<Polynomial> fold_polynomials;
+    fold_polynomials.reserve(num_variables + 1);
 
     // F(X) = ∑ⱼ ρʲ fⱼ(X) and G(X) = ∑ⱼ ρᵏ⁺ʲ gⱼ(X)
-    Polynomial& batched_F = gemini_polynomials.emplace_back(std::move(batched_unshifted));
-    Polynomial& batched_G = gemini_polynomials.emplace_back(std::move(batched_to_be_shifted));
+    Polynomial& batched_F = fold_polynomials.emplace_back(std::move(batched_unshifted));
+    Polynomial& batched_G = fold_polynomials.emplace_back(std::move(batched_to_be_shifted));
     constexpr size_t offset_to_folded = 2; // Offset because of F an G
     // A₀(X) = F(X) + G↺(X) = F(X) + G(X)/X.
     Polynomial A_0 = batched_F;
@@ -84,7 +131,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         const size_t n_l = 1 << (num_variables - l - 1);
 
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
-        gemini_polynomials.emplace_back(Polynomial(n_l));
+        fold_polynomials.emplace_back(Polynomial(n_l));
     }
 
     // A_l = Aₗ(X) is the polynomial being folded
@@ -106,7 +153,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         const Fr u_l = mle_opening_point[l];
 
         // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
-        auto A_l_fold = gemini_polynomials[l + offset_to_folded].data();
+        auto A_l_fold = fold_polynomials[l + offset_to_folded].data();
 
         parallel_for(num_used_threads, [&](size_t i) {
             size_t current_chunk_size = (i == (num_used_threads - 1)) ? last_chunk_size : chunk_size;
@@ -123,31 +170,31 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         A_l = A_l_fold;
     }
 
-    return gemini_polynomials;
+    return fold_polynomials;
 };
 
 /**
  * @brief Computes/aggragates d+1 Fold polynomials and their opening pairs (challenge, evaluation)
  *
- * @details This function assumes that, upon input, last d-1 entries in gemini_polynomials are Fold_i.
+ * @details This function assumes that, upon input, last d-1 entries in fold_polynomials are Fold_i.
  * The first two entries are assumed to be, respectively, the batched unshifted and batched to-be-shifted
  * polynomials F(X) = ∑ⱼ ρʲfⱼ(X) and G(X) = ∑ⱼ ρᵏ⁺ʲ gⱼ(X). This function completes the computation
  * of the first two Fold polynomials as F + G/r and F - G/r. It then evaluates each of the d+1
  * fold polynomials at, respectively, the points r, rₗ = r^{2ˡ} for l = 0, 1, ..., d-1.
  *
  * @param mle_opening_point u = (u₀,...,uₘ₋₁) is the MLE opening point
- * @param gemini_polynomials vector of polynomials whose first two elements are F(X) = ∑ⱼ ρʲfⱼ(X)
+ * @param fold_polynomials vector of polynomials whose first two elements are F(X) = ∑ⱼ ρʲfⱼ(X)
  * and G(X) = ∑ⱼ ρᵏ⁺ʲ gⱼ(X), and the next d-1 elements are Fold_i, i = 1, ..., d-1.
  * @param r_challenge univariate opening challenge
  */
 template <typename Curve>
-GeminiProverOutput<Curve> GeminiProver_<Curve>::compute_fold_polynomial_evaluations(
-    std::span<const Fr> mle_opening_point, std::vector<Polynomial>&& gemini_polynomials, const Fr& r_challenge)
+std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::compute_fold_polynomial_evaluations(
+    std::span<const Fr> mle_opening_point, std::vector<Polynomial>&& fold_polynomials, const Fr& r_challenge)
 {
     const size_t num_variables = mle_opening_point.size(); // m
 
-    Polynomial& batched_F = gemini_polynomials[0]; // F(X) = ∑ⱼ ρʲ   fⱼ(X)
-    Polynomial& batched_G = gemini_polynomials[1]; // G(X) = ∑ⱼ ρᵏ⁺ʲ gⱼ(X)
+    Polynomial& batched_F = fold_polynomials[0]; // F(X) = ∑ⱼ ρʲ   fⱼ(X)
+    Polynomial& batched_G = fold_polynomials[1]; // G(X) = ∑ⱼ ρᵏ⁺ʲ gⱼ(X)
 
     // Compute univariate opening queries rₗ = r^{2ˡ} for l = 0, 1, ..., m-1
     std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r_challenge, num_variables);
@@ -156,36 +203,35 @@ GeminiProverOutput<Curve> GeminiProver_<Curve>::compute_fold_polynomial_evaluati
     Fr r_inv = r_challenge.invert();
     batched_G *= r_inv;
 
-    // Construct A₀₊ = F + G/r and A₀₋ = F - G/r in place in gemini_polynomials
+    // Construct A₀₊ = F + G/r and A₀₋ = F - G/r in place in fold_polynomials
     Polynomial tmp = batched_F;
-    Polynomial& A_0_pos = gemini_polynomials[0];
+    Polynomial& A_0_pos = fold_polynomials[0];
 
     // A₀₊(X) = F(X) + G(X)/r, s.t. A₀₊(r) = A₀(r)
     A_0_pos += batched_G;
 
     // Perform a swap so that tmp = G(X)/r and A_0_neg = F(X)
     std::swap(tmp, batched_G);
-    Polynomial& A_0_neg = gemini_polynomials[1];
+    Polynomial& A_0_neg = fold_polynomials[1];
 
     // A₀₋(X) = F(X) - G(X)/r, s.t. A₀₋(-r) = A₀(-r)
     A_0_neg -= tmp;
 
-    std::vector<OpeningPair<Curve>> fold_poly_opening_pairs;
-    fold_poly_opening_pairs.reserve(num_variables + 1);
+    std::vector<Claim> opening_claims;
+    opening_claims.reserve(num_variables + 1);
 
     // Compute first opening pair {r, A₀(r)}
-    fold_poly_opening_pairs.emplace_back(
-        OpeningPair<Curve>{ r_challenge, gemini_polynomials[0].evaluate(r_challenge) });
-
+    Fr evaluation = fold_polynomials[0].evaluate(r_challenge);
+    opening_claims.emplace_back(
+        Claim{ fold_polynomials[0], { r_challenge, fold_polynomials[0].evaluate(r_challenge) } });
     // Compute the remaining m opening pairs {−r^{2ˡ}, Aₗ(−r^{2ˡ})}, l = 0, ..., m-1.
     for (size_t l = 0; l < num_variables; ++l) {
-        fold_poly_opening_pairs.emplace_back(
-            OpeningPair<Curve>{ -r_squares[l], gemini_polynomials[l + 1].evaluate(-r_squares[l]) });
+        evaluation = fold_polynomials[l + 1].evaluate(-r_squares[l]);
+        opening_claims.emplace_back(Claim{ fold_polynomials[l + 1], { -r_squares[l], evaluation } });
     }
 
-    return { fold_poly_opening_pairs, std::move(gemini_polynomials) };
+    return opening_claims;
 };
-
 template class GeminiProver_<curve::BN254>;
 template class GeminiProver_<curve::Grumpkin>;
-}; // namespace bb
+} // namespace bb

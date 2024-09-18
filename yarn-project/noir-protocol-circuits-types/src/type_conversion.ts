@@ -2265,7 +2265,7 @@ export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollup
  */
 export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): RootRollupInputsNoir {
   return {
-    previous_rollup_data: mapTuple(rootRollupInputs.previousRollupData, mapPreviousRollupDataToNoir),
+    previous_rollup_data: mapTuple(rootRollupInputs.previousRollupData, mapPreviousRollupBlockDataToNoir),
     prover_id: mapFieldToNoir(rootRollupInputs.proverId),
   };
 }

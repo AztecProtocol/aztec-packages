@@ -112,7 +112,25 @@ export class Buffer32 {
    * @param str - The TX hash in string format.
    * @returns A new Buffer32 object.
    */
+  public static fromStringUnchecked(str: string): Buffer32 {
+    return new Buffer32(Buffer.from(str, 'hex'));
+  }
+
+  /**
+   * Converts a string into a Buffer32 object.
+   * NOTE: this method includes checks for the 0x prefix and the length of the string.
+   *       if you dont need this checks, use fromStringUnchecked instead.
+   *
+   * @param str - The TX hash in string format.
+   * @returns A new Buffer32 object.
+   */
   public static fromString(str: string): Buffer32 {
+    if (str.startsWith('0x')) {
+      str = str.slice(2);
+    }
+    if (str.length !== 64) {
+      throw new Error(`Expected string to be 64 characters long, but was ${str.length}`);
+    }
     return new Buffer32(Buffer.from(str, 'hex'));
   }
 

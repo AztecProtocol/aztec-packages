@@ -94,9 +94,6 @@ library Constants {
   uint256 internal constant BLOCK_MERGE_ROLLUP_INDEX = 23;
   uint256 internal constant ROOT_ROLLUP_INDEX = 24;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
-  uint256 internal constant ARGS_HASH_CHUNK_LENGTH = 16;
-  uint256 internal constant ARGS_HASH_CHUNK_COUNT = 16;
-  uint256 internal constant MAX_ARGS_LENGTH = 256;
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
@@ -223,6 +220,13 @@ library Constants {
   uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 439;
   uint256 internal constant TUBE_PROOF_LENGTH = 439;
   uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
+  uint256 internal constant MEM_TAG_U1 = 1;
+  uint256 internal constant MEM_TAG_U8 = 2;
+  uint256 internal constant MEM_TAG_U16 = 3;
+  uint256 internal constant MEM_TAG_U32 = 4;
+  uint256 internal constant MEM_TAG_U64 = 5;
+  uint256 internal constant MEM_TAG_U128 = 6;
+  uint256 internal constant MEM_TAG_FF = 7;
   uint256 internal constant SENDER_SELECTOR = 0;
   uint256 internal constant ADDRESS_SELECTOR = 1;
   uint256 internal constant STORAGE_ADDRESS_SELECTOR = 1;

@@ -103,4 +103,9 @@ std::vector<std::vector<FF>> copy_public_inputs_columns(VmPublicInputs const& pu
     };
 }
 
+std::string to_hex(bb::avm_trace::AvmMemoryTag tag)
+{
+    return to_hex(static_cast<uint8_t>(tag));
+}
+
 } // namespace bb::avm_trace

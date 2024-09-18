@@ -122,9 +122,6 @@ global ROOT_ROLLUP_INDEX: u32 = 24;
 
 // MISC CONSTANTS
 global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
-global ARGS_HASH_CHUNK_LENGTH: u32 = 16;
-global ARGS_HASH_CHUNK_COUNT: u32 = 16;
-global MAX_ARGS_LENGTH: u32 = ARGS_HASH_CHUNK_COUNT * ARGS_HASH_CHUNK_LENGTH;
 // The following is used in immutable state variables to compute an initialization slot whose value is used to
 // determine whether a given variable has been initialized (by asserting that the value in the slot is 0).
 // The initialization slot is computed by adding the constant below to the variable's storage slot. This constant has
@@ -190,7 +187,6 @@ global L2_GAS_PER_NOTE_HASH: u32 = 32;
 global L2_GAS_PER_NULLIFIER: u32 = 64;
 
 // CANONICAL CONTRACT ADDRESSES
-global CANONICAL_KEY_REGISTRY_ADDRESS = AztecAddress::from_field(0x0f15ebfaa7e1bb0d1c542c954a8f605909d0fa0a5fd829122bfdec15b4ada163);
 global CANONICAL_AUTH_REGISTRY_ADDRESS = AztecAddress::from_field(0x2ace300b02ca5ab0a25052b1e852913a47292096997ca09f758c0e3624e84560);
 global DEPLOYER_CONTRACT_ADDRESS = AztecAddress::from_field(0x25d93dc07b5baaf53a98caeae2679df3528cb83e11e2640a57a0a53abbaaadb9);
 global REGISTERER_CONTRACT_ADDRESS = AztecAddress::from_field(0x1b6d5873cef5a35f681ab9468527f356c96e09b3c64603aef404ec2ad80aa3a9);
@@ -367,6 +363,15 @@ global GENERATOR_INDEX__PUBLIC_KEYS_HASH: u32 = 52;
 global GENERATOR_INDEX__NOTE_NULLIFIER: u32 = 53;
 global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
 global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
+
+// AVM memory tags
+global MEM_TAG_U1 = 1;
+global MEM_TAG_U8 = 2;
+global MEM_TAG_U16 = 3;
+global MEM_TAG_U32 = 4;
+global MEM_TAG_U64 = 5;
+global MEM_TAG_U128 = 6;
+global MEM_TAG_FF = 7;
 
 global SENDER_SELECTOR: u32 = 0;
 // "address" actually does not exist in PublicCircuitPublicInputs,

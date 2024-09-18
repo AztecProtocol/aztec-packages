@@ -241,6 +241,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = var.DEPLOY_TAG
         },
         {
+          name  = "L1_CHAIN_ID"
+          value = var.L1_CHAIN_ID
+        },
+        {
           name  = "DEPLOY_AZTEC_CONTRACTS"
           value = "false"
         },
@@ -263,10 +267,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "ARCHIVER_POLLING_INTERVAL"
           value = "10000"
-        },
-        {
-          name = "ARCHIVER_L1_START_BLOCK",
-          value = "15918000"
         },
         {
           name  = "SEQ_RETRY_INTERVAL"
@@ -357,10 +357,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = tostring(var.P2P_ENABLED)
         },
         {
-          name  = "L1_CHAIN_ID"
-          value = var.L1_CHAIN_ID
-        },
-        {
           name  = "PEER_ID_PRIVATE_KEY"
           value = local.node_p2p_private_keys[count.index]
         },
@@ -383,6 +379,34 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "P2P_TX_POOL_KEEP_PROVEN_FOR",
           value = tostring(var.P2P_TX_POOL_KEEP_PROVEN_FOR)
+        },
+        {
+          name  = "P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH"
+          value = tostring(var.P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH)
+        },
+        {
+          name  = "P2P_GOSSIPSUB_INTERVAL_MS"
+          value = tostring(var.P2P_GOSSIPSUB_INTERVAL_MS)
+        },
+        {
+          name  = "P2P_GOSSIPSUB_D"
+          value = tostring(var.P2P_GOSSIPSUB_D)
+        },
+        {
+          name  = "P2P_GOSSIPSUB_DLO"
+          value = tostring(var.P2P_GOSSIPSUB_DLO)
+        },
+        {
+          name  = "P2P_GOSSIPSUB_DHI"
+          value = tostring(var.P2P_GOSSIPSUB_DHI)
+        },
+        {
+          name  = "P2P_GOSSIPSUB_MCACHE_LENGTH"
+          value = tostring(var.P2P_GOSSIPSUB_MCACHE_LENGTH)
+        },
+        {
+          name  = "P2P_GOSSIPSUB_MCACHE_GOSSIP"
+          value = tostring(var.P2P_GOSSIPSUB_MCACHE_GOSSIP)
         },
         {
           name  = "PROVER_AGENT_ENABLED"

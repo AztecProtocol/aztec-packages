@@ -21,4 +21,18 @@ std::vector<std::vector<FF>> copy_public_inputs_columns(VmPublicInputs const& pu
                                                         std::vector<FF> const& calldata,
                                                         std::vector<FF> const& returndata);
 
+template <typename T>
+    requires(std::unsigned_integral<T>)
+std::string to_hex(T value)
+{
+    std::ostringstream stream;
+    auto num_bytes = static_cast<uint64_t>(sizeof(T));
+    auto mask = static_cast<uint64_t>((static_cast<uint128_t>(1) << (num_bytes * 8)) - 1);
+    auto padding = static_cast<int>(num_bytes * 2);
+    stream << std::setfill('0') << std::setw(padding) << std::hex << (value & mask);
+    return stream.str();
+}
+
+std::string to_hex(bb::avm_trace::AvmMemoryTag tag);
+
 } // namespace bb::avm_trace

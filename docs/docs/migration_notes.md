@@ -8,6 +8,15 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### Key rotation removed
+
+The ability to rotate incoming, outgoing, nullifying and tagging keys has been removed - this feature was easy to misuse and not worth the complexity and gate count cost. As part of this, the Key Registry contract has also been deleted. The API for fetching public keys has been adjusted accordingly:
+
+```diff
+- let keys = get_current_public_keys(&mut context, account);
++ let keys = get_public_keys(account);
+```
+
 ### [Aztec.nr] Rework `NoteGetterOptions::select`
 
 The `select` function in both `NoteGetterOptions` and `NoteViewerOptions` no longer takes an `Option` of a comparator, but instead requires an explicit comparator to be passed. Additionally, the order of the parameters has been changed so that they are `(lhs, operator, rhs)`. These two changes should make invocations of the function easier to read:

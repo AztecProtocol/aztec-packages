@@ -3,7 +3,7 @@ use dep::aztec::{
     context::{PrivateContext, UnconstrainedContext},
     protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     note::{note_getter::view_notes, note_emission::{NoteEmission, OuterNoteEmission}},
-    keys::{getters::get_current_public_keys, public_keys::NpkM}
+    keys::{getters::get_public_keys, public_keys::NpkM}
 };
 use crate::types::token_note::OwnedNote;
 

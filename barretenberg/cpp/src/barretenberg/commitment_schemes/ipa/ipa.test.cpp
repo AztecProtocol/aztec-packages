@@ -244,8 +244,6 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     const size_t n = 8;
     const size_t log_n = 3;
 
-    Fr rho = Fr::random_element();
-
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
     // point.
     auto mle_opening_point = this->random_evaluation_point(log_n); // sometimes denoted 'u'
@@ -261,59 +259,29 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval2_shift };
 
-    std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
-
-    Fr batched_evaluation = Fr::zero();
-    for (size_t i = 0; i < rhos.size(); ++i) {
-        batched_evaluation += multilinear_evaluations[i] * rhos[i];
-    }
-
-    Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
-    batched_unshifted.add_scaled(poly1, rhos[0]);
-    batched_unshifted.add_scaled(poly2, rhos[1]);
-    batched_to_be_shifted.add_scaled(poly2, rhos[2]);
-
-    GroupElement batched_commitment_unshifted = GroupElement::zero();
-    GroupElement batched_commitment_to_be_shifted = GroupElement::zero();
-    batched_commitment_unshifted = commitment1 * rhos[0] + commitment2 * rhos[1];
-    batched_commitment_to_be_shifted = commitment2 * rhos[2];
-
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
-    auto gemini_polynomials = GeminiProver::compute_gemini_polynomials(
-        mle_opening_point, std::move(batched_unshifted), std::move(batched_to_be_shifted));
+    // Run the full prover PCS protocol:
 
-    for (size_t l = 0; l < log_n - 1; ++l) {
-        std::string label = "FOLD_" + std::to_string(l + 1);
-        auto commitment = this->ck()->commit(gemini_polynomials[l + 2]);
-        prover_transcript->send_to_verifier(label, commitment);
-    }
+    // Compute:
+    // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
+    // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
+    auto prover_opening_claims = GeminiProver::prove(this->ck(),
+                                                     mle_opening_point,
+                                                     multilinear_evaluations,
+                                                     RefArray{ poly1, poly2 },
+                                                     RefArray{ poly2 },
+                                                     prover_transcript);
 
-    const Fr r_challenge = prover_transcript->template get_challenge<Fr>("Gemini:r");
-
-    const auto [gemini_opening_pairs, gemini_witnesses] = GeminiProver::compute_fold_polynomial_evaluations(
-        mle_opening_point, std::move(gemini_polynomials), r_challenge);
-
-    std::vector<ProverOpeningClaim<Curve>> opening_claims;
-
-    for (size_t l = 0; l < log_n; ++l) {
-        std::string label = "Gemini:a_" + std::to_string(l);
-        const auto& evaluation = gemini_opening_pairs[l + 1].evaluation;
-        prover_transcript->send_to_verifier(label, evaluation);
-        opening_claims.push_back({ gemini_witnesses[l], gemini_opening_pairs[l] });
-    }
-    opening_claims.push_back({ gemini_witnesses[log_n], gemini_opening_pairs[log_n] });
-
-    const auto opening_claim = ShplonkProver::prove(this->ck(), opening_claims, prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
     IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
     auto gemini_verifier_claim = GeminiVerifier::reduce_verification(mle_opening_point,
-                                                                     batched_evaluation,
-                                                                     batched_commitment_unshifted,
-                                                                     batched_commitment_to_be_shifted,
+                                                                     multilinear_evaluations,
+                                                                     RefArray{ commitment1, commitment2 },
+                                                                     RefArray{ commitment2 },
                                                                      verifier_transcript);
 
     const auto shplonk_verifier_claim =
@@ -348,45 +316,20 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval2_shift };
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
-    Fr rho = prover_transcript->template get_challenge<Fr>("rho");
-    std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
 
-    Fr batched_evaluation = Fr::zero();
-    for (size_t i = 0; i < rhos.size(); ++i) {
-        batched_evaluation += multilinear_evaluations[i] * rhos[i];
-    }
+    // Run the full prover PCS protocol:
 
-    Polynomial batched_unshifted(n);
-    Polynomial batched_to_be_shifted = Polynomial::shiftable(n);
-    batched_unshifted.add_scaled(poly1, rhos[0]);
-    batched_unshifted.add_scaled(poly2, rhos[1]);
-    batched_to_be_shifted.add_scaled(poly2, rhos[2]);
+    // Compute:
+    // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
+    // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
+    auto prover_opening_claims = GeminiProver::prove(this->ck(),
+                                                     mle_opening_point,
+                                                     multilinear_evaluations,
+                                                     RefArray{ poly1, poly2 },
+                                                     RefArray{ poly2 },
+                                                     prover_transcript);
 
-    auto gemini_polynomials = GeminiProver::compute_gemini_polynomials(
-        mle_opening_point, std::move(batched_unshifted), std::move(batched_to_be_shifted));
-
-    for (size_t l = 0; l < log_n - 1; ++l) {
-        std::string label = "FOLD_" + std::to_string(l + 1);
-        auto commitment = this->ck()->commit(gemini_polynomials[l + 2]);
-        prover_transcript->send_to_verifier(label, commitment);
-    }
-
-    const Fr r_challenge = prover_transcript->template get_challenge<Fr>("Gemini:r");
-
-    const auto [gemini_opening_pairs, gemini_witnesses] = GeminiProver::compute_fold_polynomial_evaluations(
-        mle_opening_point, std::move(gemini_polynomials), r_challenge);
-
-    std::vector<ProverOpeningClaim<Curve>> opening_claims;
-
-    for (size_t l = 0; l < log_n; ++l) {
-        std::string label = "Gemini:a_" + std::to_string(l);
-        const auto& evaluation = gemini_opening_pairs[l + 1].evaluation;
-        prover_transcript->send_to_verifier(label, evaluation);
-        opening_claims.push_back({ gemini_witnesses[l], gemini_opening_pairs[l] });
-    }
-    opening_claims.push_back({ gemini_witnesses[log_n], gemini_opening_pairs[log_n] });
-
-    const auto opening_claim = ShplonkProver::prove(this->ck(), opening_claims, prover_transcript);
+    const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
     IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);

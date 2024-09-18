@@ -75,7 +75,7 @@ class AvmTraceBuilder {
     void op_and(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_or(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_xor(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
-    void op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
+    void op_not(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset);
     void op_shl(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
     void op_shr(uint8_t indirect, uint32_t a_offset, uint32_t b_offset, uint32_t dst_offset, AvmMemoryTag in_tag);
 
@@ -178,7 +178,12 @@ class AvmTraceBuilder {
                             uint32_t input_size_offset,
                             uint32_t gen_ctx_offset);
     // Conversions
-    void op_to_radix_le(uint8_t indirect, uint32_t src_offset, uint32_t dst_offset, uint32_t radix, uint32_t num_limbs);
+    void op_to_radix_le(uint8_t indirect,
+                        uint32_t src_offset,
+                        uint32_t dst_offset,
+                        uint32_t radix_offset,
+                        uint32_t num_limbs,
+                        uint8_t output_bits);
 
     // Future Gadgets -- pending changes in noir
     void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t h_init_offset, uint32_t input_offset);
@@ -270,6 +275,7 @@ class AvmTraceBuilder {
                                       AvmMemTraceBuilder::MemOpOwner mem_op_owner = AvmMemTraceBuilder::MAIN);
 
     // TODO: remove these once everything is constrained.
+    AvmMemoryTag unconstrained_get_memory_tag(AddressWithMode addr);
     FF unconstrained_read_from_memory(AddressWithMode addr);
     template <typename T> void read_slice_from_memory(AddressWithMode addr, size_t slice_len, std::vector<T>& slice);
     void write_to_memory(AddressWithMode addr, FF val, AvmMemoryTag w_tag);

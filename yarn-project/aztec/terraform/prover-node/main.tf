@@ -242,7 +242,6 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         { name = "L1_CHAIN_ID", value = var.L1_CHAIN_ID },
         { name = "DATA_DIRECTORY", value = "${local.data_dir}/prover_node_${count.index + 1}/data" },
         { name = "DEPLOY_AZTEC_CONTRACTS", value = "false" },
-        { name = "IS_DEV_NET", value = "true" },
 
         // API
         { name = "AZTEC_PORT", value = "80" },
@@ -251,7 +250,6 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
 
         // Archiver
         { name = "ARCHIVER_POLLING_INTERVAL", value = "10000" },
-        { name = "ARCHIVER_L1_START_BLOCK", value = "15918000" },
 
         // Aztec node to pull clientivc proofs from (to be replaced with a p2p connection)
         { name = "TX_PROVIDER_NODE_URL", value = "http://${var.DEPLOY_TAG}-aztec-node-${count.index + 1}.local/${var.DEPLOY_TAG}/aztec-node-${count.index + 1}/${var.API_KEY}" },

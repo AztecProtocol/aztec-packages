@@ -3,9 +3,6 @@
 #include "../commitment_key.test.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include <cstddef>
-#include <gtest/gtest.h>
-#include <span>
 
 using namespace bb;
 
@@ -16,67 +13,27 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     using GroupElement = typename Curve::Element;
 
   public:
-    void execute_gemini_and_verify_claims(size_t log_n,
-                                          std::vector<Fr> multilinear_evaluation_point,
-                                          std::vector<Fr> multilinear_evaluations,
-                                          std::vector<Polynomial<Fr>> multilinear_polynomials,
-                                          std::vector<Polynomial<Fr>> multilinear_polynomials_to_be_shifted,
-                                          std::vector<GroupElement> multilinear_commitments,
-                                          std::vector<GroupElement> multilinear_commitments_to_be_shifted)
+    void execute_gemini_and_verify_claims(std::vector<Fr>& multilinear_evaluation_point,
+                                          std::vector<Fr>& multilinear_evaluations,
+                                          std::vector<Polynomial<Fr>>& multilinear_polynomials,
+                                          std::vector<Polynomial<Fr>>& multilinear_polynomials_to_be_shifted,
+                                          std::vector<GroupElement>& multilinear_commitments,
+                                          std::vector<GroupElement>& multilinear_commitments_to_be_shifted)
     {
         auto prover_transcript = NativeTranscript::prover_init_empty();
-
-        const Fr rho = Fr::random_element();
-
-        std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
-
-        // Compute batched multivariate evaluation
-        Fr batched_evaluation = Fr::zero();
-        for (size_t i = 0; i < multilinear_evaluations.size(); ++i) {
-            batched_evaluation += multilinear_evaluations[i] * rhos[i];
-        }
-
-        Polynomial<Fr> batched_unshifted(1 << log_n);
-        Polynomial<Fr> batched_to_be_shifted = Polynomial<Fr>::shiftable(1 << log_n);
-        GroupElement batched_commitment_unshifted = GroupElement::zero();
-        GroupElement batched_commitment_to_be_shifted = GroupElement::zero();
-        const size_t num_unshifted = multilinear_polynomials.size();
-        const size_t num_shifted = multilinear_polynomials_to_be_shifted.size();
-        for (size_t i = 0; i < num_unshifted; ++i) {
-            batched_unshifted.add_scaled(multilinear_polynomials[i], rhos[i]);
-            batched_commitment_unshifted += multilinear_commitments[i] * rhos[i];
-        }
-        for (size_t i = 0; i < num_shifted; ++i) {
-            size_t rho_idx = num_unshifted + i;
-            batched_to_be_shifted.add_scaled(multilinear_polynomials_to_be_shifted[i], rhos[rho_idx]);
-            batched_commitment_to_be_shifted += multilinear_commitments_to_be_shifted[i] * rhos[rho_idx];
-        }
 
         // Compute:
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-        auto gemini_polynomials = GeminiProver::compute_gemini_polynomials(
-            multilinear_evaluation_point, std::move(batched_unshifted), std::move(batched_to_be_shifted));
-
-        for (size_t l = 0; l < log_n - 1; ++l) {
-            std::string label = "FOLD_" + std::to_string(l + 1);
-            auto commitment = this->ck()->commit(gemini_polynomials[l + 2]);
-            prover_transcript->send_to_verifier(label, commitment);
-        }
-
-        const Fr r_challenge = prover_transcript->get_challenge<Fr>("Gemini:r");
-
-        auto prover_output = GeminiProver::compute_fold_polynomial_evaluations(
-            multilinear_evaluation_point, std::move(gemini_polynomials), r_challenge);
-
-        for (size_t l = 0; l < log_n; ++l) {
-            std::string label = "Gemini:a_" + std::to_string(l);
-            const auto& evaluation = prover_output.opening_pairs[l + 1].evaluation;
-            prover_transcript->send_to_verifier(label, evaluation);
-        }
+        auto prover_output = GeminiProver::prove(this->commitment_key,
+                                                 multilinear_evaluation_point,
+                                                 multilinear_evaluations,
+                                                 RefVector(multilinear_polynomials),
+                                                 RefVector(multilinear_polynomials_to_be_shifted),
+                                                 prover_transcript);
 
         // Check that the Fold polynomials have been evaluated correctly in the prover
-        this->verify_batch_opening_pair(prover_output.opening_pairs, prover_output.witnesses);
+        this->verify_batch_opening_pair(prover_output);
 
         auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
@@ -84,19 +41,17 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // - Single opening pair: {r, \hat{a}_0}
         // - 2 partially evaluated Fold polynomial commitments [Fold_{r}^(0)] and [Fold_{-r}^(0)]
         // Aggregate: d+1 opening pairs and d+1 Fold poly commitments into verifier claim
-        auto verifier_claim = GeminiVerifier::reduce_verification(multilinear_evaluation_point,
-                                                                  batched_evaluation,
-                                                                  batched_commitment_unshifted,
-                                                                  batched_commitment_to_be_shifted,
-                                                                  verifier_transcript);
+        auto verifier_claims = GeminiVerifier::reduce_verification(multilinear_evaluation_point,
+                                                                   multilinear_evaluations,
+                                                                   RefVector(multilinear_commitments),
+                                                                   RefVector(multilinear_commitments_to_be_shifted),
+                                                                   verifier_transcript);
 
         // Check equality of the opening pairs computed by prover and verifier
-        for (size_t i = 0; i < (log_n + 1); ++i) {
-            ASSERT_EQ(prover_output.opening_pairs[i], verifier_claim[i].opening_pair);
+        for (auto [prover_claim, verifier_claim] : zip_view(prover_output, verifier_claims)) {
+            ASSERT_EQ(prover_claim.opening_pair, verifier_claim.opening_pair);
+            this->verify_opening_claim(verifier_claim, prover_claim.polynomial);
         }
-
-        // Explicitly verify the claims computed by the verfier
-        this->verify_batch_opening_claim(verifier_claim, prover_output.witnesses);
     }
 };
 
@@ -123,8 +78,7 @@ TYPED_TEST(GeminiTest, Single)
     std::vector<GroupElement> multilinear_commitments = { commitment };
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = {};
 
-    this->execute_gemini_and_verify_claims(log_n,
-                                           u,
+    this->execute_gemini_and_verify_claims(u,
                                            multilinear_evaluations,
                                            multilinear_polynomials,
                                            multilinear_polynomials_to_be_shifted,
@@ -155,8 +109,7 @@ TYPED_TEST(GeminiTest, SingleShift)
     std::vector<GroupElement> multilinear_commitments = {};
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = { commitment };
 
-    this->execute_gemini_and_verify_claims(log_n,
-                                           u,
+    this->execute_gemini_and_verify_claims(u,
                                            multilinear_evaluations,
                                            multilinear_polynomials,
                                            multilinear_polynomials_to_be_shifted,
@@ -190,8 +143,7 @@ TYPED_TEST(GeminiTest, Double)
     std::vector<GroupElement> multilinear_commitments = { commitment1, commitment2 };
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = {};
 
-    this->execute_gemini_and_verify_claims(log_n,
-                                           u,
+    this->execute_gemini_and_verify_claims(u,
                                            multilinear_evaluations,
                                            multilinear_polynomials,
                                            multilinear_polynomials_to_be_shifted,
@@ -226,8 +178,7 @@ TYPED_TEST(GeminiTest, DoubleWithShift)
     std::vector<GroupElement> multilinear_commitments = { commitment1, commitment2 };
     std::vector<GroupElement> multilinear_commitments_to_be_shifted = { commitment2 };
 
-    this->execute_gemini_and_verify_claims(log_n,
-                                           u,
+    this->execute_gemini_and_verify_claims(u,
                                            multilinear_evaluations,
                                            multilinear_polynomials,
                                            multilinear_polynomials_to_be_shifted,
