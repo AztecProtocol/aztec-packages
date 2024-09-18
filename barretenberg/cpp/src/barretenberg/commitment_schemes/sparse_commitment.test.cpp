@@ -66,4 +66,94 @@ TYPED_TEST(CommitmentKeyTest, CommitSparse)
     EXPECT_EQ(sparse_commit_result, commit_result);
 }
 
+/**
+ * @brief Test commit_sparse on polynomial with zero start index.
+ *
+ */
+TYPED_TEST(CommitmentKeyTest, CommitSparseSmallSize)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    const size_t num_points = 1 << 12; // large enough to ensure normal pippenger logic is used
+    const size_t num_nonzero = 7;
+
+    // Construct a sparse random polynomial
+    Polynomial poly(num_nonzero, num_points, 0);
+    for (size_t i = 0; i < num_nonzero; ++i) {
+        poly.at(i) = Fr::random_element();
+    }
+
+    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
+    auto key = TestFixture::template create_commitment_key<CK>(num_points);
+    G1 commit_result = key->commit(poly);
+    G1 sparse_commit_result = key->commit_sparse(poly);
+
+    EXPECT_EQ(sparse_commit_result, commit_result);
+}
+
+/**
+ * @brief Test commit_sparse on polynomial with nonzero start index.
+ *
+ */
+TYPED_TEST(CommitmentKeyTest, CommitSparseNonZeroStartIndex)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    const size_t num_points = 1 << 12; // large enough to ensure normal pippenger logic is used
+    const size_t num_nonzero = 7;
+    const size_t offset = 1 << 11;
+
+    // Construct a sparse random polynomial
+    Polynomial poly(num_nonzero, num_points, offset);
+    for (size_t i = offset; i < offset + num_nonzero; ++i) {
+        poly.at(i) = Fr::random_element();
+    }
+
+    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
+    auto key = TestFixture::template create_commitment_key<CK>(num_points);
+    G1 commit_result = key->commit(poly);
+    G1 sparse_commit_result = key->commit_sparse(poly);
+
+    EXPECT_EQ(sparse_commit_result, commit_result);
+}
+
+/**
+ * @brief Test commit_sparse on polynomial with medium size and nonzero start index.
+ * @details This was used to catch a bug in commit_sparse where the number of threads was > 1 and the size was not a
+ * power of 2.
+ */
+TYPED_TEST(CommitmentKeyTest, CommitSparseMediumNonZeroStartIndex)
+{
+    using Curve = TypeParam;
+    using CK = CommitmentKey<Curve>;
+    using G1 = Curve::AffineElement;
+    using Fr = Curve::ScalarField;
+    using Polynomial = bb::Polynomial<Fr>;
+
+    const size_t num_points = 1 << 12; // large enough to ensure normal pippenger logic is used
+    const size_t num_nonzero = (1 << 9) + 1;
+    const size_t offset = 1 << 11;
+
+    // Construct a sparse random polynomial
+    Polynomial poly(num_nonzero, num_points, offset);
+    for (size_t i = offset; i < offset + num_nonzero; ++i) {
+        poly.at(i) = Fr::random_element();
+    }
+
+    // Commit to the polynomial using both the conventional commit method and the sparse commitment method
+    auto key = TestFixture::template create_commitment_key<CK>(num_points);
+    G1 commit_result = key->commit(poly);
+    G1 sparse_commit_result = key->commit_sparse(poly);
+
+    EXPECT_EQ(sparse_commit_result, commit_result);
+}
+
 } // namespace bb
