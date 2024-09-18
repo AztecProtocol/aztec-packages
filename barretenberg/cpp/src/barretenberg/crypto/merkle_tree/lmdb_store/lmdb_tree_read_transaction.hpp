@@ -144,10 +144,11 @@ bool LMDBTreeReadTransaction::get_value_or_previous(
     // Look for the key >= to that provided
     int code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_SET_RANGE);
     if (code == 0) {
+        bool lower = false;
         while (!success) {
             // We found the key, now determine if it is the exact key
             std::vector<uint8_t> temp = mdb_val_to_vector(dbKey);
-            if (keyBuffer == temp) {
+            if (keyBuffer == temp || lower) {
                 // We have the exact key, we need to determine if it is valid
                 copy_to_vector(dbVal, data);
                 if (is_valid(data)) {
@@ -167,9 +168,11 @@ bool LMDBTreeReadTransaction::get_value_or_previous(
             // either way we now need to find the previous key
             code = mdb_cursor_get(cursor, &dbKey, &dbVal, MDB_PREV);
             if (code == 0) {
-                // Success, go round the loop again
+                // Success, go round the loop again, this time we will definitely have a lower key
+                lower = true;
             } else if (code == MDB_NOTFOUND) {
                 // There is no previous key, do nothing
+                break;
             } else {
                 throw_error("get_value_or_previous::mdb_cursor_get", code);
             }

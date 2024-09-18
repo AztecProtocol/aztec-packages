@@ -270,14 +270,18 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
                 std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
-                if (leaf_hash.has_value()) {
-                    std::optional<IndexedLeafValueType> leaf =
-                        store_.get_leaf_by_hash(leaf_hash.value(), *tx, includeUncommitted);
-                    if (leaf.has_value()) {
-                        response.success = true;
-                        response.inner.indexed_leaf = leaf.value();
-                    }
+                if (!leaf_hash.has_value()) {
+                    response.success = false;
+                    return;
                 }
+                std::optional<IndexedLeafValueType> leaf =
+                    store_.get_leaf_by_hash(leaf_hash.value(), *tx, includeUncommitted);
+                if (!leaf.has_value()) {
+                    response.success = false;
+                    return;
+                }
+                response.success = true;
+                response.inner.indexed_leaf = leaf.value();
             },
             completion);
     };
@@ -303,14 +307,18 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = blockData.root;
                 std::optional<fr> leaf_hash = find_leaf_hash(index, requestContext, *tx);
-                if (leaf_hash.has_value()) {
-                    std::optional<IndexedLeafValueType> leaf =
-                        store_.get_leaf_by_hash(leaf_hash.value(), *tx, includeUncommitted);
-                    if (leaf.has_value()) {
-                        response.success = true;
-                        response.inner.indexed_leaf = leaf.value();
-                    }
+                if (!leaf_hash.has_value()) {
+                    response.success = false;
+                    return;
                 }
+                std::optional<IndexedLeafValueType> leaf =
+                    store_.get_leaf_by_hash(leaf_hash.value(), *tx, includeUncommitted);
+                if (!leaf.has_value()) {
+                    response.success = false;
+                    return;
+                }
+                response.success = true;
+                response.inner.indexed_leaf = leaf.value();
             },
             completion);
     };
@@ -743,7 +751,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                         // std::cout << "Found cached low leaf at index: " << low_leaf_index << " : " << low_leaf
                         //           << std::endl;
                     } else {
-                        // std::cout << "Looking for leaf" << std::endl;
+                        // std::cout << "Looking for leaf at index " << low_leaf_index << std::endl;
                         std::optional<fr> low_leaf_hash = find_leaf_hash(low_leaf_index, requestContext, *tx, true);
 
                         if (!low_leaf_hash.has_value()) {

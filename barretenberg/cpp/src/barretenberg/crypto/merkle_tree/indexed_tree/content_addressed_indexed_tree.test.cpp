@@ -84,12 +84,36 @@ template <typename TypeOfTree> void check_root(TypeOfTree& tree, fr expected_roo
 }
 
 template <typename TypeOfTree>
-fr_sibling_path get_sibling_path(TypeOfTree& tree, index_t index, bool includeUncommitted = true)
+fr_sibling_path get_historic_sibling_path(
+    TypeOfTree& tree, index_t blockNumber, index_t index, bool includeUncommitted = true, bool expected_success = true)
 {
     fr_sibling_path h;
     Signal signal;
     auto completion = [&](const TypedResponse<GetSiblingPathResponse>& response) -> void {
-        h = response.inner.path;
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            h = response.inner.path;
+        }
+        signal.signal_level();
+    };
+    tree.get_sibling_path(index, blockNumber, completion, includeUncommitted);
+    signal.wait_for_level();
+    return h;
+}
+
+template <typename TypeOfTree>
+fr_sibling_path get_sibling_path(TypeOfTree& tree,
+                                 index_t index,
+                                 bool includeUncommitted = true,
+                                 bool expected_success = true)
+{
+    fr_sibling_path h;
+    Signal signal;
+    auto completion = [&](const TypedResponse<GetSiblingPathResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            h = response.inner.path;
+        }
         signal.signal_level();
     };
     tree.get_sibling_path(index, completion, includeUncommitted);
@@ -98,17 +122,23 @@ fr_sibling_path get_sibling_path(TypeOfTree& tree, index_t index, bool includeUn
 }
 
 template <typename LeafValueType, typename TypeOfTree>
-IndexedLeaf<LeafValueType> get_leaf(TypeOfTree& tree, index_t index, bool includeUncommitted = true)
+IndexedLeaf<LeafValueType> get_leaf(TypeOfTree& tree,
+                                    index_t index,
+                                    bool includeUncommitted = true,
+                                    bool expected_success = true)
 {
     std::optional<IndexedLeaf<LeafValueType>> l;
     Signal signal;
     auto completion = [&](const TypedResponse<GetIndexedLeafResponse<LeafValueType>>& leaf) -> void {
-        l = leaf.inner.indexed_leaf;
+        EXPECT_EQ(leaf.success, expected_success);
+        if (leaf.success) {
+            l = leaf.inner.indexed_leaf;
+        }
         signal.signal_level();
     };
     tree.get_leaf(index, includeUncommitted, completion);
     signal.wait_for_level();
-    return l.value();
+    return l.has_value() ? l.value() : IndexedLeaf<LeafValueType>();
 }
 
 template <typename LeafValueType, typename TypeOfTree>
@@ -126,6 +156,23 @@ GetLowIndexedLeafResponse get_low_leaf(TypeOfTree& tree, const LeafValueType& le
 }
 
 template <typename LeafValueType, typename TypeOfTree>
+GetLowIndexedLeafResponse get_historic_low_leaf(TypeOfTree& tree,
+                                                index_t blockNumber,
+                                                const LeafValueType& leaf,
+                                                bool includeUncommitted = true)
+{
+    GetLowIndexedLeafResponse low_leaf_info;
+    Signal signal;
+    auto completion = [&](const auto& leaf) -> void {
+        low_leaf_info = leaf.inner;
+        signal.signal_level();
+    };
+    tree.find_low_leaf(leaf.get_key(), blockNumber, includeUncommitted, completion);
+    signal.wait_for_level();
+    return low_leaf_info;
+}
+
+template <typename LeafValueType, typename TypeOfTree>
 void check_find_leaf_index(TypeOfTree& tree,
                            const LeafValueType& leaf,
                            index_t expected_index,
@@ -135,7 +182,7 @@ void check_find_leaf_index(TypeOfTree& tree,
     Signal signal;
     auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
-        if (expected_success) {
+        if (response.success) {
             EXPECT_EQ(response.inner.leaf_index, expected_index);
         }
         signal.signal_level();
@@ -145,14 +192,123 @@ void check_find_leaf_index(TypeOfTree& tree,
     signal.wait_for_level();
 }
 
+template <typename LeafValueType, typename TypeOfTree>
+void check_find_leaf_index_from(TypeOfTree& tree,
+                                const LeafValueType& leaf,
+                                index_t start_index,
+                                index_t expected_index,
+                                bool expected_success,
+                                bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index_from(leaf, start_index, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_historic_find_leaf_index(TypeOfTree& tree,
+                                    const LeafValueType& leaf,
+                                    index_t blockNumber,
+                                    index_t expected_index,
+                                    bool expected_success,
+                                    bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index(leaf, blockNumber, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_historic_find_leaf_index_from(TypeOfTree& tree,
+                                         const LeafValueType& leaf,
+                                         index_t blockNumber,
+                                         index_t start_index,
+                                         index_t expected_index,
+                                         bool expected_success,
+                                         bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<FindLeafIndexResponse>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.leaf_index, expected_index);
+        }
+        signal.signal_level();
+    };
+
+    tree.find_leaf_index_from(leaf, blockNumber, start_index, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename LeafValueType, typename TypeOfTree>
+void check_historic_leaf(TypeOfTree& tree,
+                         const LeafValueType& leaf,
+                         index_t expected_index,
+                         index_t blockNumber,
+                         bool expected_success,
+                         bool includeUncommitted = true)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<GetIndexedLeafResponse<LeafValueType>>& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        if (response.success) {
+            EXPECT_EQ(response.inner.indexed_leaf.value().value, leaf);
+        }
+        signal.signal_level();
+    };
+
+    tree.get_leaf(expected_index, blockNumber, includeUncommitted, completion);
+    signal.wait_for_level();
+}
+
+template <typename TypeOfTree>
+void check_historic_sibling_path(TypeOfTree& tree,
+                                 index_t index,
+                                 index_t blockNumber,
+                                 const fr_sibling_path& expected_sibling_path,
+                                 bool includeUncommitted = true)
+{
+    fr_sibling_path path = get_historic_sibling_path(tree, blockNumber, index, includeUncommitted);
+    EXPECT_EQ(path, expected_sibling_path);
+}
+
 template <typename TypeOfTree>
 void check_sibling_path(TypeOfTree& tree,
                         index_t index,
-                        fr_sibling_path expected_sibling_path,
-                        bool includeUncommitted = true)
+                        const fr_sibling_path& expected_sibling_path,
+                        bool includeUncommitted = true,
+                        bool expected_success = true)
 {
-    fr_sibling_path path = get_sibling_path(tree, index, includeUncommitted);
+    fr_sibling_path path = get_sibling_path(tree, index, includeUncommitted, expected_success);
     EXPECT_EQ(path, expected_sibling_path);
+}
+
+template <typename TypeOfTree> void check_unfinalised_block_height(TypeOfTree& tree, index_t expected_block_height)
+{
+    Signal signal;
+    auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
+        EXPECT_EQ(response.success, true);
+        EXPECT_EQ(response.inner.meta.unfinalisedBlockHeight, expected_block_height);
+        signal.signal_level();
+    };
+    tree.get_meta_data(true, completion);
+    signal.wait_for_level();
 }
 
 template <typename TypeOfTree> void commit_tree(TypeOfTree& tree, bool expectedSuccess = true)
@@ -885,10 +1041,6 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
         }
         signal.wait_for_level();
     }
-
-    // for (auto& path : paths) {
-    // EXPECT_TRUE(path == initial_path || path == final_sibling_path);
-    // }
 }
 
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_memory_with_public_data_writes)
@@ -1095,4 +1247,301 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, duplicates)
     // expect this to fail as no data is present
     commit_tree(tree, false);
     check_size(tree, 3);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_historic_sibling_path_retrieval)
+{
+    auto& random_engine = numeric::get_randomness();
+    const uint32_t batch_size = 16;
+    const uint32_t num_batches = 8;
+    std::string name1 = random_string();
+    std::string name2 = random_string();
+    uint32_t depth = 10;
+    ThreadPool multi_workers(8);
+    NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
+
+    LMDBTreeStore db1(*_environment, name1, false, false, integer_key_cmp);
+    Store store1(name1, depth, db1);
+    auto tree1 = TreeType(store1, multi_workers, batch_size);
+
+    std::vector<fr_sibling_path> memory_tree_sibling_paths_index_0;
+
+    auto check = [&]() {
+        check_root(tree1, memdb.root());
+        check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
+
+        for (uint32_t i = 0; i < memory_tree_sibling_paths_index_0.size(); i++) {
+            check_historic_sibling_path(tree1, 0, i + 1, memory_tree_sibling_paths_index_0[i]);
+        }
+    };
+
+    for (uint32_t i = 0; i < num_batches; i++) {
+
+        check_root(tree1, memdb.root());
+        check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
+
+        std::vector<NullifierLeafValue> batch;
+
+        for (uint32_t j = 0; j < batch_size; j++) {
+            batch.emplace_back(random_engine.get_random_uint256());
+            memdb.update_element(batch[j].value);
+        }
+        memory_tree_sibling_paths_index_0.push_back(memdb.get_sibling_path(0));
+        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
+        std::shared_ptr<std::vector<LowLeafWitnessData<NullifierLeafValue>>> tree2_low_leaf_witness_data;
+        {
+            Signal signal;
+            CompletionCallback completion =
+                [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& response) {
+                    tree1_low_leaf_witness_data = response.inner.low_leaf_witness_data;
+                    signal.signal_level();
+                };
+            tree1.add_or_update_values(batch, completion);
+            signal.wait_for_level();
+        }
+        check_root(tree1, memdb.root());
+        check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
+        commit_tree(tree1);
+        check();
+    }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_historical_leaves)
+{
+    index_t current_size = 2;
+    ThreadPool workers(8);
+    // Create a depth-3 indexed merkle tree
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore db(*_environment, name, false, false, integer_key_cmp);
+    ContentAddressedCachedTreeStore<PublicDataLeafValue> store(name, depth, db);
+    auto tree = ContentAddressedIndexedTree<ContentAddressedCachedTreeStore<PublicDataLeafValue>, Poseidon2HashPolicy>(
+        store, workers, current_size);
+
+    /**
+     * Intial state:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       0       0        0       0       0       0
+     *  val       0       0       0       0        0       0       0       0
+     *  nextIdx   1       0       0       0        0       0       0       0
+     *  nextVal   1       0       0       0        0       0       0       0
+     */
+    IndexedPublicDataLeafType zero_leaf = create_indexed_public_data_leaf(0, 0, 1, 1);
+    IndexedPublicDataLeafType one_leaf = create_indexed_public_data_leaf(1, 0, 0, 0);
+    check_size(tree, current_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), zero_leaf);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), one_leaf);
+
+    /**
+     * Add new slot:value 30:5:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      0        0       0       0       0
+     *  val       0       0       5       0        0       0       0       0
+     *  nextIdx   1       2       0       0        0       0       0       0
+     *  nextVal   1       30      0       0        0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(30, 5));
+    commit_tree(tree);
+    check_size(tree, ++current_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
+
+    auto leaf1AtBlock1 = PublicDataLeafValue(1, 0);
+
+    /**
+     * Add new slot:value 10:20:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10        0       0       0       0
+     *  val       0       0       5       20        0       0       0       0
+     *  nextIdx   1       3       0       2         0       0       0       0
+     *  nextVal   1       10      0       30        0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(10, 20));
+    check_size(tree, ++current_size);
+    commit_tree(tree);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 5, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+
+    auto leaf2AtBlock2 = PublicDataLeafValue(30, 5);
+    check_historic_leaf(tree, leaf1AtBlock1, 1, 1, true);
+
+    // shoudl find this leaf at both blocks 1 and 2 as it looks for the slot which doesn't change
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 1, 1, true);
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 2, 1, true);
+
+    /**
+     * Update value at slot 30 to 6:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10       0       0       0       0
+     *  val       0       0       6       20       0       0       0       0
+     *  nextIdx   1       3       0       2        0       0       0       0
+     *  nextVal   1       10      0       30       0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(30, 6));
+    // The size still increases as we pad with an empty leaf
+    check_size(tree, ++current_size);
+    commit_tree(tree);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 4), create_indexed_public_data_leaf(0, 0, 0, 0));
+
+    auto leaf2AtBlock3 = PublicDataLeafValue(30, 6);
+    check_historic_leaf(tree, leaf2AtBlock2, 2, 2, true);
+
+    // should find this leaf at both blocks 1 and 2 as it looks for the slot which doesn't change
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 1, 1, true);
+    check_historic_find_leaf_index(tree, leaf1AtBlock1, 2, 1, true);
+
+    /**
+     * Add new value slot:value 50:8:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       30      10       0       50      0       0
+     *  val       0       0       6       20       0       8       0       0
+     *  nextIdx   1       3       5       2        0       0       0       0
+     *  nextVal   1       10      50      30       0       0       0       0
+     */
+    add_value(tree, PublicDataLeafValue(50, 8));
+    check_size(tree, ++current_size);
+    commit_tree(tree);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), create_indexed_public_data_leaf(0, 0, 1, 1));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), create_indexed_public_data_leaf(1, 0, 3, 10));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), create_indexed_public_data_leaf(30, 6, 5, 50));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), create_indexed_public_data_leaf(10, 20, 2, 30));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 4), create_indexed_public_data_leaf(0, 0, 0, 0));
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 5), create_indexed_public_data_leaf(50, 8, 0, 0));
+
+    check_historic_leaf(tree, leaf2AtBlock3, 2, 3, true);
+
+    // should not be found at block 1
+    check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 1, 0, 0, false);
+    // should be found at block
+    check_historic_find_leaf_index_from(tree, PublicDataLeafValue(10, 20), 2, 0, 3, true);
+
+    GetLowIndexedLeafResponse lowLeaf = get_historic_low_leaf(tree, 1, PublicDataLeafValue(20, 0));
+    EXPECT_EQ(lowLeaf.index, 1);
+
+    lowLeaf = get_historic_low_leaf(tree, 2, PublicDataLeafValue(20, 0));
+    EXPECT_EQ(lowLeaf.index, 3);
+
+    lowLeaf = get_historic_low_leaf(tree, 2, PublicDataLeafValue(60, 0));
+    EXPECT_EQ(lowLeaf.index, 2);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_images_at_historic_blocks)
+{
+    auto& random_engine = numeric::get_randomness();
+    const uint32_t batch_size = 16;
+    uint32_t depth = 10;
+    ThreadPool multi_workers(8);
+    NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
+
+    std::string name1 = random_string();
+    LMDBTreeStore db1(*_environment, name1, false, false, integer_key_cmp);
+    Store store1(name1, depth, db1);
+    auto tree1 = TreeType(store1, multi_workers, batch_size);
+
+    check_root(tree1, memdb.root());
+    check_sibling_path(tree1, 0, memdb.get_sibling_path(0));
+
+    check_sibling_path(tree1, 512, memdb.get_sibling_path(512));
+
+    std::vector<NullifierLeafValue> batch1;
+    for (uint32_t j = 0; j < batch_size; j++) {
+        batch1.emplace_back(random_engine.get_random_uint256());
+        memdb.update_element(batch1[j].value);
+    }
+
+    fr_sibling_path block1SiblingPathIndex3 = memdb.get_sibling_path(3 + batch_size);
+
+    add_values(tree1, batch1);
+    commit_tree(tree1, true);
+
+    std::vector<NullifierLeafValue> batch2;
+    for (uint32_t j = 0; j < batch_size; j++) {
+        batch2.emplace_back(random_engine.get_random_uint256());
+        memdb.update_element(batch2[j].value);
+    }
+
+    add_values(tree1, batch2);
+    commit_tree(tree1, true);
+
+    fr block2Root = memdb.root();
+
+    fr_sibling_path block2SiblingPathIndex19 = memdb.get_sibling_path(19 + batch_size);
+    fr_sibling_path block2SiblingPathIndex3 = memdb.get_sibling_path(3 + batch_size);
+
+    std::vector<NullifierLeafValue> batch3;
+    for (uint32_t j = 0; j < batch_size; j++) {
+        batch3.emplace_back(random_engine.get_random_uint256());
+        memdb.update_element(batch3[j].value);
+    }
+
+    add_values(tree1, batch3);
+    commit_tree(tree1, true);
+
+    fr_sibling_path block3SiblingPathIndex35 = memdb.get_sibling_path(35 + batch_size);
+    fr_sibling_path block3SiblingPathIndex19 = memdb.get_sibling_path(19 + batch_size);
+    fr_sibling_path block3SiblingPathIndex3 = memdb.get_sibling_path(3 + batch_size);
+
+    Store storeAtBlock2(name1, depth, 2, db1);
+    auto treeAtBlock2 = TreeType(storeAtBlock2, multi_workers, batch_size);
+
+    check_root(treeAtBlock2, block2Root);
+    check_sibling_path(treeAtBlock2, 3 + batch_size, block2SiblingPathIndex3, false, true);
+    auto block2TreeLeaf10 = get_leaf<NullifierLeafValue>(treeAtBlock2, 7 + batch_size);
+    EXPECT_EQ(block2TreeLeaf10.value, batch1[7].value);
+
+    check_find_leaf_index(treeAtBlock2, batch1[5], 5 + batch_size, true);
+    check_find_leaf_index_from(treeAtBlock2, batch1[5], 0, 5 + batch_size, true);
+
+    // should not exist in our image
+    get_leaf<NullifierLeafValue>(treeAtBlock2, 35 + batch_size, false, false);
+    check_find_leaf_index(treeAtBlock2, batch3[4], 0, false);
+
+    // now add the same values to our image
+    add_values(treeAtBlock2, batch3);
+
+    // the state of our image should match the original tree
+    check_sibling_path(tree1, 3 + batch_size, block3SiblingPathIndex3, false, true);
+    check_sibling_path(tree1, 19 + batch_size, block3SiblingPathIndex19, false, true);
+    check_sibling_path(tree1, 35 + batch_size, block3SiblingPathIndex35, false, true);
+
+    // needs to use uncommitted for this check
+    check_sibling_path(treeAtBlock2, 3 + batch_size, block3SiblingPathIndex3, true, true);
+    check_sibling_path(treeAtBlock2, 19 + batch_size, block3SiblingPathIndex19, true, true);
+    check_sibling_path(treeAtBlock2, 35 + batch_size, block3SiblingPathIndex35, true, true);
+
+    // now check historic data
+    auto historicSiblingPath = get_historic_sibling_path(treeAtBlock2, 1, 3 + batch_size);
+    EXPECT_EQ(historicSiblingPath, block1SiblingPathIndex3);
+    check_historic_find_leaf_index(treeAtBlock2, batch1[3], 1, 3 + batch_size, true);
+    check_historic_find_leaf_index(treeAtBlock2, batch3[3], 2, 35 + batch_size, true, true);
+    check_historic_find_leaf_index(treeAtBlock2, batch3[3], 2, 35 + batch_size, false, false);
+
+    check_historic_find_leaf_index_from(treeAtBlock2, batch1[3], 2, 0, 3 + batch_size, true, false);
+    check_historic_find_leaf_index_from(treeAtBlock2, batch3[3], 2, 20 + batch_size, 35 + batch_size, false, false);
+    check_historic_find_leaf_index_from(treeAtBlock2, batch3[3], 2, 20 + batch_size, 35 + batch_size, true, true);
+
+    check_unfinalised_block_height(treeAtBlock2, 2);
+
+    // It should be impossible to commit using the image
+    commit_tree(treeAtBlock2, false);
 }

@@ -172,7 +172,7 @@ fr LMDBTreeStore::find_low_leaf(const fr& leafValue,
     auto is_valid = [&](const std::vector<uint8_t>& data) {
         Indices tmp;
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(tmp);
-        return tmp.indices[0] <= sizeLimit.value();
+        return tmp.indices[0] < sizeLimit.value();
     };
     if (!sizeLimit.has_value()) {
         tx.get_value_or_previous(key, data, *_leafValueToIndexDatabase);

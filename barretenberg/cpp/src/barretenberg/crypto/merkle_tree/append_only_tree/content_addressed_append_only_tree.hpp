@@ -702,7 +702,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
 
     // std::cout << "LEVEL: " << level << " hash " << new_hash << std::endl;
     RequestContext requestContext;
-    // requestContext.latestBlock = true;
     requestContext.includeUncommitted = true;
     requestContext.root = store_.get_current_root(*tx, true);
     OptionalSiblingPath optional_sibling_path_to_root =

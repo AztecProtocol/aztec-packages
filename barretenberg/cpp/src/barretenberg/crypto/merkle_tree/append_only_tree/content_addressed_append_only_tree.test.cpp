@@ -1092,8 +1092,8 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_histori
     // now check historic data
     check_historic_sibling_path(treeAtBlock2, 3, block1SiblingPathIndex3, 1);
     check_find_historic_leaf_index(treeAtBlock2, 1, 10, 1, true);
-    check_find_historic_leaf_index(treeAtBlock2, 3, 16, 8, true, true);
-    check_find_historic_leaf_index(treeAtBlock2, 3, 16, 8, false, false);
+    check_find_historic_leaf_index(treeAtBlock2, 2, 16, 8, true, true);
+    check_find_historic_leaf_index(treeAtBlock2, 2, 16, 8, false, false);
 
     check_find_historic_leaf_index_from(treeAtBlock2, 1, 18, 3, 0, false, false);
     check_find_historic_leaf_index_from(treeAtBlock2, 1, 20, 0, 2, true, false);

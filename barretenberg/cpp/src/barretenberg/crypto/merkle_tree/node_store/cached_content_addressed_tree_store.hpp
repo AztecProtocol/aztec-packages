@@ -258,10 +258,10 @@ std::pair<bool, index_t> ContentAddressedCachedTreeStore<LeafValueType>::find_lo
     auto new_value_as_number = uint256_t(new_leaf_key);
     Indices committed;
     std::optional<index_t> sizeLimit = std::nullopt;
-    index_t constrainedLimit = constrain_tree_size(requestContext, tx);
-    if (constrainedLimit < meta.committedSize) {
-        sizeLimit = constrainedLimit;
+    if (initialised_from_block.has_value() || requestContext.blockNumber.has_value()) {
+        sizeLimit = constrain_tree_size(requestContext, tx);
     }
+
     fr found_key = dataStore.find_low_leaf(new_leaf_key, committed, sizeLimit, tx);
     auto db_index = committed.indices[0];
     uint256_t retrieved_value = found_key;
@@ -326,7 +326,6 @@ void ContentAddressedCachedTreeStore<LeafValueType>::put_leaf_by_hash(const fr& 
 {
     std::unique_lock lock(mtx);
     leaves[leaf_hash] = leafPreImage;
-    // std::cout << "Put leaf by hash " << leaf_hash << ", pre image " << leafPreImage << std::endl;
 }
 
 template <typename LeafValueType>
