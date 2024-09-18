@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726653569541,
+  "lastUpdate": 1726672366880,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47281315+guipublic@users.noreply.github.com",
-            "name": "guipublic",
-            "username": "guipublic"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0d8e835dd6cd6cd545edda20f652ab6f10c530da",
-          "message": "feat: replace arithmetic equalities with assert equal (#8386)\n\nReplace arithmetic equalities with assert_equal if the 2 equal witnesses\r\nhave been both added previously into an arithmetic gate.\r\n\r\n---------\r\n\r\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
-          "timestamp": "2024-09-05T17:04:46+01:00",
-          "tree_id": "f94b94e6cc7e1cc6dcabd97b01f0c5b7f0bcfbb7",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0d8e835dd6cd6cd545edda20f652ab6f10c530da"
-        },
-        "date": 1725553216701,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13408.058261000007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10202.095563000003 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5132.091070999991,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4702.455685 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39185.085528999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39185086000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14639.280307,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14639281000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3695347337,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3695347337 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 146654178,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 146654178 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3009207599,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3009207599 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 120793349,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 120793349 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 125413310,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125413310 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "94339fbfc7c0c822dc1497c113d48f74a89f1bad",
+          "message": "chore: create a Gemini prover (#8622)\n\nIn this PR:\r\n* make a `GeminiProver::prove` to not have to replicate all the stages\r\nof the protocol in tests (and soon in the Provers)\r\n* make the Gemini prover and verifier responsible for batching\r\npolynomials and commitments, respectively. While this is not per se part\r\nof the protocol, it does save us a lot of duplication and was\r\nimplemented as part of Zeromorph as well\r\n* replace the terms `gemini_*` back to `fold_*`. Originally, I thought\r\nthat having things that have a folding related naming might be confusing\r\nin the making of Protogalaxy but this data structures will not be\r\nsurfaced anywhere outside the commitment_schemes folders\r\n* attempted bits of cleanup here and there",
+          "timestamp": "2024-09-18T15:51:22+01:00",
+          "tree_id": "9303a03f3d8b9ee36d530dc6169a6c5dc8c6042b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/94339fbfc7c0c822dc1497c113d48f74a89f1bad"
+        },
+        "date": 1726672359579,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 34445.67545199999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 31354.787911000003 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5111.201398000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4693.596479000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 99563.872125,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 99563872000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14604.515103000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14604514000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8554702195,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8554702195 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 151928553,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 151928553 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6980419798,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6980419798 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125795426,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125795426 ns\nthreads: 1"
           }
         ]
       }
