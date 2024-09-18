@@ -151,5 +151,5 @@ The Add Note method makes it easy to store notes on your local PXE if they haven
 It expects `name` and `storageFieldName`. For example, if the `#[storage]` struct had a `available_members: PrivateMutable<JediMember>` property:
 
 ```bash
-aztec-note add-note JediMember available_members -a master_yoda -ca jedi_order -h 0x00000
+aztec-wallet add-note JediMember available_members -a master_yoda -ca jedi_order -h 0x00000
 ```
