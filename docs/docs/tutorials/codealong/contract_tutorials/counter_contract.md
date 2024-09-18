@@ -158,4 +158,4 @@ Follow the private voting contract tutorial on the [next page](./private_voting_
 
 ### Optional: Learn more about concepts mentioned here
 
- - [Functions and annotations like `#[aztec(private)]`](../../../aztec/smart_contracts/functions/inner_workings.md)
+ - [Functions and annotations like `#[aztec(private)]`](../../../aztec/smart_contracts/functions/attributes.md#private-functions-aztecprivate)
