@@ -86,7 +86,13 @@ fn validate_pending_read_requests<let READ_REQUEST_LEN: u32, T, let PENDING_VALU
 
 // Validate read requests against the historical tree root, for reading settled notes.
 // Use their membership witnesses to do so.
-fn validate_settled_read_requests<let READ_REQUEST_LEN: u32, let NUM_SETTLED_READS: u32, H, let TREE_HEIGHT: u32, LEAF_PREIMAGE>(
+fn validate_settled_read_requests<
+    let READ_REQUEST_LEN: u32,
+    let NUM_SETTLED_READS: u32,
+    H,
+    let TREE_HEIGHT: u32,
+    LEAF_PREIMAGE
+>(
     read_requests: [ScopedReadRequest; READ_REQUEST_LEN],
     hints: [H; NUM_SETTLED_READS],
     tree_root: Field
