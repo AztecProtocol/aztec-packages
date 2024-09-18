@@ -39,7 +39,6 @@ describe('Contract Class', () => {
       classRegisterer: AztecAddress.random(),
       feeJuice: AztecAddress.random(),
       instanceDeployer: AztecAddress.random(),
-      keyRegistry: AztecAddress.random(),
       multiCallEntrypoint: AztecAddress.random(),
     },
   };

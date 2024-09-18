@@ -90,49 +90,17 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 
     // Initialize an empty NativeTranscript
     auto prover_transcript = NativeTranscript::prover_init_empty();
-
-    NativeFr rho = prover_transcript->template get_challenge<NativeFr>("rho");
-    std::vector<NativeFr> rhos = gemini::powers_of_rho(rho, NUM_SHIFTED + NUM_UNSHIFTED);
-    // Batch the unshifted polynomials and the to-be-shifted polynomials using ρ
-    Polynomial batched_poly_unshifted(N);
-    size_t poly_idx = 0;
-    for (auto& unshifted_poly : f_polynomials) {
-        batched_poly_unshifted.add_scaled(unshifted_poly, rhos[poly_idx]);
-        ++poly_idx;
-    }
-
-    Polynomial batched_poly_to_be_shifted = Polynomial::shiftable(N); // batched to-be-shifted polynomials
-    for (auto& to_be_shifted_poly : g_polynomials) {
-        batched_poly_to_be_shifted.add_scaled(to_be_shifted_poly, rhos[poly_idx]);
-        ++poly_idx;
-    };
-
-    // Compute d-1 polynomials Fold^(i), i = 1, ..., d-1.
-    auto fold_polynomials = GeminiProver::compute_gemini_polynomials(
-        u_challenge, std::move(batched_poly_unshifted), std::move(batched_poly_to_be_shifted));
-    // Comute and add to trasnscript the commitments [Fold^(i)], i = 1, ..., d-1
-    for (size_t l = 0; l < log_circuit_size - 1; ++l) {
-        NativeCommitment current_commitment = commitment_key->commit(fold_polynomials[l + 2]);
-        prover_transcript->send_to_verifier("Gemini:FOLD_" + std::to_string(l + 1), current_commitment);
-    }
-    const NativeFr r_challenge = prover_transcript->template get_challenge<NativeFr>("Gemini:r");
-
-    const auto [gemini_opening_pairs, gemini_witnesses] =
-        GeminiProver::compute_fold_polynomial_evaluations(u_challenge, std::move(fold_polynomials), r_challenge);
-
-    std::vector<ProverOpeningClaim<NativeCurve>> opening_claims;
-    for (size_t l = 0; l < log_circuit_size; ++l) {
-        std::string label = "Gemini:a_" + std::to_string(l);
-        const auto& evaluation = gemini_opening_pairs[l + 1].evaluation;
-        prover_transcript->send_to_verifier(label, evaluation);
-        opening_claims.push_back({ gemini_witnesses[l], gemini_opening_pairs[l] });
-    }
-    opening_claims.push_back({ gemini_witnesses[log_circuit_size], gemini_opening_pairs[log_circuit_size] });
+    auto prover_opening_claims = GeminiProver::prove(commitment_key,
+                                                     u_challenge,
+                                                     claimed_evaluations,
+                                                     RefVector(f_polynomials),
+                                                     RefVector(g_polynomials),
+                                                     prover_transcript);
 
     // Shplonk prover output:
     // - opening pair: (z_challenge, 0)
     // - witness: polynomial Q - Q_z
-    ShplonkProver::prove(commitment_key, opening_claims, prover_transcript);
+    ShplonkProver::prove(commitment_key, prover_opening_claims, prover_transcript);
 
     Builder builder;
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, prover_transcript->proof_data);

@@ -6,7 +6,7 @@ contract Child {
         context::gas::GasOpts, protocol_types::{abis::call_context::CallContext},
         note::{note_getter_options::NoteGetterOptions, note_header::NoteHeader},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-        keys::getters::get_current_public_keys, utils::comparison::Comparator
+        keys::getters::get_public_keys, utils::comparison::Comparator
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -52,7 +52,7 @@ contract Child {
 
     #[aztec(private)]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let owner_keys = get_current_public_keys(&mut context, owner);
+        let owner_keys = get_public_keys(owner);
 
         let mut note = ValueNote::new(new_value, owner_keys.npk_m.hash());
         storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note_with_keys(&mut context, owner_keys.ovpk_m, owner_keys.ivpk_m, owner));
