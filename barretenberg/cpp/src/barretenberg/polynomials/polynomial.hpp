@@ -72,7 +72,6 @@ template <typename Fr> class Polynomial {
     /**
      * @brief Utility to efficiently construct a shift from the original polynomial.
      *
-     * @details  We define the shift of a polynomial F(X) as G(X) = F(X) / X.
      * @param virtual_size the size of the polynomial to be shifted
      * @return Polynomial
      */

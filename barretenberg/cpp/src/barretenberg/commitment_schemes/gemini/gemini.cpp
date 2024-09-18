@@ -87,8 +87,12 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
                                      commitment_key->commit(fold_polynomials[l + 2]));
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
-    return compute_fold_polynomial_evaluations(
-        multilinear_challenge, std::move(fold_polynomials), r_challenge, transcript);
+    std::vector<Claim> claims =
+        compute_fold_polynomial_evaluations(multilinear_challenge, std::move(fold_polynomials), r_challenge);
+    for (size_t l = 1; l <= log_n; l++) {
+        transcript->send_to_verifier("Gemini:a_" + std::to_string(l), claims[l].opening_pair.evaluation);
+    }
+    return claims;
 };
 
 /**
@@ -190,10 +194,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
  */
 template <typename Curve>
 std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::compute_fold_polynomial_evaluations(
-    std::span<const Fr> mle_opening_point,
-    std::vector<Polynomial>&& fold_polynomials,
-    const Fr& r_challenge,
-    std::shared_ptr<NativeTranscript>& transcript)
+    std::span<const Fr> mle_opening_point, std::vector<Polynomial>&& fold_polynomials, const Fr& r_challenge)
 {
     const size_t num_variables = mle_opening_point.size(); // m
 
@@ -231,7 +232,6 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::compute_
     // Compute the remaining m opening pairs {−r^{2ˡ}, Aₗ(−r^{2ˡ})}, l = 0, ..., m-1.
     for (size_t l = 0; l < num_variables; ++l) {
         evaluation = fold_polynomials[l + 1].evaluate(-r_squares[l]);
-        transcript->send_to_verifier("Gemini:a_" + std::to_string(l + 1), evaluation);
         opening_claims.emplace_back(Claim{ fold_polynomials[l + 1], { -r_squares[l], evaluation } });
     }
 
