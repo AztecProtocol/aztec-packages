@@ -47,9 +47,11 @@ import { PeerErrorSeverity } from './peer_scoring.js';
 import { pingHandler, statusHandler } from './reqresp/handlers.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
+  DEFAULT_SUB_PROTOCOL_VALIDATORS,
   PING_PROTOCOL,
   type ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
+  ReqRespSubProtocolValidators,
   STATUS_PROTOCOL,
   type SubProtocolMap,
   TX_REQ_PROTOCOL,
@@ -162,7 +164,13 @@ export class LibP2PService implements P2PService {
       this.peerManager.heartbeat();
     }, this.config.peerCheckIntervalMS);
     this.discoveryRunningPromise.start();
-    await this.reqresp.start(this.requestResponseHandlers);
+
+    // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
+    const reqrespSubProtocolValidators = {
+      ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
+      [TX_REQ_PROTOCOL]: this.validateTx,
+    };
+    await this.reqresp.start(this.requestResponseHandlers, reqrespSubProtocolValidators);
   }
 
   /**
@@ -306,14 +314,7 @@ export class LibP2PService implements P2PService {
     protocol: SubProtocol,
     request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
-    const pair = subProtocolMap[protocol];
-
-    const res = await this.reqresp.sendRequest(protocol, request.toBuffer());
-    if (!res) {
-      return undefined;
-    }
-
-    return pair.response.fromBuffer(res!);
+    return this.reqresp.sendRequest(protocol, request.toBuffer());
   }
 
   /**
@@ -425,7 +426,7 @@ export class LibP2PService implements P2PService {
     }
   }
 
-  private async validateTx(tx: Tx, peerId: PeerId): Promise<boolean> {
+  public async validateTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
     // basic data validation
     const dataValidator = new DataTxValidator();

@@ -1,4 +1,5 @@
 import { Tx, TxHash } from '@aztec/circuit-types';
+import { PeerId } from '@libp2p/interface';
 
 /*
  * Request Response Sub Protocols
@@ -46,10 +47,24 @@ export interface ProtocolRateLimitQuota {
   globalLimit: RateLimitQuota;
 }
 
+const noopValidator = () => Promise.resolve(true);
+
 /**
  * A type mapping from supprotocol to it's handling funciton
  */
 export type ReqRespSubProtocolHandlers = Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>;
+
+type ResponseValidator<T> = (msg: T, peerId: PeerId) => Promise<boolean>;
+
+export type ReqRespSubProtocolValidators = {
+  [S in ReqRespSubProtocol]: ResponseValidator<any>;
+}
+
+export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
+  [PING_PROTOCOL]: noopValidator,
+  [STATUS_PROTOCOL]: noopValidator,
+  [TX_REQ_PROTOCOL]: noopValidator,
+};
 
 /**
  * Sub protocol map determines the request and response types for each
@@ -90,6 +105,7 @@ interface RequestResponsePair<Req, Res> {
     fromBuffer(buffer: Buffer): Res;
   };
 }
+
 
 /**
  * RequestableBuffer is a wrapper around a buffer that allows it to be

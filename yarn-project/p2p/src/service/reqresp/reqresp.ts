@@ -12,6 +12,10 @@ import { type PeerManager } from '../peer_manager.js';
 import { type P2PReqRespConfig } from './config.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
+  DEFAULT_SUB_PROTOCOL_VALIDATORS,
+  ReqRespSubProtocolValidators,
+  SubProtocolMap,
+  subProtocolMap,
   type ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
 } from './interface.js';
@@ -36,7 +40,10 @@ export class ReqResp {
   private overallRequestTimeoutMs: number;
   private individualRequestTimeoutMs: number;
 
+  // Warning, if the `start` function is not called as the parent class constructor, then the default sub protocol handlers will be used ( not good )
   private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
+  private subProtocolValidators: ReqRespSubProtocolValidators = DEFAULT_SUB_PROTOCOL_VALIDATORS;
+
   private rateLimiter: RequestResponseRateLimiter;
 
   constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p, peerManager: PeerManager) {
@@ -51,8 +58,10 @@ export class ReqResp {
   /**
    * Start the reqresp service
    */
-  async start(subProtocolHandlers: ReqRespSubProtocolHandlers) {
+  async start(subProtocolHandlers: ReqRespSubProtocolHandlers, subProtocolValidators: ReqRespSubProtocolValidators) {
     this.subProtocolHandlers = subProtocolHandlers;
+    this.subProtocolValidators = subProtocolValidators;
+
     // Register all protocol handlers
     for (const subProtocol of Object.keys(this.subProtocolHandlers)) {
       await this.libp2p.handle(subProtocol, this.streamHandler.bind(this, subProtocol as ReqRespSubProtocol));
@@ -80,7 +89,7 @@ export class ReqResp {
    * @param payload - The payload to send
    * @returns - The response from the peer, otherwise undefined
    */
-  async sendRequest(subProtocol: ReqRespSubProtocol, payload: Buffer): Promise<Buffer | undefined> {
+  async sendRequest<SubProtocol extends ReqRespSubProtocol>(subProtocol: SubProtocol, payload: Buffer): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
     const requestFunction = async () => {
       // Get active peers
       const peers = this.libp2p.getPeers();
@@ -92,14 +101,22 @@ export class ReqResp {
         // If we get a response, return it, otherwise we iterate onto the next peer
         // We do not consider it a success if we have an empty buffer
         if (response && response.length > 0) {
-          return response;
+
+          // TODO(md): indepth describe what this code does
+          const validator = this.subProtocolValidators[subProtocol];
+          const object = subProtocolMap[subProtocol].response.fromBuffer(response);
+
+          const isValid = await validator(object, peer);
+          if (isValid) {
+            return object;
+          }
         }
       }
       return undefined;
     };
 
     try {
-      return await executeTimeoutWithCustomError<Buffer | undefined>(
+      return await executeTimeoutWithCustomError<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined>(
         requestFunction,
         this.overallRequestTimeoutMs,
         () => new CollectiveReqRespTimeoutError(),
