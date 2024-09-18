@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726690476261,
+  "lastUpdate": 1726697099550,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "105737703+iakovenkos@users.noreply.github.com",
-            "name": "iakovenkos",
-            "username": "iakovenkos"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e51d157fc7ae9a8ffeba8e6f89dbe87034d36db4",
-          "message": "refactor: more efficient verification with shplonk and gemini (#8351)\n\n- Created a separate ShpleminiVerifier class\n- Reduced the number of batch_mul calls. Only 1 batch_mul call with KZG (compared to 6 in the existing Gemini+Shplonk and to 4 in the Zeromorph flow)\n- Shplemini Docs + minor docs improvements in other parts\n- Shplemini Tests: unit tests for shplemini functions, recursion test, integration tests with KZG, IPA\n- batch_mul_native moved to commitment_schemes/utils",
-          "timestamp": "2024-09-06T11:43:32-04:00",
-          "tree_id": "42734654a00633a7f46e74420634e4276115288e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e51d157fc7ae9a8ffeba8e6f89dbe87034d36db4"
-        },
-        "date": 1725638340329,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13396.093276000016,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10185.861603000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5099.453604999993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4691.627821 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39177.849045,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39177848000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14628.956683,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14628957000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3676608383,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3676608383 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 147332608,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 147332608 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3018374283,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3018374283 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 121505119,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 121505119 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 125798624,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125798624 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e4172318af81ac2ac8535c89d3e5afc72d33ba29",
+          "message": "feat(avm): avm recursive TS/Noir integration (#8611)\n\nReverts AztecProtocol/aztec-packages#8610\r\n\r\n@jeanmon I have put an e2e-all label on this as it has broke master with\r\nmy changes, unfortunately, it seems we need to make sure we're not\r\nimporting jest mock outside of a dev setting\r\n\r\n---------\r\n\r\nCo-authored-by: jeanmon <jean@aztecprotocol.com>",
+          "timestamp": "2024-09-18T21:48:03Z",
+          "tree_id": "b9c64623e0ec47f2a310557506c89256c35bde11",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e4172318af81ac2ac8535c89d3e5afc72d33ba29"
+        },
+        "date": 1726697092297,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 34725.06695799999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 32181.748418999996 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5180.609067999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4795.414558 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 99708.02511599999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 99708026000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14738.087916,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14738088000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8630409294,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8630409294 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152862691,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152862691 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 7079316974,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 7079316974 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 125167764,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 125167764 ns\nthreads: 1"
           }
         ]
       }
