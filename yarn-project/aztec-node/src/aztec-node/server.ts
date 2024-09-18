@@ -66,7 +66,6 @@ import {
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
-import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import { PublicProcessorFactory, WASMSimulator, WorldStateDB, createSimulationProvider } from '@aztec/simulator';
@@ -797,7 +796,6 @@ export class AztecNodeService implements AztecNode {
       classRegisterer: getCanonicalClassRegisterer().address,
       feeJuice: getCanonicalFeeJuice().address,
       instanceDeployer: getCanonicalInstanceDeployer().address,
-      keyRegistry: getCanonicalKeyRegistryAddress(),
       multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),
     });
   }

@@ -2,7 +2,7 @@ use dep::aztec::{
     context::PrivateContext, protocol_types::{address::AztecAddress},
     note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet,
     encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-    keys::getters::get_current_public_keys
+    keys::getters::get_public_keys
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
@@ -24,8 +24,8 @@ impl<Context> EasyPrivateUint<Context> {
 impl EasyPrivateUint<&mut PrivateContext> {
     // Very similar to `value_note::utils::increment`.
     pub fn add(self, addend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
-        let owner_keys = get_current_public_keys(self.context, owner);
-        let outgoing_viewer_keys = get_current_public_keys(self.context, outgoing_viewer);
+        let owner_keys = get_public_keys(owner);
+        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
         // Creates new note for the owner.
         let mut addend_note = ValueNote::new(addend as Field, owner_keys.npk_m.hash());
 
@@ -44,8 +44,8 @@ impl EasyPrivateUint<&mut PrivateContext> {
 
     // Very similar to `value_note::utils::decrement`.
     pub fn sub(self, subtrahend: u64, owner: AztecAddress, outgoing_viewer: AztecAddress) {
-        let owner_keys = get_current_public_keys(self.context, owner);
-        let outgoing_viewer_keys = get_current_public_keys(self.context, outgoing_viewer);
+        let owner_keys = get_public_keys(owner);
+        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
 
         // docs:start:pop_notes
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
