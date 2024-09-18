@@ -165,16 +165,9 @@ template <class Curve> class CommitmentKey {
         std::vector<G1> points;
         scalars.reserve(num_nonzero_scalars);
         points.reserve(num_nonzero_scalars);
-        info("num_nonzero_scalars: ", num_nonzero_scalars);
         for (size_t idx = 0; idx < num_threads; ++idx) {
             scalars.insert(scalars.end(), thread_scalars[idx].begin(), thread_scalars[idx].end());
             points.insert(points.end(), thread_points[idx].begin(), thread_points[idx].end());
-        }
-        for (auto& scalar : scalars) {
-            info(scalar);
-        }
-        for (auto& point : points) {
-            info(point);
         }
 
         // Call the version of pippenger which assumes all points are distinct
