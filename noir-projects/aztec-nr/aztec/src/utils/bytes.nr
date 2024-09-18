@@ -1,6 +1,7 @@
 // Converts the input bytes into an array of fields. A Field is ~254 bits meaning that each field can store 31 bytes.
 // This implies that M = ceil(N / 31).
 pub fn bytes_to_fields<let N: u32, let M: u32>(input: [u8; N]) -> [Field; M] {
+    assert(N <= 31 * M, "Bytes do not fit into fields");
     let mut dst = [0; M];
 
     for field_index in 0..M {
@@ -169,6 +170,13 @@ mod test {
         let input_back = bytes_to_fields::<155, 5>(output);
 
         assert_eq(input, input_back);
+    }
+
+    #[test(should_fail_with="Bytes do not fit into fields")]
+    fn test_too_few_destination_fields() {
+        // This should fail because we need 2 fields to store 32 bytes but we only provide 1.
+        let input = [0 as u8; 32];
+        let _ignored_result = bytes_to_fields::<32, 1>(input);
     }
 
     #[test(should_fail_with="Field does not fit into remaining bytes")]
