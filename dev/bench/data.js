@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726740178959,
+  "lastUpdate": 1726746813765,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "eab944cbb77eb613e61a879312b58c415f8a0c13",
-          "message": "feat(avm/brillig)!: take addresses in calldatacopy (#8388)\n\nMakes calldatacopy more flexible. It's also needed to use this opcode in\r\nuser-space.\r\n\r\nAs I mentioned we'll probably want most or all opcode immediates to be\r\naddresses for maximum flexibility. This is a first experimentation on\r\nthe pains of doing it :)\r\n\r\n---------\r\n\r\nCo-authored-by: sirasistant <sirasistant@gmail.com>",
-          "timestamp": "2024-09-09T12:02:32+01:00",
-          "tree_id": "b79389e08d16295c2afb2d7e276fdd590b38e475",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/eab944cbb77eb613e61a879312b58c415f8a0c13"
-        },
-        "date": 1725881478816,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13425.022643999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10298.487428000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5107.804088999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4672.020920999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39515.132921,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39515134000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14743.157227,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14743157000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3669412823,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3669412823 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 145229257,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 145229257 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2995280859,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2995280859 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 120832692,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 120832692 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 129534753,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 129534753 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "14ff3cfb4291c288113695a3f2245340587fc8e9",
+          "message": "chore: Fixing MacOS build - static_cast from field issue (#8642)\n\nhttps://github.com/AztecProtocol/aztec-packages/actions/runs/10938557062",
+          "timestamp": "2024-09-19T13:36:53+02:00",
+          "tree_id": "9e9008fbdfcfc87e87cfd65a84a1d6bcdf2a19d2",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/14ff3cfb4291c288113695a3f2245340587fc8e9"
+        },
+        "date": 1726746806592,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 34821.605266000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 32005.028302999996 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5163.83900000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4722.572210999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 100072.42975799998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 100072430000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14625.934406999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14625933000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8579756843,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8579756843 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 157701469,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 157701469 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 7023038812,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 7023038812 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 127818469,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 127818469 ns\nthreads: 1"
           }
         ]
       }
