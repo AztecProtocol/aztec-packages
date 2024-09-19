@@ -3980,7 +3980,9 @@ std::vector<Row> AvmTraceBuilder::finalize()
           "\n\tKERNEL_INPUTS_LENGTH: ",
           KERNEL_INPUTS_LENGTH,
           "\n\tKERNEL_OUTPUTS_LENGTH: ",
-          KERNEL_OUTPUTS_LENGTH);
+          KERNEL_OUTPUTS_LENGTH,
+          "\n\tcalldata_size: ",
+          calldata.size());
     reset();
 
     return trace;

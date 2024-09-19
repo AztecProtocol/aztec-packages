@@ -21,11 +21,10 @@ import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from './b
 import { getPublicInputs } from './test/test_avm.js';
 import { extractAvmVkData } from './verification_key/verification_key_data.js';
 
-const TIMEOUT = 60_000;
+const TIMEOUT = 180_000;
 const TIMESTAMP = new Fr(99833);
 
-// FIXME: This fails with "main_kernel_value_out_evaluation failed".
-describe.skip('AVM WitGen, proof generation and verification', () => {
+describe('AVM WitGen, proof generation and verification', () => {
   it(
     'Should prove and verify bulk_testing',
     async () => {
