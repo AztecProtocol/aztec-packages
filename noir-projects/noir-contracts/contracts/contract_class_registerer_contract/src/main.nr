@@ -144,12 +144,12 @@ contract ContractClassRegisterer {
     // - Unconstrained function -> we provide a membership proof
     // Ordinary logs are not protected by the above so this fn shouldn't be called by anything else
     #[contract_library_method]
-    pub fn emit_contract_class_unencrypted_log<N>(context: &mut PrivateContext, log: [Field; N]) {
+    pub fn emit_contract_class_unencrypted_log<let N: u32>(context: &mut PrivateContext, log: [Field; N]) {
         let contract_address = context.this_address();
         let counter = context.next_counter();
         let log_hash = emit_contract_class_unencrypted_log_private_internal(contract_address, log, counter);
         // 40 = addr (32) + raw log len (4) + processed log len (4)
-        let len = 40 + N * 32;
+        let len = 40 + N as Field * 32;
         let side_effect = LogHash { value: log_hash, counter, length: len };
         context.unencrypted_logs_hashes.push(side_effect);
     }

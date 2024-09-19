@@ -8,7 +8,6 @@ import type { DebugLogger } from '@aztec/foundation/log';
  * For reference: https://github.com/AztecProtocol/aztec-packages/pull/5553
  */
 export const l1ContractsNames = [
-  'availabilityOracleAddress',
   'rollupAddress',
   'registryAddress',
   'inboxAddress',
@@ -27,11 +26,6 @@ export type L1ContractAddresses = {
 const parseEnv = (val: string) => EthAddress.fromString(val);
 
 export const l1ContractAddressesMapping: ConfigMappingsType<L1ContractAddresses> = {
-  availabilityOracleAddress: {
-    env: 'AVAILABILITY_ORACLE_CONTRACT_ADDRESS',
-    description: 'The deployed L1 availability oracle contract address.',
-    parseEnv,
-  },
   rollupAddress: {
     env: 'ROLLUP_CONTRACT_ADDRESS',
     description: 'The deployed L1 rollup contract address.',

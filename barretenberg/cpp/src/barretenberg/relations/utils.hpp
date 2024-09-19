@@ -140,14 +140,6 @@ template <typename Flavor> class RelationUtils {
         }
     }
 
-    // This is an simpler, iterative version of constexpr_for.
-    // Replace it with constexpr_for once that one is iterative.
-    template <size_t N, typename F> static constexpr void iterative_constexpr_for(F&& f)
-    {
-        auto seq = std::make_index_sequence<N>{};
-        [&]<size_t... I>(std::index_sequence<I...>) { (f.template operator()<I>(), ...); }(seq);
-    }
-
     /**
      * @brief Calculate the contribution of each relation to the expected value of the full Honk relation.
      *
@@ -164,7 +156,7 @@ template <typename Flavor> class RelationUtils {
                                                                         const Parameters& relation_parameters,
                                                                         const FF& partial_evaluation_result)
     {
-        iterative_constexpr_for<NUM_RELATIONS>([&]<size_t rel_index>() {
+        constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {
             // FIXME: You wan't /*consider_skipping=*/false here, but tests need to be fixed.
             accumulate_single_relation<Parameters, rel_index, /*consider_skipping=*/true>(
                 evaluations, relation_evaluations, relation_parameters, partial_evaluation_result);
@@ -187,7 +179,7 @@ template <typename Flavor> class RelationUtils {
                                                        const Parameters& relation_parameters,
                                                        const FF& partial_evaluation_result)
     {
-        iterative_constexpr_for<NUM_RELATIONS>([&]<size_t rel_index>() {
+        constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {
             accumulate_single_relation<Parameters, rel_index>(
                 evaluations, relation_evaluations, relation_parameters, partial_evaluation_result);
         });

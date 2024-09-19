@@ -3,7 +3,7 @@ use noirc_frontend::ast::{
     BinaryOpKind, CallExpression, CastExpression, Expression, ExpressionKind, FunctionReturnType,
     Ident, IndexExpression, InfixExpression, Lambda, MemberAccessExpression, MethodCallExpression,
     NoirTraitImpl, Path, PathSegment, Pattern, PrefixExpression, Statement, StatementKind,
-    TraitImplItem, UnaryOp, UnresolvedType, UnresolvedTypeData,
+    TraitImplItemKind, UnaryOp, UnresolvedType, UnresolvedTypeData,
 };
 use noirc_frontend::token::SecondaryAttribute;
 
@@ -179,16 +179,16 @@ pub fn index_array(array: Ident, index: &str) -> Expression {
 }
 
 pub fn check_trait_method_implemented(trait_impl: &NoirTraitImpl, method_name: &str) -> bool {
-    trait_impl.items.iter().any(|item| match item {
-        TraitImplItem::Function(func) => func.def.name.0.contents == method_name,
+    trait_impl.items.iter().any(|item| match &item.item.kind {
+        TraitImplItemKind::Function(func) => func.def.name.0.contents == method_name,
         _ => false,
     })
 }
 
 /// Checks if an attribute is a custom attribute with a specific name
 pub fn is_custom_attribute(attr: &SecondaryAttribute, attribute_name: &str) -> bool {
-    if let SecondaryAttribute::Custom(custom_attr) = attr {
-        custom_attr.as_str() == attribute_name
+    if let SecondaryAttribute::Custom(custom_attribute) = attr {
+        custom_attribute.contents.as_str() == attribute_name
     } else {
         false
     }

@@ -12,7 +12,7 @@ import {
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
 } from '../constants.gen.js';
-import { PublicDataRead } from './public_data_read_request.js';
+import { PublicDataRead } from './public_data_read.js';
 import { ScopedReadRequest } from './read_request.js';
 import { RollupValidationRequests } from './rollup_validation_requests.js';
 import { TreeLeafReadRequest } from './tree_leaf_read_request.js';

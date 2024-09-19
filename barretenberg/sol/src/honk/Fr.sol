@@ -13,8 +13,9 @@ using {notEqual as !=} for Fr global;
 using {equal as ==} for Fr global;
 
 uint256 constant MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
-
+Fr constant MINUS_ONE = Fr.wrap(MODULUS - 1);
 // Instantiation
+
 library FrLib {
     function from(uint256 value) internal pure returns (Fr) {
         return Fr.wrap(value % MODULUS);
@@ -79,7 +80,6 @@ library FrLib {
 
     // TODO: Montgomery's batch inversion trick
     function div(Fr numerator, Fr denominator) internal view returns (Fr) {
-        Fr inversion = invert(denominator);
         return numerator * invert(denominator);
     }
 }

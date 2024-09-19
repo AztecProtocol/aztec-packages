@@ -10,11 +10,10 @@ use dep::types::{
     log_hash::{LogHash, ScopedEncryptedLogHash, NoteLogHash, ScopedLogHash}, note_hash::ScopedNoteHash,
     nullifier::{Nullifier, ScopedNullifier}, public_call_request::PublicCallRequest
 },
-    messaging::l2_to_l1_message::ScopedL2ToL1Message, address::AztecAddress,
-    traits::{is_empty, is_empty_array},
+    messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::{is_empty, is_empty_array},
     utils::arrays::{
     assert_split_sorted_transformed_value_arrays_asc, assert_split_sorted_transformed_value_arrays_desc,
-    assert_split_transformed_value_arrays, validate_array
+    assert_split_transformed_value_arrays
 }
 };
 
@@ -29,7 +28,9 @@ impl TailToPublicOutputValidator {
         output: PublicKernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs
     ) -> Self {
-        let hints = generate_tail_to_public_output_hints(previous_kernel);
+        let hints = unsafe {
+            generate_tail_to_public_output_hints(previous_kernel)
+        };
         TailToPublicOutputValidator { output, previous_kernel, hints }
     }
 

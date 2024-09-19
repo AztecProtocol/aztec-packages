@@ -7,25 +7,25 @@ use crate::{
 },
     nullifier_read_request_reset::NullifierReadRequestHints,
     nullifier_non_existent_read_request_reset::NullifierNonExistentReadRequestHints,
-    public_data_read_request_reset::PublicDataReadRequestHints
+    public_data_read_request_hints::PublicDataReadRequestHints
 };
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, nullifier::Nullifier,
-    public_data_update_request::PublicDataUpdateRequest, read_request::ScopedReadRequest,
+    public_data_write::OverridablePublicDataWrite, read_request::ScopedReadRequest,
     validation_requests::PublicValidationRequests
 },
-    data::public_data_hint::PublicDataHint,
     constants::{
-    L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
-    MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX, L1_TO_L2_MSG_TREE_HEIGHT, MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+    MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX,
     NOTE_HASH_TREE_HEIGHT
 },
-    hash::compute_siloed_nullifier, partial_state_reference::PartialStateReference, traits::is_empty,
-    utils::arrays::{array_merge, array_to_bounded_vec, assert_sorted_array}
+    data::OverridablePublicDataTreeLeaf, hash::compute_siloed_nullifier,
+    partial_state_reference::PartialStateReference, traits::is_empty,
+    utils::arrays::{array_to_bounded_vec, assert_combined_array, assert_sorted_array, combine_arrays}
 };
 
-struct PublicValidationRequestProcessor<let NUM_PUBLIC_DATA_HINTS: u32> {
+struct PublicValidationRequestProcessor<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> {
     validation_requests: PublicValidationRequests,
     note_hash_read_request_hints: [TreeLeafReadRequestHint<NOTE_HASH_TREE_HEIGHT>; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     note_hash_tree_root: Field,
@@ -35,13 +35,12 @@ struct PublicValidationRequestProcessor<let NUM_PUBLIC_DATA_HINTS: u32> {
     nullifier_tree_root: Field,
     l1_to_l2_msg_read_request_hints: [TreeLeafReadRequestHint<L1_TO_L2_MSG_TREE_HEIGHT>; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX],
     l1_to_l2_msg_tree_root: Field,
-    pending_public_data_writes: [PublicDataUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    public_data_read_request_hints: PublicDataReadRequestHints,
-    public_data_hints: [PublicDataHint; NUM_PUBLIC_DATA_HINTS],
-    public_data_tree_root: Field,
+    pending_public_data_writes: [OverridablePublicDataWrite; NUN_PUBLIC_DATA_WRITES],
+    public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_PUBLIC_DATA_LEAVES],
+    public_data_read_request_hints: PublicDataReadRequestHints<MAX_PUBLIC_DATA_READS_PER_TX>,
 }
 
-impl<let NUM_PUBLIC_DATA_HINTS: u32> PublicValidationRequestProcessor<NUM_PUBLIC_DATA_HINTS> {
+impl<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> PublicValidationRequestProcessor<NUN_PUBLIC_DATA_WRITES, NUM_PUBLIC_DATA_LEAVES> {
     pub fn new(
         public_inputs: PublicKernelCircuitPublicInputs,
         start_state: PartialStateReference,
@@ -49,33 +48,34 @@ impl<let NUM_PUBLIC_DATA_HINTS: u32> PublicValidationRequestProcessor<NUM_PUBLIC
         nullifier_read_request_hints: NullifierReadRequestHints<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,
         nullifier_non_existent_read_request_hints: NullifierNonExistentReadRequestHints,
         l1_to_l2_msg_read_request_hints: [TreeLeafReadRequestHint<L1_TO_L2_MSG_TREE_HEIGHT>; MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX],
-        public_data_read_request_hints: PublicDataReadRequestHints,
-        public_data_hints: [PublicDataHint; NUM_PUBLIC_DATA_HINTS]
+        pending_public_data_writes: [OverridablePublicDataWrite; NUN_PUBLIC_DATA_WRITES],
+        public_data_leaves: [OverridablePublicDataTreeLeaf; NUM_PUBLIC_DATA_LEAVES],
+        public_data_read_request_hints: PublicDataReadRequestHints<MAX_PUBLIC_DATA_READS_PER_TX>
     ) -> Self {
-        let end_non_revertible = public_inputs.end_non_revertible;
-        let end = public_inputs.end;
-
-        let pending_nullifiers = array_merge(end_non_revertible.nullifiers, end.nullifiers);
-
-        let pending_public_data_writes = array_merge(
-            end_non_revertible.public_data_update_requests,
-            end.public_data_update_requests
+        let non_revertible_nullifiers = public_inputs.end_non_revertible.nullifiers;
+        let revertible_nullifiers = public_inputs.end.nullifiers;
+        let pending_nullifiers = unsafe {
+            combine_arrays(non_revertible_nullifiers, revertible_nullifiers)
+        };
+        assert_combined_array(
+            non_revertible_nullifiers,
+            revertible_nullifiers,
+            pending_nullifiers
         );
 
         PublicValidationRequestProcessor {
             validation_requests: public_inputs.validation_requests,
-            pending_nullifiers,
             note_hash_read_request_hints,
             note_hash_tree_root: start_state.note_hash_tree.root,
+            pending_nullifiers,
             nullifier_read_request_hints,
             nullifier_non_existent_read_request_hints,
             nullifier_tree_root: start_state.nullifier_tree.root,
             l1_to_l2_msg_read_request_hints,
             l1_to_l2_msg_tree_root: public_inputs.constants.historical_header.state.l1_to_l2_message_tree.root,
             pending_public_data_writes,
-            public_data_read_request_hints,
-            public_data_hints,
-            public_data_tree_root: start_state.public_data_tree.root
+            public_data_leaves,
+            public_data_read_request_hints
         }
     }
 
@@ -149,22 +149,15 @@ impl<let NUM_PUBLIC_DATA_HINTS: u32> PublicValidationRequestProcessor<NUM_PUBLIC
     }
 
     fn validate_public_data_read_requests(self) {
-        self.validate_public_data_hints();
-
         let hints = self.public_data_read_request_hints;
+
         reset_mutable_data_read_requests(
             self.validation_requests.public_data_reads,
             hints.read_request_statuses,
             self.pending_public_data_writes,
-            self.public_data_hints,
+            self.public_data_leaves,
             hints.pending_read_hints,
             hints.leaf_data_read_hints
         );
-    }
-
-    fn validate_public_data_hints(self) {
-        for i in 0..self.public_data_hints.len() {
-            self.public_data_hints[i].validate(self.public_data_tree_root);
-        }
     }
 }

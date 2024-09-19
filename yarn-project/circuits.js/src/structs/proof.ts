@@ -15,7 +15,12 @@ export class Proof {
   // Make sure this type is not confused with other buffer wrappers
   readonly __proofBrand: any;
 
-  readonly publicInputsOffset = 100;
+  // Honk proofs start with a 4 byte length prefix
+  // the proof metadata starts immediately after
+  private readonly metadataOffset = 4;
+  // the metadata is 3 Frs long
+  // the public inputs are after it
+  private readonly publicInputsOffset = 100;
 
   constructor(
     /**
@@ -61,7 +66,7 @@ export class Proof {
 
   public withoutPublicInputs(): Buffer {
     return Buffer.concat([
-      this.buffer.subarray(4, this.publicInputsOffset),
+      this.buffer.subarray(this.metadataOffset, this.publicInputsOffset),
       this.buffer.subarray(this.publicInputsOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs),
     ]);
   }

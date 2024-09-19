@@ -1,4 +1,4 @@
-use super::collapse::{collapse_array, verify_collapse_hints};
+use super::collapse_array::{collapse_array, verify_collapse_hints};
 
 #[test]
 fn collapse_empty_array() {

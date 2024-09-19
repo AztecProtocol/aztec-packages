@@ -5,14 +5,16 @@ use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use crate::context::inputs::public_context_inputs::PublicContextInputs;
 use crate::context::gas::GasOpts;
+use crate::hash::ArgsHasher;
 
 struct PublicContext {
     inputs: PublicContextInputs,
+    args_hash: Option<Field>
 }
 
 impl PublicContext {
     pub fn new(inputs: PublicContextInputs) -> Self {
-        PublicContext { inputs }
+        PublicContext { inputs, args_hash: Option::none() }
     }
 
     pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T) where T: Serialize<N> {
@@ -130,8 +132,20 @@ impl PublicContext {
     fn selector(_self: Self) -> FunctionSelector {
         FunctionSelector::from_u32(function_selector())
     }
-    fn get_args_hash(self) -> Field {
-        self.inputs.args_hash
+    fn get_args_hash(mut self) -> Field {
+        if !self.args_hash.is_some() {
+            let mut hasher = ArgsHasher::new();
+
+            // TODO: this should be replaced with the compile-time calldata size.
+            for i in 0..self.inputs.calldata_length as u32 {
+                let argn: [Field; 1] = calldata_copy((2 + i) as u32, 1);
+                hasher.add(argn[0]);
+            }
+
+            self.args_hash = Option::some(hasher.hash());
+        }
+
+        self.args_hash.unwrap()
     }
     fn transaction_fee(_self: Self) -> Field {
         transaction_fee()
@@ -278,6 +292,14 @@ unconstrained fn call_static<let RET_SIZE: u32>(
     call_static_opcode(gas, address, args, function_selector)
 }
 
+unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
+    calldata_copy_opcode(cdoffset, copy_size)
+}
+
+unconstrained fn avm_return<let N: u32>(returndata: [Field; N]) {
+    return_opcode(returndata)
+}
+
 unconstrained fn storage_read(storage_slot: Field) -> Field {
     storage_read_opcode(storage_slot)
 }
@@ -355,6 +377,12 @@ unconstrained fn l1_to_l2_msg_exists_opcode(msg_hash: Field, msg_leaf_index: Fie
 
 #[oracle(avmOpcodeSendL2ToL1Msg)]
 unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field) {}
+
+#[oracle(avmOpcodeCalldataCopy)]
+unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {}
+
+#[oracle(avmOpcodeReturn)]
+unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
 
 #[oracle(avmOpcodeCall)]
 unconstrained fn call_opcode<let RET_SIZE: u32>(

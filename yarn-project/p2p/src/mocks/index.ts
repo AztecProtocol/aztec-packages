@@ -4,6 +4,7 @@ import { bootstrap } from '@libp2p/bootstrap';
 import { tcp } from '@libp2p/tcp';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
+import { type P2PReqRespConfig } from '../service/reqresp/config.js';
 import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
 import {
   PING_PROTOCOL,
@@ -80,7 +81,11 @@ export const stopNodes = async (nodes: ReqRespNode[]): Promise<void> => {
 // Create a req resp node, exposing the underlying p2p node
 export const createReqResp = async (): Promise<ReqRespNode> => {
   const p2p = await createLibp2pNode();
-  const req = new ReqResp(p2p);
+  const config: P2PReqRespConfig = {
+    overallRequestTimeoutMs: 4000,
+    individualRequestTimeoutMs: 2000,
+  };
+  const req = new ReqResp(config, p2p);
   return {
     p2p,
     req,

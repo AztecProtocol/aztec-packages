@@ -17,6 +17,7 @@ namespace bb::avm_trace {
 void AvmKernelTraceBuilder::reset()
 {
     kernel_trace.clear();
+    kernel_trace.shrink_to_fit(); // Reclaim memory.
     kernel_input_selector_counter.clear();
     kernel_output_selector_counter.clear();
 }
@@ -122,16 +123,6 @@ FF AvmKernelTraceBuilder::op_block_number(uint32_t clk)
     };
     kernel_trace.push_back(entry);
     return perform_kernel_input_lookup(BLOCK_NUMBER_SELECTOR);
-}
-
-FF AvmKernelTraceBuilder::op_coinbase(uint32_t clk)
-{
-    KernelTraceEntry entry = {
-        .clk = clk,
-        .operation = KernelTraceOpType::COINBASE,
-    };
-    kernel_trace.push_back(entry);
-    return perform_kernel_input_lookup(COINBASE_SELECTOR);
 }
 
 FF AvmKernelTraceBuilder::op_timestamp(uint32_t clk)
@@ -391,10 +382,6 @@ void AvmKernelTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
                 break;
             case KernelTraceOpType::BLOCK_NUMBER:
                 dest.main_kernel_in_offset = BLOCK_NUMBER_SELECTOR;
-                dest.main_sel_q_kernel_lookup = 1;
-                break;
-            case KernelTraceOpType::COINBASE:
-                dest.main_kernel_in_offset = COINBASE_SELECTOR;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
             case KernelTraceOpType::TIMESTAMP:

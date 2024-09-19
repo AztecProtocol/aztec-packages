@@ -2,7 +2,7 @@
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_instances.hpp"
+#include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_keys.hpp"
 #include "barretenberg/stdlib_circuit_builders/databus.hpp"
 
 namespace bb::stdlib {
@@ -70,7 +70,8 @@ template <class Builder> class DataBusDepot {
     using Fq = typename Curve::BaseField;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<Builder>;
-    using RecursiveVerifierInstances = bb::stdlib::recursion::honk::RecursiveVerifierInstances_<RecursiveFlavor, 2>;
+    using RecursiveDeciderVerificationKeys =
+        bb::stdlib::recursion::honk::RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
     using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
 
     static constexpr size_t NUM_FR_LIMBS_PER_FQ = Fq::NUM_LIMBS;
@@ -90,17 +91,17 @@ template <class Builder> class DataBusDepot {
      * perform two databus consistency checks: (1) that the return_data of app circuit A_{i} was secondary calldata to
      * K_{i}, and (2) that the return_data of K_{i-1} was calldata to K_{i}.
      *
-     * @param commitments Witness polynomial commitments for an instance that has been accumulated
-     * @param public_inputs The public inputs of that instance
-     * @param propagation_data Data about the presence of databus commitments on the public inputs of the instance
+     * @param commitments Witness polynomial commitments for an key that has been accumulated
+     * @param public_inputs The public inputs of that key
+     * @param propagation_data Data about the presence of databus commitments on the public inputs of the key.
      */
     void execute(const WitnessCommitments& commitments,
                  const std::vector<Fr>& public_inputs,
                  const DatabusPropagationData& propagation_data)
     {
-        // Flag indicating whether the input data corresponds to a kernel instance (else, an app instance). This is
-        // used to indicate whether the return data commitment being propagated belongs to a kernel or an app so that it
-        // can be checked against the appropriate calldata commitment in a subsequent round.
+        // Flag indicating whether the input data corresponds to a kernel decider proving key (else, an app decider
+        // proving key). This is used to indicate whether the return data commitment being propagated belongs to a
+        // kernel or an app so that it can be checked against the appropriate calldata commitment in a subsequent round.
         bool is_kernel_data = propagation_data.is_kernel;
 
         // Assert equality between return data commitments propagated via the public inputs and the corresponding
@@ -139,7 +140,7 @@ template <class Builder> class DataBusDepot {
         auto context = commitment.get_context();
 
         // Set flag indicating propagation of return data; save the index at which it will be stored in public inputs
-        size_t start_idx = context->public_inputs.size();
+        auto start_idx = static_cast<uint32_t>(context->public_inputs.size());
         if (is_kernel) {
             context->databus_propagation_data.contains_kernel_return_data_commitment = true;
             context->databus_propagation_data.kernel_return_data_public_input_idx = start_idx;
@@ -223,6 +224,7 @@ template <class Builder> class DataBusDepot {
      * @return std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT>
      */
     std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT> get_witness_indices_for_commitment(const Commitment& point)
+        requires(!IsMegaBuilder<Builder>)
     {
         return { point.x.binary_basis_limbs[0].element.normalize().witness_index,
                  point.x.binary_basis_limbs[1].element.normalize().witness_index,
@@ -232,6 +234,28 @@ template <class Builder> class DataBusDepot {
                  point.y.binary_basis_limbs[1].element.normalize().witness_index,
                  point.y.binary_basis_limbs[2].element.normalize().witness_index,
                  point.y.binary_basis_limbs[3].element.normalize().witness_index };
+    }
+
+    std::array<uint32_t, NUM_FR_LIMBS_PER_COMMITMENT> get_witness_indices_for_commitment(const Commitment& point)
+        requires(IsMegaBuilder<Builder>)
+    {
+        // If using a goblin-plonk compatible builder, goblin element coordinates are stored as 2 field elements not 4.
+        // We convert to stdlib::bigfield elements so data is stored in the databus uniformly regardless of flavor
+        using BigFq = stdlib::bigfield<Builder, typename Curve::BaseFieldNative::Params>;
+        const auto to_bigfield = [](Fr lo, Fr hi) {
+            BigFq r(lo, hi);
+            return std::array<uint32_t, 4>{
+                r.binary_basis_limbs[0].element.normalize().witness_index,
+                r.binary_basis_limbs[1].element.normalize().witness_index,
+                r.binary_basis_limbs[2].element.normalize().witness_index,
+                r.binary_basis_limbs[3].element.normalize().witness_index,
+            };
+        };
+        auto x = to_bigfield(point.x.limbs[0], point.x.limbs[1]);
+        auto y = to_bigfield(point.y.limbs[0], point.y.limbs[1]);
+        return {
+            x[0], x[1], x[2], x[3], y[0], y[1], y[2], y[3],
+        };
     }
 };
 

@@ -7,10 +7,12 @@
  * simplify the codebase.
  */
 
+#include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
@@ -79,20 +81,29 @@ template <class Curve> class CommitmentKey {
      * @param polynomial a univariate polynomial p(X) = ∑ᵢ aᵢ⋅Xⁱ
      * @return Commitment computed as C = [p(x)] = ∑ᵢ aᵢ⋅Gᵢ
      */
-    Commitment commit(std::span<const Fr> polynomial)
+    Commitment commit(PolynomialSpan<const Fr> polynomial)
     {
         BB_OP_COUNT_TIME();
-        // See constructor, we must round up the number of used srs points to a power of 2.
-        const size_t consumed_srs = numeric::round_up_power_2(polynomial.size());
+        // We must have a power-of-2 SRS points *after* subtracting by start_index.
+        const size_t consumed_srs = numeric::round_up_power_2(polynomial.size()) + polynomial.start_index;
+        auto srs = srs::get_crs_factory<Curve>()->get_prover_crs(consumed_srs);
+        // We only need the
         if (consumed_srs > srs->get_monomial_size()) {
-            info("Attempting to commit to a polynomial that needs ",
-                 consumed_srs,
-                 " points with an SRS of size ",
-                 srs->get_monomial_size());
-            ASSERT(false);
+            throw_or_abort(format("Attempting to commit to a polynomial that needs ",
+                                  consumed_srs,
+                                  " points with an SRS of size ",
+                                  srs->get_monomial_size()));
         }
-        return scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
-            polynomial, srs->get_monomial_points(), pippenger_runtime_state);
+
+        // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
+        // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
+        // with our polynomial span.
+        std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
+        DEBUG_LOG_ALL(polynomial.span);
+        Commitment point = scalar_multiplication::pippenger_unsafe_optimized_for_non_dyadic_polys<Curve>(
+            polynomial.span, point_table, pippenger_runtime_state);
+        DEBUG_LOG(point);
+        return point;
     };
 
     /**
@@ -105,19 +116,20 @@ template <class Curve> class CommitmentKey {
      * @param polynomial
      * @return Commitment
      */
-    Commitment commit_sparse(std::span<const Fr> polynomial)
+    Commitment commit_sparse(PolynomialSpan<const Fr> polynomial)
     {
         BB_OP_COUNT_TIME();
-        const size_t degree = polynomial.size();
-        ASSERT(degree <= srs->get_monomial_size());
+        const size_t poly_size = polynomial.size();
+        ASSERT(polynomial.end_index() <= srs->get_monomial_size());
 
         // Extract the precomputed point table (contains raw SRS points at even indices and the corresponding
-        // endomorphism point (\beta*x, -y) at odd indices).
-        std::span<G1> point_table = srs->get_monomial_points();
+        // endomorphism point (\beta*x, -y) at odd indices). We offset by polynomial.start_index * 2 to align
+        // with our polynomial spann.
+        std::span<G1> point_table = srs->get_monomial_points().subspan(polynomial.start_index * 2);
 
         // Define structures needed to multithread the extraction of non-zero inputs
-        const size_t num_threads = degree >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
-        const size_t block_size = degree / num_threads;
+        const size_t num_threads = poly_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
+        const size_t block_size = poly_size / num_threads;
         std::vector<std::vector<Fr>> thread_scalars(num_threads);
         std::vector<std::vector<G1>> thread_points(num_threads);
 
@@ -128,7 +140,7 @@ template <class Curve> class CommitmentKey {
 
             for (size_t idx = start; idx < end; ++idx) {
 
-                const Fr& scalar = polynomial[idx];
+                const Fr& scalar = polynomial.span[idx];
 
                 if (!scalar.is_zero()) {
                     thread_scalars[thread_idx].emplace_back(scalar);

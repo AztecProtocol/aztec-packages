@@ -46,7 +46,7 @@ export interface P2PService {
   ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined>;
 
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
-  registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation>): void;
+  registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
 
   getEnr(): ENR | undefined;
 }

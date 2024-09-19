@@ -70,7 +70,14 @@ export interface P2P {
    */
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
-  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation>): void;
+  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
+
+  /**
+   * Request a list of transactions from another peer by their tx hashes.
+   * @param txHashes - Hashes of the txs to query.
+   * @returns A list of transactions or undefined if the transactions are not found.
+   */
+  requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
 
   /**
    * Request a transaction from another peer by its tx hash.
@@ -270,6 +277,7 @@ export class P2PClient implements P2P {
   }
 
   public broadcastProposal(proposal: BlockProposal): void {
+    this.log.verbose(`Broadcasting proposal ${proposal.p2pMessageIdentifier()} to peers`);
     return this.p2pService.propagate(proposal);
   }
 
@@ -279,13 +287,44 @@ export class P2PClient implements P2P {
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
-  public registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation>): void {
+  public registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void {
     this.p2pService.registerBlockReceivedCallback(handler);
   }
 
-  public requestTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    // Underlying I want to use the libp2p service to just have a request method where the subprotocol is defined here
-    return this.p2pService.sendRequest(TX_REQ_PROTOCOL, txHash);
+  /**
+   * Requests the transactions with the given hashes from the network.
+   *
+   * If a transaction can be retrieved, it will be returned, if not an undefined
+   * will be returned. In place.
+   *
+   * @param txHashes - The hashes of the transactions to request.
+   * @returns A promise that resolves to an array of transactions or undefined.
+   */
+  public requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
+    const requestPromises = txHashes.map(txHash => this.requestTxByHash(txHash));
+    return Promise.all(requestPromises);
+  }
+
+  /**
+   * Uses the Request Response protocol to request a transaction from the network.
+   *
+   * If the underlying request response protocol fails, then we return undefined.
+   * If it succeeds then we add the transaction to our transaction pool and return.
+   *
+   * @param txHash - The hash of the transaction to request.
+   * @returns A promise that resolves to a transaction or undefined.
+   */
+  public async requestTxByHash(txHash: TxHash): Promise<Tx | undefined> {
+    const tx = await this.p2pService.sendRequest(TX_REQ_PROTOCOL, txHash);
+
+    this.log.debug(`Requested ${txHash.toString()} from peer | success = ${!!tx}`);
+    if (tx) {
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8485): This check is not sufficient to validate the transaction. We need to validate the entire proof.
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8483): alter peer scoring system for a validator that returns an invalid transcation
+      await this.txPool.addTxs([tx]);
+    }
+
+    return tx;
   }
 
   /**

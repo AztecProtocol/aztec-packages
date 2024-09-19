@@ -55,6 +55,20 @@ export class EthCheatCodes {
   }
 
   /**
+   * Get the auto mine status of the underlying chain
+   * @returns True if automine is on, false otherwise
+   */
+  public async isAutoMining(): Promise<boolean> {
+    try {
+      const res = await this.rpcCall('anvil_getAutomine', []);
+      return res.result;
+    } catch (err) {
+      this.logger.error(`Calling "anvil_getAutomine" failed with:`, err);
+    }
+    return false;
+  }
+
+  /**
    * Get the current blocknumber
    * @returns The current block number
    */

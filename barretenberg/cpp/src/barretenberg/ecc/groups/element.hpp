@@ -95,7 +95,7 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
                                  const std::span<affine_element<Fq, Fr, Params>>& second_group,
                                  const std::span<affine_element<Fq, Fr, Params>>& results) noexcept;
     static std::vector<affine_element<Fq, Fr, Params>> batch_mul_with_endomorphism(
-        const std::span<affine_element<Fq, Fr, Params>>& points, const Fr& scalar) noexcept;
+        const std::span<const affine_element<Fq, Fr, Params>>& points, const Fr& scalar) noexcept;
 
     Fq x;
     Fq y;

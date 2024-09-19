@@ -1,7 +1,7 @@
 use dep::types::{
     abis::{side_effect::OrderedValue, read_request::ScopedReadRequest},
     merkle_tree::{assert_check_non_membership, IndexedTreeLeafPreimage, MembershipWitness},
-    traits::{Empty, is_empty}
+    traits::is_empty
 };
 
 trait NonMembershipHint<let TREE_HEIGHT: u32, LEAF_PREIMAGE> where LEAF_PREIMAGE: IndexedTreeLeafPreimage {
@@ -89,8 +89,7 @@ mod tests {
     use crate::reset::non_existent_read_request::{NonMembershipHint, reset_non_existent_read_requests};
 
     use dep::types::{
-        address::AztecAddress,
-        abis::{read_request::{ReadRequest, ScopedReadRequest}, side_effect::OrderedValue},
+        address::AztecAddress, abis::{read_request::ReadRequest, side_effect::OrderedValue},
         merkle_tree::{leaf_preimage::IndexedTreeLeafPreimage, membership::MembershipWitness},
         tests::merkle_tree_utils::NonEmptyMerkleTree
     };

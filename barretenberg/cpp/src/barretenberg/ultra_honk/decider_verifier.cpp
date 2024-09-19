@@ -1,13 +1,13 @@
 #include "decider_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/sumcheck/instance/verifier_instance.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/decider_verification_key.hpp"
 
 namespace bb {
 
 template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator,
+DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator,
                                            const std::shared_ptr<Transcript>& transcript)
     : accumulator(accumulator)
     , pcs_verification_key(accumulator->verification_key->pcs_verification_key)
@@ -15,15 +15,13 @@ DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstanc
 {}
 
 template <typename Flavor>
-DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<VerifierInstance>& accumulator)
+DeciderVerifier_<Flavor>::DeciderVerifier_(const std::shared_ptr<DeciderVerificationKey>& accumulator)
     : accumulator(accumulator)
     , pcs_verification_key(accumulator->verification_key->pcs_verification_key)
 {}
 
 /**
- * @brief This function verifies a decider proof for a given Flavor, produced for a relaxed instance (ϕ, \vec{β*},
- * e*).
- *
+ * @brief Verify a decider proof relative to a decider verification key (ϕ, \vec{β*}, e*).
  */
 template <typename Flavor> bool DeciderVerifier_<Flavor>::verify_proof(const DeciderProof& proof)
 {

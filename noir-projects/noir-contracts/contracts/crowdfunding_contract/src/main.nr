@@ -4,17 +4,16 @@ contract Crowdfunding {
 
     // docs:start:all-deps
     use dep::aztec::{
-        protocol_types::{address::AztecAddress, constants::ROUTER_ADDRESS},
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-        keys::getters::get_current_public_keys, state_vars::{PrivateSet, SharedImmutable},
-        note::note_getter_options::Comparator
+        keys::getters::get_public_keys, prelude::{AztecAddress, PrivateSet, SharedImmutable},
+        utils::comparison::Comparator
     };
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
     // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
     // docs:end:import_valuenote
     use dep::token::Token;
-    use router::Router;
+    use router::utils::privately_check_timestamp;
     // docs:end:all-deps
 
     #[aztec(event)]
@@ -60,7 +59,7 @@ contract Crowdfunding {
         // is performing the check.
         // docs:start:call-check-deadline
         let deadline = storage.deadline.read_private();
-        Router::at(ROUTER_ADDRESS).check_timestamp(deadline, Comparator.GT).call(&mut context);
+        privately_check_timestamp(Comparator.LT, deadline, &mut context);
         // docs:end:call-check-deadline
 
         // docs:start:do-transfer
@@ -71,7 +70,7 @@ contract Crowdfunding {
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
-        let donor_keys = get_current_public_keys(&mut context, donor);
+        let donor_keys = get_public_keys(donor);
         // docs:start:valuenote_new
         let mut note = ValueNote::new(amount as Field, donor_keys.npk_m.hash());
         // docs:end:valuenote_new

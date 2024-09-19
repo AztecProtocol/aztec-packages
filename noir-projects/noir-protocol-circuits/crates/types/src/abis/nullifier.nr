@@ -1,7 +1,7 @@
 use crate::{
     abis::{side_effect::{Ordered, OrderedValue, Readable, Scoped}, read_request::ScopedReadRequest},
     address::AztecAddress, constants::{NULLIFIER_LENGTH, SCOPED_NULLIFIER_LENGTH},
-    hash::compute_siloed_nullifier, traits::{Empty, Hash, Serialize, Deserialize},
+    hash::compute_siloed_nullifier, traits::{Empty, Serialize, Deserialize},
     utils::{arrays::array_concat, reader::Reader}
 };
 
@@ -30,17 +30,13 @@ impl Eq for Nullifier {
     fn eq(self, other: Nullifier) -> bool {
         (self.value == other.value)
             & (self.counter == other.counter)
-            & (self.note_hash == other.note_hash) 
+            & (self.note_hash == other.note_hash)
     }
 }
 
 impl Empty for Nullifier {
     fn empty() -> Self {
-        Nullifier {
-            value: 0,
-            counter: 0,
-            note_hash: 0,
-        }
+        Nullifier { value: 0, counter: 0, note_hash: 0 }
     }
 }
 
@@ -52,15 +48,11 @@ impl Serialize<NULLIFIER_LENGTH> for Nullifier {
 
 impl Deserialize<NULLIFIER_LENGTH> for Nullifier {
     fn deserialize(values: [Field; NULLIFIER_LENGTH]) -> Self {
-        Self {
-            value: values[0],
-            counter: values[1] as u32,
-            note_hash: values[2],
-        }
+        Self { value: values[0], counter: values[1] as u32, note_hash: values[2] }
     }
 }
 
-impl Readable for Nullifier {
+impl Readable<ScopedReadRequest> for Nullifier {
     fn assert_match_read_request(self, read_request: ScopedReadRequest) {
         // Public kernels output Nullifier instead of ScopedNullifier.
         // The nullifier value has been siloed.
@@ -109,23 +101,22 @@ impl OrderedValue<Field> for ScopedNullifier {
 
 impl Eq for ScopedNullifier {
     fn eq(self, other: ScopedNullifier) -> bool {
-        (self.nullifier == other.nullifier)
-            & (self.contract_address == other.contract_address) 
+        (self.nullifier == other.nullifier) & (self.contract_address == other.contract_address)
     }
 }
 
 impl Empty for ScopedNullifier {
     fn empty() -> Self {
-        ScopedNullifier {
-            nullifier: Nullifier::empty(),
-            contract_address: AztecAddress::empty(),
-        }
+        ScopedNullifier { nullifier: Nullifier::empty(), contract_address: AztecAddress::empty() }
     }
 }
 
 impl Serialize<SCOPED_NULLIFIER_LENGTH> for ScopedNullifier {
     fn serialize(self) -> [Field; SCOPED_NULLIFIER_LENGTH] {
-        array_concat(self.nullifier.serialize(), [self.contract_address.to_field()])
+        array_concat(
+            self.nullifier.serialize(),
+            [self.contract_address.to_field()]
+        )
     }
 }
 
@@ -134,17 +125,21 @@ impl Deserialize<SCOPED_NULLIFIER_LENGTH> for ScopedNullifier {
         let mut reader = Reader::new(values);
         let res = Self {
             nullifier: reader.read_struct(Nullifier::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize),
+            contract_address: reader.read_struct(AztecAddress::deserialize)
         };
         reader.finish();
         res
     }
 }
 
-impl Readable for ScopedNullifier {
+impl Readable<ScopedReadRequest> for ScopedNullifier {
     fn assert_match_read_request(self, read_request: ScopedReadRequest) {
-        assert_eq(self.nullifier.value, read_request.value(), "Value of the nullifier does not match read request");
-        assert_eq(self.contract_address, read_request.contract_address, "Contract address of the nullifier does not match read request");
+        assert_eq(
+            self.nullifier.value, read_request.value(), "Value of the nullifier does not match read request"
+        );
+        assert_eq(
+            self.contract_address, read_request.contract_address, "Contract address of the nullifier does not match read request"
+        );
         assert(
             read_request.counter() > self.nullifier.counter, "Read request counter must be greater than the counter of the nullifier"
         );

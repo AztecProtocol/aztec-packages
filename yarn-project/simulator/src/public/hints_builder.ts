@@ -7,15 +7,14 @@ import {
   type MAX_NULLIFIERS_PER_TX,
   type MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  type MAX_PUBLIC_DATA_HINTS,
   type MAX_PUBLIC_DATA_READS_PER_TX,
   type MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MembershipWitness,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   type Nullifier,
+  type NullifierLeafPreimage,
   PUBLIC_DATA_TREE_HEIGHT,
-  type PublicDataHint,
   type PublicDataRead,
   type PublicDataTreeLeafPreimage,
   type PublicDataUpdateRequest,
@@ -25,11 +24,11 @@ import {
   buildNullifierNonExistentReadRequestHints,
   buildPublicDataHint,
   buildPublicDataHints,
-  buildPublicDataReadRequestHints,
   buildSiloedNullifierReadRequestHints,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { type Tuple } from '@aztec/foundation/serialize';
+import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 export class HintsBuilder {
@@ -91,14 +90,6 @@ export class HintsBuilder {
     return buildPublicDataHint(this, slot);
   }
 
-  getPublicDataReadRequestHints(
-    publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
-    publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-    publicDataHints: Tuple<PublicDataHint, typeof MAX_PUBLIC_DATA_HINTS>,
-  ) {
-    return buildPublicDataReadRequestHints(publicDataReads, publicDataUpdateRequests, publicDataHints);
-  }
-
   async getNullifierMembershipWitness(nullifier: Fr) {
     const index = await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
     if (index === undefined) {
@@ -123,7 +114,8 @@ export class HintsBuilder {
       throw new Error(`Nullifier ${nullifier.toBigInt()} already exists in the tree.`);
     }
 
-    return this.getMembershipWitnessWithPreimage<typeof NULLIFIER_TREE_HEIGHT>(
+    // Should find a way to stop casting IndexedTreeLeafPreimage as NullifierLeafPreimage
+    return this.getMembershipWitnessWithPreimage<typeof NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage>(
       MerkleTreeId.NULLIFIER_TREE,
       NULLIFIER_TREE_HEIGHT,
       index,
@@ -136,23 +128,22 @@ export class HintsBuilder {
       throw new Error(`Cannot find the previous value index for public data ${leafSlot}.`);
     }
 
-    const { membershipWitness, leafPreimage } = await this.getMembershipWitnessWithPreimage<
-      typeof PUBLIC_DATA_TREE_HEIGHT
-    >(MerkleTreeId.PUBLIC_DATA_TREE, PUBLIC_DATA_TREE_HEIGHT, res.index);
-
     // Should find a way to stop casting IndexedTreeLeafPreimage as PublicDataTreeLeafPreimage everywhere.
-    return { membershipWitness, leafPreimage: leafPreimage as PublicDataTreeLeafPreimage };
+    return this.getMembershipWitnessWithPreimage<typeof PUBLIC_DATA_TREE_HEIGHT, PublicDataTreeLeafPreimage>(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      PUBLIC_DATA_TREE_HEIGHT,
+      res.index,
+    );
   }
 
-  private async getMembershipWitnessWithPreimage<TREE_HEIGHT extends number>(
-    treeId: IndexedTreeId,
-    treeHeight: TREE_HEIGHT,
-    index: bigint,
-  ) {
+  private async getMembershipWitnessWithPreimage<
+    TREE_HEIGHT extends number,
+    LEAF_PREIMAGE extends IndexedTreeLeafPreimage = IndexedTreeLeafPreimage,
+  >(treeId: IndexedTreeId, treeHeight: TREE_HEIGHT, index: bigint) {
     const siblingPath = await this.db.getSiblingPath<TREE_HEIGHT>(treeId, index);
     const membershipWitness = new MembershipWitness(treeHeight, index, siblingPath.toTuple());
 
-    const leafPreimage = await this.db.getLeafPreimage(treeId, index);
+    const leafPreimage = (await this.db.getLeafPreimage(treeId, index)) as LEAF_PREIMAGE;
     if (!leafPreimage) {
       throw new Error(`Cannot find the leaf preimage for tree ${treeId} at index ${index}.`);
     }

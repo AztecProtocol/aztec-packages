@@ -3,8 +3,8 @@ import { BlockAttestation } from './block_attestation.js';
 import { makeBlockAttestation, randomSigner } from './mocks.js';
 
 describe('Block Attestation serialization / deserialization', () => {
-  it('Should serialize / deserialize', async () => {
-    const attestation = await makeBlockAttestation();
+  it('Should serialize / deserialize', () => {
+    const attestation = makeBlockAttestation();
 
     const serialized = attestation.toBuffer();
     const deserialized = BlockAttestation.fromBuffer(serialized);
@@ -12,17 +12,17 @@ describe('Block Attestation serialization / deserialization', () => {
     expect(deserialized).toEqual(attestation);
   });
 
-  it('Should serialize / deserialize + recover sender', async () => {
+  it('Should serialize / deserialize + recover sender', () => {
     const account = randomSigner();
 
-    const proposal = await makeBlockAttestation(account);
+    const proposal = makeBlockAttestation(account);
     const serialized = proposal.toBuffer();
     const deserialized = BlockAttestation.fromBuffer(serialized);
 
     expect(deserialized).toEqual(proposal);
 
     // Recover signature
-    const sender = await deserialized.getSender();
-    expect(sender.toChecksumString()).toEqual(account.address);
+    const sender = deserialized.getSender();
+    expect(sender).toEqual(account.address);
   });
 });

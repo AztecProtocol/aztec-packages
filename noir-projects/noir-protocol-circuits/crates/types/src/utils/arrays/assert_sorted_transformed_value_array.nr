@@ -53,81 +53,32 @@ pub fn assert_sorted_transformed_value_array_capped_size<T, S, let N: u32, Env>(
 
 mod tests {
     use crate::{
-        abis::side_effect::Ordered, traits::Empty,
+        tests::types::{is_summed_from_two_values, TestTwoValues, TestValue},
         utils::arrays::{assert_sorted_transformed_value_array::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size}}
     };
 
-    struct TestItem {
-        name: Field,
-        price: Field,
-        tax: Field,
-        counter: u32,
-    }
-
-    impl Empty for TestItem {
-        fn empty() -> Self {
-            TestItem { name: 0, price: 0, tax: 0, counter: 0 }
-        }
-    }
-
-    impl Eq for TestItem {
-        fn eq(self, other: Self) -> bool {
-            (self.name == other.name) & (self.price == other.price) & (self.tax == other.tax) & (self.counter == other.counter)
-        }
-    }
-
-    struct TestValue {
-        name: Field,
-        total: Field,
-        counter: u32,
-    }
-
-    impl Ordered for TestValue {
-        fn counter(self) -> u32 {
-            self.counter
-        }
-    }
-
-    impl Empty for TestValue {
-        fn empty() -> Self {
-            TestValue { name: 0, total: 0, counter: 0 }
-        }
-    }
-
-    impl Eq for TestValue {
-        fn eq(self, other: Self) -> bool {
-            (self.name == other.name) & (self.total == other.total) & (self.counter == other.counter)
-        }
-    }
-
-    fn is_transformed(item: TestItem, value: TestValue) -> bool {
-        (item.name == value.name)
-            & ((item.price + item.tax) == value.total)
-            & (item.counter == value.counter)
-    }
-
-    struct TestDataBuilder<T, S, let N: u32> {
-        original_array: [T; N],
-        sorted_transformed_value_array: [S; N],
+    struct TestDataBuilder<let N: u32> {
+        original_array: [TestTwoValues; N],
+        sorted_transformed_value_array: [TestValue; N],
         sorted_indexes: [u32; N],
     }
 
-    impl TestDataBuilder<TestItem, TestValue, 6> {
+    impl TestDataBuilder<6> {
         pub fn new() -> Self {
             let original_array = [
-                TestItem { name: 100, price: 10, tax: 5, counter: 44 },
-                TestItem { name: 200, price: 20, tax: 6, counter: 22 },
-                TestItem { name: 300, price: 30, tax: 7, counter: 11 },
-                TestItem { name: 400, price: 40, tax: 8, counter: 33 },
-                TestItem::empty(),
-                TestItem::empty()
+                TestTwoValues { value_1: 10, value_2: 5, counter: 44 },
+                TestTwoValues { value_1: 20, value_2: 6, counter: 22 },
+                TestTwoValues { value_1: 30, value_2: 7, counter: 11 },
+                TestTwoValues { value_1: 40, value_2: 8, counter: 33 },
+                TestTwoValues::empty(),
+                TestTwoValues::empty()
             ];
 
             let sorted_transformed_value_array = [
-                TestValue { name: 300, total: 37, counter: 11 },
-                TestValue { name: 200, total: 26, counter: 22 },
-                TestValue { name: 400, total: 48, counter: 33 },
-                TestValue { name: 100, total: 15, counter: 44 },
+                TestValue { value: 37, counter: 11 },
+                TestValue { value: 26, counter: 22 },
+                TestValue { value: 48, counter: 33 },
+                TestValue { value: 15, counter: 44 },
                 TestValue::empty(),
                 TestValue::empty()
             ];
@@ -141,7 +92,7 @@ mod tests {
             assert_sorted_transformed_value_array(
                 self.original_array,
                 self.sorted_transformed_value_array,
-                is_transformed,
+                is_summed_from_two_values,
                 self.sorted_indexes
             );
         }
@@ -150,7 +101,7 @@ mod tests {
             assert_sorted_transformed_value_array_capped_size(
                 self.original_array,
                 self.sorted_transformed_value_array,
-                is_transformed,
+                is_summed_from_two_values,
                 self.sorted_indexes,
                 capped_size
             );
@@ -168,7 +119,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Tweak the value at index 1.
-        builder.sorted_transformed_value_array[1].total += 1;
+        builder.sorted_transformed_value_array[1].value += 1;
 
         builder.execute();
     }
@@ -198,7 +149,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item.
-        builder.sorted_transformed_value_array[4] = TestValue { name: 500, total: 10, counter: 55 };
+        builder.sorted_transformed_value_array[4] = TestValue {  value: 10, counter: 55 };
 
         builder.execute();
     }
@@ -208,7 +159,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item.
-        builder.sorted_transformed_value_array[4] = TestValue { name: 500, total: 10, counter: 55 };
+        builder.sorted_transformed_value_array[4] = TestValue {  value: 10, counter: 55 };
         // Change the hint to point to an empty item.
         builder.sorted_indexes[4] = 5;
 
@@ -242,7 +193,7 @@ mod tests {
         let mut builder = TestDataBuilder::new();
 
         // Add a random item outside of capped_size.
-        builder.sorted_transformed_value_array[4] = TestValue { name: 500, total: 10, counter: 55 };
+        builder.sorted_transformed_value_array[4] = TestValue {  value: 10, counter: 55 };
 
         builder.execute_capped(4);
     }

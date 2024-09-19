@@ -8,22 +8,15 @@ use crate::components::private_call_data_validator::{
 use dep::types::{
     abis::{
     call_context::CallContext, kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    log_hash::NoteLogHash, note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
-    private_circuit_public_inputs::{PrivateCircuitPublicInputs, PrivateCircuitPublicInputsArrayLengths},
+    note_hash::ScopedNoteHash, private_call_request::PrivateCallRequest,
+    private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
     private_kernel::private_call_data::PrivateCallData, side_effect::{Ordered, RangeOrdered}
 },
     address::{AztecAddress, PartialAddress}, contract_class_id::ContractClassId,
     constants::MAX_FIELD_VALUE,
     hash::{private_functions_root_from_siblings, stdlib_recursion_verification_key_compress_native_vk},
-    traits::is_empty, transaction::tx_request::TxRequest, utils::arrays::find_index_hint
+    transaction::tx_request::TxRequest, utils::arrays::find_index_hint
 };
-
-unconstrained fn find_first_revertible_private_call_request_index(public_inputs: PrivateCircuitPublicInputs) -> u32 {
-    find_first_revertible_item_index(
-        public_inputs.min_revertible_side_effect_counter,
-        public_inputs.private_call_requests
-    )
-}
 
 fn validate_call_context(
     target_contract: AztecAddress,
@@ -261,15 +254,20 @@ impl PrivateCallDataValidator {
 
         // Check that the min_revertible_side_effect_counter does not fall in the middle of any nested calls.
         // If it is possible, one can create a custom account contract, set the min_revertible_side_effect_counter to a
-        // value that falls in a transfer function, make the tx revert which then preserves the note hashes and discards 
+        // value that falls in a transfer function, make the tx revert which then preserves the note hashes and discards
         // the nullifiers.
-        // 
+        //
         // We don't have to use the aggregated min_revertible_side_effect_counter in the output for the below check.
         // If the current call's min_revertible_side_effect_counter is 0, it means the counter might be set by another
-        // function. This check for that function guarantees that the counter won't fall into one of its nested calls. 
+        // function. This check for that function guarantees that the counter won't fall into one of its nested calls.
         // In this case, we can simply use 0 and make the following check pass.
         let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
-        let first_revertible_index = find_first_revertible_private_call_request_index(public_inputs);
+        let first_revertible_index = unsafe {
+            find_first_revertible_item_index(
+                public_inputs.min_revertible_side_effect_counter,
+                public_inputs.private_call_requests
+            )
+        };
         validate_split_ranges(
             min_revertible_side_effect_counter,
             first_revertible_index,
@@ -393,10 +391,12 @@ impl PrivateCallDataValidator {
             should_check &= i != num_logs;
             if should_check {
                 let note_log = note_logs[i];
-                let note_index = find_index_hint(
-                    accumulated_note_hashes,
-                    |n: ScopedNoteHash| n.counter() == note_log.note_hash_counter
-                );
+                let note_index = unsafe {
+                    find_index_hint(
+                        accumulated_note_hashes,
+                        |n: ScopedNoteHash| n.counter() == note_log.note_hash_counter
+                    )
+                };
                 assert(note_index != N, "could not find note hash linked to note log");
                 assert_eq(
                     note_log.note_hash_counter, accumulated_note_hashes[note_index].counter(), "could not find note hash linked to note log"

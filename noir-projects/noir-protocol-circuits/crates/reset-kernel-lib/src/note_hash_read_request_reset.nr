@@ -150,13 +150,15 @@ mod tests {
             (hints, tree_root)
         }
 
-        pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
+        unconstrained pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
             get_unverified_read_requests(self.read_requests, self.read_request_statuses)
         }
 
         pub fn verify(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
-            let unverified_read_requests = self.get_unverified_read_requests();
+            let unverified_read_requests = unsafe {
+                self.get_unverified_read_requests()
+            };
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
@@ -173,7 +175,9 @@ mod tests {
     fn verify_reset_note_hash_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
 
-        let unverified_read_requests = builder.get_unverified_read_requests();
+        let unverified_read_requests = unsafe {
+            builder.get_unverified_read_requests()
+        };
         assert(is_empty_array(unverified_read_requests));
 
         builder.verify();
@@ -187,7 +191,9 @@ mod tests {
         builder.read_request_statuses[4] = ReadRequestStatus::empty();
 
         let read_requests = builder.read_requests;
-        let unverified_read_requests = builder.get_unverified_read_requests();
+        let unverified_read_requests = unsafe {
+            builder.get_unverified_read_requests()
+        };
         assert_array_eq(
             unverified_read_requests,
             [read_requests[2], read_requests[4]]

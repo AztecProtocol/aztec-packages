@@ -16,8 +16,10 @@ impl TailOutputComposerBuilder {
 
     pub fn finish(self) -> KernelCircuitPublicInputs {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        let composer = TailOutputComposer::new(previous_kernel);
-        composer.finish()
+        unsafe {
+            let composer = TailOutputComposer::new(previous_kernel);
+            composer.finish()
+        }
     }
 }
 

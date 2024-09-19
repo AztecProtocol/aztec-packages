@@ -1,8 +1,9 @@
-use crate::constants::VK_TREE_HEIGHT;
-use crate::abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs;
-use crate::recursion::{proof::NestedRecursiveProof, verification_key::VerificationKey, traits::Verifiable};
-use crate::merkle_tree::membership::assert_check_membership;
-use crate::utils::arrays::find_index_hint;
+use crate::{
+    abis::kernel_circuit_public_inputs::KernelCircuitPublicInputs, constants::VK_TREE_HEIGHT,
+    merkle_tree::membership::assert_check_membership,
+    recursion::{proof::NestedRecursiveProof, verification_key::VerificationKey, traits::Verifiable},
+    utils::arrays::find_index_hint
+};
 
 struct KernelData {
     public_inputs: KernelCircuitPublicInputs,
@@ -13,20 +14,17 @@ struct KernelData {
 }
 
 impl Verifiable for KernelData {
-  fn verify(self) {
-    let inputs = KernelCircuitPublicInputs::serialize(self.public_inputs);
-    std::verify_proof(
-        self.vk.key,
-        self.proof.fields,
-        inputs,
-        self.vk.hash
-    );
-  }
+    fn verify(self) {
+        let inputs = KernelCircuitPublicInputs::serialize(self.public_inputs);
+        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+    }
 }
 
 impl KernelData {
     fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
-        let index_hint = find_index_hint(allowed_indices, |index: u32| index == self.vk_index);
+        let index_hint = unsafe {
+            find_index_hint(allowed_indices, |index: u32| index == self.vk_index)
+        };
         assert_eq(allowed_indices[index_hint], self.vk_index, "Invalid vk index");
 
         assert_check_membership(

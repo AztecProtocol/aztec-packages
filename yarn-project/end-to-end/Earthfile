@@ -92,10 +92,10 @@ NETWORK_TEST:
     RUN kubectl delete namespace $namespace --ignore-not-found=true --wait=true --now --timeout=10m
   END
 
-  RUN helm install spartan ../../helm-charts/aztec-network \
+  RUN helm install spartan ../../spartan/aztec-network/ \
         --namespace $namespace \
         --create-namespace \
-        --values ../../helm-charts/aztec-network/values/$values_file \
+        --values ../../spartan/aztec-network/values/$values_file \
         --set images.test.image="aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG" \
         --set images.aztec.image="aztecprotocol/aztec:$AZTEC_DOCKER_TAG" \
         --set test="$test" \
@@ -116,6 +116,9 @@ e2e-l1-with-wall-time:
 e2e-2-pxes:
   DO +E2E_TEST --test=./src/e2e_2_pxes.test.ts
 
+e2e-nft:
+  DO +E2E_TEST --test=./src/e2e_nft.test.ts
+
 e2e-prover-full:
   DO +E2E_TEST --test=./src/e2e_prover/full --hardware_concurrency=${HARDWARE_CONCURRENCY:-32}
 
@@ -124,9 +127,6 @@ e2e-prover-with-padding:
 
 e2e-account-contracts:
   DO +E2E_TEST --test=./src/e2e_account_contracts.test.ts
-
-e2e-auth-contract:
-  DO +E2E_TEST --test=./src/e2e_auth_contract.test.ts
 
 e2e-authwit:
   DO +E2E_TEST --test=./src/e2e_authwit.test.ts
@@ -149,12 +149,6 @@ e2e-card-game:
 e2e-cheat-codes:
   DO +E2E_TEST --test=./src/e2e_cheat_codes.test.ts
 
-e2e-counter-contract:
-  DO +E2E_TEST --test=./src/e2e_counter_contract.test.ts
-
-e2e-cross-chain-messaging:
-  DO +E2E_TEST --test=./src/e2e_cross_chain_messaging.test.ts
-
 e2e-crowdfunding-and-claim:
   DO +E2E_TEST --test=./src/e2e_crowdfunding_and_claim.test.ts
 
@@ -169,9 +163,6 @@ e2e-encryption:
 
 e2e-escrow-contract:
   DO +E2E_TEST --test=./src/e2e_escrow_contract.test.ts
-
-e2e-key-registry:
-  DO +E2E_TEST --test=./src/e2e_key_registry.test.ts
 
 e2e-keys:
   DO +E2E_TEST --test=./src/e2e_keys.test.ts
@@ -230,11 +221,8 @@ e2e-fees-fee-juice-payments:
 e2e-fees-account-init:
   DO +E2E_TEST --test=./src/e2e_fees/account_init.test.ts
 
-e2e-public-cross-chain-messaging:
-  DO +E2E_TEST --test=./src/e2e_public_cross_chain_messaging
-
-e2e-public-to-private-messaging:
-  DO +E2E_TEST --test=./src/e2e_public_to_private_messaging.test.ts
+e2e-cross-chain-messaging:
+  DO +E2E_TEST --test=./src/e2e_cross_chain_messaging
 
 e2e-state-vars:
   DO +E2E_TEST --test=./src/e2e_state_vars.test.ts

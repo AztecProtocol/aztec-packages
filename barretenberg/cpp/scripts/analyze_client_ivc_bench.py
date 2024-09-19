@@ -16,7 +16,7 @@ PREFIX = args.prefix
 # Single out an independent set of functions accounting for most of BENCHMARK's real_time
 to_keep = [
     "construct_circuits(t)",
-    "ProverInstance(Circuit&)(t)",
+    "DeciderProvingKey(Circuit&)(t)",
     "ProtogalaxyProver::prove(t)",
     "Decider::construct_proof(t)",
     "ECCVMProver(CircuitBuilder&)(t)",

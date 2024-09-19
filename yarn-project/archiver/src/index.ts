@@ -13,9 +13,7 @@ export * from './archiver/index.js';
 export * from './rpc/index.js';
 export * from './factory.js';
 
-export { retrieveL2ProofVerifiedEvents, retrieveBlockMetadataFromRollup } from './archiver/data_retrieval.js';
-
-export { getL2BlockProposedLogs } from './archiver/eth_log_handlers.js';
+export { retrieveL2ProofVerifiedEvents, retrieveBlockFromRollup } from './archiver/data_retrieval.js';
 
 const log = createDebugLogger('aztec:archiver');
 
@@ -37,7 +35,6 @@ async function main() {
   const archiver = new Archiver(
     publicClient,
     l1Contracts.rollupAddress,
-    l1Contracts.availabilityOracleAddress,
     l1Contracts.inboxAddress,
     l1Contracts.registryAddress,
     archiverStore,

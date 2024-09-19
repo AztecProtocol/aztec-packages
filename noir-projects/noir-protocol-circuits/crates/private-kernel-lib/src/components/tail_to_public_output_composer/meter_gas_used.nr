@@ -1,8 +1,5 @@
 use dep::types::{
-    abis::{
-    accumulated_data::{public_accumulated_data_builder::PublicAccumulatedData}, gas::Gas,
-    log_hash::{LogHash, ScopedLogHash}
-},
+    abis::{accumulated_data::PublicAccumulatedData, gas::Gas, log_hash::{LogHash, ScopedLogHash}},
     constants::{
     DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_NOTE_HASH,
     L2_GAS_PER_NULLIFIER, L2_GAS_PER_LOG_BYTE

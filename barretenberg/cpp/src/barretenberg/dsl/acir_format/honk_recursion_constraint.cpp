@@ -16,6 +16,7 @@ using field_ct = stdlib::field_t<Builder>;
 using bn254 = stdlib::bn254<Builder>;
 using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
 
+namespace {
 /**
  * @brief Creates a dummy vkey and proof object.
  * @details Populates the key and proof vectors with dummy values in the write_vk case when we don't have a valid
@@ -110,7 +111,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
 
-    // now the sumcheck evalutions, which is just 43 0s
+    // now the sumcheck evaluations, which is just 43 0s
     for (size_t i = 0; i < Flavor::NUM_ALL_ENTITIES; i++) {
         builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
         offset++;
@@ -139,6 +140,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     }
     ASSERT(offset == proof_size + public_inputs_size);
 }
+} // namespace
 
 /**
  * @brief Add constraints required to recursively verify an UltraHonk proof
@@ -161,7 +163,7 @@ AggregationObjectIndices create_honk_recursion_constraints(Builder& builder,
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
-    ASSERT(input.proof_type == HONK_RECURSION);
+    ASSERT(input.proof_type == HONK);
 
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.

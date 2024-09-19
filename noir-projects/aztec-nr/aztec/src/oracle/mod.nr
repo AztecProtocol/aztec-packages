@@ -25,4 +25,4 @@ mod returns;
 
 // debug_log oracle is used by both noir-protocol-circuits and this crate and for this reason we just re-export it
 // here from protocol circuits.
-use dep::protocol_types::debug_log;
+pub use dep::protocol_types::debug_log;

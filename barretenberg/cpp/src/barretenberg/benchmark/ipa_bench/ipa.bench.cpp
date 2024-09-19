@@ -35,7 +35,7 @@ void ipa_open(State& state) noexcept
         // Construct the polynomial
         Polynomial poly(n);
         for (size_t i = 0; i < n; ++i) {
-            poly[i] = Fr::random_element(&engine);
+            poly.at(i) = Fr::random_element(&engine);
         }
         auto x = Fr::random_element(&engine);
         auto eval = poly.evaluate(x);

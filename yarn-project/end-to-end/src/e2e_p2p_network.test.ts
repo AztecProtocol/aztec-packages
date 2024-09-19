@@ -109,6 +109,13 @@ describe('e2e_p2p_network', () => {
     });
   });
 
+  const stopNodes = async (bootstrap: BootstrapNode, nodes: AztecNodeService[]) => {
+    for (const node of nodes) {
+      await node.stop();
+    }
+    await bootstrap.stop();
+  };
+
   afterEach(() => teardown());
 
   afterAll(() => {
@@ -136,7 +143,7 @@ describe('e2e_p2p_network', () => {
     );
 
     // wait a bit for peers to discover each other
-    await sleep(2000);
+    await sleep(4000);
 
     for (const node of nodes) {
       const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
@@ -154,11 +161,73 @@ describe('e2e_p2p_network', () => {
     );
 
     // shutdown all nodes.
-    for (const context of contexts) {
-      await context.node.stop();
-      await context.pxeService.stop();
+    await stopNodes(bootstrapNode, nodes);
+  });
+
+  // NOTE: If this test fails in a PR where the shuffling algorithm is changed, then it is failing as the node with
+  // the mocked p2p layer is being picked as the sequencer, and it does not have any transactions in it's mempool.
+  // If this is the case, then we should update the test to switch off the mempool of a different node.
+  // adjust `nodeToTurnOffTxGossip` in the test below.
+  it('should produce an attestation by requesting tx data over the p2p network', async () => {
+    /**
+     * Birds eye overview of the test
+     * 1. We spin up x nodes
+     * 2. We turn off receiving a tx via gossip from two of the nodes
+     * 3. We send a transactions and gossip it to other nodes
+     * 4. The disabled nodes will receive an attestation that it does not have the data for
+     * 5. They will request this data over the p2p layer
+     * 6. We receive all of the attestations that we need and we produce the block
+     *
+     * Note: we do not attempt to let this node produce a block, as it will not have received any transactions
+     *       from the other pxes.
+     */
+
+    if (!bootstrapNodeEnr) {
+      throw new Error('Bootstrap node ENR is not available');
     }
-    await bootstrapNode.stop();
+    const contexts: NodeContext[] = [];
+    const nodes: AztecNodeService[] = await createNodes(
+      config,
+      PEER_ID_PRIVATE_KEYS,
+      bootstrapNodeEnr,
+      NUM_NODES,
+      BOOT_NODE_UDP_PORT,
+    );
+
+    // wait a bit for peers to discover each other
+    await sleep(4000);
+
+    // Replace the p2p node implementation of some of the nodes with a spy such that it does not store transactions that are gossiped to it
+    // Original implementation of `processTxFromPeer` will store received transactions in the tx pool.
+    // We have chosen nodes 0,3 as they do not get chosen to be the sequencer in this test.
+    const nodeToTurnOffTxGossip = [0, 3];
+    for (const nodeIndex of nodeToTurnOffTxGossip) {
+      jest
+        .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'processTxFromPeer')
+        .mockImplementation((): Promise<void> => {
+          return Promise.resolve();
+        });
+    }
+
+    // Only submit transactions to the first two nodes, so that we avoid our sequencer with a mocked p2p layer being picked to produce a block.
+    // If the shuffling algorithm changes, then this will need to be updated.
+    for (let i = 0; i < 2; i++) {
+      const context = await createPXEServiceAndSubmitTransactions(nodes[i], NUM_TXS_PER_NODE);
+      contexts.push(context);
+    }
+
+    await Promise.all(
+      contexts.flatMap((context, i) =>
+        context.txs.map(async (tx, j) => {
+          logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
+          await tx.wait();
+          logger.info(`Tx ${i}-${j}: ${await tx.getTxHash()} has been mined`);
+          return await tx.getTxHash();
+        }),
+      ),
+    );
+
+    await stopNodes(bootstrapNode, nodes);
   });
 
   it('should re-discover stored peers without bootstrap node', async () => {
@@ -218,11 +287,7 @@ describe('e2e_p2p_network', () => {
     );
 
     // shutdown all nodes.
-    // for (const context of contexts) {
-    for (const context of contexts) {
-      await context.node.stop();
-      await context.pxeService.stop();
-    }
+    await stopNodes(bootstrapNode, newNodes);
   });
 
   // creates an instance of the PXE and submit a given number of transactions to it.

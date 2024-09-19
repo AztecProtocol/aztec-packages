@@ -8,8 +8,7 @@ use dep::reset_kernel_lib::{
 };
 use dep::types::{
     abis::private_kernel_data::PrivateKernelData,
-    constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX},
-    PrivateKernelCircuitPublicInputs
+    constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX}, PrivateKernelCircuitPublicInputs
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
@@ -76,12 +75,14 @@ impl<
         };
 
         // Generate output.
-        let (output, output_hints) = self.generate_output(
-            validation_request_processor,
-            note_hash_siloing_amount,
-            nullifier_siloing_amount,
-            encrypted_log_siloing_amount
-        );
+        let (output, output_hints) = unsafe {
+            self.generate_output(
+                validation_request_processor,
+                note_hash_siloing_amount,
+                nullifier_siloing_amount,
+                encrypted_log_siloing_amount
+            )
+        };
 
         // Validate inputs.
         if !std::runtime::is_unconstrained() {
@@ -121,21 +122,18 @@ mod tests {
     }
     };
     use dep::types::constants::{
-        MAX_NOTE_HASH_READ_REQUESTS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX, GENERATOR_INDEX__OVSK_M,
-        PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX
+        MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+        GENERATOR_INDEX__OVSK_M, PRIVATE_KERNEL_INNER_INDEX
     };
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        max_block_number::MaxBlockNumber, note_hash::{NoteHash, ScopedNoteHash},
-        nullifier::{Nullifier, ScopedNullifier}, log_hash::{NoteLogHash, ScopedEncryptedLogHash},
-        read_request::ScopedReadRequest
+        max_block_number::MaxBlockNumber, note_hash::ScopedNoteHash, nullifier::ScopedNullifier,
+        log_hash::{NoteLogHash, ScopedEncryptedLogHash}
     },
         address::AztecAddress, hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier},
-        scalar::Scalar, tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, swap_items}},
-        utils::{arrays::{array_length, find_index_hint}}, traits::{Empty, is_empty, is_empty_array},
-        point::Point
+        tests::{fixture_builder::FixtureBuilder, utils::{assert_array_eq, swap_items}},
+        utils::{arrays::find_index_hint}, traits::is_empty_array, point::Point
     };
 
     struct PrivateKernelResetInputsBuilder<let NUM_INDEX_HINTS: u32> {
@@ -195,10 +193,12 @@ mod tests {
         pub fn nullify_pending_note_hash(&mut self, nullifier_index: u32, note_hash_index: u32) {
             let note_hash = self.previous_kernel.note_hashes.get(note_hash_index).note_hash;
             self.previous_kernel.nullifiers.storage[nullifier_index].nullifier.note_hash = note_hash.value;
-            let num_hints = find_index_hint(
-                self.transient_data_index_hints,
-                |hint: TransientDataIndexHint| hint.nullifier_index == MAX_NULLIFIERS_PER_TX
-            );
+            let num_hints = unsafe {
+                find_index_hint(
+                    self.transient_data_index_hints,
+                    |hint: TransientDataIndexHint| hint.nullifier_index == MAX_NULLIFIERS_PER_TX
+                )
+            };
             self.transient_data_index_hints[num_hints] = TransientDataIndexHint { nullifier_index, note_hash_index };
         }
 
@@ -243,9 +243,15 @@ mod tests {
         }
 
         pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
+            let note_hash_read_request_hints = unsafe {
+                self.note_hash_read_request_hints_builder.to_hints()
+            };
+            let nullifier_read_request_hints = unsafe {
+                self.nullifier_read_request_hints_builder.to_hints()
+            };
             let hints = PrivateKernelResetHints {
-                note_hash_read_request_hints: self.note_hash_read_request_hints_builder.to_hints(),
-                nullifier_read_request_hints: self.nullifier_read_request_hints_builder.to_hints(),
+                note_hash_read_request_hints,
+                nullifier_read_request_hints,
                 key_validation_hints: [KeyValidationHint::nada(MAX_KEY_VALIDATION_REQUESTS_PER_TX); 2],
                 transient_data_index_hints: self.transient_data_index_hints,
                 validation_requests_split_counter: self.validation_requests_split_counter

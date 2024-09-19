@@ -3,6 +3,7 @@
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/vm/avm/generated/flavor.hpp"
+#include <cstdint>
 
 namespace bb {
 
@@ -61,6 +62,34 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
 
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);
+            }
+        }
+
+        /**
+         * @brief Deserialize a verification key from a vector of field elements
+         *
+         * @param builder
+         * @param elements
+         */
+        VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
+        {
+            size_t num_frs_read = 0;
+            size_t num_frs_FF = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();
+            size_t num_frs_Comm = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, Commitment>();
+
+            this->circuit_size = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                                              builder, elements.subspan(num_frs_read, num_frs_FF))
+                                              .get_value());
+            num_frs_read += num_frs_FF;
+            this->num_public_inputs = uint64_t(stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, FF>(
+                                                   builder, elements.subspan(num_frs_read, num_frs_FF))
+                                                   .get_value());
+            num_frs_read += num_frs_FF;
+
+            for (Commitment& comm : this->get_all()) {
+                comm = bb::stdlib::field_conversion::convert_from_bn254_frs<CircuitBuilder, Commitment>(
+                    builder, elements.subspan(num_frs_read, num_frs_Comm));
+                num_frs_read += num_frs_Comm;
             }
         }
     };

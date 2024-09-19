@@ -24,12 +24,7 @@ impl Serialize<MAX_BLOCK_NUMBER_LENGTH> for MaxBlockNumber {
 
 impl Deserialize<MAX_BLOCK_NUMBER_LENGTH> for MaxBlockNumber {
     fn deserialize(serialized: [Field; MAX_BLOCK_NUMBER_LENGTH]) -> MaxBlockNumber {
-        MaxBlockNumber {
-            _opt: Option {
-                _is_some: serialized[0] as bool,
-                _value: serialized[1] as u32,
-            }
-        }
+        MaxBlockNumber { _opt: Option { _is_some: serialized[0] as bool, _value: serialized[1] as u32 } }
     }
 }
 

@@ -344,28 +344,24 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // Making a call to this function causes a "stack too deep" error, so I've put the body of that function here, instead:
     // let fracs = __compute_fracs(z, ys); // { y_i / (z - ω^i) }
 
-    /**
-      *
-      * Note: it's more efficient (saving 30k constraints) to compute:
-      *    ___d-1
-      *    \     /    y_i    \
-      *    /    |  ---------  | . ω^i
-      *   /____  \  z - ω^i  /
-      *    i=0
-      *            ^^^^^^^^^
-      *              frac
-      *
-      * ... than to compute:
-      *
-      *    ___d-1
-      *    \          /    ω^i    \
-      *    /   y_i . |  ---------  |
-      *   /____       \  z - ω^i  /
-      *    i=0
-      *
-      * perhaps because all the ω^i terms are constant witnesses?
-      *
-      */
+    // Note: it's more efficient (saving 30k constraints) to compute:
+    //    ___d-1
+    //    \     /    y_i    \
+    //    /    |  ---------  | . ω^i
+    //   /____  \  z - ω^i  /
+    //    i=0
+    //            ^^^^^^^^^
+    //              frac
+    //
+    // ... than to compute:
+    //
+    //    ___d-1
+    //    \          /    ω^i    \
+    //    /   y_i . |  ---------  |
+    //   /____       \  z - ω^i  /
+    //    i=0
+    //
+    // perhaps because all the ω^i terms are constant witnesses?
 
     //*****************************************************************
     // This section is only needed because `__compute_fracs` isn't working (stack too deep error).
@@ -415,28 +411,25 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // which implies...we can accomodate up to EIGHT additions of product terms before we risk overflowing
     // (this is really messy! I never considered the case of giant linear sequences of products)
     let mut sum: F = BigNum::new();
-    /**
-     * Seeking:
-     *                    ___d-1
-     *                    \            ω^i
-     *              sum = /   y_i . ---------
-     *                   /____       z - ω^i
-     *                    i=0
-     */
+
+    // Seeking:
+    //                    ___d-1
+    //                    \            ω^i
+    //              sum = /   y_i . ---------
+    //                   /____       z - ω^i
+    //                    i=0
     let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
     for i in 0..NUM_PARTIAL_SUMS {
         let mut partial_sum: F = BigNum::new();
         let mut lhs: [F; 8] = [BigNum::new(); 8];
         let mut rhs = lhs;
 
-        /**
-         * Seeking:
-         *                    ___i*8 + 7
-         *                    \            ω^k
-         *      partial_sum = /   y_k . ---------
-         *                   /____       z - ω^k
-         *                    k=i*8 + 0
-         */
+        // Seeking:
+        //                    ___i*8 + 7
+        //                    \            ω^k
+        //      partial_sum = /   y_k . ---------
+        //                   /____       z - ω^k
+        //                    k=i*8 + 0
 
         for j in 0..8 {
             let k = i * 8 + j;
@@ -459,26 +452,25 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             std::as_witness(partial_sum.limbs[2]);
         }
 
-        /**
-         * Seeking:
-         *                    ___i*8 - 1              ___i*8 + 7
-         *                    \            ω^i        \            /    y_k    \
-         *      sum_out   =   /   y_i . ---------  +  /     ω^k . |  ---------  |
-         *                   /____       z - ω^i     /____         \  z - ω^k  /
-         *                       0                    k = i*8
-         *                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-         *                          sum                         partial_sum
-         *
-         * ... that is:
-         *
-         *                    ___i*8 - 1              ___ 7
-         *                    \            ω^i        \
-         *      sum_out   =   /   y_i . ---------  +  /   lhs[j] . rhs[j]
-         *                   /____       z - ω^i     /____
-         *                       0                    j = 0
-         *                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
-         *                          sum                   partial_sum
-         */
+        // Seeking:
+        //                    ___i*8 - 1              ___i*8 + 7
+        //                    \            ω^i        \            /    y_k    \
+        //      sum_out   =   /   y_i . ---------  +  /     ω^k . |  ---------  |
+        //                   /____       z - ω^i     /____         \  z - ω^k  /
+        //                       0                    k = i*8
+        //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        //                          sum                         partial_sum
+        //
+        // ... that is:
+        //
+        //                    ___i*8 - 1              ___ 7
+        //                    \            ω^i        \
+        //      sum_out   =   /   y_i . ---------  +  /   lhs[j] . rhs[j]
+        //                   /____       z - ω^i     /____
+        //                       0                    j = 0
+        //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
+        //                          sum                   partial_sum
+        //
 
         let mut sum_out = sum.__add(partial_sum);
 

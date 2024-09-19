@@ -5,7 +5,7 @@ use dep::protocol_types::{
 
 use crate::context::{
     private_context::PrivateContext, public_context::PublicContext, gas::GasOpts,
-    public_context::FunctionReturns, inputs::{PrivateContextInputs, PublicContextInputs}
+    inputs::{PrivateContextInputs, PublicContextInputs}
 };
 
 use crate::oracle::arguments::pack_arguments;

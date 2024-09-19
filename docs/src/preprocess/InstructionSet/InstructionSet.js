@@ -659,24 +659,6 @@ const INSTRUCTION_SET_RAW = [
     "Tag updates": "`T[dstOffset] = u64`",
   },
   {
-    id: "coinbase",
-    Name: "`COINBASE`",
-    Category: "Execution Environment - Globals",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.globals.coinbase`",
-    Summary: "(UNIMPLEMENTED) Get the block's beneficiary address",
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
     id: "feeperl2gas",
     Name: "`FEEPERL2GAS`",
     Category: "Execution Environment - Globals - Gas",
@@ -710,42 +692,6 @@ const INSTRUCTION_SET_RAW = [
     Expression: "`M[dstOffset] = context.environment.globals.feePerDaGas`",
     Summary:
       'Get the fee to be paid per "DA gas" - constant for entire transaction',
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
-    id: "blockl2gaslimit",
-    Name: "`BLOCKL2GASLIMIT`",
-    Category: "Execution Environment - Globals",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.globals.l2GasLimit`",
-    Summary: '(UNIMPLEMENTED) Total amount of "L2 gas" that a block can consume',
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
-    id: "blockdagaslimit",
-    Name: "`BLOCKDAGASLIMIT`",
-    Category: "Execution Environment - Globals",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.globals.daGasLimit`",
-    Summary: '(UNIMPLEMENTED) Total amount of "DA gas" that a block can consume',
     Details: "",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = field`",
@@ -1247,61 +1193,6 @@ context.worldStateAccessTrace.l1ToL2MessagesChecks.append(
     "Tag checks": "",
     "Tag updates": `
 T[existsOffset] = u8,
-`,
-  },
-  {
-    id: "headermember",
-    Name: "`HEADERMEMBER`",
-    Category: "World State - Archive Tree & Headers",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "blockIndexOffset",
-        description:
-          "memory offset of the block index (same as archive tree leaf index) of the header to access",
-      },
-      {
-        name: "memberIndexOffset",
-        description:
-          "memory offset of the index of the member to retrieve from the header of the specified block",
-      },
-      {
-        name: "existsOffset",
-        description:
-          "memory offset specifying where to store operation's result (whether the leaf exists in the archive tree)",
-      },
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result (the retrieved header member)",
-      },
-    ],
-    Expression: `
-exists = context.worldState.header.has({
-    leafIndex: M[blockIndexOffset], leaf: M[msgKeyOffset]
-})
-M[existsOffset] = exists
-if exists:
-    header = context.worldState.headers.get(M[blockIndexOffset])
-    M[dstOffset] = header[M[memberIndexOffset]] // member
-`,
-    Summary:
-      "(UNIMPLEMENTED) Check if a header exists in the [archive tree](../state/archive) and retrieve the specified member if so",
-    "World State access tracing": `
-context.worldStateAccessTrace.archiveChecks.append(
-    TracedArchiveLeafCheck {
-        leafIndex: M[blockIndexOffset], // leafIndex == blockIndex
-        leaf: exists ? hash(header) : 0, // "exists" defined above
-    }
-)
-`,
-    "Additional AVM circuit checks":
-      "Hashes entire header to archive leaf for tracing. Aggregates header accesses and so that a header need only be hashed once.",
-    "Triggers downstream circuit operations": "Archive tree membership check",
-    "Tag checks": "",
-    "Tag updates": `
-T[existsOffset] = u8
-T[dstOffset] = field
 `,
   },
   {

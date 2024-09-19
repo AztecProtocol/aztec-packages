@@ -1,8 +1,5 @@
-use crate::{
-    context::{PrivateContext, PublicContext}, event::event_interface::EventInterface,
-    encrypted_logs::payload::compute_encrypted_event_log, oracle::logs_traits::LensForEncryptedEvent
-};
-use dep::protocol_types::{address::AztecAddress, traits::Serialize};
+use crate::{context::PublicContext, event::event_interface::EventInterface};
+use dep::protocol_types::{traits::Serialize};
 
 fn emit<Event, let NB: u32, let MB: u32, let N: u32, let M: u32>(
     context: &mut PublicContext,
@@ -39,20 +36,32 @@ trait LensForEventSelector<let N: u32, let M: u32> {
 }
 
 impl LensForEventSelector<1, 2> for [Field; 1] {
-    fn output(self) -> [Field; 2] {[self[0] as Field; 2]}
+    fn output(self) -> [Field; 2] {
+        [self[0] as Field; 2]
+    }
 }
 impl LensForEventSelector<2, 3> for [Field; 2] {
-    fn output(self) -> [Field; 3] {[self[0] as Field; 3]}
+    fn output(self) -> [Field; 3] {
+        [self[0] as Field; 3]
+    }
 }
 impl LensForEventSelector<3, 4> for [Field; 3] {
-    fn output(self) -> [Field; 4] {[self[0] as Field; 4]}
+    fn output(self) -> [Field; 4] {
+        [self[0] as Field; 4]
+    }
 }
 impl LensForEventSelector<4, 5> for [Field; 4] {
-    fn output(self) -> [Field; 5] {[self[0] as Field; 5]}
+    fn output(self) -> [Field; 5] {
+        [self[0] as Field; 5]
+    }
 }
 impl LensForEventSelector<5, 6> for [Field; 5] {
-    fn output(self) -> [Field; 6] {[self[0] as Field; 6]}
+    fn output(self) -> [Field; 6] {
+        [self[0] as Field; 6]
+    }
 }
 impl LensForEventSelector<6, 7> for [Field; 6] {
-    fn output(self) -> [Field; 7] {[self[0] as Field; 7]}
+    fn output(self) -> [Field; 7] {
+        [self[0] as Field; 7]
+    }
 }

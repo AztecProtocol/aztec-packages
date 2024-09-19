@@ -1,9 +1,9 @@
 #pragma once
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "sumcheck_round.hpp"
 
 namespace bb {
@@ -123,7 +123,6 @@ template <typename Flavor> class SumcheckProver {
     using ClaimedEvaluations = typename Flavor::AllValues;
 
     using Transcript = typename Flavor::Transcript;
-    using Instance = ProverInstance_<Flavor>;
     using RelationSeparator = typename Flavor::RelationSeparator;
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
@@ -177,18 +176,6 @@ template <typename Flavor> class SumcheckProver {
         , transcript(transcript)
         , round(multivariate_n)
         , partially_evaluated_polynomials(multivariate_n){};
-
-    /**
-     * @brief Compute round univariate, place it in transcript, compute challenge, partially evaluate. Repeat
-     * until final round, then get full evaluations of prover polynomials, and place them in transcript.
-     */
-    SumcheckOutput<Flavor> prove(std::shared_ptr<Instance> instance)
-    {
-        return prove(instance->proving_key.polynomials,
-                     instance->relation_parameters,
-                     instance->alphas,
-                     instance->gate_challenges);
-    };
 
     /**
      * @brief Compute round univariate, place it in transcript, compute challenge, partially evaluate. Repeat
@@ -337,7 +324,7 @@ template <typename Flavor> class SumcheckProver {
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(poly_view.size(), [&](size_t j) {
             for (size_t i = 0; i < round_size; i += 2) {
-                pep_view[j][i >> 1] = poly_view[j][i] + round_challenge * (poly_view[j][i + 1] - poly_view[j][i]);
+                pep_view[j].at(i >> 1) = poly_view[j][i] + round_challenge * (poly_view[j][i + 1] - poly_view[j][i]);
             }
         });
     };
@@ -352,7 +339,8 @@ template <typename Flavor> class SumcheckProver {
         // after the first round, operate in place on partially_evaluated_polynomials
         parallel_for(polynomials.size(), [&](size_t j) {
             for (size_t i = 0; i < round_size; i += 2) {
-                pep_view[j][i >> 1] = polynomials[j][i] + round_challenge * (polynomials[j][i + 1] - polynomials[j][i]);
+                pep_view[j].at(i >> 1) =
+                    polynomials[j][i] + round_challenge * (polynomials[j][i + 1] - polynomials[j][i]);
             }
         });
     };

@@ -424,7 +424,7 @@ export async function generateTubeProof(
   }
 
   // // Paths for the inputs
-  const vkPath = join(workingDirectory, 'inst_vk.bin'); // the vk of the last instance
+  const vkPath = join(workingDirectory, 'final_decider_vk.bin'); // the vk of the last instance
   const accPath = join(workingDirectory, 'pg_acc.bin');
   const proofPath = join(workingDirectory, 'client_ivc_proof.bin');
   const translatorVkPath = join(workingDirectory, 'translator_vk.bin');

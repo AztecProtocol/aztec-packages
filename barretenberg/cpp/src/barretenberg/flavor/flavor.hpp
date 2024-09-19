@@ -93,10 +93,10 @@ namespace bb {
  */
 class PrecomputedEntitiesBase {
   public:
+    bool operator==(const PrecomputedEntitiesBase& other) const = default;
     uint64_t circuit_size;
     uint64_t log_circuit_size;
     uint64_t num_public_inputs;
-    CircuitType circuit_type; // TODO(#392)
 };
 
 /**
@@ -158,6 +158,7 @@ class VerificationKey_ : public PrecomputedCommitments {
     AggregationObjectPubInputIndices recursive_proof_public_input_indices = {};
     uint64_t pub_inputs_offset = 0;
 
+    bool operator==(const VerificationKey_&) const = default;
     VerificationKey_() = default;
     VerificationKey_(const size_t circuit_size, const size_t num_public_inputs)
     {
@@ -173,32 +174,25 @@ class VerificationKey_ : public PrecomputedCommitments {
      */
     std::vector<FF> to_field_elements()
     {
+        using namespace bb::field_conversion;
+
+        auto serialize_to_field_buffer = [](const auto& input, std::vector<FF>& buffer) {
+            std::vector<FF> input_fields = convert_to_bn254_frs(input);
+            buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
+        };
+
         std::vector<FF> elements;
-        std::vector<FF> circuit_size_elements = bb::field_conversion::convert_to_bn254_frs(this->circuit_size);
-        elements.insert(elements.end(), circuit_size_elements.begin(), circuit_size_elements.end());
-        // do the same for the rest of the fields
-        std::vector<FF> num_public_inputs_elements =
-            bb::field_conversion::convert_to_bn254_frs(this->num_public_inputs);
-        elements.insert(elements.end(), num_public_inputs_elements.begin(), num_public_inputs_elements.end());
-        std::vector<FF> pub_inputs_offset_elements =
-            bb::field_conversion::convert_to_bn254_frs(this->pub_inputs_offset);
-        elements.insert(elements.end(), pub_inputs_offset_elements.begin(), pub_inputs_offset_elements.end());
 
-        std::vector<FF> contains_recursive_proof_elements =
-            bb::field_conversion::convert_to_bn254_frs(this->contains_recursive_proof);
-        elements.insert(
-            elements.end(), contains_recursive_proof_elements.begin(), contains_recursive_proof_elements.end());
+        serialize_to_field_buffer(this->circuit_size, elements);
+        serialize_to_field_buffer(this->num_public_inputs, elements);
+        serialize_to_field_buffer(this->pub_inputs_offset, elements);
+        serialize_to_field_buffer(this->contains_recursive_proof, elements);
+        serialize_to_field_buffer(this->recursive_proof_public_input_indices, elements);
 
-        std::vector<FF> recursive_proof_public_input_indices_elements =
-            bb::field_conversion::convert_to_bn254_frs(this->recursive_proof_public_input_indices);
-        elements.insert(elements.end(),
-                        recursive_proof_public_input_indices_elements.begin(),
-                        recursive_proof_public_input_indices_elements.end());
-
-        for (Commitment& comm : this->get_all()) {
-            std::vector<FF> comm_elements = bb::field_conversion::convert_to_bn254_frs(comm);
-            elements.insert(elements.end(), comm_elements.begin(), comm_elements.end());
+        for (Commitment& commitment : this->get_all()) {
+            serialize_to_field_buffer(commitment, elements);
         }
+
         return elements;
     }
 
@@ -273,10 +267,10 @@ template <typename Tuple> constexpr size_t compute_number_of_subrelations()
  * @brief Utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
  * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner tuple of
  * univariates whose size is equal to the number of subrelations of the relation. The length of a univariate in an inner
- * tuple is determined by the corresponding subrelation length and the number of instances to be folded.
+ * tuple is determined by the corresponding subrelation length and the number of keys to be folded.
  * @tparam optimised Enable optimised version with skipping some of the computation
  */
-template <typename Tuple, size_t NUM_INSTANCES, bool optimised = false>
+template <typename Tuple, size_t NUM_KEYS, bool optimised = false>
 constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
@@ -284,11 +278,11 @@ constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
         if constexpr (optimised) {
             return std::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
-                    NUM_INSTANCES>{}...);
+                    NUM_KEYS>{}...);
         } else {
             return std::make_tuple(
                 typename std::tuple_element_t<I, Tuple>::
-                    template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<NUM_INSTANCES>{}...);
+                    template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<NUM_KEYS>{}...);
         }
     }(seq);
 }
@@ -374,9 +368,6 @@ concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWit
 
 template <typename T>
 concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
-
-template <typename T>
-concept HasKeccak = IsAnyOf<T, UltraKeccakFlavor>;
 
 template <typename T>
 concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,

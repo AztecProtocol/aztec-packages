@@ -2,7 +2,6 @@
 
 This box is a one-stop-shop for Aztec that will deploy a minimal barebones HTML+JS page. You can use it as a boilerplate to start developing your own Aztec app in seconds!
 
-
 ## Getting Started
 
 The easiest way to start is with a Github Codespaces, which has a generous free tier. Just click on this button:
@@ -23,13 +22,7 @@ The above method just uses the `npx` command, AKA "unboxing the box". This is a 
 Just open a terminal and write:
 
 ```bash
-npx create-aztec-app
-```
-
-It should ask you some questions about your project, install and run the Sandbox (local developer network). You can also start, stop, update, and do other things on the sandbox through this script. Just run:
-
-```bash
-npx create-aztec-app sandbox --help
+npx aztec-app
 ```
 
 ## More information

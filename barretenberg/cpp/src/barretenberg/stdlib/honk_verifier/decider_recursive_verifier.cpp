@@ -6,8 +6,7 @@
 namespace bb::stdlib::recursion::honk {
 
 /**
- * @brief This function verifies an Ultra Honk proof for a given Flavor, produced for a relaxed instance (ϕ, \vec{β*},
- * e*).
+ * @brief Create a circuit used to prove that a Protogalaxy folding verification was executed.
  *
  */
 template <typename Flavor>

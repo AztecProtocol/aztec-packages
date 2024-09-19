@@ -108,7 +108,6 @@ import {
   PublicCircuitPublicInputs,
   PublicDataHint,
   PublicDataRead,
-  PublicDataReadRequestHintsBuilder,
   PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   PublicDataUpdateRequest,
@@ -148,6 +147,7 @@ import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
+  PublicDataLeafHint,
   PublicValidationRequests,
   ScopedL2ToL1Message,
   ScopedNoteHash,
@@ -295,7 +295,7 @@ export function makeEmptyPublicDataUpdateRequest(): PublicDataUpdateRequest {
  * @returns A public data read.
  */
 export function makePublicDataRead(seed = 1): PublicDataRead {
-  return new PublicDataRead(fr(seed), fr(seed + 1));
+  return new PublicDataRead(fr(seed), fr(seed + 1), 0);
 }
 
 /**
@@ -303,7 +303,7 @@ export function makePublicDataRead(seed = 1): PublicDataRead {
  * @returns An empty public data read.
  */
 export function makeEmptyPublicDataRead(): PublicDataRead {
-  return new PublicDataRead(fr(0), fr(0));
+  return new PublicDataRead(fr(0), fr(0), 0);
 }
 
 /**
@@ -721,8 +721,7 @@ export function makePublicKernelTailCircuitPrivateInputs(seed = 1): PublicKernel
       s => makeTreeLeafReadRequestHint(s, L1_TO_L2_MSG_TREE_HEIGHT),
       seed + 0x80,
     ),
-    makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataHint.empty, seed + 0x100),
-    PublicDataReadRequestHintsBuilder.empty(),
+    makeTuple(MAX_PUBLIC_DATA_HINTS, PublicDataLeafHint.empty),
     makePartialStateReference(seed + 0x200),
   );
 }

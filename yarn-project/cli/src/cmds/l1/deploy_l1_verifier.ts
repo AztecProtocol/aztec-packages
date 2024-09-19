@@ -57,7 +57,7 @@ export async function deployUltraHonkVerifier(
   const output = JSON.parse(solc.compile(JSON.stringify(input)));
   log('Compiled UltraHonkVerifier');
 
-  const abi = output.contracts['UltraHonkVerifier.sol']['UltraHonkVerifier'].abi;
+  const abi = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].abi;
   const bytecode: string = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].evm.bytecode.object;
 
   const { publicClient, walletClient } = createL1Clients(

@@ -18,21 +18,21 @@ impl Empty for RootParityInput {
             proof: RecursiveProof::empty(),
             verification_key: VerificationKey::empty(),
             vk_path: [0; VK_TREE_HEIGHT],
-            public_inputs: ParityPublicInputs::empty(),
+            public_inputs: ParityPublicInputs::empty()
         }
     }
 }
 
 impl Verifiable for RootParityInput {
-  fn verify(self) {
-    let inputs = ParityPublicInputs::serialize(self.public_inputs);
-    std::verify_proof(
-        self.verification_key.key,
-        self.proof.fields,
-        inputs,
-        self.verification_key.hash
-    );
-  }
+    fn verify(self) {
+        let inputs = ParityPublicInputs::serialize(self.public_inputs);
+        std::verify_proof(
+            self.verification_key.key,
+            self.proof.fields,
+            inputs,
+            self.verification_key.hash
+        );
+    }
 }
 
 impl RootParityInput {

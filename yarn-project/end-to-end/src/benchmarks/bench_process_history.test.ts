@@ -21,7 +21,8 @@ import {
 const BLOCK_SIZE = BENCHMARK_HISTORY_BLOCK_SIZE;
 const CHAIN_LENGTHS = BENCHMARK_HISTORY_CHAIN_LENGTHS;
 const MAX_CHAIN_LENGTH = CHAIN_LENGTHS[CHAIN_LENGTHS.length - 1];
-const SETUP_BLOCK_COUNT = 4; // deploy protocol contracts + deploy account + deploy contract
+
+let setupBlockCount: number;
 
 describe('benchmarks/process_history', () => {
   let context: EndToEndContext;
@@ -30,6 +31,7 @@ describe('benchmarks/process_history', () => {
 
   beforeEach(async () => {
     ({ context, contract, sequencer } = await benchmarkSetup({ maxTxsPerBlock: BLOCK_SIZE }));
+    setupBlockCount = await context.aztecNode.getBlockNumber();
   });
 
   it(
@@ -59,7 +61,7 @@ describe('benchmarks/process_history', () => {
         });
 
         const blockNumber = await node.getBlockNumber();
-        expect(blockNumber).toEqual(chainLength + SETUP_BLOCK_COUNT);
+        expect(blockNumber).toEqual(chainLength + setupBlockCount);
 
         context.logger.info(`Node synced chain up to block ${chainLength}`, {
           eventName: 'node-synced-chain-history',
@@ -74,7 +76,7 @@ describe('benchmarks/process_history', () => {
         // Create a new pxe and measure how much time it takes it to sync with failed and successful decryption
         // Skip the first two blocks used for setup (create account contract and deploy benchmarking contract)
         context.logger.info(`Starting new pxe`);
-        const pxe = await waitNewPXESynced(node, contract, INITIAL_L2_BLOCK_NUM + SETUP_BLOCK_COUNT);
+        const pxe = await waitNewPXESynced(node, contract, INITIAL_L2_BLOCK_NUM + setupBlockCount);
 
         // Register the owner account and wait until it's synced so we measure how much time it took
         context.logger.info(`Registering owner account on new pxe`);

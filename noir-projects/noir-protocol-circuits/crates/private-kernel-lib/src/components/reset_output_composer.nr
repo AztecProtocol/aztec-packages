@@ -1,15 +1,14 @@
 mod reset_output_hints;
 
-use crate::components::reset_output_composer::{reset_output_hints::{generate_reset_output_hints, ResetOutputHints}};
-use dep::reset_kernel_lib::{
-    KeyValidationHint, NoteHashReadRequestHints, NullifierReadRequestHints, TransientDataIndexHint,
-    PrivateValidationRequestProcessor
-};
+pub use reset_output_hints::ResetOutputHints;
+
+use crate::components::reset_output_composer::{reset_output_hints::generate_reset_output_hints};
+use dep::reset_kernel_lib::{TransientDataIndexHint, PrivateValidationRequestProcessor};
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     log_hash::{NoteLogHash, ScopedEncryptedLogHash}, note_hash::ScopedNoteHash,
-    nullifier::ScopedNullifier, validation_requests::PrivateValidationRequests
+    nullifier::ScopedNullifier
 },
     address::AztecAddress,
     constants::{
@@ -47,7 +46,7 @@ impl<
     NLL_RR_SETTLED,
     KEY_VALIDATION_REQUESTS,
 > {
-    pub fn new<let TRANSIENT_DATA_AMOUNT: u32>(
+    unconstrained pub fn new<let TRANSIENT_DATA_AMOUNT: u32>(
         previous_kernel: PrivateKernelCircuitPublicInputs,
         validation_request_processor: PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS>,
         transient_data_index_hints: [TransientDataIndexHint; TRANSIENT_DATA_AMOUNT],
@@ -66,7 +65,7 @@ impl<
         }
     }
 
-    pub fn finish(self) -> PrivateKernelCircuitPublicInputs {
+    unconstrained pub fn finish(self) -> PrivateKernelCircuitPublicInputs {
         let mut output = self.previous_kernel;
 
         output.validation_requests = self.validation_request_processor.compose();
@@ -98,7 +97,7 @@ impl<
         output
     }
 
-    fn get_sorted_siloed_note_hashes(self) -> [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX] {
+    unconstrained fn get_sorted_siloed_note_hashes(self) -> [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX] {
         let mut note_hashes = sort_by_counter_asc(self.hints.kept_note_hashes);
         let first_nullifier = self.previous_kernel.end.nullifiers[0].value();
         for i in 0..note_hashes.len() {
@@ -112,7 +111,7 @@ impl<
         note_hashes
     }
 
-    fn get_sorted_siloed_nullifiers(self) -> [ScopedNullifier; MAX_NULLIFIERS_PER_TX] {
+    unconstrained fn get_sorted_siloed_nullifiers(self) -> [ScopedNullifier; MAX_NULLIFIERS_PER_TX] {
         let mut nullifiers = sort_by_counter_asc(self.hints.kept_nullifiers);
         for i in 0..nullifiers.len() {
             nullifiers[i].nullifier.value = silo_nullifier(nullifiers[i]);
@@ -121,7 +120,7 @@ impl<
         nullifiers
     }
 
-    fn get_sorted_note_encrypted_log_hashes(self) -> [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX] {
+    unconstrained fn get_sorted_note_encrypted_log_hashes(self) -> [NoteLogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX] {
         let mut log_hashes = sort_by_counter_asc(self.hints.kept_note_encrypted_log_hashes);
         for i in 0..log_hashes.len() {
             log_hashes[i].note_hash_counter = 0;
@@ -129,7 +128,7 @@ impl<
         log_hashes
     }
 
-    fn get_sorted_masked_encrypted_log_hashes(self) -> [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX] {
+    unconstrained fn get_sorted_masked_encrypted_log_hashes(self) -> [ScopedEncryptedLogHash; MAX_ENCRYPTED_LOGS_PER_TX] {
         let mut log_hashes = sort_by_counter_asc(self.previous_kernel.end.encrypted_logs_hashes);
         for i in 0..log_hashes.len() {
             log_hashes[i].contract_address = mask_encrypted_log_hash(log_hashes[i]);

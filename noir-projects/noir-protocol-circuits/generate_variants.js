@@ -49,7 +49,7 @@ function generateVariants(originalFolder, variantsArray) {
     for ([variableName, variableValue] of Object.entries(replacements)) {
       mainDotNoirCode = mainDotNoirCode.replace(
         new RegExp(`^global\\s+${variableName}\\s=\\s.*;.*$`, "m"),
-        `global ${variableName} = ${variableValue};`
+        `global ${variableName}: u32 = ${variableValue};`
       );
     }
 

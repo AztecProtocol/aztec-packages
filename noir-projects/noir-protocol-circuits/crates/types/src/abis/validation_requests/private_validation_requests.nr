@@ -22,30 +22,30 @@ struct PrivateValidationRequests {
 }
 
 impl Serialize<PRIVATE_VALIDATION_REQUESTS_LENGTH> for PrivateValidationRequests {
-  fn serialize(self) -> [Field; PRIVATE_VALIDATION_REQUESTS_LENGTH] {
-    let mut fields: BoundedVec<Field, PRIVATE_VALIDATION_REQUESTS_LENGTH> = BoundedVec::new();
+    fn serialize(self) -> [Field; PRIVATE_VALIDATION_REQUESTS_LENGTH] {
+        let mut fields: BoundedVec<Field, PRIVATE_VALIDATION_REQUESTS_LENGTH> = BoundedVec::new();
 
-    fields.extend_from_array(self.for_rollup.serialize());
+        fields.extend_from_array(self.for_rollup.serialize());
 
-    for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_TX {
-      fields.extend_from_array(self.note_hash_read_requests[i].serialize());
+        for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_TX {
+            fields.extend_from_array(self.note_hash_read_requests[i].serialize());
+        }
+
+        for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_TX {
+            fields.extend_from_array(self.nullifier_read_requests[i].serialize());
+        }
+
+        for i in 0..MAX_KEY_VALIDATION_REQUESTS_PER_TX {
+            fields.extend_from_array(self.scoped_key_validation_requests_and_generators[i].serialize());
+        }
+
+        fields.push(self.split_counter.is_some() as Field);
+        fields.push(self.split_counter.unwrap_unchecked() as Field);
+
+        assert_eq(fields.len(), PRIVATE_VALIDATION_REQUESTS_LENGTH);
+
+        fields.storage
     }
-
-    for i in 0..MAX_NULLIFIER_READ_REQUESTS_PER_TX {
-      fields.extend_from_array(self.nullifier_read_requests[i].serialize());
-    }
-
-    for i in 0..MAX_KEY_VALIDATION_REQUESTS_PER_TX {
-      fields.extend_from_array(self.scoped_key_validation_requests_and_generators[i].serialize());
-    }
-
-    fields.push(self.split_counter.is_some() as Field);
-    fields.push(self.split_counter.unwrap_unchecked() as Field);
-
-    assert_eq(fields.len(), PRIVATE_VALIDATION_REQUESTS_LENGTH);
-
-    fields.storage
-  }
 }
 
 impl Deserialize<PRIVATE_VALIDATION_REQUESTS_LENGTH> for PrivateValidationRequests {
@@ -53,9 +53,18 @@ impl Deserialize<PRIVATE_VALIDATION_REQUESTS_LENGTH> for PrivateValidationReques
         let mut reader = Reader::new(serialized);
         let item = Self {
             for_rollup: reader.read_struct(RollupValidationRequests::deserialize),
-            note_hash_read_requests: reader.read_struct_array(ScopedReadRequest::deserialize, [ScopedReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_TX]),
-            nullifier_read_requests: reader.read_struct_array(ScopedReadRequest::deserialize, [ScopedReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX]),
-            scoped_key_validation_requests_and_generators: reader.read_struct_array(ScopedKeyValidationRequestAndGenerator::deserialize, [ScopedKeyValidationRequestAndGenerator::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX]),
+            note_hash_read_requests: reader.read_struct_array(
+                ScopedReadRequest::deserialize,
+                [ScopedReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_TX]
+            ),
+            nullifier_read_requests: reader.read_struct_array(
+                ScopedReadRequest::deserialize,
+                [ScopedReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX]
+            ),
+            scoped_key_validation_requests_and_generators: reader.read_struct_array(
+                ScopedKeyValidationRequestAndGenerator::deserialize,
+                [ScopedKeyValidationRequestAndGenerator::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX]
+            ),
             split_counter: Option { _is_some: reader.read_bool(), _value: reader.read_u32() }
         };
 
@@ -71,18 +80,19 @@ impl Empty for PrivateValidationRequests {
             note_hash_read_requests: [ScopedReadRequest::empty(); MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
             nullifier_read_requests: [ScopedReadRequest::empty(); MAX_NULLIFIER_READ_REQUESTS_PER_TX],
             scoped_key_validation_requests_and_generators: [ScopedKeyValidationRequestAndGenerator::empty(); MAX_KEY_VALIDATION_REQUESTS_PER_TX],
-            split_counter: Option::none(),
+            split_counter: Option::none()
         }
     }
 }
 
 impl Eq for PrivateValidationRequests {
     fn eq(self, other: Self) -> bool {
-        (self.for_rollup.eq(other.for_rollup)) &
-        (self.note_hash_read_requests == other.note_hash_read_requests) &
-        (self.nullifier_read_requests == other.nullifier_read_requests) &
-        (self.scoped_key_validation_requests_and_generators == other.scoped_key_validation_requests_and_generators) &
-        (self.split_counter == other.split_counter)
+        (self.for_rollup.eq(other.for_rollup))
+            & (self.note_hash_read_requests == other.note_hash_read_requests)
+            & (self.nullifier_read_requests == other.nullifier_read_requests)
+            & (self.scoped_key_validation_requests_and_generators
+                        == other.scoped_key_validation_requests_and_generators)
+            & (self.split_counter == other.split_counter)
     }
 }
 

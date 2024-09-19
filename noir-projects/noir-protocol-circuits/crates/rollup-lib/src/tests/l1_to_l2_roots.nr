@@ -1,6 +1,6 @@
 use dep::types::constants::ROOT_PARITY_INDEX;
 use dep::types::tests::fixtures;
-use dep::parity_lib::{root::root_rollup_parity_input::RootRollupParityInput, ParityPublicInputs};
+use dep::parity_lib::{root::root_rollup_parity_input::RootRollupParityInput};
 
 pub fn default_root_rollup_parity_input() -> RootRollupParityInput {
     let mut input = RootRollupParityInput::empty();
