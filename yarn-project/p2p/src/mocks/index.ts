@@ -4,6 +4,7 @@ import { bootstrap } from '@libp2p/bootstrap';
 import { tcp } from '@libp2p/tcp';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
+import { type PeerManager } from '../service/peer_manager.js';
 import { type P2PReqRespConfig } from '../service/reqresp/config.js';
 import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
 import {
@@ -60,8 +61,8 @@ export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
  * @param numberOfNodes - the number of nodes to create
  * @returns An array of the created nodes
  */
-export const createNodes = async (numberOfNodes: number): Promise<ReqRespNode[]> => {
-  return await Promise.all(Array.from({ length: numberOfNodes }, () => createReqResp()));
+export const createNodes = async (peerManager: PeerManager, numberOfNodes: number): Promise<ReqRespNode[]> => {
+  return await Promise.all(Array.from({ length: numberOfNodes }, () => createReqResp(peerManager)));
 };
 
 // TODO: think about where else this can go
@@ -79,13 +80,13 @@ export const stopNodes = async (nodes: ReqRespNode[]): Promise<void> => {
 };
 
 // Create a req resp node, exposing the underlying p2p node
-export const createReqResp = async (): Promise<ReqRespNode> => {
+export const createReqResp = async (peerManager: PeerManager): Promise<ReqRespNode> => {
   const p2p = await createLibp2pNode();
   const config: P2PReqRespConfig = {
     overallRequestTimeoutMs: 4000,
     individualRequestTimeoutMs: 2000,
   };
-  const req = new ReqResp(config, p2p);
+  const req = new ReqResp(config, p2p, peerManager);
   return {
     p2p,
     req,
