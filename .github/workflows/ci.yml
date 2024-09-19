@@ -80,6 +80,8 @@ jobs:
               - 'l1-contracts/**'
             noir-projects:
               - 'noir-projects/**'
+            txe:
+              - 'yarn-project/txe/**'
             non-barretenberg-cpp:
               - '!(barretenberg/cpp/**)'
               # don't consider AVM stuff 'core bb'
@@ -471,7 +473,7 @@ jobs:
   noir-projects:
     needs: [build-images, changes, build]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true'
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true' || needs.changes.outputs.txe == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
