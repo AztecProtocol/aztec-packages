@@ -2,7 +2,7 @@
 
 #include "barretenberg/stdlib/primitives/biggroup/biggroup_edgecase_handling.hpp"
 #include <cstddef>
-namespace bb::stdlib {
+namespace bb::stdlib::element_default {
 
 /**
  * @brief Multiscalar multiplication that utilizes 4-bit wNAF lookup tables.
@@ -62,4 +62,4 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::wnaf_batch_mul(const std::vector<el
     accumulator -= offset_generators.second;
     return accumulator;
 }
-} // namespace bb::stdlib
+} // namespace bb::stdlib::element_default

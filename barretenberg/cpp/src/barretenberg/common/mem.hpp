@@ -7,9 +7,31 @@
 #include <memory>
 
 // This can be altered to capture stack traces, though more expensive
-// This is the only reason we wrap TracyAlloc or TracyAllocS
+// so wrap TracyAlloc or TracyAllocS. We disable these if gates are being tracked
+// Gates are hackishly tracked as if they were memory, for the sweet sweet memory
+// stack tree that doesn't seem to be available for other metric types.
+#ifndef TRACY_HACK_GATES_AS_MEMORY
 #define TRACY_ALLOC(t, size) TracyAllocS(t, size, /*stack depth*/ 10)
 #define TRACY_FREE(t) TracyFreeS(t, /*stack depth*/ 10)
+#define TRACY_GATE_ALLOC(t)
+#define TRACY_GATE_FREE(t)
+#else
+#include <mutex>
+#include <set>
+#define TRACY_ALLOC(t, size)
+#define TRACY_FREE(t)
+
+namespace bb {
+// These are hacks to make sure tracy plays along
+// If we free an ID not allocated, or allocate an index twice without a free it will complain
+// so we hack thread-safety and an incrementing global ID.
+static std::mutex GLOBAL_GATE_MUTEX;
+static size_t GLOBAL_GATE = 0;
+static std::set<size_t> FREED_GATES; // hack to prevent instrumentation failures
+} // namespace bb
+#define TRACY_GATE_ALLOC(index) TracyAllocS(reinterpret_cast<void*>(index), 1, /*stack depth*/ 50)
+#define TRACY_GATE_FREE(index) TracyFreeS(reinterpret_cast<void*>(index), /*stack depth*/ 50)
+#endif
 // #define TRACY_ALLOC(t, size) TracyAlloc(t, size)
 // #define TRACY_FREE(t) TracyFree(t)
 

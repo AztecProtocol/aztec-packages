@@ -159,15 +159,16 @@ template <typename FF_> class LogDerivLookupRelationImpl {
 
         for (size_t i = 0; i < circuit_size; ++i) {
             // We only compute the inverse if this row contains a lookup gate or data that has been looked up
-            if (polynomials.q_lookup[i] == 1 || polynomials.lookup_read_tags[i] == 1) {
+            if (polynomials.q_lookup.get(i) == 1 || polynomials.lookup_read_tags.get(i) == 1) {
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/940): avoid get_row if possible.
                 auto row = polynomials.get_row(i); // Note: this is a copy. use sparingly!
-                inverse_polynomial[i] = compute_read_term<FF, 0>(row, relation_parameters) *
-                                        compute_write_term<FF, 0>(row, relation_parameters);
+                auto value = compute_read_term<FF, 0>(row, relation_parameters) *
+                             compute_write_term<FF, 0>(row, relation_parameters);
+                inverse_polynomial.at(i) = value;
             }
         }
         // Compute inverse polynomial I in place by inverting the product at each row
-        FF::batch_invert(inverse_polynomial);
+        FF::batch_invert(inverse_polynomial.coeffs());
     };
 
     /**

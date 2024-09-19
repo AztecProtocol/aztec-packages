@@ -24,7 +24,6 @@ class AvmKernelTraceBuilder {
         CHAIN_ID,
         VERSION,
         BLOCK_NUMBER,
-        COINBASE,
         TIMESTAMP,
         FEE_PER_DA_GAS,
         FEE_PER_L2_GAS,
@@ -78,7 +77,6 @@ class AvmKernelTraceBuilder {
     FF op_chain_id(uint32_t clk);
     FF op_version(uint32_t clk);
     FF op_block_number(uint32_t clk);
-    FF op_coinbase(uint32_t clk);
     FF op_timestamp(uint32_t clk);
     // Globals - Gas
     FF op_fee_per_da_gas(uint32_t clk);

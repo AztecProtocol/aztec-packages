@@ -11,7 +11,7 @@ fn main(
 ) {
     // Regression for issue #2421
     // We want to make sure that we can accurately verify a signature whose message is a slice vs. an array
-    let message_field_bytes = message_field.to_be_bytes(10);
+    let message_field_bytes: [u8; 10] = message_field.to_be_bytes();
     let mut message2 = [0; 42];
     for i in 0..10 {
         assert(message[i] == message_field_bytes[i]);
@@ -36,7 +36,11 @@ fn main(
 // Meanwhile, you have to use a message with 32 additional bytes:
 // If you want to verify a signature on a message of 10 bytes, you need to pass a message of length 42,
 // where the first 10 bytes are the one from the original message (the other bytes are not used)
-pub fn verify_signature_noir<M>(public_key: embedded_curve_ops::EmbeddedCurvePoint, signature: [u8; 64], message: [u8; M]) -> bool {
+pub fn verify_signature_noir<let M: u32>(
+    public_key: embedded_curve_ops::EmbeddedCurvePoint,
+    signature: [u8; 64],
+    message: [u8; M]
+) -> bool {
     let N = message.len() - 32;
 
     //scalar lo/hi from bytes
@@ -52,7 +56,7 @@ pub fn verify_signature_noir<M>(public_key: embedded_curve_ops::EmbeddedCurvePoi
         // compare the _hashes_ rather than field elements modulo r
         let pedersen_hash = std::hash::pedersen_hash([r.x, public_key.x, public_key.y]);
         let mut hash_input = [0; M];
-        let pde = pedersen_hash.to_be_bytes(32);
+        let pde: [u8; 32] = pedersen_hash.to_be_bytes();
 
         for i in 0..32 {
             hash_input[i] = pde[i];
@@ -85,7 +89,11 @@ pub fn bytes_to_scalar(bytes: [u8; 64], offset: u32) -> embedded_curve_ops::Embe
     sig_s
 }
 
-pub fn assert_valid_signature<M>(public_key: embedded_curve_ops::EmbeddedCurvePoint, signature: [u8; 64], message: [u8; M]) {
+pub fn assert_valid_signature<let M: u32>(
+    public_key: embedded_curve_ops::EmbeddedCurvePoint,
+    signature: [u8; 64],
+    message: [u8; M]
+) {
     let N = message.len() - 32;
     //scalar lo/hi from bytes
     let sig_s = bytes_to_scalar(signature, 0);
@@ -103,7 +111,7 @@ pub fn assert_valid_signature<M>(public_key: embedded_curve_ops::EmbeddedCurvePo
     // compare the _hashes_ rather than field elements modulo r
     let pedersen_hash = std::hash::pedersen_hash([r.x, public_key.x, public_key.y]);
     let mut hash_input = [0; M];
-    let pde = pedersen_hash.to_be_bytes(32);
+    let pde: [u8; 32] = pedersen_hash.to_be_bytes();
 
     for i in 0..32 {
         hash_input[i] = pde[i];

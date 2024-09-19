@@ -25,10 +25,10 @@ impl EncryptedLogOutgoingBody {
 
         let mut buffer = [0 as u8; 128];
 
-        let serialized_eph_sk_high = self.eph_sk.hi.to_be_bytes(32);
-        let serialized_eph_sk_low = self.eph_sk.lo.to_be_bytes(32);
+        let serialized_eph_sk_high: [u8; 32] = self.eph_sk.hi.to_be_bytes();
+        let serialized_eph_sk_low: [u8; 32] = self.eph_sk.lo.to_be_bytes();
 
-        let address_bytes = self.recipient.to_field().to_be_bytes(32);
+        let address_bytes: [u8; 32] = self.recipient.to_field().to_be_bytes();
         let serialized_recipient_ivpk = point_to_bytes(self.recipient_ivpk.to_point());
 
         for i in 0..32 {
@@ -44,7 +44,7 @@ impl EncryptedLogOutgoingBody {
         let full_key: [u8; 32] = poseidon2_hash_with_separator(
             [ovsk_app.hi, ovsk_app.lo, eph_pk.x, eph_pk.y],
             GENERATOR_INDEX__SYMMETRIC_KEY as Field
-        ).to_be_bytes(32).as_array();
+        ).to_be_bytes();
 
         let mut sym_key = [0; 16];
         let mut iv = [0; 16];
@@ -59,13 +59,8 @@ impl EncryptedLogOutgoingBody {
 
 mod test {
     use crate::{encrypted_logs::outgoing_body::EncryptedLogOutgoingBody, keys::public_keys::IvpkM};
-    use dep::protocol_types::{
-        address::AztecAddress, traits::Empty, constants::GENERATOR_INDEX__NOTE_NULLIFIER,
-        scalar::Scalar, point::Point, hash::poseidon2_hash_with_separator
-    };
+    use dep::protocol_types::{address::AztecAddress, scalar::Scalar};
     use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
-
-    use crate::context::PrivateContext;
 
     #[test]
     fn test_encrypted_log_outgoing_body_matches_typescript() {
@@ -97,9 +92,6 @@ mod test {
             127, 182, 227, 75, 192, 197, 54, 47, 168, 134, 233, 148, 251, 46, 86, 12, 73, 50, 238, 50, 31, 174, 27, 202, 110, 77, 161, 197, 244, 124, 17, 100, 143, 150, 232, 14, 156, 248, 43, 177, 16, 82, 244, 103, 88, 74, 84, 200, 15, 65, 187, 14, 163, 60, 91, 22, 104, 31, 211, 190, 124, 121, 79, 92, 239, 65, 185, 106, 51, 178, 168, 137, 84, 43, 79, 158, 151, 152, 83, 42, 170, 13, 106, 209, 254, 74, 39, 145, 73, 215, 17, 234, 196, 89, 30, 58, 120, 127, 88, 69, 121, 61, 18, 206, 89, 118, 243, 238, 177, 71, 73, 47, 147, 4, 155, 25, 173, 248, 206, 52, 17, 180, 122, 186, 106, 191, 252, 102, 197, 91, 16, 39, 94, 91, 224, 30, 168, 177, 26, 144, 5, 124, 128, 6
         ];
 
-        for i in 0..outgoing_body_ciphertext_from_typescript.len() {
-            assert_eq(ciphertext[i], outgoing_body_ciphertext_from_typescript[i]);
-        }
-        assert_eq(outgoing_body_ciphertext_from_typescript.len(), ciphertext.len());
+        assert_eq(outgoing_body_ciphertext_from_typescript, ciphertext);
     }
 }

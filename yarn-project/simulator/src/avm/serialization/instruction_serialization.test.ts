@@ -1,5 +1,5 @@
 import { BufferCursor } from './buffer_cursor.js';
-import { OperandType, deserialize, serialize } from './instruction_serialization.js';
+import { OperandType, deserialize, serializeAs } from './instruction_serialization.js';
 
 class InstA {
   constructor(private a: number, private b: number, private c: number, private d: bigint, private e: bigint) {}
@@ -18,7 +18,7 @@ class InstA {
 describe('Instruction Serialization', () => {
   it('Should serialize all types from OperandType[]', () => {
     const instance = new InstA(0x12, 0x1234, 0x12345678, 0x1234567887654321n, 0x1234567887654321abcdef0000fedcban);
-    const actual: Buffer = serialize(InstA.wireFormat, instance);
+    const actual: Buffer = serializeAs(InstA.wireFormat, InstA.opcode, instance);
 
     expect(actual).toEqual(
       Buffer.from(

@@ -67,8 +67,8 @@ mod tests {
         leaf_preimages: [NullifierLeafPreimage; NUM_SETTLED_READS],
     }
 
-    impl<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32, let NUM_SETTLED_READS: u32> TestBuilder<READ_REQUEST_LEN, PENDING_VALUE_LEN, NUM_PENDING_READS, NUM_SETTLED_READS> {
-        pub fn new() -> TestBuilder<5, 4, 3, 2> {
+    impl TestBuilder<5, 4, 3, 2> {
+        pub fn new() -> Self {
             let contract_address = AztecAddress::from_field(123);
 
             // Create 4 nullifiers. 10 and 11 are settled. 12 and 13 are pending.
@@ -112,8 +112,10 @@ mod tests {
 
             TestBuilder { read_requests, read_request_statuses, pending_values, pending_read_hints, leaf_preimages }
         }
+    }
 
-        fn build_tree<N>(self) -> NonEmptyMerkleTree<2, NULLIFIER_TREE_HEIGHT, NULLIFIER_TREE_HEIGHT - 1, 1> {
+    impl<let READ_REQUEST_LEN: u32, let PENDING_VALUE_LEN: u32, let NUM_PENDING_READS: u32, let NUM_SETTLED_READS: u32> TestBuilder<READ_REQUEST_LEN, PENDING_VALUE_LEN, NUM_PENDING_READS, NUM_SETTLED_READS> {
+        fn build_tree(self) -> NonEmptyMerkleTree<2, NULLIFIER_TREE_HEIGHT, NULLIFIER_TREE_HEIGHT - 1, 1> {
             NonEmptyMerkleTree::new(
                 [self.leaf_preimages[0].hash(), self.leaf_preimages[1].hash()],
                 [0; NULLIFIER_TREE_HEIGHT],
@@ -140,13 +142,15 @@ mod tests {
             (hints, tree_root)
         }
 
-        pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
+        unconstrained pub fn get_unverified_read_requests(self) -> [ScopedReadRequest; READ_REQUEST_LEN] {
             get_unverified_read_requests(self.read_requests, self.read_request_statuses)
         }
 
         pub fn verify(self) {
             let (settled_hints, tree_root) = self.get_settled_read_hints();
-            let unverified_read_requests = self.get_unverified_read_requests();
+            let unverified_read_requests = unsafe {
+                self.get_unverified_read_requests()
+            };
             verify_reset_read_requests(
                 self.read_requests,
                 self.pending_values,
@@ -163,7 +167,9 @@ mod tests {
     fn verify_reset_nullifier_read_requests_clears_all_succeeds() {
         let builder = TestBuilder::new();
 
-        let unverified_read_requests = builder.get_unverified_read_requests();
+        let unverified_read_requests = unsafe {
+            builder.get_unverified_read_requests()
+        };
         assert(is_empty_array(unverified_read_requests));
 
         builder.verify();
@@ -177,7 +183,9 @@ mod tests {
         builder.read_request_statuses[4] = ReadRequestStatus::empty();
 
         let read_requests = builder.read_requests;
-        let unverified_read_requests = builder.get_unverified_read_requests();
+        let unverified_read_requests = unsafe {
+            builder.get_unverified_read_requests()
+        };
         assert_array_eq(
             unverified_read_requests,
             [read_requests[2], read_requests[4]]

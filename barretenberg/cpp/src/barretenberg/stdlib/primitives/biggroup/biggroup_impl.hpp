@@ -4,7 +4,7 @@
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 
-namespace bb::stdlib {
+namespace bb::stdlib::element_default {
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element()
@@ -68,14 +68,6 @@ element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(element&& other) noexcep
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) const
 {
-    // return checked_unconditional_add(other);
-    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
-        // Current gate count: 6398
-        std::vector<element> points{ *this, other };
-        std::vector<Fr> scalars{ 1, 1 };
-        return batch_mul(points, scalars);
-    }
 
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
     // Our curve has the form y^2 = x^3 + b.
@@ -149,14 +141,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::get_standard_form() const
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) const
 {
-    // return checked_unconditional_add(other);
-    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
-        // Current gate count: 6398
-        std::vector<element> points{ *this, other };
-        std::vector<Fr> scalars{ 1, -Fr(1) };
-        return batch_mul(points, scalars);
-    }
 
     // if x_coordinates match, lambda triggers a divide by zero error.
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
@@ -208,14 +192,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_add(const element& other) const
 {
-    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
-        // Current gate count: 6398
-        std::vector<element> points{ *this, other };
-        std::vector<Fr> scalars{ 1, 1 };
-        return goblin_batch_mul(points, scalars);
-    }
-
     other.x.assert_is_not_equal(x);
     const Fq lambda = Fq::div_without_denominator_check({ other.y, -y }, (other.x - x));
     const Fq x3 = lambda.sqradd({ -other.x, -x });
@@ -226,12 +202,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_add(const ele
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(const element& other) const
 {
-    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) Optimize
-        std::vector<element> points{ *this, other };
-        std::vector<Fr> scalars{ 1, -Fr(1) };
-        return goblin_batch_mul(points, scalars);
-    }
 
     other.x.assert_is_not_equal(x);
     const Fq lambda = Fq::div_without_denominator_check({ other.y, y }, (other.x - x));
@@ -259,12 +229,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(cons
 template <typename C, class Fq, class Fr, class G>
 std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(const element& other) const
 {
-    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
-        return { *this + other, *this - other };
-    }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/971): This will fail when the two elements are the same
-    // even in the case of a valid circuit
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/971): This will fail when the two elements are the
+    // same even in the case of a valid circuit
     other.x.assert_is_not_equal(x);
 
     const Fq denominator = other.x - x;
@@ -320,7 +287,6 @@ template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element
 template <typename C, class Fq, class Fr, class G>
 typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::chain_add_start(const element& p1,
                                                                                              const element& p2)
-    requires(IsNotGoblinInefficiencyTrap<C, G>)
 {
     chain_add_accumulator output;
     output.x1_prev = p1.x;
@@ -338,7 +304,6 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
 template <typename C, class Fq, class Fr, class G>
 typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::chain_add(const element& p1,
                                                                                        const chain_add_accumulator& acc)
-    requires(IsNotGoblinInefficiencyTrap<C, G>)
 {
     // use `chain_add_start` to start an addition chain (i.e. if acc has a y-coordinate)
     if (acc.is_element) {
@@ -382,7 +347,6 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
  **/
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accumulator& acc)
-    requires(IsNotGoblinInefficiencyTrap<C, G>)
 {
     if (acc.is_element) {
         return element(acc.x3_prev, acc.y3_prev);
@@ -436,7 +400,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accum
  **/
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const element& other) const
-    requires(IsNotGoblinInefficiencyTrap<C, G>)
 {
     other.x.assert_is_not_equal(x);
     const Fq lambda_1 = Fq::div_without_denominator_check({ other.y - y }, (other.x - x));
@@ -473,7 +436,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const element& ot
  **/
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const chain_add_accumulator& to_add)
-    requires(IsNotGoblinInefficiencyTrap<C, G>)
 {
     if (to_add.is_element) {
         throw_or_abort("An accumulator expected");
@@ -517,7 +479,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const chain_add_a
  */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector<element>& to_add) const
-    requires(IsNotGoblinInefficiencyTrap<C, G>)
 {
     const Fq two_x = x + x;
     Fq x_1;
@@ -613,7 +574,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
     const std::vector<chain_add_accumulator>& add) const
-    requires(IsNotGoblinInefficiencyTrap<C, G>)
 {
     struct composite_y {
         std::vector<Fq> mul_left;
@@ -803,55 +763,51 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         return from_witness(context, result);
     } else {
         // Perform goblinized batched mul if available; supported only for BN254
-        if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
-            return goblin_batch_mul(points, scalars);
-        } else {
-            if (with_edgecases) {
-                std::tie(points, scalars) = mask_points(points, scalars);
-            }
-            const size_t num_points = points.size();
-            ASSERT(scalars.size() == num_points);
-
-            batch_lookup_table point_table(points);
-            const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
-
-            std::vector<std::vector<bool_ct>> naf_entries;
-            for (size_t i = 0; i < num_points; ++i) {
-                naf_entries.emplace_back(compute_naf(scalars[i], max_num_bits));
-            }
-            const auto offset_generators = compute_offset_generators(num_rounds);
-            element accumulator = element::chain_add_end(
-                element::chain_add(offset_generators.first, point_table.get_chain_initial_entry()));
-
-            constexpr size_t num_rounds_per_iteration = 4;
-            size_t num_iterations = num_rounds / num_rounds_per_iteration;
-            num_iterations += ((num_iterations * num_rounds_per_iteration) == num_rounds) ? 0 : 1;
-            const size_t num_rounds_per_final_iteration =
-                (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
-            for (size_t i = 0; i < num_iterations; ++i) {
-
-                std::vector<bool_ct> nafs(num_points);
-                std::vector<element::chain_add_accumulator> to_add;
-                const size_t inner_num_rounds =
-                    (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
-                for (size_t j = 0; j < inner_num_rounds; ++j) {
-                    for (size_t k = 0; k < num_points; ++k) {
-                        nafs[k] = (naf_entries[k][i * num_rounds_per_iteration + j + 1]);
-                    }
-                    to_add.emplace_back(point_table.get_chain_add_accumulator(nafs));
-                }
-                accumulator = accumulator.multiple_montgomery_ladder(to_add);
-            }
-            for (size_t i = 0; i < num_points; ++i) {
-                element skew = accumulator - points[i];
-                Fq out_x = accumulator.x.conditional_select(skew.x, naf_entries[i][num_rounds]);
-                Fq out_y = accumulator.y.conditional_select(skew.y, naf_entries[i][num_rounds]);
-                accumulator = element(out_x, out_y);
-            }
-            accumulator = accumulator - offset_generators.second;
-
-            return accumulator;
+        if (with_edgecases) {
+            std::tie(points, scalars) = mask_points(points, scalars);
         }
+        const size_t num_points = points.size();
+        ASSERT(scalars.size() == num_points);
+
+        batch_lookup_table point_table(points);
+        const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
+
+        std::vector<std::vector<bool_ct>> naf_entries;
+        for (size_t i = 0; i < num_points; ++i) {
+            naf_entries.emplace_back(compute_naf(scalars[i], max_num_bits));
+        }
+        const auto offset_generators = compute_offset_generators(num_rounds);
+        element accumulator =
+            element::chain_add_end(element::chain_add(offset_generators.first, point_table.get_chain_initial_entry()));
+
+        constexpr size_t num_rounds_per_iteration = 4;
+        size_t num_iterations = num_rounds / num_rounds_per_iteration;
+        num_iterations += ((num_iterations * num_rounds_per_iteration) == num_rounds) ? 0 : 1;
+        const size_t num_rounds_per_final_iteration =
+            (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
+        for (size_t i = 0; i < num_iterations; ++i) {
+
+            std::vector<bool_ct> nafs(num_points);
+            std::vector<element::chain_add_accumulator> to_add;
+            const size_t inner_num_rounds =
+                (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
+            for (size_t j = 0; j < inner_num_rounds; ++j) {
+                for (size_t k = 0; k < num_points; ++k) {
+                    nafs[k] = (naf_entries[k][i * num_rounds_per_iteration + j + 1]);
+                }
+                to_add.emplace_back(point_table.get_chain_add_accumulator(nafs));
+            }
+            accumulator = accumulator.multiple_montgomery_ladder(to_add);
+        }
+        for (size_t i = 0; i < num_points; ++i) {
+            element skew = accumulator - points[i];
+            Fq out_x = accumulator.x.conditional_select(skew.x, naf_entries[i][num_rounds]);
+            Fq out_y = accumulator.y.conditional_select(skew.y, naf_entries[i][num_rounds]);
+            accumulator = element(out_x, out_y);
+        }
+        accumulator = accumulator - offset_generators.second;
+
+        return accumulator;
     }
 }
 
@@ -887,32 +843,26 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
      *
      **/
 
-    if constexpr (IsMegaBuilder<C> && std::same_as<G, bb::g1>) {
-        std::vector<element> points{ *this };
-        std::vector<Fr> scalars{ scalar };
-        return goblin_batch_mul(points, scalars);
-    } else {
-        constexpr uint64_t num_rounds = Fr::modulus.get_msb() + 1;
+    constexpr uint64_t num_rounds = Fr::modulus.get_msb() + 1;
 
-        std::vector<bool_ct> naf_entries = compute_naf(scalar);
+    std::vector<bool_ct> naf_entries = compute_naf(scalar);
 
-        const auto offset_generators = compute_offset_generators(num_rounds);
+    const auto offset_generators = compute_offset_generators(num_rounds);
 
-        element accumulator = *this + offset_generators.first;
+    element accumulator = *this + offset_generators.first;
 
-        for (size_t i = 1; i < num_rounds; ++i) {
-            bool_ct predicate = naf_entries[i];
-            bigfield y_test = y.conditional_negate(predicate);
-            element to_add(x, y_test);
-            accumulator = accumulator.montgomery_ladder(to_add);
-        }
-
-        element skew_output = accumulator - (*this);
-
-        Fq out_x = accumulator.x.conditional_select(skew_output.x, naf_entries[num_rounds]);
-        Fq out_y = accumulator.y.conditional_select(skew_output.y, naf_entries[num_rounds]);
-
-        return element(out_x, out_y) - element(offset_generators.second);
+    for (size_t i = 1; i < num_rounds; ++i) {
+        bool_ct predicate = naf_entries[i];
+        bigfield y_test = y.conditional_negate(predicate);
+        element to_add(x, y_test);
+        accumulator = accumulator.montgomery_ladder(to_add);
     }
+
+    element skew_output = accumulator - (*this);
+
+    Fq out_x = accumulator.x.conditional_select(skew_output.x, naf_entries[num_rounds]);
+    Fq out_y = accumulator.y.conditional_select(skew_output.y, naf_entries[num_rounds]);
+
+    return element(out_x, out_y) - element(offset_generators.second);
 }
-} // namespace bb::stdlib
+} // namespace bb::stdlib::element_default

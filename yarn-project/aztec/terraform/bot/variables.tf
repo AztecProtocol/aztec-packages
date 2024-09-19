@@ -66,3 +66,22 @@ variable "BOT_MAX_PENDING_TXS" {
   type    = number
   default = 1
 }
+
+variable "BOT_SKIP_PUBLIC_SIMULATION" {
+  type    = bool
+  default = false
+}
+
+variable "BOT_L2_GAS_LIMIT" {
+  type = string
+}
+
+variable "BOT_DA_GAS_LIMIT" {
+  type = string
+}
+
+variable "BOT_TOKEN_CONTRACT" {
+  type    = string
+  default = "TokenContract"
+}
+

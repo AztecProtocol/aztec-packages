@@ -26,7 +26,7 @@ impl<let N: u32> Eq for SplitOrderHints<N> {
     }
 }
 
-fn get_split_order_hints<T, let N: u32>(
+unconstrained fn get_split_order_hints<T, let N: u32>(
     array: [T; N],
     split_counter: u32,
     ascending: bool
@@ -67,14 +67,14 @@ fn get_split_order_hints<T, let N: u32>(
     SplitOrderHints { sorted_counters_lt, sorted_counters_gte, sorted_indexes }
 }
 
-pub fn get_split_order_hints_asc<T, let N: u32>(
+unconstrained pub fn get_split_order_hints_asc<T, let N: u32>(
     array: [T; N],
     split_counter: u32
 ) -> SplitOrderHints<N> where T: Ordered + Eq + Empty {
     get_split_order_hints(array, split_counter, true)
 }
 
-pub fn get_split_order_hints_desc<T, let N: u32>(
+unconstrained pub fn get_split_order_hints_desc<T, let N: u32>(
     array: [T; N],
     split_counter: u32
 ) -> SplitOrderHints<N> where T: Ordered + Eq + Empty {
@@ -83,197 +83,202 @@ pub fn get_split_order_hints_desc<T, let N: u32>(
 
 mod tests {
     use crate::{
-        abis::side_effect::Ordered, traits::Empty,
+        tests::{types::TestValue, utils::pad_end},
         utils::arrays::assert_split_sorted_transformed_value_arrays::get_split_order_hints::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints}
     };
 
-    struct TestItem {
-        value: Field,
-        counter: u32,
-    }
-
-    impl Ordered for TestItem {
-        fn counter(self) -> u32 {
-            self.counter
-        }
-    }
-
-    impl Eq for TestItem {
-        fn eq(self, other: Self) -> bool {
-            (self.value == other.value) & (self.counter == other.counter)
-        }
-    }
-
-    impl Empty for TestItem {
-        fn empty() -> Self {
-            TestItem { value: 0, counter: 0 }
-        }
-    }
-
     global full_array = [
-        TestItem { value: 100, counter: 11 },
-        TestItem { value: 200, counter: 17 },
-        TestItem { value: 300, counter: 7 },
-        TestItem { value: 400, counter: 5 },
-        TestItem { value: 500, counter: 13 }
-    ];
+                TestValue { value: 100, counter: 11 },
+                TestValue { value: 200, counter: 17 },
+                TestValue { value: 300, counter: 7 },
+                TestValue { value: 400, counter: 5 },
+                TestValue { value: 500, counter: 13 }
+            ];
 
-    global padded_array = [
-        TestItem { value: 100, counter: 11 },
-        TestItem { value: 200, counter: 17 },
-        TestItem { value: 300, counter: 7 },
-        TestItem { value: 400, counter: 5 },
-        TestItem { value: 500, counter: 13 },
-        TestItem::empty(),
-        TestItem::empty()
-    ];
+    struct TestBuilder<let N: u32> {
+        array: [TestValue; N],
+        split_counter: u32
+    }
+
+    impl TestBuilder<5> {
+        pub fn new() -> Self {
+            TestBuilder { array: full_array, split_counter: 0 }
+        }
+    }
+
+    impl TestBuilder<7> {
+        pub fn new_padded() -> Self {
+            TestBuilder { array: pad_end(full_array, TestValue::empty()), split_counter: 0 }
+        }
+    }
+
+    impl<let N: u32> TestBuilder<N> {
+        pub fn asc_to_equal(self, expected: SplitOrderHints<N>) {
+            let hints = unsafe {
+                get_split_order_hints_asc(self.array, self.split_counter)
+            };
+            assert_eq(hints, expected);
+        }
+
+        pub fn desc_to_equal(self, expected: SplitOrderHints<N>) {
+            let hints = unsafe {
+                get_split_order_hints_desc(self.array, self.split_counter)
+            };
+            assert_eq(hints, expected);
+        }
+    }
 
     // asc
 
     #[test]
     fn get_split_order_hints_asc_zero_split_counter_full() {
-        let split_counter = 0;
-        let hints = get_split_order_hints_asc(full_array, split_counter);
+        let builder = TestBuilder::new();
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [0, 0, 0, 0, 0],
             sorted_counters_gte: [5, 7, 11, 13, 17],
             sorted_indexes: [2, 4, 1, 0, 3]
         };
-        assert_eq(hints, expected_hints);
+        builder.asc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_split_order_hints_asc_non_zero_split_counter_full() {
-        let split_counter = 9;
-        let hints = get_split_order_hints_asc(full_array, split_counter);
+        let mut builder = TestBuilder::new();
+        builder.split_counter = 9;
+
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [5, 7, 0, 0, 0],
             sorted_counters_gte: [11, 13, 17, 0, 0],
             sorted_indexes: [0, 2, 1, 0, 1]
         };
-        assert_eq(hints, expected_hints);
+        builder.asc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_split_order_hints_asc_non_zero_split_counter_equal_full() {
-        let split_counter = 11; // Equal one of the item's counter.
-        let hints = get_split_order_hints_asc(full_array, split_counter);
+        let mut builder = TestBuilder::new();
+        builder.split_counter = 11;
+
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [5, 7, 0, 0, 0],
             sorted_counters_gte: [11, 13, 17, 0, 0],
             sorted_indexes: [0, 2, 1, 0, 1]
         };
-        assert_eq(hints, expected_hints);
+        builder.asc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_split_order_hints_asc_zero_split_counter_padded_empty() {
-        let split_counter = 0;
-        let hints = get_split_order_hints_asc(padded_array, split_counter);
+        let builder = TestBuilder::new_padded();
+
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [0, 0, 0, 0, 0, 0, 0],
             sorted_counters_gte: [5, 7, 11, 13, 17, 0, 0],
             sorted_indexes: [2, 4, 1, 0, 3, 0, 0]
         };
-        assert_eq(hints, expected_hints);
+        builder.asc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_split_order_hints_asc_non_zero_split_counter_padded_empty() {
-        let split_counter = 9;
-        let hints = get_split_order_hints_asc(padded_array, split_counter);
+        let mut builder = TestBuilder::new_padded();
+        builder.split_counter = 9;
+
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [5, 7, 0, 0, 0, 0, 0],
             sorted_counters_gte: [11, 13, 17, 0, 0, 0, 0],
             sorted_indexes: [0, 2, 1, 0, 1, 0, 0]
         };
-        assert_eq(hints, expected_hints);
+        builder.asc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_split_order_hints_asc_non_zero_split_counter_equal_padded_empty() {
-        let split_counter = 11;
-        let hints = get_split_order_hints_asc(padded_array, split_counter);
+        let mut builder = TestBuilder::new_padded();
+        builder.split_counter = 11;
+
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [5, 7, 0, 0, 0, 0, 0],
             sorted_counters_gte: [11, 13, 17, 0, 0, 0, 0],
             sorted_indexes: [0, 2, 1, 0, 1, 0, 0]
         };
-        assert_eq(hints, expected_hints);
+        builder.asc_to_equal(expected_hints);
     }
 
     // desc
 
     #[test]
     fn get_split_order_hints_desc_zero_split_counter_empty() {
-        let split_counter = 0;
-        let hints = get_split_order_hints_desc(full_array, split_counter);
+        let builder = TestBuilder::new();
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [0, 0, 0, 0, 0],
             sorted_counters_gte: [17, 13, 11, 7, 5],
             sorted_indexes: [2, 0, 3, 4, 1]
         };
-        assert_eq(hints, expected_hints);
+        builder.desc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_split_order_hints_desc_non_zero_split_counter_empty() {
-        let split_counter = 9;
-        let hints = get_split_order_hints_desc(full_array, split_counter);
+        let mut builder = TestBuilder::new();
+        builder.split_counter = 9;
+
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [7, 5, 0, 0, 0],
             sorted_counters_gte: [17, 13, 11, 0, 0],
             sorted_indexes: [2, 0, 0, 1, 1]
         };
-        assert_eq(hints, expected_hints);
+        builder.desc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_split_order_hints_desc_non_zero_split_counter_equal_empty() {
-        let split_counter = 11;
-        let hints = get_split_order_hints_desc(full_array, split_counter);
+        let mut builder = TestBuilder::new();
+        builder.split_counter = 11;
+
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [7, 5, 0, 0, 0],
             sorted_counters_gte: [17, 13, 11, 0, 0],
             sorted_indexes: [2, 0, 0, 1, 1]
         };
-        assert_eq(hints, expected_hints);
+        builder.desc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_split_order_hints_desc_zero_split_counter_padded_empty() {
-        let split_counter = 0;
-        let hints = get_split_order_hints_desc(padded_array, split_counter);
+        let builder = TestBuilder::new_padded();
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [0, 0, 0, 0, 0, 0, 0],
             sorted_counters_gte: [17, 13, 11, 7, 5, 0, 0],
             sorted_indexes: [2, 0, 3, 4, 1, 0, 0]
         };
-        assert_eq(hints, expected_hints);
+        builder.desc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_split_order_hints_desc_non_zero_split_counter_padded_empty() {
-        let split_counter = 9;
-        let hints = get_split_order_hints_desc(padded_array, split_counter);
+        let mut builder = TestBuilder::new_padded();
+        builder.split_counter = 9;
+
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [7, 5, 0, 0, 0, 0, 0],
             sorted_counters_gte: [17, 13, 11, 0, 0, 0, 0],
             sorted_indexes: [2, 0, 0, 1, 1, 0, 0]
         };
-        assert_eq(hints, expected_hints);
+        builder.desc_to_equal(expected_hints);
     }
 
     #[test]
     fn get_split_order_hints_desc_non_zero_split_counter_equal_padded_empty() {
-        let split_counter = 11;
-        let hints = get_split_order_hints_desc(padded_array, split_counter);
+        let mut builder = TestBuilder::new_padded();
+        builder.split_counter = 11;
+
         let expected_hints = SplitOrderHints {
             sorted_counters_lt: [7, 5, 0, 0, 0, 0, 0],
             sorted_counters_gte: [17, 13, 11, 0, 0, 0, 0],
             sorted_indexes: [2, 0, 0, 1, 1, 0, 0]
         };
-        assert_eq(hints, expected_hints);
+        builder.desc_to_equal(expected_hints);
     }
 }
 

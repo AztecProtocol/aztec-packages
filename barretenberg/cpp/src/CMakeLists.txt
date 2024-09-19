@@ -55,16 +55,15 @@ else()
 endif()
 
 if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  message("Building with PIC")
+  message("Building with Position Independent Code")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
   set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -fPIC")
   add_subdirectory(barretenberg/world_state_napi)
 endif()
 
-add_subdirectory(barretenberg/aztec_ivc)
+add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/bb)
 add_subdirectory(barretenberg/circuit_checker)
-add_subdirectory(barretenberg/client_ivc)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/commitment_schemes_recursion)
 add_subdirectory(barretenberg/common)
@@ -115,7 +114,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:client_ivc_objects>
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
-    $<TARGET_OBJECTS:client_ivc_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
     $<TARGET_OBJECTS:crypto_blake2s_objects>
     $<TARGET_OBJECTS:crypto_blake3s_objects>

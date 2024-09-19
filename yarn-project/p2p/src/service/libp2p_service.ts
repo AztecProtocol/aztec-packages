@@ -1,42 +1,63 @@
 import {
   BlockAttestation,
   BlockProposal,
+  type ClientProtocolCircuitVerifier,
   type Gossipable,
+  type L2BlockSource,
+  MerkleTreeId,
   type RawGossipMessage,
   TopicType,
   TopicTypeMap,
   Tx,
+  TxHash,
+  type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecKVStore } from '@aztec/kv-store';
 
 import { type ENR } from '@chainsafe/enr';
-import { type GossipsubEvents, gossipsub } from '@chainsafe/libp2p-gossipsub';
+import { type GossipSub, type GossipSubComponents, gossipsub } from '@chainsafe/libp2p-gossipsub';
+import { createPeerScoreParams, createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify } from '@libp2p/identify';
-import type { PeerId, PubSub } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 import '@libp2p/kad-dht';
 import { mplex } from '@libp2p/mplex';
 import { createFromJSON, createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
-import { type Libp2p, createLibp2p } from 'libp2p';
+import { createLibp2p } from 'libp2p';
 
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { type P2PConfig } from '../config.js';
 import { type TxPool } from '../tx_pool/index.js';
-import { convertToMultiaddr } from '../util.js';
+import {
+  DataTxValidator,
+  DoubleSpendTxValidator,
+  MetadataTxValidator,
+  TxProofValidator,
+} from '../tx_validator/index.js';
+import { type PubSubLibp2p, convertToMultiaddr } from '../util.js';
 import { AztecDatastore } from './data_store.js';
 import { PeerManager } from './peer_manager.js';
+import { PeerErrorSeverity } from './peer_scoring.js';
+import { pingHandler, statusHandler } from './reqresp/handlers.js';
+import {
+  DEFAULT_SUB_PROTOCOL_HANDLERS,
+  PING_PROTOCOL,
+  type ReqRespSubProtocol,
+  type ReqRespSubProtocolHandlers,
+  STATUS_PROTOCOL,
+  type SubProtocolMap,
+  TX_REQ_PROTOCOL,
+  subProtocolMap,
+} from './reqresp/interface.js';
+import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
 
-export interface PubSubLibp2p extends Libp2p {
-  services: {
-    pubsub: PubSub<GossipsubEvents>;
-  };
-}
 /**
  * Create a libp2p peer ID from the private key if provided, otherwise creates a new random ID.
  * @param privateKey - Optional peer ID private key as hex string
@@ -61,6 +82,14 @@ export class LibP2PService implements P2PService {
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
 
+  // Request and response sub service
+  private reqresp: ReqResp;
+
+  /**
+   * Callback for when a block is received from a peer.
+   * @param block - The block received from the peer.
+   * @returns The attestation for the block, if any.
+   */
   private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation | undefined>;
 
   constructor(
@@ -69,9 +98,18 @@ export class LibP2PService implements P2PService {
     private peerDiscoveryService: PeerDiscoveryService,
     private txPool: TxPool,
     private attestationPool: AttestationPool,
+    private l2BlockSource: L2BlockSource,
+    private proofVerifier: ClientProtocolCircuitVerifier,
+    private worldStateSynchronizer: WorldStateSynchronizer,
+    private requestResponseHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS,
     private logger = createDebugLogger('aztec:libp2p_service'),
   ) {
     this.peerManager = new PeerManager(node, peerDiscoveryService, config, logger);
+    this.node.services.pubsub.score.params.appSpecificScore = (peerId: string) => {
+      return this.peerManager.getPeerScore(peerId);
+    };
+    this.node.services.pubsub.score.params.appSpecificWeight = 10;
+    this.reqresp = new ReqResp(config, node);
 
     this.blockReceivedCallback = (block: BlockProposal): Promise<BlockAttestation | undefined> => {
       this.logger.verbose(
@@ -113,17 +151,18 @@ export class LibP2PService implements P2PService {
 
     // add GossipSub listener
     this.node.services.pubsub.addEventListener('gossipsub:message', async e => {
-      const { msg } = e.detail;
+      const { msg, propagationSource: peerId } = e.detail;
       this.logger.debug(`Received PUBSUB message.`);
 
-      await this.jobQueue.put(() => this.handleNewGossipMessage(msg));
+      await this.jobQueue.put(() => this.handleNewGossipMessage(msg, peerId));
     });
 
     // Start running promise for peer discovery
     this.discoveryRunningPromise = new RunningPromise(() => {
-      this.peerManager.discover();
+      this.peerManager.heartbeat();
     }, this.config.peerCheckIntervalMS);
     this.discoveryRunningPromise.start();
+    await this.reqresp.start(this.requestResponseHandlers);
   }
 
   /**
@@ -140,6 +179,9 @@ export class LibP2PService implements P2PService {
     this.logger.debug('Stopping LibP2P...');
     await this.stopLibP2P();
     this.logger.info('LibP2P service stopped');
+    this.logger.debug('Stopping request response service...');
+    await this.reqresp.stop();
+    this.logger.debug('Request response service stopped...');
   }
 
   /**
@@ -154,6 +196,9 @@ export class LibP2PService implements P2PService {
     peerId: PeerId,
     txPool: TxPool,
     attestationPool: AttestationPool,
+    l2BlockSource: L2BlockSource,
+    proofVerifier: ClientProtocolCircuitVerifier,
+    worldStateSynchronizer: WorldStateSynchronizer,
     store: AztecKVStore,
   ) {
     const { tcpListenAddress, tcpAnnounceAddress, minPeerCount, maxPeerCount } = config;
@@ -196,19 +241,85 @@ export class LibP2PService implements P2PService {
         }),
         pubsub: gossipsub({
           allowPublishToZeroTopicPeers: true,
-          D: 6,
-          Dlo: 4,
-          Dhi: 12,
-          heartbeatInterval: 1_000,
-          mcacheLength: 5,
-          mcacheGossip: 3,
-        }),
+          D: config.gossipsubD,
+          Dlo: config.gossipsubDlo,
+          Dhi: config.gossipsubDhi,
+          heartbeatInterval: config.gossipsubInterval,
+          mcacheLength: config.gossipsubMcacheLength,
+          mcacheGossip: config.gossipsubMcacheGossip,
+          scoreParams: createPeerScoreParams({
+            topics: {
+              [Tx.p2pTopic]: createTopicScoreParams({
+                topicWeight: 1,
+                invalidMessageDeliveriesWeight: -20,
+                invalidMessageDeliveriesDecay: 0.5,
+              }),
+            },
+          }),
+        }) as (components: GossipSubComponents) => GossipSub,
       },
     });
 
-    return new LibP2PService(config, node, peerDiscoveryService, txPool, attestationPool);
+    // Create request response protocol handlers
+    /**
+     * Handler for tx requests
+     * @param msg - the tx request message
+     * @returns the tx response message
+     */
+    const txHandler = (msg: Buffer): Promise<Uint8Array> => {
+      const txHash = TxHash.fromBuffer(msg);
+      const foundTx = txPool.getTxByHash(txHash);
+      const asUint8Array = Uint8Array.from(foundTx ? foundTx.toBuffer() : Buffer.alloc(0));
+      return Promise.resolve(asUint8Array);
+    };
+
+    const requestResponseHandlers = {
+      [PING_PROTOCOL]: pingHandler,
+      [STATUS_PROTOCOL]: statusHandler,
+      [TX_REQ_PROTOCOL]: txHandler,
+    };
+
+    return new LibP2PService(
+      config,
+      node,
+      peerDiscoveryService,
+      txPool,
+      attestationPool,
+      l2BlockSource,
+      proofVerifier,
+      worldStateSynchronizer,
+      requestResponseHandlers,
+    );
   }
 
+  /**
+   * Send Request via the ReqResp service
+   * The subprotocol defined will determine the request and response types
+   *
+   * See the subProtocolMap for the mapping of subprotocols to request/response types in `interface.ts`
+   *
+   * @param protocol The request response protocol to use
+   * @param request The request type to send
+   * @returns
+   */
+  async sendRequest<SubProtocol extends ReqRespSubProtocol>(
+    protocol: SubProtocol,
+    request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
+    const pair = subProtocolMap[protocol];
+
+    const res = await this.reqresp.sendRequest(protocol, request.toBuffer());
+    if (!res) {
+      return undefined;
+    }
+
+    return pair.response.fromBuffer(res!);
+  }
+
+  /**
+   * Get the ENR of the node
+   * @returns The ENR of the node
+   */
   public getEnr(): ENR | undefined {
     return this.peerDiscoveryService.getEnr();
   }
@@ -249,10 +360,10 @@ export class LibP2PService implements P2PService {
    * @param topic - The message's topic.
    * @param data - The message data
    */
-  private async handleNewGossipMessage(message: RawGossipMessage) {
+  private async handleNewGossipMessage(message: RawGossipMessage, peerId: PeerId) {
     if (message.topic === Tx.p2pTopic) {
       const tx = Tx.fromBuffer(Buffer.from(message.data));
-      await this.processTxFromPeer(tx);
+      await this.processTxFromPeer(tx, peerId);
     }
     if (message.topic === BlockAttestation.p2pTopic) {
       const attestation = BlockAttestation.fromBuffer(Buffer.from(message.data));
@@ -302,11 +413,87 @@ export class LibP2PService implements P2PService {
     void this.jobQueue.put(() => Promise.resolve(this.sendToPeers(message)));
   }
 
-  private async processTxFromPeer(tx: Tx): Promise<void> {
+  private async processTxFromPeer(tx: Tx, peerId: PeerId): Promise<void> {
     const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer.`);
-    await this.txPool.addTxs([tx]);
+
+    const isValidTx = await this.validateTx(tx, peerId);
+
+    if (isValidTx) {
+      await this.txPool.addTxs([tx]);
+    }
+  }
+
+  private async validateTx(tx: Tx, peerId: PeerId): Promise<boolean> {
+    const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
+    // basic data validation
+    const dataValidator = new DataTxValidator();
+    const [_, dataInvalidTxs] = await dataValidator.validateTxs([tx]);
+    if (dataInvalidTxs.length > 0) {
+      // penalize
+      this.node.services.pubsub.score.markInvalidMessageDelivery(peerId.toString(), Tx.p2pTopic);
+      return false;
+    }
+
+    // metadata validation
+    const metadataValidator = new MetadataTxValidator(new Fr(this.config.l1ChainId), new Fr(blockNumber));
+    const [__, metaInvalidTxs] = await metadataValidator.validateTxs([tx]);
+    if (metaInvalidTxs.length > 0) {
+      // penalize
+      this.node.services.pubsub.score.markInvalidMessageDelivery(peerId.toString(), Tx.p2pTopic);
+      return false;
+    }
+
+    // double spend validation
+    const doubleSpendValidator = new DoubleSpendTxValidator({
+      getNullifierIndex: async (nullifier: Fr) => {
+        const merkleTree = this.worldStateSynchronizer.getLatest();
+        const index = await merkleTree.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+        return index;
+      },
+    });
+    const [___, doubleSpendInvalidTxs] = await doubleSpendValidator.validateTxs([tx]);
+    if (doubleSpendInvalidTxs.length > 0) {
+      // check if nullifier is older than 20 blocks
+      if (blockNumber - this.config.severePeerPenaltyBlockLength > 0) {
+        const snapshotValidator = new DoubleSpendTxValidator({
+          getNullifierIndex: async (nullifier: Fr) => {
+            const merkleTree = this.worldStateSynchronizer.getSnapshot(
+              blockNumber - this.config.severePeerPenaltyBlockLength,
+            );
+            const index = await merkleTree.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());
+            return index;
+          },
+        });
+
+        const [____, snapshotInvalidTxs] = await snapshotValidator.validateTxs([tx]);
+        // High penalty if nullifier is older than 20 blocks
+        if (snapshotInvalidTxs.length > 0) {
+          // penalize
+          this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
+          return false;
+        }
+      }
+      // penalize
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+      return false;
+    }
+
+    // proof validation
+    const proofValidator = new TxProofValidator(this.proofVerifier);
+    const [_____, proofInvalidTxs] = await proofValidator.validateTxs([tx]);
+    if (proofInvalidTxs.length > 0) {
+      // penalize
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+      return false;
+    }
+
+    return true;
+  }
+
+  public getPeerScore(peerId: PeerId): number {
+    return this.node.services.pubsub.score.score(peerId.toString());
   }
 
   private async sendToPeers<T extends Gossipable>(message: T) {
@@ -316,7 +503,7 @@ export class LibP2PService implements P2PService {
     this.logger.verbose(`Sending message ${identifier} to peers`);
 
     const recipientsNum = await this.publishToTopic(parent.p2pTopic, message.toBuffer());
-    this.logger.verbose(`Sent tx ${identifier} to ${recipientsNum} peers`);
+    this.logger.verbose(`Sent message ${identifier} to ${recipientsNum} peers`);
   }
 
   // Libp2p seems to hang sometimes if new peers are initiating connections.

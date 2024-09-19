@@ -3,18 +3,15 @@ import {
   type HandleL2BlockAndMessagesResult,
   type IndexedTreeId,
   type L2Block,
+  type MerkleTreeAdminOperations,
   MerkleTreeId,
   type MerkleTreeLeafType,
-  type MerkleTreeOperations,
   SiblingPath,
   type TreeInfo,
   TxEffect,
 } from '@aztec/circuit-types';
 import {
-  AppendOnlyTreeSnapshot,
-  ContentCommitment,
   Fr,
-  GlobalVariables,
   Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -37,7 +34,7 @@ import { Decoder, Encoder, addExtension } from 'msgpackr';
 import { isAnyArrayBuffer } from 'util/types';
 
 import { type MerkleTreeDb, type TreeSnapshots } from '../world-state-db/merkle_tree_db.js';
-import { MerkleTreeOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
+import { MerkleTreeAdminOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
 import {
   MessageHeader,
   type SerializedIndexedLeaf,
@@ -102,26 +99,26 @@ export class NativeWorldStateService implements MerkleTreeDb {
     const archive = await this.getTreeInfo(MerkleTreeId.ARCHIVE, false);
     if (archive.size === 0n) {
       // TODO (alexg) move this to the native module
-      const header = await this.buildInitialHeader(true);
-      await this.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
-      await this.commit();
+      // const header = await this.buildInitialHeader(true);
+      // await this.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
+      // await this.commit();
     }
   }
 
-  public asLatest(): MerkleTreeOperations {
-    return new MerkleTreeOperationsFacade(this, true);
+  public asLatest(): MerkleTreeAdminOperations {
+    return new MerkleTreeAdminOperationsFacade(this, true);
   }
 
-  async buildInitialHeader(ic: boolean = false): Promise<Header> {
-    const state = await this.getStateReference(ic);
-    return new Header(
-      AppendOnlyTreeSnapshot.zero(),
-      ContentCommitment.empty(),
-      state,
-      GlobalVariables.empty(),
-      Fr.ZERO,
-    );
-  }
+  // async buildInitialHeader(ic: boolean = false): Promise<Header> {
+  //   const state = await this.getStateReference(ic);
+  //   return new Header(
+  //     AppendOnlyTreeSnapshot.zero(),
+  //     ContentCommitment.empty(),
+  //     state,
+  //     GlobalVariables.empty(),
+  //     Fr.ZERO,
+  //   );
+  // }
 
   public getInitialHeader(): Header {
     // TODO (alexg) implement this

@@ -28,8 +28,15 @@ export function mockStorageReadWithMap(hs: HostStorage, mockedStorage: Map<bigin
   );
 }
 
-export function mockNoteHashExists(hs: HostStorage, leafIndex: Fr, _value?: Fr) {
-  (hs.commitmentsDb as jest.Mocked<CommitmentsDB>).getCommitmentIndex.mockResolvedValue(leafIndex.toBigInt());
+export function mockNoteHashExists(hs: HostStorage, _leafIndex: Fr, value?: Fr) {
+  (hs.commitmentsDb as jest.Mocked<CommitmentsDB>).getCommitmentValue.mockImplementation((index: bigint) => {
+    if (index == _leafIndex.toBigInt()) {
+      return Promise.resolve(value);
+    } else {
+      // This is ok for now since the traceing functions handle it
+      return Promise.resolve(undefined);
+    }
+  });
 }
 
 export function mockNullifierExists(hs: HostStorage, leafIndex: Fr, _value?: Fr) {

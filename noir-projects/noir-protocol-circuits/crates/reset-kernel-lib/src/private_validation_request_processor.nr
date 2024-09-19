@@ -28,7 +28,7 @@ impl<
     let NLL_RR_SETTLED: u32,
     let KEY_VALIDATION_REQUESTS: u32
 > PrivateValidationRequestProcessor<NH_RR_PENDING, NH_RR_SETTLED, NLL_RR_PENDING, NLL_RR_SETTLED, KEY_VALIDATION_REQUESTS> {
-    pub fn compose(self) -> PrivateValidationRequests {
+    unconstrained pub fn compose(self) -> PrivateValidationRequests {
         let note_hash_read_requests = get_unverified_read_requests(
             self.validation_requests.note_hash_read_requests,
             self.note_hash_read_request_hints.read_request_statuses

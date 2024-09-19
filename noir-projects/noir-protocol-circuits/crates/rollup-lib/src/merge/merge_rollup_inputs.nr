@@ -15,9 +15,7 @@ struct MergeRollupInputs {
 
 impl Empty for MergeRollupInputs {
     fn empty() -> Self {
-        MergeRollupInputs {
-            previous_rollup_data: [PreviousRollupData::empty(); 2]
-        }
+        MergeRollupInputs { previous_rollup_data: [PreviousRollupData::empty(); 2] }
     }
 }
 
@@ -66,12 +64,9 @@ impl MergeRollupInputs {
 }
 
 mod tests {
-    use crate::{
-        merge::merge_rollup_inputs::MergeRollupInputs,
-        tests::merge_rollup_inputs::default_merge_rollup_inputs
-    };
+    use crate::{tests::merge_rollup_inputs::default_merge_rollup_inputs};
     use dep::types::hash::accumulate_sha256;
-    use dep::types::constants::{ROOT_PARITY_INDEX, MERGE_ROLLUP_INDEX, BASE_ROLLUP_INDEX};
+    use dep::types::constants::{MERGE_ROLLUP_INDEX, BASE_ROLLUP_INDEX};
 
     #[test(should_fail_with="The rollup should be filled greedily from L to R, but received a L base and R merge")]
     fn different_rollup_type_fails() {

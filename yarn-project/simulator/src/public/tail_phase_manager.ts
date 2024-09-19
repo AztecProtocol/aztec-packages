@@ -77,6 +77,10 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
     const { validationRequests, endNonRevertibleData: nonRevertibleData, end: revertibleData } = previousOutput;
 
+    const noteHashReadRequestHints = await this.hintsBuilder.getNoteHashReadRequestsHints(
+      validationRequests.noteHashReadRequests,
+    );
+
     const pendingNullifiers = mergeAccumulatedData(
       nonRevertibleData.nullifiers,
       revertibleData.nullifiers,
@@ -93,6 +97,10 @@ export class TailPhaseManager extends AbstractPhaseManager {
       pendingNullifiers,
     );
 
+    const l1ToL2MsgReadRequestHints = await this.hintsBuilder.getL1ToL2MsgReadRequestsHints(
+      validationRequests.l1ToL2MsgReadRequests,
+    );
+
     const pendingPublicDataWrites = mergeAccumulatedData(
       nonRevertibleData.publicDataUpdateRequests,
       revertibleData.publicDataUpdateRequests,
@@ -104,20 +112,15 @@ export class TailPhaseManager extends AbstractPhaseManager {
       pendingPublicDataWrites,
     );
 
-    const publicDataReadRequestHints = this.hintsBuilder.getPublicDataReadRequestHints(
-      validationRequests.publicDataReads,
-      pendingPublicDataWrites,
-      publicDataHints,
-    );
-
     const currentState = await this.db.getStateReference();
 
     return new PublicKernelTailCircuitPrivateInputs(
       previousKernel,
+      noteHashReadRequestHints,
       nullifierReadRequestHints,
       nullifierNonExistentReadRequestHints,
+      l1ToL2MsgReadRequestHints,
       publicDataHints,
-      publicDataReadRequestHints,
       currentState.partial,
     );
   }

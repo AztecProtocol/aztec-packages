@@ -1,6 +1,6 @@
 use crate::state_vars::shared_mutable::scheduled_delay_change::ScheduledDelayChange;
 
-global TEST_INITIAL_DELAY = 13;
+global TEST_INITIAL_DELAY: u32 = 13;
 
 fn assert_equal_after_conversion(original: ScheduledDelayChange<TEST_INITIAL_DELAY>) {
     // We have to do explicit type annotations because Noir lacks turbofish support.
@@ -190,7 +190,7 @@ fn test_schedule_change_to_longer_delay_from_initial() {
     let mut delay_change = get_initial_delay_change();
     delay_change.schedule_change(new, current_block_number);
 
-    // Like in the after change scenario, change is effective immediately because the new delay is longer than the 
+    // Like in the after change scenario, change is effective immediately because the new delay is longer than the
     // current one.
     assert_eq(delay_change.pre.unwrap(), TEST_INITIAL_DELAY);
     assert_eq(delay_change.post.unwrap(), new);
@@ -198,7 +198,7 @@ fn test_schedule_change_to_longer_delay_from_initial() {
     assert_eq(delay_change.get_current(current_block_number), new);
 }
 
-fn assert_effective_minimum_delay_invariants<INITIAL_DELAY>(
+fn assert_effective_minimum_delay_invariants<let INITIAL_DELAY: u32>(
     delay_change: &mut ScheduledDelayChange<INITIAL_DELAY>,
     historical_block_number: u32,
     effective_minimum_delay: u32
@@ -222,8 +222,8 @@ fn assert_effective_minimum_delay_invariants<INITIAL_DELAY>(
     let value_change_block = change_schedule_block + delay_change.get_current(change_schedule_block);
     assert(expected_earliest_value_change_block <= value_change_block);
 
-    // Finally, a delay reduction could be scheduled immediately after the historical block. We reduce the delay to 
-    // zero, which means that at the delay block of change there'll be no delay and a value change could be 
+    // Finally, a delay reduction could be scheduled immediately after the historical block. We reduce the delay to
+    // zero, which means that at the delay block of change there'll be no delay and a value change could be
     // performed immediately then.
     delay_change.schedule_change(0, historical_block_number + 1);
     assert(expected_earliest_value_change_block <= delay_change.block_of_change);
@@ -326,7 +326,7 @@ fn test_get_effective_delay_at_initial() {
 
     let historical_block_number = 200;
 
-    // Like in the after change scenario, no delay change is scheduled, so the effective delay is simply the current 
+    // Like in the after change scenario, no delay change is scheduled, so the effective delay is simply the current
     // one (initial).
     let effective_minimum_delay = delay_change.get_effective_minimum_delay_at(historical_block_number);
     assert_eq(effective_minimum_delay, TEST_INITIAL_DELAY);

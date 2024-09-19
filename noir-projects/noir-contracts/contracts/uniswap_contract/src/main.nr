@@ -5,13 +5,9 @@ mod util;
 // Has two separate flows for private and public respectively
 // Uses the token bridge contract, which tells which input token we need to talk to and handles the exit funds to L1
 contract Uniswap {
-    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, Map, PublicMutable, SharedImmutable};
-    use dep::aztec::context::gas::GasOpts;
+    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, SharedImmutable};
 
-    use dep::authwit::auth::{
-        IS_VALID_SELECTOR, assert_current_call_valid_authwit_public,
-        compute_authwit_message_hash_from_call, compute_authwit_message_hash, set_authorized
-    };
+    use dep::authwit::auth::{assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call, set_authorized};
 
     use dep::token::Token;
     use dep::token_bridge::TokenBridge;

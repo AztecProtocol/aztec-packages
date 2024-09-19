@@ -54,7 +54,7 @@ template <typename Curve> class ShplonkProver_ {
 
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             tmp = claim.polynomial;
-            tmp[0] -= claim.opening_pair.evaluation;
+            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             tmp.factor_roots(claim.opening_pair.challenge);
 
             // Add the claim quotient to the batched quotient polynomial
@@ -103,7 +103,7 @@ template <typename Curve> class ShplonkProver_ {
         for (const auto& claim : opening_claims) {
             // tmp = ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )
             tmp = claim.polynomial;
-            tmp[0] -= claim.opening_pair.evaluation;
+            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = ρʲ / ( r − xⱼ )
 
             // G -= ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )
@@ -268,5 +268,25 @@ template <typename Curve> class ShplonkVerifier_ {
         // Return opening pair (z, 0) and commitment [G]
         return { { z_challenge, Fr(0) }, G_commitment };
     };
+    /**
+     * @brief Computes \f$ \frac{1}{z - r}, \frac{1}{z+r}, \ldots, \frac{1}{z+r^{2^{d-1}}} \f$.
+     *
+     * @param log_circuit_size \f$ d \f$
+     * @param shplonk_eval_challenge \f$ z \f$
+     * @param gemini_eval_challenge_powers \f$ (r , r^2, \ldots, r^{2^{d-1}}) \f$
+     * @return \f[ \left( \frac{1}{z - r}, \frac{1}{z+r}, \ldots, \frac{1}{z+r^{2^{d-1}}} \right) \f]
+     */
+    static std::vector<Fr> compute_inverted_gemini_denominators(const size_t num_gemini_claims,
+                                                                const Fr& shplonk_eval_challenge,
+                                                                const std::vector<Fr>& gemini_eval_challenge_powers)
+    {
+        std::vector<Fr> inverted_denominators;
+        inverted_denominators.reserve(num_gemini_claims);
+        inverted_denominators.emplace_back((shplonk_eval_challenge - gemini_eval_challenge_powers[0]).invert());
+        for (const auto& gemini_eval_challenge_power : gemini_eval_challenge_powers) {
+            inverted_denominators.emplace_back((shplonk_eval_challenge + gemini_eval_challenge_power).invert());
+        }
+        return inverted_denominators;
+    }
 };
 } // namespace bb

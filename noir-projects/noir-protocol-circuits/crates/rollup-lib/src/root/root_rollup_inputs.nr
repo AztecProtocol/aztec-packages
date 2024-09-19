@@ -16,10 +16,7 @@ struct RootRollupInputs {
 
 impl Empty for RootRollupInputs {
     fn empty() -> Self {
-        RootRollupInputs {
-            previous_rollup_data: [PreviousRollupBlockData::empty(); 2],
-            prover_id: 0,
-        }
+        RootRollupInputs { previous_rollup_data: [PreviousRollupBlockData::empty(); 2], prover_id: 0 }
     }
 }
 

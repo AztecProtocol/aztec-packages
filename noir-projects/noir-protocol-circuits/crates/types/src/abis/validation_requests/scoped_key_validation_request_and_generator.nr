@@ -23,17 +23,13 @@ impl Scoped<KeyValidationRequestAndGenerator> for ScopedKeyValidationRequestAndG
 
 impl Eq for ScopedKeyValidationRequestAndGenerator {
     fn eq(self, other: ScopedKeyValidationRequestAndGenerator) -> bool {
-        (self.request.eq(other.request))
-            & (self.contract_address.eq(other.contract_address))
+        (self.request.eq(other.request)) & (self.contract_address.eq(other.contract_address))
     }
 }
 
 impl Empty for ScopedKeyValidationRequestAndGenerator {
     fn empty() -> Self {
-        ScopedKeyValidationRequestAndGenerator {
-            request: KeyValidationRequestAndGenerator::empty(),
-            contract_address: AztecAddress::zero(),
-        }
+        ScopedKeyValidationRequestAndGenerator { request: KeyValidationRequestAndGenerator::empty(), contract_address: AztecAddress::zero() }
     }
 }
 
@@ -48,7 +44,7 @@ impl Deserialize<SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH> for ScopedK
         let mut reader = Reader::new(fields);
         let res = Self {
             request: reader.read_struct(KeyValidationRequestAndGenerator::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize),
+            contract_address: reader.read_struct(AztecAddress::deserialize)
         };
         reader.finish();
         res

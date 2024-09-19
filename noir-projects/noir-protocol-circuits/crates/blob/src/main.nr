@@ -18,7 +18,7 @@ mod negative_roots;
 
 use crate::{
     config::{
-    BigNum, BLS12_381_Fr_Params, F, FIELDS_PER_BLOB, LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
+    BigNum, F, FIELDS_PER_BLOB, LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
     FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, D, D_INV, ROOTS
 },
     negative_roots::NEGATIVE_ROOTS
@@ -72,20 +72,13 @@ unconstrained fn __compute_fracs(z: F, ys: [F; FIELDS_PER_BLOB]) -> [F; FIELDS_P
 }
 
 unconstrained fn __field_to_bytes(x: Field) -> [u8; 32] {
-    let x_bytes_slice = x.to_be_bytes(32);
-    let mut x_bytes = [0; 32];
-    for i in 0..32 {
-        x_bytes[i] = x_bytes_slice[i];
-    }
-    x_bytes
+    x.to_be_bytes()
 }
 
 unconstrained fn __field_to_bignum(x: Field) -> F {
     let x_bytes = __field_to_bytes(x);
 
-    BigNum::from_byte_be(x_bytes)
-    // TODO: use this once the name has been updated in the bignum lib:
-    // BigNum::from_be_bytes(x_bytes)
+    BigNum::from_be_bytes(x_bytes)
 }
 
 unconstrained fn __field_to_bignum_limbs(x: Field) -> [Field; 3] {
@@ -122,17 +115,24 @@ fn unsafe_bignum_to_field(x: F) -> Field {
 }
 
 fn bignum_to_bytes(x: F) -> [u8] {
-    let limb_0_bytes: [u8] = x.limbs[0].to_be_bytes(15);
-    let limb_1_bytes: [u8] = x.limbs[1].to_be_bytes(15);
-    let limb_2_bytes: [u8] = x.limbs[2].to_be_bytes(2);
-    let out = limb_2_bytes.append(limb_1_bytes).append(limb_0_bytes);
+    let limb_0_bytes: [u8; 15] = x.limbs[0].to_be_bytes();
+    let limb_1_bytes: [u8; 15] = x.limbs[1].to_be_bytes();
+    let limb_2_bytes: [u8; 2] = x.limbs[2].to_be_bytes();
+    let mut out: [u8; 32] = [0; 32];
+    for i in 0..32 {
+        out[i] = limb_0_bytes[i];
+        out[i+15] = limb_1_bytes[i];
+    }
+    for i in 0..1 {
+        out[30 + i] = limb_2_bytes[i];
+    }
     std::static_assert(out.len() == 32, "bad byte decomposition of bignum");
     out
 }
 
 // fn kzg_commitment_to_bytes(c: [Field; 2]) -> [u8] {
-//     let limb_0_bytes: [u8] = x.limbs[0].to_be_bytes(32);
-//     let limb_1_bytes: [u8] = x.limbs[1].to_be_bytes(16);
+//     let limb_0_bytes: [u8; 32] = x.limbs[0].to_be_bytes();
+//     let limb_1_bytes: [u8; 16] = x.limbs[1].to_be_bytes();
 
 //     let out = limb_2_bytes.append(limb_1_bytes).append(limb_0_bytes);
 //     std::static_assert(out.len() == 32, "bad byte decomposition of bignum");
@@ -249,7 +249,7 @@ fn main(blob: [F; FIELDS_PER_BLOB], kzg_commitment: [Field; 2]) -> pub (Field, F
     let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
     // let y = challenge_z_as_bignum; // dummy constraint for when we want to skip the barycentric stuff in testing.
 
-    // let challenge_z_as_bytes: [u8] = challenge_z.to_be_bytes(32);
+    // let challenge_z_as_bytes: [u8; 32] = challenge_z.to_be_bytes();
     // let y_as_bytes: [u8] = bignum_to_bytes(y);
     // let kzg_commitment_as_bytes: [u8] = ()
 
@@ -344,28 +344,24 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // Making a call to this function causes a "stack too deep" error, so I've put the body of that function here, instead:
     // let fracs = __compute_fracs(z, ys); // { y_i / (z - ω^i) }
 
-    /**
-      *
-      * Note: it's more efficient (saving 30k constraints) to compute:
-      *    ___d-1
-      *    \     /    y_i    \
-      *    /    |  ---------  | . ω^i
-      *   /____  \  z - ω^i  /
-      *    i=0
-      *            ^^^^^^^^^
-      *              frac
-      *
-      * ... than to compute:
-      *
-      *    ___d-1
-      *    \          /    ω^i    \
-      *    /   y_i . |  ---------  |
-      *   /____       \  z - ω^i  /
-      *    i=0
-      *
-      * perhaps because all the ω^i terms are constant witnesses?
-      *
-      */
+    // Note: it's more efficient (saving 30k constraints) to compute:
+    //    ___d-1
+    //    \     /    y_i    \
+    //    /    |  ---------  | . ω^i
+    //   /____  \  z - ω^i  /
+    //    i=0
+    //            ^^^^^^^^^
+    //              frac
+    //
+    // ... than to compute:
+    //
+    //    ___d-1
+    //    \          /    ω^i    \
+    //    /   y_i . |  ---------  |
+    //   /____       \  z - ω^i  /
+    //    i=0
+    //
+    // perhaps because all the ω^i terms are constant witnesses?
 
     //*****************************************************************
     // This section is only needed because `__compute_fracs` isn't working (stack too deep error).
@@ -415,28 +411,25 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // which implies...we can accomodate up to EIGHT additions of product terms before we risk overflowing
     // (this is really messy! I never considered the case of giant linear sequences of products)
     let mut sum: F = BigNum::new();
-    /**
-     * Seeking:
-     *                    ___d-1
-     *                    \            ω^i
-     *              sum = /   y_i . ---------
-     *                   /____       z - ω^i
-     *                    i=0
-     */
+
+    // Seeking:
+    //                    ___d-1
+    //                    \            ω^i
+    //              sum = /   y_i . ---------
+    //                   /____       z - ω^i
+    //                    i=0
     let NUM_PARTIAL_SUMS = FIELDS_PER_BLOB / 8;
     for i in 0..NUM_PARTIAL_SUMS {
         let mut partial_sum: F = BigNum::new();
         let mut lhs: [F; 8] = [BigNum::new(); 8];
         let mut rhs = lhs;
 
-        /**
-         * Seeking:
-         *                    ___i*8 + 7
-         *                    \            ω^k
-         *      partial_sum = /   y_k . ---------
-         *                   /____       z - ω^k
-         *                    k=i*8 + 0
-         */
+        // Seeking:
+        //                    ___i*8 + 7
+        //                    \            ω^k
+        //      partial_sum = /   y_k . ---------
+        //                   /____       z - ω^k
+        //                    k=i*8 + 0
 
         for j in 0..8 {
             let k = i * 8 + j;
@@ -459,26 +452,25 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
             std::as_witness(partial_sum.limbs[2]);
         }
 
-        /**
-         * Seeking:
-         *                    ___i*8 - 1              ___i*8 + 7
-         *                    \            ω^i        \            /    y_k    \
-         *      sum_out   =   /   y_i . ---------  +  /     ω^k . |  ---------  |
-         *                   /____       z - ω^i     /____         \  z - ω^k  /
-         *                       0                    k = i*8
-         *                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-         *                          sum                         partial_sum
-         *
-         * ... that is:
-         *
-         *                    ___i*8 - 1              ___ 7
-         *                    \            ω^i        \
-         *      sum_out   =   /   y_i . ---------  +  /   lhs[j] . rhs[j]
-         *                   /____       z - ω^i     /____
-         *                       0                    j = 0
-         *                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
-         *                          sum                   partial_sum
-         */
+        // Seeking:
+        //                    ___i*8 - 1              ___i*8 + 7
+        //                    \            ω^i        \            /    y_k    \
+        //      sum_out   =   /   y_i . ---------  +  /     ω^k . |  ---------  |
+        //                   /____       z - ω^i     /____         \  z - ω^k  /
+        //                       0                    k = i*8
+        //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        //                          sum                         partial_sum
+        //
+        // ... that is:
+        //
+        //                    ___i*8 - 1              ___ 7
+        //                    \            ω^i        \
+        //      sum_out   =   /   y_i . ---------  +  /   lhs[j] . rhs[j]
+        //                   /____       z - ω^i     /____
+        //                       0                    j = 0
+        //                   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^^^^^^^
+        //                          sum                   partial_sum
+        //
 
         let mut sum_out = sum.__add(partial_sum);
 
@@ -516,24 +508,22 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     y
 }
 
-// Need to wait for https://github.com/noir-lang/noir-bignum/pull/9 for this to work.
-// nargo test --show-output test_main
-// #[test]
-// fn test_main() {
-//     let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+#[test]
+fn test_main() {
+    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
 
-//     blob[0] = BigNum { limbs: [0x1234, 0, 0] };
-//     blob[1] = BigNum { limbs: [0xabcd, 0, 0] };
-//     blob[2] = BigNum { limbs: [0x69, 0, 0] };
+    blob[0] = BigNum { limbs: [0x1234, 0, 0] };
+    blob[1] = BigNum { limbs: [0xabcd, 0, 0] };
+    blob[2] = BigNum { limbs: [0x69, 0, 0] };
 
-//     let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
+    let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
 
-//     let (challenge_z, y, kzg_commitment) = main(blob, kzg_commitment_in);
+    let (challenge_z, y, kzg_commitment) = main(blob, kzg_commitment_in);
 
-//     println(challenge_z);
-//     println(y);
-//     println(kzg_commitment);
-// }
+    println(challenge_z);
+    println(y);
+    println(kzg_commitment);
+}
 
 #[test]
 fn test_print() {
@@ -541,13 +531,12 @@ fn test_print() {
     println(f"x: {x}");
 }
 
-// Need to wait for https://github.com/noir-lang/noir-bignum/pull/9 for this to work.
-// #[test]
-// fn test_bignum_conversions() {
-//     let x = 1000;
-//     let x_bignum = __field_to_bignum(x);
-//     println(f"x_bignum: {x_bignum}");
-// }
+#[test]
+fn test_bignum_conversions() {
+    let x = 1000;
+    let x_bignum = __field_to_bignum(x);
+    println(f"x_bignum: {x_bignum}");
+}
 
 // nargo test --show-output test_barycentric
 #[test]

@@ -1,0 +1,57 @@
+name: Aztec Network EKS Deployment
+
+# Manual trigerring of this workflow is intentionally disabled
+# Helm deployments do not support lock files
+# Without a lockfile, manual trigerring can lead to corrupted or partial deployments
+
+on:
+  push:
+    branches:
+      - staging
+      - production
+  pull_request:
+    branches:
+      - staging
+      - production
+
+jobs:
+  network_deployment:
+    # This job will run on Ubuntu
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-${{ github.ref }} # Only one job per branch
+      cancel-in-progress: false # Allow previous deployment to complete to avoid corruption
+
+    # Set up a variable based on the branch name
+    env:
+      NAMESPACE: ${{ github.ref == 'refs/heads/production' && 'production' || 'staging' }}
+      CHART_PATH: ./spartan/aztec-network
+
+    steps:
+      # Step 1: Check out the repository's code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Configure AWS credentials using GitHub Secrets
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      # Step 3: Set up Kubernetes context for AWS EKS
+      - name: Configure kubectl with EKS cluster
+        run: |
+          aws eks update-kubeconfig --region us-east-2 --name spartan_cluster
+
+      # Step 4: Install Helm
+      - name: Install Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+
+      # Step 5: Apply Helm Chart
+      - name: Deploy Helm chart
+        run: |
+          helm dependency update ${{ env.CHART_PATH }}
+          helm upgrade --install ${{ env.NAMESPACE }} ${{ env.CHART_PATH }} --namespace ${{ env.NAMESPACE }} --atomic

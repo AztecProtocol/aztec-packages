@@ -144,17 +144,19 @@ impl<T> Serialize<3> for ScheduledValueChange<T> where T: ToField {
 }
 
 impl<T> Deserialize<3> for ScheduledValueChange<T> where T: FromField {
-  fn deserialize(input: [Field; 3]) -> Self {
-    Self {
-        pre: FromField::from_field(input[0]),
-        post: FromField::from_field(input[1]),
-        block_of_change: FromField::from_field(input[2]),
+    fn deserialize(input: [Field; 3]) -> Self {
+        Self {
+            pre: FromField::from_field(input[0]),
+            post: FromField::from_field(input[1]),
+            block_of_change: FromField::from_field(input[2])
+        }
     }
-  }
 }
 
 impl<T> Eq for ScheduledValueChange<T> where T: Eq {
     fn eq(self, other: Self) -> bool {
-        (self.pre == other.pre) & (self.post == other.post) & (self.block_of_change == other.block_of_change)
+        (self.pre == other.pre)
+            & (self.post == other.post)
+            & (self.block_of_change == other.block_of_change)
     }
 }

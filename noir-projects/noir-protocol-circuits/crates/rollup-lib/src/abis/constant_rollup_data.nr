@@ -14,10 +14,10 @@ struct ConstantRollupData {
 }
 
 impl Eq for ConstantRollupData {
-    fn eq(self, other : ConstantRollupData) -> bool {
-        self.last_archive.eq(other.last_archive) &
-        self.global_variables.eq(other.global_variables) &
-        (self.vk_tree_root == other.vk_tree_root)
+    fn eq(self, other: ConstantRollupData) -> bool {
+        self.last_archive.eq(other.last_archive)
+            & self.global_variables.eq(other.global_variables)
+            & (self.vk_tree_root == other.vk_tree_root)
     }
 }
 
@@ -26,37 +26,37 @@ impl Empty for ConstantRollupData {
         ConstantRollupData {
             last_archive: AppendOnlyTreeSnapshot::zero(),
             vk_tree_root: 0,
-            global_variables: GlobalVariables::empty(),
+            global_variables: GlobalVariables::empty()
         }
     }
 }
 
 impl Serialize<CONSTANT_ROLLUP_DATA_LENGTH> for ConstantRollupData {
-  fn serialize(self) -> [Field; CONSTANT_ROLLUP_DATA_LENGTH] {
-    let mut fields: BoundedVec<Field, CONSTANT_ROLLUP_DATA_LENGTH> = BoundedVec::new();
+    fn serialize(self) -> [Field; CONSTANT_ROLLUP_DATA_LENGTH] {
+        let mut fields: BoundedVec<Field, CONSTANT_ROLLUP_DATA_LENGTH> = BoundedVec::new();
 
-    fields.extend_from_array(self.last_archive.serialize());
-    fields.push(self.vk_tree_root as Field);
-    fields.extend_from_array(self.global_variables.serialize());
+        fields.extend_from_array(self.last_archive.serialize());
+        fields.push(self.vk_tree_root as Field);
+        fields.extend_from_array(self.global_variables.serialize());
 
-    assert_eq(fields.len(), CONSTANT_ROLLUP_DATA_LENGTH);
+        assert_eq(fields.len(), CONSTANT_ROLLUP_DATA_LENGTH);
 
-    fields.storage
-  }
+        fields.storage
+    }
 }
 
 impl Deserialize<CONSTANT_ROLLUP_DATA_LENGTH> for ConstantRollupData {
-  fn deserialize(fields: [Field; CONSTANT_ROLLUP_DATA_LENGTH]) -> ConstantRollupData {
-    let mut reader = Reader::new(fields);
-    let item = Self {
-        last_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
-        vk_tree_root: reader.read(),
-        global_variables: reader.read_struct(GlobalVariables::deserialize),
-    };
+    fn deserialize(fields: [Field; CONSTANT_ROLLUP_DATA_LENGTH]) -> ConstantRollupData {
+        let mut reader = Reader::new(fields);
+        let item = Self {
+            last_archive: reader.read_struct(AppendOnlyTreeSnapshot::deserialize),
+            vk_tree_root: reader.read(),
+            global_variables: reader.read_struct(GlobalVariables::deserialize)
+        };
 
-    reader.finish();
-    item
-  }
+        reader.finish();
+        item
+    }
 }
 
 #[test]

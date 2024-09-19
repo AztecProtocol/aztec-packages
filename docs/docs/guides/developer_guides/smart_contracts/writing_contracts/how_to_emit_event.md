@@ -54,14 +54,7 @@ Aztec.nr enables smart contract developers to design custom notes, meaning devel
 
 ## Unencrypted Events
 
-Unencrypted events are events which can be read by anyone.
-They can be emitted by both public and private functions.
-
-:::danger
-
-- Emitting unencrypted events from private function is a significant privacy leak and it should be considered by the developer whether it is acceptable.
-
-:::
+Unencrypted events are events which can be read by anyone. They can be emitted **only** by public functions.
 
 ### Call emit_unencrypted_log
 

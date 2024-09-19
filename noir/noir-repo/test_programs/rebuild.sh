@@ -28,16 +28,17 @@ process_dir() {
         fi
 
         if ! nargo execute witness; then
-            echo "$dir: failed"
+            echo "$dir failed"
         else
             if [ -d "$current_dir/acir_artifacts/$dir_name/target" ]; then
                 rm -r "$current_dir/acir_artifacts/$dir_name/target"
             fi
             mkdir "$current_dir/acir_artifacts/$dir_name/target"
+            mkdir "$current_dir/acir_artifacts/$dir_name/proofs"
 
             mv ./target/$dir_name.json "$current_dir/acir_artifacts/$dir_name/target/program.json"
             mv ./target/*.gz "$current_dir/acir_artifacts/$dir_name/target/"
-            echo "$dir: succeeded"
+            echo "$dir succeeded"
         fi
 
         cd "$current_dir"
@@ -76,10 +77,11 @@ else
     done
 fi
 
-parallel -j7  process_dir {} "$current_dir" ::: ${dirs_to_process[@]}
+# Clear any existing rebuild.log
+rm -f "$current_dir/rebuild.log"
 
 # Process directories in parallel
-parallel -j0 process_dir {} "$current_dir" ::: "${dirs_to_process[@]}"
+parallel -j7  process_dir {} "$current_dir" ::: ${dirs_to_process[@]}
 
 # Check rebuild.log for failures
 if [ -f "$current_dir/rebuild.log" ]; then

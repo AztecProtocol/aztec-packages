@@ -1,6 +1,7 @@
 import { type BBProverConfig } from '@aztec/bb-prover';
 import {
   type BlockProver,
+  type MerkleTreeAdminOperations,
   type ProcessedTx,
   type PublicExecutionRequest,
   type ServerCircuitProver,
@@ -45,7 +46,7 @@ export class TestContext {
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
-    public actualDb: MerkleTreeOperations,
+    public actualDb: MerkleTreeAdminOperations,
     public prover: ServerCircuitProver,
     public proverAgent: ProverAgent,
     public orchestrator: ProvingOrchestrator,

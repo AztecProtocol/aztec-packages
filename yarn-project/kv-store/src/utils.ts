@@ -1,17 +1,25 @@
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 
+import { join } from 'path';
+
 import { type AztecKVStore } from './interfaces/store.js';
 import { AztecLmdbStore } from './lmdb/store.js';
 
-export function createStore(
-  config: { dataDirectory: string | undefined } | (string | undefined),
-  rollupAddress: EthAddress,
-  log: Logger = createDebugLogger('aztec:kv-store'),
-) {
-  const dataDirectory = typeof config === 'string' ? config : config?.dataDirectory;
-  log.info(dataDirectory ? `Creating data store at directory ${dataDirectory}` : 'Creating ephemeral data store');
-  return initStoreForRollup(AztecLmdbStore.open(dataDirectory, false), rollupAddress, log);
+export type DataStoreConfig = { dataDirectory: string | undefined; l1Contracts: { rollupAddress: EthAddress } };
+
+export function createStore(name: string, config: DataStoreConfig, log: Logger = createDebugLogger('aztec:kv-store')) {
+  let { dataDirectory } = config;
+  if (typeof dataDirectory !== 'undefined') {
+    dataDirectory = join(dataDirectory, name);
+  }
+
+  log.info(
+    dataDirectory
+      ? `Creating ${name} data store at directory ${dataDirectory}`
+      : `Creating ${name} ephemeral data store`,
+  );
+  return initStoreForRollup(AztecLmdbStore.open(dataDirectory, false), config.l1Contracts.rollupAddress, log);
 }
 
 /**
@@ -21,7 +29,7 @@ export function createStore(
  * @param rollupAddress - The ETH address of the rollup contract
  * @returns A promise that resolves when the store is cleared, or rejects if the rollup address does not match
  */
-export async function initStoreForRollup<T extends AztecKVStore>(
+async function initStoreForRollup<T extends AztecKVStore>(
   store: T,
   rollupAddress: EthAddress,
   log?: Logger,

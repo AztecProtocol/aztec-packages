@@ -101,6 +101,13 @@ export interface CommitmentsDB {
   getCommitmentIndex(commitment: Fr): Promise<bigint | undefined>;
 
   /**
+   * Gets commitment in the note hash tree given a leaf index.
+   * @param leafIndex - the leaf to look up.
+   * @returns - The commitment at that index. Undefined if leaf index is not found.
+   */
+  getCommitmentValue(leafIndex: bigint): Promise<Fr | undefined>;
+
+  /**
    * Gets the index of a nullifier in the nullifier tree.
    * @param nullifier - The nullifier.
    * @returns - The index of the nullifier. Undefined if it does not exist in the tree.

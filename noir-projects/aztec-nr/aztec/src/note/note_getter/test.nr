@@ -1,16 +1,14 @@
 use dep::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
 use crate::{
-    context::PrivateContext,
     note::{
-    note_header::NoteHeader,
-    note_getter_options::{NoteGetterOptions, Sort, SortOrder, Comparator, PropertySelector},
+    note_getter_options::{NoteGetterOptions, SortOrder, PropertySelector},
     note_getter::constrain_get_notes_internal
 },
     oracle::execution::get_contract_address
 };
-use dep::protocol_types::address::AztecAddress;
 
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
+use crate::utils::comparison::Comparator;
 
 global storage_slot: Field = 42;
 
@@ -198,8 +196,8 @@ fn rejects_mismatched_selector() {
     let mut options = NoteGetterOptions::new();
     options = options.select(
             PropertySelector { index: 0, offset: 0, length: 32 },
-            value + 1,
-            Option::some(Comparator.EQ)
+            Comparator.EQ,
+            value + 1
         );
 
     let _ = constrain_get_notes_internal(&mut context, storage_slot, opt_notes, options);

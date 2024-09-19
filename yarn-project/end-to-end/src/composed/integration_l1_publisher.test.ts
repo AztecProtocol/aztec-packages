@@ -2,7 +2,6 @@ import { type ArchiveSource } from '@aztec/archiver';
 import { getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AztecAddress,
-  Body,
   EthCheatCodes,
   Fr,
   GlobalVariables,
@@ -38,7 +37,7 @@ import { fr, makeScopedL2ToL1Message } from '@aztec/circuits.js/testing';
 import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
 import { makeTuple, range } from '@aztec/foundation/array';
 import { openTmpStore } from '@aztec/kv-store/utils';
-import { AvailabilityOracleAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { TxProver } from '@aztec/prover-client';
@@ -57,7 +56,6 @@ import {
   type HttpTransport,
   type PublicClient,
   type WalletClient,
-  decodeEventLog,
   encodeFunctionData,
   getAbiItem,
   getAddress,
@@ -170,7 +168,6 @@ describe('L1Publisher integration', () => {
         publisherPrivateKey: sequencerPK,
         l1PublishRetryIntervalMS: 100,
         l1ChainId: 31337,
-        timeTraveler: true,
       },
       new NoopTelemetryClient(),
     );
@@ -324,29 +321,6 @@ describe('L1Publisher integration', () => {
     return blockTicket;
   };
 
-  it('Block body is correctly published to AvailabilityOracle', async () => {
-    const body = Body.random();
-    // `sendPublishTx` function is private so I am hacking around TS here. I think it's ok for test purposes.
-    const txHash = await (publisher as any).sendPublishTx(body.toBuffer());
-    const txReceipt = await publicClient.waitForTransactionReceipt({
-      hash: txHash,
-    });
-
-    // Exactly 1 event should be emitted in the transaction
-    expect(txReceipt.logs.length).toBe(1);
-
-    // We decode the event log before checking it
-    const txLog = txReceipt.logs[0];
-    const topics = decodeEventLog({
-      abi: AvailabilityOracleAbi,
-      data: txLog.data,
-      topics: txLog.topics,
-    });
-    // Sol gives bytes32 txsHash, so we pad the ts bytes31 version
-    // We check that the txsHash in the TxsPublished event is as expected
-    expect(topics.args.txsEffectsHash).toEqual(`0x${body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`);
-  });
-
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
     const archiveInRollup_ = await rollup.read.archive();
     expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
@@ -409,13 +383,13 @@ describe('L1Publisher integration', () => {
 
       writeJson(`mixed_block_${block.number}`, block, l1ToL2Content, recipientAddress, deployerAccount.address);
 
-      await publisher.processL2Block(block);
+      await publisher.proposeL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
         event: getAbiItem({
           abi: RollupAbi,
-          name: 'L2BlockProcessed',
+          name: 'L2BlockProposed',
         }),
         fromBlock: blockNumber + 1n,
       });
@@ -428,11 +402,13 @@ describe('L1Publisher integration', () => {
 
       const expectedData = encodeFunctionData({
         abi: RollupAbi,
-        functionName: 'publishAndProcess',
+        functionName: 'propose',
         args: [
           `0x${block.header.toBuffer().toString('hex')}`,
           `0x${block.archive.root.toBuffer().toString('hex')}`,
           `0x${block.header.hash().toBuffer().toString('hex')}`,
+          [],
+          [],
           `0x${block.body.toBuffer().toString('hex')}`,
         ],
       });
@@ -509,13 +485,13 @@ describe('L1Publisher integration', () => {
 
       writeJson(`empty_block_${block.number}`, block, [], AztecAddress.ZERO, deployerAccount.address);
 
-      await publisher.processL2Block(block);
+      await publisher.proposeL2Block(block);
 
       const logs = await publicClient.getLogs({
         address: rollupAddress,
         event: getAbiItem({
           abi: RollupAbi,
-          name: 'L2BlockProcessed',
+          name: 'L2BlockProposed',
         }),
         fromBlock: blockNumber + 1n,
       });
@@ -526,27 +502,18 @@ describe('L1Publisher integration', () => {
         hash: logs[i].transactionHash!,
       });
 
-      const expectedData =
-        i == 0
-          ? encodeFunctionData({
-              abi: RollupAbi,
-              functionName: 'publishAndProcess',
-              args: [
-                `0x${block.header.toBuffer().toString('hex')}`,
-                `0x${block.archive.root.toBuffer().toString('hex')}`,
-                `0x${block.header.hash().toBuffer().toString('hex')}`,
-                `0x${block.body.toBuffer().toString('hex')}`,
-              ],
-            })
-          : encodeFunctionData({
-              abi: RollupAbi,
-              functionName: 'process',
-              args: [
-                `0x${block.header.toBuffer().toString('hex')}`,
-                `0x${block.archive.root.toBuffer().toString('hex')}`,
-                `0x${block.header.hash().toBuffer().toString('hex')}`,
-              ],
-            });
+      const expectedData = encodeFunctionData({
+        abi: RollupAbi,
+        functionName: 'propose',
+        args: [
+          `0x${block.header.toBuffer().toString('hex')}`,
+          `0x${block.archive.root.toBuffer().toString('hex')}`,
+          `0x${block.header.hash().toBuffer().toString('hex')}`,
+          [],
+          [],
+          `0x${block.body.toBuffer().toString('hex')}`,
+        ],
+      });
       expect(ethTx.input).toEqual(expectedData);
 
       await progressTimeBySlot();

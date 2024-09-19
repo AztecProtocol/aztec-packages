@@ -1,5 +1,5 @@
 import type { AvmContext } from '../avm_context.js';
-import { type MemoryValue, Uint8 } from '../avm_memory_types.js';
+import { type MemoryValue, Uint1 } from '../avm_memory_types.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { ThreeOperandInstruction } from './instruction_impl.js';
@@ -19,7 +19,7 @@ abstract class ComparatorInstruction extends ThreeOperandInstruction {
     const a = memory.get(aOffset);
     const b = memory.get(bOffset);
 
-    const dest = new Uint8(this.compare(a, b) ? 1 : 0);
+    const dest = new Uint1(this.compare(a, b) ? 1 : 0);
     memory.set(dstOffset, dest);
 
     memory.assert(memoryOperations);
@@ -31,7 +31,7 @@ abstract class ComparatorInstruction extends ThreeOperandInstruction {
 
 export class Eq extends ComparatorInstruction {
   static readonly type: string = 'EQ';
-  static readonly opcode = Opcode.EQ;
+  static readonly opcode = Opcode.EQ_8; // FIXME: needed for gas.
 
   protected compare(a: MemoryValue, b: MemoryValue): boolean {
     return a.equals(b);
@@ -40,7 +40,7 @@ export class Eq extends ComparatorInstruction {
 
 export class Lt extends ComparatorInstruction {
   static readonly type: string = 'LT';
-  static readonly opcode = Opcode.LT;
+  static readonly opcode = Opcode.LT_8; // FIXME: needed for gas.
 
   protected compare(a: MemoryValue, b: MemoryValue): boolean {
     return a.lt(b);
@@ -49,7 +49,7 @@ export class Lt extends ComparatorInstruction {
 
 export class Lte extends ComparatorInstruction {
   static readonly type: string = 'LTE';
-  static readonly opcode = Opcode.LTE;
+  static readonly opcode = Opcode.LTE_8; // FIXME: needed for gas.
 
   protected compare(a: MemoryValue, b: MemoryValue): boolean {
     return a.lt(b) || a.equals(b);

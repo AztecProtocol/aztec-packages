@@ -1,4 +1,6 @@
 include "main.pil";
+include "constants_gen.pil";
+include "./gadgets/range_check.pil";
 
 namespace mem(256);
     // ========= Table MEM-TR =================
@@ -7,7 +9,7 @@ namespace mem(256);
     pol commit addr;
     pol commit space_id;
     pol commit glob_addr;
-    pol commit tag; // Memory tag (0: uninitialized, 1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6:field)
+    pol commit tag; // Memory tag (0: uninitialized, 1: u1, 2: u8, 3: u16, 4: u32, 5: u64, 6: u128, 7:field)
     pol commit val;
     pol commit rw; // Enum: 0 (read), 1 (write)
     pol commit lastAccess; // Boolean (1 when this row is the last of a given address)
@@ -65,10 +67,7 @@ namespace mem(256);
 
     // Helper columns
     pol commit one_min_inv; // Extra value to prove r_in_tag != tag with error handling
-    // pol DIFF: 40-bit difference between two consecutive timestamps or two consecutive addresses
-    pol commit diff_hi;  // Higher 8-bit limb of diff.
-    pol commit diff_mid; // Middle 16-bit limb of diff.
-    pol commit diff_lo;  // Lower 16-bit limb of diff.
+    pol commit diff; // 40-bit difference between two consecutive timestamps or two consecutive addresses
 
     // Type constraints
     lastAccess * (1 - lastAccess) = 0;
@@ -156,14 +155,12 @@ namespace mem(256);
     // i.e., when sel_rng_chk == 1, we compute the difference:
     // 1) glob_addr' - glob_addr if lastAccess == 1
     // 2) tsp' - tsp   if lastAccess == 0 (i.e., whenever glob_addr' == glob_addr)
-    pol DIFF = lastAccess * (glob_addr' - glob_addr) + (1 - lastAccess) * (tsp' - tsp);
+    sel_rng_chk * (diff - (lastAccess * (glob_addr' - glob_addr) + (1 - lastAccess) * (tsp' - tsp))) = 0;
 
     // We perform a 40-bit range check of DIFF which proves that glob_addr' > glob_addr if lastAccess == 1
     // and tsp' > tsp whenever glob_addr' == glob_addr
     // Therefore, we ensure proper grouping of each global address and each memory access pertaining to a given
     // global address is sorted according the arrow of time.
-    #[DIFF_RNG_CHK_DEC]
-    sel_rng_chk * (DIFF - diff_hi * 2**32 - diff_mid * 2**16 - diff_lo) = 0;
 
     // lastAccess == 0 && rw' == 0 ==> val == val'
     // This condition does not apply on the last row.
@@ -227,11 +224,11 @@ namespace mem(256);
     rw * tag_err = 0;
 
     //====== Indirect Memory Constraints =====================================
-    // Enforce r_in_tag == 3, i.e., r_in_tag must be U32
-    sel_resolve_ind_addr_a * (r_in_tag - 3) = 0;
-    sel_resolve_ind_addr_b * (r_in_tag - 3) = 0;
-    sel_resolve_ind_addr_c * (r_in_tag - 3) = 0;
-    sel_resolve_ind_addr_d * (r_in_tag - 3) = 0;
+    // Enforce r_in_tag is U32
+    sel_resolve_ind_addr_a * (r_in_tag - constants.MEM_TAG_U32) = 0;
+    sel_resolve_ind_addr_b * (r_in_tag - constants.MEM_TAG_U32) = 0;
+    sel_resolve_ind_addr_c * (r_in_tag - constants.MEM_TAG_U32) = 0;
+    sel_resolve_ind_addr_d * (r_in_tag - constants.MEM_TAG_U32) = 0;
 
     // Indirect operation is always a load
     sel_resolve_ind_addr_a * rw = 0;
@@ -240,19 +237,19 @@ namespace mem(256);
     sel_resolve_ind_addr_d * rw = 0;
 
     //====== CALLDATACOPY/RETURN specific constraints ==================================
-    sel_op_slice * (w_in_tag - 6) = 0; // Only write elements of type FF
-    sel_op_slice * (r_in_tag - 6) = 0; // Only read elements of type FF
+    sel_op_slice * (w_in_tag - constants.MEM_TAG_FF) = 0; // Only write elements of type FF
+    sel_op_slice * (r_in_tag - constants.MEM_TAG_FF) = 0; // Only read elements of type FF
 
     //====== POSEIDON2 specific constraints ==================================
-    sel_op_poseidon_read_a * (w_in_tag - 6) = 0; // Only read elements of type FF
-    sel_op_poseidon_read_b * (w_in_tag - 6) = 0; // Only read elements of type FF
-    sel_op_poseidon_read_c * (w_in_tag - 6) = 0; // Only read elements of type FF
-    sel_op_poseidon_read_d * (w_in_tag - 6) = 0; // Only read elements of type FF
+    sel_op_poseidon_read_a * (w_in_tag - constants.MEM_TAG_FF) = 0; // Only read elements of type FF
+    sel_op_poseidon_read_b * (w_in_tag - constants.MEM_TAG_FF) = 0; // Only read elements of type FF
+    sel_op_poseidon_read_c * (w_in_tag - constants.MEM_TAG_FF) = 0; // Only read elements of type FF
+    sel_op_poseidon_read_d * (w_in_tag - constants.MEM_TAG_FF) = 0; // Only read elements of type FF
 
-    sel_op_poseidon_write_a * (r_in_tag - 6) = 0; // Only write elements of type FF
-    sel_op_poseidon_write_b * (r_in_tag - 6) = 0; // Only write elements of type FF
-    sel_op_poseidon_write_c * (r_in_tag - 6) = 0; // Only write elements of type FF
-    sel_op_poseidon_write_d * (r_in_tag - 6) = 0; // Only write elements of type FF
+    sel_op_poseidon_write_a * (r_in_tag - constants.MEM_TAG_FF) = 0; // Only write elements of type FF
+    sel_op_poseidon_write_b * (r_in_tag - constants.MEM_TAG_FF) = 0; // Only write elements of type FF
+    sel_op_poseidon_write_c * (r_in_tag - constants.MEM_TAG_FF) = 0; // Only write elements of type FF
+    sel_op_poseidon_write_d * (r_in_tag - constants.MEM_TAG_FF) = 0; // Only write elements of type FF
 
     //====== MOV/CMOV Opcode Tag Constraint =====================================
     // The following constraint ensures that the r_in_tag is set to tag for
@@ -263,3 +260,10 @@ namespace mem(256);
     // trace. Then, #[PERM_MAIN_MEM_C] copies w_in_tag for store operation from Ic.
     #[MOV_SAME_TAG]
     (sel_mov_ia_to_ic + sel_mov_ib_to_ic) * tag_err = 0; // Equivalent to (sel_mov_ia_to_ic + sel_mov_ib_to_ic) * (r_in_tag - tag) = 0
+
+    // ========= Initialize Range Check Gadget ===============================
+    // We range check that the difference between two timestamps are 40 bit numbers.
+    #[PERM_RNG_MEM]
+    range_check.mem_rng_chk {range_check.clk, range_check.value}
+    is
+    sel_rng_chk {tsp, diff};

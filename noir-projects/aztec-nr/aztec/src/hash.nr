@@ -1,17 +1,16 @@
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
-    constants::{
-    GENERATOR_INDEX__SECRET_HASH, GENERATOR_INDEX__MESSAGE_NULLIFIER, ARGS_HASH_CHUNK_COUNT,
-    GENERATOR_INDEX__FUNCTION_ARGS, ARGS_HASH_CHUNK_LENGTH, MAX_ARGS_LENGTH
-},
-    traits::Hash,
-    hash::{
-    pedersen_hash, compute_siloed_nullifier, sha256_to_field, pedersen_commitment,
-    poseidon2_hash_with_separator
-}
+    constants::{GENERATOR_INDEX__SECRET_HASH, GENERATOR_INDEX__MESSAGE_NULLIFIER, GENERATOR_INDEX__FUNCTION_ARGS},
+    point::Point, traits::Hash,
+    hash::{sha256_to_field, poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice}
 };
-// Note: pedersen_commitment is used only as a re-export here
-use crate::oracle::logs_traits::{LensForEncryptedLog, ToBytesForUnencryptedLog};
+use crate::oracle::logs_traits::ToBytesForUnencryptedLog;
+
+pub use dep::protocol_types::hash::{compute_siloed_nullifier, pedersen_hash};
+
+pub fn pedersen_commitment<let N: u32>(inputs: [Field; N], hash_index: u32) -> Point {
+    std::hash::pedersen_commitment_with_separator(inputs, hash_index)
+}
 
 pub fn compute_secret_hash(secret: Field) -> Field {
     poseidon2_hash_with_separator([secret], GENERATOR_INDEX__SECRET_HASH)
@@ -30,7 +29,7 @@ pub fn compute_unencrypted_log_hash<T, let N: u32, let M: u32>(
     for i in 0..32 {
         hash_bytes[i] = address_bytes[i];
     }
-    let len_bytes = (n as Field).to_be_bytes(4);
+    let len_bytes: [u8; 4] = (n as Field).to_be_bytes();
     for i in 0..4 {
         hash_bytes[32 + i] = len_bytes[i];
     }
@@ -50,12 +49,12 @@ pub fn compute_message_hash(
     secret_hash: Field
 ) -> Field {
     let mut hash_bytes = [0 as u8; 192];
-    let sender_bytes = sender.to_field().to_be_bytes(32);
-    let chain_id_bytes = chain_id.to_be_bytes(32);
-    let recipient_bytes = recipient.to_field().to_be_bytes(32);
-    let version_bytes = version.to_be_bytes(32);
-    let content_bytes = content.to_be_bytes(32);
-    let secret_hash_bytes = secret_hash.to_be_bytes(32);
+    let sender_bytes: [u8; 32] = sender.to_field().to_be_bytes();
+    let chain_id_bytes: [u8; 32] = chain_id.to_be_bytes();
+    let recipient_bytes: [u8; 32] = recipient.to_field().to_be_bytes();
+    let version_bytes: [u8; 32] = version.to_be_bytes();
+    let content_bytes: [u8; 32] = content.to_be_bytes();
+    let secret_hash_bytes: [u8; 32] = secret_hash.to_be_bytes();
 
     for i in 0..32 {
         hash_bytes[i] = sender_bytes[i];
@@ -105,44 +104,30 @@ impl ArgsHasher {
 }
 
 pub fn hash_args_array<let N: u32>(args: [Field; N]) -> Field {
-    hash_args(args.as_slice())
+    if args.len() == 0 {
+        0
+    } else {
+        poseidon2_hash_with_separator(args, GENERATOR_INDEX__FUNCTION_ARGS)
+    }
 }
 
 pub fn hash_args(args: [Field]) -> Field {
     if args.len() == 0 {
         0
     } else {
-        assert(args.len() <= MAX_ARGS_LENGTH, "Args length exceeds maximum");
-        let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
-        let mut current_chunk_values = [0; ARGS_HASH_CHUNK_LENGTH];
-
-        let mut current_chunk_index = 0;
-        let mut index_inside_current_chunk = 0;
-        for i in 0..args.len() {
-            current_chunk_values[index_inside_current_chunk] = args[i];
-            index_inside_current_chunk+=1;
-            if index_inside_current_chunk == ARGS_HASH_CHUNK_LENGTH {
-                chunks_hashes[current_chunk_index] = poseidon2_hash_with_separator(current_chunk_values, GENERATOR_INDEX__FUNCTION_ARGS);
-                current_chunk_values = [0; ARGS_HASH_CHUNK_LENGTH];
-                current_chunk_index+=1;
-                index_inside_current_chunk = 0;
-            }
-        }
-        if index_inside_current_chunk > 0 {
-            chunks_hashes[current_chunk_index] = poseidon2_hash_with_separator(current_chunk_values, GENERATOR_INDEX__FUNCTION_ARGS);
-        }
-        poseidon2_hash_with_separator(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
+        poseidon2_hash_with_separator_slice(args, GENERATOR_INDEX__FUNCTION_ARGS)
     }
 }
 
 #[test]
 fn compute_var_args_hash() {
     let mut input = ArgsHasher::new();
-    for i in 0..MAX_ARGS_LENGTH {
+    for i in 0..100 {
         input.add(i as Field);
     }
     let hash = input.hash();
-    assert(hash == 0x1cce4dbf69f14c44865919991ee1057922e34d7310ba237d71759aa422621ca9);
+    dep::std::println(hash);
+    assert(hash == 0x19b0d74feb06ebde19edd85a28986c97063e84b3b351a8b666c7cac963ce655f);
 }
 
 #[test]

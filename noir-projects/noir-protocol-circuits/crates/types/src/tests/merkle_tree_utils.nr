@@ -1,4 +1,4 @@
-use crate::{merkle_tree::{MerkleTree, calculate_empty_tree_root}, traits::Empty, hash::merkle_hash};
+use crate::{merkle_tree::{merkle_tree, MerkleTree, calculate_empty_tree_root}, traits::Empty, hash::merkle_hash};
 
 pub fn compute_zero_hashes<let N: u32>(mut hashes: [Field; N]) -> [Field; N] {
     hashes[0] = merkle_hash(0,  0);
@@ -14,7 +14,7 @@ impl<let N: u32> MerkleTree<N> {
     fn update_leaf<let K: u32>(&mut self, index: u32, value: Field, _tree_height: [Field; K]) {
         self.leaves[index] = value;
 
-        let mut sibling_index = MerkleTree::sibling_index(index);
+        let mut sibling_index = merkle_tree::sibling_index(index);
         let (mut left_node, mut right_node) = if index % 2 == 0 {
             (value, self.leaves[sibling_index])
         } else {
@@ -26,7 +26,7 @@ impl<let N: u32> MerkleTree<N> {
         let mut node_index: u32 = index / 2 + layer_offset;
         for _ in 0..K {
             self.nodes[node_index] = merkle_hash(left_node,  right_node);
-            sibling_index = MerkleTree::sibling_index(node_index);
+            sibling_index = merkle_tree::sibling_index(node_index);
             let nodes = if node_index % 2 == 0 {
                 (self.nodes[node_index], self.nodes[sibling_index])
             } else {
@@ -65,36 +65,40 @@ fn test_merkle_tree_update_leaf_three_layers() {
     assert_eq(tree.get_root(), calculate_empty_tree_root(3));
 }
 
-struct NonEmptyMerkleTree<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u8, let SUPERTREE_HEIGHT: u8, let SUBTREE_HEIGHT: u8> {
+struct NonEmptyMerkleTree<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, let SUBTREE_HEIGHT: u32> {
     subtree: MerkleTree<SUBTREE_ITEMS>,
     zero_hashes: [Field; TREE_HEIGHT],
     left_supertree_branch: [Field; SUPERTREE_HEIGHT],
     _phantom_subtree_height: [Field; SUBTREE_HEIGHT],
 }
 
-impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u8, let SUPERTREE_HEIGHT: u8, let SUBTREE_HEIGHT: u8> Empty for NonEmptyMerkleTree<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> {
+impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, let SUBTREE_HEIGHT: u32> Empty for NonEmptyMerkleTree<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> {
     fn empty() -> Self {
         NonEmptyMerkleTree {
             subtree: MerkleTree::empty(),
             zero_hashes: [0; TREE_HEIGHT],
             left_supertree_branch: [0; SUPERTREE_HEIGHT],
-            _phantom_subtree_height: [0; SUBTREE_HEIGHT],
+            _phantom_subtree_height: [0; SUBTREE_HEIGHT]
         }
     }
 }
 
-impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u8, let SUPERTREE_HEIGHT: u8, let SUBTREE_HEIGHT: u8> NonEmptyMerkleTree<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> {
+impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, let SUBTREE_HEIGHT: u32> NonEmptyMerkleTree<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> {
     pub fn new(
         non_zero_leaves: [Field; SUBTREE_ITEMS],
         _tree_height: [Field; TREE_HEIGHT],
         _supertree_height: [Field; SUPERTREE_HEIGHT],
         _subtree_height: [Field; SUBTREE_HEIGHT]
     ) -> Self {
+        // Hack to get around us converting a u32 to a u8.
+        // TODO: improve this.
+        (SUBTREE_HEIGHT as Field).assert_max_bit_size(8);
+
         assert_eq(
             TREE_HEIGHT, SUPERTREE_HEIGHT + SUBTREE_HEIGHT, "tree height must be the sum of supertree and subtree height"
         );
         assert_eq(
-            U128::from_integer(SUBTREE_ITEMS), U128::from_integer(1 << SUBTREE_HEIGHT), "subtree items must be 2^subtree height"
+            U128::from_integer(SUBTREE_ITEMS), U128::from_integer(1 << SUBTREE_HEIGHT as u8), "subtree items must be 2^subtree height"
         );
         let subtree = MerkleTree::new(non_zero_leaves);
 
@@ -104,7 +108,7 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u8, let SUPERTREE_HEIGHT: u8, let 
         left_supertree_branch[0] = merkle_hash(subtree.get_root(),  zero_hashes[SUBTREE_HEIGHT-1]);
         for i in 1..left_supertree_branch.len() {
             // TODO(md): far right of this yuck
-            left_supertree_branch[i] = merkle_hash(left_supertree_branch[i-1], zero_hashes[SUBTREE_HEIGHT -1 + (i as u8)]);
+            left_supertree_branch[i] = merkle_hash(left_supertree_branch[i-1], zero_hashes[(SUBTREE_HEIGHT as u8) -1 + (i as u8)]);
         }
 
         NonEmptyMerkleTree { subtree, zero_hashes, left_supertree_branch, _phantom_subtree_height: _subtree_height }
@@ -115,7 +119,7 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u8, let SUPERTREE_HEIGHT: u8, let 
         let mut current_index = leaf_index;
         let mut subtree_width = SUBTREE_ITEMS;
 
-        let mut sibling_index = MerkleTree::sibling_index(current_index);
+        let mut sibling_index = merkle_tree::sibling_index(current_index);
 
         path[0] = if current_index < subtree_width {
             self.subtree.leaves[sibling_index]
@@ -129,7 +133,7 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u8, let SUPERTREE_HEIGHT: u8, let 
             current_index = current_index / 2;
             subtree_width = subtree_width / 2;
 
-            sibling_index = MerkleTree::sibling_index(current_index);
+            sibling_index = merkle_tree::sibling_index(current_index);
 
             if sibling_index < subtree_width {
                 path[i] = self.subtree.nodes[subtree_offset + sibling_index];
@@ -152,7 +156,7 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u8, let SUPERTREE_HEIGHT: u8, let 
 
         self.left_supertree_branch[0] = merkle_hash(self.subtree.get_root(),  self.zero_hashes[SUBTREE_HEIGHT-1]);
         for i in 1..self.left_supertree_branch.len() {
-            self.left_supertree_branch[i] = merkle_hash(self.left_supertree_branch[i-1], self.zero_hashes[SUBTREE_HEIGHT -1 + (i as u8)]);
+            self.left_supertree_branch[i] = merkle_hash(self.left_supertree_branch[i-1], self.zero_hashes[(SUBTREE_HEIGHT as u8) -1 + (i as u8)]);
         }
     }
 

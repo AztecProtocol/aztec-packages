@@ -1,7 +1,6 @@
 use crate::{
-    address::{AztecAddress, EthAddress}, abis::gas_fees::GasFees,
-    constants::{GENERATOR_INDEX__GLOBAL_VARIABLES, GLOBAL_VARIABLES_LENGTH},
-    traits::{Deserialize, Empty, Hash, Serialize}, utils::reader::Reader
+    address::{AztecAddress, EthAddress}, abis::gas_fees::GasFees, constants::GLOBAL_VARIABLES_LENGTH,
+    traits::{Deserialize, Empty, Serialize}, utils::reader::Reader
 };
 
 // docs:start:global-variables
@@ -64,15 +63,15 @@ impl Deserialize<GLOBAL_VARIABLES_LENGTH> for GlobalVariables {
 }
 
 impl Eq for GlobalVariables {
-    fn eq(self, other : GlobalVariables) -> bool {
-        (self.chain_id == other.chain_id) &
-        (self.version == other.version) &
-        (self.block_number == other.block_number) &
-        (self.slot_number == other.slot_number) &
-        (self.timestamp == other.timestamp) &
-        (self.coinbase == other.coinbase) &
-        (self.fee_recipient == other.fee_recipient) &
-        (self.gas_fees == other.gas_fees) 
+    fn eq(self, other: GlobalVariables) -> bool {
+        (self.chain_id == other.chain_id)
+            & (self.version == other.version)
+            & (self.block_number == other.block_number)
+            & (self.slot_number == other.slot_number)
+            & (self.timestamp == other.timestamp)
+            & (self.coinbase == other.coinbase)
+            & (self.fee_recipient == other.fee_recipient)
+            & (self.gas_fees == other.gas_fees)
     }
 }
 

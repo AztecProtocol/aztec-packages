@@ -7,15 +7,15 @@ struct FieldCompressedString{
 }
 
 impl Serialize<1> for FieldCompressedString {
-  fn serialize(self) -> [Field; 1] {
-    [self.value]
-  }
+    fn serialize(self) -> [Field; 1] {
+        [self.value]
+    }
 }
 
 impl Deserialize<1> for FieldCompressedString {
-  fn deserialize(input: [Field; 1]) -> Self {
-    Self { value: input[0] }
-  }
+    fn deserialize(input: [Field; 1]) -> Self {
+        Self { value: input[0] }
+    }
 }
 
 impl FieldCompressedString {
@@ -32,11 +32,6 @@ impl FieldCompressedString {
     }
 
     pub fn to_bytes(self) -> [u8; 31] {
-        let mut result = [0; 31];
-        let bytes = self.value.to_be_bytes(31);
-        for i in 0..31 {
-            result[i] = bytes[i];
-        }
-        result
+        self.value.to_be_bytes()
     }
 }

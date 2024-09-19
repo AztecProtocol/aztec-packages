@@ -3,19 +3,23 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/cbind.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
 
 #include <cstddef>
 #ifndef DISABLE_AZTEC_VM
+#include "barretenberg/vm/avm/generated/flavor.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/execution.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm/stats.hpp"
 #endif
 #include "config.hpp"
@@ -58,8 +62,10 @@ const auto current_dir = current_path.filename().string();
  */
 void init_bn254_crs(size_t dyadic_circuit_size)
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
+    // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
     // Must +1 for Plonk only!
-    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + 1);
+    auto bn254_g1_data = get_bn254_g1_data(CRS_PATH, dyadic_circuit_size + dyadic_circuit_size * 6 / 10 + 1);
     auto bn254_g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory(bn254_g1_data, bn254_g2_data);
 }
@@ -72,7 +78,10 @@ void init_bn254_crs(size_t dyadic_circuit_size)
  */
 void init_grumpkin_crs(size_t eccvm_dyadic_circuit_size)
 {
-    auto grumpkin_g1_data = get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
+    // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
+    auto grumpkin_g1_data =
+        get_grumpkin_g1_data(CRS_PATH, eccvm_dyadic_circuit_size + eccvm_dyadic_circuit_size * 6 / 10);
     srs::init_grumpkin_crs_factory(grumpkin_g1_data);
 }
 
@@ -197,7 +206,7 @@ bool proveAndVerifyHonkAcirFormat(acir_format::AcirFormat constraint_system, aci
     auto proof = prover.construct_proof();
 
     // Verify Honk proof
-    auto verification_key = std::make_shared<VerificationKey>(prover.instance->proving_key);
+    auto verification_key = std::make_shared<VerificationKey>(prover.proving_key->proving_key);
 
     Verifier verifier{ verification_key };
 
@@ -329,6 +338,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     using Program = acir_format::AcirProgram;
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
+    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
 
     init_bn254_crs(1 << 24);
     init_grumpkin_crs(1 << 15);
@@ -342,10 +352,9 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
         std::vector<uint8_t> buffer =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[i][0]), gzippedBincodes[i].size()); // NOLINT
 
-        std::vector<acir_format::AcirFormat> constraint_systems = acir_format::program_buf_to_acir_format(
-            buffer,
-            false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                    // this assumes that folding is never done with ultrahonk.
+        std::vector<acir_format::AcirFormat> constraint_systems =
+            acir_format::program_buf_to_acir_format(buffer,
+                                                    /*honk_recursion=*/false);
         std::vector<uint8_t> witnessBuffer =
             decompressedBuffer(reinterpret_cast<uint8_t*>(&witnessMaps[i][0]), witnessMaps[i].size()); // NOLINT
         acir_format::WitnessVectorStack witness_stack = acir_format::witness_buf_to_witness_stack(witnessBuffer);
@@ -353,14 +362,14 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
         folding_stack.push_back(program_stack.back());
     }
     // TODO(#7371) dedupe this with the rest of the similar code
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     ClientIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     // Accumulate the entire program stack into the IVC
     for (Program& program : folding_stack) {
-        // auto& stack_item = program_stack.witness_stack[i];
-
-        // Construct a bberg circuit from the acir representation
+        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
         auto circuit =
             acir_format::create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
         ivc.accumulate(circuit);
@@ -368,7 +377,7 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
 
     // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
     // directory is passed by bb.js)
-    std::string vkPath = outputDir + "/inst_vk"; // the vk of the last instance
+    std::string vkPath = outputDir + "/final_decider_vk"; // the vk of the last circuit in the stack
     std::string accPath = outputDir + "/pg_acc";
     std::string proofPath = outputDir + "/client_ivc_proof";
     std::string translatorVkPath = outputDir + "/translator_vk";
@@ -378,12 +387,12 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
-    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
+    auto last_vk = std::make_shared<DeciderVerificationKey>(ivc.honk_vk);
+    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
-    write_file(vkPath, to_buffer(ivc.instance_vk));
+    write_file(vkPath, to_buffer(ivc.honk_vk));
     write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
     write_file(eccVkPath, to_buffer(eccvm_vk));
@@ -402,7 +411,7 @@ template <typename T> std::shared_ptr<T> read_to_shared_ptr(const std::filesyste
  *   an exit code of 0 will be returned for success and 1 for failure.
  *
  * @param proof_path Path to the file containing the serialized proof
- * @param vk_path Path to the file containing the serialized verification key of the final mega honk instance
+ * @param vk_path Path to the serialized verification key of the final (MegaHonk) circuit in the stack
  * @param accumualtor_path Path to the file containing the serialized protogalaxy accumulator
  * @return true (resp., false) if the proof is valid (resp., invalid).
  */
@@ -416,7 +425,7 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
     init_grumpkin_crs(1 << 15);
 
     const auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
-    const auto accumulator = read_to_shared_ptr<ClientIVC::VerifierInstance>(accumulator_path);
+    const auto accumulator = read_to_shared_ptr<ClientIVC::DeciderVerificationKey>(accumulator_path);
     accumulator->verification_key->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
     const auto final_vk = read_to_shared_ptr<ClientIVC::VerificationKey>(final_vk_path);
     const auto eccvm_vk = read_to_shared_ptr<ECCVMFlavor::VerificationKey>(eccvm_vk_path);
@@ -426,7 +435,7 @@ bool verify_client_ivc(const std::filesystem::path& proof_path,
     translator_vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
     const bool verified = ClientIVC::verify(
-        proof, accumulator, std::make_shared<ClientIVC::VerifierInstance>(final_vk), eccvm_vk, translator_vk);
+        proof, accumulator, std::make_shared<ClientIVC::DeciderVerificationKey>(final_vk), eccvm_vk, translator_vk);
     vinfo("verified: ", verified);
     return verified;
 }
@@ -440,6 +449,7 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
     init_grumpkin_crs(1 << 16);
 
     ClientIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     auto program_stack = acir_format::get_acir_program_stack(
@@ -451,10 +461,10 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
         auto stack_item = program_stack.back();
 
         // Construct a bberg circuit from the acir representation
-        auto circuit = acir_format::create_circuit<Builder>(
-            stack_item.constraints, 0, stack_item.witness, false, ivc.goblin.op_queue);
+        auto builder = acir_format::create_circuit<Builder>(
+            stack_item.constraints, 0, stack_item.witness, /*honk_recursion=*/false, ivc.goblin.op_queue);
 
-        ivc.accumulate(circuit);
+        ivc.accumulate(builder);
 
         program_stack.pop_back();
     }
@@ -477,11 +487,14 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     using Builder = Flavor::CircuitBuilder;
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
+    using DeciderVK = ClientIVC::DeciderVerificationKey;
 
     init_bn254_crs(1 << 22);
     init_grumpkin_crs(1 << 16);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     ClientIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     auto program_stack = acir_format::get_acir_program_stack(
@@ -503,7 +516,7 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 
     // Write the proof and verification keys into the working directory in  'binary' format (in practice it seems this
     // directory is passed by bb.js)
-    std::string vkPath = outputPath + "/inst_vk"; // the vk of the last instance
+    std::string vkPath = outputPath + "/final_decider_vk"; // the vk of the last circuit in the stack
     std::string accPath = outputPath + "/pg_acc";
     std::string proofPath = outputPath + "/client_ivc_proof";
     std::string translatorVkPath = outputPath + "/translator_vk";
@@ -513,12 +526,12 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_instance = std::make_shared<ClientIVC::VerifierInstance>(ivc.instance_vk);
-    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_instance }));
+    auto last_vk = std::make_shared<DeciderVK>(ivc.honk_vk);
+    vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
-    write_file(vkPath, to_buffer(ivc.instance_vk)); // maybe dereference
+    write_file(vkPath, to_buffer(ivc.honk_vk)); // maybe dereference
     write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
     write_file(eccVkPath, to_buffer(eccvm_vk));
@@ -533,8 +546,8 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
 void prove_tube(const std::string& output_path)
 {
     using ClientIVC = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
-    using NativeInstance = ClientIVC::FoldVerifierInput::Instance;
-    using InstanceFlavor = MegaFlavor;
+    using StackDeciderVK = ClientIVC::FoldVerifierInput::DeciderVK;
+    using StackHonkVK = typename MegaFlavor::VerificationKey;
     using ECCVMVk = ECCVMFlavor::VerificationKey;
     using TranslatorVk = TranslatorFlavor::VerificationKey;
     using FoldVerifierInput = ClientIVC::FoldVerifierInput;
@@ -543,7 +556,7 @@ void prove_tube(const std::string& output_path)
     using Builder = UltraCircuitBuilder;
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
 
-    std::string vkPath = output_path + "/inst_vk"; // the vk of the last instance
+    std::string vkPath = output_path + "/final_decider_vk"; // the vk of the last circuit in the stack
     std::string accPath = output_path + "/pg_acc";
     std::string proofPath = output_path + "/client_ivc_proof";
     std::string translatorVkPath = output_path + "/translator_vk";
@@ -555,10 +568,10 @@ void prove_tube(const std::string& output_path)
 
     // Read the proof  and verification data from given files
     auto proof = from_buffer<ClientIVC::Proof>(read_file(proofPath));
-    std::shared_ptr<InstanceFlavor::VerificationKey> instance_vk = std::make_shared<InstanceFlavor::VerificationKey>(
-        from_buffer<InstanceFlavor::VerificationKey>(read_file(vkPath)));
-    std::shared_ptr<NativeInstance> verifier_accumulator =
-        std::make_shared<NativeInstance>(from_buffer<NativeInstance>(read_file(accPath)));
+    std::shared_ptr<StackHonkVK> final_stack_vk =
+        std::make_shared<StackHonkVK>(from_buffer<StackHonkVK>(read_file(vkPath)));
+    std::shared_ptr<StackDeciderVK> verifier_accumulator =
+        std::make_shared<StackDeciderVK>(from_buffer<StackDeciderVK>(read_file(accPath)));
     std::shared_ptr<TranslatorVk> translator_vk =
         std::make_shared<TranslatorVk>(from_buffer<TranslatorVk>(read_file(translatorVkPath)));
     std::shared_ptr<ECCVMVk> eccvm_vk = std::make_shared<ECCVMVk>(from_buffer<ECCVMVk>(read_file(eccVkPath)));
@@ -567,7 +580,7 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025)
     eccvm_vk->pcs_verification_key = std::make_shared<GrumpkinVk>(eccvm_vk->circuit_size + 1);
 
-    FoldVerifierInput fold_verifier_input{ verifier_accumulator, { instance_vk } };
+    FoldVerifierInput fold_verifier_input{ verifier_accumulator, { final_stack_vk } };
     GoblinVerifierInput goblin_verifier_input{ eccvm_vk, translator_vk };
     VerifierInput input{ fold_verifier_input, goblin_verifier_input };
     auto builder = std::make_shared<Builder>();
@@ -575,10 +588,12 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and call
     // set_public on each witness
-    auto num_public_inputs = static_cast<size_t>(static_cast<uint256_t>(proof.folding_proof[1]));
-    for (size_t i = 0; i < num_public_inputs - bb::AGGREGATION_OBJECT_SIZE; i++) {
-        // We offset 3
-        builder->add_public_variable(proof.folding_proof[i + 3]);
+    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.folding_proof[1]));
+    num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
+    num_public_inputs -= 2 * 8;                       // don't add the databus return data commitments (2x)
+    for (size_t i = 0; i < num_public_inputs; i++) {
+        auto offset = acir_format::HONK_RECURSION_PUBLIC_INPUT_OFFSET;
+        builder->add_public_variable(proof.folding_proof[i + offset]);
     }
     ClientIVC verifier{ builder, input };
 
@@ -604,7 +619,7 @@ void prove_tube(const std::string& output_path)
 
     std::string tubeVkPath = output_path + "/vk";
     auto tube_verification_key =
-        std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.instance->proving_key);
+        std::make_shared<typename UltraFlavor::VerificationKey>(tube_prover.proving_key->proving_key);
     write_file(tubeVkPath, to_buffer(tube_verification_key));
 
     std::string tubeAsFieldsVkPath = output_path + "/vk_fields.json";
@@ -951,16 +966,11 @@ void avm_prove(const std::filesystem::path& bytecode_path,
     auto const [verification_key, proof] =
         AVM_TRACK_TIME_V("prove/all", avm_trace::Execution::prove(bytecode, calldata, public_inputs_vec, avm_hints));
 
-    std::vector<fr> vk_as_fields = { fr(verification_key.circuit_size), fr(verification_key.num_public_inputs) };
-
-    for (auto const& comm : verification_key.get_all()) {
-        std::vector<fr> comm_as_fields = field_conversion::convert_to_bn254_frs(comm);
-        vk_as_fields.insert(vk_as_fields.end(), comm_as_fields.begin(), comm_as_fields.end());
-    }
+    std::vector<fr> vk_as_fields = verification_key.to_field_elements();
 
     vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("circuit size: ", vk_as_fields[0]);
-    vinfo("num of pub inputs: ", vk_as_fields[1]);
+    vinfo("circuit size: ", static_cast<size_t>(vk_as_fields[0]));
+    vinfo("num of pub inputs: ", static_cast<size_t>(vk_as_fields[1]));
 
     std::string vk_json = to_json(vk_as_fields);
     const auto proof_path = output_path / "proof";
@@ -1009,18 +1019,22 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
     std::span vk_span(vk_as_fields);
 
     vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("circuit size: ", circuit_size);
+    vinfo("circuit size: ", circuit_size, " (next or eq power: 2^", numeric::round_up_power_2(circuit_size), ")");
     vinfo("num of pub inputs: ", num_public_inputs);
 
-    // Each commitment (precomputed entity) is represented as 2 Fq field elements.
-    // Each Fq element is split into two limbs of Fr elements.
-    // We therefore need 2 (circuit_size, num_public_inputs) + 4 * NUM_PRECOMPUTED_ENTITIES fr elements.
-    ASSERT(vk_as_fields.size() == 4 * AvmFlavor::NUM_PRECOMPUTED_ENTITIES + 2);
+    if (vk_as_fields.size() != AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS) {
+        info("The supplied avm vk has incorrect size. Number of fields: ",
+             vk_as_fields.size(),
+             " but expected: ",
+             AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS);
+        return false;
+    }
 
     std::array<Commitment, AvmFlavor::NUM_PRECOMPUTED_ENTITIES> precomputed_cmts;
     for (size_t i = 0; i < AvmFlavor::NUM_PRECOMPUTED_ENTITIES; i++) {
-        // Start at offset 2 and adds 4 fr elements per commitment. Therefore, index = 4 * i + 2.
-        precomputed_cmts[i] = field_conversion::convert_from_bn254_frs<Commitment>(vk_span.subspan(4 * i + 2, 4));
+        // Start at offset 2 and adds 4 (NUM_FRS_COM) fr elements per commitment. Therefore, index = 4 * i + 2.
+        precomputed_cmts[i] = field_conversion::convert_from_bn254_frs<Commitment>(
+            vk_span.subspan(AvmFlavor::NUM_FRS_COM * i + 2, AvmFlavor::NUM_FRS_COM));
     }
 
     auto vk = AvmFlavor::VerificationKey(circuit_size, num_public_inputs, precomputed_cmts);
@@ -1085,7 +1099,6 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
     auto proof = prover.construct_proof();
-
     if (outputPath == "-") {
         writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to stdout");
@@ -1142,11 +1155,11 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
 template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePath, const std::string& outputPath)
 {
     using Prover = UltraProver_<Flavor>;
-    using ProverInstance = ProverInstance_<Flavor>;
+    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, "");
-    ProverInstance& prover_inst = *prover.instance;
+    DeciderProvingKey& prover_inst = *prover.proving_key;
     VerificationKey vk(
         prover_inst.proving_key); // uses a partial form of the proving key which only has precomputed entities
 
@@ -1286,7 +1299,7 @@ void prove_honk_output_all(const std::string& bytecodePath,
     using VerificationKey = Flavor::VerificationKey;
 
     bool honk_recursion = false;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor>) {
         honk_recursion = true;
     }
 
@@ -1311,7 +1324,7 @@ void prove_honk_output_all(const std::string& bytecodePath,
     std::string proofFieldsPath = outputPath + "/proof_fields.json";
 
     VerificationKey vk(
-        prover.instance->proving_key); // uses a partial form of the proving key which only has precomputed entities
+        prover.proving_key->proving_key); // uses a partial form of the proving key which only has precomputed entities
 
     // Write the 'binary' proof
     write_file(proofPath, to_buffer</*include_size=*/true>(proof));
@@ -1397,7 +1410,7 @@ int main(int argc, char* argv[])
             std::filesystem::path output_dir = get_option(args, "-o", "./target");
             std::filesystem::path client_ivc_proof_path = output_dir / "client_ivc_proof";
             std::filesystem::path accumulator_path = output_dir / "pg_acc";
-            std::filesystem::path final_vk_path = output_dir / "inst_vk";
+            std::filesystem::path final_vk_path = output_dir / "final_decider_vk";
             std::filesystem::path eccvm_vk_path = output_dir / "ecc_vk";
             std::filesystem::path translator_vk_path = output_dir / "translator_vk";
 
@@ -1478,12 +1491,12 @@ int main(int argc, char* argv[])
         } else if (command == "prove_keccak_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk<UltraKeccakFlavor>(bytecode_path, witness_path, output_path);
-        } else if (command == "prove_keccak_ultra_honk_output_all") {
+        } else if (command == "prove_ultra_keccak_honk_output_all") {
             std::string output_path = get_option(args, "-o", "./proofs/proof");
             prove_honk_output_all<UltraKeccakFlavor>(bytecode_path, witness_path, output_path);
         } else if (command == "verify_ultra_honk") {
             return verify_honk<UltraFlavor>(proof_path, vk_path) ? 0 : 1;
-        } else if (command == "verify_keccak_ultra_honk") {
+        } else if (command == "verify_ultra_keccak_honk") {
             return verify_honk<UltraKeccakFlavor>(proof_path, vk_path) ? 0 : 1;
         } else if (command == "write_vk_ultra_honk") {
             std::string output_path = get_option(args, "-o", "./target/vk");
@@ -1508,6 +1521,9 @@ int main(int argc, char* argv[])
         } else if (command == "vk_as_fields_mega_honk") {
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields_honk<MegaFlavor>(vk_path, output_path);
+        } else if (command == "vk_as_fields_ultra_keccak_honk") {
+            std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
+            vk_as_fields_honk<UltraKeccakFlavor>(vk_path, output_path);
         } else {
             std::cerr << "Unknown command: " << command << "\n";
             return 1;

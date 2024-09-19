@@ -20,6 +20,10 @@ function parse_ts_file {
   grep -oE "\| '[^']+'" "$LOCAL_TS_FILE" | sed "s/| '//; s/'//g" >"$LOCAL_ENV_VAR_FILE"
 }
 
+function cleanup {
+  get_compose $@ down
+}
+
 CALLED_FROM=$PWD
 
 if [ "${1:-}" == "test" ]; then
@@ -27,22 +31,23 @@ if [ "${1:-}" == "test" ]; then
   cd $(dirname $0)/..
   # Compose file to use
   FILE_ARG="-f $HOME/.aztec/docker-compose.test.yml"
+
+  # Set trap to catch SIGINT and call the cleanup function.
+  trap "cleanup $FILE_ARG" SIGINT
+
   # Aztec contract test args for nargo
-  TEST_ARGS="$@ --silence-warnings --oracle-resolver http://aztec:8081"
-  get_compose -p aztec-test $FILE_ARG run -e NARGO_FOREIGN_CALL_TIMEOUT=300000 --workdir $CALLED_FROM --rm -it aztec-nargo $TEST_ARGS
+  export TEST_ARGS="$@ --silence-warnings --oracle-resolver http://txe:8081"
+  export NARGO_FOREIGN_CALL_TIMEOUT=300000
+  export WORKDIR=$CALLED_FROM
+  get_compose -p aztec-test $FILE_ARG up --force-recreate --remove-orphans --abort-on-container-exit
 elif [ $# == 2 ] && [ "$1" == "start" ] && [ "$2" == "--sandbox" ]; then
   # Change working dir, so relative volume mounts are in the right place.
   cd $(dirname $0)/..
   # Compose file to use
   FILE_ARG="-f $HOME/.aztec/docker-compose.sandbox.yml"
 
-  # Function to be executed when SIGINT is received.
-  cleanup() {
-    get_compose $FILE_ARG down
-  }
-
   # Set trap to catch SIGINT and call the cleanup function.
-  trap cleanup SIGINT
+  trap "cleanup $FILE_ARG" SIGINT
 
   get_compose -p sandbox $FILE_ARG up --force-recreate --remove-orphans
 elif [ "${1:-}" == "start" ]; then

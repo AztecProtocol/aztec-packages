@@ -24,10 +24,12 @@ fn split_to_public_succeeds() {
     builder.append_public_call_requests(2);
 
     let combined_data = builder.to_exposed_public_accumulated_data();
-    let (non_revertible, revertible) = split_to_public(
-        builder.to_private_accumulated_data_builder(),
-        builder.min_revertible_side_effect_counter
-    );
+    let (non_revertible, revertible) = unsafe {
+        split_to_public(
+            builder.to_private_accumulated_data_builder(),
+            builder.min_revertible_side_effect_counter
+        )
+    };
 
     // note_hashes
     let expected = combined_data.note_hashes;

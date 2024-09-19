@@ -2,18 +2,16 @@
 import { Command } from "commander";
 const program = new Command();
 import { chooseProject } from "./scripts/steps/chooseBox.js";
-import { sandboxInstallOrUpdate } from "./scripts/steps/sandbox/install.js";
 import axios from "axios";
 import pino from "pino";
 import pretty from "pino-pretty";
 import ora from "ora";
 import { AZTEC_REPO } from "./scripts/config.js";
-import { sandboxRunStep } from "./scripts/steps/sandbox/run.js";
 import { init } from "./scripts/init.js";
 
 const getLatestStable = async () => {
   const { data } = await axios.get(
-    `https://api.github.com/repos/AztecProtocol/aztec-packages/releases`,
+    `https://api.github.com/repos/AztecProtocol/aztec-packages/releases`
   );
   return data[0].tag_name.split("-v")[1];
 };
@@ -45,7 +43,7 @@ program
         },
         level: debug ? "debug" : "info",
       },
-      prettyStream,
+      prettyStream
     );
 
     global.debug = (msg) => logger.debug(msg);
@@ -101,16 +99,12 @@ program
   .command("new", { isDefault: true })
   .description("An Aztec project with a built-in development network")
   .option(
-    "-s, --skip-sandbox",
-    "skip sandbox installation and run after cloning",
-  )
-  .option(
     "-t, --project-type <projectType>",
-    "the type of the project to clone ('app' or 'contract')",
+    "the type of the project to clone ('app' or 'contract')"
   )
   .option(
     "-n, --project-name <projectName>",
-    "the name of the project to clone",
+    "the name of the project to clone"
   )
   .action(async (options) => {
     // this is some bad code, but it's def fun
@@ -121,16 +115,10 @@ program
       throw Error("You must define both the project type and the project name");
     }
 
-    const { projectType, projectName, skipSandbox } = options;
+    const { projectType, projectName } = options;
 
     // // STEP 1: Choose the boilerplate
     await chooseProject({ projectType, projectName });
-
-    if (skipSandbox) return;
-    // // STEP 2: Install the Sandbox
-    await sandboxInstallOrUpdate({ skipQuestion: skipSandbox });
-    // STEP 3: Running the Sandbox
-    await sandboxRunStep({ skipQuestion: skipSandbox });
   });
 
 program.parse();

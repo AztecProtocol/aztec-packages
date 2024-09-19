@@ -308,6 +308,17 @@ export class WorldStateDB implements CommitmentsDB {
     return index;
   }
 
+  public async getCommitmentValue(leafIndex: bigint): Promise<Fr | undefined> {
+    const timer = new Timer();
+    const leafValue = await this.db.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+    this.log.debug(`[DB] Fetched commitment leaf value`, {
+      eventName: 'public-db-access',
+      duration: timer.ms(),
+      operation: 'get-commitment-leaf-value',
+    } satisfies PublicDBAccessStats);
+    return leafValue;
+  }
+
   public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
     const timer = new Timer();
     const index = await this.db.findLeafIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBuffer());

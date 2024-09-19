@@ -28,7 +28,7 @@ class ProofSurgeon {
         std::vector<uint32_t> proof;
         proof.reserve(proof_in.size() + public_inputs.size());
 
-        // Construct a the complete proof as the concatenation {"initial data" | public_inputs | proof_in}
+        // Construct the complete proof as the concatenation {"initial data" | public_inputs | proof_in}
         proof.insert(proof.end(), proof_in.begin(), proof_in.begin() + HONK_RECURSION_PUBLIC_INPUT_OFFSET);
         proof.insert(proof.end(), public_inputs.begin(), public_inputs.end());
         proof.insert(proof.end(), proof_in.begin() + HONK_RECURSION_PUBLIC_INPUT_OFFSET, proof_in.end());

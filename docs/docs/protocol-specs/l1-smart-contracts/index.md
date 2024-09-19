@@ -21,7 +21,7 @@ When presented with a new [`ProvenBlock`](../rollup-circuits/root-rollup.md) and
 The `archive` used as public input is the archive after the new header is inserted (see [root rollup](./../rollup-circuits/root-rollup.md)).
 
 ```python
-def process(block: ProvenBlock, proof: Proof):
+def propose(block: ProvenBlock, proof: Proof):
     header = block.header
     block_number = header.global_variables.block_number
 
@@ -57,18 +57,14 @@ Namely, we need the cross-chain messages to be published to L1, but the rest of 
 :::info Validium or Rollup
 If a different data availability layer than Ethereum is used for the block body, we are effectively building a Validium.
 If we use Ethereum for the block body, we are building a Rollup.
+
+For more information around the requirements we have for the availability, see [Data Availability](../data-publication-and-availability/index.md).
 :::
 
 Using the data structures defined throughout the [rollup circuits](./../rollup-circuits/index.md) section, we can outline the validating light node structure as follows:
 
 ```mermaid
 classDiagram
-
-class AvailabilityOracle {
-    available: Map[Fr => bool]
-    mut publish(effects: TxEffect[]): Fr
-    is_available(txs_hash: Fr): bool
-}
 
 class Inbox {
     consume(): bytes32
@@ -84,9 +80,8 @@ class Verifier {
 
 class StateTransitioner {
     archive: Snapshot
-    process(header: Header, archive: Fr, proof: Proof)
+    propose(header: Header, archive: Fr, proof: Proof, body: Body)
 }
-StateTransitioner --> AvailabilityOracle: is_available()
 StateTransitioner --> Inbox: consume()
 StateTransitioner --> Outbox: insert()
 StateTransitioner --> Verifier: verify()
@@ -110,7 +105,6 @@ class StateTransitioner:
       slot_number: uint128
 
     VERIFIER: immutable(IVerifier)
-    AVAILABILITY_ORACLE: immutable(IAvailabilityOracle)
     INBOX: immutable(IInbox)
     OUTBOX: immutable(IOutbox)
     VERSION: immutable(uint256)
@@ -126,13 +120,14 @@ class StateTransitioner:
         self.blocks.append(BlockLog({archive: bytes32(0), slot_number: 0}))
         self.GENESIS_TIME = block.timestamp
 
-    def process(
+    def propose(
         self,
         header: Header,
         archive: Fr,
-        proof: Proof
+        proof: Proof,
+        body: Body
     ):
-        assert self.AVAILABILITY_ORACLE.is_available(header.content_commitment.txs_hash)
+        assert body.compute_commitment() == header.content_commitment
         assert self.validate_header(header)
         assert VERIFIER.verify(header, archive, proof)
         assert self.INBOX.consume() == header.content_commitment.in_hash
@@ -161,25 +156,6 @@ class StateTransitioner:
         assert header.archive == last_block.archive
         return True
 ```
-
-### Availability Oracle
-
-The state transitioner should be connected to an oracle which addresses the availability condition.
-
-For the case of a rollup, this "oracle" will be deriving the `TxsHash` from calldata and blobs.
-For a validium it should be connected to a bridge that it can use to verify that the data is available on the other chain.
-
-For a generic DA that publishes data commitments to Ethereum, the oracle could be a snark proof that opens the data commitment from the bridge and computes the `TxsHash` from it.
-
-By having the availability oracle be independent from state progression we can even do multi-transaction blocks, e.g., use multiple transactions or commitments from other DA layers to construct the `TxsHash` for a large block.
-
-For more information around the requirements we have for the availability oracle, see [Data Availability](../data-publication-and-availability/index.md).
-
-An interesting observation around the availability oracle is that the `OutHash` and `InHash` don't need to be explicitly proven available through it.
-The `InHash` is already proven as part of the L1 inbox, as we will see in a second.
-And the `OutHash` consists entirely of a subset of the contents of the `TxsHash`, which is already proven available.
-
-<!-- TODO: consider giving this registry an adjective to describe what it's for. We're seeing several registries in the aztec protocol, so need to distinguish them. -->
 
 ### Registry
 

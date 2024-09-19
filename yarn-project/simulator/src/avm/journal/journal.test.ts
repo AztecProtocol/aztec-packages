@@ -79,7 +79,7 @@ describe('journal', () => {
       const exists = await persistableState.checkNoteHashExists(address, utxo, leafIndex);
       expect(exists).toEqual(false);
       expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
-      expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(address, utxo, leafIndex, exists);
+      expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(address, Fr.ZERO, leafIndex, exists);
     });
 
     it('checkNoteHashExists works for existing note hashes', async () => {
@@ -126,7 +126,7 @@ describe('journal', () => {
       const exists = await persistableState.checkL1ToL2MessageExists(address, utxo, leafIndex);
       expect(exists).toEqual(false);
       expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledTimes(1);
-      expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledWith(address, utxo, leafIndex, exists);
+      expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledWith(address, Fr.ZERO, leafIndex, exists);
     });
 
     it('checkL1ToL2MessageExists works for existing message', async () => {

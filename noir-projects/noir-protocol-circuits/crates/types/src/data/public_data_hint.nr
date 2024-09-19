@@ -1,6 +1,6 @@
 use crate::{
-    public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, data::leaf_data_hint::LeafDataHint,
-    traits::Empty, merkle_tree::{MembershipWitness, conditionally_assert_check_membership},
+    data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage, traits::Empty,
+    merkle_tree::{MembershipWitness, conditionally_assert_check_membership},
     constants::PUBLIC_DATA_TREE_HEIGHT
 };
 
@@ -8,7 +8,7 @@ struct PublicDataHint {
     leaf_slot: Field,
     value: Field,
     override_counter: u32,
-    membership_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>, // Should be MembershipWitness<PUBLIC_DATA_TREE_HEIGHT> when we can handle generics when converting to ts types.
+    membership_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     leaf_preimage: PublicDataTreeLeafPreimage,
 }
 
@@ -37,20 +37,6 @@ impl PublicDataHint {
     }
 }
 
-impl LeafDataHint for PublicDataHint {
-    fn leaf_slot(self) -> Field {
-        self.leaf_slot
-    }
-
-    fn value(self) -> Field {
-        self.value
-    }
-    
-    fn override_counter(self) -> u32 {
-        self.override_counter
-    }
-}
-
 impl Empty for PublicDataHint {
     fn empty() -> Self {
         PublicDataHint {
@@ -58,7 +44,7 @@ impl Empty for PublicDataHint {
             value: 0,
             override_counter: 0,
             membership_witness: MembershipWitness::empty(),
-            leaf_preimage: PublicDataTreeLeafPreimage::empty(),
+            leaf_preimage: PublicDataTreeLeafPreimage::empty()
         }
     }
 }

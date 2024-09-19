@@ -1,15 +1,14 @@
 import { FunctionSelector, type GlobalVariables, type Header } from '@aztec/circuits.js';
-import { computeVarArgsHash } from '@aztec/circuits.js/hash';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 export class AvmContextInputs {
   static readonly SIZE = 2;
 
-  constructor(private argsHash: Fr, private isStaticCall: boolean) {}
+  constructor(private calldataSize: Fr, private isStaticCall: boolean) {}
 
   public toFields(): Fr[] {
-    return [this.argsHash, new Fr(this.isStaticCall)];
+    return [this.calldataSize, new Fr(this.isStaticCall)];
   }
 }
 
@@ -33,7 +32,7 @@ export class AvmExecutionEnvironment {
   ) {
     // We encode some extra inputs (AvmContextInputs) in calldata.
     // This will have to go once we move away from one proof per call.
-    const inputs = new AvmContextInputs(computeVarArgsHash(calldata), isStaticCall).toFields();
+    const inputs = new AvmContextInputs(new Fr(calldata.length), isStaticCall).toFields();
     this.calldata = [...inputs, ...calldata];
   }
 

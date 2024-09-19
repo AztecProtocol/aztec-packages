@@ -55,7 +55,7 @@ TYPED_TEST(CommitmentKeyTest, CommitSparse)
     Polynomial poly{ num_points };
     for (size_t i = 0; i < num_nonzero; ++i) {
         size_t idx = (i + 1) * (i + 1) % num_points;
-        poly[idx] = Fr::random_element();
+        poly.at(idx) = Fr::random_element();
     }
 
     // Commit to the polynomial using both the conventional commit method and the sparse commitment method
