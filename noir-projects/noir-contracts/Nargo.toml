@@ -25,7 +25,6 @@ members = [
     "contracts/escrow_contract",
     "contracts/fee_juice_contract",
     "contracts/import_test_contract",
-    "contracts/key_registry_contract",
     "contracts/inclusion_proofs_contract",
     "contracts/lending_contract",
     "contracts/nft_contract",

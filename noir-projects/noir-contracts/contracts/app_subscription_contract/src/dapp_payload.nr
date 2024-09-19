@@ -6,11 +6,11 @@ use dep::aztec::protocol_types::{
 
 use dep::authwit::entrypoint::function_call::FunctionCall;
 
-global DAPP_MAX_CALLS: u64 = 1;
+global DAPP_MAX_CALLS: u32 = 1;
 // FUNCTION_CALL_SIZE * DAPP_MAX_CALLS + 1
-global DAPP_PAYLOAD_SIZE: u64 = 6;
+global DAPP_PAYLOAD_SIZE: u32 = 6;
 // FUNCTION_CALL_SIZE_IN_BYTES * DAPP_MAX_CALLS + 32
-global DAPP_PAYLOAD_SIZE_IN_BYTES: u64 = 130;
+global DAPP_PAYLOAD_SIZE_IN_BYTES: u32 = 130;
 
 // Note: If you change the following struct you have to update default_entrypoint.ts
 // docs:start:app-payload-struct

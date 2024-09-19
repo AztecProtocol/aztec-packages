@@ -6,7 +6,7 @@ contract DelegatedOn {
     };
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        keys::getters::get_current_public_keys, utils::comparison::Comparator
+        keys::getters::get_public_keys, utils::comparison::Comparator
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -18,7 +18,7 @@ contract DelegatedOn {
 
     #[aztec(private)]
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
-        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
 
         let mut note = ValueNote::new(new_value, owner_npk_m_hash);
         storage.a_map_with_private_values.at(owner).insert(&mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));

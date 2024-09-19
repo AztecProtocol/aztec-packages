@@ -296,6 +296,10 @@ unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Fi
     calldata_copy_opcode(cdoffset, copy_size)
 }
 
+unconstrained fn avm_return<let N: u32>(returndata: [Field; N]) {
+    return_opcode(returndata)
+}
+
 unconstrained fn storage_read(storage_slot: Field) -> Field {
     storage_read_opcode(storage_slot)
 }
@@ -376,6 +380,9 @@ unconstrained fn send_l2_to_l1_msg_opcode(recipient: EthAddress, content: Field)
 
 #[oracle(avmOpcodeCalldataCopy)]
 unconstrained fn calldata_copy_opcode<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {}
+
+#[oracle(avmOpcodeReturn)]
+unconstrained fn return_opcode<let N: u32>(returndata: [Field; N]) {}
 
 #[oracle(avmOpcodeCall)]
 unconstrained fn call_opcode<let RET_SIZE: u32>(
