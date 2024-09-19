@@ -365,16 +365,13 @@ describe('Bitwise instructions', () => {
       const buf = Buffer.from([
         Opcode.NOT_16, // opcode
         0x01, // indirect
-        TypeTag.UINT64, // inTag
         ...Buffer.from('1234', 'hex'), // aOffset
         ...Buffer.from('3456', 'hex'), // dstOffset
       ]);
-      const inst = new Not(
-        /*indirect=*/ 0x01,
-        /*inTag=*/ TypeTag.UINT64,
-        /*aOffset=*/ 0x1234,
-        /*dstOffset=*/ 0x3456,
-      ).as(Opcode.NOT_16, Not.wireFormat16);
+      const inst = new Not(/*indirect=*/ 0x01, /*aOffset=*/ 0x1234, /*dstOffset=*/ 0x3456).as(
+        Opcode.NOT_16,
+        Not.wireFormat16,
+      );
 
       expect(Not.as(Not.wireFormat16).deserialize(buf)).toEqual(inst);
       expect(inst.serialize()).toEqual(buf);
@@ -385,7 +382,7 @@ describe('Bitwise instructions', () => {
 
       context.machineState.memory.set(0, a);
 
-      await new Not(/*indirect=*/ 0, /*inTag=*/ TypeTag.UINT16, /*aOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
+      await new Not(/*indirect=*/ 0, /*aOffset=*/ 0, /*dstOffset=*/ 1).execute(context);
 
       const expected = new Uint16(0b1001101100011011n); // high bits!
       const actual = context.machineState.memory.get(1);

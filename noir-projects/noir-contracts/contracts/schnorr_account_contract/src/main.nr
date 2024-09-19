@@ -11,7 +11,7 @@ contract SchnorrAccount {
         entrypoint::{app::AppPayload, fee::FeePayload}, account::AccountActions,
         auth_witness::get_auth_witness, auth::{compute_authwit_nullifier, compute_authwit_message_hash}
     };
-    use dep::aztec::{hash::compute_siloed_nullifier, keys::getters::get_current_public_keys};
+    use dep::aztec::{hash::compute_siloed_nullifier, keys::getters::get_public_keys};
     use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
 
     use crate::public_key_note::PublicKeyNote;
@@ -26,7 +26,7 @@ contract SchnorrAccount {
     #[aztec(initializer)]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
-        let this_keys = get_current_public_keys(&mut context, this);
+        let this_keys = get_public_keys(this);
         // Not emitting outgoing for msg_sender here to not have to register keys for the contract through which we
         // deploy this (typically MultiCallEntrypoint). I think it's ok here as I feel the outgoing here is not that
         // important.

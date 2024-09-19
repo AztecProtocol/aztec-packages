@@ -100,10 +100,10 @@ export async function debugRollup({ rpcUrl, chainId, rollupAddress, log }: Rollu
     client: publicClient,
   });
 
-  const pendingCount = await rollup.read.pendingBlockCount();
-  log(`Pending block count: ${pendingCount}`);
-  const provenCount = await rollup.read.provenBlockCount();
-  log(`Proven block count: ${provenCount}`);
+  const pendingNum = await rollup.read.getPendingBlockNumber();
+  log(`Pending block num: ${pendingNum}`);
+  const provenNum = await rollup.read.getProvenBlockNumber();
+  log(`Proven block num: ${provenNum}`);
   const validators = await rollup.read.getValidators();
   log(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
   const committee = await rollup.read.getCurrentEpochCommittee();

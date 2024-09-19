@@ -148,13 +148,13 @@ class AvmRangeCheckNegativeTests : public AvmInterTableTests {
 
     void SetUp() override { GTEST_SKIP(); }
 
-    void genTraceAdd(FF const& a, FF const& b, FF const& c, AvmMemoryTag tag, uint32_t min_trace_size = 0)
+    void genTraceAdd(FF const& a, FF const& b, FF const& c, AvmMemoryTag tag)
     {
         trace_builder.op_set(0, a, 0, tag);
         trace_builder.op_set(0, b, 1, tag);
         trace_builder.op_add(0, 0, 1, 2, tag); // 7 + 8 = 15
         trace_builder.op_return(0, 0, 0);
-        trace = trace_builder.finalize(min_trace_size);
+        trace = trace_builder.finalize();
 
         // Find the row with addition operation and retrieve clk.
         auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_add == FF(1); });
@@ -259,7 +259,7 @@ TEST_F(AvmRangeCheckNegativeTests, additionU8Reg1)
 // Out-of-range value in register u16_r0
 TEST_F(AvmRangeCheckNegativeTests, additionU16Reg0)
 {
-    genTraceAdd(1200, 2000, 3200, AvmMemoryTag::U16, 130);
+    genTraceAdd(1200, 2000, 3200, AvmMemoryTag::U16);
     auto& row = trace.at(main_row_idx);
     auto& mem_row = trace.at(mem_row_idx);
     auto& alu_row = trace.at(alu_row_idx);

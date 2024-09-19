@@ -17,7 +17,8 @@ class AvmMemOpcodeTests : public ::testing::Test {
   public:
     AvmMemOpcodeTests()
         : public_inputs(generate_base_public_inputs())
-        , trace_builder(AvmTraceBuilder(public_inputs))
+        , trace_builder(
+              AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
         srs::init_crs_factory("../srs_db/ignition");
     }
@@ -403,7 +404,7 @@ TEST_F(AvmMemOpcodeTests, indirectMovInvalidAddressTag)
                       MEM_ROW_FIELD_EQ(r_in_tag, static_cast<uint32_t>(AvmMemoryTag::U32)),
                       MEM_ROW_FIELD_EQ(sel_resolve_ind_addr_c, 1)));
 
-    validate_trace(std::move(trace), public_inputs, {}, {}, true);
+    validate_trace(std::move(trace), public_inputs, {}, {});
 }
 
 /******************************************************************************

@@ -87,7 +87,7 @@ namespace main(256);
     pol commit sel_op_ecadd;
     pol commit sel_op_pedersen_commit;
     pol commit sel_op_msm;
-    
+
     //===== Memory Slice Gadget Selectors =========================================
     pol commit sel_op_calldata_copy;
     pol commit sel_op_external_return;
@@ -100,18 +100,19 @@ namespace main(256);
 
     //===== CONTROL FLOW ==========================================================
     // Program counter
-    pol commit pc; 
+    pol commit pc;
     // Return Pointer
     pol commit internal_return_ptr;
     // Call Pointer (nested call)
     pol commit call_ptr;
-    
+
     pol commit sel_op_internal_call;
     pol commit sel_op_internal_return;
     pol commit sel_op_jump;
     pol commit sel_op_jumpi;
     pol commit sel_op_external_call;
-    
+    pol commit sel_op_static_call;
+
     // Memory Space Identifier
     pol commit space_id;
 
@@ -119,7 +120,7 @@ namespace main(256);
     pol commit sel_op_set;
     pol commit sel_op_mov;
     pol commit sel_op_cmov;
-    
+
     //===== TABLE SUBOP-TR ========================================================
     // Boolean selectors for (sub-)operations. Only one operation is activated at
     // a time.
@@ -146,7 +147,7 @@ namespace main(256);
     // Helper selector to characterize a Binary chiplet selector
     pol commit sel_bin;
 
-    // Instruction memory tags read/write (1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6: field)
+    // Instruction memory tags read/write (1: u1, 2: u8, 3: u16, 4: u32, 5: u64, 6: u128, 7: field)
     pol commit r_in_tag;
     pol commit w_in_tag;
     pol commit alu_in_tag; // Copy of r_in_tag or w_in_tag depending of the operation. It is sent to ALU trace.
@@ -170,7 +171,7 @@ namespace main(256);
     pol commit ib;
     pol commit ic;
     pol commit id;
-    
+
     // Memory operation selector per intermediate register
     // They signal that a memory operation is performed on the register.
     // This does NOT take into consideration indirections.
@@ -185,7 +186,7 @@ namespace main(256);
     pol commit rwb;
     pol commit rwc;
     pol commit rwd;
-    
+
     // Indirect register values
     // Cell ind_addr_x holds the indirect address to be resolved into mem_addr_ix.
     pol commit ind_addr_a;
@@ -207,11 +208,11 @@ namespace main(256);
     pol commit sel_resolve_ind_addr_b;
     pol commit sel_resolve_ind_addr_c;
     pol commit sel_resolve_ind_addr_d;
-  
+
     // Track the last line of the execution trace. It does NOT correspond to the last row of the whole table
     // of size N. As this depends on the supplied bytecode, this polynomial cannot be constant.
     pol commit sel_last;
-    
+
     // Relations on type constraints
     // TODO: Very likely, we can remove these constraints as the selectors should be derived during
     // opcode decomposition.
@@ -273,6 +274,7 @@ namespace main(256);
     sel_op_jump * (1 - sel_op_jump) = 0;
     sel_op_jumpi * (1 - sel_op_jumpi) = 0;
     sel_op_external_call * (1 - sel_op_external_call) = 0;
+    sel_op_static_call * (1 - sel_op_static_call) = 0;
 
     sel_op_calldata_copy * (1 - sel_op_calldata_copy) = 0;
     sel_op_external_return * (1 - sel_op_external_return) = 0;
@@ -311,17 +313,17 @@ namespace main(256);
     //      values should be written into these memory indices.
     //    - For indirect memory accesses, the memory trace constraints ensure that
     //      loaded values come from memory addresses with tag u32. This is enforced in the memory trace
-    //      where each memory entry with flag sel_resolve_ind_addr_x (for x = a,b,c,d) constrains r_int_tag == 3 (u32).
+    //      where each memory entry with flag sel_resolve_ind_addr_x (for x = a,b,c,d) constrains r_int_tag is u32.
     //
     // - ind_addr_a, ind_addr_b, ind_addr_c, ind_addr_d to u32 type: Should be guaranteed by bytecode validation and
     // instruction decomposition as only immediate 32-bit values should be written into the indirect registers.
     //
-    // - 0 <= r_in_tag, w_in_tag <= 6 // This should be constrained by the operation decomposition.
+    // - 0 <= r_in_tag, w_in_tag <= constants.MEM_TAG_FF // This should be constrained by the operation decomposition.
 
     //====== COMPARATOR OPCODES CONSTRAINTS =====================================
-    // Enforce that the tag for the ouput of EQ opcode is u8 (i.e. equal to 1).
-    #[OUTPUT_U8]
-    (sel_op_eq + sel_op_lte + sel_op_lt) * (w_in_tag - 1) = 0;
+    // Enforce that the tag for the ouput of EQ opcode is u1 (i.e. equal to 1).
+    #[OUTPUT_U1]
+    (sel_op_eq + sel_op_lte + sel_op_lt) * (w_in_tag - constants.MEM_TAG_U1) = 0;
 
     //====== FDIV OPCODE CONSTRAINTS ============================================
     // Relation for division over the finite field
@@ -340,13 +342,13 @@ namespace main(256);
     #[SUBOP_FDIV_ZERO_ERR2]
     (sel_op_fdiv + sel_op_div) * op_err * (1 - inv) = 0;
 
-    // Enforcement that instruction tags are FF (tag constant 6).
+    // Enforcement that instruction tags are FF
     // TODO: These 2 conditions might be removed and enforced through
     //       the bytecode decomposition instead.
     #[SUBOP_FDIV_R_IN_TAG_FF]
-    sel_op_fdiv * (r_in_tag - 6) = 0;
+    sel_op_fdiv * (r_in_tag - constants.MEM_TAG_FF) = 0;
     #[SUBOP_FDIV_W_IN_TAG_FF]
-    sel_op_fdiv * (w_in_tag - 6) = 0;
+    sel_op_fdiv * (w_in_tag - constants.MEM_TAG_FF) = 0;
 
     // op_err cannot be maliciously activated for a non-relevant
     // operation selector, i.e., op_err == 1 ==> sel_op_fdiv || sel_op_XXX || ...
@@ -364,10 +366,10 @@ namespace main(256);
     // For the finite field division, we could lower the degree from 4 to 3
     // (sel_op_fdiv - op_fdiv_err) * (ic * ib - ia) = 0;
     // Same for the relations related to the error activation:
-    // (ib * inv - 1 + op_fdiv_err) = 0 && op_err * (1 - inv) = 0 
+    // (ib * inv - 1 + op_fdiv_err) = 0 && op_err * (1 - inv) = 0
     // This works in combination with op_fdiv_err * (sel_op_fdiv - 1) = 0;
     // Drawback is the need to paralllelize the latter.
-    
+
     //===== CONTROL FLOW =======================================================
     // pol commit sel_halted;
     // sel_halted * (1 - sel_halted) = 0;
@@ -384,7 +386,7 @@ namespace main(256);
     //===== INTERNAL_CALL ======================================================
     // - The program counter in the next row should be equal to the value loaded from the ia register
     // - We then write the return location (pc + 1) into the call stack (in memory)
-    
+
     #[RETURN_POINTER_INCREMENT]
     sel_op_internal_call * (internal_return_ptr' - (internal_return_ptr + 1)) = 0;
     sel_op_internal_call * (internal_return_ptr - mem_addr_b) = 0;
@@ -394,9 +396,9 @@ namespace main(256);
     // TODO(md): Below relations may be removed through sub-op table lookup
     sel_op_internal_call * (rwb - 1) = 0;
     sel_op_internal_call * (sel_mem_op_b  - 1) = 0;
-    
+
     //===== INTERNAL_RETURN ===================================================
-    // - We load the memory pointer to be the internal_return_ptr 
+    // - We load the memory pointer to be the internal_return_ptr
     // - Constrain then next program counter to be the loaded value
     // - decrement the internal_return_ptr
 
@@ -411,7 +413,7 @@ namespace main(256);
 
     //===== CONTROL_FLOW_CONSISTENCY ============================================
     pol SEL_ALL_CTRL_FLOW = sel_op_jump + sel_op_jumpi + sel_op_internal_call
-                          + sel_op_internal_return + sel_op_external_call + sel_op_external_return;
+                          + sel_op_internal_return + sel_op_external_call + sel_op_static_call + sel_op_external_return;
     pol SEL_ALU_R_TAG = sel_op_add + sel_op_sub + sel_op_mul + sel_op_div + sel_op_not + sel_op_eq
                       + sel_op_lt + sel_op_lte + sel_op_shr + sel_op_shl;
     pol SEL_ALU_W_TAG = sel_op_cast;
@@ -542,9 +544,9 @@ namespace main(256);
     binary.start {binary.clk, binary.acc_ia, binary.acc_ib, binary.acc_ic, binary.op_id, binary.in_tag};
 
     #[PERM_MAIN_CONV]
-    sel_op_radix_le {clk, ia, ic, id}
+    sel_op_radix_le {clk, ia, ib, ic, id}
     is
-    conversion.sel_to_radix_le {conversion.clk, conversion.input, conversion.radix, conversion.num_limbs};
+    conversion.sel_to_radix_le {conversion.clk, conversion.input, conversion.radix, conversion.num_limbs, conversion.output_bits};
 
     // This will be enabled when we migrate just to sha256Compression, as getting sha256 to work with it is tricky.
     // #[PERM_MAIN_SHA256]

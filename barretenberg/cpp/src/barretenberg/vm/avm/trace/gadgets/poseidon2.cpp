@@ -12,6 +12,7 @@ std::vector<AvmPoseidon2TraceBuilder::Poseidon2TraceEntry> AvmPoseidon2TraceBuil
 void AvmPoseidon2TraceBuilder::reset()
 {
     poseidon2_trace.clear();
+    poseidon2_trace.shrink_to_fit(); // Reclaim memory.
 }
 
 std::array<FF, 4> AvmPoseidon2TraceBuilder::poseidon2_permutation(std::array<FF, 4> const& input,

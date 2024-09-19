@@ -1,8 +1,9 @@
 // An integration test for the p2p client to test req resp protocols
-import { mockTx } from '@aztec/circuit-types';
+import { type ClientProtocolCircuitVerifier, type WorldStateSynchronizer, mockTx } from '@aztec/circuit-types';
 import { EthAddress } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { getRandomPort } from '@aztec/foundation/testing';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig, openTmpStore } from '@aztec/kv-store/utils';
 
@@ -14,10 +15,9 @@ import { BootstrapNode } from '../../bootstrap/bootstrap.js';
 import { createP2PClient } from '../../client/index.js';
 import { MockBlockSource } from '../../client/mocks.js';
 import { type P2PClient } from '../../client/p2p_client.js';
-import { type BootnodeConfig, type P2PConfig } from '../../config.js';
+import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import { type TxPool } from '../../tx_pool/index.js';
 import { createLibP2PPeerId } from '../index.js';
-import { DEFAULT_P2P_REQRESP_CONFIG } from './config.js';
 
 /**
  * Mockify helper for testing purposes.
@@ -28,7 +28,7 @@ type Mockify<T> = {
 
 const TEST_TIMEOUT = 80000;
 
-const BOOT_NODE_UDP_PORT = 40400;
+const DEFAULT_BOOT_NODE_UDP_PORT = 40400;
 async function createBootstrapNode(port: number) {
   const peerId = await createLibP2PPeerId();
   const bootstrapNode = new BootstrapNode();
@@ -60,10 +60,14 @@ describe('Req Resp p2p client integration', () => {
   let attestationPool: Mockify<AttestationPool>;
   let blockSource: MockBlockSource;
   let kvStore: AztecKVStore;
+  let worldStateSynchronizer: WorldStateSynchronizer;
+  let proofVerifier: ClientProtocolCircuitVerifier;
+  let bootNodePort: number;
   const logger = createDebugLogger('p2p-client-integration-test');
 
   const makeBootstrapNode = async (): Promise<[BootstrapNode, string]> => {
-    const bootstrapNode = await createBootstrapNode(BOOT_NODE_UDP_PORT);
+    bootNodePort = (await getRandomPort()) || DEFAULT_BOOT_NODE_UDP_PORT;
+    const bootstrapNode = await createBootstrapNode(bootNodePort);
     const enr = bootstrapNode.getENR().encodeTxt();
     return [bootstrapNode, enr];
   };
@@ -73,9 +77,11 @@ describe('Req Resp p2p client integration', () => {
     const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfPeers);
     for (let i = 0; i < numberOfPeers; i++) {
       // Note these bindings are important
-      const addr = `127.0.0.1:${i + 1 + BOOT_NODE_UDP_PORT}`;
-      const listenAddr = `0.0.0.0:${i + 1 + BOOT_NODE_UDP_PORT}`;
+      const port = (await getRandomPort()) || bootNodePort + i + 1;
+      const addr = `127.0.0.1:${port}`;
+      const listenAddr = `0.0.0.0:${port}`;
       const config: P2PConfig & DataStoreConfig = {
+        ...getP2PDefaultConfig(),
         p2pEnabled: true,
         peerIdPrivateKey: peerIdPrivateKeys[i],
         tcpListenAddress: listenAddr, // run on port 0
@@ -91,9 +97,9 @@ describe('Req Resp p2p client integration', () => {
         maxPeerCount: 10,
         keepProvenTxsInPoolFor: 0,
         queryForIp: false,
+        l1ChainId: 31337,
         dataDirectory: undefined,
         l1Contracts: { rollupAddress: EthAddress.ZERO },
-        ...DEFAULT_P2P_REQRESP_CONFIG,
       };
 
       txPool = {
@@ -125,6 +131,8 @@ describe('Req Resp p2p client integration', () => {
         config,
         attestationPool as unknown as AttestationPool,
         blockSource,
+        proofVerifier,
+        worldStateSynchronizer,
         undefined,
         deps,
       );
