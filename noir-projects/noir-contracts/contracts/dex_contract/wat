@@ -1,0 +1,35 @@
+univ2 dex
+
+public fn join pool
+  // maybe could keep the owner private, idk
+
+pool has public balances
+
+
+swapper ->
+  pool: private fn swap(amount_in, min_amount_out)
+    token_in.unshield(from: swapper, to: pool, amount: amount_in) // transfer_from_to_public
+      authwit validation signed by the swapper (approval)
+      burns swapper notes
+      creates swapper change note
+      self.enqueue_public_call(increase_public_balance, pool, amount_in)
+
+    token_out.prepare_partial_balance_note(recipient: swapper) -> (id, log)
+      partial balance note = [balance_slot, recipient, randomness] // missing amount
+      stored in public storage
+      self.enqueue_public_call(store_partial_note(partial_note))
+          sstore
+
+    pxe.once_this_tx_is_included_in_a_block check for a note with amount whatever...
+
+    self.enqueue_public_call(settle_swap(amount_in, min_amount_out, partial note id for token out))
+      read balances
+      compute amount out given amont in and swap fee (swap fee is public) // note that the pool has already received the tokens!
+      check min amount out
+
+      emit event
+
+      token_out.transfer_into_partial_note(from: pool, amount: amount out, partial note id)
+        reduce pool balance
+        assert partial note id exists (transient storage)
+        finalize and commit partial note with amount out
