@@ -108,7 +108,7 @@ export class L2Block {
     const txsEffectsHash = body.getTxsEffectsHash();
 
     return L2Block.fromFields({
-      archive: makeAppendOnlyTreeSnapshot(1),
+      archive: makeAppendOnlyTreeSnapshot(l2BlockNum + 1),
       header: makeHeader(0, l2BlockNum, slotNumber ?? l2BlockNum, txsEffectsHash, inHash),
       body,
     });

@@ -23,7 +23,7 @@
 //! prevent other parsers from being tried afterward since there is no longer an error. Thus, they should
 //! be limited to cases like the above `fn` example where it is clear we shouldn't back out of the
 //! current parser to try alternative parsers in a `choice` expression.
-use self::path::as_trait_path;
+use self::path::{as_trait_path, type_path};
 use self::primitives::{
     interned_statement, interned_statement_expr, keyword, macro_quote_marker, mutable_reference,
     variable,
@@ -1150,6 +1150,7 @@ where
         variable(),
         literal(),
         as_trait_path(parse_type()).map(ExpressionKind::AsTraitPath),
+        type_path(parse_type()),
         macro_quote_marker(),
         interned_expr(),
         interned_statement_expr(),
@@ -1621,11 +1622,11 @@ mod test {
     #[test]
     fn statement_recovery() {
         let cases = vec![
-            Case { source: "let a = 4 + 3", expect: "let a: unspecified = (4 + 3)", errors: 0 },
+            Case { source: "let a = 4 + 3", expect: "let a = (4 + 3)", errors: 0 },
             Case { source: "let a: = 4 + 3", expect: "let a: error = (4 + 3)", errors: 1 },
-            Case { source: "let = 4 + 3", expect: "let $error: unspecified = (4 + 3)", errors: 1 },
-            Case { source: "let = ", expect: "let $error: unspecified = Error", errors: 2 },
-            Case { source: "let", expect: "let $error: unspecified = Error", errors: 3 },
+            Case { source: "let = 4 + 3", expect: "let $error = (4 + 3)", errors: 1 },
+            Case { source: "let = ", expect: "let $error = Error", errors: 2 },
+            Case { source: "let", expect: "let $error = Error", errors: 3 },
             Case { source: "foo = one two three", expect: "foo = one", errors: 1 },
             Case { source: "constrain", expect: "constrain Error", errors: 2 },
             Case { source: "assert", expect: "constrain Error", errors: 1 },
@@ -1659,7 +1660,7 @@ mod test {
             },
             Case {
                 source: "{ return 123; let foo = 4 + 3; }",
-                expect: concat!("{\n", "    Error\n", "    let foo: unspecified = (4 + 3)\n", "}"),
+                expect: concat!("{\n", "    Error\n", "    let foo = (4 + 3)\n", "}"),
                 errors: 1,
             },
             Case {
@@ -1709,7 +1710,7 @@ mod test {
                 expect: concat!(
                     "{\n",
                     "    if ({\n",
-                    "        let foo: unspecified = (bar { baz: 42 })\n",
+                    "        let foo = (bar { baz: 42 })\n",
                     "        (foo == (bar { baz: 42 }))\n",
                     "    }) {\n",
                     "    }\n",

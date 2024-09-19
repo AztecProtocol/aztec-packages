@@ -94,6 +94,7 @@ impl Default for AvmInstruction {
 #[derive(Copy, Clone, Debug)]
 pub enum AvmTypeTag {
     UNINITIALIZED,
+    UINT1,
     UINT8,
     UINT16,
     UINT32,
@@ -107,6 +108,7 @@ pub enum AvmTypeTag {
 /// Constants (as used by the SET instruction) can have size
 /// different from 32 bits
 pub enum AvmOperand {
+    U1 { value: u8 }, // same wire format as U8
     U8 { value: u8 },
     U16 { value: u16 },
     U32 { value: u32 },
@@ -118,6 +120,7 @@ pub enum AvmOperand {
 impl Display for AvmOperand {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            AvmOperand::U1 { value } => write!(f, " U1:{}", value),
             AvmOperand::U8 { value } => write!(f, " U8:{}", value),
             AvmOperand::U16 { value } => write!(f, " U16:{}", value),
             AvmOperand::U32 { value } => write!(f, " U32:{}", value),
@@ -131,6 +134,7 @@ impl Display for AvmOperand {
 impl AvmOperand {
     pub fn to_be_bytes(&self) -> Vec<u8> {
         match self {
+            AvmOperand::U1 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U8 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U16 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U32 { value } => value.to_be_bytes().to_vec(),

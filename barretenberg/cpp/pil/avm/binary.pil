@@ -13,7 +13,7 @@ namespace binary(256);
     pol commit acc_ib;
     pol commit acc_ic;
 
-    // This is the instruction tag {1,2,3,4,5} (restricted to not be a field)
+    // This is the instruction tag {1,2,3,4,5,6} (restricted to not be a field)
     // Operations over FF are not supported, it is assumed this exclusion is handled
     // outside of this subtrace.
 
@@ -37,7 +37,7 @@ namespace binary(256);
 
     // To support dynamically sized memory operands we use a counter against a lookup
     // This decrementing counter goes from [MEM_TAG, 0] where MEM_TAG is the number of bytes in the
-    // corresponding integer. i.e. MEM_TAG is between 1 (U8) and 16(U128).
+    // corresponding integer. i.e. MEM_TAG is between 1 (U8) and 16 (U128).
     // Consistency can be achieved with a lookup table between the instr_tag and bytes_length
     pol commit mem_tag_ctr;
     #[MEM_TAG_REL]

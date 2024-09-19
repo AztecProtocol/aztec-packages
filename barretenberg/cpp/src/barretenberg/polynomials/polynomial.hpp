@@ -69,6 +69,12 @@ template <typename Fr> class Polynomial {
         : Polynomial(coefficients, coefficients.size())
     {}
 
+    /**
+     * @brief Utility to efficiently construct a shift from the original polynomial.
+     *
+     * @param virtual_size the size of the polynomial to be shifted
+     * @return Polynomial
+     */
     static Polynomial shiftable(size_t virtual_size)
     {
         return Polynomial(/*actual size*/ virtual_size - 1, virtual_size, /*shiftable offset*/ 1);
