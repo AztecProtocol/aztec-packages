@@ -11,10 +11,7 @@ struct KeyValidationHint {
 
 impl Empty for KeyValidationHint {
     fn empty() -> Self {
-        KeyValidationHint {
-            sk_m: Scalar::empty(),
-            request_index: 0,
-        }
+        KeyValidationHint { sk_m: Scalar::empty(), request_index: 0 }
     }
 }
 

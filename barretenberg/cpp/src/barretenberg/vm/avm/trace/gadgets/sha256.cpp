@@ -19,6 +19,7 @@ std::vector<AvmSha256TraceBuilder::Sha256TraceEntry> AvmSha256TraceBuilder::fina
 void AvmSha256TraceBuilder::reset()
 {
     sha256_trace.clear();
+    sha256_trace.shrink_to_fit(); // Reclaim memory.
 }
 
 // Taken from barretenberg/crypto/sha256/sha256.cpp since it is not exposed directly

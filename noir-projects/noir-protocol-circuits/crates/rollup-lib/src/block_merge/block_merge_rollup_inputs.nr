@@ -14,9 +14,7 @@ struct BlockMergeRollupInputs {
 
 impl Empty for BlockMergeRollupInputs {
     fn empty() -> Self {
-        BlockMergeRollupInputs {
-            previous_rollup_data: [PreviousRollupBlockData::empty(); 2]
-        }
+        BlockMergeRollupInputs { previous_rollup_data: [PreviousRollupBlockData::empty(); 2] }
     }
 }
 

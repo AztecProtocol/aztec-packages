@@ -142,7 +142,7 @@ impl Empty for BlockRootRollupInputs {
             start_archive_snapshot: AppendOnlyTreeSnapshot::zero(),
             new_archive_sibling_path: [0; ARCHIVE_HEIGHT],
             previous_block_hash: 0,
-            prover_id: 0,
+            prover_id: 0
         }
     }
 }

@@ -3,18 +3,17 @@ mod lib;
 contract FeeJuice {
     use dep::aztec::{
         protocol_types::{
-        contract_class_id::ContractClassId, abis::function_selector::FunctionSelector,
-        address::{AztecAddress, EthAddress},
+        contract_class_id::ContractClassId, address::{AztecAddress, EthAddress},
         constants::{DEPLOYER_CONTRACT_ADDRESS, REGISTERER_CONTRACT_ADDRESS, FEE_JUICE_INITIAL_MINT}
     },
         state_vars::{SharedImmutable, PublicMutable, Map},
-        oracle::get_contract_instance::get_contract_instance, deploy::deploy_contract
+        oracle::get_contract_instance::get_contract_instance
     };
 
     use dep::deployer::ContractInstanceDeployer;
     use dep::registerer::ContractClassRegisterer;
 
-    use crate::lib::{calculate_fee, get_bridge_gas_msg_hash};
+    use crate::lib::get_bridge_gas_msg_hash;
 
     #[aztec(storage)]
     struct Storage {

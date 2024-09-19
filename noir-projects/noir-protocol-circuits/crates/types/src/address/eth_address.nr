@@ -5,16 +5,14 @@ struct EthAddress{
 }
 
 impl Eq for EthAddress {
-    fn eq(self, other : Self) -> bool {
+    fn eq(self, other: Self) -> bool {
         self.to_field() == other.to_field()
     }
 }
 
 impl Empty for EthAddress {
     fn empty() -> Self {
-        Self {
-            inner : 0
-        }
+        Self { inner: 0 }
     }
 }
 

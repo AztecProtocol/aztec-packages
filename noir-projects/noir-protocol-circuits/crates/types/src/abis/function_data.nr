@@ -10,8 +10,7 @@ struct FunctionData {
 
 impl Eq for FunctionData {
     fn eq(self, other: Self) -> bool {
-        self.selector.eq(other.selector) &
-        (self.is_private == other.is_private)
+        self.selector.eq(other.selector) & (self.is_private == other.is_private)
     }
 }
 
@@ -22,28 +21,21 @@ impl Serialize<FUNCTION_DATA_LENGTH> for FunctionData {
     fn serialize(self) -> [Field; FUNCTION_DATA_LENGTH] {
         [
             self.selector.to_field(),
-            self.is_private as Field,
+            self.is_private as Field
         ]
     }
 }
 
 impl Deserialize<FUNCTION_DATA_LENGTH> for FunctionData {
     fn deserialize(serialized: [Field; FUNCTION_DATA_LENGTH]) -> Self {
-        Self {
-            selector: FunctionSelector::from_field(serialized[0]),
-            is_private: serialized[1] as bool,
-        }
+        Self { selector: FunctionSelector::from_field(serialized[0]), is_private: serialized[1] as bool }
     }
 }
 
 impl Empty for FunctionData {
     fn empty() -> Self {
-        FunctionData {
-            selector: FunctionSelector::empty(),
-            is_private: false
-        }
+        FunctionData { selector: FunctionSelector::empty(), is_private: false }
     }
-
 }
 
 #[test]

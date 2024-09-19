@@ -29,36 +29,27 @@ impl PublicDataUpdateRequest {
 }
 
 impl Ordered for PublicDataUpdateRequest {
-    fn counter(self)-> u32{
+    fn counter(self) -> u32 {
         self.counter
     }
 }
 
 impl Eq for PublicDataUpdateRequest {
     fn eq(self, update_request: PublicDataUpdateRequest) -> bool {
-        (update_request.leaf_slot == self.leaf_slot)
-            & (update_request.new_value == self.new_value)
+        (update_request.leaf_slot == self.leaf_slot) & (update_request.new_value == self.new_value)
     }
 }
 
 impl Empty for PublicDataUpdateRequest {
     fn empty() -> Self {
-        Self {
-            leaf_slot : 0,
-            new_value : 0,
-            counter : 0
-        }
+        Self { leaf_slot: 0, new_value: 0, counter: 0 }
     }
 }
 
 impl From<PublicDataUpdateRequest> for PublicDataTreeLeaf {
     fn from(update_request: PublicDataUpdateRequest) -> PublicDataTreeLeaf {
-        PublicDataTreeLeaf {
-            slot: update_request.leaf_slot,
-            value: update_request.new_value
-        }
+        PublicDataTreeLeaf { slot: update_request.leaf_slot, value: update_request.new_value }
     }
-
 }
 
 impl PublicDataUpdateRequest {
@@ -68,19 +59,15 @@ impl PublicDataUpdateRequest {
 }
 
 impl Serialize<PUBLIC_DATA_UPDATE_REQUEST_LENGTH> for PublicDataUpdateRequest {
-  fn serialize(self) -> [Field; PUBLIC_DATA_UPDATE_REQUEST_LENGTH] {
-    [self.leaf_slot, self.new_value, self.counter as Field]
-  }
+    fn serialize(self) -> [Field; PUBLIC_DATA_UPDATE_REQUEST_LENGTH] {
+        [self.leaf_slot, self.new_value, self.counter as Field]
+    }
 }
 
 impl Deserialize<PUBLIC_DATA_UPDATE_REQUEST_LENGTH> for PublicDataUpdateRequest {
-  fn deserialize(fields: [Field; PUBLIC_DATA_UPDATE_REQUEST_LENGTH]) -> PublicDataUpdateRequest {
-    PublicDataUpdateRequest {
-      leaf_slot: fields[0],
-      new_value: fields[1],
-        counter: fields[2] as u32
+    fn deserialize(fields: [Field; PUBLIC_DATA_UPDATE_REQUEST_LENGTH]) -> PublicDataUpdateRequest {
+        PublicDataUpdateRequest { leaf_slot: fields[0], new_value: fields[1], counter: fields[2] as u32 }
     }
-  }
 }
 
 #[test]

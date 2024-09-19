@@ -31,67 +31,67 @@ struct BaseOrMergeRollupPublicInputs {
 impl Empty for BaseOrMergeRollupPublicInputs {
     fn empty() -> Self {
         BaseOrMergeRollupPublicInputs {
-            rollup_type : 0 as u32,
-            num_txs : 0 as u32,
-            constants : ConstantRollupData::empty(),
+            rollup_type: 0 as u32,
+            num_txs: 0 as u32,
+            constants: ConstantRollupData::empty(),
             start: PartialStateReference::empty(),
             end: PartialStateReference::empty(),
-            txs_effects_hash : 0,
-            out_hash : 0,
+            txs_effects_hash: 0,
+            out_hash: 0,
             accumulated_fees: 0
         }
     }
 }
 
 impl Eq for BaseOrMergeRollupPublicInputs {
-  fn eq(self, other: Self) -> bool {
-    (self.rollup_type == other.rollup_type) &
-    (self.num_txs == other.num_txs) &
-    (self.constants.eq(other.constants)) &
-    (self.start.eq(other.start)) &
-    (self.end.eq(other.end)) &
-    (self.txs_effects_hash == other.txs_effects_hash) &
-    (self.out_hash == other.out_hash) &
-    (self.accumulated_fees == other.accumulated_fees)
-  }
+    fn eq(self, other: Self) -> bool {
+        (self.rollup_type == other.rollup_type)
+            & (self.num_txs == other.num_txs)
+            & (self.constants.eq(other.constants))
+            & (self.start.eq(other.start))
+            & (self.end.eq(other.end))
+            & (self.txs_effects_hash == other.txs_effects_hash)
+            & (self.out_hash == other.out_hash)
+            & (self.accumulated_fees == other.accumulated_fees)
+    }
 }
 
 impl Serialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicInputs {
-  fn serialize(self) -> [Field; BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH] {
-    let mut fields: BoundedVec<Field, BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
+    fn serialize(self) -> [Field; BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH] {
+        let mut fields: BoundedVec<Field, BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> = BoundedVec::new();
 
-    fields.push(self.rollup_type as Field);
-    fields.push(self.num_txs as Field);
-    fields.extend_from_array(self.constants.serialize());
-    fields.extend_from_array(self.start.serialize());
-    fields.extend_from_array(self.end.serialize());
-    fields.push(self.txs_effects_hash as Field);
-    fields.push(self.out_hash as Field);
-    fields.push(self.accumulated_fees as Field);
+        fields.push(self.rollup_type as Field);
+        fields.push(self.num_txs as Field);
+        fields.extend_from_array(self.constants.serialize());
+        fields.extend_from_array(self.start.serialize());
+        fields.extend_from_array(self.end.serialize());
+        fields.push(self.txs_effects_hash as Field);
+        fields.push(self.out_hash as Field);
+        fields.push(self.accumulated_fees as Field);
 
-    assert_eq(fields.len(), BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH);
+        assert_eq(fields.len(), BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH);
 
-    fields.storage
-  }
+        fields.storage
+    }
 }
 
 impl Deserialize<BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH> for BaseOrMergeRollupPublicInputs {
-  fn deserialize(fields: [Field; BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH]) -> BaseOrMergeRollupPublicInputs {
-    let mut reader = Reader::new(fields);
-    let item = Self {
-        rollup_type: reader.read() as u32,
-        num_txs: reader.read() as u32,
-        constants: reader.read_struct(ConstantRollupData::deserialize),
-        start: reader.read_struct(PartialStateReference::deserialize),
-        end: reader.read_struct(PartialStateReference::deserialize),
-        txs_effects_hash: reader.read(),
-        out_hash: reader.read(),
-        accumulated_fees: reader.read()
-    };
+    fn deserialize(fields: [Field; BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH]) -> BaseOrMergeRollupPublicInputs {
+        let mut reader = Reader::new(fields);
+        let item = Self {
+            rollup_type: reader.read() as u32,
+            num_txs: reader.read() as u32,
+            constants: reader.read_struct(ConstantRollupData::deserialize),
+            start: reader.read_struct(PartialStateReference::deserialize),
+            end: reader.read_struct(PartialStateReference::deserialize),
+            txs_effects_hash: reader.read(),
+            out_hash: reader.read(),
+            accumulated_fees: reader.read()
+        };
 
-    reader.finish();
-    item
-  }
+        reader.finish();
+        item
+    }
 }
 
 #[test]

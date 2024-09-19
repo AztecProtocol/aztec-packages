@@ -36,15 +36,16 @@ impl GasSettings {
 
 impl Eq for GasSettings {
     fn eq(self, other: Self) -> bool {
-        (self.gas_limits == other.gas_limits) & (self.teardown_gas_limits == other.teardown_gas_limits) & (self.max_fees_per_gas == other.max_fees_per_gas) & (self.inclusion_fee == other.inclusion_fee)
+        (self.gas_limits == other.gas_limits)
+            & (self.teardown_gas_limits == other.teardown_gas_limits)
+            & (self.max_fees_per_gas == other.max_fees_per_gas)
+            & (self.inclusion_fee == other.inclusion_fee)
     }
 }
 
 impl Empty for GasSettings {
     fn empty() -> Self {
-        GasSettings::new(
-            Gas::empty(), Gas::empty(), GasFees::empty(), 0
-        )
+        GasSettings::new(Gas::empty(), Gas::empty(), GasFees::empty(), 0)
     }
 }
 
@@ -64,7 +65,12 @@ impl Serialize<GAS_SETTINGS_LENGTH> for GasSettings {
 impl Deserialize<GAS_SETTINGS_LENGTH> for GasSettings {
     fn deserialize(serialized: [Field; GAS_SETTINGS_LENGTH]) -> GasSettings {
         let mut reader = Reader::new(serialized);
-        GasSettings::new(reader.read_struct(Gas::deserialize), reader.read_struct(Gas::deserialize), reader.read_struct(GasFees::deserialize), reader.read())
+        GasSettings::new(
+            reader.read_struct(Gas::deserialize),
+            reader.read_struct(Gas::deserialize),
+            reader.read_struct(GasFees::deserialize),
+            reader.read()
+        )
     }
 }
 

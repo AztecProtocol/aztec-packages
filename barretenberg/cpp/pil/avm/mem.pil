@@ -1,4 +1,5 @@
 include "main.pil";
+include "constants_gen.pil";
 include "./gadgets/range_check.pil";
 
 namespace mem(256);
@@ -8,7 +9,7 @@ namespace mem(256);
     pol commit addr;
     pol commit space_id;
     pol commit glob_addr;
-    pol commit tag; // Memory tag (0: uninitialized, 1: u8, 2: u16, 3: u32, 4: u64, 5: u128, 6:field)
+    pol commit tag; // Memory tag (0: uninitialized, 1: u1, 2: u8, 3: u16, 4: u32, 5: u64, 6: u128, 7:field)
     pol commit val;
     pol commit rw; // Enum: 0 (read), 1 (write)
     pol commit lastAccess; // Boolean (1 when this row is the last of a given address)
@@ -223,11 +224,11 @@ namespace mem(256);
     rw * tag_err = 0;
 
     //====== Indirect Memory Constraints =====================================
-    // Enforce r_in_tag == 3, i.e., r_in_tag must be U32
-    sel_resolve_ind_addr_a * (r_in_tag - 3) = 0;
-    sel_resolve_ind_addr_b * (r_in_tag - 3) = 0;
-    sel_resolve_ind_addr_c * (r_in_tag - 3) = 0;
-    sel_resolve_ind_addr_d * (r_in_tag - 3) = 0;
+    // Enforce r_in_tag is U32
+    sel_resolve_ind_addr_a * (r_in_tag - constants.MEM_TAG_U32) = 0;
+    sel_resolve_ind_addr_b * (r_in_tag - constants.MEM_TAG_U32) = 0;
+    sel_resolve_ind_addr_c * (r_in_tag - constants.MEM_TAG_U32) = 0;
+    sel_resolve_ind_addr_d * (r_in_tag - constants.MEM_TAG_U32) = 0;
 
     // Indirect operation is always a load
     sel_resolve_ind_addr_a * rw = 0;
@@ -236,19 +237,19 @@ namespace mem(256);
     sel_resolve_ind_addr_d * rw = 0;
 
     //====== CALLDATACOPY/RETURN specific constraints ==================================
-    sel_op_slice * (w_in_tag - 6) = 0; // Only write elements of type FF
-    sel_op_slice * (r_in_tag - 6) = 0; // Only read elements of type FF
+    sel_op_slice * (w_in_tag - constants.MEM_TAG_FF) = 0; // Only write elements of type FF
+    sel_op_slice * (r_in_tag - constants.MEM_TAG_FF) = 0; // Only read elements of type FF
 
     //====== POSEIDON2 specific constraints ==================================
-    sel_op_poseidon_read_a * (w_in_tag - 6) = 0; // Only read elements of type FF
-    sel_op_poseidon_read_b * (w_in_tag - 6) = 0; // Only read elements of type FF
-    sel_op_poseidon_read_c * (w_in_tag - 6) = 0; // Only read elements of type FF
-    sel_op_poseidon_read_d * (w_in_tag - 6) = 0; // Only read elements of type FF
+    sel_op_poseidon_read_a * (w_in_tag - constants.MEM_TAG_FF) = 0; // Only read elements of type FF
+    sel_op_poseidon_read_b * (w_in_tag - constants.MEM_TAG_FF) = 0; // Only read elements of type FF
+    sel_op_poseidon_read_c * (w_in_tag - constants.MEM_TAG_FF) = 0; // Only read elements of type FF
+    sel_op_poseidon_read_d * (w_in_tag - constants.MEM_TAG_FF) = 0; // Only read elements of type FF
 
-    sel_op_poseidon_write_a * (r_in_tag - 6) = 0; // Only write elements of type FF
-    sel_op_poseidon_write_b * (r_in_tag - 6) = 0; // Only write elements of type FF
-    sel_op_poseidon_write_c * (r_in_tag - 6) = 0; // Only write elements of type FF
-    sel_op_poseidon_write_d * (r_in_tag - 6) = 0; // Only write elements of type FF
+    sel_op_poseidon_write_a * (r_in_tag - constants.MEM_TAG_FF) = 0; // Only write elements of type FF
+    sel_op_poseidon_write_b * (r_in_tag - constants.MEM_TAG_FF) = 0; // Only write elements of type FF
+    sel_op_poseidon_write_c * (r_in_tag - constants.MEM_TAG_FF) = 0; // Only write elements of type FF
+    sel_op_poseidon_write_d * (r_in_tag - constants.MEM_TAG_FF) = 0; // Only write elements of type FF
 
     //====== MOV/CMOV Opcode Tag Constraint =====================================
     // The following constraint ensures that the r_in_tag is set to tag for

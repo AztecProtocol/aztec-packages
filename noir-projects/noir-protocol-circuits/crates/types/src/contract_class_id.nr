@@ -30,7 +30,7 @@ impl Serialize<1> for ContractClassId {
 }
 
 impl Deserialize<1> for ContractClassId {
-  fn deserialize(fields: [Field; 1]) -> Self {
+    fn deserialize(fields: [Field; 1]) -> Self {
         Self { inner: fields[0] }
     }
 }

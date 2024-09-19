@@ -70,7 +70,7 @@ impl Empty for PublicAccumulatedDataBuilder {
             unencrypted_logs_hashes: BoundedVec::new(),
             public_data_update_requests: BoundedVec::new(),
             public_call_stack: BoundedVec::new(),
-            gas_used: Gas::empty(),
+            gas_used: Gas::empty()
         }
     }
 }

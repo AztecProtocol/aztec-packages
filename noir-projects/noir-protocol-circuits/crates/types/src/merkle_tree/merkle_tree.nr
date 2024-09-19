@@ -7,10 +7,7 @@ struct MerkleTree<let N: u32> {
 
 impl<let N: u32> Empty for MerkleTree<N> {
     fn empty() -> Self {
-        MerkleTree {
-            leaves: [0; N],
-            nodes: [0; N]
-        }
+        MerkleTree { leaves: [0; N], nodes: [0; N] }
     }
 }
 

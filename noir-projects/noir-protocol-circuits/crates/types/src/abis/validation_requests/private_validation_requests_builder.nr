@@ -45,7 +45,7 @@ impl Empty for PrivateValidationRequestsBuilder {
             note_hash_read_requests: BoundedVec::new(),
             nullifier_read_requests: BoundedVec::new(),
             scoped_key_validation_requests_and_generators: BoundedVec::new(),
-            split_counter: Option::none(),
+            split_counter: Option::none()
         }
     }
 }

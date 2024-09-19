@@ -18,17 +18,17 @@ impl Empty for TxRequest {
             origin: AztecAddress::empty(),
             args_hash: 0,
             tx_context: TxContext::empty(),
-            function_data: FunctionData::empty(),
+            function_data: FunctionData::empty()
         }
     }
 }
 
 impl Eq for TxRequest {
     fn eq(self, other: Self) -> bool {
-        (self.origin == other.origin) &
-        (self.args_hash == other.args_hash) &
-        (self.tx_context == other.tx_context) &
-        (self.function_data == other.function_data)
+        (self.origin == other.origin)
+            & (self.args_hash == other.args_hash)
+            & (self.tx_context == other.tx_context)
+            & (self.function_data == other.function_data)
     }
 }
 
@@ -62,7 +62,7 @@ impl Deserialize<TX_REQUEST_LENGTH> for TxRequest {
             origin: reader.read_struct(AztecAddress::deserialize),
             args_hash: reader.read(),
             tx_context: reader.read_struct(TxContext::deserialize),
-            function_data: reader.read_struct(FunctionData::deserialize),
+            function_data: reader.read_struct(FunctionData::deserialize)
         };
 
         reader.finish();

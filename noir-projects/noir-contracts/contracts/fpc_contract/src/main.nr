@@ -2,8 +2,8 @@ mod lib;
 
 contract FPC {
     use dep::aztec::{
-        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::is_empty},
-        state_vars::SharedImmutable, context::gas::GasOpts
+        protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress},
+        state_vars::SharedImmutable
     };
     use dep::token::Token;
     use crate::lib::compute_rebate;

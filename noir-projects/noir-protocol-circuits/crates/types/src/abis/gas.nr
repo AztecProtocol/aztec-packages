@@ -56,7 +56,7 @@ impl Deserialize<GAS_LENGTH> for Gas {
 }
 
 impl Eq for Gas {
-    fn eq(self, other : Gas) -> bool {
+    fn eq(self, other: Gas) -> bool {
         (self.da_gas == other.da_gas) & (self.l2_gas == other.l2_gas)
     }
 }

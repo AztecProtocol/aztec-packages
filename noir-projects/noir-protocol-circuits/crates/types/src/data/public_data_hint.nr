@@ -44,7 +44,7 @@ impl Empty for PublicDataHint {
             value: 0,
             override_counter: 0,
             membership_witness: MembershipWitness::empty(),
-            leaf_preimage: PublicDataTreeLeafPreimage::empty(),
+            leaf_preimage: PublicDataTreeLeafPreimage::empty()
         }
     }
 }

@@ -176,7 +176,8 @@ resource "aws_ecs_task_definition" "aztec-bot" {
         { name = "BOT_SKIP_PUBLIC_SIMULATION", value = tostring(var.BOT_SKIP_PUBLIC_SIMULATION) },
         { name = "BOT_L2_GAS_LIMIT", value = var.BOT_L2_GAS_LIMIT },
         { name = "BOT_DA_GAS_LIMIT", value = var.BOT_DA_GAS_LIMIT },
-        { name = "LOG_JSON", value = "1" }
+        { name = "LOG_JSON", value = "1" },
+        { name = "BOT_TOKEN_CONTRACT", value = var.BOT_TOKEN_CONTRACT }
       ]
       logConfiguration = {
         logDriver = "awslogs"

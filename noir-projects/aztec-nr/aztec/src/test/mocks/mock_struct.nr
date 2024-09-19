@@ -1,4 +1,4 @@
-use dep::protocol_types::traits::{Eq, Serialize, Deserialize};
+use dep::protocol_types::traits::{Serialize, Deserialize};
 
 struct MockStruct {
     a: Field,

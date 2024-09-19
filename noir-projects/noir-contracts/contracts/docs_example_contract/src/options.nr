@@ -1,18 +1,22 @@
 use crate::types::card_note::{CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN};
-use dep::aztec::prelude::{AztecAddress, NoteGetterOptions};
+use dep::aztec::prelude::NoteGetterOptions;
 
 use dep::aztec::protocol_types::constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL;
-use dep::aztec::note::note_getter_options::{Sort, SortOrder};
+use dep::aztec::{note::note_getter_options::SortOrder, utils::comparison::Comparator};
 
 // Shows how to use NoteGetterOptions and query for notes.
 
 // docs:start:state_vars-NoteGetterOptionsSelectSortOffset
-pub fn create_points_card_getter_options(
-    points: Field,
+pub fn create_npk_card_getter_options(
+    account_npk_m_hash: Field,
     offset: u32
 ) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN, Field, Field> {
     let mut options = NoteGetterOptions::new();
-    options.select(CardNote::properties().points, points, Option::none()).sort(CardNote::properties().points, SortOrder.DESC).set_offset(offset)
+    options.select(
+        CardNote::properties().npk_m_hash,
+        Comparator.EQ,
+        account_npk_m_hash
+    ).sort(CardNote::properties().points, SortOrder.DESC).set_offset(offset)
 }
 // docs:end:state_vars-NoteGetterOptionsSelectSortOffset
 
@@ -23,10 +27,10 @@ pub fn create_exact_card_getter_options(
     account_npk_m_hash: Field
 ) -> NoteGetterOptions<CardNote, CARD_NOTE_LEN, CARD_NOTE_BYTES_LEN, Field, Field> {
     let mut options = NoteGetterOptions::new();
-    options.select(CardNote::properties().points, points as Field, Option::none()).select(CardNote::properties().randomness, secret, Option::none()).select(
+    options.select(CardNote::properties().points, Comparator.EQ, points as Field).select(CardNote::properties().randomness, Comparator.EQ, secret).select(
         CardNote::properties().npk_m_hash,
-        account_npk_m_hash,
-        Option::none()
+        Comparator.EQ,
+        account_npk_m_hash
     )
 }
 // docs:end:state_vars-NoteGetterOptionsMultiSelects

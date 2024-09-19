@@ -100,7 +100,7 @@ describe('E2E Outbox Tests', () => {
     // Outbox L1 tests
 
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await rollup.write.setAssumeProvenUntilBlockNumber([1 + (txReceipt.blockNumber ?? 0)]);
+    await rollup.write.setAssumeProvenThroughBlockNumber([txReceipt.blockNumber ?? 0]);
 
     // Check L1 has expected message tree
     const [l1Root, l1MinHeight] = await outbox.read.getRootData([txReceipt.blockNumber]);
@@ -218,7 +218,7 @@ describe('E2E Outbox Tests', () => {
 
     // Outbox L1 tests
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await rollup.write.setAssumeProvenUntilBlockNumber([1 + (l2TxReceipt0.blockNumber ?? 0)]);
+    await rollup.write.setAssumeProvenThroughBlockNumber([l2TxReceipt0.blockNumber ?? 0]);
 
     // Check L1 has expected message tree
     const [l1Root, l1MinHeight] = await outbox.read.getRootData([l2TxReceipt0.blockNumber]);
@@ -336,7 +336,7 @@ describe('E2E Outbox Tests', () => {
 
     // Outbox L1 tests
     // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-    await rollup.write.setAssumeProvenUntilBlockNumber([1 + (l2TxReceipt0.blockNumber ?? 0)]);
+    await rollup.write.setAssumeProvenThroughBlockNumber([l2TxReceipt0.blockNumber ?? 0]);
 
     // Check L1 has expected message tree
     const [l1Root, l1MinHeight] = await outbox.read.getRootData([l2TxReceipt0.blockNumber]);

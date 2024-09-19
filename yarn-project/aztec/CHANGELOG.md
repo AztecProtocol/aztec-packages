@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.55.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.55.0...aztec-package-v0.55.1) (2024-09-17)
+
+
+### Features
+
+* CI deploy on sepolia ([#8514](https://github.com/AztecProtocol/aztec-packages/issues/8514)) ([54f0344](https://github.com/AztecProtocol/aztec-packages/commit/54f0344b0fd5eba26d0c02641533ad9f18616de1))
+* Tx verification & peer scoring on p2p layer. bot support for EasyPrivateToken ([#8298](https://github.com/AztecProtocol/aztec-packages/issues/8298)) ([beb651f](https://github.com/AztecProtocol/aztec-packages/commit/beb651f241fe71776689bedc764be650dfd5ae0c))
+
+
+### Miscellaneous
+
+* Remove ARCHIVER_L1_START_BLOCK ([#8554](https://github.com/AztecProtocol/aztec-packages/issues/8554)) ([bc8d461](https://github.com/AztecProtocol/aztec-packages/commit/bc8d461f6fc20c55aa94647dc671ecb59f52cad2))
+
+## [0.55.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.54.0...aztec-package-v0.55.0) (2024-09-13)
+
+
+### Bug Fixes
+
+* Load prover node config from env ([#8525](https://github.com/AztecProtocol/aztec-packages/issues/8525)) ([7065962](https://github.com/AztecProtocol/aztec-packages/commit/7065962bb507555bcbb25cb3bbfc2a0a90687000))
+
+
+### Miscellaneous
+
+* Remove unneeded propose and da oracle ([#8474](https://github.com/AztecProtocol/aztec-packages/issues/8474)) ([274a6b7](https://github.com/AztecProtocol/aztec-packages/commit/274a6b73281e5b9a7bc037aaf8888230de7b99a9))
+
 ## [0.54.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.53.0...aztec-package-v0.54.0) (2024-09-10)
 
 

@@ -14,15 +14,10 @@ struct PublicKernelData {
 }
 
 impl Verifiable for PublicKernelData {
-  fn verify(self) {
-    let inputs = PublicKernelCircuitPublicInputs::serialize(self.public_inputs);
-    std::verify_proof(
-        self.vk.key,
-        self.proof.fields,
-        inputs,
-        self.vk.hash
-    );
-  }
+    fn verify(self) {
+        let inputs = PublicKernelCircuitPublicInputs::serialize(self.public_inputs);
+        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+    }
 }
 
 impl PublicKernelData {

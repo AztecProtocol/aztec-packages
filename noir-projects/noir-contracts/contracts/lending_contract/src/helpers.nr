@@ -1,4 +1,3 @@
-use crate::interest_math::compute_multiplier;
 use dep::aztec::hash::pedersen_hash;
 
 // Utility used to easily get a "id" for a private user that sits in the same

@@ -18,17 +18,13 @@ impl Ordered for NoteHash {
 
 impl Eq for NoteHash {
     fn eq(self, other: NoteHash) -> bool {
-        (self.value == other.value)
-            & (self.counter == other.counter)
+        (self.value == other.value) & (self.counter == other.counter)
     }
 }
 
 impl Empty for NoteHash {
     fn empty() -> Self {
-        NoteHash {
-            value: 0,
-            counter: 0,
-        }
+        NoteHash { value: 0, counter: 0 }
     }
 }
 
@@ -40,10 +36,7 @@ impl Serialize<NOTE_HASH_LENGTH> for NoteHash {
 
 impl Deserialize<NOTE_HASH_LENGTH> for NoteHash {
     fn deserialize(values: [Field; NOTE_HASH_LENGTH]) -> Self {
-        Self {
-            value: values[0],
-            counter: values[1] as u32,
-        }
+        Self { value: values[0], counter: values[1] as u32 }
     }
 }
 
@@ -84,23 +77,22 @@ impl OrderedValue<Field> for ScopedNoteHash {
 
 impl Eq for ScopedNoteHash {
     fn eq(self, other: ScopedNoteHash) -> bool {
-        (self.note_hash == other.note_hash)
-            & (self.contract_address == other.contract_address)
+        (self.note_hash == other.note_hash) & (self.contract_address == other.contract_address)
     }
 }
 
 impl Empty for ScopedNoteHash {
     fn empty() -> Self {
-        ScopedNoteHash {
-            note_hash: NoteHash::empty(),
-            contract_address: AztecAddress::zero(),
-        }
+        ScopedNoteHash { note_hash: NoteHash::empty(), contract_address: AztecAddress::zero() }
     }
 }
 
 impl Serialize<SCOPED_NOTE_HASH_LENGTH> for ScopedNoteHash {
     fn serialize(self) -> [Field; SCOPED_NOTE_HASH_LENGTH] {
-        array_concat(self.note_hash.serialize(), [self.contract_address.to_field()])
+        array_concat(
+            self.note_hash.serialize(),
+            [self.contract_address.to_field()]
+        )
     }
 }
 
@@ -109,7 +101,7 @@ impl Deserialize<SCOPED_NOTE_HASH_LENGTH> for ScopedNoteHash {
         let mut reader = Reader::new(values);
         let res = Self {
             note_hash: reader.read_struct(NoteHash::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize),
+            contract_address: reader.read_struct(AztecAddress::deserialize)
         };
         reader.finish();
         res
@@ -118,8 +110,12 @@ impl Deserialize<SCOPED_NOTE_HASH_LENGTH> for ScopedNoteHash {
 
 impl Readable<ScopedReadRequest> for ScopedNoteHash {
     fn assert_match_read_request(self, read_request: ScopedReadRequest) {
-        assert_eq(self.note_hash.value, read_request.value(), "Value of the note hash does not match read request");
-        assert_eq(self.contract_address, read_request.contract_address, "Contract address of the note hash does not match read request");
+        assert_eq(
+            self.note_hash.value, read_request.value(), "Value of the note hash does not match read request"
+        );
+        assert_eq(
+            self.contract_address, read_request.contract_address, "Contract address of the note hash does not match read request"
+        );
         assert(
             read_request.counter() > self.note_hash.counter, "Read request counter must be greater than the counter of the note hash"
         );

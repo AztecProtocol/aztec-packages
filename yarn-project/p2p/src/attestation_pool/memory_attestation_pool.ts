@@ -21,15 +21,13 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve([]);
   }
 
-  public async addAttestations(attestations: BlockAttestation[]): Promise<void> {
+  public addAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
       // Perf: order and group by slot before insertion
       const slotNumber = attestation.header.globalVariables.slotNumber;
 
-      // TODO(md): change the name on this, get the data from the underlying proposal, we want it cached so less hashing
       const proposalId = attestation.p2pMessageIdentifier.toString();
-
-      const address = await attestation.getSender();
+      const address = attestation.getSender();
 
       const slotAttestationMap = getSlotOrDefault(this.attestations, slotNumber.toBigInt());
       const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
@@ -37,6 +35,7 @@ export class InMemoryAttestationPool implements AttestationPool {
 
       this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
     }
+    return Promise.resolve();
   }
 
   public deleteAttestationsForSlot(slot: bigint): Promise<void> {
@@ -55,7 +54,7 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve();
   }
 
-  public async deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
+  public deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
       const slotNumber = attestation.header.globalVariables.slotNumber;
       const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());
@@ -63,7 +62,7 @@ export class InMemoryAttestationPool implements AttestationPool {
         const proposalId = attestation.p2pMessageIdentifier.toString();
         const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
         if (proposalAttestationMap) {
-          const address = await attestation.getSender();
+          const address = attestation.getSender();
           proposalAttestationMap.delete(address.toString());
           this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
         }

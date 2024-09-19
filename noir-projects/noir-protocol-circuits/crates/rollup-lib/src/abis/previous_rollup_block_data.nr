@@ -14,15 +14,10 @@ struct PreviousRollupBlockData {
 }
 
 impl Verifiable for PreviousRollupBlockData {
-  fn verify(self) {
-    let inputs = BlockRootOrBlockMergePublicInputs::serialize(self.block_root_or_block_merge_public_inputs);
-    std::verify_proof(
-        self.vk.key,
-        self.proof.fields,
-        inputs,
-        self.vk.hash
-    );
-  }
+    fn verify(self) {
+        let inputs = BlockRootOrBlockMergePublicInputs::serialize(self.block_root_or_block_merge_public_inputs);
+        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+    }
 }
 
 impl Empty for PreviousRollupBlockData {
@@ -31,7 +26,7 @@ impl Empty for PreviousRollupBlockData {
             block_root_or_block_merge_public_inputs: BlockRootOrBlockMergePublicInputs::empty(),
             proof: NestedRecursiveProof::empty(),
             vk: VerificationKey::empty(),
-            vk_witness: MembershipWitness::empty(),
+            vk_witness: MembershipWitness::empty()
         }
     }
 }

@@ -115,6 +115,8 @@ barretenberg-acir-tests-bb.js:
     RUN BIN=../ts/dest/node/main.js FLOW=prove_then_verify_ultra_honk ./run_acir_tests.sh 6_array assert_statement
     # Run a single arbitrary test not involving recursion through bb.js for MegaHonk
     RUN BIN=../ts/dest/node/main.js FLOW=prove_and_verify_mega_honk ./run_acir_tests.sh 6_array
+    # Run fold_basic test through bb.js which runs ClientIVC on fold basic
+    RUN BIN=../ts/dest/node/main.js FLOW=fold_and_verify_program ./run_acir_tests.sh fold_basic
     # Run 1_mul through bb.js build, all_cmds flow, to test all cli args.
     RUN BIN=../ts/dest/node/main.js FLOW=all_cmds ./run_acir_tests.sh 1_mul
     # TODO(https://github.com/AztecProtocol/aztec-packages/issues/6672)

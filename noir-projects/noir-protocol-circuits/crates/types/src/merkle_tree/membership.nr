@@ -13,10 +13,7 @@ struct MembershipWitness<let N: u32> {
 
 impl<let N: u32> Empty for MembershipWitness<N> {
     fn empty() -> Self {
-        MembershipWitness {
-            leaf_index: 0,
-            sibling_path: [0; N]
-        }
+        MembershipWitness { leaf_index: 0, sibling_path: [0; N] }
     }
 }
 
