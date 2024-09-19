@@ -11,8 +11,8 @@ namespace bb {
 template <typename Flavor>
 void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomial, 4>& table_polynomials,
                                         const typename Flavor::CircuitBuilder& circuit,
-                                        size_t dyadic_circuit_size,
-                                        size_t additional_offset = 0)
+                                        const size_t dyadic_circuit_size,
+                                        const size_t additional_offset = 0)
 {
     // Create lookup selector polynomials which interpolate each table column.
     // Our selector polys always need to interpolate the full subgroup size, so here we offset so as to
@@ -22,7 +22,7 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
     //  |          table     randomness
     //  ignored, as used for regular constraints and padding to the next power of 2.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-    size_t tables_size = circuit.get_tables_size();
+    const size_t tables_size = circuit.get_tables_size();
     ASSERT(dyadic_circuit_size > tables_size + additional_offset);
     size_t offset = dyadic_circuit_size - tables_size - additional_offset;
 
@@ -57,9 +57,9 @@ template <typename Flavor>
 void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::Polynomial& read_tags,
                                   typename Flavor::CircuitBuilder& circuit,
-                                  size_t dyadic_circuit_size)
+                                  const size_t dyadic_circuit_size)
 {
-    size_t tables_size = circuit.get_tables_size();
+    const size_t tables_size = circuit.get_tables_size();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     size_t table_offset = dyadic_circuit_size - tables_size;
     // Allocate the read counts and tags polynomials
