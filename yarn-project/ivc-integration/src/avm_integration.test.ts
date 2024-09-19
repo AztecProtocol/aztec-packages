@@ -16,7 +16,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
-import { AvmSimulator, type PublicContractsDB, PublicSideEffectTrace, type PublicStateDB, WorldStateDB } from '@aztec/simulator';
+import { AvmSimulator, type PublicContractsDB, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
   initContext,
