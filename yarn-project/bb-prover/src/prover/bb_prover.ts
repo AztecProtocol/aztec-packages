@@ -223,19 +223,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   ): Promise<PublicInputsAndRecursiveProof<VMCircuitPublicInputs>> {
     const artifact = 'PublicKernelInnerArtifact';
 
-    // We may need to convert the recursive proof into fields format
-    inputs.previousKernel.proof = await this.ensureValidProof(
-      inputs.previousKernel.proof,
-      artifact,
-      inputs.previousKernel.vk,
-    );
-
-    await this.verifyWithKey(
-      getUltraHonkFlavorForCircuit(artifact),
-      inputs.previousKernel.vk,
-      inputs.previousKernel.proof.binaryProof,
-    );
-
     const { circuitOutput, proof } = await this.createRecursiveProof(
       inputs,
       artifact,
