@@ -57,17 +57,16 @@ ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
     const FF delta = transcript->template get_challenge<FF>("delta");
     const std::vector<FF> deltas = compute_round_challenge_pows(log_circuit_size, delta);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
-    const auto [subrelation_evaluations, perturbator] = Fun::compute_perturbator(accumulator, deltas);
-    // const auto [subrelation_evaluations, perturbator] =
-    //     accumulator->is_accumulator
-    //         ? Fun::compute_perturbator(accumulator, deltas)
-    //         : std::make_pair(std::vector<RelationEvaluations>(1 << log_circuit_size,
-    //                                                           []() {
-    //                                                               RelationEvaluations result;
-    //                                                               RelationUtils<Flavor>::zero_elements(result);
-    //                                                               return result;
-    //                                                           }()),
-    //                          Polynomial<FF>(log_circuit_size + 1));
+    const auto [subrelation_evaluations, perturbator] =
+        accumulator->is_accumulator
+            ? Fun::compute_perturbator(accumulator, deltas)
+            : std::make_pair(std::vector<RelationEvaluations>(1 << log_circuit_size,
+                                                              []() {
+                                                                  RelationEvaluations result;
+                                                                  RelationUtils<Flavor>::zero_elements(result);
+                                                                  return result;
+                                                              }()),
+                             Polynomial<FF>(log_circuit_size + 1));
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
