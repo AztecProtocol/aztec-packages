@@ -51,7 +51,6 @@ import { Timer } from '@aztec/foundation/timer';
 import { type KeyStore } from '@aztec/key-store';
 import { ContractDataOracle } from '@aztec/pxe';
 import {
-  ContractsDataSourcePublicDB,
   ExecutionError,
   type ExecutionNoteCache,
   type MessageLoadOracleInputs,
@@ -74,7 +73,6 @@ import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/wor
 
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
-import { TXEPublicStateDB } from '../util/txe_public_state_db.js';
 
 export class TXE implements TypedOracle {
   private blockNumber = 0;
@@ -717,10 +715,9 @@ export class TXE implements TypedOracle {
     const header = Header.empty();
     header.state = await this.trees.getStateReference(true);
     header.globalVariables.blockNumber = new Fr(await this.getBlockNumber());
+
     const executor = new PublicExecutor(
-      new TXEPublicStateDB(this),
-      new ContractsDataSourcePublicDB(new TXEPublicContractDataSource(this)),
-      new WorldStateDB(this.trees.asLatest()),
+      new WorldStateDB(this.trees.asLatest(), new TXEPublicContractDataSource(this)),
       header,
       new NoopTelemetryClient(),
     );

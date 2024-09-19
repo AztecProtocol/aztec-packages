@@ -527,6 +527,6 @@ contract AvmTest {
         let _ = l1_to_l2_msg_exists(inputs, 1, 2);
         let _ = send_l2_to_l1_msg(inputs, EthAddress::from_field(0x2020), 1);
         let _ = nested_call_to_add(inputs, 1, 2);
-        // let _ = nested_static_call_to_add(inputs, 1, 2);
+        let _ = nested_static_call_to_add(inputs, 1, 2);
     }
 }

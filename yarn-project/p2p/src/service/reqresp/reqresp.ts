@@ -8,6 +8,7 @@ import { type Libp2p } from 'libp2p';
 import { type Uint8ArrayList } from 'uint8arraylist';
 
 import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { type PeerManager } from '../peer_manager.js';
 import { type P2PReqRespConfig } from './config.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
@@ -38,13 +39,13 @@ export class ReqResp {
   private subProtocolHandlers: ReqRespSubProtocolHandlers = DEFAULT_SUB_PROTOCOL_HANDLERS;
   private rateLimiter: RequestResponseRateLimiter;
 
-  constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p) {
+  constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p, peerManager: PeerManager) {
     this.logger = createDebugLogger('aztec:p2p:reqresp');
 
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
     this.individualRequestTimeoutMs = config.individualRequestTimeoutMs;
 
-    this.rateLimiter = new RequestResponseRateLimiter();
+    this.rateLimiter = new RequestResponseRateLimiter(peerManager);
   }
 
   /**

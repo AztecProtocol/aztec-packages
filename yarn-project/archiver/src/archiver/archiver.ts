@@ -251,15 +251,21 @@ export class Archiver implements ArchiveSource {
       currentL1BlockNumber,
     );
 
-    if (retrievedL1ToL2Messages.retrievedData.length !== 0) {
-      await this.store.addL1ToL2Messages(retrievedL1ToL2Messages);
-
+    if (retrievedL1ToL2Messages.retrievedData.length === 0) {
+      await this.store.setMessageSynchedL1BlockNumber(currentL1BlockNumber);
       this.log.verbose(
-        `Retrieved ${retrievedL1ToL2Messages.retrievedData.length} new L1 -> L2 messages between L1 blocks ${
-          messagesSynchedTo + 1n
-        } and ${currentL1BlockNumber}.`,
+        `Retrieved no new L1 -> L2 messages between L1 blocks ${messagesSynchedTo + 1n} and ${currentL1BlockNumber}.`,
       );
+      return;
     }
+
+    await this.store.addL1ToL2Messages(retrievedL1ToL2Messages);
+
+    this.log.verbose(
+      `Retrieved ${retrievedL1ToL2Messages.retrievedData.length} new L1 -> L2 messages between L1 blocks ${
+        messagesSynchedTo + 1n
+      } and ${currentL1BlockNumber}.`,
+    );
   }
 
   private async updateLastProvenL2Block(provenSynchedTo: bigint, currentL1BlockNumber: bigint) {
@@ -281,6 +287,29 @@ export class Archiver implements ArchiveSource {
       return;
     }
 
+    const lastBlock = await this.getBlock(-1);
+
+    const [, , pendingBlockNumber, pendingArchive, archiveOfMyBlock] = await this.rollup.read.status([
+      BigInt(lastBlock?.number ?? 0),
+    ]);
+
+    const noBlocksButInitial = lastBlock === undefined && pendingBlockNumber == 0n;
+    const noBlockSinceLast =
+      lastBlock &&
+      pendingBlockNumber === BigInt(lastBlock.number) &&
+      pendingArchive === lastBlock.archive.root.toString();
+
+    if (noBlocksButInitial || noBlockSinceLast) {
+      await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
+      this.log.verbose(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+      return;
+    }
+
+    if (lastBlock && archiveOfMyBlock !== lastBlock.archive.root.toString()) {
+      // @todo  Either `prune` have been called, or L1 have re-orged deep enough to remove a block.
+      //        Issue#8620 and Issue#8621
+    }
+
     this.log.debug(`Retrieving blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
     const retrievedBlocks = await retrieveBlockFromRollup(
       this.rollup,
@@ -291,14 +320,19 @@ export class Archiver implements ArchiveSource {
       this.log,
     );
 
-    (retrievedBlocks.length ? this.log.verbose : this.log.debug)(
-      `Retrieved ${retrievedBlocks.length || 'no'} new L2 blocks between L1 blocks ${
+    if (retrievedBlocks.length === 0) {
+      await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
+      this.log.verbose(`Retrieved no new blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
+      return;
+    }
+
+    this.log.debug(
+      `Retrieved ${retrievedBlocks.length} new L2 blocks between L1 blocks ${
         blocksSynchedTo + 1n
       } and ${currentL1BlockNumber}.`,
     );
 
-    const lastProcessedL1BlockNumber =
-      retrievedBlocks.length > 0 ? retrievedBlocks[retrievedBlocks.length - 1].l1.blockNumber : blocksSynchedTo;
+    const lastProcessedL1BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].l1.blockNumber;
 
     this.log.debug(
       `Processing retrieved blocks ${retrievedBlocks
@@ -306,44 +340,37 @@ export class Archiver implements ArchiveSource {
         .join(',')} with last processed L1 block ${lastProcessedL1BlockNumber}`,
     );
 
-    // If we actually received something, we will use it.
-    if (retrievedBlocks.length > 0) {
-      await Promise.all(
-        retrievedBlocks.map(block => {
-          return this.store.addLogs(
-            block.data.body.noteEncryptedLogs,
-            block.data.body.encryptedLogs,
-            block.data.body.unencryptedLogs,
-            block.data.number,
-          );
-        }),
-      );
+    await Promise.all(
+      retrievedBlocks.map(block => {
+        return this.store.addLogs(
+          block.data.body.noteEncryptedLogs,
+          block.data.body.encryptedLogs,
+          block.data.body.unencryptedLogs,
+          block.data.number,
+        );
+      }),
+    );
 
-      // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
-      await Promise.all(
-        retrievedBlocks.map(async block => {
-          const blockLogs = block.data.body.txEffects
-            .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
-            .flatMap(txLog => txLog.unrollLogs());
-          await this.storeRegisteredContractClasses(blockLogs, block.data.number);
-          await this.storeDeployedContractInstances(blockLogs, block.data.number);
-          await this.storeBroadcastedIndividualFunctions(blockLogs, block.data.number);
-        }),
-      );
+    // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
+    await Promise.all(
+      retrievedBlocks.map(async block => {
+        const blockLogs = block.data.body.txEffects
+          .flatMap(txEffect => (txEffect ? [txEffect.unencryptedLogs] : []))
+          .flatMap(txLog => txLog.unrollLogs());
+        await this.storeRegisteredContractClasses(blockLogs, block.data.number);
+        await this.storeDeployedContractInstances(blockLogs, block.data.number);
+        await this.storeBroadcastedIndividualFunctions(blockLogs, block.data.number);
+      }),
+    );
 
-      const timer = new Timer();
-      await this.store.addBlocks(retrievedBlocks);
-      this.instrumentation.processNewBlocks(
-        timer.ms() / retrievedBlocks.length,
-        retrievedBlocks.map(b => b.data),
-      );
-      const lastL2BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].data.number;
-      this.log.verbose(`Processed ${retrievedBlocks.length} new L2 blocks up to ${lastL2BlockNumber}`);
-    }
-
-    if (retrievedBlocks.length > 0 || blockUntilSynced) {
-      (blockUntilSynced ? this.log.info : this.log.verbose)(`Synced to L1 block ${currentL1BlockNumber}`);
-    }
+    const timer = new Timer();
+    await this.store.addBlocks(retrievedBlocks);
+    this.instrumentation.processNewBlocks(
+      timer.ms() / retrievedBlocks.length,
+      retrievedBlocks.map(b => b.data),
+    );
+    const lastL2BlockNumber = retrievedBlocks[retrievedBlocks.length - 1].data.number;
+    this.log.verbose(`Processed ${retrievedBlocks.length} new L2 blocks up to ${lastL2BlockNumber}`);
   }
 
   /**

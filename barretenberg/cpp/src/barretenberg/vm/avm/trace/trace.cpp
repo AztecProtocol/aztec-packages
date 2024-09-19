@@ -2539,34 +2539,19 @@ void AvmTraceBuilder::op_emit_l2_to_l1_msg(uint8_t indirect, uint32_t recipient_
  *                            CONTROL FLOW - CONTRACT CALLS
  **************************************************************************************************/
 
-/**
- * @brief External Call with direct or indirect memory access.
- *
- * TODO: Use the indirect later to support all the indirect accesses
- * NOTE: we do not constrain this here as it's behaviour will change fully once we have a full enqueued function
- * call in one vm circuit
- * @param indirect byte encoding information about indirect/direct memory access.
- * @param gas_offset An index in memory pointing to the first of the gas value tuple (l2Gas, daGas)
- * @param addr_offset An index in memory pointing to the target contract address
- * @param args_offset An index in memory pointing to the first value of the input array for the external call
- * @param args_size The number of values in the input array for the external call
- * @param ret_offset An index in memory pointing to where the first value of the external calls return value should
- * be stored.
- * @param ret_size The number of values in the return array
- * @param success_offset An index in memory pointing to where the success flag (U1) of the external call should be
- * stored
- * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
- */
-void AvmTraceBuilder::op_call(uint8_t indirect,
-                              uint32_t gas_offset,
-                              uint32_t addr_offset,
-                              uint32_t args_offset,
-                              uint32_t args_size_offset,
-                              uint32_t ret_offset,
-                              uint32_t ret_size,
-                              uint32_t success_offset,
-                              [[maybe_unused]] uint32_t function_selector_offset)
+// Helper/implementation for CALL and STATICCALL
+void AvmTraceBuilder::constrain_external_call(OpCode opcode,
+                                              uint8_t indirect,
+                                              uint32_t gas_offset,
+                                              uint32_t addr_offset,
+                                              uint32_t args_offset,
+                                              uint32_t args_size_offset,
+                                              uint32_t ret_offset,
+                                              uint32_t ret_size,
+                                              uint32_t success_offset,
+                                              [[maybe_unused]] uint32_t function_selector_offset)
 {
+    ASSERT(opcode == OpCode::CALL || opcode == OpCode::STATICCALL);
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
     const ExternalCallHint& hint = execution_hints.externalcall_hints.at(external_call_counter);
 
@@ -2593,12 +2578,12 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
     // TODO: constrain this
     auto args_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_args_size_offset));
 
-    gas_trace_builder.constrain_gas_for_external_call(clk,
-                                                      /*dyn_gas_multiplier=*/args_size + ret_size,
-                                                      static_cast<uint32_t>(hint.l2_gas_used),
-                                                      static_cast<uint32_t>(hint.da_gas_used));
+    gas_trace_builder.constrain_gas(clk,
+                                    opcode,
+                                    /*dyn_gas_multiplier=*/args_size + ret_size,
+                                    static_cast<uint32_t>(hint.l2_gas_used),
+                                    static_cast<uint32_t>(hint.da_gas_used));
 
-    // We read the input and output addresses in one row as they should contain FF elements
     main_trace.push_back(Row{
         .main_clk = clk,
         .main_ia = read_gas_l2.val, /* gas_offset_l2 */
@@ -2619,7 +2604,8 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
         .main_sel_mem_op_b = FF(1),
         .main_sel_mem_op_c = FF(1),
         .main_sel_mem_op_d = FF(1),
-        .main_sel_op_external_call = FF(1),
+        .main_sel_op_external_call = static_cast<uint8_t>(opcode == OpCode::CALL),
+        .main_sel_op_static_call = static_cast<uint8_t>(opcode == OpCode::STATICCALL),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(read_gas_l2.is_indirect)),
         .main_sel_resolve_ind_addr_c = FF(static_cast<uint32_t>(read_addr.is_indirect)),
         .main_sel_resolve_ind_addr_d = FF(static_cast<uint32_t>(read_args.is_indirect)),
@@ -2634,8 +2620,88 @@ void AvmTraceBuilder::op_call(uint8_t indirect,
     write_slice_to_memory(resolved_success_offset, AvmMemoryTag::U1, std::vector<FF>{ hint.success });
     external_call_counter++;
 
-    // Adjust the side_effect_counter to the value at the end of the external call.
-    side_effect_counter = static_cast<uint32_t>(hint.end_side_effect_counter);
+    // Adjust the side_effect_counter to the value at the end of the external call but not static call.
+    if (opcode == OpCode::CALL) {
+        side_effect_counter = static_cast<uint32_t>(hint.end_side_effect_counter);
+    }
+}
+
+/**
+ * @brief External Call with direct or indirect memory access.
+ *
+ * NOTE: we do not constrain this here as it's behaviour will change fully once we have a full enqueued function
+ * call in one vm circuit
+ * @param indirect byte encoding information about indirect/direct memory access.
+ * @param gas_offset An index in memory pointing to the first of the gas value tuple (l2Gas, daGas)
+ * @param addr_offset An index in memory pointing to the target contract address
+ * @param args_offset An index in memory pointing to the first value of the input array for the external call
+ * @param args_size The number of values in the input array for the external call
+ * @param ret_offset An index in memory pointing to where the first value of the external calls return value should
+ * be stored.
+ * @param ret_size The number of values in the return array
+ * @param success_offset An index in memory pointing to where the success flag (U1) of the external call should be
+ * stored
+ * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
+ */
+void AvmTraceBuilder::op_call(uint8_t indirect,
+                              uint32_t gas_offset,
+                              uint32_t addr_offset,
+                              uint32_t args_offset,
+                              uint32_t args_size_offset,
+                              uint32_t ret_offset,
+                              uint32_t ret_size,
+                              uint32_t success_offset,
+                              [[maybe_unused]] uint32_t function_selector_offset)
+{
+    return constrain_external_call(OpCode::CALL,
+                                   indirect,
+                                   gas_offset,
+                                   addr_offset,
+                                   args_offset,
+                                   args_size_offset,
+                                   ret_offset,
+                                   ret_size,
+                                   success_offset,
+                                   function_selector_offset);
+}
+
+/**
+ * @brief Static Call with direct or indirect memory access.
+ *
+ * NOTE: we do not constrain this here as it's behaviour will change fully once we have a full enqueued function
+ * call in one vm circuit
+ * @param indirect byte encoding information about indirect/direct memory access.
+ * @param gas_offset An index in memory pointing to the first of the gas value tuple (l2Gas, daGas)
+ * @param addr_offset An index in memory pointing to the target contract address
+ * @param args_offset An index in memory pointing to the first value of the input array for the external call
+ * @param args_size The number of values in the input array for the static call
+ * @param ret_offset An index in memory pointing to where the first value of the static call return value should
+ * be stored.
+ * @param ret_size The number of values in the return array
+ * @param success_offset An index in memory pointing to where the success flag (U8) of the static call should be
+ * stored
+ * @param function_selector_offset An index in memory pointing to the function selector of the external call (TEMP)
+ */
+void AvmTraceBuilder::op_static_call(uint8_t indirect,
+                                     uint32_t gas_offset,
+                                     uint32_t addr_offset,
+                                     uint32_t args_offset,
+                                     uint32_t args_size_offset,
+                                     uint32_t ret_offset,
+                                     uint32_t ret_size,
+                                     uint32_t success_offset,
+                                     [[maybe_unused]] uint32_t function_selector_offset)
+{
+    return constrain_external_call(OpCode::STATICCALL,
+                                   indirect,
+                                   gas_offset,
+                                   addr_offset,
+                                   args_offset,
+                                   args_size_offset,
+                                   ret_offset,
+                                   ret_size,
+                                   success_offset,
+                                   function_selector_offset);
 }
 
 /**

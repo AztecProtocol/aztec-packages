@@ -32,10 +32,9 @@ import { ProtocolCircuitVks, getVKIndex, getVKSiblingPath } from '@aztec/noir-pr
 
 import { inspect } from 'util';
 
-import { type PublicStateDB } from './db_interfaces.js';
 import { EnqueuedCallSimulator } from './enqueued_call_simulator.js';
 import { type PublicExecutor } from './executor.js';
-import { type ContractsDataSourcePublicDB } from './public_db_sources.js';
+import { type WorldStateDB } from './public_db_sources.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { PublicKernelTailSimulator } from './public_kernel_tail_simulator.js';
 
@@ -86,8 +85,7 @@ export class EnqueuedCallsProcessor {
   constructor(
     private publicKernelSimulator: PublicKernelCircuitSimulator,
     private globalVariables: GlobalVariables,
-    private publicContractsDB: ContractsDataSourcePublicDB,
-    private publicStateDB: PublicStateDB,
+    private worldStateDB: WorldStateDB,
     private enqueuedCallSimulator: EnqueuedCallSimulator,
     private publicKernelTailSimulator: PublicKernelTailSimulator,
   ) {
@@ -100,8 +98,7 @@ export class EnqueuedCallsProcessor {
     publicKernelSimulator: PublicKernelCircuitSimulator,
     globalVariables: GlobalVariables,
     historicalHeader: Header,
-    publicContractsDB: ContractsDataSourcePublicDB,
-    publicStateDB: PublicStateDB,
+    worldStateDB: WorldStateDB,
   ) {
     const enqueuedCallSimulator = new EnqueuedCallSimulator(
       db,
@@ -116,8 +113,7 @@ export class EnqueuedCallsProcessor {
     return new EnqueuedCallsProcessor(
       publicKernelSimulator,
       globalVariables,
-      publicContractsDB,
-      publicStateDB,
+      worldStateDB,
       enqueuedCallSimulator,
       publicKernelTailSimulator,
     );
@@ -181,7 +177,7 @@ export class EnqueuedCallsProcessor {
           phase,
           isFromPrivate,
         ).catch(async err => {
-          await this.publicStateDB.rollbackToCommit();
+          await this.worldStateDB.rollbackToCommit();
           throw err;
         });
 
@@ -210,7 +206,7 @@ export class EnqueuedCallsProcessor {
       .catch(
         // the abstract phase manager throws if simulation gives error in non-revertible phase
         async err => {
-          await this.publicStateDB.rollbackToCommit();
+          await this.worldStateDB.rollbackToCommit();
           throw err;
         },
       );
@@ -252,7 +248,7 @@ export class EnqueuedCallsProcessor {
       // TODO(@spalladino): Should we allow emitting contracts in the fee preparation phase?
       // TODO(#6464): Should we allow emitting contracts in the private setup phase?
       // if so, this should only add contracts that were deployed during private app logic.
-      await this.publicContractsDB.addNewContracts(tx);
+      await this.worldStateDB.addNewContracts(tx);
 
       const availableGas = this.getAvailableGas(tx, publicKernelOutput, phase);
       const transactionFee = this.getTransactionFee(tx, publicKernelOutput, phase);
@@ -283,8 +279,8 @@ export class EnqueuedCallsProcessor {
       if (revertReason) {
         // TODO(#6464): Should we allow emitting contracts in the private setup phase?
         // if so, this is removing contracts deployed in private setup
-        await this.publicContractsDB.removeNewContracts(tx);
-        await this.publicStateDB.rollbackToCheckpoint();
+        await this.worldStateDB.removeNewContracts(tx);
+        await this.worldStateDB.rollbackToCheckpoint();
         tx.filterRevertedLogs(publicKernelOutput);
       } else {
         // TODO(#6470): we should be adding contracts deployed in those logs to the publicContractsDB
@@ -302,7 +298,7 @@ export class EnqueuedCallsProcessor {
     }
 
     if (phase === PublicKernelPhase.SETUP) {
-      await this.publicStateDB.checkpoint();
+      await this.worldStateDB.checkpoint();
     }
 
     return {

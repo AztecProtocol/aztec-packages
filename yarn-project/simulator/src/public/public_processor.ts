@@ -27,11 +27,10 @@ import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { type SimulationProvider } from '../providers/index.js';
-import { type PublicStateDB } from './db_interfaces.js';
 import { EnqueuedCallsProcessor } from './enqueued_calls_processor.js';
 import { PublicExecutor } from './executor.js';
 import { computeFeePayerBalanceLeafSlot, computeFeePayerBalanceStorageSlot } from './fee_payment.js';
-import { ContractsDataSourcePublicDB, WorldStateDB, WorldStatePublicDB } from './public_db_sources.js';
+import { WorldStateDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
@@ -56,18 +55,9 @@ export class PublicProcessorFactory {
   public create(maybeHistoricalHeader: Header | undefined, globalVariables: GlobalVariables): PublicProcessor {
     const { merkleTree, telemetryClient } = this;
     const historicalHeader = maybeHistoricalHeader ?? merkleTree.getInitialHeader();
-    const publicContractsDB = new ContractsDataSourcePublicDB(this.contractDataSource);
 
-    const worldStatePublicDB = new WorldStatePublicDB(merkleTree);
-    const worldStateDB = new WorldStateDB(merkleTree);
-    const publicExecutor = new PublicExecutor(
-      worldStatePublicDB,
-      publicContractsDB,
-      worldStateDB,
-      historicalHeader,
-      telemetryClient,
-    );
-
+    const worldStateDB = new WorldStateDB(merkleTree, this.contractDataSource);
+    const publicExecutor = new PublicExecutor(worldStateDB, historicalHeader, telemetryClient);
     const publicKernelSimulator = new RealPublicKernelCircuitSimulator(this.simulator);
 
     return PublicProcessor.create(
@@ -76,8 +66,7 @@ export class PublicProcessorFactory {
       publicKernelSimulator,
       globalVariables,
       historicalHeader,
-      publicContractsDB,
-      worldStatePublicDB,
+      worldStateDB,
       this.telemetryClient,
     );
   }
@@ -95,8 +84,7 @@ export class PublicProcessor {
     protected publicKernel: PublicKernelCircuitSimulator,
     protected globalVariables: GlobalVariables,
     protected historicalHeader: Header,
-    protected publicContractsDB: ContractsDataSourcePublicDB,
-    protected publicStateDB: PublicStateDB,
+    protected worldStateDB: WorldStateDB,
     protected enqueuedCallsProcessor: EnqueuedCallsProcessor,
     telemetryClient: TelemetryClient,
     private log = createDebugLogger('aztec:sequencer:public-processor'),
@@ -110,8 +98,7 @@ export class PublicProcessor {
     publicKernelSimulator: PublicKernelCircuitSimulator,
     globalVariables: GlobalVariables,
     historicalHeader: Header,
-    publicContractsDB: ContractsDataSourcePublicDB,
-    publicStateDB: PublicStateDB,
+    worldStateDB: WorldStateDB,
     telemetryClient: TelemetryClient,
   ) {
     const enqueuedCallsProcessor = EnqueuedCallsProcessor.create(
@@ -120,8 +107,7 @@ export class PublicProcessor {
       publicKernelSimulator,
       globalVariables,
       historicalHeader,
-      publicContractsDB,
-      publicStateDB,
+      worldStateDB,
     );
 
     return new PublicProcessor(
@@ -130,8 +116,7 @@ export class PublicProcessor {
       publicKernelSimulator,
       globalVariables,
       historicalHeader,
-      publicContractsDB,
-      publicStateDB,
+      worldStateDB,
       enqueuedCallsProcessor,
       telemetryClient,
     );
@@ -179,7 +164,7 @@ export class PublicProcessor {
         processedTx.finalPublicDataUpdateRequests = await this.createFinalDataUpdateRequests(processedTx);
 
         // Commit the state updates from this transaction
-        await this.publicStateDB.commit();
+        await this.worldStateDB.commit();
         validateProcessedTx(processedTx);
 
         // Re-validate the transaction
@@ -245,14 +230,14 @@ export class PublicProcessor {
     const balance =
       existingBalanceWriteIndex > -1
         ? finalPublicDataUpdateRequests[existingBalanceWriteIndex].newValue
-        : await this.publicStateDB.storageRead(feeJuiceAddress, balanceSlot);
+        : await this.worldStateDB.storageRead(feeJuiceAddress, balanceSlot);
 
     if (balance.lt(txFee)) {
       throw new Error(`Not enough balance for fee payer to pay for transaction (got ${balance} needs ${txFee})`);
     }
 
     const updatedBalance = balance.sub(txFee);
-    await this.publicStateDB.storageWrite(feeJuiceAddress, balanceSlot, updatedBalance);
+    await this.worldStateDB.storageWrite(feeJuiceAddress, balanceSlot, updatedBalance);
 
     finalPublicDataUpdateRequests[
       existingBalanceWriteIndex > -1 ? existingBalanceWriteIndex : MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX

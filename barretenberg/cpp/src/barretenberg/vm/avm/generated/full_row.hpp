@@ -239,6 +239,7 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_shr{};
     FF main_sel_op_sload{};
     FF main_sel_op_sstore{};
+    FF main_sel_op_static_call{};
     FF main_sel_op_storage_address{};
     FF main_sel_op_sub{};
     FF main_sel_op_timestamp{};
@@ -711,7 +712,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 697;
+    static constexpr size_t SIZE = 698;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

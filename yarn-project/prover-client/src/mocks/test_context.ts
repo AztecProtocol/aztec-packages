@@ -13,7 +13,6 @@ import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import {
-  type ContractsDataSourcePublicDB,
   type PublicExecutionResult,
   PublicExecutionResultBuilder,
   type PublicExecutor,
@@ -21,7 +20,7 @@ import {
   RealPublicKernelCircuitSimulator,
   type SimulationProvider,
   WASMSimulator,
-  type WorldStatePublicDB,
+  type WorldStateDB,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees } from '@aztec/world-state';
@@ -41,8 +40,7 @@ import { getEnvironmentConfig, getSimulationProvider, makeGlobals } from './fixt
 export class TestContext {
   constructor(
     public publicExecutor: MockProxy<PublicExecutor>,
-    public publicContractsDB: MockProxy<ContractsDataSourcePublicDB>,
-    public publicWorldStateDB: MockProxy<WorldStatePublicDB>,
+    public worldStateDB: MockProxy<WorldStateDB>,
     public publicProcessor: PublicProcessor,
     public simulationProvider: SimulationProvider,
     public globalVariables: GlobalVariables,
@@ -71,8 +69,7 @@ export class TestContext {
     const globalVariables = makeGlobals(blockNumber);
 
     const publicExecutor = mock<PublicExecutor>();
-    const publicContractsDB = mock<ContractsDataSourcePublicDB>();
-    const publicWorldStateDB = mock<WorldStatePublicDB>();
+    const worldStateDB = mock<WorldStateDB>();
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const telemetry = new NoopTelemetryClient();
 
@@ -94,8 +91,7 @@ export class TestContext {
       publicKernel,
       GlobalVariables.empty(),
       Header.empty(),
-      publicContractsDB,
-      publicWorldStateDB,
+      worldStateDB,
       telemetry,
     );
 
@@ -130,8 +126,7 @@ export class TestContext {
 
     return new this(
       publicExecutor,
-      publicContractsDB,
-      publicWorldStateDB,
+      worldStateDB,
       processor,
       simulationProvider,
       globalVariables,

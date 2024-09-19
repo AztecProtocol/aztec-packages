@@ -27,7 +27,7 @@ void ProtogalaxyProver_<DeciderProvingKeys>::run_oink_prover_on_each_incomplete_
     if (!key->is_accumulator) {
         run_oink_prover_on_one_incomplete_key(key, domain_separator);
         key->target_sum = 0;
-        key->gate_challenges = std::vector<FF>(key->proving_key.log_circuit_size, 0);
+        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
 
     idx++;
@@ -51,19 +51,16 @@ ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
     using Fun = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::vector<FF> deltas = compute_round_challenge_pows(accumulator->proving_key.log_circuit_size, delta);
+    const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
-    const Polynomial<FF> perturbator = accumulator->is_accumulator
-                                           ? Fun::compute_perturbator(accumulator, deltas)
-                                           : Polynomial<FF>(accumulator->proving_key.log_circuit_size + 1);
+    const Polynomial<FF> perturbator = accumulator->is_accumulator ? Fun::compute_perturbator(accumulator, deltas)
+                                                                   : Polynomial<FF>(CONST_PG_LOG_N + 1);
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
     // different
-    if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= accumulator->proving_key.log_circuit_size; idx++) {
-            transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
-        }
+    for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
+        transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
 
     return std::make_tuple(deltas, perturbator);
@@ -88,7 +85,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::combiner_quotient_round(const std::vecto
     const std::vector<FF> updated_gate_challenges =
         update_gate_challenges(perturbator_challenge, gate_challenges, deltas);
     const UnivariateRelationSeparator alphas = Fun::compute_and_extend_alphas(keys);
-    const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges, keys[0]->proving_key.log_circuit_size };
+    const GateSeparatorPolynomial<FF> gate_separators{ updated_gate_challenges, CONST_PG_LOG_N };
     const UnivariateRelationParameters relation_parameters =
         Fun::template compute_extended_relation_parameters<UnivariateRelationParameters>(keys);
 
