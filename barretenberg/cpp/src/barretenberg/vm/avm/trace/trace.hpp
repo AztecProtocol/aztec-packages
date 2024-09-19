@@ -146,6 +146,15 @@ class AvmTraceBuilder {
                  uint32_t ret_size,
                  uint32_t success_offset,
                  uint32_t function_selector_offset);
+    void op_static_call(uint8_t indirect,
+                        uint32_t gas_offset,
+                        uint32_t addr_offset,
+                        uint32_t args_offset,
+                        uint32_t args_size,
+                        uint32_t ret_offset,
+                        uint32_t ret_size,
+                        uint32_t success_offset,
+                        uint32_t function_selector_offset);
     std::vector<FF> op_return(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
     // REVERT Opcode (that just call return under the hood for now)
     std::vector<FF> op_revert(uint8_t indirect, uint32_t ret_offset, uint32_t ret_size);
@@ -220,7 +229,7 @@ class AvmTraceBuilder {
     std::vector<FF> returndata;
     // Side effect counter will increment when any state writing values are encountered.
     uint32_t side_effect_counter = 0;
-    uint32_t external_call_counter = 0;
+    uint32_t external_call_counter = 0; // Incremented both by OpCode::CALL and OpCode::STATICCALL
     ExecutionHints execution_hints;
 
     // These exist due to testing only.
@@ -264,6 +273,17 @@ class AvmTraceBuilder {
                                                              uint32_t clk,
                                                              uint32_t data_offset,
                                                              uint32_t metadata_offset);
+
+    void constrain_external_call(OpCode opcode,
+                                 uint8_t indirect,
+                                 uint32_t gas_offset,
+                                 uint32_t addr_offset,
+                                 uint32_t args_offset,
+                                 uint32_t args_size_offset,
+                                 uint32_t ret_offset,
+                                 uint32_t ret_size,
+                                 uint32_t success_offset,
+                                 [[maybe_unused]] uint32_t function_selector_offset);
 
     void execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t dst_offset);
 

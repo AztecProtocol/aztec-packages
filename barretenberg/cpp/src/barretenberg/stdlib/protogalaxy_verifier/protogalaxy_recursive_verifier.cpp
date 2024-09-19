@@ -25,7 +25,7 @@ void ProtogalaxyRecursiveVerifier_<DeciderVerificationKeys>::run_oink_verifier_o
     if (!key->is_accumulator) {
         run_oink_verifier_on_one_incomplete_key(key, domain_separator);
         key->target_sum = 0;
-        key->gate_challenges = std::vector<FF>(static_cast<size_t>(key->verification_key->log_circuit_size), 0);
+        key->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);
     }
     index++;
 
@@ -47,17 +47,13 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyRecursiv
     run_oink_verifier_on_each_incomplete_key(proof);
 
     std::shared_ptr<DeciderVK> accumulator = keys_to_fold[0];
-    const size_t log_circuit_size = static_cast<size_t>(accumulator->verification_key->log_circuit_size);
 
     // Perturbator round
     const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::vector<FF> deltas = compute_round_challenge_pows(log_circuit_size, delta);
-    std::vector<FF> perturbator_coeffs(log_circuit_size + 1, 0);
-    if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= log_circuit_size; idx++) {
-            perturbator_coeffs[idx] =
-                transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
-        }
+    const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
+    std::vector<FF> perturbator_coeffs(CONST_PG_LOG_N + 1, 0);
+    for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
+        perturbator_coeffs[idx] = transcript->template receive_from_prover<FF>("perturbator_" + std::to_string(idx));
     }
     const FF perturbator_challenge = transcript->template get_challenge<FF>("perturbator_challenge");
 

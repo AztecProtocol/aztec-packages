@@ -106,8 +106,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * each level, the resulting parent nodes will be polynomials of degree (level+1) because we multiply by an
      * additional factor of X.
      */
-    static std::vector<FF> construct_coefficients_tree(const std::vector<FF>& betas,
-                                                       const std::vector<FF>& deltas,
+    static std::vector<FF> construct_coefficients_tree(std::span<const FF> betas,
+                                                       std::span<const FF> deltas,
                                                        const std::vector<std::vector<FF>>& prev_level_coeffs,
                                                        size_t level = 1)
     {
@@ -142,8 +142,8 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/745): make computation of perturbator more memory
      * efficient, operate in-place and use std::resize; add multithreading
      */
-    static std::vector<FF> construct_perturbator_coefficients(const std::vector<FF>& betas,
-                                                              const std::vector<FF>& deltas,
+    static std::vector<FF> construct_perturbator_coefficients(std::span<const FF> betas,
+                                                              std::span<const FF> deltas,
                                                               const std::vector<FF>& full_honk_evaluations)
     {
         auto width = full_honk_evaluations.size();
@@ -171,7 +171,18 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());
-        return Polynomial<FF>(construct_perturbator_coefficients(betas, deltas, full_honk_evaluations));
+        const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
+
+        // Compute the perturbator using only the first log_circuit_size-many betas/deltas
+        std::vector<FF> perturbator = construct_perturbator_coefficients(std::span{ betas.data(), log_circuit_size },
+                                                                         std::span{ deltas.data(), log_circuit_size },
+                                                                         full_honk_evaluations);
+
+        // Populate the remaining coefficients with zeros to reach the required constant size
+        for (size_t idx = log_circuit_size; idx < CONST_PG_LOG_N; ++idx) {
+            perturbator.emplace_back(FF(0));
+        }
+        return Polynomial<FF>{ perturbator };
     }
 
     /**
