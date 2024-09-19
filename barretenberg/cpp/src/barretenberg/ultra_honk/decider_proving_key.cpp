@@ -55,7 +55,6 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     auto return_data = circuit.get_return_data();
 
     public_calldata = Polynomial(circuit.get_calldata().size(), proving_key.circuit_size);
-    public_calldata = Polynomial(circuit.get_calldata().size(), proving_key.circuit_size);
     calldata_read_counts = Polynomial(circuit.get_calldata().size(), proving_key.circuit_size);
     calldata_read_tags = Polynomial(circuit.get_calldata().size(), proving_key.circuit_size);
     public_secondary_calldata = Polynomial(circuit.get_secondary_calldata().size(), proving_key.circuit_size);
