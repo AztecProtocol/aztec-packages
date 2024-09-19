@@ -178,7 +178,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
                                                                          std::span{ deltas.data(), log_circuit_size },
                                                                          full_honk_evaluations);
 
-        // Pupulate the remaining coefficients with zeros to reach the required constant size
+        // Populate the remaining coefficients with zeros to reach the required constant size
         for (size_t idx = log_circuit_size; idx < CONST_PG_LOG_N; ++idx) {
             perturbator.emplace_back(FF(0));
         }
