@@ -21,7 +21,6 @@ describe('MemoryAttestationPool', () => {
     const archive = Fr.random();
     const attestations = await Promise.all(signers.map(signer => mockAttestation(signer, slotNumber, archive)));
 
-    // TODO(md): this will change across the board
     const proposalId = attestations[0].p2pMessageIdentifier.toString();
 
     await ap.addAttestations(attestations);
