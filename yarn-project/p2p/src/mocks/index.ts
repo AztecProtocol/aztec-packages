@@ -10,8 +10,10 @@ import { pingHandler, statusHandler } from '../service/reqresp/handlers.js';
 import {
   PING_PROTOCOL,
   type ReqRespSubProtocolHandlers,
+  type ReqRespSubProtocolValidators,
   STATUS_PROTOCOL,
   TX_REQ_PROTOCOL,
+  noopValidator,
 } from '../service/reqresp/interface.js';
 import { ReqResp } from '../service/reqresp/reqresp.js';
 
@@ -57,6 +59,14 @@ export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [TX_REQ_PROTOCOL]: (_msg: any) => Promise.resolve(Uint8Array.from(Buffer.from('tx'))),
 };
 
+// By default, all requests are valid
+// If you want to test an invalid response, you can override the validator
+export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
+  [PING_PROTOCOL]: noopValidator,
+  [STATUS_PROTOCOL]: noopValidator,
+  [TX_REQ_PROTOCOL]: noopValidator,
+};
+
 /**
  * @param numberOfNodes - the number of nodes to create
  * @returns An array of the created nodes
@@ -65,10 +75,13 @@ export const createNodes = async (peerManager: PeerManager, numberOfNodes: numbe
   return await Promise.all(Array.from({ length: numberOfNodes }, () => createReqResp(peerManager)));
 };
 
-// TODO: think about where else this can go
-export const startNodes = async (nodes: ReqRespNode[], subProtocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS) => {
+export const startNodes = async (
+  nodes: ReqRespNode[],
+  subProtocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS,
+  subProtocolValidators = MOCK_SUB_PROTOCOL_VALIDATORS,
+) => {
   for (const node of nodes) {
-    await node.req.start(subProtocolHandlers);
+    await node.req.start(subProtocolHandlers, subProtocolValidators);
   }
 };
 

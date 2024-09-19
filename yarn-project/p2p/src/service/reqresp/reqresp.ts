@@ -9,18 +9,18 @@ import { type Uint8ArrayList } from 'uint8arraylist';
 
 import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
 import { type PeerManager } from '../peer_manager.js';
+import { PeerErrorSeverity } from '../peer_scoring.js';
 import { type P2PReqRespConfig } from './config.js';
 import {
   DEFAULT_SUB_PROTOCOL_HANDLERS,
   DEFAULT_SUB_PROTOCOL_VALIDATORS,
-  ReqRespSubProtocolValidators,
-  SubProtocolMap,
-  subProtocolMap,
   type ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
+  type ReqRespSubProtocolValidators,
+  type SubProtocolMap,
+  subProtocolMap,
 } from './interface.js';
 import { RequestResponseRateLimiter } from './rate_limiter/rate_limiter.js';
-import { PeerErrorSeverity } from '../peer_scoring.js';
 
 /**
  * The Request Response Service
@@ -87,30 +87,37 @@ export class ReqResp {
    * Send a request to peers, returns the first response
    *
    * @param subProtocol - The protocol being requested
-   * @param payload - The payload to send
+   * @param request - The request to send
    * @returns - The response from the peer, otherwise undefined
    */
-  async sendRequest<SubProtocol extends ReqRespSubProtocol>(subProtocol: SubProtocol, payload: Buffer): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
+  async sendRequest<SubProtocol extends ReqRespSubProtocol>(
+    subProtocol: SubProtocol,
+    request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
+  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
     const requestFunction = async () => {
+      const responseValidator = this.subProtocolValidators[subProtocol];
+      const requestBuffer = request.toBuffer();
+
       // Get active peers
       const peers = this.libp2p.getPeers();
 
       // Attempt to ask all of our peers
       for (const peer of peers) {
-        const response = await this.sendRequestToPeer(peer, subProtocol, payload);
+        const response = await this.sendRequestToPeer(peer, subProtocol, requestBuffer);
 
         // If we get a response, return it, otherwise we iterate onto the next peer
         // We do not consider it a success if we have an empty buffer
         if (response && response.length > 0) {
-
           // TODO(md): indepth describe what this code does
-          const validator = this.subProtocolValidators[subProtocol];
           const object = subProtocolMap[subProtocol].response.fromBuffer(response);
 
-          const isValid = await validator(object, peer);
-          if (isValid) {
-            return object;
+          const isValid = await responseValidator(request, object, peer);
+          if (!isValid) {
+            this.logger.error(`Invalid response for ${subProtocol} from ${peer.toString()}`);
+            this.peerManager.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
+            return undefined;
           }
+          return object;
         }
       }
       return undefined;

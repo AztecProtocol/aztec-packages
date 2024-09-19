@@ -51,11 +51,9 @@ import {
   PING_PROTOCOL,
   type ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
-  ReqRespSubProtocolValidators,
   STATUS_PROTOCOL,
   type SubProtocolMap,
   TX_REQ_PROTOCOL,
-  subProtocolMap,
 } from './reqresp/interface.js';
 import { ReqResp } from './reqresp/reqresp.js';
 import type { P2PService, PeerDiscoveryService } from './service.js';
@@ -310,11 +308,11 @@ export class LibP2PService implements P2PService {
    * @param request The request type to send
    * @returns
    */
-  async sendRequest<SubProtocol extends ReqRespSubProtocol>(
+  sendRequest<SubProtocol extends ReqRespSubProtocol>(
     protocol: SubProtocol,
     request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
-    return this.reqresp.sendRequest(protocol, request.toBuffer());
+    return this.reqresp.sendRequest(protocol, request);
   }
 
   /**
