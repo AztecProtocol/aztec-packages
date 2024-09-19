@@ -13,6 +13,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 
 #include "barretenberg/vm/avm/generated/flavor_settings.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 
 // Relations
 #include "barretenberg/vm/avm/generated/relations/alu.hpp"
@@ -222,6 +223,29 @@ class AvmFlavor {
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
     static constexpr bool has_zero_row = true;
+
+    static constexpr size_t NUM_FRS_COM = field_conversion::calc_num_bn254_frs<Commitment>();
+    static constexpr size_t NUM_FRS_FR = field_conversion::calc_num_bn254_frs<FF>();
+
+    // After any circuit changes, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS` in your IDE
+    // to see its value and then update `AVM_PROOF_LENGTH_IN_FIELDS` in constants.nr.
+    static constexpr size_t COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS =
+        (NUM_WITNESS_ENTITIES + 2) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
+        CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * BATCHED_RELATION_PARTIAL_LENGTH);
+
+    static_assert(AVM_PROOF_LENGTH_IN_FIELDS == COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
+                  "\nUnexpected AVM proof length. This might be due to some changes in the\n"
+                  "AVM circuit layout. In this case, modify AVM_PROOF_LENGTH_IN_FIELDS \n"
+                  "in constants.nr accordingly.");
+
+    // VK is composed of
+    // - circuit size encoded as a fr field element
+    // - num of inputs encoded as a fr field element
+    // - NUM_PRECOMPUTED_ENTITIES commitments
+    static_assert(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS == 2 * NUM_FRS_FR + NUM_PRECOMPUTED_ENTITIES * NUM_FRS_COM,
+                  "\nUnexpected AVM VK length. This might be due to some changes in the\n"
+                  "AVM circuit. In this case, modify AVM_VERIFICATION_LENGTH_IN_FIELDS \n"
+                  "in constants.nr accordingly.");
 
     template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
       public:

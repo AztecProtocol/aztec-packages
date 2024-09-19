@@ -18,6 +18,9 @@
     },
     {
       "path": "../bb-prover"
+    },
+    {
+      "path": "../simulator"
     }
   ],
   "include": ["src", "artifacts/*.d.json.ts", "artifacts/**/*.d.json.ts"]

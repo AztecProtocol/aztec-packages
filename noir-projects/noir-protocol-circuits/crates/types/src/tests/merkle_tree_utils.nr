@@ -83,7 +83,7 @@ impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, le
     }
 }
 
-impl<let SUBTREE_ITEMS: u32,  let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, let SUBTREE_HEIGHT: u32> NonEmptyMerkleTree<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> {
+impl<let SUBTREE_ITEMS: u32, let TREE_HEIGHT: u32, let SUPERTREE_HEIGHT: u32, let SUBTREE_HEIGHT: u32> NonEmptyMerkleTree<SUBTREE_ITEMS, TREE_HEIGHT, SUPERTREE_HEIGHT, SUBTREE_HEIGHT> {
     pub fn new(
         non_zero_leaves: [Field; SUBTREE_ITEMS],
         _tree_height: [Field; TREE_HEIGHT],

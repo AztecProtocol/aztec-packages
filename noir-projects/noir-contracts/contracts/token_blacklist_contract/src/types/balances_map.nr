@@ -55,6 +55,7 @@ impl<T> BalancesMap<T, UnconstrainedContext> {
 }
 
 impl<T> BalancesMap<T, &mut PrivateContext> {
+
     pub fn add<let T_SERIALIZED_LEN: u32>(
         self: Self,
         owner: AztecAddress,

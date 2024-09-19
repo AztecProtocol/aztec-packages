@@ -17,7 +17,8 @@ class AvmCastTests : public ::testing::Test {
   public:
     AvmCastTests()
         : public_inputs(generate_base_public_inputs())
-        , trace_builder(AvmTraceBuilder(public_inputs))
+        , trace_builder(
+              AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
         srs::init_crs_factory("../srs_db/ignition");
     }
@@ -180,7 +181,9 @@ TEST_F(AvmCastTests, noTruncationFFToU32)
 TEST_F(AvmCastTests, truncationFFToU16ModMinus1)
 {
     calldata = { FF::modulus - 1 };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
+                        .set_full_precomputed_tables(false)
+                        .set_range_check_required(false);
     trace_builder.op_set(0, 1, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
@@ -194,7 +197,9 @@ TEST_F(AvmCastTests, truncationFFToU16ModMinus1)
 TEST_F(AvmCastTests, truncationFFToU16ModMinus2)
 {
     calldata = { FF::modulus_minus_two };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
+                        .set_full_precomputed_tables(false)
+                        .set_range_check_required(false);
     trace_builder.op_set(0, 1, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
@@ -306,7 +311,9 @@ TEST_F(AvmCastNegativeTests, wrongOutputAluIc)
 TEST_F(AvmCastNegativeTests, wrongLimbDecompositionInput)
 {
     calldata = { FF::modulus_minus_two };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
+                        .set_full_precomputed_tables(false)
+                        .set_range_check_required(false);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
     trace_builder.op_return(0, 0, 0);
@@ -331,7 +338,9 @@ TEST_F(AvmCastNegativeTests, wrongPSubALo)
 TEST_F(AvmCastNegativeTests, wrongPSubAHi)
 {
     calldata = { FF::modulus_minus_two - 987 };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
+                        .set_full_precomputed_tables(false)
+                        .set_range_check_required(false);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
     trace_builder.op_return(0, 0, 0);
@@ -369,7 +378,9 @@ TEST_F(AvmCastNegativeTests, wrongRangeCheckDecompositionLo)
 TEST_F(AvmCastNegativeTests, wrongRangeCheckDecompositionHi)
 {
     calldata = { FF::modulus_minus_two - 987 };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
+                        .set_full_precomputed_tables(false)
+                        .set_range_check_required(false);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U16);
     trace_builder.op_return(0, 0, 0);
@@ -407,7 +418,9 @@ TEST_F(AvmCastNegativeTests, wrongCopySubLoForRangeCheck)
 TEST_F(AvmCastNegativeTests, wrongCopySubHiForRangeCheck)
 {
     std::vector<FF> const calldata = { FF::modulus_minus_two - 972836 };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
+                        .set_full_precomputed_tables(false)
+                        .set_range_check_required(false);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_cast(0, 0, 1, AvmMemoryTag::U128);
     trace_builder.op_return(0, 0, 0);

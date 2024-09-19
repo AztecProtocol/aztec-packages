@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::AztecAddress};
+use dep::protocol_types::address::AztecAddress;
 
 global L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH: u32 = 17;
 

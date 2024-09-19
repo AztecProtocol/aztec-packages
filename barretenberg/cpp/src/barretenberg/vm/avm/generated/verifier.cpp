@@ -66,7 +66,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof,
     CommitmentLabels commitment_labels;
 
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-
     if (circuit_size != key->circuit_size) {
         vinfo("Circuit size mismatch: expected", key->circuit_size, " got ", circuit_size);
         return false;
@@ -102,7 +101,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof,
 
     // If Sumcheck did not verify, return false
     if (!sumcheck_verified.has_value() || !sumcheck_verified.value()) {
-        vinfo("Sumcheck failed");
+        vinfo("Sumcheck verification failed");
         return false;
     }
 
@@ -145,7 +144,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof,
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.
-
     auto opening_claim = ZeroMorph::verify(circuit_size,
                                            commitments.get_unshifted(),
                                            commitments.get_to_be_shifted(),
@@ -156,10 +154,10 @@ bool AvmVerifier::verify_proof(const HonkProof& proof,
                                            transcript);
 
     auto pairing_points = PCS::reduce_verify(opening_claim, transcript);
-    bool zeromoprh_verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    auto zeromorph_verified = key->pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
-    if (!zeromoprh_verified) {
-        vinfo("ZeroMorph failed");
+    if (!zeromorph_verified) {
+        vinfo("ZeroMorph verification failed");
         return false;
     }
 
