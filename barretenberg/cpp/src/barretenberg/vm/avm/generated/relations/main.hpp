@@ -536,19 +536,14 @@ template <typename FF_> class mainImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<74, ContainerOverSubrelations>;
-<<<<<<< HEAD
-            auto tmp = (((new_term.main_sel_op_eq + new_term.main_sel_op_lte) + new_term.main_sel_op_lt) *
-                        (new_term.main_w_in_tag - constants_MEM_TAG_U1));
-=======
             auto tmp = (new_term.main_sel_resolve_ind_addr_d * (FF(1) - new_term.main_sel_resolve_ind_addr_d));
->>>>>>> 4c4ca90a7b (8596: stubbed static call PIL and witness generation)
             tmp *= scaling_factor;
             std::get<74>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<75, ContainerOverSubrelations>;
             auto tmp = (((new_term.main_sel_op_eq + new_term.main_sel_op_lte) + new_term.main_sel_op_lt) *
-                        (new_term.main_w_in_tag - FF(1)));
+                        (new_term.main_w_in_tag - constants_MEM_TAG_U1));
             tmp *= scaling_factor;
             std::get<75>(evals) += typename Accumulator::View(tmp);
         }
@@ -568,28 +563,20 @@ template <typename FF_> class mainImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<78, ContainerOverSubrelations>;
-<<<<<<< HEAD
-            auto tmp = (new_term.main_sel_op_fdiv * (new_term.main_r_in_tag - constants_MEM_TAG_FF));
-=======
             auto tmp = (((new_term.main_sel_op_fdiv + new_term.main_sel_op_div) * new_term.main_op_err) *
                         (FF(1) - new_term.main_inv));
->>>>>>> 4c4ca90a7b (8596: stubbed static call PIL and witness generation)
             tmp *= scaling_factor;
             std::get<78>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<79, ContainerOverSubrelations>;
-<<<<<<< HEAD
-            auto tmp = (new_term.main_sel_op_fdiv * (new_term.main_w_in_tag - constants_MEM_TAG_FF));
-=======
-            auto tmp = (new_term.main_sel_op_fdiv * (new_term.main_r_in_tag - FF(6)));
->>>>>>> 4c4ca90a7b (8596: stubbed static call PIL and witness generation)
+            auto tmp = (new_term.main_sel_op_fdiv * (new_term.main_r_in_tag - constants_MEM_TAG_FF));
             tmp *= scaling_factor;
             std::get<79>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<80, ContainerOverSubrelations>;
-            auto tmp = (new_term.main_sel_op_fdiv * (new_term.main_w_in_tag - FF(6)));
+            auto tmp = (new_term.main_sel_op_fdiv * (new_term.main_w_in_tag - constants_MEM_TAG_FF));
             tmp *= scaling_factor;
             std::get<80>(evals) += typename Accumulator::View(tmp);
         }
@@ -821,13 +808,8 @@ template <typename FF> class main : public Relation<mainImpl<FF>> {
         switch (index) {
         case 0:
             return "OPCODE_SELECTORS";
-<<<<<<< HEAD
-        case 74:
-            return "OUTPUT_U1";
-=======
->>>>>>> 4c4ca90a7b (8596: stubbed static call PIL and witness generation)
         case 75:
-            return "OUTPUT_U8";
+            return "OUTPUT_U1";
         case 76:
             return "SUBOP_FDIV";
         case 77:

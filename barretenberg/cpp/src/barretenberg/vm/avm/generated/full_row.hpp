@@ -712,11 +712,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-<<<<<<< HEAD
-    static constexpr size_t SIZE = 697;
-=======
-    static constexpr size_t SIZE = 696;
->>>>>>> 4c4ca90a7b (8596: stubbed static call PIL and witness generation)
+    static constexpr size_t SIZE = 698;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);
