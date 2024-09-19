@@ -59,7 +59,6 @@ import {
   type PackedValuesCache,
   PublicExecutor,
   type TypedOracle,
-  WorldStateDB,
   acvm,
   createSimulationError,
   extractCallStack,
@@ -73,6 +72,7 @@ import { MerkleTreeSnapshotOperationsFacade, type MerkleTrees } from '@aztec/wor
 
 import { type TXEDatabase } from '../util/txe_database.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
+import { TXEWorldStateDB } from '../util/txe_world_state_db.js';
 
 export class TXE implements TypedOracle {
   private blockNumber = 0;
@@ -717,7 +717,7 @@ export class TXE implements TypedOracle {
     header.globalVariables.blockNumber = new Fr(await this.getBlockNumber());
 
     const executor = new PublicExecutor(
-      new WorldStateDB(this.trees.asLatest(), new TXEPublicContractDataSource(this)),
+      new TXEWorldStateDB(this.trees.asLatest(), new TXEPublicContractDataSource(this)),
       header,
       new NoopTelemetryClient(),
     );
