@@ -1,13 +1,15 @@
-import { type L2Block, type Signature } from '@aztec/circuit-types';
+import { type L2Block, type TxHash } from '@aztec/circuit-types';
+import { getHashedSignaturePayload } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import { ETHEREUM_SLOT_DURATION, EthAddress, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
+import { type Signature } from '@aztec/foundation/eth-signature';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { AvailabilityOracleAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 
 import pick from 'lodash.pick';
@@ -21,6 +23,7 @@ import {
   type WalletClient,
   createPublicClient,
   createWalletClient,
+  encodeFunctionData,
   getAddress,
   getContract,
   hexToBytes,
@@ -31,6 +34,7 @@ import type * as chains from 'viem/chains';
 
 import { type PublisherConfig, type TxSenderConfig } from './config.js';
 import { L1PublisherMetrics } from './l1-publisher-metrics.js';
+import { prettyLogVeimError } from './utils.js';
 
 /**
  * Stats for a sent transaction.
@@ -70,6 +74,8 @@ export type L1ProcessArgs = {
   blockHash: Buffer;
   /** L2 block body. */
   body: Buffer;
+  /** L2 block tx hashes */
+  txHashes: TxHash[];
   /** Attestations */
   attestations?: Signature[];
 };
@@ -88,13 +94,6 @@ export type L1SubmitProofArgs = {
   aggregationObject: Buffer;
 };
 
-export type MetadataForSlot = {
-  proposer: EthAddress;
-  slot: bigint;
-  pendingBlockNumber: bigint;
-  archive: Buffer;
-};
-
 /**
  * Publishes L2 blocks to L1. This implementation does *not* retry a transaction in
  * the event of network congestion, but should work for local development.
@@ -104,31 +103,20 @@ export type MetadataForSlot = {
  * Adapted from https://github.com/AztecProtocol/aztec2-internal/blob/master/falafel/src/rollup_publisher.ts.
  */
 export class L1Publisher {
-  // @note  If we want to simulate in the future, we have to skip the viem simulations and use `reads` instead
-  //        This is because the viem simulations are not able to simulate the future, only the current state.
-  //        This means that we will be simulating as if `block.timestamp` is the same for the next block
-  //        as for the last block.
-  //        Nevertheless, it can be quite useful for figuring out why exactly the transaction is failing
-  //        as a middle ground right now, we will be skipping the simulation and just sending the transaction
-  //        but only after we have done a successful run of the `validateHeader` for the timestamp in the future.
-  public static SKIP_SIMULATION = true;
-
   private interruptibleSleep = new InterruptibleSleep();
   private sleepTimeMs: number;
   private interrupted = false;
   private metrics: L1PublisherMetrics;
   private log = createDebugLogger('aztec:sequencer:publisher');
 
-  private availabilityOracleContract: GetContractReturnType<
-    typeof AvailabilityOracleAbi,
-    WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
-  >;
   private rollupContract: GetContractReturnType<
     typeof RollupAbi,
     WalletClient<HttpTransport, chains.Chain, PrivateKeyAccount>
   >;
   private publicClient: PublicClient<HttpTransport, chains.Chain>;
   private account: PrivateKeyAccount;
+
+  public static PROPOSE_GAS_GUESS: bigint = 500_000n;
 
   constructor(config: TxSenderConfig & PublisherConfig, client: TelemetryClient) {
     this.sleepTimeMs = config?.l1PublishRetryIntervalMS ?? 60_000;
@@ -137,6 +125,7 @@ export class L1Publisher {
     const { l1RpcUrl: rpcUrl, l1ChainId: chainId, publisherPrivateKey, l1Contracts } = config;
     const chain = createEthereumChain(rpcUrl, chainId);
     this.account = privateKeyToAccount(publisherPrivateKey);
+    this.log.debug(`Publishing from address ${this.account.address}`);
     const walletClient = createWalletClient({
       account: this.account,
       chain: chain.chainInfo,
@@ -148,11 +137,6 @@ export class L1Publisher {
       transport: http(chain.rpcUrl),
     });
 
-    this.availabilityOracleContract = getContract({
-      address: getAddress(l1Contracts.availabilityOracleAddress.toString()),
-      abi: AvailabilityOracleAbi,
-      client: walletClient,
-    });
     this.rollupContract = getContract({
       address: getAddress(l1Contracts.rollupAddress.toString()),
       abi: RollupAbi,
@@ -175,11 +159,7 @@ export class L1Publisher {
    */
   public async canProposeAtNextEthBlock(archive: Buffer): Promise<[bigint, bigint]> {
     const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
-    const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([
-      ts,
-      this.account.address,
-      `0x${archive.toString('hex')}`,
-    ]);
+    const [slot, blockNumber] = await this.rollupContract.read.canProposeAtTime([ts, `0x${archive.toString('hex')}`]);
     return [slot, blockNumber];
   }
 
@@ -209,6 +189,7 @@ export class L1Publisher {
       formattedSignatures,
       `0x${attestationData.digest.toString('hex')}`,
       ts,
+      `0x${header.contentCommitment.txsEffectsHash.toString('hex')}`,
       flags,
     ] as const;
 
@@ -226,34 +207,9 @@ export class L1Publisher {
     }
   }
 
-  // @note Assumes that all ethereum slots have blocks
-  // Using next Ethereum block so we do NOT need to wait for it being mined before seeing the effect
-  public async getMetadataForSlotAtNextEthBlock(): Promise<MetadataForSlot> {
-    const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(ETHEREUM_SLOT_DURATION));
-
-    const [submitter, slot, pendingBlockCount, archive] = await Promise.all([
-      this.rollupContract.read.getProposerAt([ts]),
-      this.rollupContract.read.getSlotAt([ts]),
-      this.rollupContract.read.pendingBlockCount(),
-      this.rollupContract.read.archive(),
-    ]);
-
-    return {
-      proposer: EthAddress.fromString(submitter),
-      slot,
-      pendingBlockNumber: pendingBlockCount - 1n,
-      archive: Buffer.from(archive.replace('0x', ''), 'hex'),
-    };
-  }
-
   public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
     const committee = await this.rollupContract.read.getCurrentEpochCommittee();
     return committee.map(EthAddress.fromString);
-  }
-
-  checkIfTxsAreAvailable(block: L2Block): Promise<boolean> {
-    const args = [`0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`] as const;
-    return this.availabilityOracleContract.read.isAvailable(args);
   }
 
   async getTransactionStats(txHash: string): Promise<TransactionStats | undefined> {
@@ -270,47 +226,41 @@ export class L1Publisher {
   }
 
   /**
-   * Publishes L2 block on L1.
-   * @param block - L2 block to publish.
+   * Proposes a L2 block on L1.
+   * @param block - L2 block to propose.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processL2Block(block: L2Block, attestations?: Signature[]): Promise<boolean> {
+  public async proposeL2Block(block: L2Block, attestations?: Signature[], txHashes?: TxHash[]): Promise<boolean> {
     const ctx = {
       blockNumber: block.number,
       slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
       blockHash: block.hash().toString(),
     };
 
-    const processTxArgs = {
+    const digest = getHashedSignaturePayload(block.archive.root, txHashes ?? []);
+    const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
       blockHash: block.header.hash().toBuffer(),
       body: block.body.toBuffer(),
       attestations,
+      txHashes: txHashes ?? [],
     };
 
     // Publish body and propose block (if not already published)
     if (!this.interrupted) {
-      let txHash;
       const timer = new Timer();
-
-      const isAvailable = await this.checkIfTxsAreAvailable(block);
 
       // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
       //        This means that we can avoid the simulation issues in later checks.
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
       await this.validateBlockForSubmission(block.header, {
-        digest: block.archive.root.toBuffer(),
+        digest: digest.toBuffer(),
         signatures: attestations ?? [],
       });
 
-      if (isAvailable) {
-        this.log.verbose(`Transaction effects of block ${block.number} already published.`, ctx);
-        txHash = await this.sendProposeWithoutBodyTx(processTxArgs);
-      } else {
-        txHash = await this.sendProposeTx(processTxArgs);
-      }
+      const txHash = await this.sendProposeTx(proposeTxArgs);
 
       if (!txHash) {
         this.log.info(`Failed to publish block ${block.number} to L1`, ctx);
@@ -430,11 +380,9 @@ export class L1Publisher {
         `0x${proof.toString('hex')}`,
       ] as const;
 
-      if (!L1Publisher.SKIP_SIMULATION) {
-        await this.rollupContract.simulate.submitBlockRootProof(args, {
-          account: this.account,
-        });
-      }
+      await this.rollupContract.simulate.submitBlockRootProof(args, {
+        account: this.account,
+      });
 
       return await this.rollupContract.write.submitBlockRootProof(args, {
         account: this.account,
@@ -445,108 +393,45 @@ export class L1Publisher {
     }
   }
 
-  // This is used in `integration_l1_publisher.test.ts` currently. Could be removed though.
-  private async sendPublishTx(encodedBody: Buffer): Promise<string | undefined> {
-    if (!this.interrupted) {
-      try {
-        this.log.info(`TxEffects size=${encodedBody.length} bytes`);
-        const args = [`0x${encodedBody.toString('hex')}`] as const;
-
-        await this.availabilityOracleContract.simulate.publish(args, {
-          account: this.account,
-        });
-
-        return await this.availabilityOracleContract.write.publish(args, {
-          account: this.account,
-        });
-      } catch (err) {
-        this.log.error(`TxEffects publish failed`, err);
-        return undefined;
-      }
-    }
-  }
-
-  private async sendProposeWithoutBodyTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
-    if (!this.interrupted) {
-      try {
-        if (encodedData.attestations) {
-          const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
-          const args = [
-            `0x${encodedData.header.toString('hex')}`,
-            `0x${encodedData.archive.toString('hex')}`,
-            `0x${encodedData.blockHash.toString('hex')}`,
-            attestations,
-          ] as const;
-
-          if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.propose(args, { account: this.account });
-          }
-
-          return await this.rollupContract.write.propose(args, {
-            account: this.account,
-          });
-        } else {
-          const args = [
-            `0x${encodedData.header.toString('hex')}`,
-            `0x${encodedData.archive.toString('hex')}`,
-            `0x${encodedData.blockHash.toString('hex')}`,
-          ] as const;
-
-          if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.propose(args, { account: this.account });
-          }
-          return await this.rollupContract.write.propose(args, {
-            account: this.account,
-          });
-        }
-      } catch (err) {
-        this.log.error(`Rollup publish failed`, err);
-        return undefined;
-      }
-    }
-  }
-
   private async sendProposeTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
     if (!this.interrupted) {
       try {
-        if (encodedData.attestations) {
-          const attestations = encodedData.attestations.map(attest => attest.toViemSignature());
-          const args = [
-            `0x${encodedData.header.toString('hex')}`,
-            `0x${encodedData.archive.toString('hex')}`,
-            `0x${encodedData.blockHash.toString('hex')}`,
-            attestations,
-            `0x${encodedData.body.toString('hex')}`,
-          ] as const;
+        // We have to jump a few hoops because viem is not happy around estimating gas for view functions
+        const computeTxsEffectsHashGas = await this.publicClient.estimateGas({
+          to: this.rollupContract.address,
+          data: encodeFunctionData({
+            abi: this.rollupContract.abi,
+            functionName: 'computeTxsEffectsHash',
+            args: [`0x${encodedData.body.toString('hex')}`],
+          }),
+        });
 
-          if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.propose(args, {
-              account: this.account,
-            });
-          }
+        // @note  We perform this guesstimate instead of the usual `gasEstimate` since
+        //        viem will use the current state to simulate against, which means that
+        //        we will fail estimation in the case where we are simulating for the
+        //        first ethereum block within our slot (as current time is not in the
+        //        slot yet).
+        const gasGuesstimate = computeTxsEffectsHashGas + L1Publisher.PROPOSE_GAS_GUESS;
 
-          return await this.rollupContract.write.propose(args, {
-            account: this.account,
-          });
-        } else {
-          const args = [
-            `0x${encodedData.header.toString('hex')}`,
-            `0x${encodedData.archive.toString('hex')}`,
-            `0x${encodedData.blockHash.toString('hex')}`,
-            `0x${encodedData.body.toString('hex')}`,
-          ] as const;
+        const attestations = encodedData.attestations
+          ? encodedData.attestations.map(attest => attest.toViemSignature())
+          : [];
+        const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.to0xString()) : [];
+        const args = [
+          `0x${encodedData.header.toString('hex')}`,
+          `0x${encodedData.archive.toString('hex')}`,
+          `0x${encodedData.blockHash.toString('hex')}`,
+          txHashes,
+          attestations,
+          `0x${encodedData.body.toString('hex')}`,
+        ] as const;
 
-          if (!L1Publisher.SKIP_SIMULATION) {
-            await this.rollupContract.simulate.propose(args, {
-              account: this.account,
-            });
-          }
-
-          return await this.rollupContract.write.propose(args, {
-            account: this.account,
-          });
-        }
+        return await this.rollupContract.write.propose(args, {
+          account: this.account,
+          gas: gasGuesstimate,
+        });
       } catch (err) {
+        prettyLogVeimError(err, this.log);
         this.log.error(`Rollup publish failed`, err);
         return undefined;
       }

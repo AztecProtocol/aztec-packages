@@ -6,9 +6,9 @@ use noirc_frontend::{
         InfixExpression, LValue, Lambda, LetStatement, Literal, MemberAccessExpression,
         MethodCallExpression, ModuleDeclaration, NoirFunction, NoirStruct, NoirTrait,
         NoirTraitImpl, NoirTypeAlias, Path, PathSegment, Pattern, PrefixExpression, Statement,
-        StatementKind, TraitImplItem, TraitItem, TypeImpl, UnresolvedGeneric, UnresolvedGenerics,
-        UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData, UnresolvedTypeExpression,
-        UseTree, UseTreeKind,
+        StatementKind, TraitImplItem, TraitImplItemKind, TraitItem, TypeImpl, UnresolvedGeneric,
+        UnresolvedGenerics, UnresolvedTraitConstraint, UnresolvedType, UnresolvedTypeData,
+        UnresolvedTypeExpression, UseTree, UseTreeKind,
     },
     parser::{Item, ItemKind, ParsedSubModule, ParserError},
     ParsedModule,
@@ -50,9 +50,10 @@ fn empty_item(item: &mut Item) {
             empty_parsed_submodule(parsed_submodule);
         }
         ItemKind::ModuleDecl(module_declaration) => empty_module_declaration(module_declaration),
-        ItemKind::Import(use_tree) => empty_use_tree(use_tree),
+        ItemKind::Import(use_tree, _) => empty_use_tree(use_tree),
         ItemKind::Struct(noir_struct) => empty_noir_struct(noir_struct),
         ItemKind::TypeAlias(noir_type_alias) => empty_noir_type_alias(noir_type_alias),
+        ItemKind::InnerAttribute(_) => (),
     }
 }
 
@@ -63,7 +64,7 @@ fn empty_noir_trait(noir_trait: &mut NoirTrait) {
     empty_unresolved_generics(&mut noir_trait.generics);
     empty_unresolved_trait_constraints(&mut noir_trait.where_clause);
     for item in noir_trait.items.iter_mut() {
-        empty_trait_item(item);
+        empty_trait_item(&mut item.item);
     }
 }
 
@@ -73,7 +74,7 @@ fn empty_noir_trait_impl(noir_trait_impl: &mut NoirTraitImpl) {
     empty_unresolved_type(&mut noir_trait_impl.object_type);
     empty_unresolved_trait_constraints(&mut noir_trait_impl.where_clause);
     for item in noir_trait_impl.items.iter_mut() {
-        empty_trait_impl_item(item);
+        empty_trait_impl_item(&mut item.item);
     }
 }
 
@@ -83,7 +84,7 @@ fn empty_type_impl(type_impl: &mut TypeImpl) {
     empty_unresolved_generics(&mut type_impl.generics);
     empty_unresolved_trait_constraints(&mut type_impl.where_clause);
     for (noir_function, _) in type_impl.methods.iter_mut() {
-        empty_noir_function(noir_function);
+        empty_noir_function(&mut noir_function.item);
     }
 }
 
@@ -107,7 +108,17 @@ fn empty_noir_function(noir_function: &mut NoirFunction) {
 
 fn empty_trait_item(trait_item: &mut TraitItem) {
     match trait_item {
-        TraitItem::Function { name, generics, parameters, return_type, where_clause, body } => {
+        TraitItem::Function {
+            name,
+            generics,
+            parameters,
+            return_type,
+            where_clause,
+            body,
+            is_unconstrained: _,
+            visibility: _,
+            is_comptime: _,
+        } => {
             empty_ident(name);
             empty_unresolved_generics(generics);
             for (name, typ) in parameters.iter_mut() {
@@ -136,14 +147,20 @@ fn empty_trait_item(trait_item: &mut TraitItem) {
 }
 
 fn empty_trait_impl_item(trait_impl_item: &mut TraitImplItem) {
+    trait_impl_item.span = Default::default();
+
+    empty_trait_impl_item_kind(&mut trait_impl_item.kind);
+}
+
+fn empty_trait_impl_item_kind(trait_impl_item: &mut TraitImplItemKind) {
     match trait_impl_item {
-        TraitImplItem::Function(noir_function) => empty_noir_function(noir_function),
-        TraitImplItem::Constant(name, typ, default_value) => {
+        TraitImplItemKind::Function(noir_function) => empty_noir_function(noir_function),
+        TraitImplItemKind::Constant(name, typ, default_value) => {
             empty_ident(name);
             empty_unresolved_type(typ);
             empty_expression(default_value);
         }
-        TraitImplItem::Type { name, alias } => {
+        TraitImplItemKind::Type { name, alias } => {
             empty_ident(name);
             empty_unresolved_type(alias);
         }
@@ -186,9 +203,9 @@ fn empty_use_tree(use_tree: &mut UseTree) {
 fn empty_noir_struct(noir_struct: &mut NoirStruct) {
     noir_struct.span = Default::default();
     empty_ident(&mut noir_struct.name);
-    for (name, typ) in noir_struct.fields.iter_mut() {
-        empty_ident(name);
-        empty_unresolved_type(typ);
+    for field in noir_struct.fields.iter_mut() {
+        empty_ident(&mut field.item.name);
+        empty_unresolved_type(&mut field.item.typ);
     }
     empty_unresolved_generics(&mut noir_struct.generics);
 }
@@ -218,7 +235,10 @@ fn empty_statement(statement: &mut Statement) {
         StatementKind::For(for_loop_statement) => empty_for_loop_statement(for_loop_statement),
         StatementKind::Comptime(statement) => empty_statement(statement),
         StatementKind::Semi(expression) => empty_expression(expression),
-        StatementKind::Break | StatementKind::Continue | StatementKind::Error => (),
+        StatementKind::Break
+        | StatementKind::Continue
+        | StatementKind::Interned(_)
+        | StatementKind::Error => (),
     }
 }
 
@@ -271,12 +291,22 @@ fn empty_expression(expression: &mut Expression) {
         ExpressionKind::Unsafe(block_expression, _span) => {
             empty_block_expression(block_expression);
         }
-        ExpressionKind::Quote(..) | ExpressionKind::Resolved(_) | ExpressionKind::Error => (),
         ExpressionKind::AsTraitPath(path) => {
             empty_unresolved_type(&mut path.typ);
             empty_path(&mut path.trait_path);
             empty_ident(&mut path.impl_item);
+            empty_type_args(&mut path.trait_generics);
         }
+        ExpressionKind::TypePath(path) => {
+            empty_unresolved_type(&mut path.typ);
+            empty_ident(&mut path.item);
+            empty_type_args(&mut path.turbofish);
+        }
+        ExpressionKind::Quote(..)
+        | ExpressionKind::Resolved(_)
+        | ExpressionKind::Interned(_)
+        | ExpressionKind::InternedStatement(_)
+        | ExpressionKind::Error => (),
     }
 }
 
@@ -353,6 +383,7 @@ fn empty_unresolved_type(unresolved_type: &mut UnresolvedType) {
         | UnresolvedTypeData::Unit
         | UnresolvedTypeData::Quoted(_)
         | UnresolvedTypeData::Resolved(_)
+        | UnresolvedTypeData::Interned(_)
         | UnresolvedTypeData::Unspecified
         | UnresolvedTypeData::Error => (),
     }
@@ -393,13 +424,14 @@ fn empty_pattern(pattern: &mut Pattern) {
                 empty_pattern(pattern);
             }
         }
+        Pattern::Interned(_, _) => (),
     }
 }
 
 fn empty_unresolved_trait_constraints(
-    unresolved_trait_constriants: &mut [UnresolvedTraitConstraint],
+    unresolved_trait_constraints: &mut [UnresolvedTraitConstraint],
 ) {
-    for trait_constraint in unresolved_trait_constriants.iter_mut() {
+    for trait_constraint in unresolved_trait_constraints.iter_mut() {
         empty_unresolved_trait_constraint(trait_constraint);
     }
 }
@@ -480,7 +512,7 @@ fn empty_method_call_expression(method_call_expression: &mut MethodCallExpressio
 }
 
 fn empty_constructor_expression(constructor_expression: &mut ConstructorExpression) {
-    empty_path(&mut constructor_expression.type_name);
+    empty_unresolved_type(&mut constructor_expression.typ);
     for (name, expression) in constructor_expression.fields.iter_mut() {
         empty_ident(name);
         empty_expression(expression);
@@ -531,6 +563,7 @@ fn empty_lvalue(lvalue: &mut LValue) {
             empty_expression(index);
         }
         LValue::Dereference(lvalue, _) => empty_lvalue(lvalue),
+        LValue::Interned(..) => (),
     }
 }
 

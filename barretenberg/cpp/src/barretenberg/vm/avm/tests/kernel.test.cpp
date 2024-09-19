@@ -3,6 +3,7 @@
 #include "barretenberg/vm/avm/tests/helpers.test.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
+#include "barretenberg/vm/avm/trace/trace.hpp"
 #include "barretenberg/vm/constants.hpp"
 #include "common.test.hpp"
 
@@ -67,7 +68,9 @@ void test_kernel_lookup(bool indirect,
                         VmPublicInputs public_inputs = get_base_public_inputs(),
                         ExecutionHints execution_hints = {})
 {
-    AvmTraceBuilder trace_builder(public_inputs, std::move(execution_hints));
+    auto trace_builder = AvmTraceBuilder(public_inputs, std::move(execution_hints))
+                             .set_full_precomputed_tables(false)
+                             .set_range_check_required(false);
 
     apply_opcodes(trace_builder);
 
@@ -525,40 +528,6 @@ TEST_F(AvmKernelPositiveTests, kernelBlockNumber)
     test_kernel_lookup(true, indirect_apply_opcodes, checks);
 }
 
-TEST_F(AvmKernelPositiveTests, kernelCoinbase)
-{
-    uint32_t dst_offset = 42;
-    uint32_t indirect_dst_offset = 69;
-    auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_coinbase(/*indirect*/ false, dst_offset);
-    };
-    auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(
-            /*indirect*/ false,
-            /*value*/ dst_offset,
-            /*dst_offset*/ indirect_dst_offset,
-            AvmMemoryTag::U32);
-        trace_builder.op_coinbase(/*indirect*/ true, indirect_dst_offset);
-    };
-
-    auto checks = [=](bool indirect, const std::vector<Row>& trace) {
-        auto fee_row =
-            std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_coinbase == FF(1); });
-        EXPECT_TRUE(fee_row != trace.end());
-
-        expect_row(fee_row,
-                   /*kernel_in_offset=*/COINBASE_SELECTOR,
-                   /*ia=*/COINBASE_SELECTOR +
-                       1, // Note the value generated above for public inputs is the same as the index read + 1
-                   /*ind_a*/ indirect ? indirect_dst_offset : 0,
-                   /*mem_addr_a*/ dst_offset,
-                   /*w_in_tag=*/AvmMemoryTag::FF);
-    };
-
-    test_kernel_lookup(false, direct_apply_opcodes, checks);
-    test_kernel_lookup(true, indirect_apply_opcodes, checks);
-}
-
 TEST_F(AvmKernelPositiveTests, kernelTimestamp)
 {
     uint32_t dst_offset = 42;
@@ -605,7 +574,8 @@ void negative_test_incorrect_ia_kernel_lookup(OpcodesFunc apply_opcodes,
                                               auto expected_message)
 {
     VmPublicInputs public_inputs = get_base_public_inputs();
-    AvmTraceBuilder trace_builder(public_inputs);
+    auto trace_builder =
+        AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false);
 
     // We should return a value of 1 for the sender, as it exists at index 0
     apply_opcodes(trace_builder);
@@ -913,32 +883,6 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTimestamp)
     negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
 }
 
-TEST_F(AvmKernelNegativeTests, incorrectIaCoinbase)
-{
-    uint32_t dst_offset = 42;
-    FF incorrect_ia = FF(69);
-
-    // We test that the sender opcode is inlcuded at index x in the public inputs
-    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_coinbase(/*indirect*/ false, dst_offset);
-    };
-    auto checks = [=](bool indirect, const std::vector<Row>& trace) {
-        auto row =
-            std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_coinbase == FF(1); });
-        EXPECT_TRUE(row != trace.end());
-
-        expect_row(
-            row,
-            /*kernel_in_offset=*/COINBASE_SELECTOR,
-            /*ia=*/incorrect_ia, // Note the value generated above for public inputs is the same as the index read + 1
-            /*ind_a*/ indirect,
-            /*mem_addr_a=*/dst_offset,
-            /*w_in_tag=*/AvmMemoryTag::FF);
-    };
-
-    negative_test_incorrect_ia_kernel_lookup(apply_opcodes, checks, incorrect_ia, BAD_LOOKUP);
-}
-
 // KERNEL OUTPUTS
 class AvmKernelOutputPositiveTests : public AvmKernelTests {
   protected:
@@ -1141,7 +1085,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSload)
     auto execution_hints = ExecutionHints().with_storage_value_hints({ { 0, value } });
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(slot), slot_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, slot, slot_offset, AvmMemoryTag::FF);
         trace_builder.op_sload(indirect, slot_offset, size, dest_offset);
     };
     auto checks = [=]([[maybe_unused]] bool indirect, const std::vector<Row>& trace) {
@@ -1181,8 +1125,8 @@ TEST_F(AvmKernelOutputPositiveTests, kernelSstore)
     uint32_t output_offset = START_SSTORE_WRITE_OFFSET;
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
-        trace_builder.op_set(0, static_cast<uint128_t>(slot), metadata_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, slot, metadata_offset, AvmMemoryTag::FF);
         trace_builder.op_sstore(indirect, value_offset, size, metadata_offset);
     };
     auto checks = [=]([[maybe_unused]] bool indirect, const std::vector<Row>& trace) {
@@ -1225,15 +1169,17 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
     auto execution_hints = ExecutionHints().with_note_hash_exists_hints({ { 0, exists } });
 
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
-        trace_builder.op_note_hash_exists(/*indirect*/ false, value_offset, metadata_offset);
+        trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
+        // TODO(#8287): Leaf index isnt constrained properly so we just set it to 0
+        trace_builder.op_note_hash_exists(/*indirect*/ false, value_offset, 0, metadata_offset);
     };
     // TODO: fix
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
         trace_builder.op_set(0, value_offset, indirect_value_offset, AvmMemoryTag::U32);
         trace_builder.op_set(0, metadata_offset, indirect_metadata_offset, AvmMemoryTag::U32);
-        trace_builder.op_note_hash_exists(/*indirect*/ 3, indirect_value_offset, indirect_metadata_offset);
+        // TODO(#8287): Leaf index isnt constrained properly so we just set it to 0
+        trace_builder.op_note_hash_exists(/*indirect*/ 3, indirect_value_offset, 0, indirect_metadata_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(
@@ -1272,7 +1218,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierExists)
     auto execution_hints = ExecutionHints().with_nullifier_exists_hints({ { 0, exists } });
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
         trace_builder.op_nullifier_exists(/*indirect=*/0, value_offset, metadata_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -1311,7 +1257,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNullifierNonExists)
     auto execution_hints = ExecutionHints().with_nullifier_exists_hints({ { 0, exists } });
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
+        trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
         trace_builder.op_nullifier_exists(/*indirect=*/0, value_offset, metadata_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -1351,8 +1297,9 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
     auto execution_hints = ExecutionHints().with_l1_to_l2_message_exists_hints({ { 0, exists } });
 
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_set(0, static_cast<uint128_t>(value), value_offset, AvmMemoryTag::FF);
-        trace_builder.op_l1_to_l2_msg_exists(/*indirect*/ false, value_offset, metadata_offset);
+        trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
+        // TODO(#8287): Leaf index isnt constrained properly so we just set it to 0
+        trace_builder.op_l1_to_l2_msg_exists(/*indirect*/ false, value_offset, 0, metadata_offset);
     };
     auto checks = [=]([[maybe_unused]] bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(

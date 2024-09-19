@@ -19,13 +19,13 @@ contract Token {
         context::{PrivateContext, PrivateCallInterface}, hash::compute_secret_hash,
         prelude::{
         NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress,
-        FunctionSelector, NoteHeader, Point
+        FunctionSelector, NoteHeader
     },
         encrypted_logs::{
         encrypted_note_emission::{encode_and_encrypt_note_with_keys, encode_and_encrypt_note_with_keys_unconstrained},
-        encrypted_event_emission::{encode_and_encrypt_event, encode_and_encrypt_event_with_keys_unconstrained}
+        encrypted_event_emission::encode_and_encrypt_event_with_keys_unconstrained
     },
-        keys::getters::get_current_public_keys
+        keys::getters::get_public_keys, utils::comparison::Comparator
     };
 
     // docs:start:import_authwit
@@ -33,8 +33,8 @@ contract Token {
     // docs:end:import_authwit
 
     use crate::types::{
-        transparent_note::TransparentNote,
-        token_note::{TokenNote, TOKEN_NOTE_LEN, TokenNoteHidingPoint}, balance_set::BalanceSet
+        transparent_note::TransparentNote, token_note::{TokenNote, TokenNoteHidingPoint},
+        balance_set::BalanceSet
     };
     // docs:end::imports
 
@@ -147,7 +147,7 @@ contract Token {
     // docs:start:admin
     #[aztec(public)]
     #[aztec(view)]
-    fn admin() -> Field {
+    fn get_admin() -> Field {
         storage.admin.read().to_field()
     }
     // docs:end:admin
@@ -222,7 +222,7 @@ contract Token {
     #[aztec(private)]
     fn privately_mint_private_note(amount: Field) {
         let caller = context.msg_sender();
-        let caller_keys = get_current_public_keys(&mut context, caller);
+        let caller_keys = get_public_keys(caller);
         storage.balances.at(caller).add(caller_keys.npk_m, U128::from_integer(amount)).emit(
             encode_and_encrypt_note_with_keys(&mut context, caller_keys.ovpk_m, caller_keys.ivpk_m, caller)
         );
@@ -305,10 +305,10 @@ contract Token {
         // Pop 1 note (set_limit(1)) which has an amount stored in a field with index 0 (select(0, amount)) and
         // a secret_hash stored in a field with index 1 (select(1, secret_hash)).
         let mut options = NoteGetterOptions::new();
-        options = options.select(TransparentNote::properties().amount, amount, Option::none()).select(
+        options = options.select(TransparentNote::properties().amount, Comparator.EQ, amount).select(
             TransparentNote::properties().secret_hash,
-            secret_hash,
-            Option::none()
+            Comparator.EQ,
+            secret_hash
         ).set_limit(1);
 
         let notes = storage.pending_shields.pop_notes(options);
@@ -318,8 +318,8 @@ contract Token {
         // Note: Using context.msg_sender() as a sender below makes this incompatible with escrows because we send
         // outgoing logs to that address and to send outgoing logs you need to get a hold of ovsk_m.
         let from = context.msg_sender();
-        let from_keys = get_current_public_keys(&mut context, from);
-        let to_keys = get_current_public_keys(&mut context, to);
+        let from_keys = get_public_keys(from);
+        let to_keys = get_public_keys(to);
         storage.balances.at(to).add(to_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
     }
     // docs:end:redeem_shield
@@ -333,7 +333,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_keys = get_current_public_keys(&mut context, from);
+        let from_keys = get_public_keys(from);
         storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
 
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
@@ -345,8 +345,8 @@ contract Token {
     fn transfer(to: AztecAddress, amount: Field) {
         let from = context.msg_sender();
 
-        let from_keys = get_current_public_keys(&mut context, from);
-        let to_keys = get_current_public_keys(&mut context, to);
+        let from_keys = get_public_keys(from);
+        let to_keys = get_public_keys(to);
 
         let amount = U128::from_integer(amount);
 
@@ -459,8 +459,8 @@ contract Token {
         }
         // docs:end:assert_current_call_valid_authwit
 
-        let from_keys = get_current_public_keys(&mut context, from);
-        let to_keys = get_current_public_keys(&mut context, to);
+        let from_keys = get_public_keys(from);
+        let to_keys = get_public_keys(to);
 
         let amount = U128::from_integer(amount);
         // docs:start:increase_private_balance
@@ -481,7 +481,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let from_keys = get_current_public_keys(&mut context, from);
+        let from_keys = get_public_keys(from);
         storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
 
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
@@ -502,9 +502,9 @@ contract Token {
     ///         a limited set of fee paying contracts will be used and they will be known, searching for fingerprints
     ///         by trying different fee payers is a feasible attack.
     ///
-    /// Note 1: fee_payer_npk is publicly available in a key registry contract under a fee_payer address. So if we have
-    ///         a known set of fee payer contract addresses getting fee_payer_npk and fee_payer_slot is trivial (slot
-    ///         is derived in a `Map<...>` as a hash of balances map slot and a fee payer address).
+    /// Note 1: fee_payer_npk is part of the fee_payer address preimage derivation, and is assumed to be known. So
+    //          if we have a known set of fee payer contract addresses getting fee_payer_npk and fee_payer_slot is
+    //          trivial (slot is derived in a `Map<...>` as a hash of balances map slot and a fee payer address).
     /// Note 2: fee_payer_point and user_point above are public information because they are passed as args to
     ///         the public `complete_refund(...)` function.
     // docs:start:setup_refund
@@ -521,8 +521,8 @@ contract Token {
         assert_current_call_valid_authwit(&mut context, user);
 
         // 2. Get all the relevant keys
-        let fee_payer_npk_m_hash = get_current_public_keys(&mut context, fee_payer).npk_m.hash();
-        let user_keys = get_current_public_keys(&mut context, user);
+        let fee_payer_npk_m_hash = get_public_keys(fee_payer).npk_m.hash();
+        let user_keys = get_public_keys(user);
         let user_npk_m_hash = user_keys.npk_m.hash();
 
         // 3. Deduct the funded amount from the user's balance - this is a maximum fee a user is willing to pay
@@ -572,7 +572,9 @@ contract Token {
         // function has access to the final transaction fee, which is needed to compute the actual refund amount.
         context.set_public_teardown_function(
             context.this_address(),
-            FunctionSelector::from_signature("complete_refund(((Field,Field,bool)),((Field,Field,bool)),Field)"),
+            comptime {
+            FunctionSelector::from_signature("complete_refund(((Field,Field,bool)),((Field,Field,bool)),Field)")
+        },
             [
             fee_payer_point.inner.x, fee_payer_point.inner.y, fee_payer_point.inner.is_infinite as Field, user_point.inner.x, user_point.inner.y, user_point.inner.is_infinite as Field, funded_amount
         ]
@@ -647,7 +649,7 @@ contract Token {
     /// Unconstrained ///
 
     // docs:start:balance_of_private
-    unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
+    unconstrained pub(crate) fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.at(owner).balance_of().to_field()
     }
     // docs:end:balance_of_private

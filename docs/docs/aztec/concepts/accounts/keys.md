@@ -25,23 +25,13 @@ Instead it's up to the account contract developer to implement it.
 
 ## Public keys retrieval
 
-The keys can either be retrieved from a key registry contract or from the [Private eXecution Environment (PXE)](../pxe/index.md).
-
-:::note
-The key registry is a canonical contract used to store user public keys.
-Canonical in this context means that it is a contract whose functionality is essential for the protocol.
-There is 1 key registry and its address is hardcoded in the protocol code.
-:::
-
-To retrieve them a developer can use one of the getters in Aztec.nr:
+The keys can be retrieved from the [Private eXecution Environment (PXE)](../pxe/index.md) using the following getter in Aztec.nr:
 
 ```
-fn get_current_public_keys(context: &mut PrivateContext, account: AztecAddress) -> PublicKeys;
-fn get_historical_public_keys(historical_header: Header, account: AztecAddress) -> PublicKeys;
+fn get_public_keys(account: AztecAddress) -> PublicKeys;
 ```
 
-If the keys are registered in the key registry these methods can be called without any setup.
-If they are not there, it is necessary to first register the user as a recipient in our PXE.
+It is necessary to first register the user as a recipient in our PXE, providing their public keys.
 
 First we need to get a hold of recipient's [complete address](#complete-address).
 Below are some ways how we could instantiate it after getting the information in a string form from a recipient:
@@ -53,18 +43,6 @@ Then to register the recipient's [complete address](#complete-address) in PXE we
 #include_code register-recipient /yarn-project/aztec.js/src/wallet/create_recipient.ts rust
 
 During private function execution these keys are obtained via an oracle call from PXE.
-
-## Key rotation
-
-To prevent users from needing to migrate all their positions if some of their keys are leaked we allow for key rotation.
-Key rotation can be performed by calling the corresponding function on key registry.
-E.g. for nullifier key:
-
-#include_code key-rotation /yarn-project/end-to-end/src/e2e_key_registry.test.ts rust
-
-Note that the notes directly contain `Npk_m`.
-This means that it will be possible to nullify the notes with the same old key after the key rotation and attacker could still potentially steal them if there are no other guardrails in place (like for example account contract auth check).
-These guardrails are typically in place so a user should not lose her notes even if this unfortunate accident happens.
 
 ## Scoped keys
 
@@ -129,7 +107,7 @@ Usually, an account contract will validate a signature of the incoming payload a
 
 This is a snippet of our Schnorr Account contract implementation, which uses Schnorr signatures for authentication:
 
-#include_code entrypoint /noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
+#include_code is_valid_impl /noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
 
 Still, different accounts may use different signing schemes, may require multi-factor authentication, or _may not even use signing keys_ and instead rely on other authentication mechanisms. Read [how to write an account contract](../../../tutorials/codealong/contract_tutorials/write_accounts_contract.md) for a full example of how to manage authentication.
 
@@ -180,7 +158,7 @@ An example of an escrow contract is a betting contract. In this scenario, both p
 The escrow would then release the reward only to the party that provides a "proof of winning".
 
 Because of the contract address derivation scheme it is possible to check that a given set of public keys corresponds to a given address just by trying to recompute it.
-Since this is commonly needed to be done when sending a note to an account whose keys are not yet registered in the key registry contract we coined the term **complete address** for the collection of:
+Since this is commonly needed to be done when sending a note to an account we coined the term **complete address** for the collection of:
 
 1. all the user's public keys,
 2. partial address,
@@ -188,8 +166,3 @@ Since this is commonly needed to be done when sending a note to an account whose
 
 Once the complete address is shared with the sender, the sender can check that the address was correctly derived from the public keys and partial address and then send the notes to that address.
 Because of this it is possible to send a note to an account whose account contract was not yet deployed.
-
-:::note
-Note that since the individual [keys can be rotated](#key-rotation) complete address is used only for non-registered accounts.
-For registered accounts key registry is always the source of truth.
-:::

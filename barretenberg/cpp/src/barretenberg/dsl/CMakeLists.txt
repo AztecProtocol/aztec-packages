@@ -2,9 +2,9 @@
 # We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
 
 set(DSL_DEPENDENCIES
+    client_ivc
     plonk
     ultra_honk
-    client_ivc
     stdlib_sha256
     stdlib_aes128
     stdlib_keccak
@@ -14,7 +14,7 @@ set(DSL_DEPENDENCIES
     stdlib_honk_verifier)
 
 if (NOT WASM)
-    list(APPEND DSL_DEPENDENCIES libdeflate::libdeflate_static)
+    list(APPEND DSL_DEPENDENCIES libdeflate::libdeflate_static vm)
 endif()
 
 barretenberg_module(

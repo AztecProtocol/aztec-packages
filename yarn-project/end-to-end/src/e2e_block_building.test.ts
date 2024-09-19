@@ -12,6 +12,7 @@ import {
   type Wallet,
   deriveKeys,
   retryUntil,
+  sleep,
 } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
@@ -333,13 +334,14 @@ describe('e2e_block_building', () => {
         minTxsPerBlock: 0,
         skipProtocolContracts: true,
       }));
+      await sleep(1000);
 
       const account = getSchnorrAccount(pxe, Fr.random(), Fq.random(), Fr.random());
       await account.waitSetup();
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/8306
-    it.skip('can simulate public txs while building a block', async () => {
+    it('can simulate public txs while building a block', async () => {
       ({
         teardown,
         pxe,
@@ -368,7 +370,7 @@ describe('e2e_block_building', () => {
       }
 
       logger.info('Waiting for txs to be mined');
-      await Promise.all(txs.map(tx => tx.wait()));
+      await Promise.all(txs.map(tx => tx.wait({ proven: false, timeout: 600 })));
     });
   });
 });

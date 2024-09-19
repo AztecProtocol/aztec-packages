@@ -1,6 +1,6 @@
 use dep::protocol_types::{
     traits::{Deserialize, Serialize}, address::AztecAddress,
-    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
+    abis::{private_circuit_public_inputs::PrivateCircuitPublicInputs},
     contract_instance::ContractInstance
 };
 
@@ -8,9 +8,8 @@ use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::context::call_interfaces::CallInterface;
 use crate::test::helpers::cheatcodes;
 use crate::keys::public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys};
-use crate::hash::hash_args;
 
-use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_nullified_note};
+use crate::oracle::{execution::{get_block_number, get_contract_address}};
 
 pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
     let mut nullifiers = &[];
@@ -82,17 +81,22 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         let original_msg_sender = cheatcodes::get_msg_sender();
         let original_contract_address = get_contract_address();
         let original_fn_selector = cheatcodes::get_function_selector();
+        let calldata = call_interface.get_args();
 
         cheatcodes::set_fn_selector(call_interface.get_selector());
         cheatcodes::set_contract_address(instance.to_address());
         cheatcodes::set_msg_sender(original_contract_address);
         let mut inputs = cheatcodes::get_public_context_inputs();
-        inputs.args_hash = hash_args(call_interface.get_args());
+        inputs.calldata_length = call_interface.get_args().len() as Field;
+        inputs.is_static_call = call_interface.get_is_static();
+        cheatcodes::set_calldata(calldata);
+
         let _result: T = original_fn(inputs);
 
         cheatcodes::set_fn_selector(original_fn_selector);
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);
+        cheatcodes::set_calldata(calldata);
         instance
     }
 

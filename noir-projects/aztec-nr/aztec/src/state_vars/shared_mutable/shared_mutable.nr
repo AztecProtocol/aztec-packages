@@ -97,32 +97,34 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
         // Instead, we get an oracle to provide us the correct values for both the value and delay changes, and instead
         // prove inclusion of their hash, which is both a much smaller proof (a single slot), and also independent of
         // the size of T.
-        let (value_change_hint, delay_change_hint) = get_public_storage_hints(address, self.storage_slot, historical_block_number);
+        let (value_change_hint, delay_change_hint) = unsafe {
+            get_public_storage_hints(address, self.storage_slot, historical_block_number)
+        };
 
         // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
         let hash = header.public_storage_historical_read(self.get_hash_storage_slot(), address);
 
-        // @todo This is written strangely to bypass a formatting issue with the if that is breaking ci.
-        let (a, b, c) = if hash != 0 {
-            let a = SharedMutable::hash_scheduled_data(value_change_hint, delay_change_hint);
-            (a, value_change_hint, delay_change_hint)
+        if hash != 0 {
+            assert_eq(
+                hash, SharedMutable::hash_scheduled_data(value_change_hint, delay_change_hint), "Hint values do not match hash"
+            );
         } else {
             // The hash slot can only hold a zero if it is uninitialized, meaning no value or delay change was ever
             // scheduled. Therefore, the hints must then correspond to uninitialized scheduled changes.
-            let b = ScheduledValueChange::deserialize(zeroed());
-            let c = ScheduledDelayChange::deserialize(zeroed());
-            (hash, b, c)
+            assert_eq(
+                value_change_hint, ScheduledValueChange::deserialize(zeroed()), "Non-zero value change for zero hash"
+            );
+            assert_eq(
+                delay_change_hint, ScheduledDelayChange::deserialize(zeroed()), "Non-zero delay change for zero hash"
+            );
         };
-
-        assert_eq(hash, a, "Hint values do not match hash");
-        assert_eq(value_change_hint, b, "Non-zero value change for zero hash");
-        assert_eq(delay_change_hint, c, "Non-zero delay change for zero hash");
 
         (value_change_hint, delay_change_hint, historical_block_number)
     }
 }
 
 impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PublicContext> where T: ToField + FromField + Eq {
+
     pub fn schedule_value_change(self, new_value: T) {
         let mut value_change = self.read_value_change();
         let delay_change = self.read_delay_change();

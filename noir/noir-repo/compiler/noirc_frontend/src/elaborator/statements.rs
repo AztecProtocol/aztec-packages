@@ -39,11 +39,16 @@ impl<'context> Elaborator<'context> {
                 let (expr, _typ) = self.elaborate_expression(expr);
                 (HirStatement::Semi(expr), Type::Unit)
             }
+            StatementKind::Interned(id) => {
+                let kind = self.interner.get_statement_kind(id);
+                let statement = Statement { kind: kind.clone(), span: statement.span };
+                self.elaborate_statement_value(statement)
+            }
             StatementKind::Error => (HirStatement::Error, Type::Error),
         }
     }
 
-    pub(super) fn elaborate_statement(&mut self, statement: Statement) -> (StmtId, Type) {
+    pub(crate) fn elaborate_statement(&mut self, statement: Statement) -> (StmtId, Type) {
         let span = statement.span;
         let (hir_statement, typ) = self.elaborate_statement_value(statement);
         let id = self.interner.push_stmt(hir_statement);
@@ -244,6 +249,13 @@ impl<'context> Elaborator<'context> {
                 } else {
                     if let Some(definition) = self.interner.try_definition(ident.id) {
                         mutable = definition.mutable;
+
+                        if definition.comptime && !self.in_comptime_context() {
+                            self.push_err(ResolverError::MutatingComptimeInNonComptimeContext {
+                                name: definition.name.clone(),
+                                span: ident.location.span,
+                            });
+                        }
                     }
 
                     let typ = self.interner.definition_type(ident.id).instantiate(self.interner).0;
@@ -357,6 +369,10 @@ impl<'context> Elaborator<'context> {
                 let lvalue = HirLValue::Dereference { lvalue, element_type, location };
                 (lvalue, typ, true)
             }
+            LValue::Interned(id, span) => {
+                let lvalue = self.interner.get_lvalue(id, span).clone();
+                self.elaborate_lvalue(lvalue, assign_span)
+            }
         }
     }
 
@@ -432,14 +448,9 @@ impl<'context> Elaborator<'context> {
     }
 
     fn elaborate_comptime_statement(&mut self, statement: Statement) -> (HirStatement, Type) {
-        // We have to push a new FunctionContext so that we can resolve any constraints
-        // in this comptime block early before the function as a whole finishes elaborating.
-        // Otherwise the interpreter below may find expressions for which the underlying trait
-        // call is not yet solved for.
-        self.function_context.push(Default::default());
         let span = statement.span;
-        let (hir_statement, _typ) = self.elaborate_statement(statement);
-        self.check_and_pop_function_context();
+        let (hir_statement, _typ) =
+            self.elaborate_in_comptime_context(|this| this.elaborate_statement(statement));
         let mut interpreter = self.setup_interpreter();
         let value = interpreter.evaluate_statement(hir_statement);
         let (expr, typ) = self.inline_comptime_value(value, span);

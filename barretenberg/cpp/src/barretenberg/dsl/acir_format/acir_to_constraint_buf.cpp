@@ -1,6 +1,10 @@
 #include "acir_to_constraint_buf.hpp"
 #include "barretenberg/common/container.hpp"
+#include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <tuple>
 #include <utility>
 #ifndef __wasm__
@@ -167,12 +171,79 @@ mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
     return quad;
 }
 
+void constrain_witnesses(Program::Opcode::AssertZero const& arg, AcirFormat& af)
+{
+    for (const auto& linear_term : arg.value.linear_combinations) {
+        uint32_t witness_idx = std::get<1>(linear_term).value;
+        af.constrained_witness.insert(witness_idx);
+    }
+    for (const auto& linear_term : arg.value.mul_terms) {
+        uint32_t witness_idx = std::get<1>(linear_term).value;
+        af.constrained_witness.insert(witness_idx);
+        witness_idx = std::get<2>(linear_term).value;
+        af.constrained_witness.insert(witness_idx);
+    }
+}
+
+std::pair<uint32_t, uint32_t> is_assert_equal(Program::Opcode::AssertZero const& arg,
+                                              poly_triple const& pt,
+                                              AcirFormat const& af)
+{
+    if (!arg.value.mul_terms.empty() || arg.value.linear_combinations.size() != 2) {
+        return { 0, 0 };
+    }
+    if (pt.q_l == -pt.q_r && pt.q_l != bb::fr::zero() && pt.q_c == bb::fr::zero()) {
+        // we require that one of the 2 witnesses to be constrained in an arithmetic gate
+        if (af.constrained_witness.contains(pt.a) || af.constrained_witness.contains(pt.b)) {
+            return { pt.a, pt.b };
+        }
+    }
+    return { 0, 0 };
+}
+
 void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
 {
     if (arg.value.linear_combinations.size() <= 3) {
         poly_triple pt = serialize_arithmetic_gate(arg.value);
+
+        auto assert_equal = is_assert_equal(arg, pt, af);
+        uint32_t w1 = std::get<0>(assert_equal);
+        uint32_t w2 = std::get<1>(assert_equal);
+        if (w1 != 0) {
+            if (w1 != w2) {
+                if (!af.constrained_witness.contains(pt.a)) {
+                    // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
+                    af.constrained_witness.insert(pt.a);
+                    // swap the witnesses so that the first one is always properly constrained.
+                    auto tmp = pt.a;
+                    pt.a = pt.b;
+                    pt.b = tmp;
+                }
+                if (!af.constrained_witness.contains(pt.b)) {
+                    // we mark it as constrained because it is going to be asserted to be equal to a constrained one.
+                    af.constrained_witness.insert(pt.b);
+                }
+                // minimal_range of a witness is the smallest range of the witness and the witness that are
+                // 'assert_equal' to it
+                if (af.minimal_range.contains(pt.b) && af.minimal_range.contains(pt.a)) {
+                    if (af.minimal_range[pt.a] < af.minimal_range[pt.b]) {
+                        af.minimal_range[pt.a] = af.minimal_range[pt.b];
+                    } else {
+                        af.minimal_range[pt.b] = af.minimal_range[pt.a];
+                    }
+                } else if (af.minimal_range.contains(pt.b)) {
+                    af.minimal_range[pt.a] = af.minimal_range[pt.b];
+                } else if (af.minimal_range.contains(pt.a)) {
+                    af.minimal_range[pt.b] = af.minimal_range[pt.a];
+                }
+
+                af.assert_equalities.push_back(pt);
+                af.original_opcode_indices.assert_equalities.push_back(opcode_index);
+            }
+            return;
+        }
         // Even if the number of linear terms is less than 3, we might not be able to fit it into a width-3 arithmetic
-        // gate. This is the case if the linear terms are all disctinct witness from the multiplication term. In that
+        // gate. This is the case if the linear terms are all distinct witness from the multiplication term. In that
         // case, the serialize_arithmetic_gate() function will return a poly_triple with all 0's, and we use a width-4
         // gate instead. We could probably always use a width-4 gate in fact.
         if (pt == poly_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
@@ -187,6 +258,7 @@ void handle_arithmetic(Program::Opcode::AssertZero const& arg, AcirFormat& af, s
         af.quad_constraints.push_back(serialize_mul_quad_gate(arg.value));
         af.original_opcode_indices.quad_constraints.push_back(opcode_index);
     }
+    constrain_witnesses(arg, af);
 }
 
 uint32_t get_witness_from_function_input(Program::FunctionInput input)
@@ -243,6 +315,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .num_bits = arg.lhs.num_bits,
                     .is_xor_gate = false,
                 });
+                af.constrained_witness.insert(af.logic_constraints.back().result);
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::XOR>) {
                 auto lhs_input = parse_input(arg.lhs);
@@ -254,6 +327,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .num_bits = arg.lhs.num_bits,
                     .is_xor_gate = true,
                 });
+                af.constrained_witness.insert(af.logic_constraints.back().result);
                 af.original_opcode_indices.logic_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RANGE>) {
                 auto witness_input = get_witness_from_function_input(arg.input);
@@ -262,7 +336,13 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .num_bits = arg.input.num_bits,
                 });
                 af.original_opcode_indices.range_constraints.push_back(opcode_index);
-
+                if (af.minimal_range.contains(witness_input)) {
+                    if (af.minimal_range[witness_input] > arg.input.num_bits) {
+                        af.minimal_range[witness_input] = arg.input.num_bits;
+                    }
+                } else {
+                    af.minimal_range[witness_input] = arg.input.num_bits;
+                }
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::AES128Encrypt>) {
                 af.aes128_constraints.push_back(AES128Constraint{
                     .inputs = map(arg.inputs, [](auto& e) { return parse_input(e); }),
@@ -270,6 +350,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .key = map(arg.key, [](auto& e) { return parse_input(e); }),
                     .outputs = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+                for (auto& output : af.aes128_constraints.back().outputs) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.aes128_constraints.push_back(opcode_index);
 
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::SHA256>) {
@@ -292,6 +375,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .hash_values = map(arg.hash_values, [](auto& e) { return parse_input(e); }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+                for (auto& output : af.sha256_compression.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.sha256_compression.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Blake2s>) {
                 af.blake2s_constraints.push_back(Blake2sConstraint{
@@ -304,6 +390,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+                for (auto& output : af.blake2s_constraints.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.blake2s_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Blake3>) {
                 af.blake3_constraints.push_back(Blake3Constraint{
@@ -316,6 +405,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                                   }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+                for (auto& output : af.blake3_constraints.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::SchnorrVerify>) {
                 auto input_pkey_x = get_witness_from_function_input(arg.public_key_x);
@@ -328,14 +420,16 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .signature = map(arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                 });
                 af.original_opcode_indices.schnorr_constraints.push_back(opcode_index);
+                af.constrained_witness.insert(af.schnorr_constraints.back().result);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::PedersenCommitment>) {
-
                 af.pedersen_constraints.push_back(PedersenConstraint{
                     .scalars = map(arg.inputs, [](auto& e) { return get_witness_from_function_input(e); }),
                     .hash_index = arg.domain_separator,
                     .result_x = arg.outputs[0].value,
                     .result_y = arg.outputs[1].value,
                 });
+                af.constrained_witness.insert(af.pedersen_constraints.back().result_x);
+                af.constrained_witness.insert(af.pedersen_constraints.back().result_y);
                 af.original_opcode_indices.pedersen_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::PedersenHash>) {
                 af.pedersen_hash_constraints.push_back(PedersenHashConstraint{
@@ -343,6 +437,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .hash_index = arg.domain_separator,
                     .result = arg.output.value,
                 });
+                af.constrained_witness.insert(af.pedersen_hash_constraints.back().result);
                 af.original_opcode_indices.pedersen_hash_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaSecp256k1Constraint{
@@ -353,6 +448,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .pub_y_indices = map(arg.public_key_y, [](auto& e) { return get_witness_from_function_input(e); }),
                     .result = arg.output.value,
                 });
+                af.constrained_witness.insert(af.ecdsa_k1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EcdsaSecp256r1>) {
                 af.ecdsa_r1_constraints.push_back(EcdsaSecp256r1Constraint{
@@ -363,6 +459,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .result = arg.output.value,
                     .signature = map(arg.signature, [](auto& e) { return get_witness_from_function_input(e); }),
                 });
+                af.constrained_witness.insert(af.ecdsa_r1_constraints.back().result);
                 af.original_opcode_indices.ecdsa_r1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::MultiScalarMul>) {
                 af.multi_scalar_mul_constraints.push_back(MultiScalarMul{
@@ -372,6 +469,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .out_point_y = arg.outputs[1].value,
                     .out_point_is_infinite = arg.outputs[2].value,
                 });
+                af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_x);
+                af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_y);
+                af.constrained_witness.insert(af.multi_scalar_mul_constraints.back().out_point_is_infinite);
                 af.original_opcode_indices.multi_scalar_mul_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::EmbeddedCurveAdd>) {
                 auto input_1_x = parse_input(arg.input1[0]);
@@ -392,6 +492,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .result_y = arg.outputs[1].value,
                     .result_infinite = arg.outputs[2].value,
                 });
+                af.constrained_witness.insert(af.ec_add_constraints.back().result_x);
+                af.constrained_witness.insert(af.ec_add_constraints.back().result_y);
+                af.constrained_witness.insert(af.ec_add_constraints.back().result_infinite);
                 af.original_opcode_indices.ec_add_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccak256>) {
                 auto input_var_message_size = get_witness_from_function_input(arg.var_message_size);
@@ -407,12 +510,18 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                     .var_message_size = input_var_message_size,
                 });
+                for (auto& output : af.keccak_constraints.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.keccak_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::Keccakf1600>) {
                 af.keccak_permutations.push_back(Keccakf1600{
                     .state = map(arg.inputs, [](auto& e) { return parse_input(e); }),
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+                for (auto& output : af.keccak_permutations.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.keccak_permutations.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::RecursiveAggregation>) {
 
@@ -422,8 +531,8 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Eventually arg.proof_type will be
                 // the only means for setting the proof type. use of honk_recursion flag in this context can go away
                 // once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
-                if (honk_recursion && proof_type_in != HONK_RECURSION) {
-                    proof_type_in = HONK_RECURSION;
+                if (honk_recursion && proof_type_in != HONK && proof_type_in != AVM) {
+                    proof_type_in = HONK;
                 }
 
                 auto c = RecursionConstraint{
@@ -433,14 +542,22 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .key_hash = input_key,
                     .proof_type = proof_type_in,
                 };
+
                 // Add the recursion constraint to the appropriate container based on proof type
-                if (c.proof_type == PLONK_RECURSION) {
+                switch (c.proof_type) {
+                case PLONK:
                     af.recursion_constraints.push_back(c);
                     af.original_opcode_indices.recursion_constraints.push_back(opcode_index);
-                } else if (c.proof_type == HONK_RECURSION) {
+                    break;
+                case HONK:
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
-                } else {
+                    break;
+                case AVM:
+                    af.avm_recursion_constraints.push_back(c);
+                    af.original_opcode_indices.avm_recursion_constraints.push_back(opcode_index);
+                    break;
+                default:
                     info("Invalid PROOF_TYPE in RecursionConstraint!");
                     ASSERT(false);
                 }
@@ -456,6 +573,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .input = arg.input,
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                 });
+                for (auto& output : af.bigint_to_le_bytes_constraints.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.bigint_to_le_bytes_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Program::BlackBoxFuncCall::BigIntAdd>) {
                 af.bigint_operations.push_back(BigIntOperation{
@@ -495,6 +615,9 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     .result = map(arg.outputs, [](auto& e) { return e.value; }),
                     .len = arg.len,
                 });
+                for (auto& output : af.poseidon2_constraints.back().result) {
+                    af.constrained_witness.insert(output);
+                }
                 af.original_opcode_indices.poseidon2_constraints.push_back(opcode_index);
             }
         },

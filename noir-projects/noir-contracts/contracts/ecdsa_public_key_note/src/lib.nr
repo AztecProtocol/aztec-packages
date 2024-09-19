@@ -5,9 +5,9 @@ use dep::aztec::{
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator}
 };
 
-global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 5;
+global ECDSA_PUBLIC_KEY_NOTE_LEN: u32 = 5;
 // ECDSA_PUBLIC_KEY_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global ECDSA_PUBLIC_KEY_NOTE_BYTES_LEN: Field = 5 * 32 + 64;
+global ECDSA_PUBLIC_KEY_NOTE_BYTES_LEN: u32 = 5 * 32 + 64;
 
 // Stores an ECDSA public key composed of two 32-byte elements
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
@@ -41,7 +41,7 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN, ECDSA_PUBLIC_KEY_NOTE_BYTES_LEN> f
 
         let last_x = self.x[31] as Field;
         let last_y = self.y[31] as Field;
-        
+
         [x, last_x, y, last_y, self.npk_m_hash]
     }
 
@@ -50,17 +50,17 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN, ECDSA_PUBLIC_KEY_NOTE_BYTES_LEN> f
         let mut x: [u8; 32] = [0; 32];
         let mut y: [u8; 32] = [0; 32];
 
-        let part_x = serialized_note[0].to_be_bytes(32);
+        let part_x:[u8; 32] = serialized_note[0].to_be_bytes();
         for i in 0..31 {
             x[i] = part_x[i + 1];
         }
-        x[31] = serialized_note[1].to_be_bytes(32)[31];
+        x[31] = serialized_note[1].to_be_bytes::<32>()[31];
 
-        let part_y = serialized_note[2].to_be_bytes(32);
+        let part_y:[u8; 32] = serialized_note[2].to_be_bytes();
         for i in 0..31 {
             y[i] = part_y[i + 1];
         }
-        y[31] = serialized_note[3].to_be_bytes(32)[31];
+        y[31] = serialized_note[3].to_be_bytes::<32>()[31];
 
         EcdsaPublicKeyNote { x, y, npk_m_hash: serialized_note[4], header: NoteHeader::empty() }
     }

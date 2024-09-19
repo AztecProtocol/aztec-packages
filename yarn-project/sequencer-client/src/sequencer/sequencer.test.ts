@@ -5,15 +5,17 @@ import {
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
+  type MerkleTreeAdminOperations,
   MerkleTreeId,
   PROVING_STATUS,
   type ProvingSuccess,
   type ProvingTicket,
-  Signature,
   type Tx,
   TxHash,
   type UnencryptedL2Log,
   UnencryptedTxL2Logs,
+  WorldStateRunningState,
+  type WorldStateSynchronizer,
   makeProcessedTx,
   mockTxForRollup,
 } from '@aztec/circuit-types';
@@ -28,13 +30,13 @@ import {
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
-import { type MerkleTreeOperations, WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -51,7 +53,7 @@ describe('sequencer', () => {
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let blockSimulator: MockProxy<BlockSimulator>;
-  let merkleTreeOps: MockProxy<MerkleTreeOperations>;
+  let merkleTreeOps: MockProxy<MerkleTreeAdminOperations>;
   let publicProcessor: MockProxy<PublicProcessor>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -74,7 +76,7 @@ describe('sequencer', () => {
   const committee = [EthAddress.random()];
   const getSignatures = () => [mockedSig];
   const getAttestations = () => {
-    const attestation = new BlockAttestation(block.header, archive, mockedSig);
+    const attestation = new BlockAttestation(block.header, archive, [], mockedSig);
     (attestation as any).sender = committee[0];
 
     return [attestation];
@@ -112,7 +114,7 @@ describe('sequencer', () => {
     publisher.validateBlockForSubmission.mockResolvedValue();
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
-    merkleTreeOps = mock<MerkleTreeOperations>();
+    merkleTreeOps = mock<MerkleTreeAdminOperations>();
     blockSimulator = mock<BlockSimulator>();
 
     p2p = mock<P2P>({
@@ -179,6 +181,7 @@ describe('sequencer', () => {
   it('builds a block out of a single tx', async () => {
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
+    const txHash = tx.getTxHash();
 
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
@@ -190,7 +193,7 @@ describe('sequencer', () => {
     p2p.getTxs.mockReturnValueOnce([tx]);
     blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
     blockSimulator.finaliseBlock.mockResolvedValue({ block });
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
@@ -203,14 +206,15 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     // Ok, we have an issue that we never actually call the process L2 block
-    expect(publisher.processL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash]);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block when it is their turn', async () => {
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
+    const txHash = tx.getTxHash();
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
     };
@@ -221,7 +225,7 @@ describe('sequencer', () => {
     p2p.getTxs.mockReturnValue([tx]);
     blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
     blockSimulator.finaliseBlock.mockResolvedValue({ block });
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(mockedGlobalVariables);
 
@@ -252,16 +256,19 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash]);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
+    const doubleSpendTxIndex = 1;
     const txs = [mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)];
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
     });
-    const doubleSpendTx = txs[1];
+    const validTxHashes = txs.filter((_, i) => i !== doubleSpendTxIndex).map(tx => tx.getTxHash());
+
+    const doubleSpendTx = txs[doubleSpendTxIndex];
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
     };
@@ -272,7 +279,7 @@ describe('sequencer', () => {
     p2p.getTxs.mockReturnValueOnce(txs);
     blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
     blockSimulator.finaliseBlock.mockResolvedValue({ block });
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
@@ -292,17 +299,20 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs rejecting incorrect chain ids', async () => {
+    const invalidChainTxIndex = 1;
     const txs = [mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)];
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
     });
-    const invalidChainTx = txs[1];
+    const invalidChainTx = txs[invalidChainTxIndex];
+    const validTxHashes = txs.filter((_, i) => i !== invalidChainTxIndex).map(tx => tx.getTxHash());
+
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
     };
@@ -313,7 +323,7 @@ describe('sequencer', () => {
     p2p.getTxs.mockReturnValueOnce(txs);
     blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
     blockSimulator.finaliseBlock.mockResolvedValue({ block });
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
@@ -328,16 +338,20 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs dropping the ones that go over max size', async () => {
+    const invalidTransactionIndex = 1;
+
     const txs = [mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)];
     txs.forEach(tx => {
       tx.data.constants.txContext.chainId = chainId;
     });
+    const validTxHashes = txs.filter((_, i) => i !== invalidTransactionIndex).map(tx => tx.getTxHash());
+
     const result: ProvingSuccess = {
       status: PROVING_STATUS.SUCCESS,
     };
@@ -348,13 +362,14 @@ describe('sequencer', () => {
     p2p.getTxs.mockReturnValueOnce(txs);
     blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
     blockSimulator.finaliseBlock.mockResolvedValue({ block });
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
     // We make txs[1] too big to fit
-    (txs[1] as Writeable<Tx>).unencryptedLogs = UnencryptedTxL2Logs.random(2, 4);
-    (txs[1].unencryptedLogs.functionLogs[0].logs[0] as Writeable<UnencryptedL2Log>).data = randomBytes(1024 * 1022);
+    (txs[invalidTransactionIndex] as Writeable<Tx>).unencryptedLogs = UnencryptedTxL2Logs.random(2, 4);
+    (txs[invalidTransactionIndex].unencryptedLogs.functionLogs[0].logs[0] as Writeable<UnencryptedL2Log>).data =
+      randomBytes(1024 * 1022);
 
     await sequencer.initialSync();
     await sequencer.work();
@@ -364,7 +379,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -384,7 +399,7 @@ describe('sequencer', () => {
 
     blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
     blockSimulator.finaliseBlock.mockResolvedValue({ block });
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
@@ -400,19 +415,22 @@ describe('sequencer', () => {
 
     // block is not built with 3 txs
     p2p.getTxs.mockReturnValueOnce(txs.slice(0, 3));
+
     await sequencer.work();
     expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
 
     // block is built with 4 txs
     p2p.getTxs.mockReturnValueOnce(txs.slice(0, 4));
+    const txHashes = txs.slice(0, 4).map(tx => tx.getTxHash());
+
     await sequencer.work();
     expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
       4,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), txHashes);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -432,7 +450,7 @@ describe('sequencer', () => {
 
     blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
     blockSimulator.finaliseBlock.mockResolvedValue({ block });
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
@@ -462,8 +480,8 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), []);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -483,7 +501,7 @@ describe('sequencer', () => {
 
     blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
     blockSimulator.finaliseBlock.mockResolvedValue({ block });
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
 
@@ -505,7 +523,9 @@ describe('sequencer', () => {
     sequencer.flush();
 
     // block is built with 3 txs
-    p2p.getTxs.mockReturnValueOnce(txs.slice(0, 3));
+    const postFlushTxs = txs.slice(0, 3);
+    p2p.getTxs.mockReturnValueOnce(postFlushTxs);
+    const postFlushTxHashes = postFlushTxs.map(tx => tx.getTxHash());
     await sequencer.work();
     expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
@@ -513,9 +533,9 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.processL2Block).toHaveBeenCalledTimes(1);
+    expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
 
-    expect(publisher.processL2Block).toHaveBeenCalledWith(block, getSignatures());
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), postFlushTxHashes);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -532,7 +552,7 @@ describe('sequencer', () => {
     p2p.getTxs.mockReturnValueOnce([tx]);
     blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
     blockSimulator.finaliseBlock.mockResolvedValue({ block });
-    publisher.processL2Block.mockResolvedValueOnce(true);
+    publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     const mockedGlobalVariables = new GlobalVariables(
       chainId,
@@ -557,7 +577,7 @@ describe('sequencer', () => {
 
     await sequencer.work();
 
-    expect(publisher.processL2Block).not.toHaveBeenCalled();
+    expect(publisher.proposeL2Block).not.toHaveBeenCalled();
   });
 });
 

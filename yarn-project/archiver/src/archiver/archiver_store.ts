@@ -1,5 +1,4 @@
 import {
-  type Body,
   type EncryptedL2BlockL2Logs,
   type EncryptedNoteL2BlockL2Logs,
   type FromLogType,
@@ -32,13 +31,11 @@ import { type L1Published } from './structs/published.js';
  */
 export type ArchiverL1SynchPoint = {
   /** Number of the last L1 block that added a new L2 block metadata.  */
-  blocksSynchedTo: bigint;
-  /** Number of the last L1 block that added a new L2 block body.  */
-  blockBodiesSynchedTo: bigint;
+  blocksSynchedTo?: bigint;
   /** Number of the last L1 block that added L1 -> L2 messages from the Inbox. */
-  messagesSynchedTo: bigint;
+  messagesSynchedTo?: bigint;
   /** Number of the last L1 block that added a new proven block. */
-  provenLogsSynchedTo: bigint;
+  provenLogsSynchedTo?: bigint;
 };
 
 /**
@@ -52,21 +49,6 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean>;
-
-  /**
-   * Append new block bodies to the store's list.
-   * @param blockBodies - The L2 block bodies to be added to the store.
-   * @returns True if the operation is successful.
-   */
-  addBlockBodies(blockBodies: DataRetrieval<Body>): Promise<boolean>;
-
-  /**
-   * Gets block bodies that have the same txsEffectsHashes as we supply.
-   *
-   * @param txsEffectsHashes - A list of txsEffectsHashes.
-   * @returns The requested L2 block bodies
-   */
-  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<(Body | undefined)[]>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.

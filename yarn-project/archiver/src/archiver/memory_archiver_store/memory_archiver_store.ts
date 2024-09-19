@@ -1,5 +1,4 @@
 import {
-  type Body,
   type EncryptedL2BlockL2Logs,
   type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
@@ -41,11 +40,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l2Blocks: L1Published<L2Block>[] = [];
 
   /**
-   * A mapping of body hash to body
-   */
-  private l2BlockBodies: Map<string, Body> = new Map();
-
-  /**
    * An array containing all the tx effects in the L2 blocks that have been fetched so far.
    */
   private txEffects: TxEffect[] = [];
@@ -83,10 +77,9 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
-  private lastL1BlockNewBlocks: bigint = 0n;
-  private lastL1BlockNewBlockBodies: bigint = 0n;
-  private lastL1BlockNewMessages: bigint = 0n;
-  private lastL1BlockNewProvenLogs: bigint = 0n;
+  private lastL1BlockNewBlocks: bigint | undefined = undefined;
+  private lastL1BlockNewMessages: bigint | undefined = undefined;
+  private lastL1BlockNewProvenLogs: bigint | undefined = undefined;
 
   private lastProvenL2BlockNumber: number = 0;
 
@@ -163,32 +156,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     this.lastL1BlockNewBlocks = blocks[blocks.length - 1].l1.blockNumber;
     this.l2Blocks.push(...blocks);
     this.txEffects.push(...blocks.flatMap(b => b.data.body.txEffects));
-    return Promise.resolve(true);
-  }
 
-  /**
-   * Append new block bodies to the store's list.
-   * @param blockBodies - The L2 block bodies to be added to the store.
-   * @returns True if the operation is successful.
-   */
-  addBlockBodies(blockBodies: DataRetrieval<Body>): Promise<boolean> {
-    for (const body of blockBodies.retrievedData) {
-      void this.l2BlockBodies.set(body.getTxsEffectsHash().toString('hex'), body);
-    }
-    this.lastL1BlockNewBlockBodies = blockBodies.lastProcessedL1BlockNumber;
     return Promise.resolve(true);
-  }
-
-  /**
-   * Gets block bodies that have the same txHashes as we supply.
-   *
-   * @param txsEffectsHashes - A list of txsEffectsHashes (body hashes).
-   * @returns The requested L2 block bodies
-   */
-  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<(Body | undefined)[]> {
-    return Promise.resolve(
-      txsEffectsHashes.map(txsEffectsHash => this.l2BlockBodies.get(txsEffectsHash.toString('hex'))),
-    );
   }
 
   /**
@@ -225,7 +194,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   public addL1ToL2Messages(messages: DataRetrieval<InboxLeaf>): Promise<boolean> {
-    if (messages.lastProcessedL1BlockNumber <= this.lastL1BlockNewMessages) {
+    if (
+      typeof this.lastL1BlockNewMessages === 'bigint' &&
+      messages.lastProcessedL1BlockNumber <= this.lastL1BlockNewMessages
+    ) {
       return Promise.resolve(false);
     }
 
@@ -452,7 +424,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve({
       blocksSynchedTo: this.lastL1BlockNewBlocks,
       messagesSynchedTo: this.lastL1BlockNewMessages,
-      blockBodiesSynchedTo: this.lastL1BlockNewBlockBodies,
       provenLogsSynchedTo: this.lastL1BlockNewProvenLogs,
     });
   }

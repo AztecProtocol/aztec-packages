@@ -9,6 +9,7 @@ import {
   isBooleanConfigValue,
 } from '@aztec/foundation/config';
 import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p';
+import { proofVerifierConfigMappings } from '@aztec/proof-verifier';
 import { proverClientConfigMappings } from '@aztec/prover-client';
 import { proverNodeConfigMappings } from '@aztec/prover-node';
 import { allPxeConfigMappings } from '@aztec/pxe';
@@ -132,12 +133,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'OUTBOX_CONTRACT_ADDRESS',
     },
     {
-      flag: '--availability-oracle-address <value>',
-      description: 'The deployed L1 availability oracle contract address',
-      defaultValue: undefined,
-      envVar: 'AVAILABILITY_ORACLE_CONTRACT_ADDRESS',
-    },
-    {
       flag: '--fee-juice-address <value>',
       description: 'The deployed L1 Fee Juice contract address',
       defaultValue: undefined,
@@ -185,10 +180,10 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       parseVal: (val: string) => (val ? parseInt(val) : undefined),
     },
     {
-      flag: '--node.assumeProvenUntilBlockNumber',
+      flag: '--node.assumeProvenThroughBlockNumber',
       description:
         'Cheats the rollup contract into assuming every block until this one is proven. Useful for speeding up bootstraps.',
-      envVar: 'ASSUME_PROVEN_UNTIL_BLOCK_NUMBER',
+      envVar: 'ASSUME_PROVEN_THROUGH_BLOCK_NUMBER',
       parseVal: (val: string) => parseInt(val, 10),
       defaultValue: 0,
     },
@@ -302,6 +297,15 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     ...getOptions('bot', botConfigMappings),
+  ],
+  'PROOF VERIFIER': [
+    {
+      flag: '--proof-verifier',
+      description: 'Starts Aztec Proof Verifier with options',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    ...getOptions('proofVerifier', proofVerifierConfigMappings),
   ],
   TXE: [
     {

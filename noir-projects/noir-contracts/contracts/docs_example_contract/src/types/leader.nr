@@ -6,7 +6,7 @@ struct Leader {
     points: u8,
 }
 
-global LEADER_SERIALIZED_LEN: Field = 2;
+global LEADER_SERIALIZED_LEN: u32 = 2;
 
 impl Deserialize<LEADER_SERIALIZED_LEN> for Leader {
     fn deserialize(fields: [Field; LEADER_SERIALIZED_LEN]) -> Self {

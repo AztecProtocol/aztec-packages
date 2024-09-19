@@ -1,6 +1,6 @@
 use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Deserialize}};
 
-global SETTINGS_LENGTH = 2;
+global SETTINGS_LENGTH: u32 = 2;
 
 struct Settings {
     other_asset: AztecAddress,
@@ -15,9 +15,6 @@ impl Serialize<SETTINGS_LENGTH> for Settings {
 
 impl Deserialize<SETTINGS_LENGTH> for Settings {
     fn deserialize(fields: [Field; SETTINGS_LENGTH]) -> Self {
-        Settings {
-            other_asset: AztecAddress::from_field(fields[0]),
-            admin: AztecAddress::from_field(fields[1]),
-        }
+        Settings { other_asset: AztecAddress::from_field(fields[0]), admin: AztecAddress::from_field(fields[1]) }
     }
 }

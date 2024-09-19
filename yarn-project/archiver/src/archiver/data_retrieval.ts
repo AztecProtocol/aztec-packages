@@ -1,111 +1,161 @@
-import { type Body, type InboxLeaf } from '@aztec/circuit-types';
-import { type AppendOnlyTreeSnapshot, Fr, type Header } from '@aztec/circuits.js';
+import { Body, InboxLeaf, L2Block } from '@aztec/circuit-types';
+import { AppendOnlyTreeSnapshot, Fr, Header, Proof } from '@aztec/circuits.js';
 import { type EthAddress } from '@aztec/foundation/eth-address';
+import { type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { RollupAbi } from '@aztec/l1-artifacts';
-
-import { type PublicClient, getAbiItem } from 'viem';
+import { numToUInt32BE } from '@aztec/foundation/serialize';
+import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import {
-  getL2BlockProposedLogs,
-  getMessageSentLogs,
-  getTxsPublishedLogs,
-  processL2BlockProposedLogs,
-  processMessageSentLogs,
-  processTxsPublishedLogs,
-} from './eth_log_handlers.js';
+  type Chain,
+  type GetContractEventsReturnType,
+  type GetContractReturnType,
+  type Hex,
+  type HttpTransport,
+  type PublicClient,
+  decodeFunctionData,
+  getAbiItem,
+  hexToBytes,
+} from 'viem';
+
 import { type DataRetrieval } from './structs/data_retrieval.js';
-import { type L1PublishedData } from './structs/published.js';
+import { type L1Published, type L1PublishedData } from './structs/published.js';
 
 /**
- * Fetches new L2 block metadata (header, archive snapshot).
+ * Fetches new L2 blocks.
  * @param publicClient - The viem public client to use for transaction retrieval.
  * @param rollupAddress - The address of the rollup contract.
  * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param searchEndBlock - The highest block number that we should search up to.
  * @param expectedNextL2BlockNum - The next L2 block number that we expect to find.
- * @returns An array of tuples representing block metadata including the header, archive tree snapshot; as well as the next eth block to search from.
+ * @returns An array of block; as well as the next eth block to search from.
  */
-export async function retrieveBlockMetadataFromRollup(
+export async function retrieveBlockFromRollup(
+  rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
-  rollupAddress: EthAddress,
   blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
-  expectedNextL2BlockNum: bigint,
   logger: DebugLogger = createDebugLogger('aztec:archiver'),
-): Promise<[Header, AppendOnlyTreeSnapshot, L1PublishedData][]> {
-  const retrievedBlockMetadata: [Header, AppendOnlyTreeSnapshot, L1PublishedData][] = [];
+): Promise<L1Published<L2Block>[]> {
+  const retrievedBlocks: L1Published<L2Block>[] = [];
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const L2BlockProposedLogs = await getL2BlockProposedLogs(
-      publicClient,
-      rollupAddress,
-      searchStartBlock,
-      searchEndBlock,
+    const l2BlockProposedLogs = await rollup.getEvents.L2BlockProposed(
+      {},
+      {
+        fromBlock: searchStartBlock,
+        toBlock: searchEndBlock + 1n,
+      },
     );
-    if (L2BlockProposedLogs.length === 0) {
+
+    if (l2BlockProposedLogs.length === 0) {
       break;
     }
 
-    const lastLog = L2BlockProposedLogs[L2BlockProposedLogs.length - 1];
+    const lastLog = l2BlockProposedLogs[l2BlockProposedLogs.length - 1];
     logger.debug(
-      `Got L2 block processed logs for ${L2BlockProposedLogs[0].blockNumber}-${lastLog.blockNumber} between ${searchStartBlock}-${searchEndBlock} L1 blocks`,
+      `Got L2 block processed logs for ${l2BlockProposedLogs[0].blockNumber}-${lastLog.blockNumber} between ${searchStartBlock}-${searchEndBlock} L1 blocks`,
     );
 
-    const newBlockMetadata = await processL2BlockProposedLogs(
-      publicClient,
-      expectedNextL2BlockNum,
-      L2BlockProposedLogs,
-    );
-    retrievedBlockMetadata.push(...newBlockMetadata);
+    const newBlocks = await processL2BlockProposedLogs(rollup, publicClient, l2BlockProposedLogs, logger);
+    retrievedBlocks.push(...newBlocks);
     searchStartBlock = lastLog.blockNumber! + 1n;
-    expectedNextL2BlockNum += BigInt(newBlockMetadata.length);
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
-  return retrievedBlockMetadata;
+  return retrievedBlocks;
 }
 
 /**
- * Fetches new L2 block bodies and their hashes.
+ * Processes newly received L2BlockProposed logs.
+ * @param rollup - The rollup contract
  * @param publicClient - The viem public client to use for transaction retrieval.
- * @param availabilityOracleAddress - The address of the availability oracle contract.
- * @param blockUntilSynced - If true, blocks until the archiver has fully synced.
- * @param searchStartBlock - The block number to use for starting the search.
- * @param searchEndBlock - The highest block number that we should search up to.
- * @returns A array of L2 block bodies as well as the next eth block to search from
+ * @param logs - L2BlockProposed logs.
+ * @returns - An array blocks.
  */
-export async function retrieveBlockBodiesFromAvailabilityOracle(
+export async function processL2BlockProposedLogs(
+  rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
   publicClient: PublicClient,
-  availabilityOracleAddress: EthAddress,
-  blockUntilSynced: boolean,
-  searchStartBlock: bigint,
-  searchEndBlock: bigint,
-): Promise<DataRetrieval<Body>> {
-  const retrievedBlockBodies: Body[] = [];
+  logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
+  logger: DebugLogger,
+): Promise<L1Published<L2Block>[]> {
+  const retrievedBlocks: L1Published<L2Block>[] = [];
+  for (const log of logs) {
+    const blockNum = log.args.blockNumber!;
+    const archive = log.args.archive!;
+    const archiveFromChain = await rollup.read.archiveAt([blockNum]);
 
-  do {
-    if (searchStartBlock > searchEndBlock) {
-      break;
+    // The value from the event and contract will match only if the block is in the chain.
+    if (archive === archiveFromChain) {
+      // TODO: Fetch blocks from calldata in parallel
+      const block = await getBlockFromRollupTx(publicClient, log.transactionHash!, blockNum);
+
+      const l1: L1PublishedData = {
+        blockNumber: log.blockNumber,
+        blockHash: log.blockHash,
+        timestamp: await getL1BlockTime(publicClient, log.blockNumber),
+      };
+
+      retrievedBlocks.push({ data: block, l1 });
+    } else {
+      logger.warn(
+        `Archive mismatch matching, ignoring block ${blockNum} with archive: ${archive}, expected ${archiveFromChain}`,
+      );
     }
-    const l2TxsPublishedLogs = await getTxsPublishedLogs(
-      publicClient,
-      availabilityOracleAddress,
-      searchStartBlock,
-      searchEndBlock,
-    );
-    if (l2TxsPublishedLogs.length === 0) {
-      break;
-    }
+  }
 
-    const newBlockBodies = await processTxsPublishedLogs(publicClient, l2TxsPublishedLogs);
-    retrievedBlockBodies.push(...newBlockBodies.map(([body]) => body));
-    searchStartBlock = l2TxsPublishedLogs[l2TxsPublishedLogs.length - 1].blockNumber + 1n;
-  } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
+  return retrievedBlocks;
+}
 
-  return { lastProcessedL1BlockNumber: searchStartBlock - 1n, retrievedData: retrievedBlockBodies };
+export async function getL1BlockTime(publicClient: PublicClient, blockNumber: bigint): Promise<bigint> {
+  const block = await publicClient.getBlock({ blockNumber, includeTransactions: false });
+  return block.timestamp;
+}
+
+/**
+ * Gets block from the calldata of an L1 transaction.
+ * Assumes that the block was published from an EOA.
+ * TODO: Add retries and error management.
+ * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param txHash - Hash of the tx that published it.
+ * @param l2BlockNum - L2 block number.
+ * @returns L2 block from the calldata, deserialized
+ */
+async function getBlockFromRollupTx(
+  publicClient: PublicClient,
+  txHash: `0x${string}`,
+  l2BlockNum: bigint,
+): Promise<L2Block> {
+  const { input: data } = await publicClient.getTransaction({ hash: txHash });
+  const { functionName, args } = decodeFunctionData({
+    abi: RollupAbi,
+    data,
+  });
+
+  if (!(functionName === 'propose')) {
+    throw new Error(`Unexpected method called ${functionName}`);
+  }
+  const [headerHex, archiveRootHex, , , , bodyHex] = args! as readonly [Hex, Hex, Hex, Hex[], ViemSignature[], Hex];
+
+  const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
+  const blockBody = Body.fromBuffer(Buffer.from(hexToBytes(bodyHex)));
+
+  const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
+
+  if (blockNumberFromHeader !== l2BlockNum) {
+    throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${blockNumberFromHeader}`);
+  }
+
+  const archive = AppendOnlyTreeSnapshot.fromBuffer(
+    Buffer.concat([
+      Buffer.from(hexToBytes(archiveRootHex)), // L2Block.archive.root
+      numToUInt32BE(Number(l2BlockNum + 1n)), // L2Block.archive.nextAvailableLeafIndex
+    ]),
+  );
+
+  return new L2Block(archive, header, blockBody);
 }
 
 /**
@@ -118,8 +168,7 @@ export async function retrieveBlockBodiesFromAvailabilityOracle(
  * @returns An array of InboxLeaf and next eth block to search from.
  */
 export async function retrieveL1ToL2Messages(
-  publicClient: PublicClient,
-  inboxAddress: EthAddress,
+  inbox: GetContractReturnType<typeof InboxAbi, PublicClient<HttpTransport, Chain>>,
   blockUntilSynced: boolean,
   searchStartBlock: bigint,
   searchEndBlock: bigint,
@@ -129,12 +178,24 @@ export async function retrieveL1ToL2Messages(
     if (searchStartBlock > searchEndBlock) {
       break;
     }
-    const messageSentLogs = await getMessageSentLogs(publicClient, inboxAddress, searchStartBlock, searchEndBlock);
+
+    const messageSentLogs = await inbox.getEvents.MessageSent(
+      {},
+      {
+        fromBlock: searchStartBlock,
+        toBlock: searchEndBlock + 1n,
+      },
+    );
+
     if (messageSentLogs.length === 0) {
       break;
     }
-    const l1ToL2Messages = processMessageSentLogs(messageSentLogs);
-    retrievedL1ToL2Messages.push(...l1ToL2Messages);
+
+    for (const log of messageSentLogs) {
+      const { l2BlockNumber, index, hash } = log.args;
+      retrievedL1ToL2Messages.push(new InboxLeaf(l2BlockNumber!, index!, Fr.fromString(hash!)));
+    }
+
     // handles the case when there are no new messages:
     searchStartBlock = (messageSentLogs.findLast(msgLog => !!msgLog)?.blockNumber || searchStartBlock) + 1n;
   } while (blockUntilSynced && searchStartBlock <= searchEndBlock);
@@ -147,7 +208,7 @@ export async function retrieveL2ProofVerifiedEvents(
   rollupAddress: EthAddress,
   searchStartBlock: bigint,
   searchEndBlock?: bigint,
-): Promise<{ l1BlockNumber: bigint; l2BlockNumber: bigint; proverId: Fr }[]> {
+): Promise<{ l1BlockNumber: bigint; l2BlockNumber: bigint; proverId: Fr; txHash: Hex }[]> {
   const logs = await publicClient.getLogs({
     address: rollupAddress.toString(),
     fromBlock: searchStartBlock,
@@ -160,5 +221,81 @@ export async function retrieveL2ProofVerifiedEvents(
     l1BlockNumber: log.blockNumber,
     l2BlockNumber: log.args.blockNumber,
     proverId: Fr.fromString(log.args.proverId),
+    txHash: log.transactionHash,
   }));
+}
+
+/** Retrieve submitted proofs from the rollup contract */
+export async function retrieveL2ProofsFromRollup(
+  publicClient: PublicClient,
+  rollupAddress: EthAddress,
+  searchStartBlock: bigint,
+  searchEndBlock?: bigint,
+): Promise<DataRetrieval<{ proof: Proof; proverId: Fr; l2BlockNumber: bigint; txHash: `0x${string}` }>> {
+  const logs = await retrieveL2ProofVerifiedEvents(publicClient, rollupAddress, searchStartBlock, searchEndBlock);
+  const retrievedData: { proof: Proof; proverId: Fr; l2BlockNumber: bigint; txHash: `0x${string}` }[] = [];
+  const lastProcessedL1BlockNumber = logs.length > 0 ? logs.at(-1)!.l1BlockNumber : searchStartBlock - 1n;
+
+  for (const { txHash, proverId, l2BlockNumber } of logs) {
+    const proofData = await getBlockProofFromSubmitProofTx(publicClient, txHash, l2BlockNumber, proverId);
+    retrievedData.push({ proof: proofData.proof, proverId: proofData.proverId, l2BlockNumber, txHash });
+  }
+  return {
+    retrievedData,
+    lastProcessedL1BlockNumber,
+  };
+}
+
+export type SubmitBlockProof = {
+  header: Header;
+  archiveRoot: Fr;
+  proverId: Fr;
+  aggregationObject: Buffer;
+  proof: Proof;
+};
+
+/**
+ * Gets block metadata (header and archive snapshot) from the calldata of an L1 transaction.
+ * Assumes that the block was published from an EOA.
+ * TODO: Add retries and error management.
+ * @param publicClient - The viem public client to use for transaction retrieval.
+ * @param txHash - Hash of the tx that published it.
+ * @param l2BlockNum - L2 block number.
+ * @returns L2 block metadata (header and archive) from the calldata, deserialized
+ */
+export async function getBlockProofFromSubmitProofTx(
+  publicClient: PublicClient,
+  txHash: `0x${string}`,
+  l2BlockNum: bigint,
+  expectedProverId: Fr,
+): Promise<SubmitBlockProof> {
+  const { input: data } = await publicClient.getTransaction({ hash: txHash });
+  const { functionName, args } = decodeFunctionData({
+    abi: RollupAbi,
+    data,
+  });
+
+  if (!(functionName === 'submitBlockRootProof')) {
+    throw new Error(`Unexpected method called ${functionName}`);
+  }
+  const [headerHex, archiveHex, proverIdHex, aggregationObjectHex, proofHex] = args!;
+
+  const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
+  const proverId = Fr.fromString(proverIdHex);
+
+  const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
+  if (blockNumberFromHeader !== l2BlockNum) {
+    throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${blockNumberFromHeader}`);
+  }
+  if (!proverId.equals(expectedProverId)) {
+    throw new Error(`Prover ID mismatch: expected ${expectedProverId} but got ${proverId}`);
+  }
+
+  return {
+    header,
+    proverId,
+    aggregationObject: Buffer.from(hexToBytes(aggregationObjectHex)),
+    archiveRoot: Fr.fromString(archiveHex),
+    proof: Proof.fromBuffer(Buffer.from(hexToBytes(proofHex))),
+  };
 }

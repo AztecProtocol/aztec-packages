@@ -1,6 +1,8 @@
 use std::fmt::{self, Display};
 use std::fmt::{Debug, Formatter};
 
+use acvm::{AcirField, FieldElement};
+
 use crate::opcodes::AvmOpcode;
 
 /// Common values of the indirect instruction flag
@@ -78,7 +80,7 @@ impl Debug for AvmInstruction {
 impl Default for AvmInstruction {
     fn default() -> Self {
         AvmInstruction {
-            opcode: AvmOpcode::ADD,
+            opcode: AvmOpcode::ADD_8,
             // TODO(4266): default to Some(0), since all instructions have indirect flag except jumps
             indirect: None,
             tag: None,
@@ -92,6 +94,7 @@ impl Default for AvmInstruction {
 #[derive(Copy, Clone, Debug)]
 pub enum AvmTypeTag {
     UNINITIALIZED,
+    UINT1,
     UINT8,
     UINT16,
     UINT32,
@@ -105,21 +108,25 @@ pub enum AvmTypeTag {
 /// Constants (as used by the SET instruction) can have size
 /// different from 32 bits
 pub enum AvmOperand {
+    U1 { value: u8 }, // same wire format as U8
     U8 { value: u8 },
     U16 { value: u16 },
     U32 { value: u32 },
     U64 { value: u64 },
     U128 { value: u128 },
+    FF { value: FieldElement },
 }
 
 impl Display for AvmOperand {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            AvmOperand::U1 { value } => write!(f, " U1:{}", value),
             AvmOperand::U8 { value } => write!(f, " U8:{}", value),
             AvmOperand::U16 { value } => write!(f, " U16:{}", value),
             AvmOperand::U32 { value } => write!(f, " U32:{}", value),
             AvmOperand::U64 { value } => write!(f, " U64:{}", value),
             AvmOperand::U128 { value } => write!(f, " U128:{}", value),
+            AvmOperand::FF { value } => write!(f, " FF:{}", value),
         }
     }
 }
@@ -127,11 +134,13 @@ impl Display for AvmOperand {
 impl AvmOperand {
     pub fn to_be_bytes(&self) -> Vec<u8> {
         match self {
+            AvmOperand::U1 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U8 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U16 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U32 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U64 { value } => value.to_be_bytes().to_vec(),
             AvmOperand::U128 { value } => value.to_be_bytes().to_vec(),
+            AvmOperand::FF { value } => value.to_be_bytes(),
         }
     }
 }

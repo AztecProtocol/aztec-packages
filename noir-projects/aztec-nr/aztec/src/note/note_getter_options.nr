@@ -3,38 +3,22 @@ use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, trait
 use crate::note::note_interface::NoteInterface;
 
 struct PropertySelector {
-    index: u8,
-    offset: u8,
-    length: u8,
+    index: u8, // index of the field in the serialized note array
+    offset: u8, // offset in the byte representation of the field (selected with index above) from which to reading
+    length: u8, // number of bytes to read after the offset
 }
-
-struct ComparatorEnum {
-    EQ: u8,
-    NEQ: u8,
-    LT: u8,
-    LTE: u8,
-    GT: u8,
-    GTE: u8,
-}
-
-global Comparator = ComparatorEnum {
-    EQ: 1,
-    NEQ: 2,
-    LT: 3,
-    LTE: 4,
-    GT: 5,
-    GTE: 6,
-};
 
 struct Select {
     property_selector: PropertySelector,
-    value: Field,
     comparator: u8,
+    value: Field,
 }
 
 impl Select {
-    pub fn new(property_selector: PropertySelector, value: Field, comparator: u8) -> Self {
-        Select { property_selector, value, comparator }
+    // The selected property will be the left hand side and value the right hand side of the operation, so e.g. the
+    // object created by new(property, Comparator.GT, value) represents 'property > value'.
+    pub fn new(property_selector: PropertySelector, comparator: u8, value: Field) -> Self {
+        Select { property_selector, comparator, value }
     }
 }
 
@@ -103,22 +87,14 @@ impl<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOpt
     // This method adds a `Select` criterion to the options.
     // It takes a property_selector indicating which field to select,
     // a value representing the specific value to match in that field, and
-    // a comparator (For possible values of comparators, please see the Comparator enum above)
+    // a comparator (For possible values of comparators, please see the Comparator enum from `utils::comparison`)
     pub fn select<T>(
         &mut self,
         property_selector: PropertySelector,
-        value: T,
-        comparator: Option<u8>
+        comparator: u8,
+        value: T
     ) -> Self where T: ToField {
-        self.selects.push(
-            Option::some(
-                Select::new(
-                    property_selector,
-                    value.to_field(),
-                    comparator.unwrap_or(Comparator.EQ)
-                )
-            )
-        );
+        self.selects.push(Option::some(Select::new(property_selector, comparator, value.to_field())));
         *self
     }
 

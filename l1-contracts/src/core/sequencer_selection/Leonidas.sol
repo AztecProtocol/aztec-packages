@@ -62,7 +62,7 @@ contract Leonidas is Ownable, ILeonidas {
 
   // The target number of validators in a committee
   // @todo #8021
-  uint256 public constant TARGET_COMMITTEE_SIZE = EPOCH_DURATION;
+  uint256 public constant TARGET_COMMITTEE_SIZE = Constants.AZTEC_TARGET_COMMITTEE_SIZE;
 
   // The time that the contract was deployed
   uint256 public immutable GENESIS_TIME;
@@ -152,9 +152,6 @@ contract Leonidas is Ownable, ILeonidas {
 
   /**
    * @notice  Get the validator set for the current epoch
-   *
-   * @dev Makes a call to setupEpoch under the hood, this should ONLY be called as a view function, and not from within
-   *      this contract.
    * @return The validator set for the current epoch
    */
   function getCurrentEpochCommittee() external view override(ILeonidas) returns (address[] memory) {
@@ -292,9 +289,6 @@ contract Leonidas is Ownable, ILeonidas {
   function getProposerAt(uint256 _ts) public view override(ILeonidas) returns (address) {
     uint256 epochNumber = getEpochAt(_ts);
     uint256 slot = getSlotAt(_ts);
-    if (epochNumber == 0) {
-      return address(0);
-    }
 
     Epoch storage epoch = epochs[epochNumber];
 
@@ -344,7 +338,7 @@ contract Leonidas is Ownable, ILeonidas {
    * @param _signatures - The signatures of the committee members
    * @param _digest - The digest of the block
    */
-  function _proposePendingBlock(
+  function _validateLeonidas(
     uint256 _slot,
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
@@ -381,8 +375,7 @@ contract Leonidas is Ownable, ILeonidas {
     // Validate the attestations
     uint256 validAttestations = 0;
 
-    bytes32 ethSignedDigest = _digest.toEthSignedMessageHash();
-
+    bytes32 digest = _digest.toEthSignedMessageHash();
     for (uint256 i = 0; i < _signatures.length; i++) {
       SignatureLib.Signature memory signature = _signatures[i];
       if (signature.isEmpty) {
@@ -390,7 +383,7 @@ contract Leonidas is Ownable, ILeonidas {
       }
 
       // The verification will throw if invalid
-      signature.verify(committee[i], ethSignedDigest);
+      signature.verify(committee[i], digest);
       validAttestations++;
     }
 

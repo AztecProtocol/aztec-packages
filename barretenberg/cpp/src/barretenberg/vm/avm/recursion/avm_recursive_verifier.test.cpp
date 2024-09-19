@@ -2,7 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/sumcheck/instance/prover_instance.hpp"
+#include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm/avm/generated/circuit_builder.hpp"
@@ -32,13 +32,12 @@ class AvmRecursiveTests : public ::testing::Test {
 
     using Transcript = InnerFlavor::Transcript;
 
-    // Note: removed templating from eccvm one
     using RecursiveVerifier = AvmRecursiveVerifier_<RecursiveFlavor>;
 
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
-    using OuterProver = UltraProver_<UltraFlavor>;
-    using OuterVerifier = UltraVerifier_<UltraFlavor>;
-    using OuterProverInstance = ProverInstance_<UltraFlavor>;
+    using OuterProver = UltraProver;
+    using OuterVerifier = UltraVerifier;
+    using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
@@ -66,8 +65,8 @@ TEST_F(AvmRecursiveTests, recursion)
 {
     AvmCircuitBuilder circuit_builder = generate_avm_circuit();
     AvmComposer composer = AvmComposer();
-    AvmProver prover = composer.create_prover(circuit_builder);
-    AvmVerifier verifier = composer.create_verifier(circuit_builder);
+    InnerProver prover = composer.create_prover(circuit_builder);
+    InnerVerifier verifier = composer.create_verifier(circuit_builder);
 
     HonkProof proof = prover.construct_proof();
 
@@ -83,12 +82,15 @@ TEST_F(AvmRecursiveTests, recursion)
     OuterBuilder outer_circuit;
     RecursiveVerifier recursive_verifier{ &outer_circuit, verification_key };
 
-    auto pairing_points = recursive_verifier.verify_proof(proof);
+    auto agg_object =
+        stdlib::recursion::init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
 
-    bool pairing_points_valid = verification_key->pcs_verification_key->pairing_check(pairing_points[0].get_value(),
-                                                                                      pairing_points[1].get_value());
+    auto agg_output = recursive_verifier.verify_proof(proof, agg_object);
 
-    ASSERT_TRUE(pairing_points_valid) << "Pairing points are not valid.";
+    bool agg_output_valid =
+        verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
+
+    ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
 
     vinfo("Recursive verifier: num gates = ", outer_circuit.num_gates);
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
@@ -113,7 +115,7 @@ TEST_F(AvmRecursiveTests, recursion)
 
     // Make a proof of the verification of an AVM proof
     const size_t srs_size = 1 << 23;
-    auto ultra_instance = std::make_shared<OuterProverInstance>(
+    auto ultra_instance = std::make_shared<OuterDeciderProvingKey>(
         outer_circuit, TraceStructure::NONE, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
     OuterProver ultra_prover(ultra_instance);
     auto ultra_verification_key = std::make_shared<UltraFlavor::VerificationKey>(ultra_instance->proving_key);

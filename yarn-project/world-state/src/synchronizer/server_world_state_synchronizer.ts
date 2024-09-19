@@ -4,6 +4,10 @@ import {
   type L2Block,
   L2BlockDownloader,
   type L2BlockSource,
+  type MerkleTreeAdminOperations,
+  WorldStateRunningState,
+  type WorldStateStatus,
+  type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { type L2BlockHandledStats } from '@aztec/circuit-types/stats';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
@@ -16,15 +20,13 @@ import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 
-import { type MerkleTreeOperations, type MerkleTrees } from '../world-state-db/index.js';
-import { MerkleTreeOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
-import { MerkleTreeSnapshotOperationsFacade } from '../world-state-db/merkle_tree_snapshot_operations_facade.js';
-import { type WorldStateConfig } from './config.js';
 import {
-  WorldStateRunningState,
-  type WorldStateStatus,
-  type WorldStateSynchronizer,
-} from './world_state_synchronizer.js';
+  MerkleTreeAdminOperationsFacade,
+  MerkleTreeOperationsFacade,
+} from '../world-state-db/merkle_tree_operations_facade.js';
+import { MerkleTreeSnapshotOperationsFacade } from '../world-state-db/merkle_tree_snapshot_operations_facade.js';
+import { type MerkleTrees } from '../world-state-db/merkle_trees.js';
+import { type WorldStateConfig } from './config.js';
 
 /**
  * Synchronizes the world state with the L2 blocks from a L2BlockSource.
@@ -62,21 +64,25 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
     });
   }
 
-  public getLatest(): MerkleTreeOperations {
-    return new MerkleTreeOperationsFacade(this.merkleTreeDb, true);
+  public getLatest(): MerkleTreeAdminOperations {
+    return new MerkleTreeAdminOperationsFacade(this.merkleTreeDb, true);
   }
 
-  public getCommitted(): MerkleTreeOperations {
-    return new MerkleTreeOperationsFacade(this.merkleTreeDb, false);
+  public getCommitted(): MerkleTreeAdminOperations {
+    return new MerkleTreeAdminOperationsFacade(this.merkleTreeDb, false);
   }
 
-  public getSnapshot(blockNumber: number): MerkleTreeOperations {
+  public getSnapshot(blockNumber: number): MerkleTreeAdminOperations {
     return new MerkleTreeSnapshotOperationsFacade(this.merkleTreeDb, blockNumber);
   }
 
-  private async getFork(includeUncommitted: boolean): Promise<MerkleTreeOperationsFacade> {
+  public async ephemeralFork(): Promise<MerkleTreeOperationsFacade> {
+    return new MerkleTreeOperationsFacade(await this.merkleTreeDb.ephemeralFork(), true);
+  }
+
+  private async getFork(includeUncommitted: boolean): Promise<MerkleTreeAdminOperationsFacade> {
     this.log.verbose(`Forking world state at ${this.blockNumber.get()}`);
-    return new MerkleTreeOperationsFacade(await this.merkleTreeDb.fork(), includeUncommitted);
+    return new MerkleTreeAdminOperationsFacade(await this.merkleTreeDb.fork(), includeUncommitted);
   }
 
   public async start() {
@@ -212,7 +218,7 @@ export class ServerWorldStateSynchronizer implements WorldStateSynchronizer {
   public async syncImmediateAndFork(
     targetBlockNumber: number,
     forkIncludeUncommitted: boolean,
-  ): Promise<MerkleTreeOperationsFacade> {
+  ): Promise<MerkleTreeAdminOperationsFacade> {
     try {
       await this.pause();
       await this.syncImmediate(targetBlockNumber);

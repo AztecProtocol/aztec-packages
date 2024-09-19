@@ -22,7 +22,7 @@ This page focusses on the core protocol circuits. These circuits check that the 
 When a function in an Ethereum smart contract is executed, the EVM performs checks to ensure that Ethereum's transaction rules are being adhered-to correctly. Stuff like:
 
 - "Does this tx have a valid signature?"
-- "Does this contract address contain deployed code?
+- "Does this contract address contain deployed code?"
 - "Does this function exist in the requested contract?"
 - "Is this function allowed to call this function?"
 - "How much gas has been paid, and how much is left?"

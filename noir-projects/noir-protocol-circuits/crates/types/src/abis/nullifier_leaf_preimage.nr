@@ -13,11 +13,7 @@ struct NullifierLeafPreimage {
 
 impl Empty for NullifierLeafPreimage {
     fn empty() -> Self {
-        Self {
-            nullifier : 0,
-            next_nullifier : 0,
-            next_index : 0,
-        }
+        Self { nullifier: 0, next_nullifier: 0, next_index: 0 }
     }
 }
 
@@ -55,7 +51,7 @@ impl IndexedTreeLeafPreimage for NullifierLeafPreimage {
     }
 }
 
-impl Readable for NullifierLeafPreimage {
+impl Readable<ScopedReadRequest> for NullifierLeafPreimage {
     fn assert_match_read_request(self, read_request: ScopedReadRequest) {
         let siloed_value = compute_siloed_nullifier(read_request.contract_address, read_request.value());
         assert_eq(self.nullifier, siloed_value, "Value of the nullifier leaf does not match read request");
@@ -77,11 +73,11 @@ impl NullifierLeafPreimage {
 }
 
 impl Eq for NullifierLeafPreimage {
-  fn eq(self, other: Self) -> bool {
-    (self.nullifier == other.nullifier) &
-    (self.next_nullifier == other.next_nullifier) &
-    (self.next_index == other.next_index)
-  }
+    fn eq(self, other: Self) -> bool {
+        (self.nullifier == other.nullifier)
+            & (self.next_nullifier == other.next_nullifier)
+            & (self.next_index == other.next_index)
+    }
 }
 
 #[test]

@@ -1,5 +1,5 @@
 use crate::constants::GENERATOR_INDEX__CONTRACT_LEAF;
-use crate::traits::{ToField, FromField, Hash, Serialize, Deserialize};
+use crate::traits::{ToField, FromField, Serialize, Deserialize};
 
 struct ContractClassId {
   inner: Field
@@ -30,7 +30,7 @@ impl Serialize<1> for ContractClassId {
 }
 
 impl Deserialize<1> for ContractClassId {
-  fn deserialize(fields: [Field; 1]) -> Self {
+    fn deserialize(fields: [Field; 1]) -> Self {
         Self { inner: fields[0] }
     }
 }

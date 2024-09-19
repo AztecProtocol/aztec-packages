@@ -33,16 +33,6 @@ This is achieved with two main features:
 1. Users sign over transactions, not over specific UTXO's
 2. Aztec.nr contracts support developer defined `unconstrained` getter functions to help dApp's make sense of UTXO's. e.g `getBalance()`. These functions can be called outside of a transaction context to read private state.
 
-## To be documented soon
-
-- The lifecycle of a note
-- Custom notes
-- Injection of data by the kernel
-- Nonce & contract address
-- Custom nullifiers
-- Emission of custom note data to L1
-- Decrypting and storing encrypted note data
-
 ## Further reading
 
 Read more about how to leverage the Aztec state model in Aztec contracts [here](../storage/index.md).

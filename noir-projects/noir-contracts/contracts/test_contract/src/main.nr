@@ -12,9 +12,8 @@ contract Test {
 
     use dep::aztec::protocol_types::{
         abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        constants::{MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, CANONICAL_KEY_REGISTRY_ADDRESS},
-        traits::{Serialize, ToField, FromField}, point::Point, scalar::Scalar,
-        storage::map::derive_storage_slot_in_map
+        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::{Serialize, ToField, FromField},
+        point::Point, scalar::Scalar, storage::map::derive_storage_slot_in_map
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
@@ -22,7 +21,7 @@ contract Test {
     use dep::aztec::encrypted_logs::outgoing_body::EncryptedLogOutgoingBody;
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
-    use dep::aztec::keys::getters::get_current_public_keys;
+    use dep::aztec::keys::getters::get_public_keys;
 
     use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter};
 
@@ -34,7 +33,7 @@ contract Test {
         note_getter_options::NoteStatus
     },
         deploy::deploy_contract as aztec_deploy_contract,
-        oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}
+        oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}, utils::comparison::Comparator
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
     use dep::value_note::value_note::ValueNote;
@@ -64,7 +63,7 @@ contract Test {
 
     #[aztec(private)]
     fn get_master_incoming_viewing_public_key(address: AztecAddress) -> [Field; 2] {
-        let ivpk_m = get_current_public_keys(&mut context, address).ivpk_m;
+        let ivpk_m = get_public_keys(address).ivpk_m;
 
         [ivpk_m.inner.x, ivpk_m.inner.y]
     }
@@ -99,7 +98,7 @@ contract Test {
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
 
-        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
 
         let mut note = ValueNote::new(value, owner_npk_m_hash);
         create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
@@ -213,7 +212,9 @@ contract Test {
     fn test_setting_teardown() {
         context.set_public_teardown_function(
             context.this_address(),
-            FunctionSelector::from_signature("dummy_public_call()"),
+            comptime {
+            FunctionSelector::from_signature("dummy_public_call()")
+        },
             []
         );
     }
@@ -265,8 +266,8 @@ contract Test {
         outgoing_viewer: AztecAddress,
         nest: bool
     ) {
-        let owner_ivpk_m = get_current_public_keys(&mut context, owner).ivpk_m;
-        let outgoing_viewer_ovpk_m = get_current_public_keys(&mut context, outgoing_viewer).ovpk_m;
+        let owner_ivpk_m = get_public_keys(owner).ivpk_m;
+        let outgoing_viewer_ovpk_m = get_public_keys(outgoing_viewer).ovpk_m;
 
         let event = ExampleEvent { value0: fields[0], value1: fields[1], value2: fields[2], value3: fields[3], value4: fields[4] };
 
@@ -307,7 +308,7 @@ contract Test {
         Test::at(context.this_address()).call_create_note(value, owner, outgoing_viewer, storage_slot).call(&mut context);
         storage_slot += 1;
 
-        let owner_npk_m_hash = get_current_public_keys(&mut context, owner).npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
 
         let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
         create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
@@ -471,7 +472,7 @@ contract Test {
         let notes_set = storage.example_set;
         let secret_hash = compute_secret_hash(secret);
         let mut options = NoteGetterOptions::new();
-        options = options.select(TestNote::properties().value, secret_hash, Option::none()).set_limit(1);
+        options = options.select(TestNote::properties().value, Comparator.EQ, secret_hash).set_limit(1);
         let notes = notes_set.pop_notes(options);
         assert(notes.len() == 1, "note not popped");
     }
@@ -501,7 +502,7 @@ contract Test {
 
     #[aztec(private)]
     fn test_nullifier_key_freshness(address: AztecAddress, public_nullifying_key: Point) {
-        assert_eq(get_current_public_keys(&mut context, address).npk_m.inner, public_nullifying_key);
+        assert_eq(get_public_keys(address).npk_m.inner, public_nullifying_key);
     }
 
     // Purely exists for testing

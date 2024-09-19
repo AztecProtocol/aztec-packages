@@ -4,7 +4,7 @@ use dep::protocol_types::{
 };
 
 // INDEX_LENGTH + NULLIFIER_LEAF_PREIMAGE_LENGTH + NULLIFIER_TREE_HEIGHT
-global NULLIFIER_MEMBERSHIP_WITNESS: Field = 24;
+global NULLIFIER_MEMBERSHIP_WITNESS: u32 = 24;
 
 struct NullifierMembershipWitness {
     index: Field,

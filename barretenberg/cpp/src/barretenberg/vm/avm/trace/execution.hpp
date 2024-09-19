@@ -14,9 +14,11 @@ namespace bb::avm_trace {
 
 class Execution {
   public:
-    // Hardcoded circuit size for now, with enough to support 16-bit range checks and more.
-    // The SRS size is expected to be ~67MB at this size.
-    static constexpr size_t SRS_SIZE = 1 << 20;
+    static constexpr size_t SRS_SIZE = 1 << 22;
+    using TraceBuilderConstructor = std::function<AvmTraceBuilder(VmPublicInputs public_inputs,
+                                                                  ExecutionHints execution_hints,
+                                                                  uint32_t side_effect_counter,
+                                                                  std::vector<FF> calldata)>;
 
     Execution() = default;
 
@@ -38,12 +40,21 @@ class Execution {
                                       std::vector<FF> const& public_inputs,
                                       ExecutionHints const& execution_hints);
 
+    // For testing purposes only.
+    static void set_trace_builder_constructor(TraceBuilderConstructor constructor)
+    {
+        trace_builder_constructor = std::move(constructor);
+    }
+
     static std::tuple<AvmFlavor::VerificationKey, bb::HonkProof> prove(
         std::vector<uint8_t> const& bytecode,
         std::vector<FF> const& calldata = {},
         std::vector<FF> const& public_inputs_vec = getDefaultPublicInputs(),
         ExecutionHints const& execution_hints = {});
     static bool verify(AvmFlavor::VerificationKey vk, HonkProof const& proof);
+
+  private:
+    static TraceBuilderConstructor trace_builder_constructor;
 };
 
 } // namespace bb::avm_trace

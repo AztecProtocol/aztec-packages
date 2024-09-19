@@ -1,7 +1,7 @@
 contract Counter {
     // docs:start:imports
     use dep::aztec::prelude::{AztecAddress, Map};
-    use dep::value_note::{balance_utils, value_note::{ValueNote, VALUE_NOTE_LEN}};
+    use dep::value_note::{balance_utils, value_note::ValueNote};
     use dep::easy_private_state::EasyPrivateUint;
     // docs:end:imports
 
@@ -39,7 +39,7 @@ contract Counter {
     // docs:end:get_counter
 
     // docs:start:test_imports
-    use dep::aztec::test::{helpers::{cheatcodes, test_environment::TestEnvironment}};
+    use dep::aztec::test::helpers::test_environment::TestEnvironment;
     use dep::aztec::protocol_types::storage::map::derive_storage_slot_in_map;
     use dep::aztec::note::note_getter::{MAX_NOTES_PER_PAGE, view_notes};
     use dep::aztec::note::note_viewer_options::NoteViewerOptions;

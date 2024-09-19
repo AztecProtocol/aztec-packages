@@ -17,7 +17,6 @@ import {
   deployL1Contract,
 } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { createStore } from '@aztec/kv-store/utils';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
@@ -134,7 +133,7 @@ export class FullProverTest {
           this.accounts.map(a => a.address),
         );
 
-        expect(await this.fakeProofsAsset.methods.admin().simulate()).toBe(this.accounts[0].address.toBigInt());
+        expect(await this.fakeProofsAsset.methods.get_admin().simulate()).toBe(this.accounts[0].address.toBigInt());
       },
     );
   }
@@ -225,11 +224,8 @@ export class FullProverTest {
     // Creating temp store and archiver for fully proven prover node
 
     this.logger.verbose('Starting archiver for new prover node');
-    const store = await createStore({ dataDirectory: undefined }, this.l1Contracts.l1ContractAddresses.rollupAddress);
-
     const archiver = await createArchiver(
       { ...this.context.aztecNodeConfig, dataDirectory: undefined },
-      store,
       new NoopTelemetryClient(),
       { blockUntilSync: true },
     );
@@ -352,7 +348,7 @@ export class FullProverTest {
     const { walletClient, publicClient, l1ContractAddresses } = this.context.deployL1ContractsValues;
 
     const contract = await this.circuitProofVerifier.generateSolidityContract(
-      'RootRollupArtifact',
+      'BlockRootRollupArtifact',
       'UltraHonkVerifier.sol',
     );
 

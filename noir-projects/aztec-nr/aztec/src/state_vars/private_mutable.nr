@@ -1,7 +1,4 @@
-use dep::protocol_types::{
-    address::AztecAddress, constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER,
-    hash::poseidon2_hash_with_separator
-};
+use dep::protocol_types::{constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator};
 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
@@ -46,7 +43,7 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     }
 }
 
-impl<Note, N, M> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInterface<N, M> {
+impl<Note, let N: u32, let M: u32> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInterface<N, M> {
     // docs:start:initialize
     pub fn initialize(self, note: &mut Note) -> NoteEmission<Note> {
         // Nullify the storage slot.
@@ -70,13 +67,15 @@ impl<Note, N, M> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInter
     // docs:end:replace
 
     pub fn initialize_or_replace(self, note: &mut Note) -> NoteEmission<Note> {
-        let is_initialized = check_nullifier_exists(self.compute_initialization_nullifier());
+        let is_initialized = unsafe {
+            check_nullifier_exists(self.compute_initialization_nullifier())
+        };
 
-        // check_nullifier_exists() is an unconstrained function - we can constrain a true value by providing an 
-        // inclusion proof of the nullifier, but cannot constrain a false value since a non-inclusion proof would only 
+        // check_nullifier_exists() is an unconstrained function - we can constrain a true value by providing an
+        // inclusion proof of the nullifier, but cannot constrain a false value since a non-inclusion proof would only
         // be valid if done in public.
         // Ultimately, this is not an issue ginen that we'll either:
-        //  - initialize the state variable, which would fail if it was already initialized due to the duplicate 
+        //  - initialize the state variable, which would fail if it was already initialized due to the duplicate
         //    nullifier, or
         //  - replace the current value, which would fail if it was not initialized since we wouldn't be able to produce
         //    an inclusion proof for the current note
@@ -103,7 +102,7 @@ impl<Note, N, M> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInter
     // docs:end:get_note
 }
 
-impl<Note, N, M> PrivateMutable<Note, UnconstrainedContext> where Note: NoteInterface<N, M> {
+impl<Note, let N: u32, let M: u32> PrivateMutable<Note, UnconstrainedContext> where Note: NoteInterface<N, M> {
     unconstrained pub fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
         check_nullifier_exists(nullifier)

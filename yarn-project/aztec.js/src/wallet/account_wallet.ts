@@ -1,5 +1,5 @@
 import { type AuthWitness, type PXE, type TxExecutionRequest } from '@aztec/circuit-types';
-import { AztecAddress, CANONICAL_KEY_REGISTRY_ADDRESS, Fq, Fr, derivePublicKeyFromSecretKey } from '@aztec/circuits.js';
+import { type AztecAddress, Fr } from '@aztec/circuits.js';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { AuthRegistryAddress } from '@aztec/protocol-contracts/auth-registry';
 
@@ -161,30 +161,6 @@ export class AccountWallet extends BaseWallet {
     return results;
   }
 
-  /**
-   * Rotates the account master nullifier key pair.
-   * @param newNskM - The new master nullifier secret key we want to use.
-   * @remarks - This function also calls the canonical key registry with the account's new derived master nullifier public key.
-   * We are doing it this way to avoid user error, in the case that a user rotates their keys in the key registry,
-   * but fails to do so in the key store. This leads to unspendable notes.
-   *
-   * This does not hinder our ability to spend notes tied to a previous master nullifier public key, provided we have the master nullifier secret key for it.
-   */
-  public async rotateNullifierKeys(newNskM: Fq = Fq.random()): Promise<void> {
-    // We rotate our secret key in the keystore first, because if the subsequent interaction fails, there are no bad side-effects.
-    // If vice versa (the key registry is called first), but the call to the PXE fails, we will end up in a situation with unspendable notes, as we have not committed our
-    // nullifier secret key to our wallet.
-    await this.pxe.rotateNskM(this.getAddress(), newNskM);
-    const interaction = new ContractFunctionInteraction(
-      this,
-      AztecAddress.fromBigInt(CANONICAL_KEY_REGISTRY_ADDRESS),
-      this.getRotateNpkMAbi(),
-      [this.getAddress(), derivePublicKeyFromSecretKey(newNskM).toWrappedNoirStruct(), Fr.ZERO],
-    );
-
-    await interaction.send().wait();
-  }
-
   /** Returns the complete address of the account that implements this wallet. */
   public getCompleteAddress() {
     return this.account.getCompleteAddress();
@@ -250,66 +226,6 @@ export class AccountWallet extends BaseWallet {
         { name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
       ],
       returnTypes: [{ kind: 'boolean' }],
-    };
-  }
-
-  private getRotateNpkMAbi(): FunctionAbi {
-    return {
-      name: 'rotate_npk_m',
-      isInitializer: false,
-      functionType: FunctionType.PUBLIC,
-      isInternal: false,
-      isStatic: false,
-      parameters: [
-        {
-          name: 'address',
-          type: {
-            fields: [{ name: 'inner', type: { kind: 'field' } }],
-            kind: 'struct',
-            path: 'authwit::aztec::protocol_types::address::aztec_address::AztecAddress',
-          },
-          visibility: 'private' as ABIParameterVisibility,
-        },
-        {
-          name: 'new_npk_m',
-          type: {
-            fields: [
-              {
-                name: 'inner',
-                type: {
-                  fields: [
-                    {
-                      name: 'x',
-                      type: {
-                        kind: 'field',
-                      },
-                    },
-                    {
-                      name: 'y',
-                      type: {
-                        kind: 'field',
-                      },
-                    },
-                    {
-                      name: 'is_infinite',
-                      type: {
-                        kind: 'boolean',
-                      },
-                    },
-                  ],
-                  kind: 'struct',
-                  path: 'std::embedded_curve_ops::EmbeddedCurvePoint',
-                },
-              },
-            ],
-            kind: 'struct',
-            path: 'aztec::keys::public_keys::NpkM',
-          },
-          visibility: 'private' as ABIParameterVisibility,
-        },
-        { name: 'nonce', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility },
-      ],
-      returnTypes: [],
     };
   }
 }
