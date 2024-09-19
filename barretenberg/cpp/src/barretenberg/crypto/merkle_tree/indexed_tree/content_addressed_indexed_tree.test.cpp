@@ -1247,7 +1247,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, duplicates)
 
     add_value(tree, NullifierLeafValue(42), false);
     // expect this to fail as no data is present
-    commit_tree(tree, false);
+    commit_tree(tree);
     check_size(tree, 3);
 }
 

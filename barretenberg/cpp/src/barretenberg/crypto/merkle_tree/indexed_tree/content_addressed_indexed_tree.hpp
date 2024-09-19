@@ -6,6 +6,7 @@
 #include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
@@ -13,11 +14,13 @@
 #include "indexed_leaf.hpp"
 #include <algorithm>
 #include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <unordered_map>
@@ -612,6 +615,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
 
     // We now kick off multiple workers to perform the low leaf updates
     // We create set of signals to coordinate the workers as the move up the tree
+    // We don';t want toflood the provided thread pool with jobs that can't be processed so we throttle the rate
+    // at which jobs are added to the thread pool. This enables other trees to utilise the same pool
     std::shared_ptr<std::vector<Signal>> signals = std::make_shared<std::vector<Signal>>();
     std::shared_ptr<Status> status = std::make_shared<Status>();
     // The first signal is set to 0. This ensures the first worker up the tree is not impeded
@@ -621,39 +626,86 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
         signals->emplace_back(uint32_t(1 + depth_));
     }
 
-    for (uint32_t i = 0; i < insertions->size(); ++i) {
-        auto op = [=, this]() {
-            LeafInsertion& insertion = (*insertions)[i];
-            Signal& leaderSignal = (*signals)[i];
-            Signal& followerSignal = (*signals)[i + 1];
-            try {
-                ReadTransactionPtr tx = store_.create_read_transaction();
-                auto& current_witness_data = low_leaf_witness_data->at(i);
-                current_witness_data.leaf = insertion.original_low_leaf;
-                current_witness_data.index = insertion.low_leaf_index;
-                current_witness_data.path.clear();
-                update_leaf_and_hash_to_root(insertion.low_leaf_index,
-                                             insertion.low_leaf,
-                                             leaderSignal,
-                                             followerSignal,
-                                             current_witness_data.path);
-            } catch (std::exception& e) {
-                status->set_failure(e.what());
-                // ensure that any followers are not blocked by our failure
-                followerSignal.signal_level(0);
+    {
+        struct EnqueuedOps {
+            // This vector and index are to be accessed under the following mutex
+            std::vector<std::function<void()>> operations;
+            size_t nextIndex = 0;
+            std::mutex enqueueMutex;
+
+            EnqueuedOps(size_t numOps) { operations.reserve(numOps); }
+
+            void enqueue_next(ThreadPool& workers)
+            {
+                std::function<void()> nextOp;
+                {
+                    std::unique_lock lock(enqueueMutex);
+                    if (nextIndex >= operations.size()) {
+                        return;
+                    }
+                    nextOp = operations[nextIndex++];
+                }
+                workers.enqueue(nextOp);
             }
 
-            if (i == insertions->size() - 1) {
-                TypedResponse<InsertionCompletionResponse> response;
-                response.success = status->success;
-                response.message = status->message;
-                if (response.success) {
-                    response.inner.low_leaf_witness_data = low_leaf_witness_data;
+            void enqueue_initial(ThreadPool& workers, size_t numJobs)
+            {
+                std::unique_lock lock(enqueueMutex);
+                for (size_t i = 0; i < numJobs; ++i) {
+                    workers.enqueue(operations[nextIndex++]);
                 }
-                completion(response);
             }
+
+            void add_job(std::function<void()>& job) { operations.push_back(job); }
         };
-        workers_.enqueue(op);
+
+        std::shared_ptr<EnqueuedOps> enqueuedOperations = std::make_shared<EnqueuedOps>(insertions->size());
+
+        for (uint32_t i = 0; i < insertions->size(); ++i) {
+            std::function<void()> op = [=, this]() {
+                LeafInsertion& insertion = (*insertions)[i];
+                Signal& leaderSignal = (*signals)[i];
+                Signal& followerSignal = (*signals)[i + 1];
+                try {
+                    auto& current_witness_data = low_leaf_witness_data->at(i);
+                    current_witness_data.leaf = insertion.original_low_leaf;
+                    current_witness_data.index = insertion.low_leaf_index;
+                    current_witness_data.path.clear();
+
+                    update_leaf_and_hash_to_root(insertion.low_leaf_index,
+                                                 insertion.low_leaf,
+                                                 leaderSignal,
+                                                 followerSignal,
+                                                 current_witness_data.path);
+                } catch (std::exception& e) {
+                    status->set_failure(e.what());
+                    // ensure that any followers are not blocked by our failure
+                    followerSignal.signal_level(0);
+                }
+
+                {
+                    // If there are more jobs then push another onto the thread pool
+                    enqueuedOperations->enqueue_next(workers_);
+                }
+
+                if (i == insertions->size() - 1) {
+                    TypedResponse<InsertionCompletionResponse> response;
+                    response.success = status->success;
+                    response.message = status->message;
+                    if (response.success) {
+                        response.inner.low_leaf_witness_data = low_leaf_witness_data;
+                    }
+                    completion(response);
+                }
+            };
+            enqueuedOperations->add_job(op);
+        }
+
+        {
+            // Kick off an initial set of jobs, capped at the depth of the tree
+            size_t initialSize = std::min(size_t(depth_), enqueuedOperations->operations.size());
+            enqueuedOperations->enqueue_initial(workers_, initialSize);
+        }
     }
 }
 

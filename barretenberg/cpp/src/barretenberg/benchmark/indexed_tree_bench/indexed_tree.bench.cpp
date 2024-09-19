@@ -9,6 +9,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include <benchmark/benchmark.h>
 #include <filesystem>
+#include <vector>
 
 using namespace benchmark;
 using namespace bb::crypto::merkle_tree;
@@ -45,6 +46,13 @@ template <typename TreeType> void multi_thread_indexed_tree_bench(State& state) 
     ThreadPool workers(num_threads);
     TreeType tree = TreeType(store, workers, batch_size);
 
+    const size_t initial_size = 1024 * 16;
+    std::vector<NullifierLeafValue> initial_batch(initial_size);
+    for (size_t i = 0; i < batch_size; ++i) {
+        initial_batch[i] = fr(random_engine.get_random_uint256());
+    }
+    add_values(tree, initial_batch);
+
     for (auto _ : state) {
         state.PauseTiming();
         std::vector<NullifierLeafValue> values(batch_size);
@@ -70,6 +78,13 @@ template <typename TreeType> void single_thread_indexed_tree_bench(State& state)
     StoreType store(name, depth, db);
     ThreadPool workers(num_threads);
     TreeType tree = TreeType(store, workers, batch_size);
+
+    const size_t initial_size = 1024 * 16;
+    std::vector<NullifierLeafValue> initial_batch(initial_size);
+    for (size_t i = 0; i < batch_size; ++i) {
+        initial_batch[i] = fr(random_engine.get_random_uint256());
+    }
+    add_values(tree, initial_batch);
 
     for (auto _ : state) {
         state.PauseTiming();
