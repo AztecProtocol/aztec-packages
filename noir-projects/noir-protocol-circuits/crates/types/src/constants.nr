@@ -295,6 +295,7 @@ global VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
 // 16 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
 global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
 
+
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
