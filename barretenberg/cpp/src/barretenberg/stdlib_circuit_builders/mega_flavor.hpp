@@ -58,15 +58,15 @@ class MegaFlavor {
     static constexpr bool HOMOGENIZED{ true };
     template <typename FF>
     using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF, HOMOGENIZED>,
-                                  bb::UltraPermutationRelation<FF>/*,
-                                  bb::LogDerivLookupRelation<FF> ,
+                                  bb::UltraPermutationRelation<FF>,
+                                  bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
                                   bb::AuxiliaryRelation<FF>,
                                   bb::EccOpQueueRelation<FF>,
                                   bb::DatabusLookupRelation<FF>,
                                   bb::Poseidon2ExternalRelation<FF>,
-                                  bb::Poseidon2InternalRelation<FF> */>;
+                                  bb::Poseidon2InternalRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
