@@ -19,11 +19,11 @@ impl<T, Context> BalanceSet<T, Context> {
 }
 
 impl<T> BalanceSet<T, UnconstrainedContext> {
-    unconstrained pub fn balance_of<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(self: Self) -> U128 where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
+    unconstrained pub fn balance_of<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(self: Self) -> U128 where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
         self.balance_of_with_offset(0)
     }
 
-    unconstrained pub fn balance_of_with_offset<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
+    unconstrained pub fn balance_of_with_offset<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
         self: Self,
         offset: u32
     ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
@@ -46,7 +46,7 @@ impl<T> BalanceSet<T, UnconstrainedContext> {
 }
 
 impl<T> BalanceSet<T, &mut PrivateContext> {
-    pub fn add<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
+    pub fn add<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
         self: Self,
         owner_npk_m: NpkM,
         addend: U128
@@ -63,7 +63,7 @@ impl<T> BalanceSet<T, &mut PrivateContext> {
         }
     }
 
-    pub fn sub<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
+    pub fn sub<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
         self: Self,
         owner_npk_m: NpkM,
         amount: U128
@@ -85,7 +85,7 @@ impl<T> BalanceSet<T, &mut PrivateContext> {
     // The `max_notes` parameter is used to fine-tune the number of constraints created by this function. The gate count
     // scales relatively linearly with `max_notes`, but a lower `max_notes` parameter increases the likelihood of
     // `try_sub` subtracting an amount smaller than `target_amount`.
-    pub fn try_sub<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
+    pub fn try_sub<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
         self: Self,
         target_amount: U128,
         max_notes: u32
@@ -115,7 +115,7 @@ impl<T> BalanceSet<T, &mut PrivateContext> {
 // The preprocessor (a filter applied in an unconstrained context) does not check if total sum is larger or equal to
 // 'min_sum' - all it does is remove extra notes if it does reach that value.
 // Note that proper usage of this preprocessor requires for notes to be sorted in descending order.
-pub fn preprocess_notes_min_sum<T, T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
+pub fn preprocess_notes_min_sum<T, let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
     notes: [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: U128
 ) -> [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {

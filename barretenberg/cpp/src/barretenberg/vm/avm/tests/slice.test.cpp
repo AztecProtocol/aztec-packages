@@ -19,14 +19,17 @@ class AvmSliceTests : public ::testing::Test {
   public:
     AvmSliceTests()
         : public_inputs(generate_base_public_inputs())
-        , trace_builder(AvmTraceBuilder(public_inputs))
+        , trace_builder(
+              AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
         srs::init_crs_factory("../srs_db/ignition");
     }
 
     void gen_trace_builder(std::vector<FF> const& calldata)
     {
-        trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+        trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
+                            .set_full_precomputed_tables(false)
+                            .set_range_check_required(false);
         this->calldata = calldata;
     }
 

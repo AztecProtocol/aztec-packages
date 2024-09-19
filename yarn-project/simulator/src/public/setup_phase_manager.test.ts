@@ -6,7 +6,7 @@ import { type MerkleTreeOperations } from '@aztec/world-state';
 import { it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type ContractsDataSourcePublicDB, type WorldStatePublicDB } from './public_db_sources.js';
+import { type WorldStateDB } from './public_db_sources.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { SetupPhaseManager } from './setup_phase_manager.js';
 
@@ -19,8 +19,7 @@ class TestSetupPhaseManager extends SetupPhaseManager {
 describe('setup_phase_manager', () => {
   let db: MockProxy<MerkleTreeOperations>;
   let publicExecutor: MockProxy<PublicExecutor>;
-  let publicContractsDB: MockProxy<ContractsDataSourcePublicDB>;
-  let publicWorldStateDB: MockProxy<WorldStatePublicDB>;
+  let worldStateDB: MockProxy<WorldStateDB>;
   let publicKernel: MockProxy<PublicKernelCircuitSimulator>;
 
   let root: Buffer;
@@ -30,8 +29,7 @@ describe('setup_phase_manager', () => {
   beforeEach(() => {
     db = mock<MerkleTreeOperations>();
     publicExecutor = mock<PublicExecutor>();
-    publicContractsDB = mock<ContractsDataSourcePublicDB>();
-    publicWorldStateDB = mock<WorldStatePublicDB>();
+    worldStateDB = mock<WorldStateDB>();
 
     root = Buffer.alloc(32, 5);
     db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
@@ -42,8 +40,7 @@ describe('setup_phase_manager', () => {
       publicKernel,
       GlobalVariables.empty(),
       Header.empty(),
-      publicContractsDB,
-      publicWorldStateDB,
+      worldStateDB,
     );
   });
 

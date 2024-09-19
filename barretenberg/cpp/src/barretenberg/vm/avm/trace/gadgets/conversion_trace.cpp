@@ -10,6 +10,7 @@ std::vector<AvmConversionTraceBuilder::ConversionTraceEntry> AvmConversionTraceB
 void AvmConversionTraceBuilder::reset()
 {
     conversion_trace.clear();
+    conversion_trace.shrink_to_fit(); // Reclaim memory.
 }
 
 /**

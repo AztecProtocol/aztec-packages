@@ -13,6 +13,7 @@ namespace bb::avm_trace {
 void AvmBinaryTraceBuilder::reset()
 {
     binary_trace.clear();
+    binary_trace.shrink_to_fit(); // Reclaim memory.
 }
 
 /**

@@ -148,6 +148,18 @@ export interface ArchiverDataStore {
   setProvenL2BlockNumber(l2BlockNumber: SingletonDataRetrieval<number>): Promise<void>;
 
   /**
+   * Stores the l1 block number that blocks have been synched until
+   * @param l1BlockNumber  - The l1 block number
+   */
+  setBlockSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void>;
+
+  /**
+   * Stores the l1 block number that messages have been synched until
+   * @param l1BlockNumber  - The l1 block number
+   */
+  setMessageSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void>;
+
+  /**
    * Gets the synch point of the archiver
    */
   getSynchPoint(): Promise<ArchiverL1SynchPoint>;

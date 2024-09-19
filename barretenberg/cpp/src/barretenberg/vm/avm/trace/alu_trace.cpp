@@ -84,6 +84,7 @@ FF cast_to_mem_tag(uint256_t input, AvmMemoryTag in_tag)
 void AvmAluTraceBuilder::reset()
 {
     alu_trace.clear();
+    alu_trace.shrink_to_fit(); // Reclaim memory.
     range_checked_required = false;
 }
 

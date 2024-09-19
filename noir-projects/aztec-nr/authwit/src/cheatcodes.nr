@@ -6,7 +6,7 @@ use dep::aztec::{
 
 use crate::auth::{compute_inner_authwit_hash, compute_authwit_message_hash, set_authorized};
 
-pub fn add_private_authwit_from_call_interface<C, M, T, P, Env>(
+pub fn add_private_authwit_from_call_interface<C, let M: u32, T, P, Env>(
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
     call_interface: C
@@ -22,7 +22,7 @@ pub fn add_private_authwit_from_call_interface<C, M, T, P, Env>(
     cheatcodes::add_authwit(on_behalf_of, message_hash);
 }
 
-pub fn add_public_authwit_from_call_interface<C, M, T, P, Env>(
+pub fn add_public_authwit_from_call_interface<C, let M: u32, T, P, Env>(
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
     call_interface: C

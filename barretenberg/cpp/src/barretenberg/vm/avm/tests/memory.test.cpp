@@ -10,7 +10,8 @@ class AvmMemoryTests : public ::testing::Test {
   public:
     AvmMemoryTests()
         : public_inputs(generate_base_public_inputs())
-        , trace_builder(AvmTraceBuilder(public_inputs))
+        , trace_builder(
+              AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
         srs::init_crs_factory("../srs_db/ignition");
     }
@@ -37,7 +38,9 @@ class AvmMemoryTests : public ::testing::Test {
 TEST_F(AvmMemoryTests, mismatchedTagAddOperation)
 {
     std::vector<FF> const calldata = { 98, 12 };
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata);
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, calldata)
+                        .set_full_precomputed_tables(false)
+                        .set_range_check_required(false);
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
 
@@ -231,7 +234,9 @@ TEST_F(AvmMemoryTests, readUninitializedMemoryViolation)
 // must raise a VM error.
 TEST_F(AvmMemoryTests, mismatchedTagErrorViolation)
 {
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, { 98, 12 });
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, { 98, 12 })
+                        .set_full_precomputed_tables(false)
+                        .set_range_check_required(false);
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
 
@@ -267,7 +272,9 @@ TEST_F(AvmMemoryTests, mismatchedTagErrorViolation)
 // must not set a VM error.
 TEST_F(AvmMemoryTests, consistentTagNoErrorViolation)
 {
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, std::vector<FF>{ 84, 7 });
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, std::vector<FF>{ 84, 7 })
+                        .set_full_precomputed_tables(false)
+                        .set_range_check_required(false);
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_fdiv(0, 0, 1, 4, AvmMemoryTag::FF);
@@ -294,7 +301,9 @@ TEST_F(AvmMemoryTests, consistentTagNoErrorViolation)
 // Testing violation that a write operation must not set a VM error.
 TEST_F(AvmMemoryTests, noErrorTagWriteViolation)
 {
-    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, { 84, 7 });
+    trace_builder = AvmTraceBuilder(public_inputs, {}, 0, { 84, 7 })
+                        .set_full_precomputed_tables(false)
+                        .set_range_check_required(false);
     trace_builder.op_set(0, 2, 1, AvmMemoryTag::U32);
     trace_builder.op_calldata_copy(0, 0, 1, 0);
     trace_builder.op_fdiv(0, 0, 1, 4, AvmMemoryTag::FF);

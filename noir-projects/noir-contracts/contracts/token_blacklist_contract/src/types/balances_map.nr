@@ -24,14 +24,14 @@ impl<T, Context> BalancesMap<T, Context> {
 }
 
 impl<T> BalancesMap<T, UnconstrainedContext> {
-    unconstrained pub fn balance_of<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
+    unconstrained pub fn balance_of<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
         self: Self,
         owner: AztecAddress
     ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
         self.balance_of_with_offset(owner, 0)
     }
 
-    unconstrained pub fn balance_of_with_offset<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
+    unconstrained pub fn balance_of_with_offset<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
         self: Self,
         owner: AztecAddress,
         offset: u32
@@ -55,7 +55,7 @@ impl<T> BalancesMap<T, UnconstrainedContext> {
 }
 
 impl<T> BalancesMap<T, &mut PrivateContext> {
-    pub fn add<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
+    pub fn add<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
         self: Self,
         owner: AztecAddress,
         addend: U128
@@ -75,7 +75,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         }
     }
 
-    pub fn sub<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
+    pub fn sub<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
         self: Self,
         owner: AztecAddress,
         subtrahend: U128
@@ -100,7 +100,7 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
     }
 }
 
-pub fn filter_notes_min_sum<T, T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN>(
+pub fn filter_notes_min_sum<T, let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
     notes: [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: U128
 ) -> [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
