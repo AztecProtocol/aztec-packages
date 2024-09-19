@@ -453,7 +453,7 @@ struct BlackBoxOp {
 
     struct ToRadix {
         Program::MemoryAddress input;
-        uint32_t radix;
+        Program::MemoryAddress radix;
         Program::HeapArray output;
         bool output_bits;
 

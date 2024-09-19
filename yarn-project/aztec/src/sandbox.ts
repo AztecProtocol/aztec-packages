@@ -3,7 +3,7 @@ import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec
 import { AnvilTestWatcher, EthCheatCodes, SignerlessWallet } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { type AztecNode } from '@aztec/circuit-types';
-import { deployCanonicalAuthRegistry, deployCanonicalKeyRegistry, deployCanonicalL2FeeJuice } from '@aztec/cli/misc';
+import { deployCanonicalAuthRegistry, deployCanonicalL2FeeJuice } from '@aztec/cli/misc';
 import {
   type DeployL1Contracts,
   type L1ContractArtifactsForDeployment,
@@ -185,9 +185,6 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const node = await createAztecNode(aztecNodeConfig, client);
   const pxe = await createAztecPXE(node);
 
-  await deployCanonicalKeyRegistry(
-    new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
-  );
   await deployCanonicalAuthRegistry(
     new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(aztecNodeConfig.l1ChainId, aztecNodeConfig.version)),
   );

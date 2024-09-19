@@ -15,8 +15,6 @@ export * from './factory.js';
 
 export { retrieveL2ProofVerifiedEvents, retrieveBlockFromRollup } from './archiver/data_retrieval.js';
 
-export { getL2BlockProposedLogs } from './archiver/eth_log_handlers.js';
-
 const log = createDebugLogger('aztec:archiver');
 
 /**
