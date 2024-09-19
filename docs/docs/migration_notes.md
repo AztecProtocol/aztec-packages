@@ -27,7 +27,14 @@ The `select` function in both `NoteGetterOptions` and `NoteViewerOptions` no lon
 ```
 
 ### [Aztec.nr] Changes to contract definition
-We've migrated aztec macros to use a newly introduce meta programming feature of Noir. With this transition there are a few changes that need to be done to contracts:
+
+We've migrated the Aztec macros to use the newly introduce meta programming Noir feature. Due to being Noir-based, the new macros are less obscure and can be more easily modified.
+
+As part of this transition, some changes need to be applied to Aztec contracts:
+
+- The top level `contract` block needs to have the `#[aztec]` macro applied to it.
+- All `#[aztec(name)]` macros are renamed to `#[name]`.
+- The storage struct (the one that gets the `#[storage]` macro applied) but be generic over a `Context` type, and all state variables receive this type as their last generic type parameter.
 
 ```diff
 + use dep::aztec::macros::aztec;
@@ -56,7 +63,7 @@ contract Token {
 
 -    #[aztec(public)]
 -    #[aztec(view)]
--    fn public_get_name() -> pub FieldCompressedString {
+-    fn public_get_name() -> FieldCompressedString {
 +    #[public]
 +    #[view]
     fn public_get_name() -> FieldCompressedString {
@@ -65,16 +72,12 @@ contract Token {
 ```
 
 ### [Aztec.nr] Changes to `NoteInterface`
-Due to how meta-programming works we are now unable to implement only a selection of methods from a trait.
-For this reason we've separated the methods which are auto-implemented and those which needs to be implemented manually into 2 separate traits.
-The auto-implemented ones stay in the `NoteInterface` trace and the manually implemented ones were moved to `NullifiableNote` (name likely to change).
 
-Changes done to AddressNote:
+The new macro model prevents partial trait auto-implementation: they either implement the entire trait or none of it. This means users can no longer implement part of `NoteInterface` and have the rest be auto-implemented.
+
+For this reason we've separated the methods which are auto-implemented and those which needs to be implemented manually into two separate traits: the auto-implemented ones stay in the `NoteInterface` trace and the manually implemented ones were moved to `NullifiableNote` (name likely to change):
+
 ```diff
--global ADDRESS_NOTE_LEN: u32 = 3;
--// ADDRESS_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
--global ADDRESS_NOTE_BYTES_LEN: u32 = 3 * 32 + 64;
-
 -#[aztec(note)]
 +#[note]
 struct AddressNote {
@@ -94,7 +97,8 @@ struct AddressNote {
 ```
 
 ### [Aztec.nr] Changes to contract interface
-Instead of `Contract::storage()` static method has been renamed to `Contract::storage_layout()`.
+
+The `Contract::storage()` static method has been renamed to `Contract::storage_layout()`.
 
 ```diff
 -    let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage().balances.slot, fee_payer);
