@@ -10,11 +10,12 @@ import {
   PROVING_STATUS,
   type ProvingSuccess,
   type ProvingTicket,
-  Signature,
   type Tx,
   TxHash,
   type UnencryptedL2Log,
   UnencryptedTxL2Logs,
+  WorldStateRunningState,
+  type WorldStateSynchronizer,
   makeProcessedTx,
   mockTxForRollup,
 } from '@aztec/circuit-types';
@@ -29,13 +30,13 @@ import {
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
-import { WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 

@@ -17,6 +17,7 @@ namespace bb::avm_trace {
 void AvmKernelTraceBuilder::reset()
 {
     kernel_trace.clear();
+    kernel_trace.shrink_to_fit(); // Reclaim memory.
     kernel_input_selector_counter.clear();
     kernel_output_selector_counter.clear();
 }

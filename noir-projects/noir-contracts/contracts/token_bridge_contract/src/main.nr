@@ -6,7 +6,7 @@
 // Bridge has to be set as a minter on the token before it can be used
 
 contract TokenBridge {
-    use dep::aztec::prelude::{FunctionSelector, AztecAddress, EthAddress, PublicMutable, SharedImmutable};
+    use dep::aztec::prelude::{AztecAddress, EthAddress, PublicMutable, SharedImmutable};
 
     use dep::token_portal_content_hash_lib::{get_mint_public_content_hash, get_mint_private_content_hash, get_withdraw_content_hash};
 
@@ -80,6 +80,7 @@ contract TokenBridge {
     // docs:start:claim_private
     // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount in private assets
     // User needs to call token.redeem_shield() to get the private assets
+    // TODO(#8416): Consider creating a truly private claim flow.
     #[aztec(private)]
     fn claim_private(
         secret_hash_for_redeeming_minted_notes: Field, // secret hash used to redeem minted notes at a later time. This enables anyone to call this function and mint tokens to a user on their behalf
