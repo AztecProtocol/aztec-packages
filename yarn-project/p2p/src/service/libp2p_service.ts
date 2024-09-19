@@ -424,21 +424,32 @@ export class LibP2PService implements P2PService {
     }
   }
 
-  // TODO: more commentary
-  // When validating a tx that was specifically requested, we only penalise the peer if the tx hash does NOT
-  // line up with the requested Tx
+  /**
+   * Validate a tx that has been requested from a peer.
+   *
+   * The core component of this validator is that the tx hash MUST match the requested tx hash,
+   * In order to perform this check, the tx proof must be verified.
+   *
+   * Note: This function is called from within `ReqResp.sendRequest` as part of the
+   * TX_REQ_PROTOCOL subprotocol validation.
+   *
+   * @param requestedTxHash - The hash of the tx that was requested.
+   * @param responseTx - The tx that was received as a response to the request.
+   * @param peerId - The peer ID of the peer that sent the tx.
+   * @returns True if the tx is valid, false otherwise.
+   */
   private async validateRequestedTx(requestedTxHash: TxHash, responseTx: Tx, peerId: PeerId): Promise<boolean> {
     const proofValidator = new TxProofValidator(this.proofVerifier);
-    const [_____, proofInvalidTxs] = await proofValidator.validateTxs([responseTx]);
+    const [_, proofInvalidTxs] = await proofValidator.validateTxs([responseTx]);
     if (proofInvalidTxs.length > 0) {
       // penalize
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
       return false;
     }
 
     if (requestedTxHash !== responseTx.getTxHash()) {
       // penalize
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
       return false;
     }
 

@@ -132,10 +132,10 @@ export class ReqResp {
         if (response && response.length > 0) {
           const object = subProtocolMap[subProtocol].response.fromBuffer(response);
 
+          // The response validator handles peer punishment within
           const isValid = await responseValidator(request, object, peer);
           if (!isValid) {
             this.logger.error(`Invalid response for ${subProtocol} from ${peer.toString()}`);
-            this.peerManager.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
             return undefined;
           }
           return object;
