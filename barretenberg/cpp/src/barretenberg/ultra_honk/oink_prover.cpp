@@ -184,7 +184,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
                       commitment_labels.get_databus_inverses())) {
             {
                 BB_OP_COUNT_TIME_NAME("COMMIT::databus_inverses");
-                commitment = commitment_key->commit(polynomial);
+                commitment = commitment_key->commit_sparse(polynomial);
             }
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
