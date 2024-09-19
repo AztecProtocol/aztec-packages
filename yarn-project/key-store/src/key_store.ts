@@ -2,7 +2,6 @@ import { type PublicKey } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
-  type Fq,
   Fr,
   GeneratorIndex,
   GrumpkinScalar,
@@ -110,50 +109,28 @@ export class KeyStore {
     // Now we find the master public key for the account
     // Since each public keys buffer contains multiple public keys, we need to find the one that matches the hash.
     // Then we store the index of the key in the buffer to be able to quickly obtain the corresponding secret key.
-    let pkM: PublicKey | undefined;
-    let keyIndexInBuffer = 0;
-    {
-      const pkMsBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}pk_m`);
-      if (!pkMsBuffer) {
-        throw new Error(
-          `Could not find ${keyPrefix}pk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
-        );
-      }
+    const pkMsBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}pk_m`);
+    if (!pkMsBuffer) {
+      throw new Error(
+        `Could not find ${keyPrefix}pk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
+      );
+    }
 
-      // Now we iterate over the public keys in the buffer to find the one that matches the hash
-      const numKeys = this.#calculateNumKeys(pkMsBuffer, Point);
-      for (; keyIndexInBuffer < numKeys; keyIndexInBuffer++) {
-        const foundPkM = Point.fromBuffer(
-          pkMsBuffer.subarray(keyIndexInBuffer * Point.SIZE_IN_BYTES, (keyIndexInBuffer + 1) * Point.SIZE_IN_BYTES),
-        );
-        if (foundPkM.hash().equals(pkMHash)) {
-          pkM = foundPkM;
-          break;
-        }
-      }
+    const pkM = Point.fromBuffer(pkMsBuffer);
 
-      if (!pkM) {
-        throw new Error(`Could not find ${keyPrefix}pkM for ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`);
-      }
+    if (!pkM.hash().equals(pkMHash)) {
+      throw new Error(`Could not find ${keyPrefix}pkM for ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`);
     }
 
     // Now we find the secret key for the public key
-    let skM: GrumpkinScalar | undefined;
-    {
-      const skMsBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
-      if (!skMsBuffer) {
-        throw new Error(
-          `Could not find ${keyPrefix}sk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
-        );
-      }
-
-      skM = GrumpkinScalar.fromBuffer(
-        skMsBuffer.subarray(
-          keyIndexInBuffer * GrumpkinScalar.SIZE_IN_BYTES,
-          (keyIndexInBuffer + 1) * GrumpkinScalar.SIZE_IN_BYTES,
-        ),
+    const skMsBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
+    if (!skMsBuffer) {
+      throw new Error(
+        `Could not find ${keyPrefix}sk_m for account ${account.toString()} whose address was successfully obtained with ${keyPrefix}pk_m_hash ${pkMHash.toString()}.`,
       );
     }
+
+    const skM = GrumpkinScalar.fromBuffer(skMsBuffer);
 
     // We sanity check that it's possible to derive the public key from the secret key
     if (!derivePublicKeyFromSecretKey(skM).equals(pkM)) {
@@ -273,29 +250,16 @@ export class KeyStore {
     const [keyPrefix, account] = this.#getKeyPrefixAndAccount(pkM);
 
     // We get the secret keys buffer and iterate over the values in the buffer to find the one that matches pkM
-    let skM: GrumpkinScalar | undefined;
-    {
-      const secretKeysBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
-      if (!secretKeysBuffer) {
-        throw new Error(
-          `Could not find ${keyPrefix}sk_m for ${keyPrefix}pk_m ${pkM.toString()}. This should not happen.`,
-        );
-      }
+    const secretKeysBuffer = this.#keys.get(`${account.toString()}-${keyPrefix}sk_m`);
+    if (!secretKeysBuffer) {
+      throw new Error(
+        `Could not find ${keyPrefix}sk_m for ${keyPrefix}pk_m ${pkM.toString()}. This should not happen.`,
+      );
+    }
 
-      const numKeys = this.#calculateNumKeys(secretKeysBuffer, GrumpkinScalar);
-      for (let i = 0; i < numKeys; i++) {
-        const foundSkM = GrumpkinScalar.fromBuffer(
-          secretKeysBuffer.subarray(i * GrumpkinScalar.SIZE_IN_BYTES, (i + 1) * GrumpkinScalar.SIZE_IN_BYTES),
-        );
-        if (derivePublicKeyFromSecretKey(foundSkM).equals(pkM)) {
-          skM = foundSkM;
-          break;
-        }
-      }
-
-      if (!skM) {
-        throw new Error(`Could not find ${keyPrefix}skM for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`);
-      }
+    const skM = GrumpkinScalar.fromBuffer(secretKeysBuffer);
+    if (!derivePublicKeyFromSecretKey(skM).equals(pkM)) {
+      throw new Error(`Could not find ${keyPrefix}skM for ${keyPrefix}pkM ${pkM.toString()} in secret keys buffer.`);
     }
 
     return Promise.resolve(skM);
@@ -320,9 +284,5 @@ export class KeyStore {
       }
     }
     throw new Error(`Could not find key prefix.`);
-  }
-
-  #calculateNumKeys(buf: Buffer, T: typeof Point | typeof Fq) {
-    return buf.byteLength / T.SIZE_IN_BYTES;
   }
 }
