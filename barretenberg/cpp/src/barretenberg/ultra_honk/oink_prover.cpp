@@ -98,7 +98,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
                                                              commitment_labels.get_ecc_op_wires())) {
             {
                 BB_OP_COUNT_TIME_NAME("COMMIT::ecc_op_wires");
-                commitment = commitment_key->commit_sparse(polynomial);
+                commitment = commitment_key->commit(polynomial);
             }
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
@@ -110,7 +110,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_wire_commitment
                       commitment_labels.get_databus_entities())) {
             {
                 BB_OP_COUNT_TIME_NAME("COMMIT::databus");
-                commitment = commitment_key->commit_sparse(polynomial);
+                commitment = commitment_key->commit(polynomial);
             }
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
@@ -184,7 +184,7 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
                       commitment_labels.get_databus_inverses())) {
             {
                 BB_OP_COUNT_TIME_NAME("COMMIT::databus_inverses");
-                commitment = commitment_key->commit_sparse(polynomial);
+                commitment = commitment_key->commit(polynomial);
             }
             transcript->send_to_verifier(domain_separator + label, commitment);
         }
