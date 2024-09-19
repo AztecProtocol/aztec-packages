@@ -295,12 +295,10 @@ global VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
 // 16 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
 global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
 
-// The length is 2 + AvmFlavor::NUM_PRECOMPUTED_ENTITIES * 4
-global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS = 2 + 16 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-global AVM_PROOF_LENGTH_IN_FIELDS = 3812;
+global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3812;
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
  * We start from 1 to avoid the default generators. The generator indices are listed
