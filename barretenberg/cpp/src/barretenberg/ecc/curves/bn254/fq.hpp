@@ -106,6 +106,7 @@ class Bn254FqParams {
 
     // The modulus is larger than BN254 scalar field modulus, so it maps to two BN254 scalars
     static constexpr size_t NUM_BN254_SCALARS = 2;
+    static constexpr size_t MAX_BITS_PER_ENDOMORPHISM_SCALAR = 128;
 };
 
 using fq = field<Bn254FqParams>;

@@ -5,10 +5,16 @@ import {
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 
 const botFollowChain = ['NONE', 'PENDING', 'PROVEN'] as const;
 type BotFollowChain = (typeof botFollowChain)[number];
+
+export enum SupportedTokenContracts {
+  TokenContract = 'TokenContract',
+  EasyPrivateTokenContract = 'EasyPrivateTokenContract',
+}
 
 export type BotConfig = {
   /** The URL to the Aztec node to check for tx pool status. */
@@ -39,6 +45,14 @@ export type BotConfig = {
   maxPendingTxs: number;
   /** Whether to flush after sending each 'setup' transaction */
   flushSetupTransactions: boolean;
+  /** Whether to skip public simulation of txs before sending them. */
+  skipPublicSimulation: boolean;
+  /** L2 gas limit for the tx (empty to have the bot trigger an estimate gas). */
+  l2GasLimit: number | undefined;
+  /** DA gas limit for the tx (empty to have the bot trigger an estimate gas). */
+  daGasLimit: number | undefined;
+  /** Token contract to use */
+  contract: SupportedTokenContracts;
 };
 
 export const botConfigMappings: ConfigMappingsType<BotConfig> = {
@@ -119,6 +133,36 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     env: 'BOT_FLUSH_SETUP_TRANSACTIONS',
     description: 'Make a request for the sequencer to build a block after each setup transaction.',
     ...booleanConfigHelper(false),
+  },
+  skipPublicSimulation: {
+    env: 'BOT_SKIP_PUBLIC_SIMULATION',
+    description: 'Whether to skip public simulation of txs before sending them.',
+    ...booleanConfigHelper(false),
+  },
+  l2GasLimit: {
+    env: 'BOT_L2_GAS_LIMIT',
+    description: 'L2 gas limit for the tx (empty to have the bot trigger an estimate gas).',
+    ...optionalNumberConfigHelper(),
+  },
+  daGasLimit: {
+    env: 'BOT_DA_GAS_LIMIT',
+    description: 'DA gas limit for the tx (empty to have the bot trigger an estimate gas).',
+    ...optionalNumberConfigHelper(),
+  },
+  contract: {
+    env: 'BOT_TOKEN_CONTRACT',
+    description: 'Token contract to use',
+    defaultValue: SupportedTokenContracts.TokenContract,
+    parseEnv(val) {
+      if (!Object.values(SupportedTokenContracts).includes(val as any)) {
+        throw new Error(
+          `Invalid value for BOT_TOKEN_CONTRACT: ${val}. Valid values: ${Object.values(SupportedTokenContracts).join(
+            ', ',
+          )}`,
+        );
+      }
+      return val as SupportedTokenContracts;
+    },
   },
 };
 

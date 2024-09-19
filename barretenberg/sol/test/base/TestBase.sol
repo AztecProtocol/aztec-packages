@@ -22,6 +22,7 @@ contract TestBase is Test {
             let rLoc := add(rawBytes, 0x24)
             let end := add(rLoc, length)
 
+            // TODO: Can be updated with new evm mcpy opcode
             for {} lt(rLoc, end) {
                 wLoc := add(wLoc, 0x20)
                 rLoc := add(rLoc, 0x20)

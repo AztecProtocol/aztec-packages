@@ -22,7 +22,6 @@ describe('Contract Class', () => {
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockUnconstrainedResultValue = 1;
   const l1Addresses: L1ContractAddresses = {
-    availabilityOracleAddress: EthAddress.random(),
     rollupAddress: EthAddress.random(),
     registryAddress: EthAddress.random(),
     inboxAddress: EthAddress.random(),
@@ -40,7 +39,6 @@ describe('Contract Class', () => {
       classRegisterer: AztecAddress.random(),
       feeJuice: AztecAddress.random(),
       instanceDeployer: AztecAddress.random(),
-      keyRegistry: AztecAddress.random(),
       multiCallEntrypoint: AztecAddress.random(),
     },
   };

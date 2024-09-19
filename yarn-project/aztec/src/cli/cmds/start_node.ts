@@ -37,7 +37,7 @@ export const startNode = async (
   }
 
   // Deploy contracts if needed
-  if (nodeSpecificOptions.deployAztecContracts) {
+  if (nodeSpecificOptions.deployAztecContracts || nodeSpecificOptions.deployAztecContractsSalt) {
     let account;
     if (nodeSpecificOptions.publisherPrivateKey) {
       account = privateKeyToAccount(nodeSpecificOptions.publisherPrivateKey);
@@ -47,7 +47,8 @@ export const startNode = async (
       throw new Error('--node.publisherPrivateKey or --l1-mnemonic is required to deploy L1 contracts');
     }
     await deployContractsToL1(nodeConfig, account!, undefined, {
-      assumeProvenUntilBlockNumber: nodeSpecificOptions.assumeProvenUntilBlockNumber,
+      assumeProvenThroughBlockNumber: nodeSpecificOptions.assumeProvenThroughBlockNumber,
+      salt: nodeSpecificOptions.deployAztecContractsSalt,
     });
   }
 

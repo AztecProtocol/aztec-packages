@@ -1,3 +1,12 @@
+import {
+  MEM_TAG_FF,
+  MEM_TAG_U1,
+  MEM_TAG_U8,
+  MEM_TAG_U16,
+  MEM_TAG_U32,
+  MEM_TAG_U64,
+  MEM_TAG_U128,
+} from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -128,6 +137,9 @@ function UnsignedIntegerClassFactory(bits: number) {
     }
 
     public toBuffer(): Buffer {
+      if (bits < 8) {
+        return toBufferBE(this.n, 1);
+      }
       return toBufferBE(this.n, bits / 8);
     }
   };
@@ -136,6 +148,7 @@ function UnsignedIntegerClassFactory(bits: number) {
 // Now we can create the classes for each unsigned integer type.
 // We extend instead of just assigning so that the class has the right name.
 // Otherwise they are all called "NewUintClass".
+export class Uint1 extends UnsignedIntegerClassFactory(1) {}
 export class Uint8 extends UnsignedIntegerClassFactory(8) {}
 export class Uint16 extends UnsignedIntegerClassFactory(16) {}
 export class Uint32 extends UnsignedIntegerClassFactory(32) {}
@@ -196,12 +209,13 @@ export class Field extends MemoryValue {
 
 export enum TypeTag {
   UNINITIALIZED,
-  UINT8,
-  UINT16,
-  UINT32,
-  UINT64,
-  UINT128,
-  FIELD,
+  UINT1 = MEM_TAG_U1,
+  UINT8 = MEM_TAG_U8,
+  UINT16 = MEM_TAG_U16,
+  UINT32 = MEM_TAG_U32,
+  UINT64 = MEM_TAG_U64,
+  UINT128 = MEM_TAG_U128,
+  FIELD = MEM_TAG_FF,
   INVALID,
 }
 
@@ -302,7 +316,9 @@ export class TaggedMemory implements TaggedMemoryInterface {
   }
 
   public static checkIsIntegralTag(tag: TypeTag) {
-    if (![TypeTag.UINT8, TypeTag.UINT16, TypeTag.UINT32, TypeTag.UINT64, TypeTag.UINT128].includes(tag)) {
+    if (
+      ![TypeTag.UINT1, TypeTag.UINT8, TypeTag.UINT16, TypeTag.UINT32, TypeTag.UINT64, TypeTag.UINT128].includes(tag)
+    ) {
       throw TagCheckError.forTag(TypeTag[tag], 'integral');
     }
   }
@@ -332,8 +348,8 @@ export class TaggedMemory implements TaggedMemoryInterface {
 
     if (v === undefined) {
       tag = TypeTag.UNINITIALIZED;
-    } else if (v instanceof Field) {
-      tag = TypeTag.FIELD;
+    } else if (v instanceof Uint1) {
+      tag = TypeTag.UINT1;
     } else if (v instanceof Uint8) {
       tag = TypeTag.UINT8;
     } else if (v instanceof Uint16) {
@@ -344,15 +360,19 @@ export class TaggedMemory implements TaggedMemoryInterface {
       tag = TypeTag.UINT64;
     } else if (v instanceof Uint128) {
       tag = TypeTag.UINT128;
+    } else if (v instanceof Field) {
+      tag = TypeTag.FIELD;
     }
 
     return tag;
   }
 
   // Truncates the value to fit the type.
-  public static integralFromTag(v: bigint | number, tag: TypeTag): IntegralValue {
+  public static buildFromTagTruncating(v: bigint | number, tag: TypeTag): MemoryValue {
     v = BigInt(v);
     switch (tag) {
+      case TypeTag.UINT1:
+        return new Uint1(v & 1n);
       case TypeTag.UINT8:
         return new Uint8(v & ((1n << 8n) - 1n));
       case TypeTag.UINT16:
@@ -363,14 +383,18 @@ export class TaggedMemory implements TaggedMemoryInterface {
         return new Uint64(v & ((1n << 64n) - 1n));
       case TypeTag.UINT128:
         return new Uint128(v & ((1n << 128n) - 1n));
+      case TypeTag.FIELD:
+        return new Field(v);
       default:
-        throw new Error(`${TypeTag[tag]} is not a valid integral type.`);
+        throw new Error(`${TypeTag[tag]} is not a valid tag.`);
     }
   }
 
   // Does not truncate. Type constructor will check that it fits.
   public static buildFromTagOrDie(v: bigint | number, tag: TypeTag): MemoryValue {
     switch (tag) {
+      case TypeTag.UINT1:
+        return new Uint1(v);
       case TypeTag.UINT8:
         return new Uint8(v);
       case TypeTag.UINT16:

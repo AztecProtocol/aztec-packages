@@ -57,7 +57,7 @@ export async function deployUltraHonkVerifier(
   const output = JSON.parse(solc.compile(JSON.stringify(input)));
   log('Compiled UltraHonkVerifier');
 
-  const abi = output.contracts['UltraHonkVerifier.sol']['UltraHonkVerifier'].abi;
+  const abi = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].abi;
   const bytecode: string = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].evm.bytecode.object;
 
   const { publicClient, walletClient } = createL1Clients(
@@ -66,7 +66,7 @@ export async function deployUltraHonkVerifier(
     createEthereumChain(ethRpcUrl, l1ChainId).chainInfo,
   );
 
-  const verifierAddress = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
+  const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
   log(`Deployed HonkVerifier at ${verifierAddress.toString()}`);
 
   const pxe = await createCompatibleClient(pxeRpcUrl, debugLogger);
@@ -100,7 +100,12 @@ export async function deployMockVerifier(
   );
   const { MockVerifierAbi, MockVerifierBytecode, RollupAbi } = await import('@aztec/l1-artifacts');
 
-  const mockVerifierAddress = await deployL1Contract(walletClient, publicClient, MockVerifierAbi, MockVerifierBytecode);
+  const { address: mockVerifierAddress } = await deployL1Contract(
+    walletClient,
+    publicClient,
+    MockVerifierAbi,
+    MockVerifierBytecode,
+  );
   log(`Deployed MockVerifier at ${mockVerifierAddress.toString()}`);
 
   const pxe = await createCompatibleClient(pxeRpcUrl, debugLogger);

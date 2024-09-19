@@ -7,11 +7,11 @@ use dep::aztec::protocol_types::{
 use crate::entrypoint::function_call::{FunctionCall, FUNCTION_CALL_SIZE_IN_BYTES};
 
 // FUNCTION_CALL_SIZE * ACCOUNT_MAX_CALLS + 1
-global APP_PAYLOAD_SIZE: u64 = 21;
+global APP_PAYLOAD_SIZE: u32 = 21;
 // FUNCTION_CALL_SIZE_IN_BYTES * ACCOUNT_MAX_CALLS + 32
-global APP_PAYLOAD_SIZE_IN_BYTES: u64 = 424;
+global APP_PAYLOAD_SIZE_IN_BYTES: u32 = 424;
 
-global ACCOUNT_MAX_CALLS: u64 = 4;
+global ACCOUNT_MAX_CALLS: u32 = 4;
 
 // Note: If you change the following struct you have to update default_entrypoint.ts
 // docs:start:app-payload-struct
@@ -22,24 +22,21 @@ struct AppPayload {
 // docs:end:app-payload-struct
 
 impl Serialize<APP_PAYLOAD_SIZE> for AppPayload {
-  // Serializes the entrypoint struct
-  fn serialize(self) -> [Field; APP_PAYLOAD_SIZE] {
-    let mut fields: BoundedVec<Field, APP_PAYLOAD_SIZE> = BoundedVec::new();
-    for call in self.function_calls {
-      fields.extend_from_array(call.serialize());
+    // Serializes the entrypoint struct
+    fn serialize(self) -> [Field; APP_PAYLOAD_SIZE] {
+        let mut fields: BoundedVec<Field, APP_PAYLOAD_SIZE> = BoundedVec::new();
+        for call in self.function_calls {
+            fields.extend_from_array(call.serialize());
+        }
+        fields.push(self.nonce);
+        fields.storage
     }
-    fields.push(self.nonce);
-    fields.storage
-  }
 }
 
 impl Hash for AppPayload {
-  fn hash(self) -> Field {
-    poseidon2_hash_with_separator(
-      self.serialize(),
-      GENERATOR_INDEX__SIGNATURE_PAYLOAD
-    )
-  }
+    fn hash(self) -> Field {
+        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__SIGNATURE_PAYLOAD)
+    }
 }
 
 impl AppPayload {
@@ -50,7 +47,7 @@ impl AppPayload {
         for i in 0..ACCOUNT_MAX_CALLS {
             bytes.extend_from_array(self.function_calls[i].to_be_bytes());
         }
-        bytes.extend_from_slice(self.nonce.to_be_bytes(32));
+        bytes.extend_from_array(self.nonce.to_be_bytes::<32>());
 
         bytes.storage
     }

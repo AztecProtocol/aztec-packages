@@ -222,7 +222,10 @@ export interface MerkleTreeOperations {
     leaves: Buffer[],
     subtreeHeight: number,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>>;
+}
 
+/** Operations on merkle trees world state that can modify the underlying store. */
+export interface MerkleTreeAdminOperations extends MerkleTreeOperations {
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.

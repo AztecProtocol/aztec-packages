@@ -82,6 +82,9 @@ export class TXE implements TypedOracle {
   private contractAddress: AztecAddress;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
+  // This will hold the _real_ calldata. That is, the one without the PublicContextInputs.
+  // TODO: Remove this comment once PublicContextInputs are removed.
+  private calldata: Fr[] = [];
 
   private contractDataOracle: ContractDataOracle;
 
@@ -128,8 +131,18 @@ export class TXE implements TypedOracle {
     return this.functionSelector;
   }
 
+  getCalldata() {
+    // TODO: Remove this once PublicContextInputs are removed.
+    const inputs = this.getPublicContextInputs();
+    return [...inputs.toFields(), ...this.calldata];
+  }
+
   setMsgSender(msgSender: Fr) {
     this.msgSender = msgSender;
+  }
+
+  setCalldata(calldata: Fr[]) {
+    this.calldata = calldata;
   }
 
   setFunctionSelector(functionSelector: FunctionSelector) {
@@ -204,10 +217,10 @@ export class TXE implements TypedOracle {
 
   getPublicContextInputs() {
     const inputs = {
-      argsHash: new Fr(0),
+      calldataLength: new Fr(this.calldata.length),
       isStaticCall: false,
       toFields: function () {
-        return [this.argsHash, new Fr(this.isStaticCall)];
+        return [this.calldataLength, new Fr(this.isStaticCall)];
       },
     };
     return inputs;
@@ -464,28 +477,22 @@ export class TXE implements TypedOracle {
     throw new Error('Method not implemented.');
   }
 
-  async avmOpcodeStorageRead(slot: Fr, length: Fr) {
+  async avmOpcodeStorageRead(slot: Fr) {
     const db = this.trees.asLatest();
 
-    const result = [];
+    const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot);
 
-    for (let i = 0; i < length.toNumber(); i++) {
-      const leafSlot = computePublicDataTreeLeafSlot(this.contractAddress, slot.add(new Fr(i))).toBigInt();
-
-      const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
-      if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
-        result.push(Fr.ZERO);
-        continue;
-      }
-
-      const preimage = (await db.getLeafPreimage(
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        lowLeafResult.index,
-      )) as PublicDataTreeLeafPreimage;
-
-      result.push(preimage.value);
+    const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot.toBigInt());
+    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
+      return Fr.ZERO;
     }
-    return result;
+
+    const preimage = (await db.getLeafPreimage(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      lowLeafResult.index,
+    )) as PublicDataTreeLeafPreimage;
+
+    return preimage.value;
   }
 
   async storageRead(
@@ -744,6 +751,7 @@ export class TXE implements TypedOracle {
     this.setMsgSender(this.contractAddress);
     this.setContractAddress(targetContractAddress);
     this.setFunctionSelector(functionSelector);
+    this.setCalldata(args);
 
     const callContext = CallContext.empty();
     callContext.msgSender = this.msgSender;

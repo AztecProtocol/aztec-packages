@@ -8,6 +8,7 @@ namespace bb::avm_trace {
 void AvmSliceTraceBuilder::reset()
 {
     slice_trace.clear();
+    slice_trace.shrink_to_fit(); // Reclaim memory.
     cd_lookup_counts.clear();
     ret_lookup_counts.clear();
 }

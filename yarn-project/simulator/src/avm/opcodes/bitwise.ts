@@ -1,8 +1,9 @@
 import type { AvmContext } from '../avm_context.js';
-import { type IntegralValue, type TaggedMemoryInterface, TypeTag } from '../avm_memory_types.js';
-import { Opcode } from '../serialization/instruction_serialization.js';
+import { type IntegralValue, TaggedMemory, type TaggedMemoryInterface, TypeTag } from '../avm_memory_types.js';
+import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
-import { ThreeOperandInstruction, TwoOperandInstruction } from './instruction_impl.js';
+import { Instruction } from './instruction.js';
+import { ThreeOperandInstruction } from './instruction_impl.js';
 
 abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
   public async execute(context: AvmContext): Promise<void> {
@@ -34,7 +35,7 @@ abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
 
 export class And extends ThreeOperandBitwiseInstruction {
   static readonly type: string = 'AND';
-  static readonly opcode = Opcode.AND;
+  static readonly opcode = Opcode.AND_8; // FIXME: needed for gas.
 
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.and(b);
@@ -43,7 +44,7 @@ export class And extends ThreeOperandBitwiseInstruction {
 
 export class Or extends ThreeOperandBitwiseInstruction {
   static readonly type: string = 'OR';
-  static readonly opcode = Opcode.OR;
+  static readonly opcode = Opcode.OR_8; // FIXME: needed for gas.
 
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.or(b);
@@ -52,7 +53,7 @@ export class Or extends ThreeOperandBitwiseInstruction {
 
 export class Xor extends ThreeOperandBitwiseInstruction {
   static readonly type: string = 'XOR';
-  static readonly opcode = Opcode.XOR;
+  static readonly opcode = Opcode.XOR_8; // FIXME: needed for gas.
 
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.xor(b);
@@ -61,7 +62,7 @@ export class Xor extends ThreeOperandBitwiseInstruction {
 
 export class Shl extends ThreeOperandBitwiseInstruction {
   static readonly type: string = 'SHL';
-  static readonly opcode = Opcode.SHL;
+  static readonly opcode = Opcode.SHL_8; // FIXME: needed for gas.
 
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.shl(b);
@@ -74,7 +75,7 @@ export class Shl extends ThreeOperandBitwiseInstruction {
 
 export class Shr extends ThreeOperandBitwiseInstruction {
   static readonly type: string = 'SHR';
-  static readonly opcode = Opcode.SHR;
+  static readonly opcode = Opcode.SHR_8; // FIXME: needed for gas.
 
   protected override compute(a: IntegralValue, b: IntegralValue): IntegralValue {
     return a.shr(b);
@@ -85,12 +86,15 @@ export class Shr extends ThreeOperandBitwiseInstruction {
   }
 }
 
-export class Not extends TwoOperandInstruction {
+export class Not extends Instruction {
   static readonly type: string = 'NOT';
-  static readonly opcode = Opcode.NOT;
+  static readonly opcode = Opcode.NOT_8;
 
-  constructor(indirect: number, inTag: number, aOffset: number, dstOffset: number) {
-    super(indirect, inTag, aOffset, dstOffset);
+  static readonly wireFormat8 = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT8, OperandType.UINT8];
+  static readonly wireFormat16 = [OperandType.UINT8, OperandType.UINT8, OperandType.UINT16, OperandType.UINT16];
+
+  constructor(private indirect: number, private srcOffset: number, private dstOffset: number) {
+    super();
   }
 
   public async execute(context: AvmContext): Promise<void> {
@@ -98,11 +102,11 @@ export class Not extends TwoOperandInstruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [aOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset, this.dstOffset], memory);
-    memory.checkTags(this.inTag, aOffset);
-    const a = memory.getAs<IntegralValue>(aOffset);
+    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.dstOffset], memory);
+    TaggedMemory.checkIsIntegralTag(memory.getTag(srcOffset));
+    const value = memory.getAs<IntegralValue>(srcOffset);
 
-    const res = a.not();
+    const res = value.not();
     memory.set(dstOffset, res);
 
     memory.assert(memoryOperations);

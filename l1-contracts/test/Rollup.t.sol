@@ -15,7 +15,7 @@ import {Rollup} from "../src/core/Rollup.sol";
 import {IFeeJuicePortal} from "../src/core/interfaces/IFeeJuicePortal.sol";
 import {FeeJuicePortal} from "../src/core/FeeJuicePortal.sol";
 import {Leonidas} from "../src/core/sequencer_selection/Leonidas.sol";
-import {AvailabilityOracle} from "../src/core/availability_oracle/AvailabilityOracle.sol";
+import {SignatureLib} from "../src/core/sequencer_selection/SignatureLib.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {PortalERC20} from "./portals/PortalERC20.sol";
@@ -37,7 +37,7 @@ contract RollupTest is DecoderBase {
   PortalERC20 internal portalERC20;
   FeeJuicePortal internal feeJuicePortal;
 
-  AvailabilityOracle internal availabilityOracle;
+  SignatureLib.Signature[] internal signatures;
 
   /**
    * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
@@ -53,7 +53,6 @@ contract RollupTest is DecoderBase {
     }
 
     registry = new Registry(address(this));
-    availabilityOracle = new AvailabilityOracle();
     portalERC20 = new PortalERC20();
     feeJuicePortal = new FeeJuicePortal(address(this));
     portalERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
@@ -62,7 +61,6 @@ contract RollupTest is DecoderBase {
     );
     rollup = new Rollup(
       registry,
-      availabilityOracle,
       IFeeJuicePortal(address(feeJuicePortal)),
       bytes32(0),
       address(this),
@@ -78,21 +76,45 @@ contract RollupTest is DecoderBase {
     _;
   }
 
-  function testRevertPrune() public setUpFor("mixed_block_1") {
-    if (rollup.isDevNet()) {
-      vm.expectRevert(abi.encodeWithSelector(Errors.DevNet__NoPruningAllowed.selector));
-      rollup.prune();
+  function testRevertProveTwice() public setUpFor("mixed_block_1") {
+    DecoderBase.Data memory data = load("mixed_block_1").block;
+    bytes memory header = data.header;
+    bytes32 archive = data.archive;
+    bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
-      return;
+    // We jump to the time of the block. (unless it is in the past)
+    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
+
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
+
+    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonSequentialProving.selector));
+    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
+  }
+
+  function testTimestamp() public setUpFor("mixed_block_1") {
+    // Ensure that the timestamp of the current slot is never in the future.
+    for (uint256 i = 0; i < 100; i++) {
+      uint256 slot = rollup.getCurrentSlot();
+      uint256 ts = rollup.getTimestampForSlot(slot);
+
+      assertLe(ts, block.timestamp, "Invalid timestamp");
+
+      vm.warp(block.timestamp + 12);
+      vm.roll(block.number + 1);
     }
+  }
 
+  function testRevertPrune() public setUpFor("mixed_block_1") {
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
     rollup.prune();
 
     _testBlock("mixed_block_1", false);
 
     uint256 currentSlot = rollup.getCurrentSlot();
-    (,, uint128 slot,) = rollup.blocks(1);
+    (,, uint128 slot) = rollup.blocks(1);
     uint256 prunableAt = uint256(slot) + rollup.TIMELINESS_PROVING_IN_SLOTS();
 
     vm.expectRevert(
@@ -102,10 +124,6 @@ contract RollupTest is DecoderBase {
   }
 
   function testPrune() public setUpFor("mixed_block_1") {
-    if (rollup.isDevNet()) {
-      return;
-    }
-
     _testBlock("mixed_block_1", false);
 
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
@@ -114,14 +132,14 @@ contract RollupTest is DecoderBase {
     //        Even if we end up reverting block 1, we should still see the same root in the inbox.
     bytes32 inboxRoot2 = inbox.getRoot(2);
 
-    (,, uint128 slot,) = rollup.blocks(1);
+    (,, uint128 slot) = rollup.blocks(1);
     uint256 prunableAt = uint256(slot) + rollup.TIMELINESS_PROVING_IN_SLOTS();
 
     uint256 timeOfPrune = rollup.getTimestampForSlot(prunableAt);
     vm.warp(timeOfPrune);
 
-    assertEq(rollup.pendingBlockCount(), 2, "Invalid pending block count");
-    assertEq(rollup.provenBlockCount(), 1, "Invalid proven block count");
+    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
     // @note  Get the root and min height that we have in the outbox.
     //        We read it directly in storage because it is not yet proven, so the getter will give (0, 0).
@@ -136,8 +154,8 @@ contract RollupTest is DecoderBase {
 
     rollup.prune();
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
-    assertEq(rollup.pendingBlockCount(), 1, "Invalid pending block count");
-    assertEq(rollup.provenBlockCount(), 1, "Invalid proven block count");
+    assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
     // @note  We alter what slot is specified in the empty block!
     //        This means that we keep the `empty_block_1` mostly as is, but replace the slot number
@@ -148,8 +166,8 @@ contract RollupTest is DecoderBase {
 
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
     assertEq(inbox.getRoot(2), inboxRoot2, "Invalid inbox root");
-    assertEq(rollup.pendingBlockCount(), 2, "Invalid pending block count");
-    assertEq(rollup.provenBlockCount(), 1, "Invalid proven block count");
+    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
     // We check that the roots in the outbox have correctly been updated.
     bytes32 rootEmpty = vm.load(address(outbox), keccak256(abi.encode(1, 0)));
@@ -169,6 +187,7 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     // Progress time as necessary
     vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
@@ -176,11 +195,21 @@ contract RollupTest is DecoderBase {
     assembly {
       mstore(add(header, add(0x20, 0x0248)), feeAmount)
     }
-    availabilityOracle.publish(body);
 
     assertEq(portalERC20.balanceOf(address(rollup)), 0, "invalid rollup balance");
 
     uint256 portalBalance = portalERC20.balanceOf(address(feeJuicePortal));
+
+    // We jump to the time of the block. (unless it is in the past)
+    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
+
+    address coinbase = data.decodedHeader.globalVariables.coinbase;
+    uint256 coinbaseBalance = portalERC20.balanceOf(coinbase);
+    assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
+
+    // Assert that balance have NOT been increased by proposing the block
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
+    assertEq(portalERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
 
     vm.expectRevert(
       abi.encodeWithSelector(
@@ -190,23 +219,21 @@ contract RollupTest is DecoderBase {
         feeAmount
       )
     );
-    rollup.process(header, archive, bytes32(0));
-
-    address coinbase = data.decodedHeader.globalVariables.coinbase;
-    uint256 coinbaseBalance = portalERC20.balanceOf(coinbase);
-    assertEq(coinbaseBalance, 0, "invalid initial coinbase balance");
+    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
+    assertEq(portalERC20.balanceOf(coinbase), 0, "invalid coinbase balance");
 
     portalERC20.mint(address(feeJuicePortal), feeAmount - portalBalance);
 
-    rollup.process(header, archive, bytes32(0));
+    // When the block is proven we should have received the funds
+    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
     assertEq(portalERC20.balanceOf(coinbase), feeAmount, "invalid coinbase balance");
   }
 
   function testMixedBlock(bool _toProve) public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", _toProve);
 
-    assertEq(rollup.pendingBlockCount(), 2, "Invalid pending block count");
-    assertEq(rollup.provenBlockCount(), _toProve ? 2 : 1, "Invalid proven block count");
+    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), _toProve ? 1 : 0, "Invalid proven block number");
   }
 
   function testConsecutiveMixedBlocks(uint256 _blocksToProve) public setUpFor("mixed_block_1") {
@@ -215,24 +242,33 @@ contract RollupTest is DecoderBase {
     _testBlock("mixed_block_1", toProve > 0);
     _testBlock("mixed_block_2", toProve > 1);
 
-    assertEq(rollup.pendingBlockCount(), 3, "Invalid pending block count");
-    assertEq(rollup.provenBlockCount(), 1 + toProve, "Invalid proven block count");
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0 + toProve, "Invalid proven block number");
   }
 
   function testConsecutiveMixedBlocksNonSequentialProof() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false);
-    _testBlock("mixed_block_2", true);
 
-    assertTrue(rollup.isBlockProven(2), "Block 2 is not proven");
+    DecoderBase.Data memory data = load("mixed_block_2").block;
+    bytes memory header = data.header;
+    bytes32 archive = data.archive;
+    bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
-    assertEq(rollup.pendingBlockCount(), 3, "Invalid pending block count");
-    assertEq(rollup.provenBlockCount(), 1, "Invalid proven block count");
+    vm.warp(max(block.timestamp, data.decodedHeader.globalVariables.timestamp));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NonSequentialProving.selector));
+    rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
+
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
   }
 
   function testEmptyBlock(bool _toProve) public setUpFor("empty_block_1") {
     _testBlock("empty_block_1", _toProve);
-    assertEq(rollup.pendingBlockCount(), 2, "Invalid pending block count");
-    assertEq(rollup.provenBlockCount(), _toProve ? 2 : 1, "Invalid proven block count");
+    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), _toProve ? 1 : 0, "Invalid proven block number");
   }
 
   function testConsecutiveEmptyBlocks(uint256 _blocksToProve) public setUpFor("empty_block_1") {
@@ -240,8 +276,8 @@ contract RollupTest is DecoderBase {
     _testBlock("empty_block_1", toProve > 0);
     _testBlock("empty_block_2", toProve > 1);
 
-    assertEq(rollup.pendingBlockCount(), 3, "Invalid pending block count");
-    assertEq(rollup.provenBlockCount(), 1 + toProve, "Invalid proven block count");
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0 + toProve, "Invalid proven block number");
   }
 
   function testRevertInvalidBlockNumber() public setUpFor("empty_block_1") {
@@ -249,16 +285,15 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     assembly {
       // TODO: Hardcoding offsets in the middle of tests is annoying to say the least.
       mstore(add(header, add(0x20, 0x0174)), 0x420)
     }
 
-    availabilityOracle.publish(body);
-
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 0x420));
-    rollup.process(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
   }
 
   function testRevertInvalidChainId() public setUpFor("empty_block_1") {
@@ -266,16 +301,14 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     assembly {
-      // TODO: Hardcoding offsets in the middle of tests is annoying to say the least.
       mstore(add(header, add(0x20, 0x0134)), 0x420)
     }
 
-    availabilityOracle.publish(body);
-
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidChainId.selector, 31337, 0x420));
-    rollup.process(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
   }
 
   function testRevertInvalidVersion() public setUpFor("empty_block_1") {
@@ -283,15 +316,14 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     assembly {
       mstore(add(header, add(0x20, 0x0154)), 0x420)
     }
 
-    availabilityOracle.publish(body);
-
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 1, 0x420));
-    rollup.process(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
   }
 
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
@@ -299,6 +331,7 @@ contract RollupTest is DecoderBase {
     bytes memory header = data.header;
     bytes32 archive = data.archive;
     bytes memory body = data.body;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     uint256 realTs = data.decodedHeader.globalVariables.timestamp;
     uint256 badTs = realTs + 1;
@@ -309,34 +342,32 @@ contract RollupTest is DecoderBase {
       mstore(add(header, add(0x20, 0x01b4)), badTs)
     }
 
-    availabilityOracle.publish(body);
-
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidTimestamp.selector, realTs, badTs));
-    rollup.process(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
   }
 
   function testBlocksWithAssumeProven() public setUpFor("mixed_block_1") {
-    rollup.setAssumeProvenUntilBlockNumber(2);
-    assertEq(rollup.pendingBlockCount(), 1, "Invalid pending block count");
-    assertEq(rollup.provenBlockCount(), 1, "Invalid proven block count");
+    rollup.setAssumeProvenThroughBlockNumber(1);
+    assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
     _testBlock("mixed_block_1", false);
     _testBlock("mixed_block_2", false);
 
-    assertEq(rollup.pendingBlockCount(), 3, "Invalid pending block count");
-    assertEq(rollup.provenBlockCount(), 2, "Invalid proven block count");
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 1, "Invalid proven block number");
   }
 
   function testSetAssumeProvenAfterBlocksProcessed() public setUpFor("mixed_block_1") {
-    assertEq(rollup.pendingBlockCount(), 1, "Invalid pending block count");
-    assertEq(rollup.provenBlockCount(), 1, "Invalid proven block count");
+    assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
     _testBlock("mixed_block_1", false);
     _testBlock("mixed_block_2", false);
-    rollup.setAssumeProvenUntilBlockNumber(2);
+    rollup.setAssumeProvenThroughBlockNumber(1);
 
-    assertEq(rollup.pendingBlockCount(), 3, "Invalid pending block count");
-    assertEq(rollup.provenBlockCount(), 2, "Invalid proven block count");
+    assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 1, "Invalid proven block number");
   }
 
   function testSubmitProofNonExistantBlock() public setUpFor("empty_block_1") {
@@ -350,9 +381,8 @@ contract RollupTest is DecoderBase {
 
   function testSubmitProofInvalidArchive() public setUpFor("empty_block_1") {
     _testBlock("empty_block_1", false);
-    _testBlock("empty_block_2", false);
 
-    DecoderBase.Data memory data = load("empty_block_2").block;
+    DecoderBase.Data memory data = load("empty_block_1").block;
     bytes memory header = data.header;
     bytes32 archive = data.archive;
 
@@ -363,7 +393,7 @@ contract RollupTest is DecoderBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.Rollup__InvalidArchive.selector, rollup.archiveAt(1), 0xdeadbeef
+        Errors.Rollup__InvalidArchive.selector, rollup.archiveAt(0), 0xdeadbeef
       )
     );
     rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
@@ -394,6 +424,7 @@ contract RollupTest is DecoderBase {
     bytes32 archive = full.block.archive;
     bytes memory body = full.block.body;
     uint32 numTxs = full.block.numTxs;
+    bytes32[] memory txHashes = new bytes32[](0);
 
     // Overwrite some timestamps if needed
     if (_slotNumber != 0) {
@@ -412,17 +443,14 @@ contract RollupTest is DecoderBase {
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
 
-    availabilityOracle.publish(body);
-
-    rollup.process(header, archive, bytes32(0));
+    rollup.propose(header, archive, bytes32(0), txHashes, signatures, body);
 
     if (_submitProof) {
+      uint256 pre = rollup.getProvenBlockNumber();
+
       rollup.submitBlockRootProof(header, archive, bytes32(0), "", "");
 
-      assertTrue(
-        rollup.isBlockProven(full.block.decodedHeader.globalVariables.blockNumber),
-        "Block not proven"
-      );
+      assertEq(pre + 1, rollup.getProvenBlockNumber(), "Block not proven");
     }
 
     bytes32 l2ToL1MessageTreeRoot;
@@ -456,7 +484,7 @@ contract RollupTest is DecoderBase {
     (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
-    if (rollup.provenBlockCount() > full.block.decodedHeader.globalVariables.blockNumber) {
+    if (rollup.getProvenBlockNumber() >= full.block.decodedHeader.globalVariables.blockNumber) {
       assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
     } else {
       assertEq(root, bytes32(0), "Invalid outbox root");

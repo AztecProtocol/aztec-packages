@@ -14,9 +14,7 @@ struct BlockMergeRollupInputs {
 
 impl Empty for BlockMergeRollupInputs {
     fn empty() -> Self {
-        BlockMergeRollupInputs {
-            previous_rollup_data: [PreviousRollupBlockData::empty(); 2]
-        }
+        BlockMergeRollupInputs { previous_rollup_data: [PreviousRollupBlockData::empty(); 2] }
     }
 }
 
@@ -69,11 +67,8 @@ impl BlockMergeRollupInputs {
 }
 
 mod tests {
-    use crate::{
-        block_merge::block_merge_rollup_inputs::BlockMergeRollupInputs,
-        tests::block_merge_rollup_inputs::default_block_merge_rollup_inputs
-    };
-    use dep::types::{hash::accumulate_sha256, address::EthAddress};
+    use crate::{tests::block_merge_rollup_inputs::default_block_merge_rollup_inputs};
+    use dep::types::{hash::accumulate_sha256};
     use dep::types::constants::{BLOCK_ROOT_ROLLUP_INDEX, BLOCK_MERGE_ROLLUP_INDEX};
 
     #[test(should_fail_with="input blocks have different chain id")]

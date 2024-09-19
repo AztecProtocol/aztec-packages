@@ -23,14 +23,15 @@
     },
     {
       "name": "default-pic",
-      "displayName": "Build with Clang with PIC",
-      "description": "Build with globally installed Clang with PIC",
+      "displayName": "Build with Clang with Position Independent Code",
+      "description": "Build with globally installed Clang with Position Independent Code",
       "binaryDir": "build-pic",
       "generator": "Ninja",
       "environment": {
         "CC": "clang",
         "CXX": "clang++",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
       },
       "cacheVariables": {
         "TARGET_ARCH": "skylake",
@@ -84,8 +85,8 @@
     },
     {
       "name": "clang16-pic",
-      "displayName": "Release build with PIC",
-      "description": "Build with globally installed Clang-16 using PIC",
+      "displayName": "Release build with Position Independent Code",
+      "description": "Build with globally installed Clang-16 using Position Independent Code",
       "inherits": "clang16",
       "binaryDir": "build-pic",
       "cacheVariables": {
@@ -111,12 +112,23 @@
     },
     {
       "name": "tracy",
-      "displayName": "Release build with tracy",
-      "description": "Release build with tracy",
+      "displayName": "Release build with tracy, optimized for memory tracking",
+      "description": "Release build with tracy, optimized for memory tracking",
       "inherits": "clang16",
       "binaryDir": "build-tracy",
       "cacheVariables": {
         "ENABLE_TRACY": "ON"
+      }
+    },
+    {
+      "name": "tracy-gates",
+      "displayName": "Release build with tracy - but hacked for gate tracking",
+      "description": "Release build with tracy - but hacker for gate tracking",
+      "inherits": "clang16",
+      "binaryDir": "build-tracy-gates",
+      "cacheVariables": {
+        "ENABLE_TRACY": "ON",
+        "CMAKE_CXX_FLAGS": "-DTRACY_HACK_GATES_AS_MEMORY"
       }
     },
     {
@@ -266,6 +278,9 @@
       "description": "Build with thread sanitizer on clang16 with debugging information",
       "inherits": "clang16-dbg",
       "binaryDir": "build-tsan",
+      "cacheVariables": {
+        "HAVE_STD_REGEX": "ON"
+      },
       "environment": {
         "CFLAGS": "-fsanitize=thread",
         "CXXFLAGS": "-fsanitize=thread",
@@ -479,6 +494,16 @@
       "name": "clang16-pic",
       "inherits": "default",
       "configurePreset": "clang16-pic"
+    },
+    {
+      "name": "default-pic",
+      "inherits": "default",
+      "configurePreset": "default-pic"
+    },
+    {
+      "name": "tracy-gates",
+      "inherits": "default",
+      "configurePreset": "tracy-gates"
     },
     {
       "name": "clang16-dbg-fast",

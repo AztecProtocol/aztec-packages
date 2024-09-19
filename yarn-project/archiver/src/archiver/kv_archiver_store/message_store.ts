@@ -16,7 +16,7 @@ import { type DataRetrieval } from '../structs/data_retrieval.js';
 export class MessageStore {
   #l1ToL2Messages: AztecMap<string, Buffer>;
   #l1ToL2MessageIndices: AztecMap<string, bigint[]>; // We store array of bigints here because there can be duplicate messages
-  #lastL1BlockMessages: AztecSingleton<bigint>;
+  #lastSynchedL1Block: AztecSingleton<bigint>;
 
   #log = createDebugLogger('aztec:archiver:message_store');
 
@@ -25,15 +25,19 @@ export class MessageStore {
   constructor(private db: AztecKVStore) {
     this.#l1ToL2Messages = db.openMap('archiver_l1_to_l2_messages');
     this.#l1ToL2MessageIndices = db.openMap('archiver_l1_to_l2_message_indices');
-    this.#lastL1BlockMessages = db.openSingleton('archiver_last_l1_block_new_messages');
+    this.#lastSynchedL1Block = db.openSingleton('archiver_last_l1_block_new_messages');
   }
 
   /**
    * Gets the last L1 block number that emitted new messages.
    * @returns The last L1 block number processed
    */
-  getSynchedL1BlockNumber(): bigint {
-    return this.#lastL1BlockMessages.get() ?? 0n;
+  getSynchedL1BlockNumber(): bigint | undefined {
+    return this.#lastSynchedL1Block.get();
+  }
+
+  setSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    void this.#lastSynchedL1Block.set(l1BlockNumber);
   }
 
   /**
@@ -43,12 +47,12 @@ export class MessageStore {
    */
   addL1ToL2Messages(messages: DataRetrieval<InboxLeaf>): Promise<boolean> {
     return this.db.transaction(() => {
-      const lastL1BlockNumber = this.#lastL1BlockMessages.get() ?? 0n;
+      const lastL1BlockNumber = this.#lastSynchedL1Block.get() ?? 0n;
       if (lastL1BlockNumber >= messages.lastProcessedL1BlockNumber) {
         return false;
       }
 
-      void this.#lastL1BlockMessages.set(messages.lastProcessedL1BlockNumber);
+      void this.#lastSynchedL1Block.set(messages.lastProcessedL1BlockNumber);
 
       for (const message of messages.retrievedData) {
         if (message.index >= this.#l1ToL2MessagesSubtreeSize) {

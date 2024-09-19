@@ -17,17 +17,13 @@ impl Ordered for ReadRequest {
 
 impl Eq for ReadRequest {
     fn eq(self, read_request: ReadRequest) -> bool {
-        (self.value == read_request.value)
-        & (self.counter == read_request.counter)
+        (self.value == read_request.value) & (self.counter == read_request.counter)
     }
 }
 
 impl Empty for ReadRequest {
     fn empty() -> Self {
-        ReadRequest {
-            value: 0,
-            counter: 0,
-        }
+        ReadRequest { value: 0, counter: 0 }
     }
 }
 
@@ -39,10 +35,7 @@ impl Serialize<READ_REQUEST_LENGTH> for ReadRequest {
 
 impl Deserialize<READ_REQUEST_LENGTH> for ReadRequest {
     fn deserialize(values: [Field; READ_REQUEST_LENGTH]) -> Self {
-        Self {
-            value: values[0],
-            counter: values[1] as u32,
-        }
+        Self { value: values[0], counter: values[1] as u32 }
     }
 }
 
@@ -69,22 +62,22 @@ impl Scoped<ReadRequest> for ScopedReadRequest {
 impl Eq for ScopedReadRequest {
     fn eq(self, other: ScopedReadRequest) -> bool {
         (self.read_request == other.read_request)
-        & (self.contract_address.eq(other.contract_address))
+            & (self.contract_address.eq(other.contract_address))
     }
 }
 
 impl Empty for ScopedReadRequest {
     fn empty() -> Self {
-        ScopedReadRequest {
-            read_request: ReadRequest::empty(),
-            contract_address: AztecAddress::empty(),
-        }
+        ScopedReadRequest { read_request: ReadRequest::empty(), contract_address: AztecAddress::empty() }
     }
 }
 
 impl Serialize<SCOPED_READ_REQUEST_LEN> for ScopedReadRequest {
     fn serialize(self) -> [Field; SCOPED_READ_REQUEST_LEN] {
-        array_concat(self.read_request.serialize(), [self.contract_address.to_field()])
+        array_concat(
+            self.read_request.serialize(),
+            [self.contract_address.to_field()]
+        )
     }
 }
 
@@ -93,7 +86,7 @@ impl Deserialize<SCOPED_READ_REQUEST_LEN> for ScopedReadRequest {
         let mut reader = Reader::new(values);
         let res = Self {
             read_request: reader.read_struct(ReadRequest::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize),
+            contract_address: reader.read_struct(AztecAddress::deserialize)
         };
         reader.finish();
         res

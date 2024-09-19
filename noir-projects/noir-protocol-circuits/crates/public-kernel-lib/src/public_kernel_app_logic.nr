@@ -50,13 +50,11 @@ mod tests {
     use dep::types::{
         abis::{
         gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        note_hash::{NoteHash, ScopedNoteHash}, log_hash::ScopedLogHash,
         nullifier::{Nullifier, ScopedNullifier},
         public_call_stack_item_compressed::PublicCallStackItemCompressed,
-        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest,
-        read_request::ReadRequest
+        public_data_read::PublicDataRead, public_data_update_request::PublicDataUpdateRequest
     },
-        constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX, BASE_ROLLUP_INDEX},
+        constants::{PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, PUBLIC_KERNEL_APP_LOGIC_INDEX},
         contrakt::{storage_read::StorageRead, storage_update_request::StorageUpdateRequest},
         address::AztecAddress, hash::compute_siloed_nullifier,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}, traits::is_empty

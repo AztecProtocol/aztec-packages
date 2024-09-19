@@ -13,7 +13,7 @@ impl Serialize<2> for Note {
 
 impl Deserialize<2> for Note {
     fn deserialize(wire: [Field; 2]) -> Note {
-        Note {a: wire[0], b: wire[1]}
+        Note { a: wire[0], b: wire[1] }
     }
 }
 
@@ -22,13 +22,14 @@ contract AvmTest {
 
     global big_field_128_bits: Field = 0x001234567890abcdef1234567890abcdef;
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
+    global big_field_254_bits: Field = 0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef;
 
     // Libs
     use std::embedded_curve_ops::{multi_scalar_mul, EmbeddedCurvePoint};
     use dep::aztec::protocol_types::constants::CONTRACT_INSTANCE_LENGTH;
-    use dep::aztec::prelude::{Map, Deserialize};
+    use dep::aztec::prelude::Map;
     use dep::aztec::state_vars::PublicMutable;
-    use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, constants::L1_TO_L2_MESSAGE_LENGTH, point::Point, scalar::Scalar};
+    use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar};
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map};
     use dep::aztec::context::gas::GasOpts;
@@ -126,6 +127,11 @@ contract AvmTest {
     }
 
     #[aztec(public)]
+    fn set_opcode_really_big_field() -> Field {
+        big_field_254_bits
+    }
+
+    #[aztec(public)]
     fn add_u128(a: U128, b: U128) -> U128 {
         a + b
     }
@@ -160,7 +166,7 @@ contract AvmTest {
     }
 
     /************************************************************************
-     * Misc 
+     * Misc
      ************************************************************************/
 
     #[aztec(public)]
@@ -178,8 +184,7 @@ contract AvmTest {
 
     #[aztec(public)]
     fn to_radix_le(input: Field) -> [u8; 10] {
-        let result: [u8] = input.to_le_radix(/*base=*/ 2, /*limbs=*/ 10);
-        result.as_array()
+        input.to_le_radix(/*base=*/ 2)
     }
 
     // Helper functions to demonstrate an internal call stack in error messages
@@ -208,6 +213,19 @@ contract AvmTest {
     fn assert_same(arg_a: Field, arg_b: Field) -> pub Field {
         assert(arg_a == arg_b, "Values are not equal");
         1
+    }
+
+    #[aztec(public)]
+    fn assert_calldata_copy(args: [Field; 3]) {
+        let offset = 2; // Make this 0 when PublicContextInputs is removed.
+        let cd: [Field; 3] = dep::aztec::context::public_context::calldata_copy(offset, 3);
+        assert(cd == args, "Calldata copy failed");
+    }
+
+    #[aztec(public)]
+    fn return_oracle() -> [Field; 3] {
+        dep::aztec::context::public_context::avm_return([1, 2, 3]);
+        [4, 5, 6] // Should not get here.
     }
 
     /************************************************************************
@@ -342,7 +360,9 @@ contract AvmTest {
     #[aztec(public)]
     fn check_selector() {
         assert(
-            context.selector() == FunctionSelector::from_signature("check_selector()"), "Unexpected selector!"
+            context.selector() == comptime {
+                FunctionSelector::from_signature("check_selector()")
+            }, "Unexpected selector!"
         );
     }
 
@@ -463,5 +483,50 @@ contract AvmTest {
     fn enqueue_public_from_private() {
         AvmTest::at(context.this_address()).set_opcode_u8().enqueue_view(&mut context);
         AvmTest::at(context.this_address()).set_read_storage_single(5).enqueue(&mut context);
+    }
+
+    /************************************************************************
+     * Bulk testing: exercise many functions in a single call.
+     * It only makes sense to call functions with side effects (or oracle
+     * calls - but not blackboxes!), since otherwise the whole call will
+     * be optimized away.
+     ************************************************************************/
+    #[aztec(public)]
+    fn bulk_testing(args_field: [Field; 10], args_u8: [u8; 10]) {
+        // Using "inputs" here is a bit of a hack. It's the PublicContextInputs injected
+        // by the public macros. It's needed by the non-nested call to an entry point function.
+        set_storage_single(inputs, 30);
+        set_storage_list(inputs, 40, 50);
+        let _ = set_storage_map(inputs, context.this_address(), 60);
+        let _ = add_storage_map(inputs, context.this_address(), 10);
+        let _ = read_storage_map(inputs, context.this_address());
+        let _ = keccak_hash(inputs, args_u8);
+        let _ = sha256_hash(inputs, args_u8);
+        let _ = poseidon2_hash(inputs, args_field);
+        let _ = pedersen_hash(inputs, args_field);
+        let _ = pedersen_hash_with_index(inputs, args_field);
+        test_get_contract_instance(inputs);
+        let _ = get_address(inputs);
+        let _ = get_storage_address(inputs);
+        let _ = get_sender(inputs);
+        let _ = get_function_selector(inputs);
+        let _ = get_transaction_fee(inputs);
+        let _ = get_chain_id(inputs);
+        let _ = get_version(inputs);
+        let _ = get_block_number(inputs);
+        let _ = get_timestamp(inputs);
+        let _ = get_fee_per_l2_gas(inputs);
+        let _ = get_fee_per_da_gas(inputs);
+        let _ = get_l2_gas_left(inputs);
+        let _ = get_da_gas_left(inputs);
+        let _ = emit_unencrypted_log(inputs);
+        let _ = note_hash_exists(inputs, 1, 2);
+        let _ = new_note_hash(inputs, 1);
+        let _ = new_nullifier(inputs, 1);
+        let _ = nullifier_exists(inputs, 1);
+        let _ = l1_to_l2_msg_exists(inputs, 1, 2);
+        let _ = send_l2_to_l1_msg(inputs, EthAddress::from_field(0x2020), 1);
+        let _ = nested_call_to_add(inputs, 1, 2);
+        // let _ = nested_static_call_to_add(inputs, 1, 2);
     }
 }

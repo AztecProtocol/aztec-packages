@@ -75,7 +75,7 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
     UltraProver prover{ builder };
     auto proof = prover.construct_proof();
 
-    auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(prover.instance->proving_key);
+    auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(prover.proving_key->proving_key);
     UltraVerifier verifier{ verification_key };
 
     *result = verifier.verify_proof(proof);
@@ -93,6 +93,7 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
     ProgramStack program_stack{ constraint_systems, witness_stack };
 
     ClientIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     while (!program_stack.empty()) {
@@ -107,6 +108,7 @@ WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* acir_vec, uin
         program_stack.pop_back();
     }
     *result = ivc.prove_and_verify();
+    info("acir_fold_and_verify_program_stack result: ", *result);
 }
 
 WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
@@ -121,7 +123,7 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_
     MegaProver prover{ builder };
     auto proof = prover.construct_proof();
 
-    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.instance->proving_key);
+    auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover.proving_key->proving_key);
     MegaVerifier verifier{ verification_key };
 
     *result = verifier.verify_proof(proof);
@@ -230,14 +232,14 @@ WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const*
 
 WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out)
 {
-    using ProverInstance = ProverInstance_<UltraFlavor>;
+    using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
     using VerificationKey = UltraFlavor::VerificationKey;
 
     auto constraint_system =
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec), /*honk_recursion=*/true);
     auto builder = acir_format::create_circuit<UltraCircuitBuilder>(constraint_system, 0, {}, /*honk_recursion=*/true);
 
-    ProverInstance prover_inst(builder);
+    DeciderProvingKey prover_inst(builder);
     VerificationKey vk(prover_inst.proving_key);
     *out = to_heap_buffer(to_buffer(vk));
 }

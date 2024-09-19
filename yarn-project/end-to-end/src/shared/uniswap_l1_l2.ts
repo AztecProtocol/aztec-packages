@@ -26,6 +26,7 @@ import {
   parseEther,
   toFunctionSelector,
 } from 'viem';
+import type * as chains from 'viem/chains';
 
 import { publicDeployAccounts } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';
@@ -91,7 +92,7 @@ export const uniswapL1L2TestSuite = (
     let wethCrossChainHarness: CrossChainTestHarness;
 
     let deployL1ContractsValues: DeployL1Contracts;
-    let rollup: any;
+    let rollup: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, chains.Chain, Account>>;
     let uniswapPortal: GetContractReturnType<typeof UniswapPortalAbi, WalletClient<HttpTransport, Chain>>;
     let uniswapPortalAddress: EthAddress;
     let uniswapL2Contract: UniswapContract;
@@ -148,7 +149,7 @@ export const uniswapL1L2TestSuite = (
         publicClient,
         UniswapPortalAbi,
         UniswapPortalBytecode,
-      );
+      ).then(({ address }) => address);
 
       uniswapPortal = getContract({
         address: uniswapPortalAddress.toString(),
@@ -297,7 +298,7 @@ export const uniswapL1L2TestSuite = (
       await wethCrossChainHarness.expectPublicBalanceOnL2(uniswapL2Contract.address, 0n);
 
       // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-      await rollup.write.setAssumeProvenUntilBlockNumber([await rollup.read.pendingBlockCount()]);
+      await rollup.write.setAssumeProvenThroughBlockNumber([await rollup.read.getPendingBlockNumber()]);
 
       // 5. Consume L2 to L1 message by calling uniswapPortal.swap_private()
       logger.info('Execute withdraw and swap on the uniswapPortal!');
@@ -932,7 +933,7 @@ export const uniswapL1L2TestSuite = (
       await wethCrossChainHarness.expectPrivateBalanceOnL2(ownerAddress, wethL2BalanceBeforeSwap - wethAmountToBridge);
 
       // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-      await rollup.write.setAssumeProvenUntilBlockNumber([await rollup.read.pendingBlockCount()]);
+      await rollup.write.setAssumeProvenThroughBlockNumber([await rollup.read.getPendingBlockNumber()]);
 
       // On L1 call swap_public!
       logger.info('call swap_public on L1');
@@ -1066,7 +1067,7 @@ export const uniswapL1L2TestSuite = (
       await wethCrossChainHarness.expectPublicBalanceOnL2(ownerAddress, 0n);
 
       // Since the outbox is only consumable when the block is proven, we need to set the block to be proven
-      await rollup.write.setAssumeProvenUntilBlockNumber([await rollup.read.pendingBlockCount()]);
+      await rollup.write.setAssumeProvenThroughBlockNumber([await rollup.read.getPendingBlockNumber()]);
 
       // Call swap_private on L1
       const secretHashForRedeemingDai = Fr.random(); // creating my own secret hash

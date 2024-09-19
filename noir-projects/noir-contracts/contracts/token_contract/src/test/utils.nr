@@ -2,11 +2,10 @@ use dep::aztec::{
     hash::compute_secret_hash, prelude::AztecAddress,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
-    note::{note_getter::{MAX_NOTES_PER_PAGE, view_notes}, note_viewer_options::NoteViewerOptions},
     oracle::{execution::{get_block_number, get_contract_address}, unsafe_rand::unsafe_rand, storage::storage_read}
 };
 
-use crate::{types::{token_note::TokenNote, transparent_note::TransparentNote}, Token};
+use crate::{types::transparent_note::TransparentNote, Token};
 
 pub fn setup(with_account_contracts: bool) -> (&mut TestEnvironment, AztecAddress, AztecAddress, AztecAddress) {
     // Setup env, generate keys
@@ -55,14 +54,14 @@ pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestEnvironment, Az
     // Time travel so we can read keys from the registry
     env.advance_block_by(6);
 
-    // docs:start:txe_test_store_note
-    // Store a note in the cache so we can redeem it
-    env.store_note_in_cache(
+    // docs:start:txe_test_add_note
+    // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
+    env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash),
         Token::storage().pending_shields.slot,
         token_contract_address
     );
-    // docs:end:txe_test_store_note
+    // docs:end:txe_test_add_note
 
     // Redeem our shielded tokens
     let redeem_shield_call_interface = Token::at(token_contract_address).redeem_shield(owner, mint_amount, secret);

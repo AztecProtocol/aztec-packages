@@ -1,7 +1,6 @@
 use crate::{
     abis::{
-    accumulated_data::{CombinedAccumulatedData, PublicAccumulatedDataBuilder},
-    combined_constant_data::CombinedConstantData,
+    accumulated_data::PublicAccumulatedDataBuilder, combined_constant_data::CombinedConstantData,
     kernel_circuit_public_inputs::{public_kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs},
     public_call_request::PublicCallRequest, validation_requests::PublicValidationRequestsBuilder
 },
@@ -57,7 +56,7 @@ impl Empty for PublicKernelCircuitPublicInputsBuilder {
             constants: CombinedConstantData::empty(),
             revert_code: 0 as u8,
             public_teardown_call_stack: BoundedVec::new(),
-            fee_payer: AztecAddress::empty(),
+            fee_payer: AztecAddress::empty()
         }
     }
 }

@@ -4,7 +4,6 @@ import "forge-std/Test.sol";
 
 // Rollup Processor
 import {Rollup} from "../../src/core/Rollup.sol";
-import {AvailabilityOracle} from "../../src/core/availability_oracle/AvailabilityOracle.sol";
 import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
@@ -61,14 +60,8 @@ contract TokenPortalTest is Test {
   function setUp() public {
     registry = new Registry(address(this));
     portalERC20 = new PortalERC20();
-    rollup = new Rollup(
-      registry,
-      new AvailabilityOracle(),
-      IFeeJuicePortal(address(0)),
-      bytes32(0),
-      address(this),
-      new address[](0)
-    );
+    rollup =
+      new Rollup(registry, IFeeJuicePortal(address(0)), bytes32(0), address(this), new address[](0));
     inbox = rollup.INBOX();
     outbox = rollup.OUTBOX();
 
@@ -78,8 +71,8 @@ contract TokenPortalTest is Test {
     tokenPortal.initialize(address(registry), address(portalERC20), l2TokenAddress);
 
     // Modify the proven block count
-    vm.store(address(rollup), bytes32(uint256(7)), bytes32(l2BlockNumber + 1));
-    assertEq(rollup.provenBlockCount(), l2BlockNumber + 1);
+    vm.store(address(rollup), bytes32(uint256(7)), bytes32(l2BlockNumber));
+    assertEq(rollup.getProvenBlockNumber(), l2BlockNumber);
 
     vm.deal(address(this), 100 ether);
   }

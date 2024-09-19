@@ -128,17 +128,13 @@ The first thing we do here is assert that the vote has not ended.
 
 The code after the assertion will only run if the assertion is true. In this snippet, we read the current vote tally at the `candidate`, add 1 to it, and write this new number to the `candidate`. The `Field` element allows us to use `+` to add to an integer.
 
-:::warning
-Refer to [common patterns (Guides section)](../../../guides/developer_guides/smart_contracts/writing_contracts/common_patterns/key_rotation.md) for more information about key rotation and considerations.
-:::
-
 ## Getting the number of votes
 
 We will create a function that anyone can call that will return the number of votes at a given vote Id. Paste this in your contract:
 
 #include_code get_vote noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
 
-We set it as `unconstrained` and do not annotate it because it is only reading from state. 
+We set it as `unconstrained` and do not annotate it because it is only reading from state.
 
 ## Allowing an admin to end a voting period
 
@@ -176,7 +172,7 @@ Follow the crowdfunding contracts tutorial on the [next page](./crowdfunding_con
 
 ### Optional: Learn more about concepts mentioned here
 
- - [Unconstrained functions](../../../aztec/smart_contracts/functions/index.md).
- - [Oracles](../../../aztec/smart_contracts/oracles/index.md)
- - [Nullifier secrets](../../../aztec/concepts/accounts/keys.md#nullifier-secrets).
- - [How to deploy a contract to the sandbox](../../../guides/developer_guides/smart_contracts/how_to_deploy_contract.md)
+- [Unconstrained functions](../../../aztec/smart_contracts/functions/index.md).
+- [Oracles](../../../aztec/smart_contracts/oracles/index.md)
+- [Nullifier secrets](../../../aztec/concepts/accounts/keys.md#nullifier-secrets).
+- [How to deploy a contract to the sandbox](../../../guides/developer_guides/smart_contracts/how_to_deploy_contract.md)

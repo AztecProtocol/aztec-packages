@@ -4,7 +4,7 @@ import { strict as assert } from 'assert';
 
 import type { AvmContext } from './avm_context.js';
 import { AvmContractCallResult } from './avm_contract_call_result.js';
-import { decompressBytecodeIfCompressed, isAvmBytecode } from './bytecode_utils.js';
+import { isAvmBytecode } from './bytecode_utils.js';
 import {
   AvmExecutionError,
   InvalidProgramCounterError,
@@ -53,11 +53,10 @@ export class AvmSimulator {
    * This method is useful for testing and debugging.
    */
   public async executeBytecode(bytecode: Buffer): Promise<AvmContractCallResult> {
-    const decompressedBytecode = await decompressBytecodeIfCompressed(bytecode);
-    assert(isAvmBytecode(decompressedBytecode), "AVM simulator can't execute non-AVM bytecode");
+    assert(isAvmBytecode(bytecode), "AVM simulator can't execute non-AVM bytecode");
 
-    this.bytecode = decompressedBytecode;
-    return await this.executeInstructions(decodeFromBytecode(decompressedBytecode));
+    this.bytecode = bytecode;
+    return await this.executeInstructions(decodeFromBytecode(bytecode));
   }
 
   /**

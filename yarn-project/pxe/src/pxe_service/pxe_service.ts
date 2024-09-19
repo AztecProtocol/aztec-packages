@@ -48,14 +48,13 @@ import {
   FunctionSelector,
   encodeArguments,
 } from '@aztec/foundation/abi';
-import { type Fq, Fr, type Point } from '@aztec/foundation/fields';
+import { Fr, type Point } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { type KeyStore } from '@aztec/key-store';
 import { ClassRegistererAddress } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
-import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import {
   type AcirSimulator,
@@ -66,6 +65,7 @@ import {
   collectSortedEncryptedLogs,
   collectSortedNoteEncryptedLogs,
   collectSortedUnencryptedLogs,
+  resolveAssertionMessage,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
 import { type ContractClassWithId, type ContractInstanceWithAddress } from '@aztec/types/contracts';
@@ -173,10 +173,6 @@ export class PXEService implements PXE {
 
   public getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     return this.db.getAuthWitness(messageHash);
-  }
-
-  async rotateNskM(account: AztecAddress, secretKey: Fq): Promise<void> {
-    await this.keyStore.rotateMasterNullifierKey(account, secretKey);
   }
 
   public addCapsule(capsule: Fr[]) {
@@ -311,8 +307,6 @@ export class PXEService implements PXE {
   public async getIncomingNotes(filter: IncomingNotesFilter): Promise<UniqueNote[]> {
     const noteDaos = await this.db.getIncomingNotes(filter);
 
-    // TODO(#6531): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
-    // key rotation will affect this
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
@@ -340,8 +334,6 @@ export class PXEService implements PXE {
   public async getOutgoingNotes(filter: OutgoingNotesFilter): Promise<UniqueNote[]> {
     const noteDaos = await this.db.getOutgoingNotes(filter);
 
-    // TODO(#6532): Refactor --> This type conversion is ugly but I decided to keep it this way for now because
-    // key rotation will affect this
     const extendedNotes = noteDaos.map(async dao => {
       let owner = filter.owner;
       if (owner === undefined) {
@@ -532,7 +524,7 @@ export class PXEService implements PXE {
     txRequest: TxExecutionRequest,
     simulatePublic: boolean,
     msgSender: AztecAddress | undefined = undefined,
-    skipTxValidation: boolean = true, // TODO(#7956): make the default be false
+    skipTxValidation: boolean = false,
     scopes?: AztecAddress[],
   ): Promise<SimulatedTx> {
     return await this.jobQueue.put(async () => {
@@ -542,7 +534,7 @@ export class PXEService implements PXE {
       }
 
       if (!skipTxValidation) {
-        if (!(await this.node.isValidTx(simulatedTx.tx))) {
+        if (!(await this.node.isValidTx(simulatedTx.tx, true))) {
           throw new Error('The simulated transaction is unable to be added to state and is invalid.');
         }
       }
@@ -666,7 +658,6 @@ export class PXEService implements PXE {
         classRegisterer: ClassRegistererAddress,
         feeJuice: getCanonicalFeeJuice().address,
         instanceDeployer: getCanonicalInstanceDeployer().address,
-        keyRegistry: getCanonicalKeyRegistryAddress(),
         multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),
       },
     });
@@ -762,19 +753,25 @@ export class PXEService implements PXE {
           originalFailingFunction.functionSelector,
         );
         const noirCallStack = err.getNoirCallStack();
-        if (debugInfo && isNoirCallStackUnresolved(noirCallStack)) {
-          try {
-            // Public functions are simulated as a single Brillig entry point.
-            // Thus, we can safely assume here that the Brillig function id is `0`.
-            const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo, 0);
-            err.setNoirCallStack(parsedCallStack);
-          } catch (err) {
-            this.log.warn(
-              `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${originalFailingFunction.functionSelector.toString()}: ${err}`,
-            );
+        if (debugInfo) {
+          if (isNoirCallStackUnresolved(noirCallStack)) {
+            const assertionMessage = resolveAssertionMessage(noirCallStack, debugInfo);
+            if (assertionMessage) {
+              err.setOriginalMessage(err.getOriginalMessage() + `: ${assertionMessage}`);
+            }
+            try {
+              // Public functions are simulated as a single Brillig entry point.
+              // Thus, we can safely assume here that the Brillig function id is `0`.
+              const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo, 0);
+              err.setNoirCallStack(parsedCallStack);
+            } catch (err) {
+              this.log.warn(
+                `Could not resolve noir call stack for ${originalFailingFunction.contractAddress.toString()}:${originalFailingFunction.functionSelector.toString()}: ${err}`,
+              );
+            }
           }
+          await this.#enrichSimulationError(err);
         }
-        await this.#enrichSimulationError(err);
       }
 
       throw err;

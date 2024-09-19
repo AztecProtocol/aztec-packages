@@ -32,7 +32,9 @@ impl PrivateKernelTailCircuitPrivateInputs {
 
     pub fn execute(self) -> KernelCircuitPublicInputs {
         // Generate output.
-        let output = self.generate_output();
+        let output = unsafe {
+            self.generate_output()
+        };
 
         // Validate inputs.
         PreviousKernelValidator::new(self.previous_kernel.public_inputs).validate_for_private_tail();
@@ -54,7 +56,7 @@ mod tests {
     use crate::private_kernel_tail::{PrivateKernelTailCircuitPrivateInputs, ALLOWED_PREVIOUS_CIRCUITS};
     use dep::types::constants::{
         DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, GENERATOR_INDEX__IVSK_M, L2_GAS_PER_LOG_BYTE,
-        L2_GAS_PER_NULLIFIER, L2_GAS_PER_NOTE_HASH, PRIVATE_KERNEL_INNER_INDEX, BASE_ROLLUP_INDEX
+        L2_GAS_PER_NULLIFIER, PRIVATE_KERNEL_INNER_INDEX
     };
     use dep::types::{
         abis::{

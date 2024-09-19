@@ -35,7 +35,6 @@ describe(`deploys and transfers a private only token`, () => {
       { skipProtocolContracts: true, stateLoad: undefined },
       {},
       false,
-      false,
       chain,
     ));
     proverConfig = getProverNodeConfigFromEnv();
@@ -45,12 +44,7 @@ describe(`deploys and transfers a private only token`, () => {
         ? `0x${proverNodePrivateKey?.toString('hex')}`
         : proverConfig.publisherPrivateKey;
 
-    proverNode = await createAndSyncProverNode(
-      config.l1Contracts.rollupAddress,
-      proverConfig.publisherPrivateKey,
-      config,
-      aztecNode,
-    );
+    proverNode = await createAndSyncProverNode(proverConfig.publisherPrivateKey, config, aztecNode);
   }, 600_000);
 
   afterEach(async () => {
@@ -59,7 +53,7 @@ describe(`deploys and transfers a private only token`, () => {
   });
 
   it('calls a private function', async () => {
-    const initialBalance = 100000000000n;
+    const initialBalance = 100_000_000_000n;
     const transferValue = 5n;
     secretKey1 = Fr.random();
     secretKey2 = Fr.random();
@@ -70,6 +64,7 @@ describe(`deploys and transfers a private only token`, () => {
       interval: 0.1,
       proven: true,
       provenTimeout: 600,
+      timeout: 300,
     });
 
     logger.info(`Accounts deployed, deploying token.`);
@@ -92,6 +87,7 @@ describe(`deploys and transfers a private only token`, () => {
       .deployed({
         proven: true,
         provenTimeout: 600,
+        timeout: 300,
       });
 
     logger.info(`Performing transfer.`);
@@ -99,7 +95,7 @@ describe(`deploys and transfers a private only token`, () => {
     await token.methods
       .transfer(transferValue, deployerWallet.getAddress(), recipientWallet.getAddress(), deployerWallet.getAddress())
       .send()
-      .wait({ proven: true, provenTimeout: 600 });
+      .wait({ proven: true, provenTimeout: 600, timeout: 300 });
 
     logger.info(`Transfer completed`);
 

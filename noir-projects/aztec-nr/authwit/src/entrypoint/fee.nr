@@ -6,12 +6,12 @@ use dep::aztec::protocol_types::{
 use crate::entrypoint::function_call::FunctionCall;
 
 // 2 * 5 (FUNCTION_CALL_SIZE) + 2
-global FEE_PAYLOAD_SIZE: Field = 12;
+global FEE_PAYLOAD_SIZE: u32 = 12;
 
 // 2 * 98 (FUNCTION_CALL_SIZE_IN_BYTES) + 32
-global FEE_PAYLOAD_SIZE_IN_BYTES: Field = 228;
+global FEE_PAYLOAD_SIZE_IN_BYTES: u32 = 228;
 
-global MAX_FEE_FUNCTION_CALLS = 2;
+global MAX_FEE_FUNCTION_CALLS: u32 = 2;
 
 // docs:start:fee-payload-struct
 struct FeePayload {
@@ -22,25 +22,22 @@ struct FeePayload {
 // docs:end:fee-payload-struct
 
 impl Serialize<FEE_PAYLOAD_SIZE> for FeePayload {
-  // Serializes the entrypoint struct
-  fn serialize(self) -> [Field; FEE_PAYLOAD_SIZE] {
-    let mut fields: BoundedVec<Field, FEE_PAYLOAD_SIZE> = BoundedVec::new();
-    for i in 0..MAX_FEE_FUNCTION_CALLS {
-      fields.extend_from_array(self.function_calls[i].serialize());
+    // Serializes the entrypoint struct
+    fn serialize(self) -> [Field; FEE_PAYLOAD_SIZE] {
+        let mut fields: BoundedVec<Field, FEE_PAYLOAD_SIZE> = BoundedVec::new();
+        for i in 0..MAX_FEE_FUNCTION_CALLS {
+            fields.extend_from_array(self.function_calls[i].serialize());
+        }
+        fields.push(self.nonce);
+        fields.push(self.is_fee_payer as Field);
+        fields.storage
     }
-    fields.push(self.nonce);
-    fields.push(self.is_fee_payer as Field);
-    fields.storage
-  }
 }
 
 impl Hash for FeePayload {
-  fn hash(self) -> Field {
-    poseidon2_hash_with_separator(
-      self.serialize(),
-      GENERATOR_INDEX__FEE_PAYLOAD
-    )
-  }
+    fn hash(self) -> Field {
+        poseidon2_hash_with_separator(self.serialize(), GENERATOR_INDEX__FEE_PAYLOAD)
+    }
 }
 
 impl FeePayload {
@@ -50,7 +47,7 @@ impl FeePayload {
         for i in 0..MAX_FEE_FUNCTION_CALLS {
             bytes.extend_from_array(self.function_calls[i].to_be_bytes());
         }
-        bytes.extend_from_slice(self.nonce.to_be_bytes(32));
+        bytes.extend_from_array(self.nonce.to_be_bytes::<32>());
         bytes.push(self.is_fee_payer as u8);
 
         bytes.storage

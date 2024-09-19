@@ -1,21 +1,20 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import {
-  type AccountWallet,
   type AccountWalletWithSecretKey,
   type AztecAddress,
-  type CompleteAddress,
   ExtendedNote,
   Fr,
   Note,
   type PXE,
-  type TxHash,
   computeSecretHash,
   createCompatibleClient,
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
-import { addAccounts, publicDeployAccounts } from '../fixtures/snapshot_manager.js';
+import { jest } from '@jest/globals';
+
+import { addAccounts } from '../fixtures/snapshot_manager.js';
 
 const { PXE_URL } = process.env;
 if (!PXE_URL) {
@@ -34,109 +33,165 @@ const toString = ({ value }: { value: bigint }) => {
   return str;
 };
 
-const addPendingShieldNoteToPXE = async (args: {
-  amount: bigint;
-  secretHash: Fr;
-  txHash: TxHash;
-  accountAddress: AztecAddress;
-  assetAddress: AztecAddress;
-  wallet: AccountWallet;
-}) => {
-  const { accountAddress, assetAddress, amount, secretHash, txHash, wallet } = args;
-  const note = new Note([new Fr(amount), secretHash]);
-  const extendedNote = new ExtendedNote(
-    note,
-    accountAddress,
-    assetAddress,
-    TokenContract.storage.pending_shields.slot,
-    TokenContract.notes.TransparentNote.id,
-    txHash,
-  );
-  await wallet.addNote(extendedNote);
-};
-
 describe('token transfer test', () => {
+  jest.setTimeout(10 * 60 * 2000); // 20 minutes
+
   const logger = createDebugLogger(`aztec:spartan-test:transfer`);
   const TOKEN_NAME = 'USDC';
   const TOKEN_SYMBOL = 'USD';
   const TOKEN_DECIMALS = 18n;
-  const MINT_AMOUNT = 1000000n;
+  const MINT_AMOUNT = 20n;
+
+  const WALLET_COUNT = 16;
+  const ROUNDS = 5n;
+
   let pxe: PXE;
   let wallets: AccountWalletWithSecretKey[];
-  let completeAddresses: CompleteAddress[];
+  let recipientWallet: AccountWalletWithSecretKey;
   let tokenAddress: AztecAddress;
-  let tokenAtWallet0: TokenContract;
+  let tokenAdminWallet: TokenContract;
+
   beforeAll(async () => {
+    expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
+
     pxe = await createCompatibleClient(PXE_URL, logger);
-    const { accountKeys } = await addAccounts(3, logger)({ pxe });
+
+    {
+      const { accountKeys } = await addAccounts(1, logger, false)({ pxe });
+      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+
+      const partialAddress = accountManagers[0].getCompleteAddress().partialAddress;
+      await pxe.registerAccount(accountKeys[0][0], partialAddress);
+      recipientWallet = await accountManagers[0].getWallet();
+      logger.verbose(`Recipient Wallet address: ${recipientWallet.getAddress()} registered`);
+    }
+
+    const { accountKeys } = await addAccounts(WALLET_COUNT, logger, true)({ pxe });
     const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-    wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
-    completeAddresses = await pxe.getRegisteredAccounts();
-    wallets.forEach((w, i) => logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-    await publicDeployAccounts(wallets[0], completeAddresses.slice(0, 2));
+
+    wallets = await Promise.all(
+      accountManagers.map(async (a, i) => {
+        const partialAddress = a.getCompleteAddress().partialAddress;
+        await pxe.registerAccount(accountKeys[i][0], partialAddress);
+        const wallet = await a.getWallet();
+        logger.verbose(`Wallet ${i} address: ${wallet.getAddress()} registered`);
+        return wallet;
+      }),
+    );
 
     logger.verbose(`Deploying TokenContract...`);
     const tokenContract = await TokenContract.deploy(
       wallets[0],
-      completeAddresses[0],
+      wallets[0].getAddress(),
       TOKEN_NAME,
       TOKEN_SYMBOL,
       TOKEN_DECIMALS,
     )
       .send()
-      .deployed();
+      .deployed({ timeout: 600 });
 
     tokenAddress = tokenContract.address;
-    tokenAtWallet0 = await TokenContract.at(tokenAddress, wallets[0]);
+    tokenAdminWallet = await TokenContract.at(tokenAddress, wallets[0]);
 
-    logger.verbose(`Minting ${MINT_AMOUNT} publicly...`);
-    await tokenAtWallet0.methods.mint_public(completeAddresses[0].address, MINT_AMOUNT).send().wait();
+    logger.verbose(`Minting ${MINT_AMOUNT} public assets to the ${wallets.length} wallets...`);
 
-    logger.verbose(`Minting ${MINT_AMOUNT} privately...`);
-    const secret = Fr.random();
-    const secretHash = computeSecretHash(secret);
-    const receipt = await tokenAtWallet0.methods.mint_private(MINT_AMOUNT, secretHash).send().wait();
+    await Promise.all(
+      wallets.map(w => tokenAdminWallet.methods.mint_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 })),
+    );
 
-    await addPendingShieldNoteToPXE({
-      amount: MINT_AMOUNT,
-      secretHash,
-      txHash: receipt.txHash,
-      accountAddress: completeAddresses[0].address,
-      assetAddress: tokenAddress,
-      wallet: wallets[0],
-    });
-    const txClaim = tokenAtWallet0.methods.redeem_shield(completeAddresses[0].address, MINT_AMOUNT, secret).send();
-    await txClaim.wait({ debug: true });
+    logger.verbose(`Minting ${MINT_AMOUNT} private assets to the ${wallets.length} wallets...`);
+
+    const mintSecrets = Array.from({ length: WALLET_COUNT })
+      .map(() => Fr.random())
+      .map(secret => ({
+        secret,
+        hash: computeSecretHash(secret),
+      }));
+
+    const txs = await Promise.all(
+      mintSecrets.map(({ hash }) =>
+        tokenAdminWallet.methods.mint_private(MINT_AMOUNT, hash).send().wait({ timeout: 600 }),
+      ),
+    );
+
+    logger.verbose(`Redeeming private assets...`);
+
+    await Promise.all(
+      mintSecrets.map(async ({ secret, hash }, i) => {
+        const wallet = wallets[i];
+        const walletAddress = wallet.getAddress();
+        const note = new Note([new Fr(MINT_AMOUNT), hash]);
+        const extendedNote = new ExtendedNote(
+          note,
+          walletAddress,
+          tokenAddress,
+          TokenContract.storage.pending_shields.slot,
+          TokenContract.notes.TransparentNote.id,
+          txs[i].txHash,
+        );
+
+        await pxe.addNote(extendedNote, walletAddress);
+        const token = await TokenContract.at(tokenAddress, wallet);
+        await token.methods.redeem_shield(walletAddress, MINT_AMOUNT, secret).send().wait({ timeout: 600 });
+      }),
+    );
+
     logger.verbose(`Minting complete.`);
   });
 
   it('can get info', async () => {
-    const name = toString(await tokenAtWallet0.methods.private_get_name().simulate());
+    const name = toString(await tokenAdminWallet.methods.private_get_name().simulate());
     expect(name).toBe(TOKEN_NAME);
   });
 
-  it('can transfer 1 publicly', async () => {
+  it('can transfer 1 token privately and publicly', async () => {
+    const recipient = recipientWallet.getAddress();
     const transferAmount = 1n;
-    const balance0 = await tokenAtWallet0.methods.balance_of_public(completeAddresses[0].address).simulate();
-    expect(balance0).toBeGreaterThanOrEqual(transferAmount);
-    await tokenAtWallet0.methods
-      .transfer_public(completeAddresses[0].address, completeAddresses[1].address, transferAmount, 0)
-      .send()
-      .wait();
-    const balance0After = await tokenAtWallet0.methods.balance_of_public(completeAddresses[0].address).simulate();
-    const balance1After = await tokenAtWallet0.methods.balance_of_public(completeAddresses[1].address).simulate();
-    expect(balance0After).toBe(balance0 - transferAmount);
-    expect(balance1After).toBe(transferAmount);
-  });
 
-  it('can transfer 1 privately', async () => {
-    const transferAmount = 1n;
-    const balance0 = await tokenAtWallet0.methods.balance_of_private(completeAddresses[0].address).simulate();
-    expect(balance0).toBeGreaterThanOrEqual(transferAmount);
-    await tokenAtWallet0.methods.transfer(completeAddresses[1].address, transferAmount).send().wait();
-    const balance0After = await tokenAtWallet0.methods.balance_of_private(completeAddresses[0].address).simulate();
-    const balance1After = await tokenAtWallet0.methods.balance_of_private(completeAddresses[1].address).simulate();
-    expect(balance0After).toBe(balance0 - transferAmount);
-    expect(balance1After).toBe(transferAmount);
+    wallets.forEach(async w => {
+      expect(MINT_AMOUNT).toBe(
+        await (await TokenContract.at(tokenAddress, w)).methods.balance_of_private(w.getAddress()).simulate(),
+      );
+      expect(MINT_AMOUNT).toBe(await tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate());
+    });
+
+    expect(0n).toBe(
+      await (await TokenContract.at(tokenAddress, recipientWallet)).methods.balance_of_private(recipient).simulate(),
+    );
+    expect(0n).toBe(await tokenAdminWallet.methods.balance_of_public(recipient).simulate());
+
+    // For each round, make both private and public transfers
+    for (let i = 1n; i <= ROUNDS; i++) {
+      const txs = await Promise.all([
+        ...wallets.map(async w =>
+          (await TokenContract.at(tokenAddress, w)).methods.transfer(recipient, transferAmount),
+        ),
+        ...wallets.map(async w =>
+          (
+            await TokenContract.at(tokenAddress, w)
+          ).methods.transfer_public(w.getAddress(), recipient, transferAmount, 0),
+        ),
+      ]);
+
+      txs.forEach(async t => await t.prove());
+
+      await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
+    }
+
+    wallets.forEach(async w => {
+      expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
+        await (await TokenContract.at(tokenAddress, w)).methods.balance_of_private(w.getAddress()).simulate(),
+      );
+      expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
+        await tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate(),
+      );
+    });
+
+    expect(ROUNDS * transferAmount * BigInt(wallets.length)).toBe(
+      await (await TokenContract.at(tokenAddress, recipientWallet)).methods.balance_of_private(recipient).simulate(),
+    );
+    expect(ROUNDS * transferAmount * BigInt(wallets.length)).toBe(
+      await tokenAdminWallet.methods.balance_of_public(recipient).simulate(),
+    );
   });
 });

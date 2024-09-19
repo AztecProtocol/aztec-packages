@@ -2,8 +2,8 @@ mod root_rollup_inputs;
 mod root_rollup_public_inputs;
 
 // Re-exports
-use root_rollup_inputs::RootRollupInputs;
-use root_rollup_public_inputs::RootRollupPublicInputs;
+pub use root_rollup_inputs::RootRollupInputs;
+pub use root_rollup_public_inputs::RootRollupPublicInputs;
 
 mod tests {
     use crate::{tests::root_rollup_inputs::default_root_rollup_inputs};

@@ -1,8 +1,8 @@
 use crate::{
-    crate::address::{eth_address::EthAddress, partial_address::PartialAddress, public_keys_hash::PublicKeysHash},
+    crate::address::{partial_address::PartialAddress, public_keys_hash::PublicKeysHash},
     constants::{AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1},
-    contract_class_id::ContractClassId, hash::poseidon2_hash_with_separator,
-    traits::{Empty, FromField, ToField, Serialize, Deserialize}, utils
+    hash::poseidon2_hash_with_separator, traits::{Empty, FromField, ToField, Serialize, Deserialize},
+    utils
 };
 
 // Aztec address
@@ -11,16 +11,14 @@ struct AztecAddress {
 }
 
 impl Eq for AztecAddress {
-    fn eq(self, other : Self) -> bool {
+    fn eq(self, other: Self) -> bool {
         self.to_field() == other.to_field()
     }
 }
 
 impl Empty for AztecAddress {
     fn empty() -> Self {
-        Self {
-            inner : 0
-        }
+        Self { inner: 0 }
     }
 }
 

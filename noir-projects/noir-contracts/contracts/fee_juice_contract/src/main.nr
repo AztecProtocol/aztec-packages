@@ -3,18 +3,17 @@ mod lib;
 contract FeeJuice {
     use dep::aztec::{
         protocol_types::{
-        contract_class_id::ContractClassId, abis::function_selector::FunctionSelector,
-        address::{AztecAddress, EthAddress},
+        contract_class_id::ContractClassId, address::{AztecAddress, EthAddress},
         constants::{DEPLOYER_CONTRACT_ADDRESS, REGISTERER_CONTRACT_ADDRESS, FEE_JUICE_INITIAL_MINT}
     },
         state_vars::{SharedImmutable, PublicMutable, Map},
-        oracle::get_contract_instance::get_contract_instance, deploy::deploy_contract
+        oracle::get_contract_instance::get_contract_instance
     };
 
     use dep::deployer::ContractInstanceDeployer;
     use dep::registerer::ContractClassRegisterer;
 
-    use crate::lib::{calculate_fee, get_bridge_gas_msg_hash};
+    use crate::lib::get_bridge_gas_msg_hash;
 
     #[aztec(storage)]
     struct Storage {
@@ -96,31 +95,6 @@ contract FeeJuice {
     #[aztec(internal)]
     fn _increase_public_balance(to: AztecAddress, amount: Field) {
         let new_balance = storage.balances.at(to).read().add(U128::from_integer(amount));
-        storage.balances.at(to).write(new_balance);
-    }
-
-    // TODO(palla/gas) Remove this function and use the private claim flow only
-    #[aztec(public)]
-    fn claim_public(to: AztecAddress, amount: Field, secret: Field, leaf_index: Field) {
-        let content_hash = get_bridge_gas_msg_hash(to, amount);
-        let portal_address = storage.portal_address.read_public();
-        assert(!portal_address.is_zero());
-
-        // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content_hash, secret, portal_address, leaf_index);
-
-        let new_balance = storage.balances.at(to).read() + U128::from_integer(amount);
-        storage.balances.at(to).write(new_balance);
-    }
-
-    // TODO(@just-mitch): remove this function before mainnet deployment
-    // convenience function for testing
-    // the true canonical Fee Juice contract will not have this function
-    #[aztec(public)]
-    fn mint_public(to: AztecAddress, amount: Field) {
-        let amount = U128::from_integer(amount);
-        let new_balance = storage.balances.at(to).read().add(amount);
-
         storage.balances.at(to).write(new_balance);
     }
 
