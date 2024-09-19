@@ -257,7 +257,7 @@ contract RollupTest is DecoderBase {
     vm.expectRevert(
       abi.encodeWithSelector(
         Errors.Rollup__NotInClaimPhase.selector,
-        Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS(),
+        rollup.CLAIM_DURATION_IN_L2_SLOTS(),
         rollup.CLAIM_DURATION_IN_L2_SLOTS()
       )
     );

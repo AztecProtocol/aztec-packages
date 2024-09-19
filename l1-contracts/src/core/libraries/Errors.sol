@@ -58,7 +58,7 @@ library Errors {
   error Rollup__NonSequentialProving(); // 0x1e5be132
   error Rollup__NotClaimingCorrectEpoch(uint256 expected, uint256 actual); // 0xf0e0744d
   error Rollup__NothingToPrune(); // 0x850defd3
-  error Rollup__NotInClaimPhase(uint256 currentSlot, uint256 currentSlotInEpoch); // 0xe6969f11
+  error Rollup__NotInClaimPhase(uint256 currentSlotInEpoch, uint256 claimDuration); // 0xe6969f11
   error Rollup__ProofRightAlreadyClaimed(); // 0x2cac5f0a
   error Rollup__QuoteExpired(uint256 currentSlot, uint256 quoteSlot); // 0x20a001eb
   error Rollup__SlotAlreadyInChain(uint256 lastSlot, uint256 proposedSlot); // 0x83510bd0

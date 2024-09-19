@@ -178,14 +178,12 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
     if (currentSlot % Constants.AZTEC_EPOCH_DURATION >= CLAIM_DURATION_IN_L2_SLOTS) {
       revert Errors.Rollup__NotInClaimPhase(
-        currentSlot, currentSlot % Constants.AZTEC_EPOCH_DURATION
+        currentSlot % Constants.AZTEC_EPOCH_DURATION, CLAIM_DURATION_IN_L2_SLOTS
       );
     }
 
-    // Overwrite stale proof claims:
     // if the epoch to prove is not the one that has been claimed,
-    // then whatever is in the proofClaim is stale,
-    // and we overwrite below
+    // then whatever is in the proofClaim is stale
     if (proofClaim.epochToProve == epochToProve && proofClaim.proposerClaimant != address(0)) {
       revert Errors.Rollup__ProofRightAlreadyClaimed();
     }
@@ -200,6 +198,9 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__QuoteExpired(currentSlot, _quote.validUntilSlot);
     }
 
+    // We don't currently unstake,
+    // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
+    // Blocked on submitting epoch proofs to this contract.
     address bondProvider = PROOF_COMMITMENT_ESCROW.stakeBond(_quote);
 
     proofClaim = DataStructures.EpochProofClaim({
@@ -533,10 +534,11 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   /**
    * @notice  Get the epoch that should be proven
    *
-   * @return uint256 - The epoch to prove
    * @dev    This is the epoch that should be proven. It does so by getting the epoch of the block
    *        following the last proven block. If there is no such block (i.e. the pending chain is
    *        the same as the proven chain), then revert.
+   *
+   * @return uint256 - The epoch to prove
    */
   function getEpochToProve() public view override(IRollup) returns (uint256) {
     if (tips.provenBlockNumber == tips.pendingBlockNumber) {
@@ -573,21 +575,16 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     // we prune the pending chain back to the end of epoch 1 if:
     // - the proof claim phase of epoch 3 has ended without a claim to prove epoch 2 (or proof of epoch 2)
     // - we reach epoch 4 without a proof of epoch 2 (regardless of whether a proof claim was submitted)
+    bool inClaimPhase = currentSlot
+      < startSlotOfPendingEpoch + Constants.AZTEC_EPOCH_DURATION + CLAIM_DURATION_IN_L2_SLOTS;
 
-    if (
-      currentSlot
-        < startSlotOfPendingEpoch + Constants.AZTEC_EPOCH_DURATION + CLAIM_DURATION_IN_L2_SLOTS
-    ) {
+    bool claimExists = currentSlot < startSlotOfPendingEpoch + 2 * Constants.AZTEC_EPOCH_DURATION
+      && proofClaim.epochToProve == oldestPendingEpoch && proofClaim.proposerClaimant != address(0);
+
+    if (inClaimPhase || claimExists) {
       // If we are in the claim phase, do not prune
       return false;
-    } else if (
-      currentSlot < startSlotOfPendingEpoch + 2 * Constants.AZTEC_EPOCH_DURATION
-        && proofClaim.epochToProve == oldestPendingEpoch && proofClaim.proposerClaimant != address(0)
-    ) {
-      // We have left the claim phase, but we're still in the next epoch and a claim has been made
-      return false;
     }
-
     return true;
   }
 
