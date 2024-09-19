@@ -1,7 +1,4 @@
-use std::{
-    collections::umap::UHashMap,
-    hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
-};
+use std::{collections::umap::UHashMap, hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}};
 
 use super::utils::get_serialized_size;
 use super::utils::is_note;
@@ -92,7 +89,7 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
         storage_layout_constructors = storage_layout_constructors.push_back(quote { $name: dep::aztec::prelude::Storable { slot: $slot } });
         //let with_context_generic = add_context_generic(typ, context_generic);
         //println(with_context_generic);
-        //new_storage_fields = new_storage_fields.push_back((name,  with_context_generic ));ç
+        //new_storage_fields = new_storage_fields.push_back((name,  with_context_generic ));
         slot += serialized_size;
     }
 
@@ -130,4 +127,3 @@ pub comptime fn storage(s: StructDefinition) -> Quoted {
         };
     }
 }
-
