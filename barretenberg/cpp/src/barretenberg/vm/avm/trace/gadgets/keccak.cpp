@@ -15,6 +15,7 @@ std::vector<AvmKeccakTraceBuilder::KeccakTraceEntry> AvmKeccakTraceBuilder::fina
 void AvmKeccakTraceBuilder::reset()
 {
     keccak_trace.clear();
+    keccak_trace.shrink_to_fit(); // Reclaim memory.
 }
 
 std::array<uint64_t, 25> AvmKeccakTraceBuilder::keccakf1600(uint32_t clk, std::array<uint64_t, 25> input)
