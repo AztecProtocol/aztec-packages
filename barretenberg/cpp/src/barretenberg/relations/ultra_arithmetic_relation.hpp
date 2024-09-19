@@ -111,7 +111,8 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
             // info("in.q_arith: ", in.q_arith);
             // info("q_arith: ", q_arith);
 
-            static constexpr FF neg_half = FF(-2).invert();
+            const FF neg_half = FF(-2).invert(); // is this computed in every loop? problem is this is instantiated for
+                                                 // field_t which is not constexpr
             if constexpr (HOMOGENIZED) {
                 auto hom = View(in.homogenizer);
                 auto term = q_c - w_4_shift;
