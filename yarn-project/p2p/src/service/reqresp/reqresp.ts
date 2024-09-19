@@ -131,7 +131,6 @@ export class ReqResp {
         // We do not consider it a success if we have an empty buffer
         if (response && response.length > 0) {
           const object = subProtocolMap[subProtocol].response.fromBuffer(response);
-
           // The response validator handles peer punishment within
           const isValid = await responseValidator(request, object, peer);
           if (!isValid) {

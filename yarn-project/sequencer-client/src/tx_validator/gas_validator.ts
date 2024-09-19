@@ -34,6 +34,10 @@ export class GasTxValidator implements TxValidator<Tx> {
     return [validTxs, invalidTxs];
   }
 
+  async validateTx(tx: Tx): Promise<boolean> {
+    return this.#validateTxFee(tx);
+  }
+
   async #validateTxFee(tx: Tx): Promise<boolean> {
     const feePayer = tx.data.feePayer;
     // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx

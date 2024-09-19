@@ -166,7 +166,7 @@ export class LibP2PService implements P2PService {
     // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
     const reqrespSubProtocolValidators = {
       ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
-      [TX_REQ_PROTOCOL]: this.validateRequestedTx,
+      [TX_REQ_PROTOCOL]: this.validateRequestedTx.bind(this),
     };
     await this.reqresp.start(this.requestResponseHandlers, reqrespSubProtocolValidators);
   }
@@ -440,14 +440,14 @@ export class LibP2PService implements P2PService {
    */
   private async validateRequestedTx(requestedTxHash: TxHash, responseTx: Tx, peerId: PeerId): Promise<boolean> {
     const proofValidator = new TxProofValidator(this.proofVerifier);
-    const [_, proofInvalidTxs] = await proofValidator.validateTxs([responseTx]);
-    if (proofInvalidTxs.length > 0) {
-      // penalize
-      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+    const validProof = await proofValidator.validateTx(responseTx);
+    if (!validProof) {
+      // penalize - this is a high tolerence error as we are checking the proof
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
       return false;
     }
 
-    if (requestedTxHash !== responseTx.getTxHash()) {
+    if (!requestedTxHash.equals(responseTx.getTxHash())) {
       // penalize
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
       return false;
@@ -460,8 +460,8 @@ export class LibP2PService implements P2PService {
     const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
     // basic data validation
     const dataValidator = new DataTxValidator();
-    const [_, dataInvalidTxs] = await dataValidator.validateTxs([tx]);
-    if (dataInvalidTxs.length > 0) {
+    const validData = await dataValidator.validateTx(tx);
+    if (!validData) {
       // penalize
       this.node.services.pubsub.score.markInvalidMessageDelivery(peerId.toString(), Tx.p2pTopic);
       return false;
@@ -469,8 +469,8 @@ export class LibP2PService implements P2PService {
 
     // metadata validation
     const metadataValidator = new MetadataTxValidator(new Fr(this.config.l1ChainId), new Fr(blockNumber));
-    const [__, metaInvalidTxs] = await metadataValidator.validateTxs([tx]);
-    if (metaInvalidTxs.length > 0) {
+    const validMetadata = await metadataValidator.validateTx(tx);
+    if (!validMetadata) {
       // penalize
       this.node.services.pubsub.score.markInvalidMessageDelivery(peerId.toString(), Tx.p2pTopic);
       return false;
@@ -484,8 +484,8 @@ export class LibP2PService implements P2PService {
         return index;
       },
     });
-    const [___, doubleSpendInvalidTxs] = await doubleSpendValidator.validateTxs([tx]);
-    if (doubleSpendInvalidTxs.length > 0) {
+    const validDoubleSpend = await doubleSpendValidator.validateTx(tx);
+    if (!validDoubleSpend) {
       // check if nullifier is older than 20 blocks
       if (blockNumber - this.config.severePeerPenaltyBlockLength > 0) {
         const snapshotValidator = new DoubleSpendTxValidator({
@@ -498,9 +498,9 @@ export class LibP2PService implements P2PService {
           },
         });
 
-        const [____, snapshotInvalidTxs] = await snapshotValidator.validateTxs([tx]);
+        const validSnapshot = await snapshotValidator.validateTx(tx);
         // High penalty if nullifier is older than 20 blocks
-        if (snapshotInvalidTxs.length > 0) {
+        if (!validSnapshot) {
           // penalize
           this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
           return false;
@@ -513,8 +513,8 @@ export class LibP2PService implements P2PService {
 
     // proof validation
     const proofValidator = new TxProofValidator(this.proofVerifier);
-    const [_____, proofInvalidTxs] = await proofValidator.validateTxs([tx]);
-    if (proofInvalidTxs.length > 0) {
+    const validProof = await proofValidator.validateTx(tx);
+    if (!validProof) {
       // penalize
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
       return false;
