@@ -11,8 +11,6 @@ use dep::aztec::{
 use std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
 global NFT_NOTE_LEN: u32 = 3;
-// NFT_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global NFT_NOTE_BYTES_LEN: u32 = 3 * 32 + 64;
 
 #[aztec(note)]
 struct NFTNote {
@@ -24,7 +22,7 @@ struct NFTNote {
     randomness: Field,
 }
 
-impl NoteInterface<NFT_NOTE_LEN, NFT_NOTE_BYTES_LEN> for NFTNote {
+impl NoteInterface<NFT_NOTE_LEN> for NFTNote {
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(

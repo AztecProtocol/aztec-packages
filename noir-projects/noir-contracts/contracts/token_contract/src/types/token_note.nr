@@ -16,7 +16,6 @@ trait OwnedNote {
 }
 
 global TOKEN_NOTE_LEN: u32 = 3; // 3 plus a header.
-global TOKEN_NOTE_BYTES_LEN: u32 = 3 * 32 + 64;
 
 // docs:start:TokenNote
 #[aztec(note)]
@@ -30,7 +29,7 @@ struct TokenNote {
 }
 // docs:end:TokenNote
 
-impl NoteInterface<TOKEN_NOTE_LEN, TOKEN_NOTE_BYTES_LEN> for TokenNote {
+impl NoteInterface<TOKEN_NOTE_LEN> for TokenNote {
     // docs:start:nullifier
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);

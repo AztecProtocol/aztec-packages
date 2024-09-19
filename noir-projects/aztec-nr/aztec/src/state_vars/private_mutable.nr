@@ -3,7 +3,8 @@ use dep::protocol_types::{constants::GENERATOR_INDEX__INITIALIZATION_NULLIFIER, 
 use crate::context::{PrivateContext, UnconstrainedContext};
 use crate::note::{
     lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_note, view_notes},
-    note_interface::NoteInterface, note_viewer_options::NoteViewerOptions, note_emission::NoteEmission
+    note_interface::{NoteInterface}, note_viewer_options::NoteViewerOptions,
+    note_emission::NoteEmission
 };
 use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
@@ -43,7 +44,7 @@ impl<Note, Context> PrivateMutable<Note, Context> {
     }
 }
 
-impl<Note, let N: u32, let M: u32> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInterface<N, M> {
+impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext> where Note: NoteInterface<N>  {
     // docs:start:initialize
     pub fn initialize(self, note: &mut Note) -> NoteEmission<Note> {
         // Nullify the storage slot.
@@ -102,7 +103,7 @@ impl<Note, let N: u32, let M: u32> PrivateMutable<Note, &mut PrivateContext> whe
     // docs:end:get_note
 }
 
-impl<Note, let N: u32, let M: u32> PrivateMutable<Note, UnconstrainedContext> where Note: NoteInterface<N, M> {
+impl<Note, let N: u32> PrivateMutable<Note, UnconstrainedContext> where Note: NoteInterface<N>  {
     unconstrained pub fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
         check_nullifier_exists(nullifier)

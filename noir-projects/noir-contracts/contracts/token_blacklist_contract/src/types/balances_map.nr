@@ -24,18 +24,18 @@ impl<T, Context> BalancesMap<T, Context> {
 }
 
 impl<T> BalancesMap<T, UnconstrainedContext> {
-    unconstrained pub fn balance_of<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
+    unconstrained pub fn balance_of<let T_SERIALIZED_LEN: u32>(
         self: Self,
         owner: AztecAddress
-    ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
+    ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN>  + OwnedNote {
         self.balance_of_with_offset(owner, 0)
     }
 
-    unconstrained pub fn balance_of_with_offset<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
+    unconstrained pub fn balance_of_with_offset<let T_SERIALIZED_LEN: u32>(
         self: Self,
         owner: AztecAddress,
         offset: u32
-    ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
+    ) -> U128 where T: NoteInterface<T_SERIALIZED_LEN>  + OwnedNote {
         let mut balance = U128::from_integer(0);
         // docs:start:view_notes
         let mut options = NoteViewerOptions::new();
@@ -55,11 +55,12 @@ impl<T> BalancesMap<T, UnconstrainedContext> {
 }
 
 impl<T> BalancesMap<T, &mut PrivateContext> {
-    pub fn add<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
+
+    pub fn add<let T_SERIALIZED_LEN: u32>(
         self: Self,
         owner: AztecAddress,
         addend: U128
-    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
+    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN>  + OwnedNote + Eq {
         if addend == U128::from_integer(0) {
             OuterNoteEmission::new(Option::none())
         } else {
@@ -75,11 +76,11 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
         }
     }
 
-    pub fn sub<let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
+    pub fn sub<let T_SERIALIZED_LEN: u32>(
         self: Self,
         owner: AztecAddress,
         subtrahend: U128
-    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote + Eq {
+    ) -> OuterNoteEmission<T> where T: NoteInterface<T_SERIALIZED_LEN>  + OwnedNote + Eq {
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend);
         let notes = self.map.at(owner).pop_notes(options);
 
@@ -100,10 +101,10 @@ impl<T> BalancesMap<T, &mut PrivateContext> {
     }
 }
 
-pub fn filter_notes_min_sum<T, let T_SERIALIZED_LEN: u32, let T_SERIALIZED_BYTES_LEN: u32>(
+pub fn filter_notes_min_sum<T, let T_SERIALIZED_LEN: u32>(
     notes: [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: U128
-) -> [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where T: NoteInterface<T_SERIALIZED_LEN, T_SERIALIZED_BYTES_LEN> + OwnedNote {
+) -> [Option<T>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL] where T: NoteInterface<T_SERIALIZED_LEN> + OwnedNote {
     let mut selected = [Option::none(); MAX_NOTE_HASH_READ_REQUESTS_PER_CALL];
     let mut sum = U128::from_integer(0);
     for i in 0..notes.len() {

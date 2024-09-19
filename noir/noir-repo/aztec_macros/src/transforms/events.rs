@@ -67,7 +67,7 @@ pub fn generate_event_impls(
 
             let mut event_interface_trait_impl = generate_trait_impl_stub_event_interface(
                 event_type.as_str(),
-                event_byte_len,
+                event_len,
                 empty_spans,
             )?;
             event_interface_trait_impl.items.push(Documented::not_documented(TraitImplItem {
@@ -126,13 +126,12 @@ pub fn generate_event_impls(
 
 fn generate_trait_impl_stub_event_interface(
     event_type: &str,
-    byte_length: u32,
+    fields_length: u32,
     empty_spans: bool,
 ) -> Result<NoirTraitImpl, AztecMacroError> {
-    let byte_length_without_randomness = byte_length - 32;
     let trait_impl_source = format!(
         "
-impl dep::aztec::event::event_interface::EventInterface<{byte_length}, {byte_length_without_randomness}> for {event_type} {{
+impl dep::aztec::event::event_interface::EventInterface<{fields_length}> for {event_type} {{
     }}
     "
     )

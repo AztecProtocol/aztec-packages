@@ -104,9 +104,9 @@ pub fn generate_note_interface_impl(
                 }),
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let [note_serialized_len, note_bytes_len]: [_; 2] =
+        let [note_serialized_len]: [_; 1] =
             note_interface_generics.try_into().expect(
-                "NoteInterface must be generic over 2 types, NOTE_FIELDS_LEN and NOTE_BYTES_LEN",
+                "NoteInterface must be generic over 1 type, NOTE_FIELDS_LEN",
             );
 
         // Automatically inject the header field if it's not present
@@ -241,7 +241,7 @@ pub fn generate_note_interface_impl(
         if !check_trait_method_implemented(trait_impl, "to_be_bytes") {
             let to_be_bytes_fn = generate_note_to_be_bytes(
                 &note_type,
-                note_bytes_len.as_str(),
+                &format!("32 * {} + 64", note_serialized_len.as_str()),
                 note_serialized_len.as_str(),
                 note_interface_impl_span,
                 empty_spans,

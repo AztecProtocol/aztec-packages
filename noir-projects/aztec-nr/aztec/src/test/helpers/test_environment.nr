@@ -194,12 +194,12 @@ impl TestEnvironment {
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
     /// not having an encrypted log emitted. TXE alternative to `PXE.addNote(...)`.
-    pub fn add_note<Note, let N: u32, let M: u32>(
+    pub fn add_note<Note, let N: u32>(
         _self: Self,
         note: &mut Note,
         storage_slot: Field,
         contract_address: AztecAddress
-    ) where Note: NoteInterface<N, M> {
+    ) where Note: NoteInterface<N> {
         let original_contract_address = get_contract_address();
         cheatcodes::set_contract_address(contract_address);
         let note_hash_counter = cheatcodes::get_side_effects_counter();

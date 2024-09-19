@@ -6,11 +6,11 @@ use crate::note::{
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 
-pub fn create_note<Note, let N: u32, let M: u32>(
+pub fn create_note<Note, let N: u32>(
     context: &mut PrivateContext,
     storage_slot: Field,
     note: &mut Note
-) -> NoteEmission<Note> where Note: NoteInterface<N, M> {
+) -> NoteEmission<Note> where Note: NoteInterface<N> {
     let contract_address = (*context).this_address();
     let note_hash_counter = context.side_effect_counter;
 
@@ -36,11 +36,11 @@ pub fn create_note<Note, let N: u32, let M: u32>(
     NoteEmission::new(*note)
 }
 
-pub fn create_note_hash_from_public<Note, let N: u32, let M: u32>(
+pub fn create_note_hash_from_public<Note, let N: u32>(
     context: &mut PublicContext,
     storage_slot: Field,
     note: &mut Note
-) where Note: NoteInterface<N, M> {
+) where Note: NoteInterface<N> {
     let contract_address = (*context).this_address();
     // Public note hashes are transient, but have no side effect counters, so we just need note_hash_counter != 0
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter: 1 };
@@ -52,20 +52,20 @@ pub fn create_note_hash_from_public<Note, let N: u32, let M: u32>(
 }
 
 // Note: This function is currently totally unused.
-pub fn destroy_note<Note, let N: u32, let M: u32>(
+pub fn destroy_note<Note, let N: u32>(
     context: &mut PrivateContext,
     note: Note
-) where Note: NoteInterface<N, M> {
+) where Note: NoteInterface<N> {
     let note_hash_for_read_request = compute_note_hash_for_read_request(note);
 
     destroy_note_unsafe(context, note, note_hash_for_read_request)
 }
 
-pub fn destroy_note_unsafe<Note, let N: u32, let M: u32>(
+pub fn destroy_note_unsafe<Note, let N: u32>(
     context: &mut PrivateContext,
     note: Note,
     note_hash_for_read_request: Field
-) where Note: NoteInterface<N, M> {
+) where Note: NoteInterface<N> {
     let note_hash_for_nullify = compute_note_hash_for_nullify_internal(note, note_hash_for_read_request);
     let nullifier = note.compute_nullifier(context, note_hash_for_nullify);
 

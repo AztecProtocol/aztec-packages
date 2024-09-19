@@ -6,8 +6,6 @@ use dep::aztec::{
 };
 
 global SUBSCRIPTION_NOTE_LEN: u32 = 4;
-// SUBSCRIPTION_NOTE_BYTES_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global SUBSCRIPTION_NOTE_BYTES_LEN: u32 = SUBSCRIPTION_NOTE_LEN * 32 + 64;
 
 #[aztec(note)]
 struct SubscriptionNote {
@@ -19,7 +17,7 @@ struct SubscriptionNote {
     randomness: Field,
 }
 
-impl NoteInterface<SUBSCRIPTION_NOTE_LEN, SUBSCRIPTION_NOTE_BYTES_LEN> for SubscriptionNote {
+impl NoteInterface<SUBSCRIPTION_NOTE_LEN> for SubscriptionNote {
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(

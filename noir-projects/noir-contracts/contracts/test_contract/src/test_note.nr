@@ -1,8 +1,6 @@
 use dep::aztec::{note::{note_header::NoteHeader, note_interface::NoteInterface}, context::PrivateContext};
 
 global TEST_NOTE_LEN: u32 = 1;
-// TEST_NOTE_LENGTH * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global TEST_NOTE_BYTES_LENGTH: u32 = 1 * 32 + 64;
 
 // A note which stores a field and is expected to be passed around using the `addNote` function.
 // WARNING: This Note is not private as it does not contain randomness and hence it can be easy to perform
@@ -13,7 +11,7 @@ struct TestNote {
     value: Field,
 }
 
-impl NoteInterface<TEST_NOTE_LEN, TEST_NOTE_BYTES_LENGTH> for TestNote {
+impl NoteInterface<TEST_NOTE_LEN> for TestNote {
 
     fn compute_nullifier(self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.

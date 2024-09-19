@@ -10,7 +10,6 @@ use dep::aztec::{
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
 global UINT_NOTE_LEN: u32 = 3; // 3 plus a header.
-global UINT_NOTE_BYTES_LEN: u32 = 3 * 32 + 64;
 
 #[aztec(note)]
 struct UintNote {
@@ -22,7 +21,7 @@ struct UintNote {
     randomness: Field,
 }
 
-impl NoteInterface<UINT_NOTE_LEN, UINT_NOTE_BYTES_LEN> for UintNote {
+impl NoteInterface<UINT_NOTE_LEN> for UintNote {
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(

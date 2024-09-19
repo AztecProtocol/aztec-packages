@@ -7,15 +7,13 @@ use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOT
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
 global MOCK_NOTE_LENGTH: u32 = 1;
-// MOCK_NOTE_LENGTH * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global MOCK_NOTE_BYTES_LENGTH: u32 = 1 * 32 + 64;
 
 struct MockNote {
   header: NoteHeader,
   value: Field,
 }
 
-impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
+impl NoteInterface<MOCK_NOTE_LENGTH> for MockNote {
     fn serialize_content(self) -> [Field; MOCK_NOTE_LENGTH] {
         [self.value]
     }
@@ -63,10 +61,10 @@ impl NoteInterface<MOCK_NOTE_LENGTH, MOCK_NOTE_BYTES_LENGTH> for MockNote {
         )
     }
 
-    fn to_be_bytes(self, storage_slot: Field) -> [u8; MOCK_NOTE_BYTES_LENGTH] {
+    fn to_be_bytes(self, storage_slot: Field) -> [u8; 32 * MOCK_NOTE_LENGTH + 64] {
         let serialized_note = self.serialize_content();
 
-        let mut buffer: [u8; MOCK_NOTE_BYTES_LENGTH] = [0; MOCK_NOTE_BYTES_LENGTH];
+        let mut buffer: [u8; 32 * MOCK_NOTE_LENGTH + 64] = [0; 32 * MOCK_NOTE_LENGTH + 64];
 
         let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
         let note_type_id_bytes: [u8; 32] = MockNote::get_note_type_id().to_be_bytes();

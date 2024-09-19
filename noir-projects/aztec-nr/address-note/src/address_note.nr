@@ -8,8 +8,6 @@ use dep::aztec::{
 };
 
 global ADDRESS_NOTE_LEN: u32 = 3;
-// ADDRESS_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global ADDRESS_NOTE_BYTES_LEN: u32 = 3 * 32 + 64;
 
 // docs:start:address_note_def
 // docs:start:address_note_struct
@@ -23,7 +21,7 @@ struct AddressNote {
 }
 // docs:end:address_note_struct
 
-impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
+impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
