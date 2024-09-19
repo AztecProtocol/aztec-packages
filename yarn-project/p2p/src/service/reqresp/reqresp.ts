@@ -89,6 +89,28 @@ export class ReqResp {
    * @param subProtocol - The protocol being requested
    * @param request - The request to send
    * @returns - The response from the peer, otherwise undefined
+   *
+   * @description
+   * This method attempts to send a request to all active peers using the specified sub-protocol.
+   * It opens a stream with each peer, sends the request, and awaits a response.
+   * If a valid response is received, it returns the response; otherwise, it continues to the next peer.
+   * If no response is received from any peer, it returns undefined.
+   *
+   * The method performs the following steps:
+   * - Iterates over all active peers.
+   * - Opens a stream with each peer using the specified sub-protocol.
+   *
+   * When a response is received, it is validated using the given sub protocols response validator.
+   * To see the interface for the response validator - see `interface.ts`
+   *
+   * Failing a response validation requests in a severe peer penalty, and will
+   * prompt the node to continue to search to the next peer.
+   * For example, a transaction request validator will check that the payload returned does in fact
+   * match the txHash that was requested. A peer that fails this check an only be an extremely naughty peer.
+   *
+   * This entire operation is wrapped in an overall timeout, that is independent of the
+   * peer it is requesting data from.
+   *
    */
   async sendRequest<SubProtocol extends ReqRespSubProtocol>(
     subProtocol: SubProtocol,
@@ -108,7 +130,6 @@ export class ReqResp {
         // If we get a response, return it, otherwise we iterate onto the next peer
         // We do not consider it a success if we have an empty buffer
         if (response && response.length > 0) {
-          // TODO(md): indepth describe what this code does
           const object = subProtocolMap[subProtocol].response.fromBuffer(response);
 
           const isValid = await responseValidator(request, object, peer);
@@ -138,10 +159,26 @@ export class ReqResp {
   /**
    * Sends a request to a specific peer
    *
+   * We first dial a particular protocol for the peer, this ensures that the peer knows
+   * what to respond with
+   *
+   *
    * @param peerId - The peer to send the request to
    * @param subProtocol - The protocol to use to request
    * @param payload - The payload to send
    * @returns If the request is successful, the response is returned, otherwise undefined
+   *
+   * @description
+   * This method attempts to open a stream with the specified peer, send the payload,
+   * and await a response.
+   * If an error occurs, it penalizes the peer and returns undefined.
+   *
+   * The method performs the following steps:
+   * - Opens a stream with the peer using the specified sub-protocol.
+   * - Sends the payload and awaits a response with a timeout.
+   *
+   * If the stream is not closed by the dialled peer, and a timeout occurs, then
+   * the stream is closed on the requester's end and sender (us) updates its peer score
    */
   async sendRequestToPeer(
     peerId: PeerId,
@@ -167,8 +204,6 @@ export class ReqResp {
       return result;
     } catch (e: any) {
       this.logger.error(`${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`);
-      // TODO(md): do we really want to penalize for this?
-      // An individual peer timing out a request is a high tolerance error
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
     } finally {
       if (stream) {
@@ -202,6 +237,16 @@ export class ReqResp {
    * Reads the incoming stream, determines the protocol, then triggers the appropriate handler
    *
    * @param param0 - The incoming stream data
+   *
+   * @description
+   * An individual stream handler will be bound to each sub protocol, and handles returning data back
+   * to the requesting peer.
+   *
+   * The sub protocol handler interface is defined within `interface.ts` and will be assigned to the
+   * req resp service on start up.
+   *
+   * We check rate limits for each peer, note the peer will be penalised within the rate limiter implementation
+   * if they exceed their peer specific limits.
    */
   private async streamHandler(protocol: ReqRespSubProtocol, { stream, connection }: IncomingStreamData) {
     // Store a reference to from this for the async generator
