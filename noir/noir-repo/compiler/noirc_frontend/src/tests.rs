@@ -1948,7 +1948,7 @@ fn numeric_generics_type_kind_mismatch() {
     }
 
     global M: u16 = 3;
-
+    
     fn main() {
         let _ = bar::<M>();
     }
@@ -1972,7 +1972,7 @@ fn numeric_generics_value_kind_mismatch_u32_u64() {
     }
 
     impl<T, let MaxLen: u32> BoundedVec<T, MaxLen> {
-        pub fn extend_from_bounded_vec<let Len: u32>(&mut self, _vec: BoundedVec<T, Len>) {
+        pub fn extend_from_bounded_vec<let Len: u32>(&mut self, _vec: BoundedVec<T, Len>) { 
             // We do this to avoid an unused variable warning on `self`
             let _ = self.len;
             for _ in 0..Len { }
@@ -3722,5 +3722,29 @@ fn use_numeric_generic_in_trait_method() {
     "#;
 
     let errors = get_program_errors(src);
+    println!("{errors:?}");
     assert_eq!(errors.len(), 0);
+}
+
+#[test]
+fn macro_result_type_mismatch() {
+    let src = r#"
+        fn main() {
+            comptime {
+                let x = unquote!(quote { "test" });
+                let _: Field = x;
+            }
+        }
+
+        comptime fn unquote(q: Quoted) -> Quoted {
+            q
+        }
+    "#;
+
+    let errors = get_program_errors(src);
+    assert_eq!(errors.len(), 1);
+    assert!(matches!(
+        errors[0].0,
+        CompilationError::TypeError(TypeCheckError::TypeMismatch { .. })
+    ));
 }
