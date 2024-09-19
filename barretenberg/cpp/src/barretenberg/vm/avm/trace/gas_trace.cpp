@@ -11,6 +11,7 @@ namespace bb::avm_trace {
 void AvmGasTraceBuilder::reset()
 {
     gas_trace.clear();
+    gas_trace.shrink_to_fit(); // Reclaim memory.
 }
 
 void AvmGasTraceBuilder::set_initial_gas(uint32_t l2_gas, uint32_t da_gas)

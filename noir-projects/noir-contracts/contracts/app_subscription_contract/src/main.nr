@@ -7,7 +7,7 @@ contract AppSubscription {
     use aztec::{
         prelude::{AztecAddress, Map, PrivateMutable, SharedImmutable},
         encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_with_keys},
-        keys::getters::get_current_public_keys, protocol_types::constants::MAX_FIELD_VALUE,
+        keys::getters::get_public_keys, protocol_types::constants::MAX_FIELD_VALUE,
         utils::comparison::Comparator
     };
     use authwit::auth::assert_current_call_valid_authwit;
@@ -94,8 +94,8 @@ contract AppSubscription {
             &mut context
         );
 
-        let subscriber_keys = get_current_public_keys(&mut context, subscriber);
-        let msg_sender_ovpk_m = get_current_public_keys(&mut context, context.msg_sender()).ovpk_m;
+        let subscriber_keys = get_public_keys(subscriber);
+        let msg_sender_ovpk_m = get_public_keys(context.msg_sender()).ovpk_m;
 
         let mut subscription_note = SubscriptionNote::new(subscriber_keys.npk_m.hash(), expiry_block_number, tx_count);
         storage.subscriptions.at(subscriber).initialize_or_replace(&mut subscription_note).emit(

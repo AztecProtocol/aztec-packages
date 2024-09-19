@@ -10,9 +10,9 @@ trait OwnedNote {
     fn get_amount(self) -> U128;
 }
 
-global TOKEN_NOTE_LEN: Field = 3; // 3 plus a header.
+global TOKEN_NOTE_LEN: u32 = 3; // 3 plus a header.
 // TOKEN_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global TOKEN_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
+global TOKEN_NOTE_BYTES_LEN: u32 = 3 * 32 + 64;
 
 #[aztec(note)]
 struct TokenNote {

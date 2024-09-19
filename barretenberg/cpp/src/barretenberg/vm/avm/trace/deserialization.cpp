@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/trace/deserialization.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
+#include "barretenberg/vm/avm/trace/helper.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 
 #include <cassert>
@@ -66,8 +67,8 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::OR_16, three_operand_format16 },
     { OpCode::XOR_8, three_operand_format8 },
     { OpCode::XOR_16, three_operand_format16 },
-    { OpCode::NOT_8, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT8, OperandType::UINT8 } },
-    { OpCode::NOT_16, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT16 } },
+    { OpCode::NOT_8, { OperandType::INDIRECT, OperandType::UINT8, OperandType::UINT8 } },
+    { OpCode::NOT_16, { OperandType::INDIRECT, OperandType::UINT16, OperandType::UINT16 } },
     { OpCode::SHL_8, three_operand_format8 },
     { OpCode::SHL_16, three_operand_format16 },
     { OpCode::SHR_8, three_operand_format8 },
@@ -192,7 +193,12 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // Gadget - Conversion
     { OpCode::TORADIXLE,
-      { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+      { OperandType::INDIRECT,
+        OperandType::UINT32,
+        OperandType::UINT32,
+        OperandType::UINT32,
+        OperandType::UINT32,
+        OperandType::UINT1 } },
     // Gadgets - Unused for now
     { OpCode::SHA256COMPRESSION,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
@@ -200,8 +206,9 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
 };
 
 const std::unordered_map<OperandType, size_t> OPERAND_TYPE_SIZE = {
-    { OperandType::INDIRECT, 1 }, { OperandType::TAG, 1 },    { OperandType::UINT8, 1 },    { OperandType::UINT16, 2 },
-    { OperandType::UINT32, 4 },   { OperandType::UINT64, 8 }, { OperandType::UINT128, 16 }, { OperandType::FF, 32 }
+    { OperandType::INDIRECT, 1 }, { OperandType::TAG, 1 },      { OperandType::UINT1, 1 },
+    { OperandType::UINT8, 1 },    { OperandType::UINT16, 2 },   { OperandType::UINT32, 4 },
+    { OperandType::UINT64, 8 },   { OperandType::UINT128, 16 }, { OperandType::FF, 32 }
 };
 
 } // Anonymous namespace
@@ -261,6 +268,7 @@ std::vector<Instruction> Deserialization::parse(std::vector<uint8_t> const& byte
                 operands.emplace_back(static_cast<AvmMemoryTag>(tag_u8));
                 break;
             }
+            case OperandType::UINT1:
             case OperandType::UINT8:
                 operands.emplace_back(bytecode.at(pos));
                 break;

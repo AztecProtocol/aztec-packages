@@ -139,7 +139,15 @@ std::array<field_t<Builder>, 64> extend_witness(const std::array<field_t<Builder
         } else {
             w_out = witness_t<Builder>(
                 ctx, fr(w_out_raw.get_value().from_montgomery_form().data[0] & (uint64_t)0xffffffffULL));
+            static constexpr fr inv_pow_two = fr(2).pow(32).invert();
+            // If we multiply the field elements by constants separately and then subtract, then the divisor is going to
+            // be in a normalized state right after subtraction and the call to .normalize() won't add gates
+            field_pt w_out_raw_inv_pow_two = w_out_raw * inv_pow_two;
+            field_pt w_out_inv_pow_two = w_out * inv_pow_two;
+            field_pt divisor = (w_out_raw_inv_pow_two - w_out_inv_pow_two).normalize();
+            ctx->create_new_range_constraint(divisor.witness_index, 3);
         }
+
         w_sparse[i] = sparse_witness_limbs(w_out);
     }
 

@@ -79,16 +79,22 @@ describe('Client IVC Integration', () => {
       tx,
     });
 
-    const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
-      prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-    });
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): While using auto_veriy_mode, we can only process an even
+    // number of circuits into the IVC. This restriction can be removed once we remove use of auto_verify_mode.
+    // const tailWitnessGenResult = await witnessGenMockPrivateKernelTailCircuit({
+    //   prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
+    // });
     // Create client IVC proof
     const bytecodes = [
       MockAppCreatorCircuit.bytecode,
       MockPrivateKernelInitCircuit.bytecode,
-      MockPrivateKernelTailCircuit.bytecode,
+      // MockPrivateKernelTailCircuit.bytecode,
     ];
-    const witnessStack = [appWitnessGenResult.witness, initWitnessGenResult.witness, tailWitnessGenResult.witness];
+    const witnessStack = [
+      appWitnessGenResult.witness,
+      initWitnessGenResult.witness,
+      // tailWitnessGenResult.witness
+    ];
 
     const proof = await createClientIvcProof(witnessStack, bytecodes);
     await proof.writeToOutputDirectory(bbWorkingDirectory);
@@ -110,7 +116,7 @@ describe('Client IVC Integration', () => {
     };
     // Witness gen app and kernels
     const creatorAppWitnessGenResult = await witnessGenCreatorAppMockCircuit({ commitments_to_create: ['0x1', '0x2'] });
-    const readerAppWitnessGenRult = await witnessGenReaderAppMockCircuit({ commitments_to_read: ['0x2', '0x0'] });
+    const readerAppWitnessGenResult = await witnessGenReaderAppMockCircuit({ commitments_to_read: ['0x2', '0x0'] });
 
     const initWitnessGenResult = await witnessGenMockPrivateKernelInitCircuit({
       app_inputs: creatorAppWitnessGenResult.publicInputs,
@@ -118,7 +124,7 @@ describe('Client IVC Integration', () => {
     });
     const innerWitnessGenResult = await witnessGenMockPrivateKernelInnerCircuit({
       prev_kernel_public_inputs: initWitnessGenResult.publicInputs,
-      app_inputs: readerAppWitnessGenRult.publicInputs,
+      app_inputs: readerAppWitnessGenResult.publicInputs,
     });
 
     const resetWitnessGenResult = await witnessGenMockPrivateKernelResetCircuit({
@@ -147,7 +153,7 @@ describe('Client IVC Integration', () => {
     const witnessStack = [
       creatorAppWitnessGenResult.witness,
       initWitnessGenResult.witness,
-      readerAppWitnessGenRult.witness,
+      readerAppWitnessGenResult.witness,
       innerWitnessGenResult.witness,
       resetWitnessGenResult.witness,
       tailWitnessGenResult.witness,
