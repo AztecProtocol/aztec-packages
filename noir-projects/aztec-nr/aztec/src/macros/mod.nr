@@ -1,3 +1,5 @@
+use protocol_types::abis::function_selector::FunctionSelector;
+
 pub comptime fn aztec(m: Module) -> Quoted {
     let functions = m.functions();
     let functions = functions.filter(|function: FunctionDefinition| function.has_named_attribute("public"));
@@ -5,9 +7,8 @@ pub comptime fn aztec(m: Module) -> Quoted {
     let ifs = functions.map(
         |function: FunctionDefinition| {
         let name = function.name();
-        let signature = function_signature(function);
-        // Turn the Quoted value into into a str<N>
-        let signature = std::meta::unquote!(quote { $signature });
+        let signature = function_signature!(function);
+        let selector = FunctionSelector::from_signature(signature);
 
         let reads = function.parameters().map(|param: (Quoted, Type)| {
             let param_name = param.0;
@@ -20,7 +21,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
         let call = quote { $name($args) };
 
         let if_ = quote { 
-            if selector == dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_signature($signature) {
+            if selector == $selector {
                 $read
                 let return_value = $call;
                 panic(f"avm_return")
