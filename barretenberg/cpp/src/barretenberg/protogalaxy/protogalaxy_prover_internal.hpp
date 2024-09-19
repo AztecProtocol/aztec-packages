@@ -214,7 +214,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             using View = typename Accumulator::View;
 
             static constexpr size_t DEG = Accumulator::LENGTH - 1;
-            auto tmp = View(L_0_pows.at(DEG)) * std::get<idx>(subrelation_values_on_accumulator);
+            auto tmp = View(L_0_pows[DEG]) * std::get<idx>(subrelation_values_on_accumulator);
             tmp *= scaling_factor;
             std::get<idx>(relation_accumulator) += tmp;
         });
