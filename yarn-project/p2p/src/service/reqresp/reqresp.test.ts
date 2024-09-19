@@ -2,18 +2,26 @@ import { TxHash, mockTx } from '@aztec/circuit-types';
 import { sleep } from '@aztec/foundation/sleep';
 
 import { describe, expect, it, jest } from '@jest/globals';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { CollectiveReqRespTimeoutError, IndiviualReqRespTimeoutError } from '../../errors/reqresp.error.js';
 import { MOCK_SUB_PROTOCOL_HANDLERS, connectToPeers, createNodes, startNodes, stopNodes } from '../../mocks/index.js';
+import { type PeerManager } from '../peer_manager.js';
 import { PING_PROTOCOL, TX_REQ_PROTOCOL } from './interface.js';
 
 // The Req Resp protocol should allow nodes to dial specific peers
 // and ask for specific data that they missed via the traditional gossip protocol.
 describe('ReqResp', () => {
+  let peerManager: MockProxy<PeerManager>;
+
+  beforeEach(() => {
+    peerManager = mock<PeerManager>();
+  });
+
   it('Should perform a ping request', async () => {
     // Create two nodes
     // They need to discover each other
-    const nodes = await createNodes(2);
+    const nodes = await createNodes(peerManager, 2);
     const { req: pinger } = nodes[0];
 
     await startNodes(nodes);
@@ -32,7 +40,7 @@ describe('ReqResp', () => {
   });
 
   it('Should handle gracefully if a peer connected peer is offline', async () => {
-    const nodes = await createNodes(2);
+    const nodes = await createNodes(peerManager, 2);
 
     const { req: pinger } = nodes[0];
     const { req: ponger } = nodes[1];
@@ -53,7 +61,7 @@ describe('ReqResp', () => {
   });
 
   it('Should request from a later peer if other peers are offline', async () => {
-    const nodes = await createNodes(4);
+    const nodes = await createNodes(peerManager, 4);
 
     await startNodes(nodes);
     await sleep(500);
@@ -73,7 +81,7 @@ describe('ReqResp', () => {
   });
 
   it('Should hit a rate limit if too many requests are made in quick succession', async () => {
-    const nodes = await createNodes(2);
+    const nodes = await createNodes(peerManager, 2);
 
     await startNodes(nodes);
 
@@ -110,7 +118,7 @@ describe('ReqResp', () => {
         return Promise.resolve(Uint8Array.from(Buffer.from('')));
       };
 
-      const nodes = await createNodes(2);
+      const nodes = await createNodes(peerManager, 2);
 
       await startNodes(nodes, protocolHandlers);
       await sleep(500);
@@ -133,7 +141,7 @@ describe('ReqResp', () => {
         return Promise.resolve(Uint8Array.from(Buffer.from('')));
       };
 
-      const nodes = await createNodes(2);
+      const nodes = await createNodes(peerManager, 2);
 
       await startNodes(nodes, protocolHandlers);
       await sleep(500);
@@ -147,7 +155,7 @@ describe('ReqResp', () => {
     });
 
     it('Should hit individual timeout if nothing is returned over the stream', async () => {
-      const nodes = await createNodes(2);
+      const nodes = await createNodes(peerManager, 2);
 
       await startNodes(nodes);
 
@@ -175,7 +183,7 @@ describe('ReqResp', () => {
     });
 
     it('Should hit collective timeout if nothing is returned over the stream from multiple peers', async () => {
-      const nodes = await createNodes(4);
+      const nodes = await createNodes(peerManager, 4);
 
       await startNodes(nodes);
 
