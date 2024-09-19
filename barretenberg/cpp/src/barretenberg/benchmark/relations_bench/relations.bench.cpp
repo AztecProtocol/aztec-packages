@@ -70,6 +70,7 @@ BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, LogDerivLookupRelatio
 BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, UltraPermutationRelation<Fr>>);
 
 // Goblin-Ultra only relations (PG prover combiner work)
+BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, UltraArithmeticRelation<Fr, /* HOMOGENIZED */ true>>);
 BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, EccOpQueueRelation<Fr>>);
 BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, DatabusLookupRelation<Fr>>);
 BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
