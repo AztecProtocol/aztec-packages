@@ -101,9 +101,6 @@ describe('rate limiter', () => {
       expect(rateLimiter.allow(TX_REQ_PROTOCOL, makePeer(`peer${i}`))).toBe(true);
     }
     expect(rateLimiter.allow(TX_REQ_PROTOCOL, falingPeer)).toBe(false);
-
-    // Spy on the peer manager and check that penalizePeer is called
-    expect(peerManager.penalizePeer).toHaveBeenCalledWith(falingPeer, PeerErrorSeverity.HighToleranceError);
   });
 
   it('Should reset after quota has passed', () => {

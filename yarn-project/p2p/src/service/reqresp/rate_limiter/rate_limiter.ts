@@ -150,14 +150,16 @@ export class SubProtocolRateLimiter {
  * - Initializes with a set of rate limit configurations for different subprotocols.
  * - Creates a separate SubProtocolRateLimiter for each configured subprotocol.
  * - When a request comes in, it routes the rate limiting decision to the appropriate subprotocol limiter.
+ * - Peers who exceed their peer rate limits will be penalised by the peer manager.
  *
  * Usage:
  * ```
+ * const peerManager = new PeerManager(...);
  * const rateLimits = {
  *   subprotocol1: { peerLimit: { quotaCount: 10, quotaTimeMs: 1000 }, globalLimit: { quotaCount: 100, quotaTimeMs: 1000 } },
  *   subprotocol2: { peerLimit: { quotaCount: 5, quotaTimeMs: 1000 }, globalLimit: { quotaCount: 50, quotaTimeMs: 1000 } }
  * };
- * const limiter = new RequestResponseRateLimiter(rateLimits);
+ * const limiter = new RequestResponseRateLimiter(peerManager, rateLimits);
  *
  * Note: Ensure to call `stop()` when shutting down to properly clean up all subprotocol limiters.
  */
@@ -191,7 +193,6 @@ export class RequestResponseRateLimiter {
   allow(subProtocol: ReqRespSubProtocol, peerId: PeerId): boolean {
     const limiter = this.subProtocolRateLimiters.get(subProtocol);
     if (!limiter) {
-      // TODO: maybe throw an error here if no rate limiter is configured?
       return true;
     }
     const rateLimitStatus = limiter.allow(peerId);
@@ -201,7 +202,6 @@ export class RequestResponseRateLimiter {
         this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
         return false;
       case RateLimitStatus.DeniedGlobal:
-        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
         return false;
       default:
         return true;
