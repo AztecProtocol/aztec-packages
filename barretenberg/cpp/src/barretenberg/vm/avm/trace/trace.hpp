@@ -274,6 +274,17 @@ class AvmTraceBuilder {
                                                              uint32_t data_offset,
                                                              uint32_t metadata_offset);
 
+    void constrain_external_call(OpCode opcode,
+                                 uint8_t indirect,
+                                 uint32_t gas_offset,
+                                 uint32_t addr_offset,
+                                 uint32_t args_offset,
+                                 uint32_t args_size_offset,
+                                 uint32_t ret_offset,
+                                 uint32_t ret_size,
+                                 uint32_t success_offset,
+                                 [[maybe_unused]] uint32_t function_selector_offset);
+
     void execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t dst_offset);
 
     void finalise_mem_trace_lookup_counts();
