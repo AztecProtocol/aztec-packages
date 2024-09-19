@@ -420,6 +420,16 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve();
   }
 
+  setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    this.lastL1BlockNewBlocks = l1BlockNumber;
+    return Promise.resolve();
+  }
+
+  setMessageSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    this.lastL1BlockNewMessages = l1BlockNumber;
+    return Promise.resolve();
+  }
+
   public getSynchPoint(): Promise<ArchiverL1SynchPoint> {
     return Promise.resolve({
       blocksSynchedTo: this.lastL1BlockNewBlocks,

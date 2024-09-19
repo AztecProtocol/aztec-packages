@@ -5,6 +5,7 @@ import {
   LogType,
   UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
@@ -30,6 +31,7 @@ import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_sto
 interface MockRollupContractRead {
   archiveAt: (args: readonly [bigint]) => Promise<`0x${string}`>;
   getProvenBlockNumber: () => Promise<bigint>;
+  status: (args: readonly [bigint]) => Promise<[bigint, `0x${string}`, bigint, `0x${string}`, `0x${string}`]>;
 }
 
 describe('Archiver', () => {
@@ -46,6 +48,8 @@ describe('Archiver', () => {
   let rollupRead: MockProxy<MockRollupContractRead>;
   let archiver: Archiver;
   let blocks: L2Block[];
+
+  const GENESIS_ROOT = new Fr(GENESIS_ARCHIVE_ROOT).toString();
 
   beforeEach(() => {
     now = +new Date();
@@ -89,6 +93,10 @@ describe('Archiver', () => {
     const rollupTxs = blocks.map(makeRollupTx);
 
     publicClient.getBlockNumber.mockResolvedValueOnce(2500n).mockResolvedValueOnce(2600n).mockResolvedValueOnce(2700n);
+
+    rollupRead.status
+      .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, blocks[0].archive.root.toString(), GENESIS_ROOT])
+      .mockResolvedValue([0n, GENESIS_ROOT, 3n, blocks[2].archive.root.toString(), blocks[0].archive.root.toString()]);
 
     mockGetLogs({
       messageSent: [makeMessageSentEvent(98n, 1n, 0n), makeMessageSentEvent(99n, 1n, 1n)],
@@ -180,39 +188,6 @@ describe('Archiver', () => {
     expect((await archiver.getBlocks(1, 100, true)).map(b => b.number)).toEqual([1]);
   }, 10_000);
 
-  it('does not sync past current block number', async () => {
-    let latestBlockNum = await archiver.getBlockNumber();
-    expect(latestBlockNum).toEqual(0);
-
-    const numL2BlocksInTest = 2;
-
-    const rollupTxs = blocks.map(makeRollupTx);
-
-    // Here we set the current L1 block number to 102. L1 to L2 messages after this should not be read.
-    publicClient.getBlockNumber.mockResolvedValue(102n);
-
-    mockGetLogs({
-      messageSent: [makeMessageSentEvent(66n, 1n, 0n), makeMessageSentEvent(68n, 1n, 1n)],
-      L2BlockProposed: [
-        makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString()),
-        makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString()),
-      ],
-    });
-
-    mockGetLogs({});
-
-    rollupTxs.slice(0, numL2BlocksInTest).forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
-
-    await archiver.start(false);
-
-    while ((await archiver.getBlockNumber()) !== numL2BlocksInTest) {
-      await sleep(100);
-    }
-
-    latestBlockNum = await archiver.getBlockNumber();
-    expect(latestBlockNum).toEqual(numL2BlocksInTest);
-  }, 10_000);
-
   it('ignores block 3 because it have been pruned (simulate pruning)', async () => {
     const loggerSpy = jest.spyOn((archiver as any).log, 'warn');
 
@@ -228,6 +203,8 @@ describe('Archiver', () => {
 
     const badArchive = Fr.random().toString();
 
+    rollupRead.status.mockResolvedValue([0n, GENESIS_ROOT, 2n, blocks[1].archive.root.toString(), GENESIS_ROOT]);
+
     mockGetLogs({
       messageSent: [makeMessageSentEvent(66n, 1n, 0n), makeMessageSentEvent(68n, 1n, 1n)],
       L2BlockProposed: [
@@ -236,8 +213,6 @@ describe('Archiver', () => {
         makeL2BlockProposedEvent(90n, 3n, badArchive),
       ],
     });
-
-    mockGetLogs({});
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
 
@@ -253,14 +228,64 @@ describe('Archiver', () => {
     expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
   }, 10_000);
 
+  it('skip event search if not blocks found', async () => {
+    const loggerSpy = jest.spyOn((archiver as any).log, 'verbose');
+
+    let latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+
+    const numL2BlocksInTest = 2;
+
+    const rollupTxs = blocks.map(makeRollupTx);
+
+    publicClient.getBlockNumber.mockResolvedValueOnce(50n).mockResolvedValueOnce(100n);
+    rollupRead.status
+      .mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT])
+      .mockResolvedValueOnce([0n, GENESIS_ROOT, 2n, blocks[1].archive.root.toString(), GENESIS_ROOT]);
+
+    // This can look slightly odd, but we will need to do an empty request for the messages, and will entirely skip
+    // a call to the proposed blocks because of changes with status.
+    mockGetLogs({
+      messageSent: [],
+    });
+    mockGetLogs({
+      messageSent: [makeMessageSentEvent(66n, 1n, 0n), makeMessageSentEvent(68n, 1n, 1n)],
+      L2BlockProposed: [
+        makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString()),
+        makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString()),
+      ],
+    });
+
+    rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+
+    await archiver.start(false);
+
+    while ((await archiver.getBlockNumber()) !== numL2BlocksInTest) {
+      await sleep(100);
+    }
+
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(numL2BlocksInTest);
+
+    // For some reason, this is 1-indexed.
+    expect(loggerSpy).toHaveBeenNthCalledWith(
+      1,
+      `Retrieved no new L1 -> L2 messages between L1 blocks ${1n} and ${50}.`,
+    );
+    expect(loggerSpy).toHaveBeenNthCalledWith(2, `No blocks to retrieve from ${1n} to ${50n}`);
+  }, 10_000);
+
   // logs should be created in order of how archiver syncs.
   const mockGetLogs = (logs: {
     messageSent?: ReturnType<typeof makeMessageSentEvent>[];
     L2BlockProposed?: ReturnType<typeof makeL2BlockProposedEvent>[];
   }) => {
-    publicClient.getLogs
-      .mockResolvedValueOnce(logs.messageSent ?? [])
-      .mockResolvedValueOnce(logs.L2BlockProposed ?? []);
+    if (logs.messageSent) {
+      publicClient.getLogs.mockResolvedValueOnce(logs.messageSent);
+    }
+    if (logs.L2BlockProposed) {
+      publicClient.getLogs.mockResolvedValueOnce(logs.L2BlockProposed);
+    }
   };
 });
 

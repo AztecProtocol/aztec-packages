@@ -102,6 +102,27 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     setupEpoch();
   }
 
+  function status(uint256 myHeaderBlockNumber)
+    external
+    view
+    override(IRollup)
+    returns (
+      uint256 provenBlockNumber,
+      bytes32 provenArchive,
+      uint256 pendingBlockNumber,
+      bytes32 pendingArchive,
+      bytes32 archiveOfMyBlock
+    )
+  {
+    return (
+      tips.provenBlockNumber,
+      blocks[tips.provenBlockNumber].archive,
+      tips.pendingBlockNumber,
+      blocks[tips.pendingBlockNumber].archive,
+      archiveAt(myHeaderBlockNumber)
+    );
+  }
+
   /**
    * @notice  Prune the pending chain up to the last proven block
    *
@@ -383,20 +404,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
-   * @notice  Get the archive root of a specific block
-   *
-   * @param _blockNumber - The block number to get the archive root of
-   *
-   * @return bytes32 - The archive root of the block
-   */
-  function archiveAt(uint256 _blockNumber) external view override(IRollup) returns (bytes32) {
-    if (_blockNumber <= tips.pendingBlockNumber) {
-      return blocks[_blockNumber].archive;
-    }
-    return bytes32(0);
-  }
-
-  /**
    * @notice  Check if msg.sender can propose at a given time
    *
    * @param _ts - The timestamp to check
@@ -480,6 +487,20 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   function getPendingBlockNumber() public view override(IRollup) returns (uint256) {
     return tips.pendingBlockNumber;
+  }
+
+  /**
+   * @notice  Get the archive root of a specific block
+   *
+   * @param _blockNumber - The block number to get the archive root of
+   *
+   * @return bytes32 - The archive root of the block
+   */
+  function archiveAt(uint256 _blockNumber) public view override(IRollup) returns (bytes32) {
+    if (_blockNumber <= tips.pendingBlockNumber) {
+      return blocks[_blockNumber].archive;
+    }
+    return bytes32(0);
   }
 
   /**

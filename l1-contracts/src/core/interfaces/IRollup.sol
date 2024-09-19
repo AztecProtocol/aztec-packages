@@ -54,6 +54,17 @@ interface IRollup {
 
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
 
+  function status(uint256 myHeaderBlockNumber)
+    external
+    view
+    returns (
+      uint256 provenBlockCount,
+      bytes32 provenArchive,
+      uint256 pendingBlockCount,
+      bytes32 pendingArchive,
+      bytes32 archiveOfMyBlock
+    );
+
   // TODO(#7346): Integrate batch rollups
   // function submitRootProof(
   //   bytes32 _previousArchive,

@@ -83,14 +83,14 @@ export async function processL2BlockProposedLogs(
 ): Promise<L1Published<L2Block>[]> {
   const retrievedBlocks: L1Published<L2Block>[] = [];
   for (const log of logs) {
-    const blockNum = log.args.blockNumber!;
+    const l2BlockNumber = log.args.blockNumber!;
     const archive = log.args.archive!;
-    const archiveFromChain = await rollup.read.archiveAt([blockNum]);
+    const archiveFromChain = await rollup.read.archiveAt([l2BlockNumber]);
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {
       // TODO: Fetch blocks from calldata in parallel
-      const block = await getBlockFromRollupTx(publicClient, log.transactionHash!, blockNum);
+      const block = await getBlockFromRollupTx(publicClient, log.transactionHash!, l2BlockNumber);
 
       const l1: L1PublishedData = {
         blockNumber: log.blockNumber,
@@ -101,7 +101,7 @@ export async function processL2BlockProposedLogs(
       retrievedBlocks.push({ data: block, l1 });
     } else {
       logger.warn(
-        `Archive mismatch matching, ignoring block ${blockNum} with archive: ${archive}, expected ${archiveFromChain}`,
+        `Archive mismatch matching, ignoring block ${l2BlockNumber} with archive: ${archive}, expected ${archiveFromChain}`,
       );
     }
   }
