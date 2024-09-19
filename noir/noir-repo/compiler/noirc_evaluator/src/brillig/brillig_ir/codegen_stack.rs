@@ -10,6 +10,7 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         sources: Vec<MemoryAddress>,
         destinations: Vec<MemoryAddress>,
     ) {
+        // Dummy change to test
         let new_sources: Vec<_> = sources
             .iter()
             .map(|source| {
