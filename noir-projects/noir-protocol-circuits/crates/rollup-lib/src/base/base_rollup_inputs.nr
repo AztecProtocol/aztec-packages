@@ -482,10 +482,7 @@ mod tests {
     },
         partial_state_reference::PartialStateReference,
         data::{PublicDataTreeLeaf, PublicDataTreeLeafPreimage},
-        tests::{
-        fixtures, fixture_builder::FixtureBuilder,
-        merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}
-    },
+        tests::{fixtures, fixture_builder::FixtureBuilder, merkle_tree_utils::NonEmptyMerkleTree},
         utils::{arrays::get_sorted_tuple::get_sorted_tuple, field::{full_field_less_than, field_from_bytes_32_trunc}},
         traits::Empty
     };
@@ -495,8 +492,8 @@ mod tests {
         value: Field,
     }
 
-    global MAX_nullifiers_PER_TEST = 4;
-    global MAX_PUBLIC_DATA_READS_PER_TEST = 2;
+    global MAX_nullifiers_PER_TEST: u32 = 4;
+    global MAX_PUBLIC_DATA_READS_PER_TEST: u32 = 2;
 
     fn update_public_data_tree<let EXISTING_LEAVES: u32, let SUBTREE_SIBLING_PATH_LENGTH: u32, let SUBTREE_HEIGHT: u32>(
         public_data_tree: &mut NonEmptyMerkleTree<EXISTING_LEAVES, PUBLIC_DATA_TREE_HEIGHT, SUBTREE_SIBLING_PATH_LENGTH, SUBTREE_HEIGHT>,
@@ -607,10 +604,6 @@ mod tests {
         // Index of the item in the pre_existing_public_data array that contains the fee payer's Fee Juice balance.
         // Used for building the public data hint read for the payment update request. If set to none, no hint is built.
         fee_payer_fee_juice_balance_pre_existing_public_data_index: Option<u32>
-    }
-
-    fn test_compute_empty_root<let N: u32>(size: [Field; N]) -> Field {
-        compute_zero_hashes(size)[N - 1]
     }
 
     impl BaseRollupInputsBuilder {

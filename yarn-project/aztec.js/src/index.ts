@@ -29,6 +29,7 @@ export {
   type ContractStorageLayout,
   DefaultWaitOpts,
   DeployMethod,
+  DeployOptions,
   DeploySentTx,
   type SendMethodOptions,
   SentTx,

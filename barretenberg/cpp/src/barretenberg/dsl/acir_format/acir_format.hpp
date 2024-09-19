@@ -5,7 +5,7 @@
 #include "avm_recursion_constraint.hpp"
 #endif
 
-#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "bigint_constraint.hpp"
@@ -25,6 +25,7 @@
 #include "recursion_constraint.hpp"
 #include "schnorr_verify.hpp"
 #include "sha256_constraint.hpp"
+#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -125,6 +126,7 @@ struct AcirFormat {
 
     // Set of constrained witnesses
     std::set<uint32_t> constrained_witness = {};
+    std::map<uint32_t, uint32_t> minimal_range = {};
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
@@ -210,7 +212,7 @@ Builder create_circuit(AcirFormat& constraint_system,
                        bool collect_gates_per_opcode = false);
 
 MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
-                                         AztecIVC& ivc,
+                                         ClientIVC& ivc,
                                          const WitnessVector& witness = {},
                                          const size_t size_hint = 0);
 

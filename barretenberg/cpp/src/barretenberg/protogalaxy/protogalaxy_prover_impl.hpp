@@ -125,11 +125,9 @@ FoldingResult<typename DeciderProvingKeys::Flavor> ProtogalaxyProver_<DeciderPro
     const FF combiner_challenge = transcript->template get_challenge<FF>("combiner_quotient_challenge");
 
     FoldingResult<Flavor> result{ .accumulator = keys[0], .proof = std::move(transcript->proof_data) };
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/881): bad pattern
     result.accumulator->is_accumulator = true;
 
-    // Compute the next target sum
+    // Compute the next target sum (for its own use; verifier must compute its own values)
     auto [vanishing_polynomial_at_challenge, lagranges] =
         Fun::compute_vanishing_polynomial_and_lagranges(combiner_challenge);
     result.accumulator->target_sum = perturbator_evaluation * lagranges[0] +

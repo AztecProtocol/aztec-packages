@@ -7,9 +7,9 @@ use dep::aztec::{
     oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
 };
 
-global ADDRESS_NOTE_LEN: Field = 3;
+global ADDRESS_NOTE_LEN: u32 = 3;
 // ADDRESS_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global ADDRESS_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
+global ADDRESS_NOTE_BYTES_LEN: u32 = 3 * 32 + 64;
 
 // docs:start:address_note_def
 // docs:start:address_note_struct

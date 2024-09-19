@@ -252,7 +252,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * time) assumes the value G(1) is 0, which is true in the case where the witness to be folded is valid.
      * @todo (https://github.com/AztecProtocol/barretenberg/issues/968) Make combiner tests better
      *
-     * @tparam skip_zero_computations whether to use the the optimization that skips computing zero.
+     * @tparam skip_zero_computations whether to use the optimization that skips computing zero.
      * @param
      * @param gate_separators
      * @return ExtendedUnivariateWithRandomization
