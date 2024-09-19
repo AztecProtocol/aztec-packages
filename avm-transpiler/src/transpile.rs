@@ -467,7 +467,7 @@ fn handle_external_call(
         // (left to right)
         //   * selector direct
         //   * success offset direct
-        //   * (n/a) ret size is an immeadiate
+        //   * (n/a) ret size is an immediate
         //   * ret offset INDIRECT
         //   * arg size offset direct
         //   * args offset INDIRECT
