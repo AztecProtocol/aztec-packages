@@ -54,15 +54,15 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     auto secondary_calldata = circuit.get_secondary_calldata();
     auto return_data = circuit.get_return_data();
 
-    public_calldata = Polynomial(circuit.get_calldata().size(), proving_key.circuit_size);
-    calldata_read_counts = Polynomial(circuit.get_calldata().size(), proving_key.circuit_size);
-    calldata_read_tags = Polynomial(circuit.get_calldata().size(), proving_key.circuit_size);
-    public_secondary_calldata = Polynomial(circuit.get_secondary_calldata().size(), proving_key.circuit_size);
-    secondary_calldata_read_counts = Polynomial(circuit.get_secondary_calldata().size(), proving_key.circuit_size);
-    secondary_calldata_read_tags = Polynomial(circuit.get_secondary_calldata().size(), proving_key.circuit_size);
-    public_return_data = Polynomial(circuit.get_return_data().size(), proving_key.circuit_size);
-    return_data_read_counts = Polynomial(circuit.get_return_data().size(), proving_key.circuit_size);
-    return_data_read_tags = Polynomial(circuit.get_return_data().size(), proving_key.circuit_size);
+    public_calldata = Polynomial(calldata.size(), proving_key.circuit_size);
+    calldata_read_counts = Polynomial(calldata.size(), proving_key.circuit_size);
+    calldata_read_tags = Polynomial(calldata.size(), proving_key.circuit_size);
+    public_secondary_calldata = Polynomial(secondary_calldata.size(), proving_key.circuit_size);
+    secondary_calldata_read_counts = Polynomial(secondary_calldata.size(), proving_key.circuit_size);
+    secondary_calldata_read_tags = Polynomial(secondary_calldata.size(), proving_key.circuit_size);
+    public_return_data = Polynomial(return_data.size(), proving_key.circuit_size);
+    return_data_read_counts = Polynomial(return_data.size(), proving_key.circuit_size);
+    return_data_read_tags = Polynomial(return_data.size(), proving_key.circuit_size);
 
     // Note: We do not utilize a zero row for databus columns
     for (size_t idx = 0; idx < calldata.size(); ++idx) {
@@ -83,7 +83,9 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     }
 
     auto& databus_id = proving_key.polynomials.databus_id;
-    databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
+    // size_t databus_size = std::max({ calldata.size(), secondary_calldata.size(), return_data.size() });
+    size_t databus_size = proving_key.circuit_size;
+    databus_id = Polynomial(databus_size, proving_key.circuit_size);
     // Compute a simple identity polynomial for use in the databus lookup argument
     for (size_t i = 0; i < databus_id.size(); ++i) {
         databus_id.at(i) = i;
