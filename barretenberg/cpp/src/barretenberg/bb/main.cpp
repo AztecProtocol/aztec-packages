@@ -969,8 +969,8 @@ void avm_prove(const std::filesystem::path& bytecode_path,
     std::vector<fr> vk_as_fields = verification_key.to_field_elements();
 
     vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("circuit size: ", static_cast<size_t>(vk_as_fields[0]));
-    vinfo("num of pub inputs: ", static_cast<size_t>(vk_as_fields[1]));
+    vinfo("circuit size: ", static_cast<uint64_t>(vk_as_fields[0]));
+    vinfo("num of pub inputs: ", static_cast<uint64_t>(vk_as_fields[1]));
 
     std::string vk_json = to_json(vk_as_fields);
     const auto proof_path = output_path / "proof";
