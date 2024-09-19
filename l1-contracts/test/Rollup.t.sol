@@ -14,6 +14,7 @@ import {Outbox} from "../src/core/messagebridge/Outbox.sol";
 import {Errors} from "../src/core/libraries/Errors.sol";
 import {Rollup} from "../src/core/Rollup.sol";
 import {IFeeJuicePortal} from "../src/core/interfaces/IFeeJuicePortal.sol";
+import {IRollup} from "../src/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "../src/core/FeeJuicePortal.sol";
 import {Leonidas} from "../src/core/sequencer_selection/Leonidas.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
@@ -76,6 +77,178 @@ contract RollupTest is DecoderBase {
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
     _;
+  }
+
+  function warpToL2Slot(uint256 _slot) public {
+    uint256 initialTime = rollup.GENESIS_TIME();
+    vm.warp(initialTime + _slot * Constants.AZTEC_SLOT_DURATION);
+  }
+
+  function testClaimEpochProofRight() public setUpFor("mixed_block_1") {
+    assertEq(rollup.getCurrentSlot(), 0, "genesis slot should be zero");
+
+    // make a quote that we'll update as we go to hit various errors
+    DataStructures.EpochProofQuote memory quote = DataStructures.EpochProofQuote({
+      signature: SignatureLib.Signature({isEmpty: false, v: 27, r: bytes32(0), s: bytes32(0)}),
+      epochToProve: 42,
+      validUntilSlot: 0,
+      bondAmount: 1,
+      rollup: address(0),
+      basisPointFee: 0
+    });
+
+    // sanity check that proven/pending tip are at genesis
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
+    rollup.claimEpochProofRight(quote);
+
+    warpToL2Slot(1);
+    assertEq(rollup.getCurrentSlot(), 1, "warp to slot 1 failed");
+    assertEq(rollup.getCurrentEpoch(), 0, "Invalid current epoch");
+
+    // empty slots do not move pending chain
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
+    rollup.claimEpochProofRight(quote);
+
+    _testBlock("mixed_block_1", false, 1);
+    assertEq(rollup.getCurrentEpoch(), 0, "Invalid current epoch");
+    assertEq(rollup.getCurrentSlot(), 1, "propose block should not shift slot");
+    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
+    assertEq(rollup.getEpochToProve(), 0, "Invalid epoch to prove");
+
+    // the quote has the wrong epoch
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__NotClaimingCorrectEpoch.selector, 0, quote.epochToProve)
+    );
+    rollup.claimEpochProofRight(quote);
+    quote.epochToProve = 0;
+
+    // the quote has too little bond
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__InsufficientBondAmount.selector,
+        rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+        1
+      )
+    );
+    rollup.claimEpochProofRight(quote);
+    quote.bondAmount = rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST();
+
+    // the quote has expired
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__QuoteExpired.selector, 1, quote.validUntilSlot)
+    );
+    rollup.claimEpochProofRight(quote);
+    quote.validUntilSlot = 1;
+
+    // quick sanity that we still have nothing to prune
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
+    rollup.prune();
+
+    // now the quote is good
+    vm.expectEmit(true, true, true, true);
+    emit IRollup.ProofRightClaimed(
+      quote.epochToProve, address(0), address(this), quote.bondAmount, 1
+    );
+    rollup.claimEpochProofRight(quote);
+
+    // cannot claim again
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
+    rollup.claimEpochProofRight(quote);
+
+    // the rollup properly stores the quote
+    {
+      (
+        uint256 epochToProve,
+        uint256 basisPointFee,
+        uint256 bondAmount,
+        address bondProvider,
+        address proposerClaimant
+      ) = rollup.proofClaim();
+      assertEq(epochToProve, quote.epochToProve, "Invalid epoch to prove");
+      assertEq(basisPointFee, quote.basisPointFee, "Invalid basis point fee");
+      assertEq(bondAmount, quote.bondAmount, "Invalid bond amount");
+      // TODO #8573
+      // This will be fixed with proper escrow
+      assertEq(bondProvider, address(0), "Invalid bond provider");
+      assertEq(proposerClaimant, address(this), "Invalid proposer claimant");
+    }
+
+    // still in the same epoch. shouldn't be able to claim
+    warpToL2Slot(2);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
+    rollup.claimEpochProofRight(quote);
+
+    // warp to epoch 1
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION);
+    assertEq(rollup.getCurrentEpoch(), 1, "Invalid current epoch");
+
+    // We should still be trying to prove epoch 0 in epoch 1
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
+    rollup.claimEpochProofRight(quote);
+
+    // still nothing to prune
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
+    rollup.prune();
+
+    // different error demonstrated:
+    // cannot claim if we are not in the claim phase
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS());
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__NotInClaimPhase.selector,
+        Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS(),
+        rollup.CLAIM_DURATION_IN_L2_SLOTS()
+      )
+    );
+    rollup.claimEpochProofRight(quote);
+
+    // still cannot prune epoch 0 because a claim to prove it exists
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
+    rollup.prune();
+
+    // now we're in epoch 2
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION * 2);
+
+    // We should still be trying to prove epoch 0 in epoch 2
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
+    rollup.claimEpochProofRight(quote);
+
+    // but at this point we can prune
+    rollup.prune();
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
+    rollup.claimEpochProofRight(quote);
+
+    _testBlock("mixed_block_1", false, Constants.AZTEC_EPOCH_DURATION * 2);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Rollup__QuoteExpired.selector, Constants.AZTEC_EPOCH_DURATION * 2, 1
+      )
+    );
+    rollup.claimEpochProofRight(quote);
+
+    quote.validUntilSlot = Constants.AZTEC_EPOCH_DURATION * 2;
+    vm.expectEmit(true, true, true, true);
+    emit IRollup.ProofRightClaimed(
+      quote.epochToProve,
+      address(0),
+      address(this),
+      quote.bondAmount,
+      Constants.AZTEC_EPOCH_DURATION * 2
+    );
+    rollup.claimEpochProofRight(quote);
+  }
+
+  function testPruneWhenNoProofClaim() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false);
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
+    rollup.prune();
+
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS());
+    rollup.prune();
   }
 
   function testRevertProveTwice() public setUpFor("mixed_block_1") {

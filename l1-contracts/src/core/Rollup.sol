@@ -176,18 +176,18 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.epochToProve);
     }
 
-    // Overwrite stale proof claims:
-    // if the epoch to prove is not the one that has been claimed,
-    // then whatever is in the proofClaim is stale,
-    // and we overwrite below
-    if (proofClaim.epochToProve == epochToProve) {
-      revert Errors.Rollup__ProofRightAlreadyClaimed();
-    }
-
     if (currentSlot % Constants.AZTEC_EPOCH_DURATION >= CLAIM_DURATION_IN_L2_SLOTS) {
       revert Errors.Rollup__NotInClaimPhase(
         currentSlot, currentSlot % Constants.AZTEC_EPOCH_DURATION
       );
+    }
+
+    // Overwrite stale proof claims:
+    // if the epoch to prove is not the one that has been claimed,
+    // then whatever is in the proofClaim is stale,
+    // and we overwrite below
+    if (proofClaim.epochToProve == epochToProve && proofClaim.proposerClaimant != address(0)) {
+      revert Errors.Rollup__ProofRightAlreadyClaimed();
     }
 
     if (_quote.bondAmount < PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST) {
@@ -196,7 +196,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       );
     }
 
-    if (_quote.validUntilSlot > currentSlot) {
+    if (_quote.validUntilSlot < currentSlot) {
       revert Errors.Rollup__QuoteExpired(currentSlot, _quote.validUntilSlot);
     }
 
@@ -547,6 +547,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   function _prune() internal {
+    delete proofClaim;
+
     uint256 pending = tips.pendingBlockNumber;
 
     // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
@@ -580,7 +582,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       return false;
     } else if (
       currentSlot < startSlotOfPendingEpoch + 2 * Constants.AZTEC_EPOCH_DURATION
-        && proofClaim.epochToProve == oldestPendingEpoch
+        && proofClaim.epochToProve == oldestPendingEpoch && proofClaim.proposerClaimant != address(0)
     ) {
       // We have left the claim phase, but we're still in the next epoch and a claim has been made
       return false;
