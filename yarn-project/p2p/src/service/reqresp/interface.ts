@@ -54,10 +54,10 @@ const noopValidator = () => Promise.resolve(true);
  */
 export type ReqRespSubProtocolHandlers = Record<ReqRespSubProtocol, ReqRespSubProtocolHandler>;
 
-type ResponseValidator<T> = (msg: T, peerId: PeerId) => Promise<boolean>;
+type ResponseValidator<RequestIdentifier, Response> = (request: RequestIdentifier, response: Response, peerId: PeerId) => Promise<boolean>;
 
 export type ReqRespSubProtocolValidators = {
-  [S in ReqRespSubProtocol]: ResponseValidator<any>;
+  [S in ReqRespSubProtocol]: ResponseValidator<any, any>;
 }
 
 export const DEFAULT_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {

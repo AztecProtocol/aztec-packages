@@ -20,6 +20,7 @@ import {
   type ReqRespSubProtocolHandlers,
 } from './interface.js';
 import { RequestResponseRateLimiter } from './rate_limiter/rate_limiter.js';
+import { PeerErrorSeverity } from '../peer_scoring.js';
 
 /**
  * The Request Response Service
@@ -46,7 +47,7 @@ export class ReqResp {
 
   private rateLimiter: RequestResponseRateLimiter;
 
-  constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p, peerManager: PeerManager) {
+  constructor(config: P2PReqRespConfig, protected readonly libp2p: Libp2p, private peerManager: PeerManager) {
     this.logger = createDebugLogger('aztec:p2p:reqresp');
 
     this.overallRequestTimeoutMs = config.overallRequestTimeoutMs;
@@ -146,6 +147,7 @@ export class ReqResp {
 
       this.logger.debug(`Stream opened with ${peerId.toString()} for ${subProtocol}`);
 
+      // Open the stream with a timeout
       const result = await executeTimeoutWithCustomError<Buffer>(
         (): Promise<Buffer> => pipe([payload], stream!, this.readMessage),
         this.individualRequestTimeoutMs,
@@ -158,6 +160,9 @@ export class ReqResp {
       return result;
     } catch (e: any) {
       this.logger.error(`${e.message} | peerId: ${peerId.toString()} | subProtocol: ${subProtocol}`);
+      // TODO(md): do we really want to penalize for this?
+      // An individual peer timing out a request is a high tolerance error
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
     } finally {
       if (stream) {
         try {

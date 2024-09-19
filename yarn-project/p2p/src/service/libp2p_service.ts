@@ -168,7 +168,7 @@ export class LibP2PService implements P2PService {
     // Define the sub protocol validators - This is done within this start() method to gain a callback to the existing validateTx function
     const reqrespSubProtocolValidators = {
       ...DEFAULT_SUB_PROTOCOL_VALIDATORS,
-      [TX_REQ_PROTOCOL]: this.validateTx,
+      [TX_REQ_PROTOCOL]: this.validateRequestedTx,
     };
     await this.reqresp.start(this.requestResponseHandlers, reqrespSubProtocolValidators);
   }
@@ -419,14 +419,35 @@ export class LibP2PService implements P2PService {
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer.`);
 
-    const isValidTx = await this.validateTx(tx, peerId);
+    const isValidTx = await this.validatePropagatedTx(tx, peerId);
 
     if (isValidTx) {
       await this.txPool.addTxs([tx]);
     }
   }
 
-  public async validateTx(tx: Tx, peerId: PeerId): Promise<boolean> {
+  // TODO: more commentary
+  // When validating a tx that was specifically requested, we only penalise the peer if the tx hash does NOT
+  // line up with the requested Tx
+  private async validateRequestedTx(requestedTxHash: TxHash, responseTx: Tx, peerId: PeerId): Promise<boolean> {
+    const proofValidator = new TxProofValidator(this.proofVerifier);
+    const [_____, proofInvalidTxs] = await proofValidator.validateTxs([responseTx]);
+    if (proofInvalidTxs.length > 0) {
+      // penalize
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+      return false;
+    }
+
+    if (requestedTxHash !== responseTx.getTxHash()) {
+      // penalize
+      this.peerManager.penalizePeer(peerId, PeerErrorSeverity.HighToleranceError);
+      return false;
+    }
+
+    return true;
+  }
+
+  private async validatePropagatedTx(tx: Tx, peerId: PeerId): Promise<boolean> {
     const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
     // basic data validation
     const dataValidator = new DataTxValidator();
