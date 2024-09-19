@@ -21,7 +21,7 @@ import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize'
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 
 /**
- * Used for managing keys. Can hold keys of multiple accounts and allows for key rotation.
+ * Used for managing keys. Can hold keys of multiple accounts.
  */
 export class KeyStore {
   #keys: AztecMap<string, Buffer>;
@@ -310,9 +310,7 @@ export class KeyStore {
   #getKeyPrefixAndAccount(value: Bufferable): [KeyPrefix, AztecAddress] {
     const valueBuffer = serializeToBuffer(value);
     for (const [key, val] of this.#keys.entries()) {
-      // `val` can contain multiple values due to key rotation so we check if the value is in the buffer instead
-      // of just calling `.equals(...)`
-      if (val.includes(valueBuffer)) {
+      if (val.equals(valueBuffer)) {
         for (const prefix of KEY_PREFIXES) {
           if (key.includes(`-${prefix}`)) {
             const account = AztecAddress.fromString(key.split('-')[0]);
