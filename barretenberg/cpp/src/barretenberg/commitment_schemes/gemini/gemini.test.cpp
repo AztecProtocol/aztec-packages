@@ -1,4 +1,4 @@
-#include "gemini.hpp"
+#include "gemini_impl.hpp"
 
 #include "../commitment_key.test.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -25,11 +25,12 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
         // Compute:
         // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
         // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-        auto prover_output = GeminiProver::prove(this->commitment_key,
-                                                 multilinear_evaluation_point,
-                                                 multilinear_evaluations,
+        auto prover_output = GeminiProver::prove(1 << multilinear_evaluation_point.size(),
                                                  RefVector(multilinear_polynomials),
                                                  RefVector(multilinear_polynomials_to_be_shifted),
+                                                 RefVector(multilinear_evaluations),
+                                                 multilinear_evaluation_point,
+                                                 this->commitment_key,
                                                  prover_transcript);
 
         // Check that the Fold polynomials have been evaluated correctly in the prover

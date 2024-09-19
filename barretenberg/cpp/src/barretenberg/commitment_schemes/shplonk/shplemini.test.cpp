@@ -1,5 +1,5 @@
 
-#include "shplemini_verifier.hpp"
+#include "shplemini.hpp"
 #include "../commitment_key.test.hpp"
 #include "../gemini/gemini.hpp"
 #include "../kzg/kzg.hpp"

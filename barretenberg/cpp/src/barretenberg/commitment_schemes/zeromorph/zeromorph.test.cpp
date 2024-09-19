@@ -208,13 +208,15 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
                           std::vector<Fr> u_challenge)
     {
         auto prover_transcript = NativeTranscript::prover_init_empty();
+        std::vector<Fr> multilinear_evaluations(unshifted.evaluations);
+        multilinear_evaluations.insert(
+            multilinear_evaluations.end(), shifted.evaluations.begin(), shifted.evaluations.end());
 
         // Execute Prover protocol
         auto prover_opening_claim = ZeroMorphProver::prove(N,
                                                            RefVector(unshifted.polynomials), // unshifted
                                                            RefVector(shifted.polynomials),   // to-be shifted
-                                                           RefVector(unshifted.evaluations), // unshifted
-                                                           RefVector(shifted.evaluations),   // shifted
+                                                           RefVector(multilinear_evaluations),
                                                            u_challenge,
                                                            this->commitment_key,
                                                            prover_transcript);
@@ -226,8 +228,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
         auto verifier_opening_claim = ZeroMorphVerifier::verify(N,
                                                                 RefVector(unshifted.commitments), // unshifted
                                                                 RefVector(shifted.commitments),   // to-be-shifted
-                                                                RefVector(unshifted.evaluations), // unshifted
-                                                                RefVector(shifted.evaluations),   // shifted
+                                                                RefVector(multilinear_evaluations),
                                                                 u_challenge,
                                                                 this->vk()->get_g1_identity(),
                                                                 verifier_transcript);
@@ -235,7 +236,6 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
 
         bool verified = false;
         if constexpr (std::same_as<PCS, KZG<curve::BN254>>) {
-
             result = PCS::reduce_verify(verifier_opening_claim, verifier_transcript);
             verified = this->vk()->pairing_check(result[0], result[1]);
         } else {
@@ -257,6 +257,9 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
                                              size_t NUM_CONCATENATED)
     {
         ConcatenationInputs concatenation = concatenation_inputs(u_challenge, NUM_CONCATENATED);
+        std::vector<Fr> multilinear_evaluations(unshifted.evaluations);
+        multilinear_evaluations.insert(
+            multilinear_evaluations.end(), shifted.evaluations.begin(), shifted.evaluations.end());
 
         auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -265,8 +268,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
             ZeroMorphProver::prove(N,
                                    RefVector(unshifted.polynomials), // unshifted
                                    RefVector(shifted.polynomials),   // to-be-shifted
-                                   RefVector(unshifted.evaluations), // unshifted
-                                   RefVector(shifted.evaluations),   // shifted
+                                   RefVector(multilinear_evaluations),
                                    u_challenge,
                                    this->commitment_key,
                                    prover_transcript,
@@ -281,8 +283,7 @@ template <class PCS> class ZeroMorphTest : public CommitmentTest<typename PCS::C
             ZeroMorphVerifier::verify(N,
                                       RefVector(unshifted.commitments), // unshifted
                                       RefVector(shifted.commitments),   // to-be-shifted
-                                      RefVector(unshifted.evaluations), // unshifted
-                                      RefVector(shifted.evaluations),   // shifted
+                                      RefVector(multilinear_evaluations),
                                       u_challenge,
                                       this->vk()->get_g1_identity(),
                                       verifier_transcript,

@@ -1,7 +1,7 @@
 
 #include "kzg.hpp"
 #include "../gemini/gemini.hpp"
-#include "../shplonk/shplemini_verifier.hpp"
+#include "../shplonk/shplemini.hpp"
 #include "../shplonk/shplonk.hpp"
 
 #include "../commitment_key.test.hpp"
@@ -92,11 +92,12 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims = GeminiProver::prove(this->ck(),
-                                                     mle_opening_point,
-                                                     multilinear_evaluations,
+    auto prover_opening_claims = GeminiProver::prove(n,
                                                      RefArray{ poly1, poly2 },
                                                      RefArray{ poly2 },
+                                                     RefVector(multilinear_evaluations),
+                                                     mle_opening_point,
+                                                     this->ck(),
                                                      prover_transcript);
 
     // Shplonk prover output:
@@ -169,11 +170,12 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims = GeminiProver::prove(this->ck(),
-                                                     mle_opening_point,
-                                                     multilinear_evaluations,
+    auto prover_opening_claims = GeminiProver::prove(n,
                                                      RefArray{ poly1, poly2 },
                                                      RefArray{ poly2 },
+                                                     RefVector(multilinear_evaluations),
+                                                     mle_opening_point,
+                                                     this->ck(),
                                                      prover_transcript);
 
     // Shplonk prover output:
@@ -191,14 +193,14 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(log_n,
-                                                                                    RefVector(unshifted_commitments),
-                                                                                    RefVector(shifted_commitments),
-                                                                                    RefVector(multilinear_evaluations),
-                                                                                    mle_opening_point,
-                                                                                    this->vk()->get_g1_identity(),
-                                                                                    verifier_transcript);
-    const auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, verifier_transcript);
+    const auto batch_opening_claim = ShpleminiVerifier::verify(log_n,
+                                                               RefVector(unshifted_commitments),
+                                                               RefVector(shifted_commitments),
+                                                               RefVector(multilinear_evaluations),
+                                                               mle_opening_point,
+                                                               this->vk()->get_g1_identity(),
+                                                               verifier_transcript);
+    const auto pairing_points = KZG::reduce_verify(batch_opening_claim, verifier_transcript);
     // Final pairing check: e([Q] - [Q_z] + z[W], [1]_2) = e([W], [x]_2)
 
     EXPECT_EQ(this->vk()->pairing_check(pairing_points[0], pairing_points[1]), true);

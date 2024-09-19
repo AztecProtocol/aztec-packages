@@ -1,12 +1,45 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/commitment_schemes/gemini/gemini.hpp"
+#include "barretenberg/commitment_schemes/gemini/gemini_impl.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
+
+template <typename Curve> class ShpleminiProver_ {
+  public:
+    using FF = typename Curve::ScalarField;
+    using GroupElement = typename Curve::Element;
+    using Commitment = typename Curve::AffineElement;
+    using Polynomial = bb::Polynomial<FF>;
+    using OpeningClaim = ProverOpeningClaim<Curve>;
+
+    using VK = CommitmentKey<Curve>;
+    using ShplonkProver = ShplonkProver_<Curve>;
+    using GeminiProver = GeminiProver_<Curve>;
+
+    template <typename Transcript>
+    static OpeningClaim prove(FF circuit_size,
+                              RefSpan<Polynomial> f_polynomials,
+                              RefSpan<Polynomial> g_polynomials,
+                              RefSpan<FF> multilinear_evaluations,
+                              std::span<FF> multilinear_challenge,
+                              const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                              const std::shared_ptr<Transcript>& transcript)
+    {
+        std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
+                                                                       f_polynomials,
+                                                                       g_polynomials,
+                                                                       multilinear_evaluations,
+                                                                       multilinear_challenge,
+                                                                       commitment_key,
+                                                                       transcript);
+        OpeningClaim batched_claim = ShplonkProver::prove(commitment_key, opening_claims, transcript);
+        return batched_claim;
+    };
+};
 /**
  * \brief An efficient verifier for the evaluation proofs of multilinear polynomials and their shifts.
  *
@@ -14,24 +47,24 @@ namespace bb {
  * \subsection Context
  *
  * This Verifier combines verifiers from four protocols:
- * 1. **Batch opening protocol**: Reduces various evaluation claims of multilinear polynomials and their shifts to the
- *    opening claim of a single batched polynomial.
- * 2. **Gemini protocol**: Reduces the batched polynomial opening claim to a claim about openings of Gemini univariate
- *    polynomials.
- * 3. **Shplonk protocol**: Reduces the opening of Gemini univariate polynomials at different points to a single opening
- *    of a batched univariate polynomial. Outputs \f$ \text{shplonk_opening_claim} \f$.
+ * 1. **Batch opening protocol**: Reduces various evaluation claims of multilinear polynomials and their shifts to
+ * the opening claim of a single batched polynomial.
+ * 2. **Gemini protocol**: Reduces the batched polynomial opening claim to a claim about openings of Gemini
+ * univariate polynomials.
+ * 3. **Shplonk protocol**: Reduces the opening of Gemini univariate polynomials at different points to a single
+ * opening of a batched univariate polynomial. Outputs \f$ \text{shplonk_opening_claim} \f$.
  * 4. **KZG or IPA protocol**: Verifies the evaluation of the univariate batched by Shplonk.
  *
  * **Important Observation**: From step 1 to step 4, the Verifier is not required to hash any results of its group
- * operations. Therefore, they could be performed at the very end, i.e. by the opening protocol of a chosen univariate
- * PCS. Because of this and the shape of the pairing check in Shplonk, various batch_mul calls could be reduced to a
- * single batch_mul call. This way we minimize the number of gates in the resulting recursive verifier circuits and save
- * some group operations in the native setting.
+ * operations. Therefore, they could be performed at the very end, i.e. by the opening protocol of a chosen
+ * univariate PCS. Because of this and the shape of the pairing check in Shplonk, various batch_mul calls could be
+ * reduced to a single batch_mul call. This way we minimize the number of gates in the resulting recursive verifier
+ * circuits and save some group operations in the native setting.
  *
- * \remark The sequence of steps could be performed by performing batching of unshifted and shifted polynomials, feeding
- * it to the existing GeminiVerifier, whose output would be passed to the ShplonkVerifier and then to the reduce_verify
- * method of a chosen PCS. However, it would be less efficient than ShpleminiVerifier in terms of group and field
- * operations.
+ * \remark The sequence of steps could be performed by performing batching of unshifted and shifted polynomials,
+ * feeding it to the existing GeminiVerifier, whose output would be passed to the ShplonkVerifier and then to the
+ * reduce_verify method of a chosen PCS. However, it would be less efficient than ShpleminiVerifier in terms of
+ * group and field operations.
  *
  * \subsection Implementation
  *
@@ -46,19 +79,19 @@ namespace bb {
  *    - Compute the evaluation of the Gemini batched univariate.
  * 4. Output a \ref bb::BatchOpeningClaim<Curve> "batch opening claim", which is a atriple \f$ (\text{commitments},
  * \text{scalars}, \text{shplonk_evaluation_point}) \f$ that satisfies the following: \f[ \text{batch_mul}
- * (\text{commitments},\ \text{scalars}) = \text{shplonk_opening_claim}.\text{point} \f] and the sizes of 'commitments'
- * and 'scalars' are equal to: \f[
+ * (\text{commitments},\ \text{scalars}) = \text{shplonk_opening_claim}.\text{point} \f] and the sizes of
+ * 'commitments' and 'scalars' are equal to: \f[
  * \#\text{claimed_evaluations} + \text{log_circuit_size} + 2
  * \f]
  *
  * The output triple is either fed to the corresponding \ref bb::KZG< Curve_ >::reduce_verify_batch_opening_claim
- * "KZG method" or \ref bb::IPA< Curve_ >::reduce_verify_batch_opening_claim "IPA method". In the case of KZG, we reduce
- * \f$ 6 \f$ batch_mul calls needed for the verification of the multivariate evaluation claims to the single batch_mul
- * described above. In the case of IPA, the total number of batch_mul calls needed to verify the multivariate evaluation
- * claims is reduced by \f$ 5 \f$.
+ * "KZG method" or \ref bb::IPA< Curve_ >::reduce_verify_batch_opening_claim "IPA method". In the case of KZG, we
+ * reduce \f$ 6 \f$ batch_mul calls needed for the verification of the multivariate evaluation claims to the single
+ * batch_mul described above. In the case of IPA, the total number of batch_mul calls needed to verify the
+ * multivariate evaluation claims is reduced by \f$ 5 \f$.
  *
- * TODO (https://github.com/AztecProtocol/barretenberg/issues/1084) Reduce the size of batch_mul further by eliminating
- * shifted commitments.
+ * TODO (https://github.com/AztecProtocol/barretenberg/issues/1084) Reduce the size of batch_mul further by
+ * eliminating shifted commitments.
  */
 
 template <typename Curve> class ShpleminiVerifier_ {
@@ -70,6 +103,37 @@ template <typename Curve> class ShpleminiVerifier_ {
     using GeminiVerifier = GeminiVerifier_<Curve>;
 
   public:
+    template <typename Transcript>
+    static OpeningClaim<Curve> verify(const Fr circuit_size,
+                                      RefSpan<Commitment> unshifted_commitments,
+                                      RefSpan<Commitment> shifted_commitments,
+                                      RefSpan<Fr> claimed_evaluations,
+                                      const std::vector<Fr>& multivariate_challenge,
+                                      const Commitment& g1_identity,
+                                      std::shared_ptr<Transcript>& transcript)
+    {
+        Fr log_N = numeric::get_msb(static_cast<uint32_t>(circuit_size));
+
+        BatchOpeningClaim<Curve> batch_opening_claim = compute_batch_opening_claim(log_N,
+                                                                                   unshifted_commitments,
+                                                                                   shifted_commitments,
+                                                                                   claimed_evaluations,
+                                                                                   multivariate_challenge,
+                                                                                   g1_identity,
+                                                                                   transcript);
+
+        GroupElement commitment;
+        if constexpr (Curve::is_stdlib_type) {
+            commitment = GroupElement::batch_mul(batch_opening_claim.commitments,
+                                                 batch_opening_claim.scalars,
+                                                 /*max_num_bits=*/0,
+                                                 /*with_edgecases=*/true);
+        } else {
+            commitment = batch_mul_native(batch_opening_claim.commitments, batch_opening_claim.scalars);
+        }
+
+        return { { batch_opening_claim.evaluation_point, Fr(0) }, commitment };
+    }
     template <typename Transcript>
     static BatchOpeningClaim<Curve> compute_batch_opening_claim(const Fr log_N,
                                                                 RefSpan<Commitment> unshifted_commitments,
@@ -135,8 +199,8 @@ template <typename Curve> class ShpleminiVerifier_ {
             gemini_evaluation_challenge.invert() *
             (inverse_vanishing_evals[0] - shplonk_batching_challenge * inverse_vanishing_evals[1]);
 
-        // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the batched
-        // multilinear polynomial. Populate the vector of scalars for the final batch mul
+        // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
+        // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
         Fr batched_evaluation{ 0 };
         batch_multivariate_opening_claims(unshifted_commitments,
                                           shifted_commitments,
@@ -175,8 +239,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         return { commitments, scalars, shplonk_evaluation_challenge };
     };
     /**
-     * @brief Populates the vectors of commitments and scalars, and computes the evaluation of the batched multilinear
-     * polynomial at the sumcheck challenge.
+     * @brief Populates the vectors of commitments and scalars, and computes the evaluation of the batched
+     * multilinear polynomial at the sumcheck challenge.
      *
      * @details This function iterates over all commitments and the claimed evaluations of the corresponding
      * polynomials. The following notations are used:
@@ -257,11 +321,11 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
     }
     /**
-     * @brief Populates the 'commitments' and 'scalars' vectors with the commitments to Gemini fold polynomials \f$ A_i
-     * \f$.
+     * @brief Populates the 'commitments' and 'scalars' vectors with the commitments to Gemini fold polynomials \f$
+     * A_i \f$.
      *
-     * @details Once the commitments to Gemini "fold" polynomials \f$ A_i \f$ and their evaluations at \f$ -r^{2^i} \f$,
-     * where \f$ i = 1, \ldots, n-1 \f$, are received by the verifier, it performs the following operations:
+     * @details Once the commitments to Gemini "fold" polynomials \f$ A_i \f$ and their evaluations at \f$ -r^{2^i}
+     * \f$, where \f$ i = 1, \ldots, n-1 \f$, are received by the verifier, it performs the following operations:
      *
      * 1. Moves the vector
      * \f[
@@ -316,4 +380,12 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
     }
 };
+
+// TODO: temporary hack
+template <typename Curve> class Shplemini_ {
+  public:
+    using Prover = ShpleminiProver_<Curve>;
+    using Verifier = ShpleminiVerifier_<Curve>;
+};
+
 } // namespace bb

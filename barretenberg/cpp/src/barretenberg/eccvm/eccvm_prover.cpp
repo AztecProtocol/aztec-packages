@@ -119,15 +119,13 @@ void ECCVMProver::execute_pcs_rounds()
 
     // Execute the ZeroMorph protocol to produce a univariate opening claim for the multilinear evaluations produced by
     // Sumcheck
-    auto multivariate_to_univariate_opening_claim =
-        ZeroMorph::prove(key->circuit_size,
-                         key->polynomials.get_unshifted(),
-                         key->polynomials.get_to_be_shifted(),
-                         sumcheck_output.claimed_evaluations.get_unshifted(),
-                         sumcheck_output.claimed_evaluations.get_shifted(),
-                         sumcheck_output.challenge,
-                         commitment_key,
-                         transcript);
+    auto multivariate_to_univariate_opening_claim = ZeroMorph::prove(key->circuit_size,
+                                                                     key->polynomials.get_unshifted(),
+                                                                     key->polynomials.get_to_be_shifted(),
+                                                                     sumcheck_output.claimed_evaluations.get_all(),
+                                                                     sumcheck_output.challenge,
+                                                                     commitment_key,
+                                                                     transcript);
 
     // Batch open the transcript polynomials as univariates for Translator consistency check. Since IPA cannot
     // currently handle polynomials for which the latter half of the coefficients are 0, we hackily

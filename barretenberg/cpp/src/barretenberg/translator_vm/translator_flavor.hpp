@@ -683,6 +683,8 @@ class TranslatorFlavor {
                              this->ordered_range_constraints_4 };
         };
 
+        auto get_all_without_concatenated() { return concatenate(get_unshifted_without_concatenated(), get_shifted()); }
+
         // Gemini-specific getters.
         auto get_unshifted()
         {

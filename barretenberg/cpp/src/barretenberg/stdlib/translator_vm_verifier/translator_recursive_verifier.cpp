@@ -1,3 +1,4 @@
+
 #include "./translator_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -120,8 +121,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     auto opening_claim = ZeroMorph::verify(circuit_size,
                                            commitments.get_unshifted_without_concatenated(),
                                            commitments.get_to_be_shifted(),
-                                           claimed_evaluations.get_unshifted_without_concatenated(),
-                                           claimed_evaluations.get_shifted(),
+                                           claimed_evaluations.get_all_without_concatenated(),
                                            multivariate_challenge,
                                            Commitment::one(builder),
                                            transcript,

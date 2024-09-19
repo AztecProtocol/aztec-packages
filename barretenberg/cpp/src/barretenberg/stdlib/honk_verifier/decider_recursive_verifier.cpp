@@ -35,8 +35,7 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
     auto opening_claim = ZeroMorph::verify(accumulator->verification_key->circuit_size,
                                            commitments.get_unshifted(),
                                            commitments.get_to_be_shifted(),
-                                           claimed_evaluations.get_unshifted(),
-                                           claimed_evaluations.get_shifted(),
+                                           claimed_evaluations.get_all(),
                                            multivariate_challenge,
                                            Commitment::one(builder),
                                            transcript);

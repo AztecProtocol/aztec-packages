@@ -336,8 +336,7 @@ template <typename Curve> class ZeroMorphProver_ {
     static OpeningClaim prove(FF circuit_size,
                               RefSpan<Polynomial> f_polynomials,
                               RefSpan<Polynomial> g_polynomials,
-                              RefSpan<FF> f_evaluations,
-                              RefSpan<FF> g_shift_evaluations,
+                              RefSpan<FF> multilinear_evaluations,
                               std::span<FF> multilinear_challenge,
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript,
@@ -371,17 +370,20 @@ template <typename Curve> class ZeroMorphProver_ {
         FF batched_evaluation{ 0 };
         Polynomial f_batched(N); // batched unshifted polynomials
         FF batching_scalar{ 1 };
-        for (auto [f_poly, f_eval] : zip_view(f_polynomials, f_evaluations)) {
+        size_t evaluation_idx = 0;
+        for (auto f_poly : f_polynomials) {
             f_batched.add_scaled(f_poly, batching_scalar);
-            batched_evaluation += batching_scalar * f_eval;
+            batched_evaluation += batching_scalar * multilinear_evaluations[evaluation_idx];
             batching_scalar *= rho;
+            evaluation_idx++;
         }
 
         Polynomial g_batched{ N - 1, N, 1 }; // batched to-be-shifted polynomials
-        for (auto [g_poly, g_shift_eval] : zip_view(g_polynomials, g_shift_evaluations)) {
+        for (auto g_poly : g_polynomials) {
             g_batched.add_scaled(g_poly, batching_scalar);
-            batched_evaluation += batching_scalar * g_shift_eval;
+            batched_evaluation += batching_scalar * multilinear_evaluations[evaluation_idx];
             batching_scalar *= rho;
+            evaluation_idx++;
         };
 
         size_t num_groups = concatenation_groups.size();
@@ -722,8 +724,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
     static OpeningClaim<Curve> verify(FF circuit_size,
                                       RefSpan<Commitment> unshifted_commitments,
                                       RefSpan<Commitment> to_be_shifted_commitments,
-                                      RefSpan<FF> unshifted_evaluations,
-                                      RefSpan<FF> shifted_evaluations,
+                                      RefSpan<FF> multilinear_evaluations,
                                       std::span<FF> multivariate_challenge,
                                       const Commitment& g1_identity,
                                       const std::shared_ptr<Transcript>& transcript,
@@ -742,11 +743,7 @@ template <typename Curve> class ZeroMorphVerifier_ {
         // Construct batched evaluation v = sum_{i=0}^{m-1}\rho^i*f_i(u) + sum_{i=0}^{l-1}\rho^{m+i}*h_i(u)
         FF batched_evaluation = FF(0);
         FF batching_scalar = FF(1);
-        for (auto& value : unshifted_evaluations) {
-            batched_evaluation += value * batching_scalar;
-            batching_scalar *= rho;
-        }
-        for (auto& value : shifted_evaluations) {
+        for (auto& value : multilinear_evaluations) {
             batched_evaluation += value * batching_scalar;
             batching_scalar *= rho;
         }
@@ -806,6 +803,13 @@ template <typename Curve> class ZeroMorphVerifier_ {
 
         return { .opening_pair = { .challenge = x_challenge, .evaluation = FF(0) }, .commitment = C_zeta_Z };
     }
+};
+
+// This is temporary
+template <typename Curve> class ZeroMorph_ {
+  public:
+    using Prover = ZeroMorphProver_<Curve>;
+    using Verifier = ZeroMorphVerifier_<Curve>;
 };
 
 } // namespace bb

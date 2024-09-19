@@ -99,20 +99,23 @@ template <typename Curve> class GeminiProver_ {
     using Claim = ProverOpeningClaim<Curve>;
 
   public:
-    static std::vector<Polynomial> compute_fold_polynomials(std::span<const Fr> multilinear_evaluations,
+    static std::vector<Polynomial> compute_fold_polynomials(const size_t log_N,
+                                                            std::span<const Fr> multilinear_challenge,
                                                             Polynomial&& batched_unshifted,
                                                             Polynomial&& batched_to_be_shifted);
 
-    static std::vector<Claim> compute_fold_polynomial_evaluations(std::span<const Fr> multilinear_evaluations,
+    static std::vector<Claim> compute_fold_polynomial_evaluations(const size_t log_N,
                                                                   std::vector<Polynomial>&& fold_polynomials,
                                                                   const Fr& r_challenge);
 
-    static std::vector<Claim> prove(const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
-                                    std::span<Fr> multilinear_challenge,
-                                    std::span<Fr> multilinear_evaluations,
+    template <typename Transcript>
+    static std::vector<Claim> prove(const Fr circuit_size,
                                     RefSpan<Polynomial> f_polynomials,
                                     RefSpan<Polynomial> g_polynomials,
-                                    std::shared_ptr<NativeTranscript>& transcript);
+                                    RefSpan<Fr> multilinear_evaluations,
+                                    std::span<Fr> multilinear_challenge,
+                                    const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                                    const std::shared_ptr<Transcript>& transcript);
 }; // namespace bb
 
 template <typename Curve> class GeminiVerifier_ {

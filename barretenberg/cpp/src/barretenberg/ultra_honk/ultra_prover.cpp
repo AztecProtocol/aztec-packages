@@ -61,5 +61,6 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof(
 template class UltraProver_<UltraFlavor>;
 template class UltraProver_<UltraKeccakFlavor>;
 template class UltraProver_<MegaFlavor>;
+template class UltraProver_<UltraKeccakWithGeminiFlavor>;
 
 } // namespace bb

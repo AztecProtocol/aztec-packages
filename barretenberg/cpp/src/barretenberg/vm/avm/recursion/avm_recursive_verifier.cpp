@@ -85,8 +85,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     auto opening_claim = Zeromorph::verify(circuit_size,
                                            commitments.get_unshifted(),
                                            commitments.get_to_be_shifted(),
-                                           claimed_evaluations.get_unshifted(),
-                                           claimed_evaluations.get_shifted(),
+                                           claimed_evaluations.get_all(),
                                            multivariate_challenge,
                                            Commitment::one(builder),
                                            transcript);
