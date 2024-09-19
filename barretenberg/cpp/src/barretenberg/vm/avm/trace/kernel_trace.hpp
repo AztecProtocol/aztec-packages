@@ -63,6 +63,7 @@ class AvmKernelTraceBuilder {
     {}
 
     void reset();
+    size_t size() const { return kernel_trace.size(); }
     void finalize(std::vector<AvmFullRow<FF>>& main_trace);
     void finalize_columns(std::vector<AvmFullRow<FF>>& main_trace) const;
 

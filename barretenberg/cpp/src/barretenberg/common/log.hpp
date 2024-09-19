@@ -2,6 +2,7 @@
 #include "barretenberg/env/logstr.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include <algorithm>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -61,12 +62,14 @@ template <typename... Args> inline void debug(Args... /*unused*/) {}
 
 template <typename... Args> inline void info(Args... args)
 {
+    std::cerr << format(args...) << std::endl;
     logstr(format(args...).c_str());
 }
 
 extern bool verbose_logging;
 template <typename... Args> inline void vinfo(Args... args)
 {
+    std::cerr << format(args...) << std::endl;
     if (verbose_logging) {
         info(args...);
     }
