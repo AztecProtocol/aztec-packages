@@ -101,7 +101,6 @@ describe('End-to-end tests for devnet', () => {
         pxeInfo.protocolContractAddresses.instanceDeployer,
       );
       expect(nodeInfo.protocolContractAddresses.feeJuice).toEqual(pxeInfo.protocolContractAddresses.feeJuice);
-      expect(nodeInfo.protocolContractAddresses.keyRegistry).toEqual(pxeInfo.protocolContractAddresses.keyRegistry);
       expect(nodeInfo.protocolContractAddresses.multiCallEntrypoint).toEqual(
         pxeInfo.protocolContractAddresses.multiCallEntrypoint,
       );

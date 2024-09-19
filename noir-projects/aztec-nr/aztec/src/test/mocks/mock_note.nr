@@ -6,9 +6,9 @@ use crate::{
 use dep::protocol_types::{address::AztecAddress, constants::GENERATOR_INDEX__NOTE_NULLIFIER, point::Point};
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
-global MOCK_NOTE_LENGTH = 1;
+global MOCK_NOTE_LENGTH: u32 = 1;
 // MOCK_NOTE_LENGTH * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global MOCK_NOTE_BYTES_LENGTH: Field = 1 * 32 + 64;
+global MOCK_NOTE_BYTES_LENGTH: u32 = 1 * 32 + 64;
 
 struct MockNote {
   header: NoteHeader,

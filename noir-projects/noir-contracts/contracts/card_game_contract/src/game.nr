@@ -1,7 +1,7 @@
 use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Deserialize}};
 use crate::cards::Card;
 
-global NUMBER_OF_PLAYERS: u64 = 2;
+global NUMBER_OF_PLAYERS: u32 = 2;
 global NUMBER_OF_CARDS_DECK: u64 = 2;
 
 struct PlayerEntry {
@@ -16,7 +16,7 @@ impl PlayerEntry {
     }
 }
 
-global PLAYER_SERIALIZED_LEN: Field = 3;
+global PLAYER_SERIALIZED_LEN: u32 = 3;
 
 impl Deserialize<PLAYER_SERIALIZED_LEN> for PlayerEntry {
     fn deserialize(fields: [Field; PLAYER_SERIALIZED_LEN]) -> PlayerEntry {
@@ -36,7 +36,7 @@ impl Eq for PlayerEntry {
     }
 }
 
-global PLAYABLE_CARDS = 4;
+global PLAYABLE_CARDS: u32 = 4;
 
 struct Game {
     players: [PlayerEntry; NUMBER_OF_PLAYERS],
@@ -48,7 +48,7 @@ struct Game {
     current_round: u64,
 }
 
-global GAME_SERIALIZED_LEN: Field = 15;
+global GAME_SERIALIZED_LEN: u32 = 15;
 
 impl Serialize<GAME_SERIALIZED_LEN> for Game {
     fn serialize(game: Game) -> [Field; GAME_SERIALIZED_LEN] {
@@ -144,10 +144,10 @@ impl Game {
         assert(self.started, "Game not started");
         assert(!self.finished, "Game finished");
 
-        let round_offset = self.current_round * NUMBER_OF_PLAYERS;
+        let round_offset = self.current_round * (NUMBER_OF_PLAYERS as u64);
 
         self.rounds_cards[round_offset + self.current_player] = card;
-        self.current_player = (self.current_player + 1) % NUMBER_OF_PLAYERS;
+        self.current_player = (self.current_player + 1) % (NUMBER_OF_PLAYERS as u64);
 
         if self.current_player == 0 {
             self._finish_round();
@@ -155,7 +155,7 @@ impl Game {
     }
 
     fn _finish_round(&mut self) {
-        let round_offset = self.current_round * NUMBER_OF_PLAYERS;
+        let round_offset = self.current_round as u32 * NUMBER_OF_PLAYERS;
         self.current_round += 1;
 
         let mut winner_index = 0;
