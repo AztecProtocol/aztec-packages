@@ -8,6 +8,7 @@
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <functional>
 #include <iostream>
@@ -18,6 +19,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace bb::crypto::merkle_tree {
 
@@ -190,7 +192,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
 
     fr_sibling_path optional_sibling_path_to_full_sibling_path(const OptionalSiblingPath& optionalPath) const;
 
-    void add_values_internal(const std::shared_ptr<std::vector<fr>>& values,
+    void add_values_internal(std::shared_ptr<std::vector<fr>> values,
                              fr& new_root,
                              index_t& new_size,
                              bool update_index);
@@ -208,6 +210,11 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
                                      const RequestContext& requestContext,
                                      ReadTransaction& tx,
                                      bool updateNodesByIndexCache = false) const;
+
+    index_t get_batch_insertion_size(index_t treeSize, index_t remainingAppendSize);
+
+    void add_batch_internal(
+        std::vector<fr>& values, fr& new_root, index_t& new_size, bool update_index, ReadTransaction& tx);
 
     Store& store_;
     uint32_t depth_;
@@ -640,23 +647,66 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::rollback(const Rollba
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
-    const std::shared_ptr<std::vector<fr>>& values, fr& new_root, index_t& new_size, bool update_index)
+index_t ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_batch_insertion_size(index_t treeSize,
+                                                                                       index_t remainingAppendSize)
+{
+    index_t minPower2 = 1;
+    if (treeSize != 0U) {
+        while (!(minPower2 & treeSize)) {
+            minPower2 <<= 1;
+        }
+        if (minPower2 <= remainingAppendSize) {
+            return minPower2;
+        }
+    }
+    index_t maxPower2 = 1;
+    while (maxPower2 <= remainingAppendSize) {
+        maxPower2 <<= 1;
+    }
+    maxPower2 >>= 1;
+    return maxPower2;
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(std::shared_ptr<std::vector<fr>> values,
+                                                                               fr& new_root,
+                                                                               index_t& new_size,
+                                                                               bool update_index)
+{
+    typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
+    TreeMeta meta;
+    store_.get_meta(meta, *tx, true);
+    index_t sizeToAppend = values->size();
+    new_size = meta.size;
+    index_t batchIndex = 0;
+    while (sizeToAppend) {
+        index_t batchSize = get_batch_insertion_size(new_size, sizeToAppend);
+        sizeToAppend -= batchSize;
+        int64_t start = static_cast<int64_t>(batchIndex);
+        int64_t end = static_cast<int64_t>(batchIndex + batchSize);
+        std::vector<fr> batch = std::vector<fr>(values->begin() + start, values->begin() + end);
+        batchIndex += batchSize;
+        add_batch_internal(batch, new_root, new_size, update_index, *tx);
+    }
+}
+
+template <typename Store, typename HashingPolicy>
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_batch_internal(
+    std::vector<fr>& values, fr& new_root, index_t& new_size, bool update_index, ReadTransaction& tx)
 {
 
     uint32_t start_level = depth_;
     uint32_t level = start_level;
-    std::vector<fr>& hashes_local = *values;
+    std::vector<fr>& hashes_local = values;
     auto number_to_insert = static_cast<uint32_t>(hashes_local.size());
 
-    typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
     TreeMeta meta;
-    store_.get_meta(meta, *tx, true);
+    store_.get_meta(meta, tx, true);
     index_t index = meta.size;
     new_size = meta.size + number_to_insert;
 
     // std::cout << "Appending new leaves" << std::endl;
-    if (values->empty()) {
+    if (values.empty()) {
         return;
     }
 
@@ -703,9 +753,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
     // std::cout << "LEVEL: " << level << " hash " << new_hash << std::endl;
     RequestContext requestContext;
     requestContext.includeUncommitted = true;
-    requestContext.root = store_.get_current_root(*tx, true);
+    requestContext.root = store_.get_current_root(tx, true);
     OptionalSiblingPath optional_sibling_path_to_root =
-        get_subtree_sibling_path_internal(meta.size, depth_ - level, requestContext, *tx);
+        get_subtree_sibling_path_internal(meta.size, depth_ - level, requestContext, tx);
     fr_sibling_path sibling_path_to_root = optional_sibling_path_to_full_sibling_path(optional_sibling_path_to_root);
     size_t sibling_path_index = 0;
 

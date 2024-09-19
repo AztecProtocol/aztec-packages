@@ -733,6 +733,43 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_multiple_blocks)
     }
 }
 
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_varying_size_blocks)
+{
+    constexpr size_t depth = 10;
+    std::string name = random_string();
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
+    Store store(name, depth, db);
+    ThreadPool pool(1);
+    TreeType tree(store, pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    auto check = [&](index_t expected_size, index_t expected_unfinalised_block_height) {
+        check_size(tree, expected_size);
+        check_unfinalised_block_height(tree, expected_unfinalised_block_height);
+        check_root(tree, memdb.root());
+        check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+        check_sibling_path(tree, expected_size - 1, memdb.get_sibling_path(expected_size - 1));
+    };
+
+    std::vector<size_t> batchSize = { 8, 20, 64, 32 };
+    index_t expected_size = 0;
+
+    for (uint32_t i = 0; i < batchSize.size(); i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < batchSize[i]; ++j) {
+            size_t ind = expected_size + j;
+            memdb.update_element(ind, VALUES[ind]);
+            to_add.push_back(VALUES[ind]);
+        }
+        expected_size += batchSize[i];
+        add_values(tree, to_add);
+        check(expected_size, i);
+        commit_tree(tree);
+        check(expected_size, i + 1);
+    }
+}
+
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_sibling_paths)
 {
     constexpr size_t depth = 10;
