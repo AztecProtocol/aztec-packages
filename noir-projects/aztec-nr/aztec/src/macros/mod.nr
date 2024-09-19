@@ -1,4 +1,5 @@
 use protocol_types::abis::function_selector::FunctionSelector;
+use std::meta::unquote;
 
 pub comptime fn aztec(m: Module) -> Quoted {
     let functions = m.functions();
@@ -7,9 +8,8 @@ pub comptime fn aztec(m: Module) -> Quoted {
     let ifs = functions.map(
         |function: FunctionDefinition| {
         let name = function.name();
-        let signature = function_signature!(function);
-        let selector = FunctionSelector::from_signature(signature);
-
+        let signature = function_signature(function).as_quoted_str!();
+        let selector: FunctionSelector = unquote!(quote { FunctionSelector::from_signature($signature) });
         let reads = function.parameters().map(|param: (Quoted, Type)| {
             let param_name = param.0;
             quote { let $param_name = panic(f"avm_read_calldata"); }
@@ -44,7 +44,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
     body
 }
 
-comptime fn function_signature(function: FunctionDefinition) -> Quoted {
+comptime fn function_signature(function: FunctionDefinition) -> CtString {
     let name = function.name();
 
     let types = function.parameters().map(
@@ -55,6 +55,5 @@ comptime fn function_signature(function: FunctionDefinition) -> Quoted {
     );
     let types = types.join(", ".as_ctstring());
 
-    let signature = f"{name}({types})";
-    quote { $signature }
+    f"{name}({types})".as_ctstring()
 }
