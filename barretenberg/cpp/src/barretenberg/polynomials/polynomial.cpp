@@ -10,6 +10,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <sys/stat.h>
 #include <unordered_map>
 #include <utility>
@@ -225,6 +226,22 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
     }
     Fr result = tmp[0];
     return result;
+}
+
+template <typename Fr> Fr Polynomial<Fr>::evaluate_bounded_mle(std::span<const Fr> evaluation_points, size_t dim) const
+{
+    const size_t n = evaluation_points.size();
+    ASSERT(dim <= n);
+
+    std::span<const Fr, std::dynamic_extent> truncated_points = evaluation_points.first(dim);
+
+    // In evaluate_mle, an assertion enforces truncated_points.size() == virtual_size()
+    Fr mle_res = evaluate_mle(truncated_points);
+    for (size_t i = dim; i < n; i++) {
+        mle_res *= (Fr(1) - evaluation_points[i]);
+    }
+
+    return mle_res;
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const

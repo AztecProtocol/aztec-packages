@@ -4,6 +4,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "legacy_polynomial.hpp"
+#include "polynomial.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <gtest/gtest.h>
@@ -1145,6 +1146,45 @@ TYPED_TEST(PolynomialTests, evaluate_mle)
     test_case(32);
     test_case(4);
     test_case(2);
+}
+
+/*
+ * @brief Compare that the bounded mle evaluation is equal to the mle evaluation.
+ */
+TYPED_TEST(PolynomialTests, evaluate_bounded_mle)
+{
+    using FF = TypeParam;
+
+    auto test_case = [](size_t n, size_t dim) {
+        auto& engine = numeric::get_debug_randomness();
+
+        std::vector<FF> evaluation_points;
+        evaluation_points.resize(n);
+        for (size_t i = 0; i < n; i++) {
+            evaluation_points[i] = FF::random_element(&engine);
+        }
+
+        const size_t bounded_size = 1 << dim;
+        Polynomial<FF> bounded_poly(bounded_size);
+        for (size_t i = 0; i < bounded_size; ++i) {
+            bounded_poly.at(i) = FF::random_element(&engine);
+        }
+
+        const size_t size = 1 << n;
+        Polynomial<FF> poly(size);
+        for (size_t i = 0; i < bounded_size; ++i) {
+            poly.at(i) = bounded_poly.at(i);
+        }
+
+        const FF bounded_res = bounded_poly.evaluate_bounded_mle(evaluation_points, dim);
+        const FF res = poly.evaluate_mle(evaluation_points);
+
+        EXPECT_EQ(bounded_res, res);
+    };
+
+    test_case(9, 3);
+    test_case(8, 8);
+    test_case(13, 1);
 }
 
 /**

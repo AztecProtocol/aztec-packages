@@ -155,6 +155,23 @@ template <typename Fr> class Polynomial {
     Fr evaluate_mle(std::span<const Fr> evaluation_points, bool shift = false) const;
 
     /**
+     * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u = (u_0,…,u_{n-1})
+     *        in a more efficient way if a_j == 0 for any j >= 2^k where k is less or equal
+     *        to n. In this case, we fold over k dimensions and then multiply the result by
+     *        (1 - u_k) * (1 - u_{k+1}) ... * (1 - u_{n-1}). Note that in this case, for any
+     *        i < 2^k, L_i is a multiple of (1 - X_k) * (1 - X_{k+1}) ... * (1 - X_{n-1}). Dividing
+     *        p by this monomial leads to a multilinear extension over variables X_0, X_1, ..X_{k-1}.
+     *
+     * @param evaluation_points evaluation vector of size n
+     * @param dim dimension of hypercube, i.e., value k above
+     *
+     * @details The current polynomial is asssumed to have virtual size equal to 2^k with k <= n. This means
+     *          that the virtual size will determine the number of dimensions to fold. Superfluous virtual
+     *          size will have superfluous extra cost.
+     */
+    Fr evaluate_bounded_mle(std::span<const Fr> evaluation_points, size_t dim) const;
+
+    /**
      * @brief Partially evaluates in the last k variables a polynomial interpreted as a multilinear extension.
      *
      * @details Partially evaluates p(X) = (a_0, ..., a_{2^n-1}) considered as multilinear extension p(X_0,…,X_{n-1}) =
