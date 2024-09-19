@@ -142,6 +142,8 @@ class MegaFlavor {
 
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
+        auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; };
+
         auto get_selectors()
         {
             return RefArray{ q_m,
@@ -322,6 +324,7 @@ class MegaFlavor {
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
         auto get_wires() { return WitnessEntities<DataType>::get_wires(); };
+        auto get_non_gate_selectors() { return PrecomputedEntities<DataType>::get_non_gate_selectors(); }
         auto get_selectors() { return PrecomputedEntities<DataType>::get_selectors(); }
         auto get_sigmas() { return PrecomputedEntities<DataType>::get_sigma_polynomials(); };
         auto get_ids() { return PrecomputedEntities<DataType>::get_id_polynomials(); };
