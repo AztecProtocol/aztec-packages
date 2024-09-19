@@ -55,6 +55,7 @@ jobs:
       barretenberg-cpp: ${{ steps.filter.outputs.barretenberg-cpp }}
       noir: ${{ steps.filter.outputs.noir }}
       noir-projects: ${{ steps.filter.outputs.noir-projects }}
+      txe: ${{ steps.filter.outputs.txe }}
       l1-contracts: ${{ steps.filter.outputs.l1-contracts }}
       non-docs: ${{ steps.filter.outputs.non-docs }}
       non-misc-ci: ${{ steps.filter.outputs.non-misc-ci }}
