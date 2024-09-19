@@ -426,6 +426,11 @@ fn compile_contract_inner(
         let is_entry_point = contract_function.is_entry_point;
 
         let name = context.function_name(&function_id).to_owned();
+        // let mut options = options.clone();
+        // if name == "private_get_symbol" {
+        //     options.show_ssa = true;
+        // }
+        println!("{}", name);
 
         // We assume that functions have already been type checked.
         // This is the exact same assumption that compile_no_check makes.
@@ -438,6 +443,7 @@ fn compile_contract_inner(
         let function = match compile_no_check(context, options, function_id, None, true) {
             Ok(function) => function,
             Err(new_error) => {
+                eprintln!("Error in fn {} of contract {}", name, contract.name);
                 errors.push(FileDiagnostic::from(new_error));
                 continue;
             }

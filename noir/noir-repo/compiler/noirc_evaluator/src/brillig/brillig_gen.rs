@@ -30,6 +30,12 @@ pub(crate) fn convert_ssa_function(
     for block in function_context.blocks.clone() {
         BrilligBlock::compile(&mut function_context, &mut brillig_context, block, &func.dfg);
     }
+    println!(
+        "Function {} has {} instructions with {} for dump&restore",
+        func.name(),
+        brillig_context.current_opcode_count(),
+        brillig_context.call_convention_opcode_use
+    );
 
     let mut artifact = brillig_context.artifact();
     artifact.name = func.name().to_string();

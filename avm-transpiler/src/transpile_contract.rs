@@ -101,7 +101,12 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
                 let brillig_bytecode = extract_brillig_from_acir_program(&acir_program);
                 let assert_messages = extract_static_assert_messages(&acir_program);
                 info!("Extracted Brillig program has {} instructions", brillig_bytecode.len());
-
+                println!(
+                    "Transpiling  {}::{} with size {}",
+                    contract.name,
+                    function.name,
+                    brillig_bytecode.len()
+                );
                 // Map Brillig pcs to AVM pcs (index is Brillig PC, value is AVM PC)
                 let brillig_pcs_to_avm_pcs = map_brillig_pcs_to_avm_pcs(brillig_bytecode);
 

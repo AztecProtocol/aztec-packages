@@ -54,20 +54,23 @@ impl Ssa {
     }
 
     fn inline_functions_inner(mut self, inline_no_predicates_functions: bool) -> Ssa {
-        let recursive_functions = find_all_recursive_functions(&self);
-        self.functions = btree_map(
-            get_functions_to_inline_into(&self, inline_no_predicates_functions),
-            |entry_point| {
-                let new_function = InlineContext::new(
-                    &self,
-                    entry_point,
-                    inline_no_predicates_functions,
-                    recursive_functions.clone(),
-                )
-                .inline_all(&self);
-                (entry_point, new_function)
-            },
-        );
+        // Do not inline in top level brillig
+        if self.functions.get(&self.main_id).unwrap().runtime() != RuntimeType::Brillig {
+            let recursive_functions = find_all_recursive_functions(&self);
+            self.functions = btree_map(
+                get_functions_to_inline_into(&self, inline_no_predicates_functions),
+                |entry_point| {
+                    let new_function = InlineContext::new(
+                        &self,
+                        entry_point,
+                        inline_no_predicates_functions,
+                        recursive_functions.clone(),
+                    )
+                    .inline_all(&self);
+                    (entry_point, new_function)
+                },
+            );
+        }
         self
     }
 }
@@ -333,14 +336,15 @@ impl<'function> PerFunctionContext<'function> {
     /// Value::Param values are already handled as a result of previous inlining of instructions
     /// and blocks respectively. If these assertions trigger it means a value is being used before
     /// the instruction or block that defines the value is inserted.
-    fn translate_value(&mut self, id: ValueId) -> ValueId {
+    fn translate_value(&mut self, mut id: ValueId) -> ValueId {
+        id = self.source_function.dfg.resolve(id);
         if let Some(value) = self.values.get(&id) {
             return *value;
         }
 
         let new_value = match &self.source_function.dfg[id] {
             value @ Value::Instruction { .. } => {
-                unreachable!("All Value::Instructions should already be known during inlining after creating the original inlined instruction. Unknown value {id} = {value:?}")
+                unreachable!("All Value::Instructions should already be known during inlining after creating the original inlined instruction. Unknown value {id} = {value:?} in fn {}", self.source_function.id())
             }
             value @ Value::Param { .. } => {
                 unreachable!("All Value::Params should already be known from previous calls to translate_block. Unknown value {id} = {value:?}")

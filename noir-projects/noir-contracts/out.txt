@@ -1,0 +1,1388 @@
+set_minter
+Function set_minter has 1379 instructions with 1260 for dump&restore
+Function storage_write has 2 instructions with 0 for dump&restore
+Function sender has 2 instructions with 0 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function eq has 36 instructions with 28 for dump&restore
+Function read has 38 instructions with 26 for dump&restore
+Function msg_sender has 26 instructions with 22 for dump&restore
+Function write has 40 instructions with 30 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function derive_storage_slot_in_map has 55 instructions with 36 for dump&restore
+Function pedersen_hash has 18 instructions with 14 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function pedersen_hash_with_separator has 5 instructions with 0 for dump&restore
+Function storage_write has 66 instructions with 60 for dump&restore
+Function raw_storage_write has 56 instructions with 30 for dump&restore
+Function serialize has 9 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 19 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function from_field has 1 instructions with 0 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 44 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Function apply has 253 instructions with 178 for dump&restore
+Finished function set_minter with 3943 opcodes
+assert_minter_and_mint
+Function assert_minter_and_mint has 2249 instructions with 2100 for dump&restore
+Function storage_write has 2 instructions with 0 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function sender has 2 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function eq has 36 instructions with 28 for dump&restore
+Function msg_sender has 26 instructions with 22 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function read has 38 instructions with 26 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function add has 16 instructions with 0 for dump&restore
+Function read has 40 instructions with 26 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function write has 44 instructions with 34 for dump&restore
+Function storage_write has 71 instructions with 64 for dump&restore
+Function raw_storage_write has 56 instructions with 30 for dump&restore
+Function serialize has 25 instructions with 14 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 21 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function derive_storage_slot_in_map has 55 instructions with 36 for dump&restore
+Function pedersen_hash has 18 instructions with 14 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function pedersen_hash_with_separator has 5 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 9 instructions with 0 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 44 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Function apply has 253 instructions with 178 for dump&restore
+Finished function assert_minter_and_mint with 4976 opcodes
+compute_recurse_subtract_balance_call
+_recurse_subtract_balance
+Function pack_returns has 5 instructions with 0 for dump&restore
+Function pack_arguments has 6 instructions with 0 for dump&restore
+Function unpack_returns has 8 instructions with 0 for dump&restore
+Function call_private_function_internal has 50 instructions with 0 for dump&restore
+Function notify_nullified_note has 3 instructions with 0 for dump&restore
+Function get_key_validation_request has 32 instructions with 0 for dump&restore
+Function get_notes_internal has 1225 instructions with 0 for dump&restore
+Function decompose_hint has 74 instructions with 0 for dump&restore
+Function get_collapse_hints has 370 instructions with 0 for dump&restore
+Finished function get_notes_internal with 1341 opcodes
+Finished function get_collapse_hints with 469 opcodes
+Finished function decompose_hint with 84 opcodes
+Finished function get_key_validation_request with 45 opcodes
+Finished function notify_nullified_note with 15 opcodes
+Finished function pack_arguments with 43 opcodes
+Finished function call_private_function_internal with 69 opcodes
+Finished function unpack_returns with 34 opcodes
+Finished function pack_returns with 41 opcodes
+interface
+mint_public
+Function mint_public has 2792 instructions with 2610 for dump&restore
+Function storage_write has 2 instructions with 0 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function sender has 2 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function read has 38 instructions with 26 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function msg_sender has 26 instructions with 22 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function add has 16 instructions with 0 for dump&restore
+Function read has 40 instructions with 26 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function write has 44 instructions with 34 for dump&restore
+Function storage_write has 71 instructions with 64 for dump&restore
+Function raw_storage_write has 56 instructions with 30 for dump&restore
+Function serialize has 25 instructions with 14 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function derive_storage_slot_in_map has 55 instructions with 36 for dump&restore
+Function pedersen_hash has 18 instructions with 14 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function pedersen_hash_with_separator has 5 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 21 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 9 instructions with 0 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 44 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Function apply has 253 instructions with 178 for dump&restore
+Finished function mint_public with 5569 opcodes
+privately_mint_private_note
+Function pack_arguments has 6 instructions with 0 for dump&restore
+Function enqueue_public_function_call_internal has 2 instructions with 0 for dump&restore
+Function lt_32_hint has 75 instructions with 0 for dump&restore
+Function lte_16_hint has 82 instructions with 0 for dump&restore
+Function decompose_hint has 74 instructions with 0 for dump&restore
+Function unsafe_rand has 2 instructions with 0 for dump&restore
+Function emit_encrypted_note_log has 3 instructions with 0 for dump&restore
+Function get_key_validation_request has 32 instructions with 0 for dump&restore
+Function notify_created_note has 4 instructions with 0 for dump&restore
+Function key_registry_get_stored_keys_hint has 157 instructions with 0 for dump&restore
+Function get_public_keys_and_partial_address has 87 instructions with 0 for dump&restore
+Function get_public_data_witness has 97 instructions with 0 for dump&restore
+Finished function get_public_data_witness with 151 opcodes
+Finished function lt_32_hint with 85 opcodes
+Finished function decompose_hint with 84 opcodes
+Finished function lte_16_hint with 92 opcodes
+Finished function key_registry_get_stored_keys_hint with 200 opcodes
+Finished function get_public_keys_and_partial_address with 108 opcodes
+Finished function unsafe_rand with 10 opcodes
+Finished function notify_created_note with 40 opcodes
+Finished function get_key_validation_request with 45 opcodes
+Finished function emit_encrypted_note_log with 549 opcodes
+Finished function pack_arguments with 43 opcodes
+Finished function enqueue_public_function_call_internal with 19 opcodes
+burn_public
+Function burn_public has 1526 instructions with 1346 for dump&restore
+Function storage_write has 2 instructions with 0 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function call has 13 instructions with 0 for dump&restore
+Function calldata_copy has 8 instructions with 0 for dump&restore
+Function function_selector has 2 instructions with 0 for dump&restore
+Function sender has 2 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function eq has 36 instructions with 28 for dump&restore
+Function msg_sender has 26 instructions with 22 for dump&restore
+Function assert_current_call_valid_authwit_public has 327 instructions with 274 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function sub has 17 instructions with 0 for dump&restore
+Function read has 40 instructions with 26 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function write has 44 instructions with 34 for dump&restore
+Function storage_write has 71 instructions with 64 for dump&restore
+Function raw_storage_write has 56 instructions with 30 for dump&restore
+Function serialize has 25 instructions with 14 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function derive_storage_slot_in_map has 55 instructions with 36 for dump&restore
+Function pedersen_hash has 18 instructions with 14 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function pedersen_hash_with_separator has 5 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 21 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function compute_inner_authwit_hash has 19 instructions with 14 for dump&restore
+Function to_field has 3 instructions with 0 for dump&restore
+Function selector has 55 instructions with 48 for dump&restore
+Function get_args_hash has 272 instructions with 186 for dump&restore
+Function assert_inner_hash_valid_authwit_public has 220 instructions with 174 for dump&restore
+Function deserialize_into has 27 instructions with 20 for dump&restore
+Function call_public_function has 196 instructions with 164 for dump&restore
+Function from_field has 1 instructions with 0 for dump&restore
+Function default has 25 instructions with 20 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Function gas_for_call has 68 instructions with 48 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function unwrap_or has 8 instructions with 0 for dump&restore
+Function deserialize has 6 instructions with 0 for dump&restore
+Function raw has 4 instructions with 0 for dump&restore
+Function is_some has 1 instructions with 0 for dump&restore
+Function new has 12 instructions with 0 for dump&restore
+Function add has 15 instructions with 0 for dump&restore
+Function some has 5 instructions with 0 for dump&restore
+Function hash has 18 instructions with 14 for dump&restore
+Function unwrap has 5 instructions with 0 for dump&restore
+Function hash_args has 37 instructions with 22 for dump&restore
+Function poseidon2_hash_with_separator_slice has 258 instructions with 178 for dump&restore
+Function new has 33 instructions with 0 for dump&restore
+Function absorb has 92 instructions with 30 for dump&restore
+Function to_field has 3 instructions with 0 for dump&restore
+Function squeeze has 39 instructions with 22 for dump&restore
+Function perform_duplex has 68 instructions with 0 for dump&restore
+Function from_u32 has 1 instructions with 0 for dump&restore
+Function poseidon2_hash_with_separator has 216 instructions with 146 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 44 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function apply has 253 instructions with 178 for dump&restore
+Finished function burn_public with 6255 opcodes
+unshield
+Function pack_arguments has 6 instructions with 0 for dump&restore
+Function enqueue_public_function_call_internal has 2 instructions with 0 for dump&restore
+Function lt_32_hint has 75 instructions with 0 for dump&restore
+Function lte_16_hint has 82 instructions with 0 for dump&restore
+Function decompose_hint has 74 instructions with 0 for dump&restore
+Function unsafe_rand has 2 instructions with 0 for dump&restore
+Function emit_encrypted_note_log has 3 instructions with 0 for dump&restore
+Function get_key_validation_request has 32 instructions with 0 for dump&restore
+Function notify_created_note has 4 instructions with 0 for dump&restore
+Function notify_nullified_note has 3 instructions with 0 for dump&restore
+Function get_notes_internal has 1225 instructions with 0 for dump&restore
+Function get_collapse_hints has 370 instructions with 0 for dump&restore
+Function key_registry_get_stored_keys_hint has 157 instructions with 0 for dump&restore
+Function get_public_keys_and_partial_address has 87 instructions with 0 for dump&restore
+Function get_public_data_witness has 97 instructions with 0 for dump&restore
+Function pack_arguments_array has 4 instructions with 0 for dump&restore
+Function call_private_function_internal has 50 instructions with 0 for dump&restore
+Function unpack_returns has 8 instructions with 0 for dump&restore
+Finished function pack_arguments_array with 35 opcodes
+Finished function call_private_function_internal with 69 opcodes
+Finished function unpack_returns with 34 opcodes
+Finished function get_public_data_witness with 151 opcodes
+Finished function lt_32_hint with 85 opcodes
+Finished function decompose_hint with 84 opcodes
+Finished function lte_16_hint with 92 opcodes
+Finished function key_registry_get_stored_keys_hint with 200 opcodes
+Finished function get_public_keys_and_partial_address with 108 opcodes
+Finished function get_notes_internal with 1341 opcodes
+Finished function get_collapse_hints with 469 opcodes
+Finished function get_key_validation_request with 45 opcodes
+Finished function notify_nullified_note with 15 opcodes
+Finished function unsafe_rand with 10 opcodes
+Finished function notify_created_note with 40 opcodes
+Finished function emit_encrypted_note_log with 549 opcodes
+Finished function pack_arguments with 43 opcodes
+Finished function enqueue_public_function_call_internal with 19 opcodes
+shield
+Function shield has 1702 instructions with 1502 for dump&restore
+Function emit_note_hash has 2 instructions with 0 for dump&restore
+Function decompose_hint has 16 instructions with 10 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function storage_write has 2 instructions with 0 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function call has 13 instructions with 0 for dump&restore
+Function calldata_copy has 8 instructions with 0 for dump&restore
+Function function_selector has 2 instructions with 0 for dump&restore
+Function sender has 2 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function eq has 36 instructions with 28 for dump&restore
+Function msg_sender has 26 instructions with 22 for dump&restore
+Function assert_current_call_valid_authwit_public has 327 instructions with 274 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function sub has 17 instructions with 0 for dump&restore
+Function read has 40 instructions with 26 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function new has 20 instructions with 14 for dump&restore
+Function to_field has 18 instructions with 14 for dump&restore
+Function write has 44 instructions with 34 for dump&restore
+Function insert_from_public has 52 instructions with 50 for dump&restore
+Function create_note_hash_from_public has 250 instructions with 208 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function set_header has 5 instructions with 0 for dump&restore
+Function compute_note_hiding_point has 239 instructions with 178 for dump&restore
+Function push_note_hash has 29 instructions with 26 for dump&restore
+Function from_field_unsafe has 22 instructions with 10 for dump&restore
+Function pedersen_commitment has 22 instructions with 14 for dump&restore
+Function serialize_content has 11 instructions with 0 for dump&restore
+Function multi_scalar_mul has 31 instructions with 0 for dump&restore
+Function add has 38 instructions with 30 for dump&restore
+Function embedded_curve_add has 27 instructions with 0 for dump&restore
+Function pedersen_commitment_with_separator has 45 instructions with 0 for dump&restore
+Function compute_decomposition has 83 instructions with 14 for dump&restore
+Function to_le_bytes has 19 instructions with 14 for dump&restore
+Function to_le_radix has 8 instructions with 0 for dump&restore
+Function storage_write has 71 instructions with 64 for dump&restore
+Function raw_storage_write has 56 instructions with 30 for dump&restore
+Function serialize has 25 instructions with 14 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function empty has 12 instructions with 6 for dump&restore
+Function zero has 2 instructions with 0 for dump&restore
+Function derive_storage_slot_in_map has 55 instructions with 36 for dump&restore
+Function pedersen_hash has 18 instructions with 14 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function pedersen_hash_with_separator has 5 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 21 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function compute_inner_authwit_hash has 19 instructions with 14 for dump&restore
+Function to_field has 3 instructions with 0 for dump&restore
+Function selector has 55 instructions with 48 for dump&restore
+Function get_args_hash has 272 instructions with 186 for dump&restore
+Function assert_inner_hash_valid_authwit_public has 220 instructions with 174 for dump&restore
+Function deserialize_into has 27 instructions with 20 for dump&restore
+Function call_public_function has 196 instructions with 164 for dump&restore
+Function from_field has 1 instructions with 0 for dump&restore
+Function default has 25 instructions with 20 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Function gas_for_call has 68 instructions with 48 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function unwrap_or has 8 instructions with 0 for dump&restore
+Function deserialize has 6 instructions with 0 for dump&restore
+Function raw has 4 instructions with 0 for dump&restore
+Function is_some has 1 instructions with 0 for dump&restore
+Function new has 12 instructions with 0 for dump&restore
+Function add has 15 instructions with 0 for dump&restore
+Function some has 5 instructions with 0 for dump&restore
+Function hash has 18 instructions with 14 for dump&restore
+Function unwrap has 5 instructions with 0 for dump&restore
+Function hash_args has 37 instructions with 22 for dump&restore
+Function poseidon2_hash_with_separator_slice has 258 instructions with 178 for dump&restore
+Function new has 33 instructions with 0 for dump&restore
+Function absorb has 92 instructions with 30 for dump&restore
+Function to_field has 3 instructions with 0 for dump&restore
+Function squeeze has 39 instructions with 22 for dump&restore
+Function perform_duplex has 68 instructions with 0 for dump&restore
+Function from_u32 has 1 instructions with 0 for dump&restore
+Function poseidon2_hash_with_separator has 216 instructions with 146 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 44 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function apply has 253 instructions with 178 for dump&restore
+Finished function shield with 7383 opcodes
+burn
+Function pack_arguments has 6 instructions with 0 for dump&restore
+Function enqueue_public_function_call_internal has 2 instructions with 0 for dump&restore
+Function lt_32_hint has 75 instructions with 0 for dump&restore
+Function lte_16_hint has 82 instructions with 0 for dump&restore
+Function decompose_hint has 74 instructions with 0 for dump&restore
+Function unsafe_rand has 2 instructions with 0 for dump&restore
+Function emit_encrypted_note_log has 3 instructions with 0 for dump&restore
+Function get_key_validation_request has 32 instructions with 0 for dump&restore
+Function notify_created_note has 4 instructions with 0 for dump&restore
+Function notify_nullified_note has 3 instructions with 0 for dump&restore
+Function get_notes_internal has 1225 instructions with 0 for dump&restore
+Function get_collapse_hints has 370 instructions with 0 for dump&restore
+Function key_registry_get_stored_keys_hint has 157 instructions with 0 for dump&restore
+Function get_public_keys_and_partial_address has 87 instructions with 0 for dump&restore
+Function get_public_data_witness has 97 instructions with 0 for dump&restore
+Function pack_arguments_array has 4 instructions with 0 for dump&restore
+Function call_private_function_internal has 50 instructions with 0 for dump&restore
+Function unpack_returns has 8 instructions with 0 for dump&restore
+Finished function pack_arguments_array with 35 opcodes
+Finished function call_private_function_internal with 69 opcodes
+Finished function unpack_returns with 34 opcodes
+Finished function get_public_data_witness with 151 opcodes
+Finished function lt_32_hint with 85 opcodes
+Finished function decompose_hint with 84 opcodes
+Finished function lte_16_hint with 92 opcodes
+Finished function key_registry_get_stored_keys_hint with 200 opcodes
+Finished function get_public_keys_and_partial_address with 108 opcodes
+Finished function get_notes_internal with 1341 opcodes
+Finished function get_collapse_hints with 469 opcodes
+Finished function get_key_validation_request with 45 opcodes
+Finished function notify_nullified_note with 15 opcodes
+Finished function unsafe_rand with 10 opcodes
+Finished function notify_created_note with 40 opcodes
+Finished function emit_encrypted_note_log with 549 opcodes
+Finished function pack_arguments with 43 opcodes
+Finished function enqueue_public_function_call_internal with 19 opcodes
+balance_of_private
+Function balance_of_private has 699 instructions with 614 for dump&restore
+Function new has 59 instructions with 48 for dump&restore
+Function balance_of has 37 instructions with 30 for dump&restore
+Function balance_of_with_offset has 811 instructions with 646 for dump&restore
+Function view_notes has 68 instructions with 54 for dump&restore
+Function view_notes has 3680 instructions with 2992 for dump&restore
+Function flatten_options has 1786 instructions with 1338 for dump&restore
+Function get_notes has 710 instructions with 388 for dump&restore
+Function get_notes_oracle_wrapper has 19 instructions with 0 for dump&restore
+Function get_block_number has 2 instructions with 0 for dump&restore
+Function get_contract_address has 2 instructions with 0 for dump&restore
+Function get_chain_id has 2 instructions with 0 for dump&restore
+Function get_version has 2 instructions with 0 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function to_field has 18 instructions with 14 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function derive_storage_slot_in_map has 55 instructions with 36 for dump&restore
+Function pedersen_hash has 18 instructions with 14 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function pedersen_hash_with_separator has 5 instructions with 0 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function new has 38 instructions with 20 for dump&restore
+Function set_offset has 24 instructions with 0 for dump&restore
+Function len has 2 instructions with 0 for dump&restore
+Function add has 16 instructions with 0 for dump&restore
+Function get_amount has 1 instructions with 0 for dump&restore
+Function get_unchecked has 109 instructions with 0 for dump&restore
+Function none has 11 instructions with 0 for dump&restore
+Function new has 169 instructions with 0 for dump&restore
+Function is_some has 1 instructions with 0 for dump&restore
+Function push has 144 instructions with 0 for dump&restore
+Function unwrap_unchecked has 9 instructions with 0 for dump&restore
+Function from_field has 1 instructions with 0 for dump&restore
+Function arr_copy_slice has 50 instructions with 0 for dump&restore
+Function deserialize_content has 66 instructions with 36 for dump&restore
+Function set_header has 9 instructions with 0 for dump&restore
+Function some has 12 instructions with 0 for dump&restore
+Function from_field has 16 instructions with 10 for dump&restore
+Function empty has 12 instructions with 6 for dump&restore
+Function zero has 2 instructions with 0 for dump&restore
+Function get has 36 instructions with 18 for dump&restore
+Function is_some has 1 instructions with 0 for dump&restore
+Function unwrap_unchecked has 6 instructions with 0 for dump&restore
+Function get has 34 instructions with 18 for dump&restore
+Function is_some has 1 instructions with 0 for dump&restore
+Function unwrap_unchecked has 5 instructions with 0 for dump&restore
+Function get_unchecked has 69 instructions with 0 for dump&restore
+Function get_unchecked has 82 instructions with 0 for dump&restore
+Function new has 46 instructions with 0 for dump&restore
+Function new has 41 instructions with 0 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 44 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function apply has 253 instructions with 178 for dump&restore
+Finished function balance_of_private with 10770 opcodes
+redeem_shield
+Function lt_32_hint has 75 instructions with 0 for dump&restore
+Function lte_16_hint has 82 instructions with 0 for dump&restore
+Function decompose_hint has 74 instructions with 0 for dump&restore
+Function unsafe_rand has 2 instructions with 0 for dump&restore
+Function emit_encrypted_note_log has 3 instructions with 0 for dump&restore
+Function get_key_validation_request has 32 instructions with 0 for dump&restore
+Function notify_created_note has 4 instructions with 0 for dump&restore
+Function key_registry_get_stored_keys_hint has 157 instructions with 0 for dump&restore
+Function get_public_keys_and_partial_address has 87 instructions with 0 for dump&restore
+Function get_public_data_witness has 97 instructions with 0 for dump&restore
+Function notify_nullified_note has 3 instructions with 0 for dump&restore
+Function get_notes_internal has 788 instructions with 0 for dump&restore
+Function get_collapse_hints has 311 instructions with 0 for dump&restore
+Finished function get_notes_internal with 893 opcodes
+Finished function get_collapse_hints with 410 opcodes
+Finished function lt_32_hint with 85 opcodes
+Finished function decompose_hint with 84 opcodes
+Finished function lte_16_hint with 92 opcodes
+Finished function notify_nullified_note with 15 opcodes
+Finished function get_public_data_witness with 151 opcodes
+Finished function key_registry_get_stored_keys_hint with 200 opcodes
+Finished function get_public_keys_and_partial_address with 108 opcodes
+Finished function unsafe_rand with 10 opcodes
+Finished function notify_created_note with 40 opcodes
+Finished function get_key_validation_request with 45 opcodes
+Finished function emit_encrypted_note_log with 549 opcodes
+_reduce_total_supply
+Function _reduce_total_supply has 1887 instructions with 1760 for dump&restore
+Function storage_write has 2 instructions with 0 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function sender has 2 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function eq has 36 instructions with 28 for dump&restore
+Function msg_sender has 26 instructions with 22 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function sub has 17 instructions with 0 for dump&restore
+Function read has 40 instructions with 26 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function write has 44 instructions with 34 for dump&restore
+Function storage_write has 71 instructions with 64 for dump&restore
+Function raw_storage_write has 56 instructions with 30 for dump&restore
+Function serialize has 25 instructions with 14 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 21 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Finished function _reduce_total_supply with 3935 opcodes
+at
+_increase_public_balance
+Function _increase_public_balance has 2381 instructions with 2228 for dump&restore
+Function storage_write has 2 instructions with 0 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function sender has 2 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function eq has 36 instructions with 28 for dump&restore
+Function msg_sender has 26 instructions with 22 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function add has 16 instructions with 0 for dump&restore
+Function read has 40 instructions with 26 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function write has 44 instructions with 34 for dump&restore
+Function storage_write has 71 instructions with 64 for dump&restore
+Function raw_storage_write has 56 instructions with 30 for dump&restore
+Function serialize has 25 instructions with 14 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function derive_storage_slot_in_map has 55 instructions with 36 for dump&restore
+Function pedersen_hash has 18 instructions with 14 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function pedersen_hash_with_separator has 5 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 21 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 44 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Function apply has 253 instructions with 178 for dump&restore
+Finished function _increase_public_balance with 5018 opcodes
+compute_note_hash_and_optionally_a_nullifier
+Function compute_note_hash_and_optionally_a_nullifier has 258 instructions with 194 for dump&restore
+Function get_nsk_app has 22 instructions with 14 for dump&restore
+Function get_key_validation_request has 24 instructions with 14 for dump&restore
+Function get_key_validation_request_internal has 30 instructions with 10 for dump&restore
+Function decompose_hint has 16 instructions with 10 for dump&restore
+Function new has 2 instructions with 0 for dump&restore
+Function get_note_type_id has 2 instructions with 0 for dump&restore
+Function compute_note_hash_and_optionally_a_nullifier has 523 instructions with 410 for dump&restore
+Function deserialize_content has 34 instructions with 14 for dump&restore
+Function get_note_type_id has 2 instructions with 0 for dump&restore
+Function compute_note_hash_and_optionally_a_nullifier has 592 instructions with 458 for dump&restore
+Function deserialize_content has 66 instructions with 36 for dump&restore
+Function from_field has 16 instructions with 10 for dump&restore
+Function empty has 12 instructions with 6 for dump&restore
+Function zero has 2 instructions with 0 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function arr_copy_slice has 56 instructions with 0 for dump&restore
+Function set_header has 9 instructions with 0 for dump&restore
+Function compute_note_hiding_point has 379 instructions with 292 for dump&restore
+Function compute_unique_note_hash has 38 instructions with 22 for dump&restore
+Function compute_siloed_note_hash has 53 instructions with 36 for dump&restore
+Function compute_nullifier_without_context has 95 instructions with 74 for dump&restore
+Function compute_note_hash_for_nullify has 86 instructions with 80 for dump&restore
+Function poseidon2_hash_with_separator has 216 instructions with 146 for dump&restore
+Function new has 33 instructions with 0 for dump&restore
+Function absorb has 92 instructions with 30 for dump&restore
+Function to_field has 3 instructions with 0 for dump&restore
+Function squeeze has 39 instructions with 22 for dump&restore
+Function perform_duplex has 68 instructions with 0 for dump&restore
+Function deserialize has 24 instructions with 0 for dump&restore
+Function compute_note_hash_for_read_request has 213 instructions with 184 for dump&restore
+Function compute_note_hash_for_nullify_internal has 148 instructions with 112 for dump&restore
+Function get_header has 5 instructions with 0 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function from_field_unsafe has 22 instructions with 10 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function multi_scalar_mul has 31 instructions with 0 for dump&restore
+Function compute_decomposition has 83 instructions with 14 for dump&restore
+Function to_le_bytes has 19 instructions with 14 for dump&restore
+Function to_le_radix has 8 instructions with 0 for dump&restore
+Function arr_copy_slice has 50 instructions with 0 for dump&restore
+Function set_header has 5 instructions with 0 for dump&restore
+Function compute_note_hiding_point has 239 instructions with 178 for dump&restore
+Function compute_nullifier_without_context has 63 instructions with 48 for dump&restore
+Function compute_note_hash_for_nullify has 70 instructions with 64 for dump&restore
+Function poseidon2_hash_with_separator has 219 instructions with 150 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function compute_note_hash_for_read_request has 189 instructions with 160 for dump&restore
+Function compute_note_hash_for_nullify_internal has 140 instructions with 104 for dump&restore
+Function get_header has 5 instructions with 0 for dump&restore
+Function pedersen_commitment has 22 instructions with 14 for dump&restore
+Function serialize_content has 11 instructions with 0 for dump&restore
+Function multi_scalar_mul has 31 instructions with 0 for dump&restore
+Function add has 38 instructions with 30 for dump&restore
+Function embedded_curve_add has 27 instructions with 0 for dump&restore
+Function pedersen_commitment_with_separator has 45 instructions with 0 for dump&restore
+Finished function compute_note_hash_and_optionally_a_nullifier with 4571 opcodes
+is_minter
+Function is_minter has 759 instructions with 658 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function read has 38 instructions with 26 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function derive_storage_slot_in_map has 55 instructions with 36 for dump&restore
+Function pedersen_hash has 18 instructions with 14 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function pedersen_hash_with_separator has 5 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 9 instructions with 0 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 44 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Function apply has 253 instructions with 178 for dump&restore
+Finished function is_minter with 3074 opcodes
+cancel_authwit
+subtract_balance
+public_get_symbol
+Function public_get_symbol has 536 instructions with 448 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function read_public has 38 instructions with 26 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 6 instructions with 0 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Finished function public_get_symbol with 2258 opcodes
+public_get_decimals
+Function public_get_decimals has 536 instructions with 448 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function read_public has 38 instructions with 26 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 9 instructions with 0 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Finished function public_get_decimals with 2261 opcodes
+public_get_name
+Function public_get_name has 536 instructions with 448 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function read_public has 38 instructions with 26 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 6 instructions with 0 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Finished function public_get_name with 2258 opcodes
+complete_refund
+Function complete_refund has 3970 instructions with 3774 for dump&restore
+Function emit_note_hash has 2 instructions with 0 for dump&restore
+Function decompose_hint has 16 instructions with 10 for dump&restore
+Function transaction_fee has 2 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function sender has 2 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function eq has 36 instructions with 28 for dump&restore
+Function msg_sender has 26 instructions with 22 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function transaction_fee has 26 instructions with 22 for dump&restore
+Function cmp has 120 instructions with 88 for dump&restore
+Function sub has 17 instructions with 0 for dump&restore
+Function add_amount has 189 instructions with 136 for dump&restore
+Function finalize has 1 instructions with 0 for dump&restore
+Function push_note_hash has 29 instructions with 26 for dump&restore
+Function add has 38 instructions with 30 for dump&restore
+Function multi_scalar_mul has 31 instructions with 0 for dump&restore
+Function from_field_unsafe has 22 instructions with 10 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function compute_decomposition has 83 instructions with 14 for dump&restore
+Function to_le_bytes has 19 instructions with 14 for dump&restore
+Function to_le_radix has 8 instructions with 0 for dump&restore
+Function embedded_curve_add has 27 instructions with 0 for dump&restore
+Function cmp has 60 instructions with 38 for dump&restore
+Function eq has 3 instructions with 0 for dump&restore
+Function equal has 2 instructions with 0 for dump&restore
+Function less has 2 instructions with 0 for dump&restore
+Function greater has 2 instructions with 0 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Finished function complete_refund with 6307 opcodes
+total_supply
+Function total_supply has 727 instructions with 634 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function read has 40 instructions with 26 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 21 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Finished function total_supply with 2496 opcodes
+private_get_symbol
+Function pack_returns has 5 instructions with 0 for dump&restore
+Function get_public_data_witness has 97 instructions with 0 for dump&restore
+Function lt_32_hint has 75 instructions with 0 for dump&restore
+Function lte_16_hint has 82 instructions with 0 for dump&restore
+Function decompose_hint has 74 instructions with 0 for dump&restore
+Finished function get_public_data_witness with 151 opcodes
+Finished function lt_32_hint with 85 opcodes
+Finished function decompose_hint with 84 opcodes
+Finished function lte_16_hint with 92 opcodes
+Finished function pack_returns with 41 opcodes
+setup_refund
+Function pack_arguments_array has 4 instructions with 0 for dump&restore
+Function set_public_teardown_function_call_internal has 2 instructions with 0 for dump&restore
+Function decompose_hint has 74 instructions with 0 for dump&restore
+Function compute_unconstrained has 3023 instructions with 0 for dump&restore
+Function lt_32_hint has 75 instructions with 0 for dump&restore
+Function lte_16_hint has 82 instructions with 0 for dump&restore
+Function unsafe_rand has 2 instructions with 0 for dump&restore
+Function emit_encrypted_note_log has 3 instructions with 0 for dump&restore
+Function get_key_validation_request has 32 instructions with 0 for dump&restore
+Function notify_created_note has 4 instructions with 0 for dump&restore
+Function pack_arguments has 6 instructions with 0 for dump&restore
+Function unpack_returns has 8 instructions with 0 for dump&restore
+Function call_private_function_internal has 50 instructions with 0 for dump&restore
+Function notify_nullified_note has 3 instructions with 0 for dump&restore
+Function get_notes_internal has 1225 instructions with 0 for dump&restore
+Function get_collapse_hints has 370 instructions with 0 for dump&restore
+Function key_registry_get_stored_keys_hint has 157 instructions with 0 for dump&restore
+Function get_public_keys_and_partial_address has 87 instructions with 0 for dump&restore
+Function get_public_data_witness has 97 instructions with 0 for dump&restore
+Function pack_arguments_array has 4 instructions with 0 for dump&restore
+Finished function pack_arguments_array with 35 opcodes
+Finished function call_private_function_internal with 69 opcodes
+Finished function unpack_returns with 34 opcodes
+Finished function get_public_data_witness with 151 opcodes
+Finished function lt_32_hint with 85 opcodes
+Finished function decompose_hint with 84 opcodes
+Finished function lte_16_hint with 92 opcodes
+Finished function key_registry_get_stored_keys_hint with 200 opcodes
+Finished function get_public_keys_and_partial_address with 108 opcodes
+Finished function get_notes_internal with 1341 opcodes
+Finished function get_collapse_hints with 469 opcodes
+Finished function get_key_validation_request with 45 opcodes
+Finished function notify_nullified_note with 15 opcodes
+Finished function pack_arguments with 43 opcodes
+Finished function unsafe_rand with 10 opcodes
+Finished function notify_created_note with 40 opcodes
+Finished function compute_unconstrained with 3110 opcodes
+Finished function emit_encrypted_note_log with 549 opcodes
+Finished function pack_arguments_array with 35 opcodes
+Finished function set_public_teardown_function_call_internal with 19 opcodes
+balance_of_public
+Function balance_of_public has 946 instructions with 840 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function read has 40 instructions with 26 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function derive_storage_slot_in_map has 55 instructions with 36 for dump&restore
+Function pedersen_hash has 18 instructions with 14 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function pedersen_hash_with_separator has 5 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 21 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 44 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Function apply has 253 instructions with 178 for dump&restore
+Finished function balance_of_public with 3305 opcodes
+get_admin
+Function get_admin has 721 instructions with 630 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function read has 38 instructions with 26 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 19 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function from_field has 1 instructions with 0 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Finished function get_admin with 2457 opcodes
+storage
+transfer
+Function unsafe_rand has 2 instructions with 0 for dump&restore
+Function compute_unconstrained has 3020 instructions with 0 for dump&restore
+Function lt_32_hint has 75 instructions with 0 for dump&restore
+Function lte_16_hint has 82 instructions with 0 for dump&restore
+Function decompose_hint has 74 instructions with 0 for dump&restore
+Function emit_encrypted_event_log has 3 instructions with 0 for dump&restore
+Function get_key_validation_request has 32 instructions with 0 for dump&restore
+Function compute_unconstrained has 3023 instructions with 0 for dump&restore
+Function emit_encrypted_note_log has 3 instructions with 0 for dump&restore
+Function notify_created_note has 4 instructions with 0 for dump&restore
+Function pack_arguments has 6 instructions with 0 for dump&restore
+Function unpack_returns has 8 instructions with 0 for dump&restore
+Function call_private_function_internal has 50 instructions with 0 for dump&restore
+Function notify_nullified_note has 3 instructions with 0 for dump&restore
+Function get_notes_internal has 1225 instructions with 0 for dump&restore
+Function get_collapse_hints has 370 instructions with 0 for dump&restore
+Function key_registry_get_stored_keys_hint has 157 instructions with 0 for dump&restore
+Function get_public_keys_and_partial_address has 87 instructions with 0 for dump&restore
+Function get_public_data_witness has 97 instructions with 0 for dump&restore
+Finished function get_public_data_witness with 151 opcodes
+Finished function lt_32_hint with 85 opcodes
+Finished function decompose_hint with 84 opcodes
+Finished function lte_16_hint with 92 opcodes
+Finished function key_registry_get_stored_keys_hint with 200 opcodes
+Finished function get_public_keys_and_partial_address with 108 opcodes
+Finished function get_notes_internal with 1341 opcodes
+Finished function get_collapse_hints with 469 opcodes
+Finished function get_key_validation_request with 45 opcodes
+Finished function notify_nullified_note with 15 opcodes
+Finished function pack_arguments with 43 opcodes
+Finished function call_private_function_internal with 69 opcodes
+Finished function unpack_returns with 34 opcodes
+Finished function unsafe_rand with 10 opcodes
+Finished function notify_created_note with 40 opcodes
+Finished function compute_unconstrained with 3110 opcodes
+Finished function emit_encrypted_note_log with 549 opcodes
+Finished function compute_unconstrained with 3101 opcodes
+Finished function emit_encrypted_event_log with 549 opcodes
+constructor
+Function constructor has 2259 instructions with 2114 for dump&restore
+Function emit_nullifier has 2 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function storage_write has 2 instructions with 0 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function sender has 2 instructions with 0 for dump&restore
+Function calldata_copy has 8 instructions with 0 for dump&restore
+Function function_selector has 2 instructions with 0 for dump&restore
+Function get_contract_instance_internal_avm has 8 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_initialization_matches_address_preimage_public has 389 instructions with 342 for dump&restore
+Function is_zero has 4 instructions with 0 for dump&restore
+Function write has 40 instructions with 30 for dump&restore
+Function write has 40 instructions with 30 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function initialize has 173 instructions with 134 for dump&restore
+Function from_string has 19 instructions with 14 for dump&restore
+Function initialize has 173 instructions with 134 for dump&restore
+Function mark_as_initialized_public has 106 instructions with 90 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function push_nullifier has 29 instructions with 26 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function storage_write has 66 instructions with 60 for dump&restore
+Function storage_write has 66 instructions with 60 for dump&restore
+Function raw_storage_write has 56 instructions with 30 for dump&restore
+Function serialize has 9 instructions with 0 for dump&restore
+Function serialize has 9 instructions with 0 for dump&restore
+Function deserialize has 6 instructions with 0 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function field_from_bytes has 58 instructions with 0 for dump&restore
+Function storage_write has 66 instructions with 60 for dump&restore
+Function serialize has 9 instructions with 0 for dump&restore
+Function derive_storage_slot_in_map has 55 instructions with 36 for dump&restore
+Function pedersen_hash has 18 instructions with 14 for dump&restore
+Function pedersen_hash_with_separator has 5 instructions with 0 for dump&restore
+Function storage_write has 66 instructions with 60 for dump&restore
+Function serialize has 9 instructions with 0 for dump&restore
+Function storage_write has 66 instructions with 60 for dump&restore
+Function serialize has 20 instructions with 10 for dump&restore
+Function unwrap has 9 instructions with 0 for dump&restore
+Function get_contract_instance_avm has 300 instructions with 228 for dump&restore
+Function compute_initialization_hash has 53 instructions with 36 for dump&restore
+Function selector has 55 instructions with 48 for dump&restore
+Function get_args_hash has 272 instructions with 186 for dump&restore
+Function eq has 36 instructions with 28 for dump&restore
+Function msg_sender has 26 instructions with 22 for dump&restore
+Function is_some has 1 instructions with 0 for dump&restore
+Function new has 12 instructions with 0 for dump&restore
+Function add has 15 instructions with 0 for dump&restore
+Function some has 5 instructions with 0 for dump&restore
+Function hash has 18 instructions with 14 for dump&restore
+Function unwrap has 5 instructions with 0 for dump&restore
+Function hash_args has 37 instructions with 22 for dump&restore
+Function poseidon2_hash_with_separator_slice has 258 instructions with 178 for dump&restore
+Function new has 33 instructions with 0 for dump&restore
+Function absorb has 92 instructions with 30 for dump&restore
+Function to_field has 3 instructions with 0 for dump&restore
+Function squeeze has 39 instructions with 22 for dump&restore
+Function perform_duplex has 68 instructions with 0 for dump&restore
+Function from_u32 has 1 instructions with 0 for dump&restore
+Function poseidon2_hash_with_separator has 216 instructions with 146 for dump&restore
+Function to_field has 3 instructions with 0 for dump&restore
+Function new has 8 instructions with 0 for dump&restore
+Function read has 18 instructions with 0 for dump&restore
+Function none has 7 instructions with 0 for dump&restore
+Function some has 9 instructions with 0 for dump&restore
+Function read_struct has 72 instructions with 40 for dump&restore
+Function deserialize has 99 instructions with 66 for dump&restore
+Function from_field has 1 instructions with 0 for dump&restore
+Function from_field has 1 instructions with 0 for dump&restore
+Function from_field has 1 instructions with 0 for dump&restore
+Function read_array has 52 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 44 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Function apply has 253 instructions with 178 for dump&restore
+Finished function constructor with 7730 opcodes
+private_get_name
+Function pack_returns has 5 instructions with 0 for dump&restore
+Function get_public_data_witness has 97 instructions with 0 for dump&restore
+Function lt_32_hint has 75 instructions with 0 for dump&restore
+Function lte_16_hint has 82 instructions with 0 for dump&restore
+Function decompose_hint has 74 instructions with 0 for dump&restore
+Finished function get_public_data_witness with 151 opcodes
+Finished function lt_32_hint with 85 opcodes
+Finished function decompose_hint with 84 opcodes
+Finished function lte_16_hint with 92 opcodes
+Finished function pack_returns with 41 opcodes
+private_get_decimals
+Function pack_returns has 5 instructions with 0 for dump&restore
+Function get_public_data_witness has 97 instructions with 0 for dump&restore
+Function lt_32_hint has 75 instructions with 0 for dump&restore
+Function lte_16_hint has 82 instructions with 0 for dump&restore
+Function decompose_hint has 74 instructions with 0 for dump&restore
+Finished function get_public_data_witness with 151 opcodes
+Finished function lt_32_hint with 85 opcodes
+Finished function decompose_hint with 84 opcodes
+Finished function lte_16_hint with 92 opcodes
+Finished function pack_returns with 41 opcodes
+transfer_public
+Function transfer_public has 1604 instructions with 1398 for dump&restore
+Function storage_write has 2 instructions with 0 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function call has 13 instructions with 0 for dump&restore
+Function calldata_copy has 8 instructions with 0 for dump&restore
+Function function_selector has 2 instructions with 0 for dump&restore
+Function sender has 2 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function eq has 36 instructions with 28 for dump&restore
+Function msg_sender has 26 instructions with 22 for dump&restore
+Function assert_current_call_valid_authwit_public has 327 instructions with 274 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function sub has 17 instructions with 0 for dump&restore
+Function read has 40 instructions with 26 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function write has 44 instructions with 34 for dump&restore
+Function add has 16 instructions with 0 for dump&restore
+Function storage_write has 71 instructions with 64 for dump&restore
+Function raw_storage_write has 56 instructions with 30 for dump&restore
+Function serialize has 25 instructions with 14 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function derive_storage_slot_in_map has 55 instructions with 36 for dump&restore
+Function pedersen_hash has 18 instructions with 14 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function pedersen_hash_with_separator has 5 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 21 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function compute_inner_authwit_hash has 19 instructions with 14 for dump&restore
+Function to_field has 3 instructions with 0 for dump&restore
+Function selector has 55 instructions with 48 for dump&restore
+Function get_args_hash has 272 instructions with 186 for dump&restore
+Function assert_inner_hash_valid_authwit_public has 220 instructions with 174 for dump&restore
+Function deserialize_into has 27 instructions with 20 for dump&restore
+Function call_public_function has 196 instructions with 164 for dump&restore
+Function from_field has 1 instructions with 0 for dump&restore
+Function default has 25 instructions with 20 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Function gas_for_call has 68 instructions with 48 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function unwrap_or has 8 instructions with 0 for dump&restore
+Function deserialize has 6 instructions with 0 for dump&restore
+Function raw has 4 instructions with 0 for dump&restore
+Function is_some has 1 instructions with 0 for dump&restore
+Function new has 12 instructions with 0 for dump&restore
+Function add has 15 instructions with 0 for dump&restore
+Function some has 5 instructions with 0 for dump&restore
+Function hash has 18 instructions with 14 for dump&restore
+Function unwrap has 5 instructions with 0 for dump&restore
+Function hash_args has 37 instructions with 22 for dump&restore
+Function poseidon2_hash_with_separator_slice has 258 instructions with 178 for dump&restore
+Function new has 33 instructions with 0 for dump&restore
+Function absorb has 92 instructions with 30 for dump&restore
+Function to_field has 3 instructions with 0 for dump&restore
+Function squeeze has 39 instructions with 22 for dump&restore
+Function perform_duplex has 68 instructions with 0 for dump&restore
+Function from_u32 has 1 instructions with 0 for dump&restore
+Function poseidon2_hash_with_separator has 216 instructions with 146 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 44 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function apply has 253 instructions with 178 for dump&restore
+Finished function transfer_public with 6350 opcodes
+transfer_from
+Function notify_created_note has 4 instructions with 0 for dump&restore
+Function decompose_hint has 74 instructions with 0 for dump&restore
+Function unsafe_rand has 2 instructions with 0 for dump&restore
+Function lt_32_hint has 75 instructions with 0 for dump&restore
+Function lte_16_hint has 82 instructions with 0 for dump&restore
+Function emit_encrypted_note_log has 3 instructions with 0 for dump&restore
+Function get_key_validation_request has 32 instructions with 0 for dump&restore
+Function notify_nullified_note has 3 instructions with 0 for dump&restore
+Function get_notes_internal has 1225 instructions with 0 for dump&restore
+Function get_collapse_hints has 370 instructions with 0 for dump&restore
+Function key_registry_get_stored_keys_hint has 157 instructions with 0 for dump&restore
+Function get_public_keys_and_partial_address has 87 instructions with 0 for dump&restore
+Function get_public_data_witness has 97 instructions with 0 for dump&restore
+Function pack_arguments_array has 4 instructions with 0 for dump&restore
+Function call_private_function_internal has 50 instructions with 0 for dump&restore
+Function unpack_returns has 8 instructions with 0 for dump&restore
+Finished function pack_arguments_array with 35 opcodes
+Finished function call_private_function_internal with 69 opcodes
+Finished function unpack_returns with 34 opcodes
+Finished function get_public_data_witness with 151 opcodes
+Finished function lt_32_hint with 85 opcodes
+Finished function decompose_hint with 84 opcodes
+Finished function lte_16_hint with 92 opcodes
+Finished function key_registry_get_stored_keys_hint with 200 opcodes
+Finished function get_public_keys_and_partial_address with 108 opcodes
+Finished function get_notes_internal with 1341 opcodes
+Finished function get_collapse_hints with 469 opcodes
+Finished function get_key_validation_request with 45 opcodes
+Finished function notify_nullified_note with 15 opcodes
+Finished function unsafe_rand with 10 opcodes
+Finished function notify_created_note with 40 opcodes
+Finished function emit_encrypted_note_log with 549 opcodes
+mint_private
+Function mint_private has 2272 instructions with 2100 for dump&restore
+Function emit_note_hash has 2 instructions with 0 for dump&restore
+Function decompose_hint has 16 instructions with 10 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function storage_write has 2 instructions with 0 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function sender has 2 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function read has 38 instructions with 26 for dump&restore
+Function at has 86 instructions with 64 for dump&restore
+Function msg_sender has 26 instructions with 22 for dump&restore
+Function new has 20 instructions with 14 for dump&restore
+Function add has 16 instructions with 0 for dump&restore
+Function read has 40 instructions with 26 for dump&restore
+Function from_integer has 19 instructions with 10 for dump&restore
+Function write has 44 instructions with 34 for dump&restore
+Function insert_from_public has 52 instructions with 50 for dump&restore
+Function create_note_hash_from_public has 250 instructions with 208 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function set_header has 5 instructions with 0 for dump&restore
+Function compute_note_hiding_point has 239 instructions with 178 for dump&restore
+Function push_note_hash has 29 instructions with 26 for dump&restore
+Function from_field_unsafe has 22 instructions with 10 for dump&restore
+Function pedersen_commitment has 22 instructions with 14 for dump&restore
+Function serialize_content has 11 instructions with 0 for dump&restore
+Function multi_scalar_mul has 31 instructions with 0 for dump&restore
+Function add has 38 instructions with 30 for dump&restore
+Function embedded_curve_add has 27 instructions with 0 for dump&restore
+Function pedersen_commitment_with_separator has 45 instructions with 0 for dump&restore
+Function compute_decomposition has 83 instructions with 14 for dump&restore
+Function to_le_bytes has 19 instructions with 14 for dump&restore
+Function to_le_radix has 8 instructions with 0 for dump&restore
+Function storage_write has 71 instructions with 64 for dump&restore
+Function raw_storage_write has 56 instructions with 30 for dump&restore
+Function serialize has 25 instructions with 14 for dump&restore
+Function to_integer has 5 instructions with 0 for dump&restore
+Function assert_max_bit_size has 6 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 21 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function empty has 12 instructions with 6 for dump&restore
+Function zero has 2 instructions with 0 for dump&restore
+Function derive_storage_slot_in_map has 55 instructions with 36 for dump&restore
+Function pedersen_hash has 18 instructions with 14 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function pedersen_hash_with_separator has 5 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 9 instructions with 0 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function lambda has 38 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 44 instructions with 26 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Function apply has 253 instructions with 178 for dump&restore
+Finished function mint_private with 5896 opcodes
+set_admin
+Function set_admin has 1219 instructions with 1114 for dump&restore
+Function storage_write has 2 instructions with 0 for dump&restore
+Function sender has 2 instructions with 0 for dump&restore
+Function storage_read has 3 instructions with 0 for dump&restore
+Function nullifier_exists has 3 instructions with 0 for dump&restore
+Function address has 2 instructions with 0 for dump&restore
+Function new has 18 instructions with 14 for dump&restore
+Function init has 1156 instructions with 1030 for dump&restore
+Function assert_is_initialized_public has 175 instructions with 136 for dump&restore
+Function eq has 36 instructions with 28 for dump&restore
+Function read has 38 instructions with 26 for dump&restore
+Function msg_sender has 26 instructions with 22 for dump&restore
+Function write has 40 instructions with 30 for dump&restore
+Function storage_write has 66 instructions with 60 for dump&restore
+Function raw_storage_write has 56 instructions with 30 for dump&restore
+Function serialize has 20 instructions with 10 for dump&restore
+Function to_field has 1 instructions with 0 for dump&restore
+Function storage_read has 43 instructions with 36 for dump&restore
+Function deserialize has 19 instructions with 10 for dump&restore
+Function raw_storage_read has 75 instructions with 30 for dump&restore
+Function from_field has 1 instructions with 0 for dump&restore
+Function compute_unsiloed_contract_initialization_nullifier has 14 instructions with 10 for dump&restore
+Function this_address has 26 instructions with 22 for dump&restore
+Function nullifier_exists has 71 instructions with 60 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function new has 7 instructions with 0 for dump&restore
+Function none has 3 instructions with 0 for dump&restore
+Finished function set_admin with 3203 opcodes

@@ -97,6 +97,7 @@ pub(crate) struct BrilligContext<F, Registers> {
     /// Whether this context can call procedures or not.
     /// This is used to prevent a procedure from calling another procedure.
     can_call_procedures: bool,
+    pub(crate) call_convention_opcode_use: usize,
 }
 
 /// Regular brillig context to codegen user defined functions
@@ -110,6 +111,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F, Stack> {
             next_section: 1,
             debug_show: DebugShow::new(enable_debug_trace),
             can_call_procedures: true,
+            call_convention_opcode_use: 0,
         }
     }
 }
@@ -125,6 +127,7 @@ impl<F: AcirField + DebugToString> BrilligContext<F, ScratchSpace> {
             next_section: 1,
             debug_show: DebugShow::new(enable_debug_trace),
             can_call_procedures: false,
+            call_convention_opcode_use: 0,
         }
     }
 }
@@ -143,6 +146,10 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
     /// Sets a current call stack that the next pushed opcodes will be associated with.
     pub(crate) fn set_call_stack(&mut self, call_stack: CallStack) {
         self.obj.set_call_stack(call_stack);
+    }
+
+    pub(crate) fn current_opcode_count(&self) -> usize {
+        self.obj.index_of_next_opcode()
     }
 }
 

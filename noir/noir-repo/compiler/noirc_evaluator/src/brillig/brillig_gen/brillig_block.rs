@@ -553,14 +553,15 @@ impl<'block> BrilligBlock<'block> {
                     let results = dfg.instruction_results(instruction_id);
 
                     let source = self.convert_ssa_single_addr_value(arguments[0], dfg);
+                    let radix: u32 = 8; // Obviously wrong, wait for AVM to support it being a memory offset
 
-                    let radix: u32 = dfg
-                        .get_numeric_constant(arguments[1])
-                        .expect("Radix should be known")
-                        .try_to_u64()
-                        .expect("Radix should fit in u64")
-                        .try_into()
-                        .expect("Radix should be u32");
+                    // let radix: u32 = dfg
+                    //     .get_numeric_constant(arguments[1])
+                    //     .expect("Radix should be known")
+                    //     .try_to_u64()
+                    //     .expect("Radix should fit in u64")
+                    //     .try_into()
+                    //     .expect("Radix should be u32");
 
                     let target_array = self
                         .variables

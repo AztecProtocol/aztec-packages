@@ -59,7 +59,9 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         variables_to_save: &[BrilligVariable],
     ) -> Vec<MemoryAddress> {
         // Save all the registers we have used to the stack.
+        let opcode_count_before = self.current_opcode_count();
         let saved_registers = self.codegen_save_registers_of_vars(variables_to_save);
+        self.call_convention_opcode_use += self.current_opcode_count() - opcode_count_before;
 
         // Move argument values to the front of the registers
         //
@@ -100,6 +102,8 @@ impl<F: AcirField + DebugToString, Registers: RegisterAllocator> BrilligContext<
         // only restoring registers that were used prior to the call finishing.
         // After the call instruction, the stack frame pointer should be back to where we left off,
         // so we do our instructions in reverse order.
+        let opcode_count_before = self.current_opcode_count();
         self.codegen_load_all_saved_registers(saved_registers);
+        self.call_convention_opcode_use += self.current_opcode_count() - opcode_count_before;
     }
 }

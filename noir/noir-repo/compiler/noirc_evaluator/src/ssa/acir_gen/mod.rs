@@ -977,6 +977,7 @@ impl<'a> Context<'a> {
             };
             entry_point.link_with(artifact);
         }
+        println!("Finished function {} with {} opcodes", func.name(), entry_point.byte_code.len());
         // Generate the final bytecode
         Ok(entry_point.finish())
     }
