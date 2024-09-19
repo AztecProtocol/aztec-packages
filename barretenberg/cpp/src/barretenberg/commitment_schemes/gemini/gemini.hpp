@@ -1,10 +1,8 @@
 #pragma once
 
-#include "../claim.hpp"
+#include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-
-#include <vector>
 
 /**
  * @brief Protocol for opening several multi-linear polynomials at the same point.
@@ -57,10 +55,6 @@ namespace bb {
  * ]
  * @tparam Curve CommitmentScheme parameters
  */
-template <typename Curve> struct GeminiProverOutput {
-    std::vector<OpeningPair<Curve>> opening_pairs;
-    std::vector<Polynomial<typename Curve::ScalarField>> witnesses;
-};
 
 namespace gemini {
 /**
@@ -102,15 +96,23 @@ template <class Fr> inline std::vector<Fr> powers_of_evaluation_challenge(const 
 template <typename Curve> class GeminiProver_ {
     using Fr = typename Curve::ScalarField;
     using Polynomial = bb::Polynomial<Fr>;
+    using Claim = ProverOpeningClaim<Curve>;
 
   public:
-    static std::vector<Polynomial> compute_gemini_polynomials(std::span<const Fr> mle_opening_point,
-                                                              Polynomial&& batched_unshifted,
-                                                              Polynomial&& batched_to_be_shifted);
+    static std::vector<Polynomial> compute_fold_polynomials(std::span<const Fr> multilinear_evaluations,
+                                                            Polynomial&& batched_unshifted,
+                                                            Polynomial&& batched_to_be_shifted);
 
-    static GeminiProverOutput<Curve> compute_fold_polynomial_evaluations(std::span<const Fr> mle_opening_point,
-                                                                         std::vector<Polynomial>&& gemini_polynomials,
-                                                                         const Fr& r_challenge);
+    static std::vector<Claim> compute_fold_polynomial_evaluations(std::span<const Fr> multilinear_evaluations,
+                                                                  std::vector<Polynomial>&& fold_polynomials,
+                                                                  const Fr& r_challenge);
+
+    static std::vector<Claim> prove(const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                                    std::span<Fr> multilinear_challenge,
+                                    std::span<Fr> multilinear_evaluations,
+                                    RefSpan<Polynomial> f_polynomials,
+                                    RefSpan<Polynomial> g_polynomials,
+                                    std::shared_ptr<NativeTranscript>& transcript);
 }; // namespace bb
 
 template <typename Curve> class GeminiVerifier_ {
@@ -122,25 +124,45 @@ template <typename Curve> class GeminiVerifier_ {
     /**
      * @brief Returns univariate opening claims for the Fold polynomials to be checked later
      *
-     * @param mle_opening_point the MLE evaluation point u
+     * @param multilinear_evaluations the MLE evaluation point u
      * @param batched_evaluation batched evaluation from multivariate evals at the point u
-     * @param batched_f batched commitment to unshifted polynomials
-     * @param batched_g batched commitment to to-be-shifted polynomials
+     * @param batched_commitment_unshifted batched commitment to unshifted polynomials
+     * @param batched_commitment_to_be_shifted batched commitment to to-be-shifted polynomials
      * @param proof commitments to the m-1 folded polynomials, and alleged evaluations.
      * @param transcript
      * @return Fold polynomial opening claims: (r, A₀(r), C₀₊), (-r, A₀(-r), C₀₋), and
      * (Cⱼ, Aⱼ(-r^{2ʲ}), -r^{2}), j = [1, ..., m-1]
      */
-    static std::vector<OpeningClaim<Curve>> reduce_verification(std::span<const Fr> mle_opening_point, /* u */
-                                                                Fr& batched_evaluation,                /* all */
-                                                                GroupElement& batched_f,               /* unshifted */
-                                                                GroupElement& batched_g, /* to-be-shifted */
+    static std::vector<OpeningClaim<Curve>> reduce_verification(std::span<Fr> multilinear_challenge,
+                                                                std::span<Fr> multilinear_evaluations, /* u */
+                                                                RefSpan<GroupElement> unshifted_commitments,
+                                                                RefSpan<GroupElement> to_be_shifted_commitments,
                                                                 auto& transcript)
     {
-        const size_t num_variables = mle_opening_point.size();
+        const size_t num_variables = multilinear_challenge.size();
+
+        Fr rho = transcript->template get_challenge<Fr>("rho");
+        std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
+
+        GroupElement batched_commitment_unshifted = GroupElement::zero();
+        GroupElement batched_commitment_to_be_shifted = GroupElement::zero();
+
+        Fr batched_evaluation = Fr::zero();
+        for (size_t i = 0; i < multilinear_evaluations.size(); ++i) {
+            batched_evaluation += multilinear_evaluations[i] * rhos[i];
+        }
+
+        const size_t num_unshifted = unshifted_commitments.size();
+        const size_t num_to_be_shifted = to_be_shifted_commitments.size();
+        for (size_t i = 0; i < num_unshifted; i++) {
+            batched_commitment_unshifted += unshifted_commitments[i] * rhos[i];
+        }
+        for (size_t i = 0; i < num_to_be_shifted; i++) {
+            batched_commitment_to_be_shifted += to_be_shifted_commitments[i] * rhos[num_unshifted + i];
+        }
 
         // Get polynomials Fold_i, i = 1,...,m-1 from transcript
-        const std::vector<Commitment> commitments = get_gemini_commitments(num_variables, transcript);
+        const std::vector<Commitment> commitments = get_fold_commitments(num_variables, transcript);
 
         // compute vector of powers of random evaluation point r
         const Fr r = transcript->template get_challenge<Fr>("Gemini:r");
@@ -149,12 +171,13 @@ template <typename Curve> class GeminiVerifier_ {
         // Get evaluations a_i, i = 0,...,m-1 from transcript
         const std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
         // Compute evaluation A₀(r)
-        auto a_0_pos =
-            compute_gemini_batched_univariate_evaluation(batched_evaluation, mle_opening_point, r_squares, evaluations);
+        auto a_0_pos = compute_gemini_batched_univariate_evaluation(
+            batched_evaluation, multilinear_challenge, r_squares, evaluations);
 
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
-        auto [c0_r_pos, c0_r_neg] = compute_simulated_commitments(batched_f, batched_g, r);
+        auto [c0_r_pos, c0_r_neg] =
+            compute_simulated_commitments(batched_commitment_unshifted, batched_commitment_to_be_shifted, r);
 
         std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
         fold_polynomial_opening_claims.reserve(num_variables + 1);
@@ -172,16 +195,16 @@ template <typename Curve> class GeminiVerifier_ {
         return fold_polynomial_opening_claims;
     }
 
-    static std::vector<Commitment> get_gemini_commitments(const size_t log_circuit_size, auto& transcript)
+    static std::vector<Commitment> get_fold_commitments(const size_t log_circuit_size, auto& transcript)
     {
-        std::vector<Commitment> gemini_commitments;
-        gemini_commitments.reserve(log_circuit_size - 1);
+        std::vector<Commitment> fold_commitments;
+        fold_commitments.reserve(log_circuit_size - 1);
         for (size_t i = 0; i < log_circuit_size - 1; ++i) {
             const Commitment commitment =
                 transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
-            gemini_commitments.emplace_back(commitment);
+            fold_commitments.emplace_back(commitment);
         }
-        return gemini_commitments;
+        return fold_commitments;
     }
     static std::vector<Fr> get_gemini_evaluations(const size_t log_circuit_size, auto& transcript)
     {
@@ -246,14 +269,13 @@ template <typename Curve> class GeminiVerifier_ {
     /**
      * @brief Computes two commitments to A₀ partially evaluated in r and -r.
      *
-     * @param batched_f batched commitment to non-shifted polynomials
-     * @param batched_g batched commitment to to-be-shifted polynomials
+     * @param batched_commitment_unshifted batched commitment to non-shifted polynomials
+     * @param batched_commitment_to_be_shifted batched commitment to to-be-shifted polynomials
      * @param r evaluation point at which we have partially evaluated A₀ at r and -r.
      * @return std::pair<Commitment, Commitment>  c0_r_pos, c0_r_neg
      */
-    static std::pair<GroupElement, GroupElement> compute_simulated_commitments(GroupElement& batched_f,
-                                                                               GroupElement& batched_g,
-                                                                               Fr r)
+    static std::pair<GroupElement, GroupElement> compute_simulated_commitments(
+        GroupElement& batched_commitment_unshifted, GroupElement& batched_commitment_to_be_shifted, Fr r)
     {
         // C₀ᵣ₊ = [F] + r⁻¹⋅[G]
         GroupElement C0_r_pos;
@@ -265,7 +287,7 @@ template <typename Curve> class GeminiVerifier_ {
         // TODO(#673): The following if-else represents the stldib/native code paths. Once the "native" verifier is
         // achieved through a builder Simulator, the stdlib codepath should become the only codepath.
         if constexpr (Curve::is_stdlib_type) {
-            std::vector<GroupElement> commitments = { batched_f, batched_g };
+            std::vector<GroupElement> commitments = { batched_commitment_unshifted, batched_commitment_to_be_shifted };
             auto builder = r.get_context();
             auto one = Fr(builder, 1);
             // TODO(#707): these batch muls include the use of 1 as a scalar. This is handled appropriately as a non-mul
@@ -274,12 +296,12 @@ template <typename Curve> class GeminiVerifier_ {
             C0_r_pos = GroupElement::batch_mul(commitments, { one, r_inv });
             C0_r_neg = GroupElement::batch_mul(commitments, { one, -r_inv });
         } else {
-            C0_r_pos = batched_f;
-            C0_r_neg = batched_f;
-            if (!batched_g.is_point_at_infinity()) {
-                batched_g = batched_g * r_inv;
-                C0_r_pos += batched_g;
-                C0_r_neg -= batched_g;
+            C0_r_pos = batched_commitment_unshifted;
+            C0_r_neg = batched_commitment_unshifted;
+            if (!batched_commitment_to_be_shifted.is_point_at_infinity()) {
+                batched_commitment_to_be_shifted = batched_commitment_to_be_shifted * r_inv;
+                C0_r_pos += batched_commitment_to_be_shifted;
+                C0_r_neg -= batched_commitment_to_be_shifted;
             }
         }
 

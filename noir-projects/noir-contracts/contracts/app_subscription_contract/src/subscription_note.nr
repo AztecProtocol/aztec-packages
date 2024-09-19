@@ -5,9 +5,9 @@ use dep::aztec::{
     protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER
 };
 
-global SUBSCRIPTION_NOTE_LEN: Field = 4;
+global SUBSCRIPTION_NOTE_LEN: u32 = 4;
 // SUBSCRIPTION_NOTE_BYTES_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global SUBSCRIPTION_NOTE_BYTES_LEN: Field = SUBSCRIPTION_NOTE_LEN * 32 + 64;
+global SUBSCRIPTION_NOTE_BYTES_LEN: u32 = SUBSCRIPTION_NOTE_LEN * 32 + 64;
 
 #[aztec(note)]
 struct SubscriptionNote {

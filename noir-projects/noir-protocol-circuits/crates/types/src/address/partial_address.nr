@@ -4,7 +4,7 @@ use crate::{
     hash::poseidon2_hash_with_separator, traits::{ToField, Serialize, Deserialize}
 };
 
-global PARTIAL_ADDRESS_LENGTH = 1;
+global PARTIAL_ADDRESS_LENGTH: u32 = 1;
 
 // Partial address
 struct PartialAddress {
