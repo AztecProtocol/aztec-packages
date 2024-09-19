@@ -292,11 +292,11 @@ unconstrained fn call_static<let RET_SIZE: u32>(
     call_static_opcode(gas, address, args, function_selector)
 }
 
-unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
+unconstrained pub(crate) fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
     calldata_copy_opcode(cdoffset, copy_size)
 }
 
-unconstrained fn avm_return<let N: u32>(returndata: [Field; N]) {
+unconstrained pub(crate) fn avm_return<let N: u32>(returndata: [Field; N]) {
     return_opcode(returndata)
 }
 

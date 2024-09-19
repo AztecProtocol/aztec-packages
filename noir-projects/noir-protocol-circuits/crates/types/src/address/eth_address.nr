@@ -1,7 +1,9 @@
 use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Empty, ToField, Serialize, Deserialize}, utils};
+use crate::calldata::from_calldata::{FromCallData, ToCallData};
 
+#[derive(FromCallData, ToCallData)]
 struct EthAddress{
-    inner : Field
+    inner : Field,
 }
 
 impl Eq for EthAddress {

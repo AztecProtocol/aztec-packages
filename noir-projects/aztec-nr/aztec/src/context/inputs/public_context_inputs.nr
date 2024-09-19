@@ -1,7 +1,9 @@
 use dep::protocol_types::traits::Empty;
+use dep::protocol_types::calldata::{FromCallData, ToCallData};
 
 // These inputs will likely go away once the AVM processes 1 public kernel per enqueued call.
-struct PublicContextInputs {
+#[derive(FromCallData, ToCallData)]
+pub struct PublicContextInputs {
     // TODO: Remove this structure and get calldata size at compile time.
     calldata_length: Field,
     is_static_call: bool
