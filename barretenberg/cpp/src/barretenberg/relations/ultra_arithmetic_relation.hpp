@@ -28,11 +28,11 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImpl {
         requires HOMOGENIZED && ArrayAccessOnEntity<AllEntities>
     {
         // For folding multiple instances, we would do a constexpr loop over { idx = 1; idx < NUM_KEYS }
-        return in.w_l.value_at(1) == 0 && in.w_r.value_at(1) == 0 && in.w_o.value_at(1) == 0 &&
-               in.w_4.value_at(1) == 0 && in.w_4_shift.value_at(1) == 0 && in.q_m.value_at(1) == 0 &&
-               in.q_l.value_at(1) == 0 && in.q_r.value_at(1) == 0 && in.q_o.value_at(1) == 0 &&
-               in.q_4.value_at(1) == 0 && in.q_c.value_at(1) == 0 && in.q_arith.value_at(1) == 0 &&
-               in.w_l_shift.value_at(1) == 0 /* && in.homogenizer.value_at(1) == 0 */;
+        return in.w_l.value_at(1).is_zero() && in.w_r.value_at(1).is_zero() && in.w_o.value_at(1).is_zero() &&
+               in.w_4.value_at(1).is_zero() && in.w_4_shift.value_at(1).is_zero() && in.q_m.value_at(1).is_zero() &&
+               in.q_l.value_at(1).is_zero() && in.q_r.value_at(1).is_zero() && in.q_o.value_at(1).is_zero() &&
+               in.q_4.value_at(1).is_zero() && in.q_c.value_at(1).is_zero() && in.q_arith.value_at(1).is_zero() &&
+               in.w_l_shift.value_at(1).is_zero() /* && in.homogenizer.value_at(1) == 0 */;
     }
 
     /**
