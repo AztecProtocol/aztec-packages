@@ -515,9 +515,8 @@ contract AvmTest {
         let _ = pedersen_hash(inputs, args_field);
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
         let _ = pedersen_hash_with_index(inputs, args_field);
-        // Mocking is broken. Re-enable.
-        // dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
-        // test_get_contract_instance(inputs);
+        dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
+        test_get_contract_instance(inputs);
         dep::aztec::oracle::debug_log::debug_log("get_address");
         let _ = get_address(inputs);
         dep::aztec::oracle::debug_log::debug_log("get_storage_address");

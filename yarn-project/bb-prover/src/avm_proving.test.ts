@@ -1,7 +1,7 @@
 import { AvmCircuitInputs, AvmVerificationKeyData, FunctionSelector, Gas, GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AvmSimulator, type PublicContractsDB, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
+import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
   initContext,
@@ -57,7 +57,7 @@ const proveAndVerifyAvmTestContract = async (
   globals.timestamp = TIMESTAMP;
   const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
 
-  const contractsDb = mock<PublicContractsDB>();
+  const worldStateDB = mock<WorldStateDB>();
   const contractInstance = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
@@ -66,9 +66,8 @@ const proveAndVerifyAvmTestContract = async (
     initializationHash: new Fr(0x101112),
     publicKeysHash: new Fr(0x161718),
   }).withAddress(environment.address);
-  contractsDb.getContractInstance.mockResolvedValue(Promise.resolve(contractInstance));
+  worldStateDB.getContractInstance.mockResolvedValue(Promise.resolve(contractInstance));
 
-  const worldStateDB = mock<WorldStateDB>();
   const storageValue = new Fr(5);
   worldStateDB.storageRead.mockResolvedValue(Promise.resolve(storageValue));
 
