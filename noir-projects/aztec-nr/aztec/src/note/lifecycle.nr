@@ -36,11 +36,7 @@ pub fn create_note<Note, let N: u32>(
     NoteEmission::new(*note)
 }
 
-pub fn create_note_hash_from_public<Note, let N: u32>(
-    context: &mut PublicContext,
-    storage_slot: Field,
-    note: &mut Note
-) where Note: NoteInterface<N> {
+pub fn create_note_hash_from_public<Note, let N: u32>(context: &mut PublicContext, storage_slot: Field, note: &mut Note) where Note: NoteInterface<N> {
     let contract_address = (*context).this_address();
     // Public note hashes are transient, but have no side effect counters, so we just need note_hash_counter != 0
     let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter: 1 };

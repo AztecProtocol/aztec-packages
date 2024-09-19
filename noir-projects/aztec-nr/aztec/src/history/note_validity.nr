@@ -1,4 +1,4 @@
-use crate::{context::PrivateContext, note::note_interface::{NoteInterface}};
+use crate::{context::PrivateContext, note::note_interface::NoteInterface};
 
 use dep::protocol_types::header::Header;
 
@@ -11,7 +11,7 @@ impl ProveNoteValidity for Header {
         self,
         note: Note,
         context: &mut PrivateContext
-    ) where Note: NoteInterface<N>  {
+    ) where Note: NoteInterface<N> {
         self.prove_note_inclusion(note);
         self.prove_note_not_nullified(note, context);
     }

@@ -2,7 +2,7 @@ use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 use dep::protocol_types::header::Header;
 
 use crate::{
-    note::{utils::compute_note_hash_for_nullify, note_interface::{NoteInterface}},
+    note::{utils::compute_note_hash_for_nullify, note_interface::NoteInterface},
     oracle::get_membership_witness::get_note_hash_membership_witness
 };
 
@@ -11,10 +11,7 @@ trait ProveNoteInclusion {
 }
 
 impl ProveNoteInclusion for Header {
-    fn prove_note_inclusion<Note, let N: u32>(
-        self,
-        note: Note
-    ) where Note: NoteInterface<N>  {
+    fn prove_note_inclusion<Note, let N: u32>(self, note: Note) where Note: NoteInterface<N> {
         let note_hash = compute_note_hash_for_nullify(note);
 
         let witness = unsafe {
