@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726746813765,
+  "lastUpdate": 1726754952102,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "31df5ead9e182bcf57588438f1b73eba4c052fa5",
-          "message": "fix: Revert \"feat: ultra keccak honk verifier (#8427)\n\nReverts AztecProtocol/aztec-packages#8391, which reverted #8261 :)\r\nAlso adds a few enhancements to bring it up to date with latest crypto\r\nchanges\r\n\r\n---------\r\n\r\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
-          "timestamp": "2024-09-09T12:18:35Z",
-          "tree_id": "b35012833980d413871400317f4552699e747d03",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/31df5ead9e182bcf57588438f1b73eba4c052fa5"
-        },
-        "date": 1725885108367,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13354.001264000004,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10171.678778000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5111.029670000008,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4651.682182999999 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39835.00818700001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39835008000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14712.629348000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14712628000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3660455933,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3660455933 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 146029436,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 146029436 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2988051104,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2988051104 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 119965920,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 119965920 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 127818469,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127818469 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "09e2f447b003ed4c77b12069893785851a2c6258",
+          "message": "feat: constant sized PG proofs and const sized PG rec verifier (#8605)\n\nConstant sized PG proofs and const sized PG rec verifier (similar to\r\nprevious work for Honk using `CONST_PROOF_SIZE_LOG_N = 28`). This is to\r\nfacilitate consistent/precomputable VKs for kernel circuits which\r\ncontain PG recursive verifiers. I'm using `CONST_PG_LOG_N == 20` since\r\nwe don't currently fold anything larger than that but this can easily be\r\ntweaked if necessary.\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/1087 (we now\r\nsend the perturbator on the first round even though it is all zeros)",
+          "timestamp": "2024-09-19T06:51:12-07:00",
+          "tree_id": "465f3d4a3c9ff93f5fa97d8856540cb6f2c9b554",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/09e2f447b003ed4c77b12069893785851a2c6258"
+        },
+        "date": 1726754944824,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 35750.01290999998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 33297.544386 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5106.889340999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4744.051185000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 99792.55326300002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 99792554000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14615.851922,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14615852000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8537604370,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8537604370 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 151228627,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 151228627 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6937659259,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6937659259 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126277511,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126277511 ns\nthreads: 1"
           }
         ]
       }
