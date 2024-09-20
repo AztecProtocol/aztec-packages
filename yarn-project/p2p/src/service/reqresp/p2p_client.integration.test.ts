@@ -235,15 +235,15 @@ describe('Req Resp p2p client integration', () => {
       const tx = mockTx();
       const txHash = tx.getTxHash();
 
-      // Return an invalid tx
+      // Return the correct tx with an invalid proof -> active attack
       txPool.getTxByHash.mockImplementationOnce(() => tx);
 
       const requestedTx = await client1.requestTxByHash(txHash);
       // Even though we got a response, the proof was deemed invalid
       expect(requestedTx).toBeUndefined();
 
-      // Mid tolerance error is due to the invalid proof
-      expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.MidToleranceError);
+      // Low tolerance error is due to the invalid proof
+      expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.LowToleranceError);
 
       await shutdown(clients);
     },
@@ -275,8 +275,8 @@ describe('Req Resp p2p client integration', () => {
       // Even though we got a response, the proof was deemed invalid
       expect(requestedTx).toBeUndefined();
 
-      // Low tolerance error is due to the wrong tx
-      expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.LowToleranceError);
+      // Received wrong tx
+      expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.MidToleranceError);
 
       await shutdown(clients);
     },

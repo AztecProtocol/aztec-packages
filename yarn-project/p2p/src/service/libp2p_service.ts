@@ -441,14 +441,16 @@ export class LibP2PService implements P2PService {
   private async validateRequestedTx(requestedTxHash: TxHash, responseTx: Tx, peerId: PeerId): Promise<boolean> {
     const proofValidator = new TxProofValidator(this.proofVerifier);
     const validProof = await proofValidator.validateTx(responseTx);
-    if (!validProof) {
-      // penalize - this is a high tolerence error as we are checking the proof
+
+    // If the node returns the wrong data, we penalize it
+    if (!requestedTxHash.equals(responseTx.getTxHash())) {
+      // Returning the wrong data is a low tolerance error
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
       return false;
     }
 
-    if (!requestedTxHash.equals(responseTx.getTxHash())) {
-      // penalize
+    if (!validProof) {
+      // If the proof is invalid, but the txHash is correct, then this is an active attack and we severly punish
       this.peerManager.penalizePeer(peerId, PeerErrorSeverity.LowToleranceError);
       return false;
     }
