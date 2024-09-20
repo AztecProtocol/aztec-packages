@@ -56,9 +56,11 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     // } else {
     //     quote { $fn_return_type }
     // };
+
     let fn_visibility = get_fn_visibility(f);
     let is_static_call = is_fn_view(f);
     let is_void = fn_return_type == type_of(());
+
     let fn_visibility_capitalized = if is_fn_private(f) {
         quote { Private }
     } else {
@@ -70,11 +72,12 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         quote { }
     };
     let is_void_capitalized = if is_void { quote { Void } } else { quote { } };
+
     let args_acc_name = quote { args_acc };
     let args_acc = fn_parameters.fold(
         quote {
-                let mut $args_acc_name = &[];
-            },
+            let mut $args_acc_name = &[];
+        },
         |args_hasher, param: (Quoted, Type)| {
             let (name, typ) = param;
             let appended_arg = add_to_field_slice(args_acc_name, name, typ);
@@ -179,6 +182,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     }
 }
 
+/// Registers a function stub created via `stub_fn` as part of a module,
 pub(crate) comptime fn register_stub(m: Module, stub: Quoted) {
     let current_stubs = STUBS.get(m);
     let stubs_to_insert = if current_stubs.is_some() {
