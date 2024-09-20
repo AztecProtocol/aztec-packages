@@ -12,6 +12,9 @@ using namespace benchmark;
 
 namespace bb {
 
+using Flavor = MegaFlavor;
+using FF = typename Flavor::FF;
+
 /**
  * @brief As expected, this is about NUM_SUBRELAITONSS (40ish) * cost of FF alloc (33ms at size 2^21)
  *
@@ -19,7 +22,6 @@ namespace bb {
  */
 void vector_of_evaluations(State& state) noexcept
 {
-    using Flavor = MegaFlavor;
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
 
     for (auto _ : state) {
@@ -28,10 +30,32 @@ void vector_of_evaluations(State& state) noexcept
     }
 }
 
+/**
+ * @brief As expected, this is about NUM_SUBRELAITONSS (40ish) * cost of FF alloc (33ms at size 2^21)
+ *
+ * @param state
+ */
+void compute_row_evaluations(State& state) noexcept
+{
+    using Fun = ProtogalaxyProverInternal<DeciderProvingKeys_<Flavor, 2>>;
+    using Polys = Flavor::ProverPolynomials;
+    using Alphas = Flavor::RelationSeparator;
+    using Params = RelationParameters<FF>;
+
+    const size_t dyadic_size = 1 << state.range(0);
+    Polys polys(dyadic_size);
+    Alphas alphas;
+    auto params = Params::get_random();
+
+    for (auto _ : state) {
+        auto result = Fun::compute_row_evaluations(polys, alphas, params);
+        DoNotOptimize(result);
+    }
+}
+
 // Fold one proving key into an accumulator.
 void prove(State& state) noexcept
 {
-    using Flavor = MegaFlavor;
     static constexpr size_t k(1);
 
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
@@ -62,6 +86,7 @@ void prove(State& state) noexcept
 }
 
 BENCHMARK(vector_of_evaluations)->DenseRange(15, 21)->Unit(kMillisecond);
+BENCHMARK(compute_row_evaluations)->DenseRange(15, 21)->Unit(kMillisecond);
 // We stick to just k=1 for compile-time reasons.
 BENCHMARK(prove)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 
