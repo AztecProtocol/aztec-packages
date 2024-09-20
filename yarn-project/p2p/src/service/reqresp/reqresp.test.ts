@@ -246,7 +246,8 @@ describe('ReqResp', () => {
 
       // Mock that the receiving node will find that the transaction is invalid
       const protocolValidators = MOCK_SUB_PROTOCOL_VALIDATORS;
-      protocolValidators[TX_REQ_PROTOCOL] = () => {
+      protocolValidators[TX_REQ_PROTOCOL] = (_request, _response, peer) => {
+        peerManager.penalizePeer(peer, PeerErrorSeverity.LowToleranceError);
         return Promise.resolve(false);
       };
 

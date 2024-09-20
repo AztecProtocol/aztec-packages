@@ -16,6 +16,7 @@ import {
   noopValidator,
 } from '../service/reqresp/interface.js';
 import { ReqResp } from '../service/reqresp/reqresp.js';
+import { ClientProtocolCircuitVerifier, Tx } from '@aztec/circuit-types';
 
 /**
  * Creates a libp2p node, pre configured.
@@ -118,3 +119,15 @@ export const connectToPeers = async (nodes: ReqRespNode[]): Promise<void> => {
     }
   }
 };
+
+// Mock circuit verifier for testing - reimplementation from bb to avoid dependency
+export class AlwaysTrueCircuitVerifier implements ClientProtocolCircuitVerifier {
+  verifyProof(_tx: Tx): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+}
+export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier {
+  verifyProof(_tx: Tx): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+}

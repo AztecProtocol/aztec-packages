@@ -11,13 +11,18 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { type AttestationPool } from '../../attestation_pool/attestation_pool.js';
-import { BootstrapNode } from '../../bootstrap/bootstrap.js';
 import { createP2PClient } from '../../client/index.js';
 import { MockBlockSource } from '../../client/mocks.js';
 import { type P2PClient } from '../../client/p2p_client.js';
-import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
+import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
 import { type TxPool } from '../../tx_pool/index.js';
 import { createLibP2PPeerId } from '../index.js';
+import { SignableENR } from '@chainsafe/enr';
+import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
+import { AZTEC_ENR_KEY, AZTEC_NET } from '../discV5_service.js';
+import { multiaddr } from '@multiformats/multiaddr';
+import { convertToMultiaddr } from '../../util.js';
+import { PeerErrorSeverity } from '../peer_scoring.js';
 
 /**
  * Mockify helper for testing purposes.
@@ -27,22 +32,6 @@ type Mockify<T> = {
 };
 
 const TEST_TIMEOUT = 80000;
-
-const DEFAULT_BOOT_NODE_UDP_PORT = 40400;
-async function createBootstrapNode(port: number) {
-  const peerId = await createLibP2PPeerId();
-  const bootstrapNode = new BootstrapNode();
-  const config: BootnodeConfig = {
-    udpListenAddress: `0.0.0.0:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
-    peerIdPrivateKey: Buffer.from(peerId.privateKey!).toString('hex'),
-    minPeerCount: 1,
-    maxPeerCount: 100,
-  };
-  await bootstrapNode.start(config);
-
-  return bootstrapNode;
-}
 
 function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
   const peerIdPrivateKeys: string[] = [];
@@ -65,21 +54,43 @@ describe('Req Resp p2p client integration', () => {
   let bootNodePort: number;
   const logger = createDebugLogger('p2p-client-integration-test');
 
-  const makeBootstrapNode = async (): Promise<[BootstrapNode, string]> => {
-    bootNodePort = (await getRandomPort()) || DEFAULT_BOOT_NODE_UDP_PORT;
-    const bootstrapNode = await createBootstrapNode(bootNodePort);
-    const enr = bootstrapNode.getENR().encodeTxt();
-    return [bootstrapNode, enr];
+  const getPorts = async (numberOfPeers: number) => {
+    let ports = [];
+    for (let i = 0; i < numberOfPeers; i++) {
+      const port = (await getRandomPort()) || bootNodePort + i + 1;
+      ports.push(port);
+    }
+    return ports;
   };
 
-  const createClients = async (numberOfPeers: number, bootstrapNodeEnr: string): Promise<P2PClient[]> => {
+  const createClients = async (numberOfPeers: number, alwaysTrueVerifier: boolean = true): Promise<P2PClient[]> => {
     const clients: P2PClient[] = [];
     const peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfPeers);
+
+    const ports = await getPorts(numberOfPeers);
+
+    const peerEnrs = await Promise.all(peerIdPrivateKeys.map(async (pk, i) => {
+      const peerId = await createLibP2PPeerId(pk);
+      const enr = SignableENR.createFromPeerId(peerId);
+
+      const udpAnnounceAddress = `127.0.0.1:${ports[i]}`;
+      const publicAddr = multiaddr(convertToMultiaddr(udpAnnounceAddress, 'udp'));
+
+      // ENRS must include the network and a discoverable address (udp for discv5)
+      enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
+      enr.setLocationMultiaddr(publicAddr);
+
+      return enr.encodeTxt();
+    }));
+
     for (let i = 0; i < numberOfPeers; i++) {
       // Note these bindings are important
-      const port = (await getRandomPort()) || bootNodePort + i + 1;
-      const addr = `127.0.0.1:${port}`;
-      const listenAddr = `0.0.0.0:${port}`;
+      const addr = `127.0.0.1:${ports[i]}`;
+      const listenAddr = `0.0.0.0:${ports[i]}`;
+
+      // Filter nodes so that we only dial active peers
+      const otherNodes = peerEnrs.filter((_, ind) => ind < i);
+
       const config: P2PConfig & DataStoreConfig = {
         ...getP2PDefaultConfig(),
         p2pEnabled: true,
@@ -89,7 +100,7 @@ describe('Req Resp p2p client integration', () => {
         tcpAnnounceAddress: addr,
         udpAnnounceAddress: addr,
         l2QueueSize: 1,
-        bootstrapNodes: [bootstrapNodeEnr],
+        bootstrapNodes: [...otherNodes],
         blockCheckIntervalMS: 1000,
         peerCheckIntervalMS: 1000,
         transactionProtocol: '',
@@ -122,6 +133,7 @@ describe('Req Resp p2p client integration', () => {
       };
 
       blockSource = new MockBlockSource();
+      proofVerifier = alwaysTrueVerifier ? new AlwaysTrueCircuitVerifier() : new AlwaysFalseCircuitVerifier();
       kvStore = openTmpStore();
       const deps = {
         txPool: txPool as unknown as TxPool,
@@ -150,8 +162,8 @@ describe('Req Resp p2p client integration', () => {
   };
 
   // Shutdown all test clients
-  const shutdown = async (clients: P2PClient[], bootnode: BootstrapNode) => {
-    await Promise.all([bootnode.stop(), ...clients.map(client => client.stop())]);
+  const shutdown = async (clients: P2PClient[]) => {
+    await Promise.all([...clients.map(client => client.stop())]);
     await sleep(1000);
   };
 
@@ -160,8 +172,7 @@ describe('Req Resp p2p client integration', () => {
     async () => {
       // We want to create a set of nodes and request transaction from them
       // Not using a before each as a the wind down is not working as expected
-      const [bootstrapNode, bootstrapNodeEnr] = await makeBootstrapNode();
-      const clients = await createClients(NUMBER_OF_PEERS, bootstrapNodeEnr);
+      const clients = await createClients(NUMBER_OF_PEERS);
       const [client1] = clients;
 
       await sleep(2000);
@@ -173,7 +184,8 @@ describe('Req Resp p2p client integration', () => {
       const requestedTx = await client1.requestTxByHash(txHash);
       expect(requestedTx).toBeUndefined();
 
-      await shutdown(clients, bootstrapNode);
+      // await shutdown(clients, bootstrapNode);
+      await shutdown(clients);
     },
     TEST_TIMEOUT,
   );
@@ -182,8 +194,7 @@ describe('Req Resp p2p client integration', () => {
     'Can request a transaction from another peer',
     async () => {
       // We want to create a set of nodes and request transaction from them
-      const [bootstrapNode, bootstrapNodeEnr] = await makeBootstrapNode();
-      const clients = await createClients(NUMBER_OF_PEERS, bootstrapNodeEnr);
+      const clients = await createClients(NUMBER_OF_PEERS);
       const [client1] = clients;
 
       // Give the nodes time to discover each other
@@ -200,7 +211,38 @@ describe('Req Resp p2p client integration', () => {
       // Expect the tx to be the returned tx to be the same as the one we mocked
       expect(requestedTx?.toBuffer()).toStrictEqual(tx.toBuffer());
 
-      await shutdown(clients, bootstrapNode);
+      await shutdown(clients);
+    },
+    TEST_TIMEOUT,
+  );
+
+
+  it(
+    'Will penalize peers that send invalid transactions',
+    async () => {
+      // We want to create a set of nodes and request transaction from them
+      const clients = await createClients(NUMBER_OF_PEERS, /*valid proofs*/false);
+      const [client1, client2] = clients;
+      const client2PeerId = (await client2.getEnr()?.peerId())!;
+
+      // Give the nodes time to discover each other
+      await sleep(6000);
+
+      // Perform a get tx request from client 1
+      const tx = mockTx();
+      const txHash = tx.getTxHash();
+      // Mock the tx pool to return the tx we are looking for
+      txPool.getTxByHash.mockImplementationOnce(() => tx);
+
+
+      const requestedTx = await client1.requestTxByHash(txHash);
+
+      // Expect the tx to be the returned tx to be the same as the one we mocked
+      expect(requestedTx).toBeUndefined();
+
+      expect((client1 as any).peerManager.penalizePeer).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.LowToleranceError);
+
+      await shutdown(clients);
     },
     TEST_TIMEOUT,
   );
