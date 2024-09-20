@@ -37,7 +37,6 @@ TEST(ultra_circuit_constructor, test_sha256_55_bytes)
     Graph graph = Graph(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    // graph.print_connected_components();
 }
 
 HEAVY_TEST(ultra_circuit_constructor, test_graph_for_sha256_NIST_vector_five)

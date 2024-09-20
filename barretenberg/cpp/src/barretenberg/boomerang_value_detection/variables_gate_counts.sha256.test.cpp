@@ -1,5 +1,6 @@
 #include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/test.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/primitives/byte_array/byte_array.hpp"
@@ -25,6 +26,29 @@ using packed_byte_array_ct = packed_byte_array<Builder>;
 using witness_ct = stdlib::witness_t<Builder>;
 using field_ct = field_t<Builder>;
 
+bool check_in_byte_array(const uint32_t& real_var_index, const packed_byte_array_ct& byte_array)
+{
+    std::vector<field_t<Builder>> limbs = byte_array.get_limbs();
+    for (const auto& elem : limbs) {
+        if (elem.witness_index == real_var_index) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool check_in_range_lists(const uint32_t& real_var_index, const uint64_t& target_range, const Builder& builder)
+{
+    auto range_lists = builder.range_lists;
+    auto target_list = range_lists[target_range];
+    for (const auto elem : target_list.variable_indices) {
+        if (elem == real_var_index) {
+            return true;
+        }
+    }
+    return false;
+}
+
 TEST(ultra_circuit_constructor, test_variables_gate_counts_for_sha256_55_bytes)
 {
     // 55 bytes is the largest number of bytes that can be hashed in a single block,
@@ -41,34 +65,124 @@ TEST(ultra_circuit_constructor, test_variables_gate_counts_for_sha256_55_bytes)
     std::vector<uint32_t> vector_variables_in_on_gate(variables_in_on_gate.begin(), variables_in_on_gate.end());
     std::sort(vector_variables_in_on_gate.begin(), vector_variables_in_on_gate.end());
     for (const auto& elem : vector_variables_in_on_gate) {
-        info("elem == ", elem);
+        bool result1 = check_in_byte_array(elem, input);
+        bool result2 = check_in_byte_array(elem, output_bits);
+        bool result3 = check_in_range_lists(elem, 3, builder);
+        bool check = (result1 == 1) || (result2 == 1) || (result3 == 1);
+        EXPECT_EQ(check, true);
     }
 }
 
-TEST(ultra_circuit_constructor, test_boomerang_value_in_sha256)
+HEAVY_TEST(ultra_circuit_constructor, test_variable_gates_count_for_sha256_NIST_vector_five)
 {
     auto builder = Builder();
-    std::array<field_t<Builder>, 16> input;
-    for (size_t i = 0; i < 16; i++) {
-        auto variable = fr::random_element();
-        auto var_slice = uint256_t(variable).slice(0, 32);
-        field_ct elt(witness_ct(&builder, fr(var_slice)));
-        builder.fix_witness(elt.witness_index, elt.get_value());
-        input[i] = elt;
-    }
-    std::array<field_t<Builder>, 64> w_ext = sha256_plookup::extend_witness(input);
-    bool result1 = CircuitChecker::check(builder);
-    EXPECT_EQ(result1, true);
-    while (true) {
-        auto change_variable = fr::random_element();
-        auto change_var_slice = uint256_t(change_variable).slice(0, 32);
-        field_t change_elt(&builder, fr(change_var_slice));
-        uint32_t variable_index = w_ext[62].witness_index;
-        if (builder.variables[builder.real_variable_index[variable_index]] != fr(change_var_slice)) {
-            builder.variables[builder.real_variable_index[variable_index]] = fr(change_var_slice);
-            bool result2 = CircuitChecker::check(builder);
-            EXPECT_EQ(result2, true);
-            break;
+
+    packed_byte_array_ct input(
+        &builder,
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "AAAAAAAAAA");
+
+    packed_byte_array_ct output_bits = stdlib::sha256(input);
+    Graph graph = Graph(builder);
+    std::unordered_set<uint32_t> variables_in_on_gate = graph.show_variables_in_one_gate(builder);
+    for (const auto& elem : variables_in_on_gate) {
+        bool result1 = check_in_byte_array(elem, input);
+        bool result2 = check_in_byte_array(elem, output_bits);
+        bool result3 = check_in_range_lists(elem, 3, builder);
+        bool check = (result1 == 1) || (result2 == 1) || (result3 == 1);
+        if (check == false) {
+            info("elem == ", elem);
+            info(result1);
+            info(result2);
+            info(result3);
+            info();
         }
+        EXPECT_EQ(check, true);
+    }
+}
+
+TEST(ultra_circuit_constructor, test_variable_gates_count_for_sha256_NIST_vector_one)
+{
+    auto builder = Builder();
+    packed_byte_array_ct input(&builder, "abc");
+    packed_byte_array_ct output_bits = stdlib::sha256(input);
+
+    Graph graph = Graph(builder);
+    std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    for (const auto& elem : variables_in_one_gate) {
+        bool result1 = check_in_byte_array(elem, input);
+        bool result2 = check_in_byte_array(elem, output_bits);
+        bool result3 = check_in_range_lists(elem, 3, builder);
+        bool check = (result1 == 1) || (result2 == 1) || (result3 == 1);
+        EXPECT_EQ(check, true);
+    }
+}
+
+TEST(ultra_circuit_constructor, test_variable_gates_count_for_sha256_NIST_vector_two)
+{
+    auto builder = Builder();
+
+    packed_byte_array_ct input(&builder, "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq");
+
+    packed_byte_array_ct output_bits = stdlib::sha256(input);
+    Graph graph = Graph(builder);
+    std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    for (const auto& elem : variables_in_one_gate) {
+        bool result1 = check_in_byte_array(elem, input);
+        bool result2 = check_in_byte_array(elem, output_bits);
+        bool result3 = check_in_range_lists(elem, 3, builder);
+        bool check = (result1 == 1) || (result2 == 1) || (result3 == 1);
+        if (check == false) {
+            info("elem == ", elem);
+            info(result1);
+            info(result2);
+            info(result3);
+            info();
+        }
+        EXPECT_EQ(check, true);
+    }
+}
+
+TEST(ultra_circuit_constructor, test_variable_gates_count_sha256_NIST_vector_three)
+{
+    auto builder = Builder();
+
+    // one byte, 0xbd
+    packed_byte_array_ct input(&builder, std::vector<uint8_t>{ 0xbd });
+    packed_byte_array_ct output_bits = stdlib::sha256(input);
+    Graph graph = Graph(builder);
+    std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    for (const auto& elem : variables_in_one_gate) {
+        bool result1 = check_in_byte_array(elem, input);
+        bool result2 = check_in_byte_array(elem, output_bits);
+        bool result3 = check_in_range_lists(elem, 3, builder);
+        bool check = (result1 == 1) || (result2 == 1) || (result3 == 1);
+        EXPECT_EQ(check, true);
+    }
+}
+
+TEST(ultra_circuit_constructor, test_variable_gates_count_sha256_NIST_vector_four)
+{
+    auto builder = Builder();
+
+    // 4 bytes, 0xc98c8e55
+    packed_byte_array_ct input(&builder, std::vector<uint8_t>{ 0xc9, 0x8c, 0x8e, 0x55 });
+    packed_byte_array_ct output_bits = stdlib::sha256<Builder>(input);
+    Graph graph = Graph(builder);
+    std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    for (const auto& elem : variables_in_one_gate) {
+        bool result1 = check_in_byte_array(elem, input);
+        bool result2 = check_in_byte_array(elem, output_bits);
+        bool result3 = check_in_range_lists(elem, 3, builder);
+        bool check = (result1 == 1) || (result2 == 1) || (result3 == 1);
+        EXPECT_EQ(check, true);
     }
 }
