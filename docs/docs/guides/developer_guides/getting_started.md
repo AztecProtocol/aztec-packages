@@ -180,17 +180,15 @@ Simulation result:  100n
 
 In the following steps, we'll shield a token (moving it from public to private state), and check our private and public balance.
 
-First we need to generate a secret and secret hash with the Aztec CLI:
+First we need to generate a secret and secret hash with the alias `shield`:
 
 ```bash
- aztec generate-secret-and-hash
+aztec-wallet create-secret -a shield
 ```
 
-You'll be using these in the following commands so don't clear your terminal!
-
-Call the `shield`` function like this:
+Call the `shield` function like this:
 ```bash
-aztec-wallet send shield --from accounts:my-wallet --contract-address contracts:testtoken --args accounts:my-wallet 25 <SECRET_HASH> 0
+aztec-wallet send shield --from accounts:my-wallet --contract-address contracts:testtoken --args accounts:my-wallet 25 secrets:shield:hash 0
 ```
 
 This takes the same parameters as our previous `send` call, plus the arguments which are
@@ -213,23 +211,30 @@ This should print
 Simulation result:  75n
 ```
 
-Now we will need to add these shielded tokens into our account so that we can claim them.
+Now we will need to add these shielded tokens into our account's environment so that we have the correct information to claim them.
 
 ```bash
-aztec-wallet add-note TokenNote balances  --contract-address testtoken --transaction-hash last --address accounts:my-wallet
+aztec-wallet add-note TransparentNote pending_shields --contract-address testtoken --transaction-hash last --address accounts:my-wallet --body 25 secrets:shield:hash
 ```
 
 This takes
-- the type of note you are claiming (`TokenNote`)
-- the name of the storage (`balances`)
+- the type of note you are claiming (`TransparentNote`)
+- the name of the storage (`pending_shields`)
 - the contract address
 - the transaction hash the note was created in (automatically aliased as `last`)
 - the address to claim the note into (`accounts:my-wallet`)
-Now when you call `balance_of_private` you'll see your tokens!
 
-Don't worry if you don't understand what `add-note` or `TokenNote` mean just yet. When you follow the tutorials, you'll learn more. 
+Don't worry if you don't understand what `TransparentNote` or `add-note` mean just yet. When you follow the tutorials, you'll learn more. 
 
-Now you can call `balance_of_private` to check that you have your tokens!
+A successful result will not print anything.
+
+Now you can redeem the shielded tokens:
+
+```bash
+aztec-wallet send redeem_shield --contract-address testtoken --args accounts:my-wallet 25 secrets:shield --from accounts:my-wallet
+```
+
+And then call `balance_of_private` to check that you have your tokens!
 
 ```bash
 aztec-wallet simulate balance_of_private --from my-wallet --contract-address testtoken --args accounts:my-wallet
