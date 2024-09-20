@@ -123,6 +123,7 @@ contract DEX {
             liquidity = std::cmp::min(amount0 * total_supply / reserve0, amount1 * total_supply / reserve1);
         }
         assert(liquidity > 0, "INSUFFICIENT_LIQUIDITY_MINTED");
+        // TODO: Should we mint here to private? It would be more costly.
         liquidity_token.mint_public(liquidity_provider, liquidity as Field).call(&mut context);
 
         // Update the reserves
@@ -131,14 +132,28 @@ contract DEX {
     }
 
     #[public]
-    fn remove_liquidity(from: AztecAddress, liquidity: Field, amount0Min: Field, amount1Min: Field, nonce: Field) {
+    fn remove_liquidity(liquidity_provider: AztecAddress, liquidity: Field, amount0Min: Field, amount1Min: Field, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
 
+        let settings = storage.settings.read();
+        let liquidity_token = Token::at(settings.liquidity_token);
+
         // burn the liquidity token from `from` and transfer the amounts to `from`
+        // TODO: shall we try to burn private balance? UX-wise burning public one is not an issue because the liquidity
+        // provider can always unshield and he can do it in 1 tx thanks to BatchCall.
+        // TODO: Current token's burn_public does not care about admin rights so this does not work without authwit.
+        liquidity_token.burn_public(liquidity_provider, liquidity).call(&mut context);
+
+        // TODO:
+        // (uint amount0, uint amount1) = IUniswapV2Pair(pair).burn(to);
+        // (address token0,) = UniswapV2Library.sortTokens(tokenA, tokenB);
+        // (amountA, amountB) = tokenA == token0 ? (amount0, amount1) : (amount1, amount0);
+        // require(amountA >= amountAMin, 'UniswapV2Router: INSUFFICIENT_A_AMOUNT');
+        // require(amountB >= amountBMin, 'UniswapV2Router: INSUFFICIENT_B_AMOUNT');
     }
 
     /**
