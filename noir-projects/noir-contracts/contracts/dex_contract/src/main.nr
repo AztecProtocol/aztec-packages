@@ -16,15 +16,6 @@ contract DEX {
     use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
     use dep::token::Token;
 
-    #[event]
-    #[derive(Serialize)]
-    struct Swap {
-        amount0In: u32,
-        amount1In: u32,
-        amount0Out: u32,
-        amount1Out: u32,
-    }
-
     // We store the settings of the pool in a struct such that to load it from PublicImmutable asserts only
     // a single merkle proof.
     // (Once we actually do the optimization. WIP in https://github.com/AztecProtocol/aztec-packages/pull/8022).
@@ -32,10 +23,13 @@ contract DEX {
     struct Settings {
         token0: AztecAddress,
         token1: AztecAddress,
+        liquidity_token: AztecAddress,
     }
 
     #[derive(Serialize)]
     struct Reserves {
+        // TODO: Replace the use of u32 with larger type everywhere in this contract.
+        // Didn't use U128 here because of https://github.com/AztecProtocol/aztec-packages/issues/8271
         reserve0: u32,
         reserve1: u32,
     }
@@ -46,6 +40,8 @@ contract DEX {
         reserves: PublicMutable<Reserves, Context>,
     }
 
+    global MINIMUM_LIQUIDITY: u32 = 1000;
+
     #[public]
     #[initializer]
     fn constructor(token0: AztecAddress, token1: AztecAddress) {
@@ -54,17 +50,18 @@ contract DEX {
 
         // TODO: either deploy here the liquidity contract or pass its address as an arg on input and verify that
         // it was deployed correctly.
+        let liquidity_token = AztecAddress::zero();
 
-        let settings = Settings { token0, token1 };
+        let settings = Settings { token0, token1, liquidity_token };
         storage.settings.initialize(settings);
 
         // We don't need to initialize the reserves as the default in storage is 0.
     }
 
     #[public]
-    fn add_liquidity(from: AztecAddress, amount0Desired: u32, amount1Desired: u32, amount0Min: u32, amount1Min: u32, nonce: Field) {
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
+    fn add_liquidity(liquidity_provider: AztecAddress, amount0Desired: u32, amount1Desired: u32, amount0Min: u32, amount1Min: u32, nonce: Field) {
+        if (!liquidity_provider.eq(context.msg_sender())) {
+            assert_current_call_valid_authwit_public(&mut context, liquidity_provider);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -72,13 +69,14 @@ contract DEX {
         assert(amount0Desired > 0 & amount1Desired > 0, "INSUFFICIENT_INPUT_AMOUNTS");
 
         let reserves = storage.reserves.read();
+        let settings = storage.settings.read();
 
+        // Calculate the amounts to be added to the pool
         let reserve0 = reserves.reserve0;
         let reserve1 = reserves.reserve1;
 
         let mut amount0 = amount0Desired;
         let mut amount1 = amount1Desired;
-
         if ((reserve0 != 0) | (reserve1 != 0)) {
             let amount1Optimal = get_quote(amount0Desired, reserve0, reserve1);
             if (amount1Optimal <= amount1Desired) {
@@ -94,12 +92,26 @@ contract DEX {
             }
         }
 
-        // TODO: how do we transfer the tokens to the contract? this does not work with authwits well
+        // TODO: Transfer the tokens to this contract. How do we do it? this does not work with authwits well
 
-        // let settings = storage.settings.read();
-        // Token::at(storage.token.read()).mint_public(to, amount).call(&mut context);
+        // Calculate the amount of liquidity tokens to mint
+        let liquidity_token = Token::at(settings.liquidity_token);
+        let total_supply = liquidity_token.total_supply().call(&mut context);
+        let mut liquidity: u32 = 0;
+        if (total_supply == 0) {
+            // This is using Tonelli-Shanks to compute sqrt but Uni is using babylonia method. TODO: is it fine to use a different one?
+            // TODO: avoid the casts here. Shall we use a method natively working with some integer type?
+            liquidity = std::ec::sqrt((amount0 * amount1 - MINIMUM_LIQUIDITY) as Field) as u32;
+            liquidity_token.mint_public(AztecAddress::zero(), MINIMUM_LIQUIDITY as Field).call(&mut context); // permanently lock the first MINIMUM_LIQUIDITY tokens
+        } else {
+            liquidity = std::cmp::min(amount0 * total_supply / reserve0, amount1 * total_supply / reserve1);
+        }
+        assert(liquidity > 0, "INSUFFICIENT_LIQUIDITY_MINTED");
+        liquidity_token.mint_public(liquidity_provider, liquidity as Field).call(&mut context);
 
-        // transfer the amounts from the sender to the contract and mint the liquidity token to `from`
+        // Update the reserves
+        let updated_reserves = Reserves { reserve0: reserve0 + amount0, reserve1: reserve1 + amount1 };
+        storage.reserves.write(updated_reserves);
     }
 
     #[public]
