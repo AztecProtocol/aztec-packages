@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726827096245,
+  "lastUpdate": 1726869487324,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "467120e5a95de267910c2f95b65dcb62c60f995d",
-          "message": "feat(avm): DSL integration of AVM recursive verifier (#8405)\n\nResolves #8285",
-          "timestamp": "2024-09-09T19:03:37+02:00",
-          "tree_id": "b9af75709e5690e3d74a33e0d9b5603342a2b84d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/467120e5a95de267910c2f95b65dcb62c60f995d"
-        },
-        "date": 1725902173776,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13380.17177200001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10213.702244000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5095.9106950000005,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4662.402388 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39324.350061,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39324350000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14666.023042,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14666023000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3668106100,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3668106100 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 146826377,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 146826377 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2998743767,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2998743767 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 120817087,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 120817087 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 127364027,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 127364027 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "020d4fd0cf4137e21f55b1c41e9e381a27191d84",
+          "message": "feat: more robust recursion input generator (#8634)\n\nIntroduces the method `write_recursion_inputs_honk` in main.cpp that,\r\ngiven a program, produces the inputs (in the form of a Prover.toml) to a\r\nsecond noir program that recursively verifies a proof of the first. This\r\nis used to update/simplify the logic in\r\n`regenerate_verify_honk_proof_inputs.sh` as a proof of concept. (Also\r\nreplaces `update_verify_honk_proof_inputs.py` with similar logic in\r\n`ProofSurgeon` that deals more dynamically with the public inputs).\r\n\r\nThe reason for doing this is that similar logic will be needed to create\r\ntests for `noir::verify_proof()` for Oink/PG which will have slightly\r\ndifferent forms. A flow of this kind will also be used to generate\r\ninputs from typescript in the integration and e2e tests.",
+          "timestamp": "2024-09-20T14:41:28-07:00",
+          "tree_id": "f2d27495b19e3c37cbb1503e7e3610461143674f",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/020d4fd0cf4137e21f55b1c41e9e381a27191d84"
+        },
+        "date": 1726869479251,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 35518.534988999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 32979.06877299999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5071.168607999994,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4669.531049 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 100133.509825,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 100133511000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14599.951304999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14599953000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8485322032,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8485322032 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 154908756,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 154908756 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6910694843,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6910694843 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126681476,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126681476 ns\nthreads: 1"
           }
         ]
       }
