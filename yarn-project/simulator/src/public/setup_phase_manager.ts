@@ -1,27 +1,15 @@
 import { PublicKernelType, type PublicProvingRequest, type Tx } from '@aztec/circuit-types';
-import { type GlobalVariables, type Header, type PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
+import { type PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
-import { type PublicExecutor } from '@aztec/simulator';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { AbstractPhaseManager, makeAvmProvingRequest } from './abstract_phase_manager.js';
-import { type WorldStateDB } from './public_db_sources.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
+import { AbstractPhaseManager, type PhaseConfig, makeAvmProvingRequest } from './abstract_phase_manager.js';
 
 /**
  * The phase manager responsible for performing the fee preparation phase.
  */
 export class SetupPhaseManager extends AbstractPhaseManager {
-  constructor(
-    db: MerkleTreeOperations,
-    publicExecutor: PublicExecutor,
-    publicKernel: PublicKernelCircuitSimulator,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    protected worldStateDB: WorldStateDB,
-    phase: PublicKernelType = PublicKernelType.SETUP,
-  ) {
-    super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
+  constructor(config: PhaseConfig, public override phase: PublicKernelType = PublicKernelType.SETUP) {
+    super(config);
   }
 
   override async handle(

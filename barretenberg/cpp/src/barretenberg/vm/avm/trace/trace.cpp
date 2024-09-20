@@ -3555,15 +3555,16 @@ std::vector<Row> AvmTraceBuilder::finalize()
     size_t bin_trace_size = bin_trace_builder.size();
     size_t gas_trace_size = gas_trace_builder.size();
     size_t slice_trace_size = slice_trace.size();
+    size_t kernel_trace_size = kernel_trace_builder.size();
 
     // Range check size is 1 less than it needs to be since we insert a "first row" at the top of the trace at the
     // end, with clk 0 (this doubles as our range check)
     size_t const range_check_size = range_check_required ? UINT16_MAX : 0;
-    std::vector<size_t> trace_sizes = { mem_trace_size,       main_trace_size + 1,   alu_trace_size,
-                                        range_check_size,     conv_trace_size,       sha256_trace_size,
-                                        poseidon2_trace_size, pedersen_trace_size,   gas_trace_size + 1,
-                                        KERNEL_INPUTS_LENGTH, KERNEL_OUTPUTS_LENGTH, fixed_gas_table.size(),
-                                        slice_trace_size,     calldata.size() };
+    std::vector<size_t> trace_sizes = { mem_trace_size,         main_trace_size + 1,   alu_trace_size,
+                                        range_check_size,       conv_trace_size,       sha256_trace_size,
+                                        poseidon2_trace_size,   pedersen_trace_size,   gas_trace_size + 1,
+                                        KERNEL_INPUTS_LENGTH,   KERNEL_OUTPUTS_LENGTH, kernel_trace_size,
+                                        fixed_gas_table.size(), slice_trace_size,      calldata.size() };
     auto trace_size = std::max_element(trace_sizes.begin(), trace_sizes.end());
 
     // Before making any changes to the main trace, mark the real rows.
@@ -3971,7 +3972,17 @@ std::vector<Row> AvmTraceBuilder::finalize()
           "\n\trange_check_trace_size: ",
           range_entries.size(),
           "\n\tcmp_trace_size: ",
-          cmp_trace_size);
+          cmp_trace_size,
+          "\n\tkeccak_trace_size: ",
+          keccak_trace_size,
+          "\n\tkernel_trace_size: ",
+          kernel_trace_size,
+          "\n\tKERNEL_INPUTS_LENGTH: ",
+          KERNEL_INPUTS_LENGTH,
+          "\n\tKERNEL_OUTPUTS_LENGTH: ",
+          KERNEL_OUTPUTS_LENGTH,
+          "\n\tcalldata_size: ",
+          calldata.size());
     reset();
 
     return trace;

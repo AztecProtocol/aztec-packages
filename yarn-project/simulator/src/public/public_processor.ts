@@ -37,7 +37,7 @@ import { Attributes, type TelemetryClient, type Tracer, trackSpan } from '@aztec
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { type AbstractPhaseManager } from './abstract_phase_manager.js';
+import { type AbstractPhaseManager, type PhaseConfig } from './abstract_phase_manager.js';
 import { PhaseManagerFactory } from './phase_manager_factory.js';
 import { WorldStateDB } from './public_db_sources.js';
 import { RealPublicKernelCircuitSimulator } from './public_kernel.js';
@@ -229,15 +229,16 @@ export class PublicProcessor {
     const timer = new Timer();
     let returnValues: NestedProcessReturnValues[] = [];
     const publicProvingRequests: PublicProvingRequest[] = [];
-    let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(
-      tx,
-      this.db,
-      this.publicExecutor,
-      this.publicKernel,
-      this.globalVariables,
-      this.historicalHeader,
-      this.worldStateDB,
-    );
+
+    const phaseManagerConfig: PhaseConfig = {
+      db: this.db,
+      publicExecutor: this.publicExecutor,
+      publicKernel: this.publicKernel,
+      globalVariables: this.globalVariables,
+      historicalHeader: this.historicalHeader,
+      worldStateDB: this.worldStateDB,
+    };
+    let phase: AbstractPhaseManager | undefined = PhaseManagerFactory.phaseFromTx(tx, phaseManagerConfig);
     this.log.debug(`Beginning processing in phase ${phase?.phase} for tx ${tx.getTxHash()}`);
 
     let publicKernelPublicInput = tx.data.toPublicKernelCircuitPublicInputs();
@@ -266,16 +267,13 @@ export class PublicProcessor {
       lastKernelArtifact = output.lastKernelArtifact;
       finalKernelOutput = output.finalKernelOutput;
       revertReason ??= output.revertReason;
-      phase = PhaseManagerFactory.phaseFromOutput(
-        publicKernelPublicInput,
-        phase,
-        this.db,
-        this.publicExecutor,
-        this.publicKernel,
-        this.globalVariables,
-        this.historicalHeader,
-        this.worldStateDB,
-      );
+
+      // Update the phase manager config with the current phase
+      const phaseConfig = {
+        ...phaseManagerConfig,
+        phase: phase.phase,
+      };
+      phase = PhaseManagerFactory.phaseFromOutput(publicKernelPublicInput, phase, phaseConfig);
     }
 
     if (!finalKernelOutput) {
