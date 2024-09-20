@@ -177,7 +177,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_log_derivative_
 
     // If Mega, commit to the databus inverse polynomials and send
     if constexpr (IsGoblinFlavor<Flavor>) {
-        // Allocate the databus inverse polynomials
         for (auto [commitment, polynomial, label] :
              zip_view(witness_commitments.get_databus_inverses(),
                       proving_key->proving_key.polynomials.get_databus_inverses(),

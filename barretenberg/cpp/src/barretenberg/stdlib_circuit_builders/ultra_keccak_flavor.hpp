@@ -137,23 +137,13 @@ class UltraKeccakFlavor {
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; }
-
-        auto get_selectors()
+        auto get_gate_selectors()
         {
-            return RefArray{ q_m,
-                             q_c,
-                             q_l,
-                             q_r,
-                             q_o,
-                             q_4,
-                             q_arith,
-                             q_delta_range,
-                             q_elliptic,
-                             q_aux,
-                             q_lookup,
-                             q_poseidon2_external,
-                             q_poseidon2_internal };
-        };
+            return RefArray{ q_arith,  q_delta_range,        q_elliptic,          q_aux,
+                             q_lookup, q_poseidon2_external, q_poseidon2_internal };
+        }
+        auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
+
         auto get_sigma_polynomials() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
         auto get_id_polynomials() { return RefArray{ id_1, id_2, id_3, id_4 }; };
 
@@ -222,6 +212,7 @@ class UltraKeccakFlavor {
 
         auto get_wires() { return RefArray{ this->w_l, this->w_r, this->w_o, this->w_4 }; };
         auto get_non_gate_selectors() { return PrecomputedEntities<DataType>::get_non_gate_selectors(); }
+        auto get_gate_selectors() { return PrecomputedEntities<DataType>::get_gate_selectors(); }
         auto get_selectors() { return PrecomputedEntities<DataType>::get_selectors(); }
         auto get_sigmas() { return RefArray{ this->sigma_1, this->sigma_2, this->sigma_3, this->sigma_4 }; };
         auto get_ids() { return RefArray{ this->id_1, this->id_2, this->id_3, this->id_4 }; };

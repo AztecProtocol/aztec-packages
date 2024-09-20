@@ -143,24 +143,13 @@ class MegaFlavor {
         static constexpr CircuitType CIRCUIT_TYPE = CircuitBuilder::CIRCUIT_TYPE;
 
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; };
-
-        auto get_selectors()
+        auto get_gate_selectors()
         {
-            return RefArray{ q_m,
-                             q_c,
-                             q_l,
-                             q_r,
-                             q_o,
-                             q_4,
-                             q_arith,
-                             q_delta_range,
-                             q_elliptic,
-                             q_aux,
-                             q_lookup,
-                             q_busread,
-                             q_poseidon2_external,
-                             q_poseidon2_internal };
-        };
+            return RefArray{ q_arith,  q_delta_range, q_elliptic,           q_aux,
+                             q_lookup, q_busread,     q_poseidon2_external, q_poseidon2_internal };
+        }
+        auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
+
         auto get_sigma_polynomials() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
         auto get_id_polynomials() { return RefArray{ id_1, id_2, id_3, id_4 }; };
         auto get_table_polynomials() { return RefArray{ table_1, table_2, table_3, table_4 }; };
@@ -325,6 +314,7 @@ class MegaFlavor {
 
         auto get_wires() { return WitnessEntities<DataType>::get_wires(); };
         auto get_non_gate_selectors() { return PrecomputedEntities<DataType>::get_non_gate_selectors(); }
+        auto get_gate_selectors() { return PrecomputedEntities<DataType>::get_gate_selectors(); }
         auto get_selectors() { return PrecomputedEntities<DataType>::get_selectors(); }
         auto get_sigmas() { return PrecomputedEntities<DataType>::get_sigma_polynomials(); };
         auto get_ids() { return PrecomputedEntities<DataType>::get_id_polynomials(); };

@@ -110,26 +110,17 @@ template <class Flavor> class DeciderProvingKey_ {
         }
 
         // Allocate the lookup_inverses polynomial
-        size_t q_lookup_offset = Flavor::has_zero_row ? 1 : 0;
-        if constexpr (IsGoblinFlavor<Flavor>) {
-            q_lookup_offset += circuit.blocks.ecc_op.get_fixed_size(is_structured);
-        }
-        q_lookup_offset += circuit.blocks.pub_inputs.get_fixed_size(is_structured) +
-                           circuit.blocks.arithmetic.get_fixed_size(is_structured) +
-                           circuit.blocks.delta_range.get_fixed_size(is_structured) +
-                           circuit.blocks.elliptic.get_fixed_size(is_structured) +
-                           circuit.blocks.aux.get_fixed_size(is_structured);
         const size_t tables_size = circuit.get_tables_size();
+        const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
         const size_t table_offset = dyadic_circuit_size - tables_size;
-        const size_t lookup_inverses_start = std::min(q_lookup_offset, table_offset);
+        const size_t lookup_inverses_start = std::min(lookup_offset, table_offset);
         const size_t lookup_inverses_end =
-            std::max(q_lookup_offset + circuit.blocks.lookup.size(), table_offset + tables_size);
+            std::max(lookup_offset + circuit.blocks.lookup.size(), table_offset + tables_size);
         proving_key.polynomials.lookup_inverses =
             Polynomial(lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
         if constexpr (HasDataBus<Flavor>) {
-            const size_t q_busread_end =
-                q_lookup_offset + circuit.blocks.lookup.get_fixed_size(is_structured) + circuit.blocks.busread.size();
+            const size_t q_busread_end = circuit.blocks.busread.trace_offset + circuit.blocks.busread.size();
             // Allocate the databus inverse polynomials
             proving_key.polynomials.calldata_inverses =
                 Polynomial(std::max(circuit.get_calldata().size(), q_busread_end), dyadic_circuit_size);
