@@ -78,11 +78,12 @@ export class NativeWorldStateService implements MerkleTreeDb {
     int64AsType: 'bigint',
   });
 
-  private queue = new SerialQueue();
-
-  protected constructor(private instance: NativeInstance) {
-    this.queue.start();
-  }
+  protected constructor(
+    private instance: NativeInstance,
+    private queue: SerialQueue,
+    private forkId?: number,
+    private blockNumber?: number,
+  ) {}
 
   static async create(
     dataDir: string,
@@ -91,7 +92,9 @@ export class NativeWorldStateService implements MerkleTreeDb {
   ): Promise<NativeWorldStateService> {
     const library = bindings(libraryName);
     const instance = new library[className](dataDir);
-    const worldState = new NativeWorldStateService(instance);
+    const queue = new SerialQueue();
+    queue.start();
+    const worldState = new NativeWorldStateService(instance, queue);
     await worldState.init();
     return worldState;
   }
@@ -152,6 +155,9 @@ export class NativeWorldStateService implements MerkleTreeDb {
   }
 
   async commit(): Promise<void> {
+    if (this.forkId) {
+      throw new Error('Committing a fork is forbidden');
+    }
     await this.call(WorldStateMessageType.COMMIT, void 0);
   }
 
@@ -171,7 +177,7 @@ export class NativeWorldStateService implements MerkleTreeDb {
   ): Promise<bigint | undefined> {
     const index = await this.call(WorldStateMessageType.FIND_LEAF_INDEX, {
       leaf: serializeLeaf(hydrateLeaf(treeId, leaf)),
-      revision: worldStateRevision(includeUncommitted),
+      revision: this.buildWorldStateRevision(includeUncommitted),
       treeId,
       startIndex,
     });
@@ -190,7 +196,7 @@ export class NativeWorldStateService implements MerkleTreeDb {
   ): Promise<IndexedTreeLeafPreimage | undefined> {
     const resp = await this.call(WorldStateMessageType.GET_LEAF_PREIMAGE, {
       leafIndex,
-      revision: worldStateRevision(args),
+      revision: this.buildWorldStateRevision(args),
       treeId,
     });
 
@@ -204,7 +210,7 @@ export class NativeWorldStateService implements MerkleTreeDb {
   ): Promise<MerkleTreeLeafType<MerkleTreeId> | undefined> {
     const resp = await this.call(WorldStateMessageType.GET_LEAF_VALUE, {
       leafIndex,
-      revision: worldStateRevision(includeUncommitted),
+      revision: this.buildWorldStateRevision(includeUncommitted),
       treeId,
     });
 
@@ -227,7 +233,7 @@ export class NativeWorldStateService implements MerkleTreeDb {
   ): Promise<{ index: bigint; alreadyPresent: boolean } | undefined> {
     const resp = await this.call(WorldStateMessageType.FIND_LOW_LEAF, {
       key: new Fr(value),
-      revision: worldStateRevision(includeUncommitted),
+      revision: this.buildWorldStateRevision(includeUncommitted),
       treeId,
     });
     return {
@@ -243,7 +249,7 @@ export class NativeWorldStateService implements MerkleTreeDb {
   ): Promise<SiblingPath<number>> {
     const siblingPath = await this.call(WorldStateMessageType.GET_SIBLING_PATH, {
       leafIndex,
-      revision: worldStateRevision(includeUncommitted),
+      revision: this.buildWorldStateRevision(includeUncommitted),
       treeId,
     });
 
@@ -256,7 +262,7 @@ export class NativeWorldStateService implements MerkleTreeDb {
 
   async getStateReference(includeUncommitted: boolean): Promise<StateReference> {
     const resp = await this.call(WorldStateMessageType.GET_STATE_REFERENCE, {
-      revision: worldStateRevision(includeUncommitted),
+      revision: this.buildWorldStateRevision(includeUncommitted),
     });
 
     return new StateReference(
@@ -285,7 +291,7 @@ export class NativeWorldStateService implements MerkleTreeDb {
   async getTreeInfo(treeId: MerkleTreeId, includeUncommitted: boolean): Promise<TreeInfo> {
     const resp = await this.call(WorldStateMessageType.GET_TREE_INFO, {
       treeId: treeId,
-      revision: worldStateRevision(includeUncommitted),
+      revision: this.buildWorldStateRevision(includeUncommitted),
     });
 
     return {
@@ -407,12 +413,21 @@ export class NativeWorldStateService implements MerkleTreeDb {
     await this.queue.end();
   }
 
-  public delete(): Promise<void> {
-    return Promise.reject(new Error('Method not implemented'));
+  public async delete(): Promise<void> {
+    if (this.forkId !== undefined) {
+      await this.call(WorldStateMessageType.DELETE_FORK, { forkId: this.forkId });
+    }
   }
 
-  public fork(): Promise<MerkleTreeDb> {
-    return Promise.reject(new Error('Method not implemented'));
+  public async fork(): Promise<MerkleTreeDb> {
+    const resp = await this.call(WorldStateMessageType.CREATE_FORK, { blockNumber: 0 });
+    const ws = new NativeWorldStateService(this.instance, this.queue, resp.forkId, 0);
+    await ws.init();
+    return ws;
+  }
+
+  private buildWorldStateRevision(includeUncommitted: boolean) {
+    return worldStateRevision(includeUncommitted, this.forkId, this.blockNumber);
   }
 }
 

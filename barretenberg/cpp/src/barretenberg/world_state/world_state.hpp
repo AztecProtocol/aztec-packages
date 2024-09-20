@@ -14,9 +14,12 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
+#include "barretenberg/world_state/world_state_stores.hpp"
 #include <algorithm>
+#include <cstdint>
 #include <exception>
 #include <iterator>
 #include <optional>
@@ -29,19 +32,6 @@ namespace bb::world_state {
 
 using crypto::merkle_tree::index_t;
 
-using HashPolicy = crypto::merkle_tree::Poseidon2HashPolicy;
-
-using FrStore = crypto::merkle_tree::ContentAddressedCachedTreeStore<fr>;
-using FrTree = crypto::merkle_tree::ContentAddressedAppendOnlyTree<FrStore, HashPolicy>;
-
-using NullifierStore = crypto::merkle_tree::ContentAddressedCachedTreeStore<crypto::merkle_tree::NullifierLeafValue>;
-using NullifierTree = crypto::merkle_tree::ContentAddressedIndexedTree<NullifierStore, HashPolicy>;
-
-using PublicDataStore = crypto::merkle_tree::ContentAddressedCachedTreeStore<crypto::merkle_tree::PublicDataLeafValue>;
-using PublicDataTree = crypto::merkle_tree::ContentAddressedIndexedTree<PublicDataStore, HashPolicy>;
-
-using Tree = std::variant<TreeWithStore<FrTree>, TreeWithStore<NullifierTree>, TreeWithStore<PublicDataTree>>;
-
 template <typename LeafValueType> struct BatchInsertionResult {
     std::vector<crypto::merkle_tree::LowLeafWitnessData<LeafValueType>> low_leaf_witness_data;
     std::vector<std::pair<LeafValueType, size_t>> sorted_leaves;
@@ -50,15 +40,17 @@ template <typename LeafValueType> struct BatchInsertionResult {
     MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
 };
 
-const uint NULLIFIER_TREE_HEIGHT = 20;
-const uint NOTE_HASH_TREE_HEIGHT = 32;
-const uint PUBLIC_DATA_TREE_HEIGHT = 40;
-const uint L1_TO_L2_MSG_TREE_HEIGHT = 16;
-const uint ARCHIVE_TREE_HEIGHT = 16;
+const uint64_t NULLIFIER_TREE_HEIGHT = 20;
+const uint64_t NOTE_HASH_TREE_HEIGHT = 32;
+const uint64_t PUBLIC_DATA_TREE_HEIGHT = 40;
+const uint64_t L1_TO_L2_MSG_TREE_HEIGHT = 16;
+const uint64_t ARCHIVE_TREE_HEIGHT = 16;
+
+const uint64_t CANONICAL_FORK_ID = 0;
 
 class WorldState {
   public:
-    WorldState(uint threads, const std::string& data_dir, uint map_size_kb);
+    WorldState(uint64_t threads, const std::string& data_dir, uint64_t map_size_kb);
 
     /**
      * @brief Get tree metadata for a particular tree
@@ -202,10 +194,19 @@ class WorldState {
                     const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
 
   private:
-    std::unordered_map<MerkleTreeId, Tree> _trees;
     bb::ThreadPool _workers;
+    WorldStateStores::Ptr _persistentStores;
+    mutable std::mutex mtx;
+    std::unordered_map<uint64_t, Fork::SharedPtr> _forks;
+    uint64_t _forkId = 0;
 
     TreeStateReference get_tree_snapshot(MerkleTreeId id);
+    void create_canonical_fork(const std::string& dataDir, uint64_t dbSize, uint64_t maxReaders);
+
+    Fork::SharedPtr retrieve_fork(uint64_t forkId) const;
+    void add_fork(index_t blockNumber);
+    void delete_fork(uint64_t forkId);
+    Fork::SharedPtr create_new_fork(index_t blockNumber);
 
     static bool include_uncommitted(WorldStateRevision rev);
     static bool block_state_matches_world_state(const StateReference& block_state_ref,
@@ -221,7 +222,9 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
     using Store = ContentAddressedCachedTreeStore<T>;
     using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
-    if (auto* const wrapper = std::get_if<TreeWithStore<Tree>>(&_trees.at(id))) {
+    Fork::SharedPtr fork = retrieve_fork(rev.forkId);
+
+    if (auto* const wrapper = std::get_if<TreeWithStore<Tree>>(&fork->_trees.at(id))) {
         std::optional<IndexedLeaf<T>> value;
         Signal signal;
         auto callback = [&](const TypedResponse<GetIndexedLeafResponse<T>>& response) {
@@ -232,7 +235,11 @@ std::optional<crypto::merkle_tree::IndexedLeaf<T>> WorldState::get_indexed_leaf(
             signal.signal_level(0);
         };
 
-        wrapper->tree->get_leaf(leaf, include_uncommitted(rev), callback);
+        if (rev.blockNumber) {
+            wrapper->tree->get_leaf(leaf, rev.blockNumber, rev.includeUncommitted, callback);
+        } else {
+            wrapper->tree->get_leaf(leaf, include_uncommitted(rev), callback);
+        }
         signal.wait_for_level();
 
         return value;
@@ -246,11 +253,13 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision revision, MerkleT
 {
     using namespace crypto::merkle_tree;
 
+    Fork::SharedPtr fork = retrieve_fork(revision.forkId);
+
     bool uncommitted = include_uncommitted(revision);
     std::optional<T> leaf;
     Signal signal;
     if constexpr (std::is_same_v<bb::fr, T>) {
-        const auto& wrapper = std::get<TreeWithStore<FrTree>>(_trees.at(tree_id));
+        const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(tree_id));
         wrapper.tree->get_leaf(leaf_index, uncommitted, [&signal, &leaf](const TypedResponse<GetLeafResponse>& resp) {
             if (resp.inner.leaf.has_value()) {
                 leaf = resp.inner.leaf.value();
@@ -261,14 +270,19 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision revision, MerkleT
         using Store = ContentAddressedCachedTreeStore<T>;
         using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
-        auto& wrapper = std::get<TreeWithStore<Tree>>(_trees.at(tree_id));
-        wrapper.tree->get_leaf(
-            leaf_index, uncommitted, [&signal, &leaf](const TypedResponse<GetIndexedLeafResponse<T>>& resp) {
-                if (resp.inner.indexed_leaf.has_value()) {
-                    leaf = resp.inner.indexed_leaf.value().value;
-                }
-                signal.signal_level();
-            });
+        auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(tree_id));
+        auto callback = [&signal, &leaf](const TypedResponse<GetIndexedLeafResponse<T>>& resp) {
+            if (resp.inner.indexed_leaf.has_value()) {
+                leaf = resp.inner.indexed_leaf.value().value;
+            }
+            signal.signal_level();
+        };
+
+        if (revision.blockNumber) {
+            wrapper.tree->get_leaf(leaf_index, revision.blockNumber, uncommitted, callback);
+        } else {
+            wrapper.tree->get_leaf(leaf_index, uncommitted, callback);
+        }
     }
 
     signal.wait_for_level();
@@ -285,6 +299,8 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision rev,
     bool uncommitted = include_uncommitted(rev);
     std::optional<index_t> index;
 
+    Fork::SharedPtr fork = retrieve_fork(rev.forkId);
+
     Signal signal;
     auto callback = [&](const TypedResponse<FindLeafIndexResponse>& response) {
         if (response.success) {
@@ -293,14 +309,23 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision rev,
         signal.signal_level(0);
     };
     if constexpr (std::is_same_v<bb::fr, T>) {
-        const auto& wrapper = std::get<TreeWithStore<FrTree>>(_trees.at(id));
-        wrapper.tree->find_leaf_index_from(leaf, start_index, uncommitted, callback);
+        const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
+        if (rev.blockNumber) {
+            wrapper.tree->find_leaf_index_from(leaf, rev.blockNumber, start_index, uncommitted, callback);
+        } else {
+            wrapper.tree->find_leaf_index_from(leaf, start_index, uncommitted, callback);
+        }
+
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
         using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
-        auto& wrapper = std::get<TreeWithStore<Tree>>(_trees.at(id));
-        wrapper.tree->find_leaf_index_from(leaf, start_index, uncommitted, callback);
+        auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
+        if (rev.blockNumber) {
+            wrapper.tree->find_leaf_index_from(leaf, rev.blockNumber, start_index, uncommitted, callback);
+        } else {
+            wrapper.tree->find_leaf_index_from(leaf, start_index, uncommitted, callback);
+        }
     }
 
     signal.wait_for_level(0);
@@ -311,6 +336,8 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
 {
     using namespace crypto::merkle_tree;
 
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+
     Signal signal;
 
     bool success = false;
@@ -320,12 +347,12 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
     };
 
     if constexpr (std::is_same_v<bb::fr, T>) {
-        auto& wrapper = std::get<TreeWithStore<FrTree>>(_trees.at(id));
+        auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(id));
         wrapper.tree->add_values(leaves, callback);
     } else {
         using Store = ContentAddressedCachedTreeStore<T>;
         using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
-        auto& wrapper = std::get<TreeWithStore<Tree>>(_trees.at(id));
+        auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
         wrapper.tree->add_or_update_values(leaves, 0, callback);
     }
 
@@ -345,9 +372,11 @@ BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
     using Store = ContentAddressedCachedTreeStore<T>;
     using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+
     Signal signal;
     BatchInsertionResult<T> result;
-    const auto& wrapper = std::get<TreeWithStore<Tree>>(_trees.at(id));
+    const auto& wrapper = std::get<TreeWithStore<Tree>>(fork->_trees.at(id));
     bool success = false;
     std::string error_msg;
 

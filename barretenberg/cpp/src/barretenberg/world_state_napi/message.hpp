@@ -32,7 +32,10 @@ enum WorldStateMessageType {
     COMMIT,
     ROLLBACK,
 
-    SYNC_BLOCK
+    SYNC_BLOCK,
+
+    CREATE_FORK,
+    DELETE_FORK,
 };
 
 struct TreeIdOnlyRequest {
@@ -40,12 +43,24 @@ struct TreeIdOnlyRequest {
     MSGPACK_FIELDS(treeId);
 };
 
+struct CreateForkRequest {
+    uint64_t blockNumber;
+    MSGPACK_FIELDS(blockNumber);
+};
+
+struct CreateForkResponse {
+    uint64_t forkId;
+    MSGPACK_FIELDS(forkId);
+};
+
+struct DeleteForkRequest {
+    uint64_t forkId;
+    MSGPACK_FIELDS(forkId);
+};
+
 struct TreeIdAndRevisionRequest {
     MerkleTreeId treeId;
-    // -1 uncomitted state
-    // 0 latest committed state
-    // > 0 specific block number
-    int revision;
+    WorldStateRevision revision;
     MSGPACK_FIELDS(treeId, revision);
 };
 
@@ -56,7 +71,7 @@ struct EmptyResponse {
 
 struct GetTreeInfoRequest {
     MerkleTreeId treeId;
-    int revision;
+    WorldStateRevision revision;
     MSGPACK_FIELDS(treeId, revision);
 };
 
@@ -69,18 +84,13 @@ struct GetTreeInfoResponse {
 };
 
 struct GetStateReferenceRequest {
-    int revision;
+    WorldStateRevision revision;
     MSGPACK_FIELDS(revision);
 };
 
 struct GetStateReferenceResponse {
     StateReference state;
     MSGPACK_FIELDS(state);
-};
-
-struct GetInitialStateReferenceRequest {
-    int revision;
-    MSGPACK_FIELDS(revision);
 };
 
 struct GetInitialStateReferenceResponse {
@@ -90,35 +100,35 @@ struct GetInitialStateReferenceResponse {
 
 struct GetLeafValueRequest {
     MerkleTreeId treeId;
-    int revision;
+    WorldStateRevision revision;
     index_t leafIndex;
     MSGPACK_FIELDS(treeId, revision, leafIndex);
 };
 
 struct GetLeafPreimageRequest {
     MerkleTreeId treeId;
-    int revision;
+    WorldStateRevision revision;
     index_t leafIndex;
     MSGPACK_FIELDS(treeId, revision, leafIndex);
 };
 
 struct GetSiblingPathRequest {
     MerkleTreeId treeId;
-    int revision;
+    WorldStateRevision revision;
     index_t leafIndex;
     MSGPACK_FIELDS(treeId, revision, leafIndex);
 };
 
 template <typename T> struct FindLeafIndexRequest {
     MerkleTreeId treeId;
-    int revision;
+    WorldStateRevision revision;
     T leaf;
     MSGPACK_FIELDS(treeId, revision, leaf);
 };
 
 struct FindLowLeafRequest {
     MerkleTreeId treeId;
-    int revision;
+    WorldStateRevision revision;
     fr key;
     MSGPACK_FIELDS(treeId, revision, key);
 };

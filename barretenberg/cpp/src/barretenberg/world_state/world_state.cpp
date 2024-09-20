@@ -10,8 +10,11 @@
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
+#include "barretenberg/world_state/world_state_stores.hpp"
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <stdexcept>
 #include <tuple>
@@ -23,67 +26,126 @@ namespace bb::world_state {
 
 using namespace bb::crypto::merkle_tree;
 
-WorldState::WorldState(uint threads, const std::string& data_dir, uint map_size_kb)
+WorldState::WorldState(uint64_t threads, const std::string& data_dir, uint64_t map_size_kb)
     : _workers(threads)
+    , _forkId(CANONICAL_FORK_ID)
 {
-    {
-        const auto* name = "nullifier_tree";
-        const std::string directory = data_dir + std::string("/") + std::string(name);
+    create_canonical_fork(data_dir, map_size_kb, threads);
+}
+
+void WorldState::create_canonical_fork(const std::string& dataDir, uint64_t dbSize, uint64_t maxReaders)
+{
+    // create the underlying stores
+    auto createStore = [&](const std::string& name) {
+        const std::string directory = dataDir + std::string("/") + std::string(name);
         std::filesystem::create_directories(directory);
-        auto lmdb_store = std::make_unique<LMDBTreeStore>(directory, name, map_size_kb, threads);
-        auto store = std::make_unique<NullifierStore>(name, NULLIFIER_TREE_HEIGHT, *lmdb_store);
+        return std::make_unique<LMDBTreeStore>(directory, name, dbSize, maxReaders);
+    };
+    _persistentStores = std::make_unique<WorldStateStores>(createStore("nullifier_tree"),
+                                                           createStore("public_data_tree"),
+                                                           createStore("archive_tree"),
+                                                           createStore("note_hash_tree"),
+                                                           createStore("message_tree"));
+
+    Fork::SharedPtr fork = std::make_shared<Fork>();
+    fork->_forkId = _forkId++;
+    {
+        auto store = std::make_unique<NullifierStore>(
+            "nullifier_tree", NULLIFIER_TREE_HEIGHT, *_persistentStores->nullifierStore);
         auto tree = std::make_unique<NullifierTree>(*store, _workers, 128);
-        _trees.insert(
-            { MerkleTreeId::NULLIFIER_TREE, TreeWithStore(std::move(tree), std::move(store), std::move(lmdb_store)) });
+        fork->_trees.insert({ MerkleTreeId::NULLIFIER_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
-
     {
-        const auto* name = "note_hash_tree";
-        const std::string directory = data_dir + std::string("/") + std::string(name);
-        std::filesystem::create_directories(directory);
-        auto lmdb_store = std::make_unique<LMDBTreeStore>(directory, name, map_size_kb, threads);
-        auto store = std::make_unique<FrStore>(name, NOTE_HASH_TREE_HEIGHT, *lmdb_store);
+        auto store =
+            std::make_unique<FrStore>("public_data_tree", NOTE_HASH_TREE_HEIGHT, *_persistentStores->noteHashStore);
         auto tree = std::make_unique<FrTree>(*store, _workers);
-        _trees.insert(
-            { MerkleTreeId::NOTE_HASH_TREE, TreeWithStore(std::move(tree), std::move(store), std::move(lmdb_store)) });
+        fork->_trees.insert({ MerkleTreeId::NOTE_HASH_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
-
     {
-        const auto* name = "public_data_tree";
-        const std::string directory = data_dir + std::string("/") + std::string(name);
-        std::filesystem::create_directories(directory);
-        auto lmdb_store = std::make_unique<LMDBTreeStore>(directory, name, map_size_kb, threads);
-        auto store = std::make_unique<PublicDataStore>(name, PUBLIC_DATA_TREE_HEIGHT, *lmdb_store);
+        auto store = std::make_unique<PublicDataStore>(
+            "archive_tree", PUBLIC_DATA_TREE_HEIGHT, *_persistentStores->publicDataStore);
         auto tree = std::make_unique<PublicDataTree>(*store, this->_workers, 128);
-        _trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE,
-                        TreeWithStore(std::move(tree), std::move(store), std::move(lmdb_store)) });
+        fork->_trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
-
     {
-        const auto* name = "message_tree";
-        const std::string directory = data_dir + std::string("/") + std::string(name);
-        std::filesystem::create_directories(directory);
-        auto lmdb_store = std::make_unique<LMDBTreeStore>(directory, name, map_size_kb, threads);
-        auto store = std::make_unique<FrStore>(name, L1_TO_L2_MSG_TREE_HEIGHT, *lmdb_store);
+        auto store =
+            std::make_unique<FrStore>("note_hash_tree", L1_TO_L2_MSG_TREE_HEIGHT, *_persistentStores->messageStore);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
-        _trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
-                        TreeWithStore(std::move(tree), std::move(store), std::move(lmdb_store)) });
+        fork->_trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
-
     {
-        const auto* name = "archive_tree";
-        const std::string directory = data_dir + std::string("/") + std::string(name);
-        std::filesystem::create_directories(directory);
-        auto lmdb_store = std::make_unique<LMDBTreeStore>(directory, name, map_size_kb, threads);
-        auto store = std::make_unique<FrStore>(name, ARCHIVE_TREE_HEIGHT, *lmdb_store);
+        auto store = std::make_unique<FrStore>("message_tree", ARCHIVE_TREE_HEIGHT, *_persistentStores->archiveStore);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
-        _trees.insert(
-            { MerkleTreeId::ARCHIVE, TreeWithStore(std::move(tree), std::move(store), std::move(lmdb_store)) });
+        fork->_trees.insert({ MerkleTreeId::ARCHIVE, TreeWithStore(std::move(tree), std::move(store)) });
     }
+    _forks[fork->_forkId] = fork;
+}
+
+Fork::SharedPtr WorldState::retrieve_fork(uint64_t forkId) const
+{
+    std::unique_lock lock(mtx);
+    auto it = _forks.find(forkId);
+    if (it == _forks.end()) {
+        throw std::runtime_error("Fork not found");
+    }
+    return it->second;
+}
+void WorldState::add_fork(index_t blockNumber)
+{
+    std::unique_lock lock(mtx);
+    Fork::SharedPtr fork = create_new_fork(blockNumber);
+    fork->_forkId = _forkId++;
+    _forks[fork->_forkId] = fork;
+}
+
+Fork::SharedPtr WorldState::create_new_fork(index_t blockNumber)
+{
+    Fork::SharedPtr fork = std::make_shared<Fork>();
+    {
+        auto store = std::make_unique<NullifierStore>(
+            "nullifier_tree", NULLIFIER_TREE_HEIGHT, blockNumber, *_persistentStores->nullifierStore);
+        auto tree = std::make_unique<NullifierTree>(*store, _workers, 128);
+        fork->_trees.insert({ MerkleTreeId::NULLIFIER_TREE, TreeWithStore(std::move(tree), std::move(store)) });
+    }
+    {
+        auto store = std::make_unique<FrStore>(
+            "public_data_tree", NOTE_HASH_TREE_HEIGHT, blockNumber, *_persistentStores->noteHashStore);
+        auto tree = std::make_unique<FrTree>(*store, _workers);
+        fork->_trees.insert({ MerkleTreeId::NOTE_HASH_TREE, TreeWithStore(std::move(tree), std::move(store)) });
+    }
+    {
+        auto store = std::make_unique<PublicDataStore>(
+            "archive_tree", PUBLIC_DATA_TREE_HEIGHT, blockNumber, *_persistentStores->publicDataStore);
+        auto tree = std::make_unique<PublicDataTree>(*store, this->_workers, 128);
+        fork->_trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE, TreeWithStore(std::move(tree), std::move(store)) });
+    }
+    {
+        auto store = std::make_unique<FrStore>(
+            "note_hash_tree", L1_TO_L2_MSG_TREE_HEIGHT, blockNumber, *_persistentStores->messageStore);
+        auto tree = std::make_unique<FrTree>(*store, this->_workers);
+        fork->_trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE, TreeWithStore(std::move(tree), std::move(store)) });
+    }
+    {
+        auto store = std::make_unique<FrStore>(
+            "message_tree", ARCHIVE_TREE_HEIGHT, blockNumber, *_persistentStores->archiveStore);
+        auto tree = std::make_unique<FrTree>(*store, this->_workers);
+        fork->_trees.insert({ MerkleTreeId::ARCHIVE, TreeWithStore(std::move(tree), std::move(store)) });
+    }
+    return fork;
+}
+
+void WorldState::delete_fork(uint64_t forkId)
+{
+    if (forkId == 0) {
+        throw std::runtime_error("Unable to delete canonical fork");
+    }
+    std::unique_lock lock(mtx);
+    _forks.erase(forkId);
 }
 
 TreeMetaResponse WorldState::get_tree_info(WorldStateRevision revision, MerkleTreeId tree_id) const
 {
+    Fork::SharedPtr fork = retrieve_fork(revision.forkId);
     return std::visit(
         [=](auto&& wrapper) {
             Signal signal(1);
@@ -99,16 +161,17 @@ TreeMetaResponse WorldState::get_tree_info(WorldStateRevision revision, MerkleTr
 
             return response;
         },
-        _trees.at(tree_id));
+        fork->_trees.at(tree_id));
 }
 
 StateReference WorldState::get_state_reference(WorldStateRevision revision) const
 {
-    Signal signal(static_cast<uint32_t>(_trees.size()));
+    Fork::SharedPtr fork = retrieve_fork(revision.forkId);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     StateReference state_reference;
     bool uncommitted = include_uncommitted(revision);
 
-    for (const auto& [id, tree] : _trees) {
+    for (const auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal, &state_reference, id, uncommitted](auto&& wrapper) {
                 auto callback = [&signal, &state_reference, id](const TypedResponse<TreeMetaResponse>& meta) {
@@ -126,10 +189,11 @@ StateReference WorldState::get_state_reference(WorldStateRevision revision) cons
 
 StateReference WorldState::get_initial_state_reference() const
 {
-    Signal signal(static_cast<uint32_t>(_trees.size()));
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     StateReference state_reference;
 
-    for (const auto& [id, tree] : _trees) {
+    for (const auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal, &state_reference, id](auto&& wrapper) {
                 auto callback = [&signal, &state_reference, id](const TypedResponse<TreeMetaResponse>& meta) {
@@ -149,9 +213,10 @@ fr_sibling_path WorldState::get_sibling_path(WorldStateRevision revision,
                                              MerkleTreeId tree_id,
                                              index_t leaf_index) const
 {
-    bool uncommited = include_uncommitted(revision);
+    Fork::SharedPtr fork = retrieve_fork(revision.forkId);
+
     return std::visit(
-        [leaf_index, uncommited](auto&& wrapper) {
+        [leaf_index, revision](auto&& wrapper) {
             Signal signal(1);
             fr_sibling_path path;
 
@@ -160,17 +225,23 @@ fr_sibling_path WorldState::get_sibling_path(WorldStateRevision revision,
                 signal.signal_level(0);
             };
 
-            wrapper.tree->get_sibling_path(leaf_index, callback, uncommited);
+            if (revision.blockNumber) {
+                wrapper.tree->get_sibling_path(leaf_index, revision.blockNumber, callback, revision.includeUncommitted);
+            } else {
+                wrapper.tree->get_sibling_path(leaf_index, callback, revision.includeUncommitted);
+            }
             signal.wait_for_level(0);
 
             return path;
         },
-        _trees.at(tree_id));
+        fork->_trees.at(tree_id));
 }
 
 void WorldState::update_public_data(const PublicDataLeafValue& new_value)
 {
-    if (const auto* wrapper = std::get_if<TreeWithStore<PublicDataTree>>(&_trees.at(MerkleTreeId::PUBLIC_DATA_TREE))) {
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    if (const auto* wrapper =
+            std::get_if<TreeWithStore<PublicDataTree>>(&fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE))) {
         Signal signal;
         wrapper->tree->add_or_update_value(new_value, [&signal](const auto&) { signal.signal_level(0); });
         signal.wait_for_level();
@@ -184,8 +255,9 @@ void WorldState::commit()
     // TODO (alexg) should this lock _all_ the trees until they are all committed?
     // otherwise another request could come in to modify one of the trees
     // or reads would give inconsistent results
-    Signal signal(static_cast<uint32_t>(_trees.size()));
-    for (auto& [id, tree] : _trees) {
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    for (auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal](auto&& wrapper) { wrapper.tree->commit([&](const Response&) { signal.signal_decrement(); }); },
             tree);
@@ -199,8 +271,9 @@ void WorldState::rollback()
     // TODO (alexg) should this lock _all_ the trees until they are all committed?
     // otherwise another request could come in to modify one of the trees
     // or reads would give inconsistent results
-    Signal signal(static_cast<uint32_t>(_trees.size()));
-    for (auto& [id, tree] : _trees) {
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
+    for (auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal](auto&& wrapper) {
                 wrapper.tree->rollback([&signal](const Response&) { signal.signal_decrement(); });
@@ -217,6 +290,7 @@ bool WorldState::sync_block(StateReference& block_state_ref,
                             const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
                             const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes)
 {
+    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     auto current_state = get_state_reference(WorldStateRevision::uncommitted());
     if (block_state_matches_world_state(block_state_ref, current_state)) {
         append_leaves<fr>(MerkleTreeId::ARCHIVE, { block_hash });
@@ -227,31 +301,31 @@ bool WorldState::sync_block(StateReference& block_state_ref,
     rollback();
 
     // the public data tree gets updated once per batch and every other gets one update
-    Signal signal(static_cast<uint32_t>(_trees.size()));
+    Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     auto decr = [&signal](const auto&) { signal.signal_decrement(); };
 
     {
-        auto& wrapper = std::get<TreeWithStore<NullifierTree>>(_trees.at(MerkleTreeId::NULLIFIER_TREE));
+        auto& wrapper = std::get<TreeWithStore<NullifierTree>>(fork->_trees.at(MerkleTreeId::NULLIFIER_TREE));
         wrapper.tree->add_or_update_values(nullifiers, 0, decr);
     }
 
     {
-        auto& wrapper = std::get<TreeWithStore<FrTree>>(_trees.at(MerkleTreeId::NOTE_HASH_TREE));
+        auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::NOTE_HASH_TREE));
         wrapper.tree->add_values(notes, decr);
     }
 
     {
-        auto& wrapper = std::get<TreeWithStore<FrTree>>(_trees.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE));
+        auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE));
         wrapper.tree->add_values(l1_to_l2_messages, decr);
     }
 
     {
-        auto& wrapper = std::get<TreeWithStore<FrTree>>(_trees.at(MerkleTreeId::ARCHIVE));
+        auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::ARCHIVE));
         wrapper.tree->add_value(block_hash, decr);
     }
 
     {
-        auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
+        auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
         for (const auto& batch : public_writes) {
             Signal batch_signal(1);
             // TODO (alexg) should trees serialize writes internally or should we do it here?
@@ -280,6 +354,7 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
                                                           MerkleTreeId tree_id,
                                                           fr leaf_key) const
 {
+    Fork::SharedPtr fork = retrieve_fork(revision.forkId);
     Signal signal;
     GetLowIndexedLeafResponse low_leaf_info;
     auto callback = [&signal, &low_leaf_info](const TypedResponse<GetLowIndexedLeafResponse>& response) {
@@ -287,10 +362,20 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
         signal.signal_level();
     };
 
-    if (const auto* wrapper = std::get_if<TreeWithStore<NullifierTree>>(&_trees.at(tree_id))) {
-        wrapper->tree->find_low_leaf(leaf_key, include_uncommitted(revision), callback);
-    } else if (const auto* wrapper = std::get_if<TreeWithStore<PublicDataTree>>(&_trees.at(tree_id))) {
-        wrapper->tree->find_low_leaf(leaf_key, include_uncommitted(revision), callback);
+    if (const auto* wrapper = std::get_if<TreeWithStore<NullifierTree>>(&fork->_trees.at(tree_id))) {
+        if (revision.blockNumber != 0U) {
+            wrapper->tree->find_low_leaf(leaf_key, revision.blockNumber, include_uncommitted(revision), callback);
+        } else {
+            wrapper->tree->find_low_leaf(leaf_key, include_uncommitted(revision), callback);
+        }
+
+    } else if (const auto* wrapper = std::get_if<TreeWithStore<PublicDataTree>>(&fork->_trees.at(tree_id))) {
+        if (revision.blockNumber != 0U) {
+            wrapper->tree->find_low_leaf(leaf_key, revision.blockNumber, include_uncommitted(revision), callback);
+        } else {
+            wrapper->tree->find_low_leaf(leaf_key, include_uncommitted(revision), callback);
+        }
+
     } else {
         throw std::runtime_error("Invalid tree type for find_low_leaf");
     }
@@ -301,7 +386,7 @@ GetLowIndexedLeafResponse WorldState::find_low_leaf_index(const WorldStateRevisi
 
 bool WorldState::include_uncommitted(WorldStateRevision rev)
 {
-    return std::get<WorldStateRevision::CurrentState>(rev.inner).uncommitted;
+    return rev.includeUncommitted;
 }
 
 bool WorldState::block_state_matches_world_state(const StateReference& block_state_ref,

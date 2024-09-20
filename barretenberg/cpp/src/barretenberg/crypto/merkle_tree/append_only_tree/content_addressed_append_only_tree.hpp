@@ -251,6 +251,7 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnly
     if (meta.root == fr::zero()) {
         // if the tree is empty then we want to write some initial state
         meta.initialRoot = meta.root = current;
+        meta.initialSize = meta.size = 0;
         store_.put_meta(meta);
         store_.commit(false);
     }
@@ -663,8 +664,7 @@ index_t ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_batch_insertio
     while (maxPower2 <= remainingAppendSize) {
         maxPower2 <<= 1;
     }
-    maxPower2 >>= 1;
-    return maxPower2;
+    return maxPower2 >> 1;
 }
 
 template <typename Store, typename HashingPolicy>
@@ -679,7 +679,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(s
     index_t sizeToAppend = values->size();
     new_size = meta.size;
     index_t batchIndex = 0;
-    while (sizeToAppend) {
+    while (sizeToAppend != 0U) {
         index_t batchSize = get_batch_insertion_size(new_size, sizeToAppend);
         sizeToAppend -= batchSize;
         int64_t start = static_cast<int64_t>(batchIndex);

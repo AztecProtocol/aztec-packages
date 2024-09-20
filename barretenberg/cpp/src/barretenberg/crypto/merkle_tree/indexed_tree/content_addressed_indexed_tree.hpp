@@ -257,6 +257,13 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(S
     if (!result.success) {
         throw std::runtime_error("Failed to initialise tree: " + result.message);
     }
+    {
+        ReadTransactionPtr tx = store_.create_read_transaction();
+        store_.get_meta(meta, *tx, true);
+    }
+    meta.initialRoot = result.inner.root;
+    meta.initialSize = result.inner.size;
+    store_.put_meta(meta);
     store_.commit(false);
 }
 
@@ -938,8 +945,11 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_
         // Write this node and signal that it is done
         store_.put_cached_node_by_index(level, index, new_hash);
         store_.put_node_by_hash(new_hash, { .left = new_left_option, .right = new_right_option, .ref = 1 });
-        // std::cout << "NEW VALUE AT LEVEL " << level << " : " << new_hash << " LEFT: " << new_left_value
-        //           << " RIGHT: " << new_right_value << std::endl;
+        // if (level == 0) {
+        //     std::cout << "NEW VALUE AT LEVEL " << level << " : " << new_hash << " LEFT: " << new_left_value
+        //             << " RIGHT: " << new_right_value << std::endl;
+        // }
+
         follower.signal_level(level);
     }
 }

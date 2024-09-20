@@ -133,7 +133,7 @@ bool WorldStateAddon::get_tree_info(msgpack::object& obj, msgpack::sbuffer& buff
 {
     TypedMessage<GetTreeInfoRequest> request;
     obj.convert(request);
-    auto info = _ws->get_tree_info(revision_from_input(request.value.revision), request.value.treeId);
+    auto info = _ws->get_tree_info(request.value.revision, request.value.treeId);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<GetTreeInfoResponse> resp_msg(
@@ -150,7 +150,7 @@ bool WorldStateAddon::get_state_reference(msgpack::object& obj, msgpack::sbuffer
 {
     TypedMessage<GetStateReferenceRequest> request;
     obj.convert(request);
-    auto state = _ws->get_state_reference(revision_from_input(request.value.revision));
+    auto state = _ws->get_state_reference(request.value.revision);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<GetStateReferenceResponse> resp_msg(
@@ -163,7 +163,7 @@ bool WorldStateAddon::get_state_reference(msgpack::object& obj, msgpack::sbuffer
 
 bool WorldStateAddon::get_initial_state_reference(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
-    TypedMessage<GetInitialStateReferenceRequest> request;
+    HeaderOnlyMessage request;
     obj.convert(request);
     auto state = _ws->get_initial_state_reference();
 
@@ -185,8 +185,7 @@ bool WorldStateAddon::get_leaf_value(msgpack::object& obj, msgpack::sbuffer& buf
     case MerkleTreeId::NOTE_HASH_TREE:
     case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
     case MerkleTreeId::ARCHIVE: {
-        auto leaf = _ws->get_leaf<bb::fr>(
-            revision_from_input(request.value.revision), request.value.treeId, request.value.leafIndex);
+        auto leaf = _ws->get_leaf<bb::fr>(request.value.revision, request.value.treeId, request.value.leafIndex);
 
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<std::optional<bb::fr>> resp_msg(WorldStateMessageType::GET_LEAF_VALUE, header, leaf);
@@ -196,7 +195,7 @@ bool WorldStateAddon::get_leaf_value(msgpack::object& obj, msgpack::sbuffer& buf
 
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         auto leaf = _ws->get_leaf<crypto::merkle_tree::PublicDataLeafValue>(
-            revision_from_input(request.value.revision), request.value.treeId, request.value.leafIndex);
+            request.value.revision, request.value.treeId, request.value.leafIndex);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<std::optional<PublicDataLeafValue>> resp_msg(
             WorldStateMessageType::GET_LEAF_VALUE, header, leaf);
@@ -206,7 +205,7 @@ bool WorldStateAddon::get_leaf_value(msgpack::object& obj, msgpack::sbuffer& buf
 
     case MerkleTreeId::NULLIFIER_TREE: {
         auto leaf = _ws->get_leaf<crypto::merkle_tree::NullifierLeafValue>(
-            revision_from_input(request.value.revision), request.value.treeId, request.value.leafIndex);
+            request.value.revision, request.value.treeId, request.value.leafIndex);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<std::optional<NullifierLeafValue>> resp_msg(
             WorldStateMessageType::GET_LEAF_VALUE, header, leaf);
@@ -231,7 +230,7 @@ bool WorldStateAddon::get_leaf_preimage(msgpack::object& obj, msgpack::sbuffer& 
     switch (request.value.treeId) {
     case MerkleTreeId::NULLIFIER_TREE: {
         auto leaf = _ws->get_indexed_leaf<NullifierLeafValue>(
-            revision_from_input(request.value.revision), request.value.treeId, request.value.leafIndex);
+            request.value.revision, request.value.treeId, request.value.leafIndex);
         messaging::TypedMessage<std::optional<IndexedLeaf<NullifierLeafValue>>> resp_msg(
             WorldStateMessageType::GET_LEAF_PREIMAGE, header, leaf);
         msgpack::pack(buffer, resp_msg);
@@ -240,7 +239,7 @@ bool WorldStateAddon::get_leaf_preimage(msgpack::object& obj, msgpack::sbuffer& 
 
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         auto leaf = _ws->get_indexed_leaf<PublicDataLeafValue>(
-            revision_from_input(request.value.revision), request.value.treeId, request.value.leafIndex);
+            request.value.revision, request.value.treeId, request.value.leafIndex);
 
         messaging::TypedMessage<std::optional<IndexedLeaf<PublicDataLeafValue>>> resp_msg(
             WorldStateMessageType::GET_LEAF_PREIMAGE, header, leaf);
@@ -260,8 +259,7 @@ bool WorldStateAddon::get_sibling_path(msgpack::object& obj, msgpack::sbuffer& b
     TypedMessage<GetSiblingPathRequest> request;
     obj.convert(request);
 
-    fr_sibling_path path = _ws->get_sibling_path(
-        revision_from_input(request.value.revision), request.value.treeId, request.value.leafIndex);
+    fr_sibling_path path = _ws->get_sibling_path(request.value.revision, request.value.treeId, request.value.leafIndex);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<fr_sibling_path> resp_msg(WorldStateMessageType::GET_SIBLING_PATH, header, path);
@@ -283,23 +281,20 @@ bool WorldStateAddon::find_leaf_index(msgpack::object& obj, msgpack::sbuffer& bu
     case MerkleTreeId::ARCHIVE: {
         TypedMessage<FindLeafIndexRequest<bb::fr>> r1;
         obj.convert(r1);
-        index = _ws->find_leaf_index<bb::fr>(
-            revision_from_input(request.value.revision), request.value.treeId, r1.value.leaf);
+        index = _ws->find_leaf_index<bb::fr>(request.value.revision, request.value.treeId, r1.value.leaf);
         break;
     }
 
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         TypedMessage<FindLeafIndexRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
         obj.convert(r2);
-        index = _ws->find_leaf_index<PublicDataLeafValue>(
-            revision_from_input(request.value.revision), request.value.treeId, r2.value.leaf);
+        index = _ws->find_leaf_index<PublicDataLeafValue>(request.value.revision, request.value.treeId, r2.value.leaf);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
         TypedMessage<FindLeafIndexRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
         obj.convert(r3);
-        index = _ws->find_leaf_index<NullifierLeafValue>(
-            revision_from_input(request.value.revision), request.value.treeId, r3.value.leaf);
+        index = _ws->find_leaf_index<NullifierLeafValue>(request.value.revision, request.value.treeId, r3.value.leaf);
         break;
     }
     }
@@ -317,7 +312,7 @@ bool WorldStateAddon::find_low_leaf(msgpack::object& obj, msgpack::sbuffer& buff
     obj.convert(request);
 
     GetLowIndexedLeafResponse low_leaf_info =
-        _ws->find_low_leaf_index(revision_from_input(request.value.revision), request.value.treeId, request.value.key);
+        _ws->find_low_leaf_index(request.value.revision, request.value.treeId, request.value.key);
 
     MsgHeader header(request.header.messageId);
     TypedMessage<FindLowLeafResponse> response(
@@ -468,23 +463,6 @@ bool WorldStateAddon::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
     msgpack::pack(buf, resp_msg);
 
     return true;
-}
-
-WorldStateRevision WorldStateAddon::revision_from_input(int input)
-{
-    if (input == -1) {
-        return WorldStateRevision::uncommitted();
-    }
-
-    if (input == 0) {
-        return WorldStateRevision::committed();
-    }
-
-    if (input > 0) {
-        return WorldStateRevision::finalised_block(static_cast<uint32_t>(input));
-    }
-
-    throw std::runtime_error("Revision must be -1, 0, or a positive integer");
 }
 
 Napi::Function WorldStateAddon::get_class(Napi::Env env)

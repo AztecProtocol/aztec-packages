@@ -1,5 +1,5 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
-import { AppendOnlyTreeSnapshot, Fr, INITIAL_L2_BLOCK_NUM, type StateReference, type UInt32 } from '@aztec/circuits.js';
+import { AppendOnlyTreeSnapshot, Fr, type StateReference, type UInt32 } from '@aztec/circuits.js';
 import { type Tuple } from '@aztec/foundation/serialize';
 
 export type MessageHeaderInit = {
@@ -67,6 +67,9 @@ export enum WorldStateMessageType {
   ROLLBACK,
 
   SYNC_BLOCK,
+
+  CREATE_FORK,
+  DELETE_FORK,
 }
 
 interface WithTreeId {
@@ -168,6 +171,18 @@ interface SyncBlockResponse {
   isBlockOurs: boolean;
 }
 
+interface CreateForkRequest {
+  blockNumber: number;
+}
+
+interface CreateForkResponse {
+  forkId: number;
+}
+
+interface DeleteForkRequest {
+  forkId: number;
+}
+
 export type WorldStateRequest = {
   [WorldStateMessageType.GET_TREE_INFO]: GetTreeInfoRequest;
   [WorldStateMessageType.GET_STATE_REFERENCE]: GetStateReferenceRequest;
@@ -189,6 +204,9 @@ export type WorldStateRequest = {
   [WorldStateMessageType.ROLLBACK]: void;
 
   [WorldStateMessageType.SYNC_BLOCK]: SyncBlockRequest;
+
+  [WorldStateMessageType.CREATE_FORK]: CreateForkRequest;
+  [WorldStateMessageType.DELETE_FORK]: DeleteForkRequest;
 };
 
 export type WorldStateResponse = {
@@ -212,21 +230,26 @@ export type WorldStateResponse = {
   [WorldStateMessageType.ROLLBACK]: void;
 
   [WorldStateMessageType.SYNC_BLOCK]: SyncBlockResponse;
+
+  [WorldStateMessageType.CREATE_FORK]: CreateForkResponse;
+  [WorldStateMessageType.DELETE_FORK]: void;
 };
 
-export type WorldStateRevision = -1 | 0 | UInt32;
-export function worldStateRevision(includeUncommittedOrBlock: false | true | number): WorldStateRevision {
-  if (typeof includeUncommittedOrBlock === 'number') {
-    if (includeUncommittedOrBlock < INITIAL_L2_BLOCK_NUM || !Number.isInteger(includeUncommittedOrBlock)) {
-      throw new TypeError('Invalid block number: ' + includeUncommittedOrBlock);
-    }
-
-    return includeUncommittedOrBlock;
-  } else if (includeUncommittedOrBlock) {
-    return -1;
-  } else {
-    return 0;
-  }
+export type WorldStateRevision = {
+  forkId: number;
+  blockNumber: number;
+  includeUncommitted: boolean;
+};
+export function worldStateRevision(
+  includeUncommitted: boolean,
+  forkId: number | undefined,
+  blockNumber: number | undefined,
+): WorldStateRevision {
+  return {
+    forkId: forkId ?? 0,
+    blockNumber: blockNumber ?? 0,
+    includeUncommitted,
+  };
 }
 
 type TreeStateReference = readonly [Buffer, number | bigint];
