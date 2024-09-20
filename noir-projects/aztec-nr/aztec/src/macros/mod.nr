@@ -54,10 +54,12 @@ pub comptime fn aztec(m: Module) -> Quoted {
     let ifs = ifs.push_back(quote { { panic(f"Unknown selector") } });
     let dispatch = ifs.join(quote { else });
 
+    let from_field_fn = FunctionSelector::from_field;
+
     let body = quote {
         pub fn public_entrypoint(selector: Field) {
             let cdoffset = 0;
-            let selector = dep::aztec::protocol_types::abis::function_selector::FunctionSelector::from_field(selector);
+            let selector = $from_field_fn(selector);
             $dispatch
         }
     };
