@@ -2,6 +2,7 @@
 
 #include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
+#include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/decider_keys.hpp"
@@ -53,9 +54,9 @@ void compute_row_evaluations(State& state) noexcept
 }
 
 // Fold one proving key into an accumulator.
-template <typename Flavor, size_t k> void fold_k(State& state) noexcept
+void fold_k(State& state) noexcept
 {
-    static constexpr size_t k(1);
+    static constexpr size_t k{ 1 };
 
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using ProtogalaxyProver = ProtogalaxyProver_<DeciderProvingKeys_<Flavor, k + 1>>;
@@ -87,7 +88,7 @@ template <typename Flavor, size_t k> void fold_k(State& state) noexcept
 BENCHMARK(vector_of_evaluations)->DenseRange(15, 21)->Unit(kMillisecond);
 BENCHMARK(compute_row_evaluations)->DenseRange(15, 21)->Unit(kMillisecond);
 // We stick to just k=1 for compile-time reasons.
-BENCHMARK(fold_k<MegaFlavor, 1>)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
+BENCHMARK(fold_k)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 
 } // namespace bb
 
