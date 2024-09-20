@@ -5,9 +5,9 @@ use dep::aztec::{
     protocol_types::{constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator}
 };
 
-global TRANSPARENT_NOTE_LEN: Field = 2;
+global TRANSPARENT_NOTE_LEN: u32 = 2;
 // TRANSPARENT_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global TRANSPARENT_NOTE_BYTES_LEN: Field = 2 * 32 + 64;
+global TRANSPARENT_NOTE_BYTES_LEN: u32 = 2 * 32 + 64;
 
 // Transparent note represents a note that is created in the clear (public execution), but can only be spent by those
 // that know the preimage of the "secret_hash" (the secret). This is typically used when shielding a token balance.
@@ -46,7 +46,7 @@ impl NoteInterface<TRANSPARENT_NOTE_LEN, TRANSPARENT_NOTE_BYTES_LEN> for Transpa
     //      1) We pass the secret as an argument to the function and use it to compute a secret hash,
     //      2) we fetch a note via the "get_notes" oracle which accepts the secret hash as an argument,
     //      3) the "get_notes" oracle constrains that the secret hash in the returned note matches the one computed in
-    //         circuit. 
+    //         circuit.
     // This achieves that the note can only be spent by the party that knows the secret.
     fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);

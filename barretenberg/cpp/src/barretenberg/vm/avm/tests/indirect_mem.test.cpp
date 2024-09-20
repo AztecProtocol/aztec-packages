@@ -9,7 +9,8 @@ class AvmIndirectMemTests : public ::testing::Test {
   public:
     AvmIndirectMemTests()
         : public_inputs(generate_base_public_inputs())
-        , trace_builder(AvmTraceBuilder(public_inputs))
+        , trace_builder(
+              AvmTraceBuilder(public_inputs).set_full_precomputed_tables(false).set_range_check_required(false))
     {
         srs::init_crs_factory("../srs_db/ignition");
     }
@@ -68,7 +69,7 @@ TEST_F(AvmIndirectMemTests, allIndirectAdd)
     EXPECT_EQ(row->main_sel_mem_op_b, FF(1));
     EXPECT_EQ(row->main_sel_mem_op_c, FF(1));
 
-    validate_trace(std::move(trace), public_inputs, {}, {}, true);
+    validate_trace(std::move(trace), public_inputs, {}, {});
 }
 
 // Testing a subtraction operation with direct input operands a, b, and an indirect

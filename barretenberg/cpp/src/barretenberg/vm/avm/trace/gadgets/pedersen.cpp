@@ -12,6 +12,7 @@ std::vector<AvmPedersenTraceBuilder::PedersenTraceEntry> AvmPedersenTraceBuilder
 void AvmPedersenTraceBuilder::reset()
 {
     pedersen_trace.clear();
+    pedersen_trace.shrink_to_fit(); // Reclaim memory.
 }
 
 FF AvmPedersenTraceBuilder::pedersen_hash(const std::vector<FF>& inputs, uint32_t offset, uint32_t clk)
