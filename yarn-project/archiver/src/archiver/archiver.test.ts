@@ -30,7 +30,6 @@ import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_sto
 
 interface MockRollupContractRead {
   archiveAt: (args: readonly [bigint]) => Promise<`0x${string}`>;
-  getProvenBlockNumber: () => Promise<bigint>;
   status: (args: readonly [bigint]) => Promise<[bigint, `0x${string}`, bigint, `0x${string}`, `0x${string}`]>;
 }
 
@@ -97,14 +96,18 @@ describe('Archiver', () => {
 
     rollupRead.status
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, blocks[0].archive.root.toString(), GENESIS_ROOT])
-      .mockResolvedValue([0n, GENESIS_ROOT, 3n, blocks[2].archive.root.toString(), blocks[0].archive.root.toString()]);
+      .mockResolvedValue([
+        1n,
+        blocks[0].archive.root.toString(),
+        3n,
+        blocks[2].archive.root.toString(),
+        blocks[0].archive.root.toString(),
+      ]);
 
     mockGetLogs({
       messageSent: [makeMessageSentEvent(98n, 1n, 0n), makeMessageSentEvent(99n, 1n, 1n)],
       L2BlockProposed: [makeL2BlockProposedEvent(101n, 1n, blocks[0].archive.root.toString())],
     });
-
-    rollupRead.getProvenBlockNumber.mockResolvedValueOnce(1n);
 
     mockGetLogs({
       messageSent: [
