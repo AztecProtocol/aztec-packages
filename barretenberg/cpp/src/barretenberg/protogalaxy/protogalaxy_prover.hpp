@@ -33,7 +33,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     // the state updated and carried forward beween rounds
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
     std::shared_ptr<DeciderProvingKey> accumulator;
-    std::vector<RelationEvaluations> subrelation_evaluations;
+    std::shared_ptr<RelationEvaluations[]> subrelation_evaluations;
     Polynomial<FF> perturbator;
     std::vector<FF> deltas;
     CombinerQuotient combiner_quotient;
@@ -70,7 +70,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
      * @param accumulator
      * @return std::tuple<std::vector<FF>, Polynomial<FF>> deltas, perturbator
      */
-    std::tuple<std::vector<FF>, std::vector<RelationEvaluations>, Polynomial<FF>> perturbator_round(
+    std::tuple<std::vector<FF>, std::shared_ptr<RelationEvaluations[]>, Polynomial<FF>> perturbator_round(
         const std::shared_ptr<const DeciderPK>& accumulator);
 
     /**
@@ -82,7 +82,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     combiner_quotient_round(const std::vector<FF>& gate_challenges,
                             const std::vector<FF>& deltas,
                             const DeciderProvingKeys_& keys,
-                            const std::vector<RelationEvaluations>& subrelation_evaluations);
+                            const std::shared_ptr<RelationEvaluations[]>& subrelation_evaluations);
 
     /**
      * @brief Steps 12 - 13 of the paper plus the prover folding work.
