@@ -93,13 +93,26 @@ contract DEX {
         }
 
         // TODO: Transfer the tokens to this contract. How do we do it? this does not work with authwits as we don't know the amounts before calling this function.
+        // We could use partial notes for this:
+        // 1. A user knows the maximum amount0, amount1 they want to deposit,
+        // 2. user calls private `token{0, 1}.prepare_transfer_to_public_with_refund(from, to, amount{0,1}, transient_storage_slot_randomness)` functions,
+        //    --> these functions will burn the amounts, prepare the partial notes and stores both the burned amounts and the partial notes in the transient storage!
+        // 3. user calls DEX.add_liquidity(..., transient_storage_slot_randomness) with the amounts they want to deposit,
+        // 4. the `add_liquidity` func computes the amounts to deposit and calls token{0, 1}.finalize_transfer_to_public_with_refund(actual_amount{0,1}, transient_storage_slot_randomness),
+        //   --> this function will:
+        //          4.1 load both the partial note and the burned amount from transient storage
+        //          4.2 check that actual_amount < burned_amount,
+        //          4.3 publicly mint the actual_amount to msg_sender (the DEX in our case),
+        //          4.4 finalize the partial note amount with `burned_amount - actual_amount` and emit the note.
+        //
+        // Note 1: This is essentially a 1 person alternative to the fee refund flow where we have a user and an FPC.
 
         // Calculate the amount of liquidity tokens to mint
         let liquidity_token = Token::at(settings.liquidity_token);
         let total_supply = liquidity_token.total_supply().call(&mut context);
         let mut liquidity: u32 = 0;
         if (total_supply == 0) {
-            // TODO: This is using Tonelli-Shanks to compute sqrt but Uni is using babylonia method. Is it fine to use a different one?
+            // TODO: This is using Tonelli-Shanks to compute sqrt but Uni is using babylonian method. Is it fine to use a different one?
             // TODO: avoid the casts here. Shall we use a method natively working with some integer type?
             liquidity = std::ec::sqrt((amount0 * amount1 - MINIMUM_LIQUIDITY) as Field) as u32;
             liquidity_token.mint_public(AztecAddress::zero(), MINIMUM_LIQUIDITY as Field).call(&mut context); // permanently lock the first MINIMUM_LIQUIDITY tokens
