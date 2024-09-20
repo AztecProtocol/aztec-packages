@@ -19,6 +19,10 @@ export class DataTxValidator implements TxValidator<Tx> {
     return Promise.resolve([validTxs, invalidTxs]);
   }
 
+  validateTx(tx: Tx): Promise<boolean> {
+    return Promise.resolve(this.#hasCorrectExecutionRequests(tx));
+  }
+
   #hasCorrectExecutionRequests(tx: Tx): boolean {
     const callRequests = [
       ...tx.data.getRevertiblePublicCallRequests(),

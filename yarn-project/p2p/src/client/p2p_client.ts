@@ -319,8 +319,6 @@ export class P2PClient implements P2P {
 
     this.log.debug(`Requested ${txHash.toString()} from peer | success = ${!!tx}`);
     if (tx) {
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8485): This check is not sufficient to validate the transaction. We need to validate the entire proof.
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8483): alter peer scoring system for a validator that returns an invalid transcation
       await this.txPool.addTxs([tx]);
     }
 
