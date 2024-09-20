@@ -63,8 +63,6 @@ class GoblinProver {
 
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
-    std::unique_ptr<ECCVMBuilder> eccvm_builder;
-    std::unique_ptr<TranslatorBuilder> translator_builder;
     std::unique_ptr<TranslatorProver> translator_prover;
     std::unique_ptr<ECCVMProver> eccvm_prover;
     std::shared_ptr<ECCVMProvingKey> eccvm_key;
@@ -174,14 +172,10 @@ class GoblinProver {
     {
         {
             ZoneScopedN("Create ECCVMBuilder");
-            eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
-        }
-
-        {
+            auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
             ZoneScopedN("Create ECCVMProver");
             eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
         }
-        eccvm_builder = nullptr;
         {
             ZoneScopedN("Construct ECCVM Proof");
             goblin_proof.eccvm_proof = eccvm_prover->construct_proof();
@@ -206,15 +200,11 @@ class GoblinProver {
         eccvm_prover = nullptr;
         {
             ZoneScopedN("Create TranslatorBuilder");
-            translator_builder =
+            auto translator_builder =
                 std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
-        }
-
-        {
             ZoneScopedN("Create TranslatorProver");
             translator_prover = std::make_unique<TranslatorProver>(*translator_builder, transcript);
         }
-        translator_builder = nullptr;
 
         {
             ZoneScopedN("Construct Translator Proof");
