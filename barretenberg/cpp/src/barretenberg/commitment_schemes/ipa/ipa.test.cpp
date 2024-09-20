@@ -336,7 +336,7 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
 
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(log_n,
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
                                                                                     RefVector(unshifted_commitments),
                                                                                     RefVector(shifted_commitments),
                                                                                     RefVector(multilinear_evaluations),

@@ -4,7 +4,6 @@
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_keccak_with_gemini_flavor.hpp"
 namespace bb {
 
 template <class Flavor>
@@ -150,7 +149,6 @@ void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
 
 template class ExecutionTrace_<UltraFlavor>;
 template class ExecutionTrace_<UltraKeccakFlavor>;
-template class ExecutionTrace_<UltraKeccakWithGeminiFlavor>;
 template class ExecutionTrace_<MegaFlavor>;
 template class ExecutionTrace_<plonk::flavor::Standard>;
 template class ExecutionTrace_<plonk::flavor::Ultra>;

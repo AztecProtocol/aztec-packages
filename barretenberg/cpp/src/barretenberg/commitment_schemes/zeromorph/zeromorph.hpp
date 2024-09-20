@@ -805,11 +805,4 @@ template <typename Curve> class ZeroMorphVerifier_ {
     }
 };
 
-// This is temporary
-template <typename Curve> class ZeroMorph_ {
-  public:
-    using Prover = ZeroMorphProver_<Curve>;
-    using Verifier = ZeroMorphVerifier_<Curve>;
-};
-
 } // namespace bb

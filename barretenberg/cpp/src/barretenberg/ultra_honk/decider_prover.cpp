@@ -47,14 +47,16 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_relation_ch
  * */
 template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds()
 {
-    using Prover = Flavor::BatchedMultilinearEvaluationScheme::Prover;
-    auto prover_opening_claim = Prover::prove(proving_key->proving_key.circuit_size,
-                                              proving_key->proving_key.polynomials.get_unshifted(),
-                                              proving_key->proving_key.polynomials.get_to_be_shifted(),
-                                              sumcheck_output.claimed_evaluations.get_all(),
-                                              sumcheck_output.challenge,
-                                              commitment_key,
-                                              transcript);
+    using BatchedMultivariateOpeningScheme =
+        std::conditional_t<IsAnyOf<Flavor, UltraKeccakFlavor>, ShpleminiProver_<Curve>, ZeroMorphProver_<Curve>>;
+    auto prover_opening_claim =
+        BatchedMultivariateOpeningScheme::prove(proving_key->proving_key.circuit_size,
+                                                proving_key->proving_key.polynomials.get_unshifted(),
+                                                proving_key->proving_key.polynomials.get_to_be_shifted(),
+                                                sumcheck_output.claimed_evaluations.get_all(),
+                                                sumcheck_output.challenge,
+                                                commitment_key,
+                                                transcript);
     PCS::compute_opening_proof(commitment_key, prover_opening_claim, transcript);
 }
 
@@ -80,7 +82,6 @@ template <IsUltraFlavor Flavor> HonkProof DeciderProver_<Flavor>::construct_proo
 
 template class DeciderProver_<UltraFlavor>;
 template class DeciderProver_<UltraKeccakFlavor>;
-template class DeciderProver_<UltraKeccakWithGeminiFlavor>;
 template class DeciderProver_<MegaFlavor>;
 
 } // namespace bb

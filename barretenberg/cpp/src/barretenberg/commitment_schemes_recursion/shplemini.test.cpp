@@ -128,7 +128,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     std::vector<Fr> u_challenge_in_circuit = elements_to_witness(u_challenge);
 
     [[maybe_unused]] auto opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, log_circuit_size),
+        ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, circuit_size),
                                                        RefVector(stdlib_f_commitments),
                                                        RefVector(stdlib_g_commitments),
                                                        RefVector(stdlib_claimed_evaluations),

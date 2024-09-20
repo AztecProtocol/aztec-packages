@@ -213,7 +213,7 @@ template <typename Curve> class GeminiVerifier_ {
     {
         std::vector<Fr> gemini_evaluations;
         gemini_evaluations.reserve(log_circuit_size);
-        for (size_t i = 0; i < log_circuit_size; ++i) {
+        for (size_t i = 1; i <= log_circuit_size; ++i) {
             const Fr evaluation = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
             gemini_evaluations.emplace_back(evaluation);
         }

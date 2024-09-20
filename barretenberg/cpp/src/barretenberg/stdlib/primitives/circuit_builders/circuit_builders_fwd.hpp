@@ -13,7 +13,6 @@ namespace bb {
 class StandardFlavor;
 class UltraFlavor;
 class UltraKeccakFlavor;
-class UltraKeccakWithGeminiFlavor;
 
 class Bn254FrParams;
 class Bn254FqParams;

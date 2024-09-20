@@ -328,7 +328,6 @@ class UltraFlavor;
 class UltraFlavorWithZK;
 class ECCVMFlavor;
 class UltraKeccakFlavor;
-class UltraKeccakWithGeminiFlavor;
 class MegaFlavor;
 class TranslatorFlavor;
 class AvmFlavor;
@@ -359,16 +358,16 @@ template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 template <typename T>
-concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra, UltraKeccakFlavor, UltraKeccakWithGeminiFlavor>;
+concept IsUltraPlonkFlavor = IsAnyOf<T, plonk::flavor::Ultra, UltraKeccakFlavor>;
 
 template <typename T>
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraKeccakWithGeminiFlavor, UltraFlavorWithZK, MegaFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T>
-concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor,UltraKeccakWithGeminiFlavor, UltraFlavorWithZK, MegaFlavor>;
+concept IsHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, MegaFlavor>;
 
 template <typename T>
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK, UltraKeccakWithGeminiFlavor,MegaFlavor>;
+concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraFlavorWithZK,MegaFlavor>;
 
 template <typename T>
 concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,
@@ -396,7 +395,6 @@ template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor>;
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
                                                            // Note(md): must be here to use oink prover
                                                            UltraKeccakFlavor,
-UltraKeccakWithGeminiFlavor,
                                                            UltraFlavorWithZK,
                                                            MegaFlavor,
                                                            UltraRecursiveFlavor_<UltraCircuitBuilder>,

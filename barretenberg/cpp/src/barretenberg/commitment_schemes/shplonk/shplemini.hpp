@@ -104,38 +104,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
   public:
     template <typename Transcript>
-    static OpeningClaim<Curve> verify(const Fr circuit_size,
-                                      RefSpan<Commitment> unshifted_commitments,
-                                      RefSpan<Commitment> shifted_commitments,
-                                      RefSpan<Fr> claimed_evaluations,
-                                      const std::vector<Fr>& multivariate_challenge,
-                                      const Commitment& g1_identity,
-                                      std::shared_ptr<Transcript>& transcript)
-    {
-        Fr log_N = numeric::get_msb(static_cast<uint32_t>(circuit_size));
-
-        BatchOpeningClaim<Curve> batch_opening_claim = compute_batch_opening_claim(log_N,
-                                                                                   unshifted_commitments,
-                                                                                   shifted_commitments,
-                                                                                   claimed_evaluations,
-                                                                                   multivariate_challenge,
-                                                                                   g1_identity,
-                                                                                   transcript);
-
-        GroupElement commitment;
-        if constexpr (Curve::is_stdlib_type) {
-            commitment = GroupElement::batch_mul(batch_opening_claim.commitments,
-                                                 batch_opening_claim.scalars,
-                                                 /*max_num_bits=*/0,
-                                                 /*with_edgecases=*/true);
-        } else {
-            commitment = batch_mul_native(batch_opening_claim.commitments, batch_opening_claim.scalars);
-        }
-
-        return { { batch_opening_claim.evaluation_point, Fr(0) }, commitment };
-    }
-    template <typename Transcript>
-    static BatchOpeningClaim<Curve> compute_batch_opening_claim(const Fr log_N,
+    static BatchOpeningClaim<Curve> compute_batch_opening_claim(const Fr N,
                                                                 RefSpan<Commitment> unshifted_commitments,
                                                                 RefSpan<Commitment> shifted_commitments,
                                                                 RefSpan<Fr> claimed_evaluations,
@@ -143,13 +112,16 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                                 const Commitment& g1_identity,
                                                                 std::shared_ptr<Transcript>& transcript)
     {
+
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
+        info(N);
         if constexpr (Curve::is_stdlib_type) {
-            log_circuit_size = static_cast<uint32_t>(log_N.get_value());
+            log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N.get_value()));
         } else {
-            log_circuit_size = static_cast<uint32_t>(log_N);
+            log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N));
         }
+        info(log_circuit_size);
 
         // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts
         const Fr multivariate_batching_challenge = transcript->template get_challenge<Fr>("rho");
@@ -379,13 +351,6 @@ template <typename Curve> class ShpleminiVerifier_ {
             commitments.emplace_back(std::move(fold_commitments[j]));
         }
     }
-};
-
-// TODO: temporary hack
-template <typename Curve> class Shplemini_ {
-  public:
-    using Prover = ShpleminiProver_<Curve>;
-    using Verifier = ShpleminiVerifier_<Curve>;
 };
 
 } // namespace bb
