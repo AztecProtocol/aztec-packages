@@ -1,8 +1,11 @@
 #pragma once
+#include "barretenberg/bb/file_io.hpp"
+#include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include <barretenberg/common/container.hpp>
 #include <cstdint>
 
 namespace acir_format {
@@ -11,7 +14,57 @@ namespace acir_format {
 static constexpr size_t HONK_RECURSION_PUBLIC_INPUT_OFFSET = 3;
 
 class ProofSurgeon {
+    using FF = bb::fr;
+
+    // construct a string of the form "[<fr_0 hex>, <fr_1 hex>, ...]"
+    static std::string to_json(const std::vector<bb::fr>& data)
+    {
+        return format("[", bb::join(map(data, [](auto fr) { return format("\"", fr, "\""); }), ", "), "]");
+    }
+
   public:
+    /**
+     * @brief Write a toml file containing the inputs to a noir verify_proof call
+     *
+     * @param proof A complete bberg style proof (i.e. contains the public inputs)
+     * @param verification_key
+     * @param toml_path
+     */
+    static void write_recursion_inputs_prover_toml(std::vector<FF>& proof,
+                                                   const auto& verification_key,
+                                                   const std::string& toml_path)
+    {
+        // Convert verification key to fields
+        std::vector<FF> vkey_fields = verification_key.to_field_elements();
+
+        // Get public inputs by cutting them out of the proof
+        const size_t num_public_inputs_to_extract = verification_key.num_public_inputs - bb::AGGREGATION_OBJECT_SIZE;
+        std::vector<FF> public_inputs =
+            acir_format::ProofSurgeon::cut_public_inputs_from_proof(proof, num_public_inputs_to_extract);
+
+        // Construct json-style output for each component
+        // FF key_hash{ 0 }; // not used for Honk
+        std::string proof_json = to_json(proof);
+        std::string pub_inputs_json = to_json(public_inputs);
+        std::string vk_json = to_json(vkey_fields);
+
+        // Format with labels for noir recursion input
+        std::string toml_content = "key_hash = " + format("\"", FF(0), "\"") + "\n";
+        toml_content += "proof = " + proof_json + "\n";
+        toml_content += "public_inputs = " + pub_inputs_json + "\n";
+        toml_content += "verification_key = " + vk_json + "\n";
+
+        // Write all components to the TOML file
+        write_file(toml_path, { toml_content.begin(), toml_content.end() });
+
+        // Write to additional dir for noir-sync purposes
+        std::string part_to_remove = "/noir-repo/test_programs/execution_success";
+        size_t pos = toml_path.find(part_to_remove);
+        std::string toml_path_2 = toml_path; // define path here
+        toml_path_2.erase(pos, part_to_remove.length());
+        write_file(toml_path_2, { toml_content.begin(), toml_content.end() });
+    }
+
     /**
      * @brief Reconstruct a bberg style proof from a acir style proof + public inputs
      * @details Insert the public inputs in the middle the proof fields after 'inner_public_input_offset' because this
