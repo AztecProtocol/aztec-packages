@@ -34,7 +34,7 @@ export class GasTxValidator implements TxValidator<Tx> {
     return [validTxs, invalidTxs];
   }
 
-  async validateTx(tx: Tx): Promise<boolean> {
+  validateTx(tx: Tx): Promise<boolean> {
     return this.#validateTxFee(tx);
   }
 
