@@ -245,20 +245,23 @@ export class Archiver implements ArchiveSource {
       return;
     }
 
-    const retrievedL1ToL2Messages = await retrieveL1ToL2Messages(
-      this.inbox,
-      blockUntilSynced,
-      messagesSynchedTo + 1n,
-      currentL1BlockNumber,
-    );
+    const localTotalMessageCount = await this.store.getTotalL1ToL2MessageCount();
+    const destinationTotalMessageCount = await this.inbox.read.totalMessagesInserted();
 
-    if (retrievedL1ToL2Messages.retrievedData.length === 0) {
+    if (localTotalMessageCount === destinationTotalMessageCount) {
       await this.store.setMessageSynchedL1BlockNumber(currentL1BlockNumber);
       this.log.verbose(
         `Retrieved no new L1 -> L2 messages between L1 blocks ${messagesSynchedTo + 1n} and ${currentL1BlockNumber}.`,
       );
       return;
     }
+
+    const retrievedL1ToL2Messages = await retrieveL1ToL2Messages(
+      this.inbox,
+      blockUntilSynced,
+      messagesSynchedTo + 1n,
+      currentL1BlockNumber,
+    );
 
     await this.store.addL1ToL2Messages(retrievedL1ToL2Messages);
 

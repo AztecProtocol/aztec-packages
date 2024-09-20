@@ -37,6 +37,10 @@ contract Inbox is IInbox {
 
   mapping(uint256 blockNumber => FrontierLib.Tree tree) public trees;
 
+  // This value is not used much by the contract, but it is useful for synching the node faster
+  // as it can more easily figure out if it can just skip looking for events for a time period.
+  uint256 public totalMessagesInserted = 0;
+
   constructor(address _rollup, uint256 _height) {
     ROLLUP = _rollup;
 
@@ -89,6 +93,7 @@ contract Inbox is IInbox {
 
     bytes32 leaf = message.sha256ToField();
     uint256 index = currentTree.insertLeaf(leaf);
+    totalMessagesInserted++;
     emit MessageSent(inProgress, index, leaf);
 
     return leaf;
