@@ -145,12 +145,12 @@ pub comptime fn aztec(m: Module) -> Quoted {
         transform_unconstrained(f);
     }
 
-    //let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
+    let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
     let note_exports = generate_note_exports();
 
     quote {
         $note_exports
         $interface
-        //$compute_note_hash_and_optionally_a_nullifier
+        $compute_note_hash_and_optionally_a_nullifier
     }
 }
