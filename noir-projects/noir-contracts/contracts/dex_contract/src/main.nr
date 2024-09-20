@@ -29,7 +29,7 @@ contract DEX {
     #[derive(Serialize)]
     struct Reserves {
         // TODO: Replace the use of u32 with larger type everywhere in this contract.
-        // Didn't use U128 here because of https://github.com/AztecProtocol/aztec-packages/issues/8271
+        // Didn't use U128 here because of https://github.com/AztecProtocol/aztec-packages/issues/8271 and because it might be insufficient.
         reserve0: u32,
         reserve1: u32,
     }
@@ -92,14 +92,14 @@ contract DEX {
             }
         }
 
-        // TODO: Transfer the tokens to this contract. How do we do it? this does not work with authwits well
+        // TODO: Transfer the tokens to this contract. How do we do it? this does not work with authwits as we don't know the amounts before calling this function.
 
         // Calculate the amount of liquidity tokens to mint
         let liquidity_token = Token::at(settings.liquidity_token);
         let total_supply = liquidity_token.total_supply().call(&mut context);
         let mut liquidity: u32 = 0;
         if (total_supply == 0) {
-            // This is using Tonelli-Shanks to compute sqrt but Uni is using babylonia method. TODO: is it fine to use a different one?
+            // TODO: This is using Tonelli-Shanks to compute sqrt but Uni is using babylonia method. Is it fine to use a different one?
             // TODO: avoid the casts here. Shall we use a method natively working with some integer type?
             liquidity = std::ec::sqrt((amount0 * amount1 - MINIMUM_LIQUIDITY) as Field) as u32;
             liquidity_token.mint_public(AztecAddress::zero(), MINIMUM_LIQUIDITY as Field).call(&mut context); // permanently lock the first MINIMUM_LIQUIDITY tokens
