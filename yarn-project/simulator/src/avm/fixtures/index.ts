@@ -63,7 +63,7 @@ export function initExecutionEnvironment(overrides?: Partial<AvmExecutionEnviron
     overrides?.functionSelector ?? FunctionSelector.empty(),
     overrides?.contractCallDepth ?? Fr.zero(),
     overrides?.transactionFee ?? Fr.zero(),
-    overrides?.header ?? Header.empty(),
+    overrides?.historicalHeader ?? Header.empty(),
     overrides?.globals ?? GlobalVariables.empty(),
     overrides?.isStaticCall ?? false,
     overrides?.isDelegateCall ?? false,

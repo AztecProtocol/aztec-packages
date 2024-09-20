@@ -50,7 +50,7 @@ export class AppLogicPhaseManager extends AbstractPhaseManager {
     } else {
       tx.unencryptedLogs.addFunctionLogs(newUnencryptedLogs);
       // TODO(#6470): we should be adding contracts deployed in those logs to the publicContractsDB
-    }
+      }
 
     // Return a list of app logic proving requests
     const publicProvingRequests: PublicProvingRequest[] = publicProvingInformation.map(info => {

@@ -21,7 +21,7 @@ import { PublicSideEffectTrace } from './side_effect_trace.js';
 export class PublicExecutor {
   metrics: ExecutorMetrics;
 
-  constructor(private readonly worldStateDB: WorldStateDB, private readonly header: Header, client: TelemetryClient) {
+  constructor(private readonly worldStateDB: WorldStateDB, private readonly historicalHeader: Header, client: TelemetryClient) {
     this.metrics = new ExecutorMetrics(client, 'PublicExecutor');
   }
 
@@ -43,6 +43,7 @@ export class PublicExecutor {
     globalVariables: GlobalVariables,
     availableGas: Gas,
     _txContext: TxContext,
+    // TODO(md): this will be shared? Why do we need to pass it everywhere?
     pendingSiloedNullifiers: Nullifier[],
     transactionFee: Fr = Fr.ZERO,
     startSideEffectCounter: number = 0,
@@ -63,7 +64,7 @@ export class PublicExecutor {
 
     const avmExecutionEnv = createAvmExecutionEnvironment(
       executionRequest,
-      this.header,
+      this.historicalHeader,
       globalVariables,
       transactionFee,
     );
@@ -120,7 +121,7 @@ export class PublicExecutor {
  */
 function createAvmExecutionEnvironment(
   executionRequest: PublicExecutionRequest,
-  header: Header,
+  historicalHeader: Header,
   globalVariables: GlobalVariables,
   transactionFee: Fr,
 ): AvmExecutionEnvironment {
@@ -131,7 +132,7 @@ function createAvmExecutionEnvironment(
     executionRequest.callContext.functionSelector,
     /*contractCallDepth=*/ Fr.zero(),
     transactionFee,
-    header,
+    historicalHeader,
     globalVariables,
     executionRequest.callContext.isStaticCall,
     executionRequest.callContext.isDelegateCall,

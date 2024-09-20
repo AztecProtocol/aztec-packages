@@ -803,7 +803,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           /*nestedEnvironment=*/ expect.objectContaining({
             sender: environment.address, // sender is top-level call
             contractCallDepth: new Fr(1), // top call is depth 0, nested is depth 1
-            header: environment.header, // just confirming that nested env looks roughly right
+            header: environment.historicalHeader, // just confirming that nested env looks roughly right
             globals: environment.globals, // just confirming that nested env looks roughly right
             isStaticCall: isStaticCall,
             // TODO(7121): can't check calldata like this since it is modified on environment construction

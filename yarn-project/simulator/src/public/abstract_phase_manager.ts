@@ -241,6 +241,8 @@ export abstract class AbstractPhaseManager {
 
       while (executionStack.length) {
         const current = executionStack.pop()!;
+
+        // If it is not an execution request, then it has already been executed
         const isExecutionRequest = !isPublicExecutionResult(current);
         const result = isExecutionRequest
           ? await this.publicExecutor.simulate(
