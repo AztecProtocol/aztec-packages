@@ -11,7 +11,7 @@ namespace bb {
 class perm_main_conv_permutation_settings {
   public:
     // This constant defines how many columns are bundled together to form each set.
-    constexpr static size_t COLUMNS_PER_SET = 4;
+    constexpr static size_t COLUMNS_PER_SET = 5;
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -26,12 +26,14 @@ class perm_main_conv_permutation_settings {
                                      in.conversion_sel_to_radix_le,
                                      in.main_clk,
                                      in.main_ia,
+                                     in.main_ib,
                                      in.main_ic,
                                      in.main_id,
                                      in.conversion_clk,
                                      in.conversion_input,
                                      in.conversion_radix,
-                                     in.conversion_num_limbs);
+                                     in.conversion_num_limbs,
+                                     in.conversion_output_bits);
     }
 
     template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
@@ -42,12 +44,14 @@ class perm_main_conv_permutation_settings {
                                      in.conversion_sel_to_radix_le,
                                      in.main_clk,
                                      in.main_ia,
+                                     in.main_ib,
                                      in.main_ic,
                                      in.main_id,
                                      in.conversion_clk,
                                      in.conversion_input,
                                      in.conversion_radix,
-                                     in.conversion_num_limbs);
+                                     in.conversion_num_limbs,
+                                     in.conversion_output_bits);
     }
 };
 

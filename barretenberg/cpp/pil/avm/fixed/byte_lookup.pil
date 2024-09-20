@@ -8,6 +8,6 @@ namespace byte_lookup(256);
     pol constant sel_bin;
 
     // These two columns are a mapping between instruction tags and their byte lengths
-    // {U8: 1, U16: 2, ... , U128: 16}
-    pol constant table_in_tags; // Column of U8,U16,...,U128
-    pol constant table_byte_lengths; // Columns of byte lengths 1,2,...,16;
+    // {U1: 1, U8: 1, U16: 2, ... , U128: 16}
+    pol constant table_in_tags; // Column of U1,U8,U16,...,U128
+    pol constant table_byte_lengths; // Columns of byte lengths 1,1,2,...,16;

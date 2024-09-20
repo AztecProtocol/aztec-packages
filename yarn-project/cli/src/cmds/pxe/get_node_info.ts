@@ -20,6 +20,5 @@ export async function getNodeInfo(rpcUrl: string, debugLogger: DebugLogger, log:
   log(` Class Registerer: ${info.protocolContractAddresses.classRegisterer.toString()}`);
   log(` Fee Juice: ${info.protocolContractAddresses.feeJuice.toString()}`);
   log(` Instance Deployer: ${info.protocolContractAddresses.instanceDeployer.toString()}`);
-  log(` Key Registry: ${info.protocolContractAddresses.keyRegistry.toString()}`);
   log(` MultiCall: ${info.protocolContractAddresses.multiCallEntrypoint.toString()}`);
 }

@@ -7,7 +7,7 @@ contract Auth {
     use dep::aztec::state_vars::{PublicImmutable, SharedMutable};
 
     // Authorizing a new address has a certain block delay before it goes into effect.
-    global CHANGE_AUTHORIZED_DELAY_BLOCKS = 5;
+    global CHANGE_AUTHORIZED_DELAY_BLOCKS: u32 = 5;
 
     #[aztec(storage)]
     struct Storage {

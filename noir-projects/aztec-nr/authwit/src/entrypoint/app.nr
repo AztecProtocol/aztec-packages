@@ -7,11 +7,11 @@ use dep::aztec::protocol_types::{
 use crate::entrypoint::function_call::{FunctionCall, FUNCTION_CALL_SIZE_IN_BYTES};
 
 // FUNCTION_CALL_SIZE * ACCOUNT_MAX_CALLS + 1
-global APP_PAYLOAD_SIZE: u64 = 21;
+global APP_PAYLOAD_SIZE: u32 = 21;
 // FUNCTION_CALL_SIZE_IN_BYTES * ACCOUNT_MAX_CALLS + 32
-global APP_PAYLOAD_SIZE_IN_BYTES: u64 = 424;
+global APP_PAYLOAD_SIZE_IN_BYTES: u32 = 424;
 
-global ACCOUNT_MAX_CALLS: u64 = 4;
+global ACCOUNT_MAX_CALLS: u32 = 4;
 
 // Note: If you change the following struct you have to update default_entrypoint.ts
 // docs:start:app-payload-struct
