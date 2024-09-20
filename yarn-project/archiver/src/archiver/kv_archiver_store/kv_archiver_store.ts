@@ -23,7 +23,7 @@ import {
 } from '@aztec/types/contracts';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
-import { type DataRetrieval, type SingletonDataRetrieval } from '../structs/data_retrieval.js';
+import { type DataRetrieval } from '../structs/data_retrieval.js';
 import { type L1Published } from '../structs/published.js';
 import { BlockStore } from './block_store.js';
 import { ContractArtifactsStore } from './contract_artifacts_store.js';
@@ -31,14 +31,12 @@ import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
-import { ProvenStore } from './proven_store.js';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class KVArchiverDataStore implements ArchiverDataStore {
   #blockStore: BlockStore;
-  #provenStore: ProvenStore;
   #logStore: LogStore;
   #messageStore: MessageStore;
   #contractClassStore: ContractClassStore;
@@ -49,7 +47,6 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   constructor(db: AztecKVStore, logsMaxPageSize: number = 1000) {
     this.#blockStore = new BlockStore(db);
-    this.#provenStore = new ProvenStore(db);
     this.#logStore = new LogStore(db, this.#blockStore, logsMaxPageSize);
     this.#messageStore = new MessageStore(db);
     this.#contractClassStore = new ContractClassStore(db);
@@ -100,6 +97,17 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    */
   addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
     return this.#blockStore.addBlocks(blocks);
+  }
+
+  /**
+   * Unwinds blocks from the database
+   * @param from -  The tip of the chain, passed for verification purposes,
+   *                ensuring that we don't end up deleting something we did not intend
+   * @param blocksToUnwind - The number of blocks we are to unwind
+   * @returns True if the operation is successful
+   */
+  unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
+    return this.#blockStore.unwindBlocks(from, blocksToUnwind);
   }
 
   /**
@@ -218,11 +226,12 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   }
 
   getProvenL2BlockNumber(): Promise<number> {
-    return Promise.resolve(this.#provenStore.getProvenL2BlockNumber());
+    return Promise.resolve(this.#blockStore.getProvenL2BlockNumber());
   }
 
-  async setProvenL2BlockNumber(blockNumber: SingletonDataRetrieval<number>) {
-    await this.#provenStore.setProvenL2BlockNumber(blockNumber);
+  setProvenL2BlockNumber(blockNumber: number) {
+    this.#blockStore.setProvenL2BlockNumber(blockNumber);
+    return Promise.resolve();
   }
 
   setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {
@@ -242,7 +251,6 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve({
       blocksSynchedTo: this.#blockStore.getSynchedL1BlockNumber(),
       messagesSynchedTo: this.#messageStore.getSynchedL1BlockNumber(),
-      provenLogsSynchedTo: this.#provenStore.getSynchedL1BlockNumber(),
     });
   }
 }

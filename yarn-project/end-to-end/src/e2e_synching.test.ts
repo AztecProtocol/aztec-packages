@@ -33,6 +33,7 @@
  * blockCount: 10, txCount: 9,  complexity: Spam:            {"numberOfBlocks":17, "syncTime":49.40888188171387}
  */
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { createArchiver } from '@aztec/archiver';
 import { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
@@ -44,6 +45,7 @@ import {
   GrumpkinScalar,
   computeSecretHash,
   createDebugLogger,
+  sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import { ExtendedNote, L2Block, Note, type TxHash } from '@aztec/circuit-types';
@@ -430,65 +432,106 @@ describe('e2e_synching', () => {
     await teardown();
   };
 
-  it.each(variants)('replay and then sync - %s', async (variant: TestVariant) => {
-    await testTheVariant(variant);
-  });
+  describe('replay history and then do a fresh sync', () => {
+    it.each(variants)('vanilla - %s', async (variant: TestVariant) => {
+      await testTheVariant(variant);
+    });
 
-  it('replay, then prune and only then perform an initial sync', async () => {
-    if (AZTEC_GENERATE_TEST_DATA) {
-      return;
-    }
+    describe('a wild prune appears', () => {
+      it('archiver catches reorg as it occur and deletes blocks', async () => {
+        if (AZTEC_GENERATE_TEST_DATA) {
+          return;
+        }
 
-    const variant = variants[0];
+        const variant = variants[0];
 
-    const beforeSync = async (opts: Partial<EndToEndContext>) => {
-      const rollup = getContract({
-        address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
-        abi: RollupAbi,
-        client: opts.deployL1ContractsValues!.walletClient,
+        const beforeSync = async (opts: Partial<EndToEndContext>) => {
+          const rollup = getContract({
+            address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
+            abi: RollupAbi,
+            client: opts.deployL1ContractsValues!.walletClient,
+          });
+
+          const archiver = await createArchiver(opts.config!);
+
+          const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
+          const assumeProvenThrough = pendingBlockNumber - BigInt(variant.blockCount) / 2n;
+          await rollup.write.setAssumeProvenThroughBlockNumber([assumeProvenThrough]);
+
+          const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
+          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+
+          expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(assumeProvenThrough));
+
+          await rollup.write.prune();
+
+          // We need to sleep a bit to make sure that we have caught the prune and deleted blocks.
+          await sleep(3000);
+          expect(await archiver.getBlockNumber()).toBe(Number(assumeProvenThrough));
+        };
+        await testTheVariant(variant, beforeSync);
       });
 
-      const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
-      await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
+      it('fresh sync can extend chain', async () => {
+        if (AZTEC_GENERATE_TEST_DATA) {
+          return;
+        }
 
-      const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
-      const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
-      const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+        const variant = variants[0];
 
-      await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+        const beforeSync = async (opts: Partial<EndToEndContext>) => {
+          const rollup = getContract({
+            address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
+            abi: RollupAbi,
+            client: opts.deployL1ContractsValues!.walletClient,
+          });
 
-      await rollup.write.prune();
-    };
+          const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
+          await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
-    // After we have synched the chain, we will publish a block. Here we are VERY interested in seeing the block number.
-    const afterSync = async (opts: Partial<EndToEndContext>) => {
-      const watcher = new AnvilTestWatcher(
-        opts.cheatCodes!.eth,
-        opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
-        opts.deployL1ContractsValues!.publicClient,
-      );
-      await watcher.start();
+          const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
+          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
 
-      // The sync here could likely be avoided by using the node we just synched.
-      const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
-      const sequencer = aztecNode.getSequencer();
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
-      const { pxe } = await setupPXEService(aztecNode!);
+          await rollup.write.prune();
+        };
 
-      variant.setPXE(pxe);
+        // After we have synched the chain, we will publish a block. Here we are VERY interested in seeing the block number.
+        const afterSync = async (opts: Partial<EndToEndContext>) => {
+          const watcher = new AnvilTestWatcher(
+            opts.cheatCodes!.eth,
+            opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+            opts.deployL1ContractsValues!.publicClient,
+          );
+          await watcher.start();
 
-      const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
+          // The sync here could likely be avoided by using the node we just synched.
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+          const sequencer = aztecNode.getSequencer();
 
-      sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
-      const txs = await variant.createAndSendTxs();
-      await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
+          const { pxe } = await setupPXEService(aztecNode!);
 
-      const blockAfter = await aztecNode.getBlock(await aztecNode.getBlockNumber());
+          variant.setPXE(pxe);
 
-      expect(blockAfter!.number).toEqual(blockBefore!.number + 1);
-      expect(blockAfter!.header.lastArchive).toEqual(blockBefore!.archive);
-    };
+          const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
 
-    await testTheVariant(variant, beforeSync, afterSync);
+          sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+          const txs = await variant.createAndSendTxs();
+          await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
+
+          const blockAfter = await aztecNode.getBlock(await aztecNode.getBlockNumber());
+
+          expect(blockAfter!.number).toEqual(blockBefore!.number + 1);
+          expect(blockAfter!.header.lastArchive).toEqual(blockBefore!.archive);
+        };
+
+        await testTheVariant(variant, beforeSync, afterSync);
+      });
+    });
   });
 });

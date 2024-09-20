@@ -26,7 +26,7 @@ import {
 } from '@aztec/types/contracts';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from '../archiver_store.js';
-import { type DataRetrieval, type SingletonDataRetrieval } from '../structs/data_retrieval.js';
+import { type DataRetrieval } from '../structs/data_retrieval.js';
 import { type L1Published } from '../structs/published.js';
 import { L1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
@@ -79,7 +79,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   private lastL1BlockNewBlocks: bigint | undefined = undefined;
   private lastL1BlockNewMessages: bigint | undefined = undefined;
-  private lastL1BlockNewProvenLogs: bigint | undefined = undefined;
 
   private lastProvenL2BlockNumber: number = 0;
 
@@ -161,6 +160,36 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
+   * Unwinds blocks from the database
+   * @param from -  The tip of the chain, passed for verification purposes,
+   *                ensuring that we don't end up deleting something we did not intend
+   * @param blocksToUnwind - The number of blocks we are to unwind
+   * @returns True if the operation is successful
+   */
+  public async unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean> {
+    const last = await this.getSynchedL2BlockNumber();
+    if (from != last) {
+      throw new Error(`Can only remove the tip`);
+    }
+
+    const blocks = await this.getBlocks(from - blocksToUnwind, blocksToUnwind);
+    if (blocks.length != blocksToUnwind) {
+      throw new Error(`Invalid number of blocks received ${blocks.length}`);
+    }
+
+    while (blocks.length > 0) {
+      const block = blocks.pop();
+      if (block === undefined) {
+        break;
+      }
+      this.l2Blocks.pop();
+      block.data.body.txEffects.forEach(() => this.txEffects.pop());
+    }
+
+    return Promise.resolve(true);
+  }
+
+  /**
    * Append new logs to the store's list.
    * @param block - The block for which to add the logs.
    * @returns True if the operation is successful.
@@ -226,7 +255,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       return Promise.reject(new Error(`Invalid limit: ${limit}`));
     }
 
-    const fromIndex = Math.max(from - INITIAL_L2_BLOCK_NUM, 0);
+    if (from < INITIAL_L2_BLOCK_NUM) {
+      return Promise.reject(new Error(`Invalid start: ${from}`));
+    }
+
+    const fromIndex = from - INITIAL_L2_BLOCK_NUM;
     if (fromIndex >= this.l2Blocks.length) {
       return Promise.resolve([]);
     }
@@ -409,9 +442,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(this.lastProvenL2BlockNumber);
   }
 
-  public setProvenL2BlockNumber(l2BlockNumber: SingletonDataRetrieval<number>): Promise<void> {
-    this.lastProvenL2BlockNumber = l2BlockNumber.retrievedData;
-    this.lastL1BlockNewProvenLogs = l2BlockNumber.lastProcessedL1BlockNumber;
+  public setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
+    this.lastProvenL2BlockNumber = l2BlockNumber;
     return Promise.resolve();
   }
 
@@ -429,7 +461,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve({
       blocksSynchedTo: this.lastL1BlockNewBlocks,
       messagesSynchedTo: this.lastL1BlockNewMessages,
-      provenLogsSynchedTo: this.lastL1BlockNewProvenLogs,
     });
   }
 

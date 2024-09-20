@@ -69,8 +69,8 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await expect(store.getBlocks(1, 0)).rejects.toThrow('Invalid limit: 0');
       });
 
-      it('resets `from` to the first block if it is out of range', async () => {
-        await expect(store.getBlocks(INITIAL_L2_BLOCK_NUM - 100, 1)).resolves.toEqual(blocks.slice(0, 1));
+      it('throws an error if `from` it is out of range', async () => {
+        await expect(store.getBlocks(INITIAL_L2_BLOCK_NUM - 100, 1)).rejects.toThrow('Invalid start: -99');
       });
     });
 
@@ -90,7 +90,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await expect(store.getSynchPoint()).resolves.toEqual({
           blocksSynchedTo: undefined,
           messagesSynchedTo: undefined,
-          provenLogsSynchedTo: undefined,
         } satisfies ArchiverL1SynchPoint);
       });
 
@@ -99,7 +98,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await expect(store.getSynchPoint()).resolves.toEqual({
           blocksSynchedTo: 19n,
           messagesSynchedTo: undefined,
-          provenLogsSynchedTo: undefined,
         } satisfies ArchiverL1SynchPoint);
       });
 
@@ -111,16 +109,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await expect(store.getSynchPoint()).resolves.toEqual({
           blocksSynchedTo: undefined,
           messagesSynchedTo: 1n,
-          provenLogsSynchedTo: undefined,
-        } satisfies ArchiverL1SynchPoint);
-      });
-
-      it('returns the L1 block number that most recently logged a proven block', async () => {
-        await store.setProvenL2BlockNumber({ lastProcessedL1BlockNumber: 3n, retrievedData: 5 });
-        await expect(store.getSynchPoint()).resolves.toEqual({
-          blocksSynchedTo: undefined,
-          messagesSynchedTo: undefined,
-          provenLogsSynchedTo: 3n,
         } satisfies ArchiverL1SynchPoint);
       });
     });

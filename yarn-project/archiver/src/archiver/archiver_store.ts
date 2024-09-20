@@ -20,7 +20,7 @@ import {
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
 
-import { type DataRetrieval, type SingletonDataRetrieval } from './structs/data_retrieval.js';
+import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
 
 /**
@@ -46,6 +46,15 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean>;
+
+  /**
+   * Unwinds blocks from the database
+   * @param from -  The tip of the chain, passed for verification purposes,
+   *                ensuring that we don't end up deleting something we did not intend
+   * @param blocksToUnwind - The number of blocks we are to unwind
+   * @returns True if the operation is successful
+   */
+  unwindBlocks(from: number, blocksToUnwind: number): Promise<boolean>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
@@ -134,7 +143,7 @@ export interface ArchiverDataStore {
    * Stores the number of the latest proven L2 block processed.
    * @param l2BlockNumber - The number of the latest proven L2 block processed.
    */
-  setProvenL2BlockNumber(l2BlockNumber: SingletonDataRetrieval<number>): Promise<void>;
+  setProvenL2BlockNumber(l2BlockNumber: number): Promise<void>;
 
   /**
    * Stores the l1 block number that blocks have been synched until

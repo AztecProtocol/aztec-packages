@@ -74,9 +74,10 @@ describe('Archiver', () => {
 
     blocks = blockNumbers.map(x => L2Block.random(x, 4, x, x + 1, 2, 2));
 
-    rollupRead = mock<MockRollupContractRead>({
-      archiveAt: (args: readonly [bigint]) => Promise.resolve(blocks[Number(args[0] - 1n)].archive.root.toString()),
-    });
+    rollupRead = mock<MockRollupContractRead>();
+    rollupRead.archiveAt.mockImplementation((args: readonly [bigint]) =>
+      Promise.resolve(blocks[Number(args[0] - 1n)].archive.root.toString()),
+    );
 
     ((archiver as any).rollup as any).read = rollupRead;
   });
@@ -273,6 +274,78 @@ describe('Archiver', () => {
       `Retrieved no new L1 -> L2 messages between L1 blocks ${1n} and ${50}.`,
     );
     expect(loggerSpy).toHaveBeenNthCalledWith(2, `No blocks to retrieve from ${1n} to ${50n}`);
+  }, 10_000);
+
+  it('Handle L2 reorg', async () => {
+    const loggerSpy = jest.spyOn((archiver as any).log, 'verbose');
+
+    let latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+
+    const numL2BlocksInTest = 2;
+
+    const rollupTxs = blocks.map(makeRollupTx);
+
+    publicClient.getBlockNumber.mockResolvedValueOnce(50n).mockResolvedValueOnce(100n).mockResolvedValueOnce(150n);
+
+    // We will return status at first to have an empty round, then as if we have 2 pending blocks, and finally
+    // Just a single pending block returning a "failure" for the expected pending block
+    rollupRead.status
+      .mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT])
+      .mockResolvedValueOnce([0n, GENESIS_ROOT, 2n, blocks[1].archive.root.toString(), GENESIS_ROOT])
+      .mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, blocks[0].archive.root.toString(), Fr.ZERO.toString()]);
+
+    rollupRead.archiveAt
+      .mockResolvedValueOnce(blocks[0].archive.root.toString())
+      .mockResolvedValueOnce(blocks[1].archive.root.toString())
+      .mockResolvedValueOnce(Fr.ZERO.toString());
+
+    // This can look slightly odd, but we will need to do an empty request for the messages, and will entirely skip
+    // a call to the proposed blocks because of changes with status.
+    mockGetLogs({
+      messageSent: [],
+    });
+    mockGetLogs({
+      messageSent: [makeMessageSentEvent(66n, 1n, 0n), makeMessageSentEvent(68n, 1n, 1n)],
+      L2BlockProposed: [
+        makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString()),
+        makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString()),
+      ],
+    });
+    mockGetLogs({
+      messageSent: [],
+    });
+    mockGetLogs({
+      messageSent: [],
+    });
+
+    rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+
+    await archiver.start(false);
+
+    while ((await archiver.getBlockNumber()) !== numL2BlocksInTest) {
+      await sleep(100);
+    }
+
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(numL2BlocksInTest);
+
+    // For some reason, this is 1-indexed.
+    expect(loggerSpy).toHaveBeenNthCalledWith(
+      1,
+      `Retrieved no new L1 -> L2 messages between L1 blocks ${1n} and ${50}.`,
+    );
+    expect(loggerSpy).toHaveBeenNthCalledWith(2, `No blocks to retrieve from ${1n} to ${50n}`);
+
+    // Lets take a look to see if we can find re-org stuff!
+    await sleep(1000);
+
+    expect(loggerSpy).toHaveBeenNthCalledWith(6, `L2 prune have occurred, unwind state`);
+    expect(loggerSpy).toHaveBeenNthCalledWith(7, `Unwinding 1 block from block 2`);
+
+    // Should also see the block number be reduced
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(numL2BlocksInTest - 1);
   }, 10_000);
 
   // logs should be created in order of how archiver syncs.
