@@ -171,9 +171,8 @@ class GoblinProver {
     void prove_eccvm()
     {
         {
-            ZoneScopedN("Create ECCVMBuilder");
+            ZoneScopedN("Create ECCVMBuilder and ECCVMProver");
             auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
-            ZoneScopedN("Create ECCVMProver");
             eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
         }
         {
@@ -199,10 +198,9 @@ class GoblinProver {
         eccvm_key = eccvm_prover->key;
         eccvm_prover = nullptr;
         {
-            ZoneScopedN("Create TranslatorBuilder");
+            ZoneScopedN("Create TranslatorBuilder and TranslatorProver");
             auto translator_builder =
                 std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
-            ZoneScopedN("Create TranslatorProver");
             translator_prover = std::make_unique<TranslatorProver>(*translator_builder, transcript);
         }
 
