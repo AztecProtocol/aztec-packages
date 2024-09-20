@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/bb/file_io.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -30,9 +29,7 @@ class ProofSurgeon {
      * @param verification_key
      * @param toml_path
      */
-    static void write_recursion_inputs_prover_toml(std::vector<FF>& proof,
-                                                   const auto& verification_key,
-                                                   const std::string& toml_path)
+    static std::string construct_recursion_inputs_toml_data(std::vector<FF>& proof, const auto& verification_key)
     {
         // Convert verification key to fields
         std::vector<FF> vkey_fields = verification_key.to_field_elements();
@@ -54,15 +51,7 @@ class ProofSurgeon {
         toml_content += "public_inputs = " + pub_inputs_json + "\n";
         toml_content += "verification_key = " + vk_json + "\n";
 
-        // Write all components to the TOML file
-        write_file(toml_path, { toml_content.begin(), toml_content.end() });
-
-        // Write to additional dir for noir-sync purposes
-        std::string part_to_remove = "/noir-repo/test_programs/execution_success";
-        size_t pos = toml_path.find(part_to_remove);
-        std::string toml_path_2 = toml_path; // define path here
-        toml_path_2.erase(pos, part_to_remove.length());
-        write_file(toml_path_2, { toml_content.begin(), toml_content.end() });
+        return toml_content;
     }
 
     /**

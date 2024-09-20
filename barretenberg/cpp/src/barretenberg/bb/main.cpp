@@ -1203,9 +1203,19 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     std::vector<FF> proof = prover.construct_proof();
     VerificationKey verification_key(prover.proving_key->proving_key);
 
-    // Write the toml file containing recursion inputs
+    // Construct a string with the content of the toml file (vk hash, proof, public inputs, vk)
+    std::string toml_content = acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(proof, verification_key);
+
+    // Write all components to the TOML file
     std::string toml_path = outputPath + "/Prover.toml";
-    acir_format::ProofSurgeon::write_recursion_inputs_prover_toml(proof, verification_key, toml_path);
+    write_file(toml_path, { toml_content.begin(), toml_content.end() });
+
+    // Write to additional dir for noir-sync purposes
+    std::string part_to_remove = "/noir-repo/test_programs/execution_success";
+    size_t pos = toml_path.find(part_to_remove);
+    std::string toml_path_2 = toml_path; // define path here
+    toml_path_2.erase(pos, part_to_remove.length());
+    write_file(toml_path_2, { toml_content.begin(), toml_content.end() });
 }
 
 /**
@@ -1506,8 +1516,7 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields(vk_path, output_path);
         } else if (command == "write_recursion_inputs_honk") {
-            std::string output_path = get_option(args, "-o", "./wooHooo");
-            vinfo("HERE: output_path = ", output_path);
+            std::string output_path = get_option(args, "-o", "./target");
             write_recursion_inputs_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
 #ifndef DISABLE_AZTEC_VM
         } else if (command == "avm_prove") {
