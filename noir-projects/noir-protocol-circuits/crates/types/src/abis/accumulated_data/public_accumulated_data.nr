@@ -7,7 +7,8 @@ use crate::{
     constants::{
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     MAX_L2_TO_L1_MSGS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_ENCRYPTED_LOGS_PER_TX,
-    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, PUBLIC_ACCUMULATED_DATA_LENGTH
+    MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS,
+    PUBLIC_ACCUMULATED_DATA_LENGTH
 },
     traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_length, reader::Reader}
 };
@@ -188,10 +189,69 @@ impl Empty for PublicAccumulatedDataArrayLengths {
     }
 }
 
+impl Eq for PublicAccumulatedDataArrayLengths {
+    fn eq(self, other: Self) -> bool {
+        (self.note_hashes == other.note_hashes)
+            & (self.nullifiers == other.nullifiers)
+            & (self.l2_to_l1_msgs == other.l2_to_l1_msgs)
+            & (self.note_encrypted_logs_hashes == other.note_encrypted_logs_hashes)
+            & (self.encrypted_logs_hashes == other.encrypted_logs_hashes)
+            & (self.unencrypted_logs_hashes == other.unencrypted_logs_hashes)
+            & (self.public_data_update_requests
+                                    == other.public_data_update_requests)
+            & (self.public_call_stack == other.public_call_stack)
+    }
+}
+
+impl Serialize<NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS> for PublicAccumulatedDataArrayLengths {
+    fn serialize(self) -> [Field; NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS] {
+        let mut fields: BoundedVec<Field, NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS> = BoundedVec::new();
+
+        fields.push(self.note_hashes as Field);
+        fields.push(self.nullifiers as Field);
+        fields.push(self.l2_to_l1_msgs as Field);
+        fields.push(self.note_encrypted_logs_hashes as Field);
+        fields.push(self.encrypted_logs_hashes as Field);
+        fields.push(self.unencrypted_logs_hashes as Field);
+        fields.push(self.public_data_update_requests as Field);
+        fields.push(self.public_call_stack as Field);
+
+        fields.storage
+    }
+}
+
+impl Deserialize<NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS> for PublicAccumulatedDataArrayLengths {
+    fn deserialize(fields: [Field; NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS]) -> PublicAccumulatedDataArrayLengths {
+        let mut reader = Reader::new(fields);
+
+        let item = Self {
+            note_hashes: reader.read_u32(),
+            nullifiers: reader.read_u32(),
+            l2_to_l1_msgs: reader.read_u32(),
+            note_encrypted_logs_hashes: reader.read_u32(),
+            encrypted_logs_hashes: reader.read_u32(),
+            unencrypted_logs_hashes: reader.read_u32(),
+            public_data_update_requests: reader.read_u32(),
+            public_call_stack: reader.read_u32()
+        };
+
+        reader.finish();
+        item
+    }
+}
+
 #[test]
 fn serialization_of_empty() {
     let item = PublicAccumulatedData::empty();
     let serialized = item.serialize();
     let deserialized = PublicAccumulatedData::deserialize(serialized);
+    assert(item.eq(deserialized));
+}
+
+#[test]
+fn serialization_of_empty_array_lengths() {
+    let item = PublicAccumulatedDataArrayLengths::empty();
+    let serialized = item.serialize();
+    let deserialized = PublicAccumulatedDataArrayLengths::deserialize(serialized);
     assert(item.eq(deserialized));
 }

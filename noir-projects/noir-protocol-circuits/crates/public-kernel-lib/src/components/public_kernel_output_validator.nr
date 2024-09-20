@@ -3,7 +3,7 @@ use dep::types::{
     abis::{
     accumulated_data::public_accumulated_data::{PublicAccumulatedData, PublicAccumulatedDataArrayLengths},
     kernel_circuit_public_inputs::{PublicKernelCircuitPublicInputs, VMCircuitPublicInputs},
-    validation_requests::public_validation_requests::PublicValidationRequestsArrayLengths
+    validation_requests::public_validation_requests::PublicValidationRequestArrayLengths
 },
     traits::is_empty, utils::arrays::{array_length, assert_array_appended, assert_array_prepended}
 };
@@ -14,6 +14,9 @@ struct PublicKernelOutputValidator {
     enqueued_call: VMCircuitPublicInputs,
     phase: u8,
     revertible: bool,
+    previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
+    previous_non_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
+    previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths
 }
 
 impl PublicKernelOutputValidator {
@@ -24,7 +27,19 @@ impl PublicKernelOutputValidator {
         phase: u8
     ) -> Self {
         let revertible = phase != PublicKernelPhase.SETUP;
-        PublicKernelOutputValidator { output, previous_kernel, enqueued_call, phase, revertible }
+        let previous_validation_request_array_lengths = PublicValidationRequestArrayLengths::new(previous_kernel.validation_requests);
+        let previous_non_revertible_data_array_lengths = PublicAccumulatedDataArrayLengths::new(previous_kernel.end_non_revertible);
+        let previous_revertible_data_array_lengths = PublicAccumulatedDataArrayLengths::new(previous_kernel.end);
+        PublicKernelOutputValidator {
+            output,
+            previous_kernel,
+            enqueued_call,
+            phase,
+            revertible,
+            previous_validation_request_array_lengths,
+            previous_non_revertible_data_array_lengths,
+            previous_revertible_data_array_lengths
+        }
     }
 
     pub fn validate(self) {
@@ -64,58 +79,53 @@ impl PublicKernelOutputValidator {
     }
 
     fn validate_validation_requests(self) {
-        let array_lengths = PublicValidationRequestsArrayLengths::new(self.previous_kernel.validation_requests);
-        self.validate_validation_requests_from_previous_kernel(array_lengths);
-        self.validate_validation_requests_from_enqueued_call(array_lengths);
+        self.validate_validation_requests_from_previous_kernel();
+        self.validate_validation_requests_from_enqueued_call();
     }
 
-    fn validate_validation_requests_from_previous_kernel(
-        self,
-        lengths: PublicValidationRequestsArrayLengths
-    ) {
+    fn validate_validation_requests_from_previous_kernel(self) {
         let out = self.output.validation_requests;
         let prev = self.previous_kernel.validation_requests;
+        let prev_lengths = self.previous_validation_request_array_lengths;
 
         assert_eq(out.for_rollup, prev.for_rollup);
 
         assert_array_prepended(
             out.note_hash_read_requests,
             prev.note_hash_read_requests,
-            lengths.note_hash_read_requests
+            prev_lengths.note_hash_read_requests
         );
 
         assert_array_prepended(
             out.nullifier_read_requests,
             prev.nullifier_read_requests,
-            lengths.nullifier_read_requests
+            prev_lengths.nullifier_read_requests
         );
 
         assert_array_prepended(
             out.nullifier_non_existent_read_requests,
             prev.nullifier_non_existent_read_requests,
-            lengths.nullifier_non_existent_read_requests
+            prev_lengths.nullifier_non_existent_read_requests
         );
 
         assert_array_prepended(
             out.l1_to_l2_msg_read_requests,
             prev.l1_to_l2_msg_read_requests,
-            lengths.l1_to_l2_msg_read_requests
+            prev_lengths.l1_to_l2_msg_read_requests
         );
 
         assert_array_prepended(
             out.public_data_reads,
             prev.public_data_reads,
-            lengths.public_data_reads
+            prev_lengths.public_data_reads
         );
     }
 
-    fn validate_validation_requests_from_enqueued_call(
-        self,
-        prev_lengths: PublicValidationRequestsArrayLengths
-    ) {
+    fn validate_validation_requests_from_enqueued_call(self) {
         let out = self.output.validation_requests;
         let curr = self.enqueued_call.validation_requests;
-        let curr_lengths = PublicValidationRequestsArrayLengths::new(curr);
+        let curr_lengths = PublicValidationRequestArrayLengths::new(curr);
+        let prev_lengths = self.previous_validation_request_array_lengths;
 
         // Note that the enqueued call cannot modify the max block number value - it simply forwards it to the rollup.
 
@@ -200,25 +210,25 @@ impl PublicKernelOutputValidator {
         let out_revertible = self.output.end;
         let prev_non_revertible = self.previous_kernel.end_non_revertible;
         let prev_revertible = self.previous_kernel.end;
-        let mut non_revertible_lengths = PublicAccumulatedDataArrayLengths::new(prev_non_revertible);
-        let mut revertible_lengths = PublicAccumulatedDataArrayLengths::new(prev_revertible);
+        let mut prev_non_revertible_lengths = self.previous_non_revertible_data_array_lengths;
+        let mut prev_revertible_lengths = self.previous_revertible_data_array_lengths;
         let empty_lengths = PublicAccumulatedDataArrayLengths::empty();
 
         if self.phase == PublicKernelPhase.SETUP {
-            non_revertible_lengths.public_call_stack -= 1;
+            prev_non_revertible_lengths.public_call_stack -= 1;
         } else if self.phase == PublicKernelPhase.APP_LOGIC {
-            revertible_lengths.public_call_stack -= 1;
+            prev_revertible_lengths.public_call_stack -= 1;
         }
 
         self.validate_prepended_accumulated_data(
             out_non_revertible,
             prev_non_revertible,
-            non_revertible_lengths
+            prev_non_revertible_lengths
         );
         let prepended_revertible_lengths = if revert_in_phase {
             empty_lengths
         } else {
-            revertible_lengths
+            prev_revertible_lengths
         };
         self.validate_prepended_accumulated_data(out_revertible, prev_revertible, prepended_revertible_lengths);
 
@@ -238,13 +248,13 @@ impl PublicKernelOutputValidator {
         self.validate_appended_accumulated_data(
             out_non_revertible,
             curr_data,
-            non_revertible_lengths,
+            prev_non_revertible_lengths,
             appended_non_revertible_lengths
         );
         self.validate_appended_accumulated_data(
             out_revertible,
             curr_data,
-            revertible_lengths,
+            prev_revertible_lengths,
             appended_revertible_lengths
         );
     }

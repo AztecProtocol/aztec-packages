@@ -50,23 +50,30 @@ impl PublicKernelMergeCircuitPrivateInputs {
     fn execute(self) -> PublicKernelCircuitPublicInputs {
         let phase = self.get_phase();
 
+        let output = unsafe {
+            self.generate_output(phase)
+        };
+
+        let output_validator = PublicKernelOutputValidator::new(
+            output,
+            self.previous_kernel.public_inputs,
+            self.enqueued_call.data,
+            phase
+        );
+
         let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
         previous_kernel_validator.validate_proof(ALLOWED_PREVIOUS_CIRCUITS);
 
         let enqueued_call_data_validator = EnqueuedCallDataValidator::new(self.enqueued_call, phase);
         enqueued_call_data_validator.validate_proof();
-        enqueued_call_data_validator.validate_against_previous_kernel(self.previous_kernel.public_inputs);
-
-        let output = unsafe {
-            self.generate_output(phase)
-        };
-
-        PublicKernelOutputValidator::new(
-            output,
+        enqueued_call_data_validator.validate_against_previous_kernel(
             self.previous_kernel.public_inputs,
-            self.enqueued_call.data,
-            phase
-        ).validate();
+            output_validator.previous_validation_request_array_lengths,
+            output_validator.previous_non_revertible_data_array_lengths,
+            output_validator.previous_revertible_data_array_lengths
+        );
+
+        output_validator.validate();
 
         output
     }
@@ -79,8 +86,9 @@ mod tests {
     };
     use dep::types::{
         abis::{
-        gas::Gas, kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs,
-        max_block_number::MaxBlockNumber
+        accumulated_data::PublicAccumulatedDataArrayLengths, gas::Gas,
+        kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, max_block_number::MaxBlockNumber,
+        validation_requests::PublicValidationRequestArrayLengths
     },
         constants::PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}
@@ -109,9 +117,7 @@ mod tests {
         }
 
         pub fn execute(&mut self) -> PublicKernelCircuitPublicInputs {
-            let enqueued_call = self.enqueued_call.to_enqueued_call_data();
             let enqueued_call_request = self.enqueued_call.to_public_call_request();
-
             if self.phase == PublicKernelPhase.SETUP {
                 self.previous_kernel.add_public_call_request(enqueued_call_request);
             } else {
@@ -119,8 +125,17 @@ mod tests {
             }
 
             let mut previous_kernel = self.previous_kernel.to_public_kernel_data(false);
-            previous_kernel.public_inputs.end_side_effect_counter = enqueued_call.data.start_side_effect_counter - 1;
             previous_kernel.public_inputs.end = self.previous_revertible.to_public_accumulated_data();
+
+            let mut enqueued_call = self.enqueued_call.to_enqueued_call_data();
+            enqueued_call.data.previous_validation_request_array_lengths = PublicValidationRequestArrayLengths::new(previous_kernel.public_inputs.validation_requests);
+            enqueued_call.data.previous_accumulated_data_array_lengths = if self.phase == PublicKernelPhase.SETUP {
+                PublicAccumulatedDataArrayLengths::new(previous_kernel.public_inputs.end_non_revertible)
+            } else {
+                PublicAccumulatedDataArrayLengths::new(previous_kernel.public_inputs.end)
+            };
+
+            previous_kernel.public_inputs.end_side_effect_counter = enqueued_call.data.start_side_effect_counter - 1;
 
             let kernel = PublicKernelMergeCircuitPrivateInputs { previous_kernel, enqueued_call };
             kernel.execute()

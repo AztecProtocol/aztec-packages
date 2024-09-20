@@ -5,6 +5,7 @@ import {
   NestedProcessReturnValues,
   ProvingRequestType,
   type PublicExecutionRequest,
+  PublicKernelPhase,
   type PublicProvingRequest,
   type SimulationError,
   type Tx,
@@ -37,6 +38,7 @@ import {
   NoteHash,
   Nullifier,
   PublicAccumulatedData,
+  PublicAccumulatedDataArrayLengths,
   PublicCallData,
   type PublicCallRequest,
   PublicCallStackItem,
@@ -45,6 +47,7 @@ import {
   type PublicKernelCircuitPublicInputs,
   PublicKernelInnerCircuitPrivateInputs,
   PublicKernelInnerData,
+  PublicValidationRequestArrayLengths,
   PublicValidationRequests,
   ReadRequest,
   RevertCode,
@@ -116,6 +119,7 @@ export class EnqueuedCallSimulator {
     previousPublicKernelOutput: PublicKernelCircuitPublicInputs,
     availableGas: Gas,
     transactionFee: Fr,
+    phase: PublicKernelPhase,
   ): Promise<EnqueuedCallResult> {
     const pendingNullifiers = this.getSiloedPendingNullifiers(previousPublicKernelOutput);
     const startSideEffectCounter = previousPublicKernelOutput.endSideEffectCounter + 1;
@@ -133,13 +137,19 @@ export class EnqueuedCallSimulator {
     callStack[0].item.contractAddress = callRequest.contractAddress;
     callStack[0].item.callContext = callRequest.callContext;
     callStack[0].item.argsHash = callRequest.argsHash;
+    const prevAccumulatedData =
+      phase === PublicKernelPhase.SETUP
+        ? previousPublicKernelOutput.endNonRevertibleData
+        : previousPublicKernelOutput.end;
     const accumulatedData = PublicAccumulatedData.empty();
     accumulatedData.publicCallStack[0] = callRequest;
     const startVMCircuitOutput = new VMCircuitPublicInputs(
       previousPublicKernelOutput.constants,
       callRequest,
       callStack,
+      PublicValidationRequestArrayLengths.new(previousPublicKernelOutput.validationRequests),
       PublicValidationRequests.empty(),
+      PublicAccumulatedDataArrayLengths.new(prevAccumulatedData),
       accumulatedData,
       startSideEffectCounter,
       startSideEffectCounter,

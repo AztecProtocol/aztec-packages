@@ -3,7 +3,7 @@ use crate::{
     gas::Gas, gas_settings::GasSettings, call_context::CallContext,
     accumulated_data::{
     CombinedAccumulatedData, PrivateAccumulatedData, PrivateAccumulatedDataBuilder,
-    PublicAccumulatedData, PublicAccumulatedDataBuilder
+    PublicAccumulatedData, PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder
 },
     function_data::FunctionData, global_variables::GlobalVariables,
     combined_constant_data::CombinedConstantData, enqueued_call_data::{EnqueuedCallData, Proof},
@@ -26,7 +26,8 @@ use crate::{
     log_hash::{LogHash, NoteLogHash, ScopedLogHash, EncryptedLogHash, ScopedEncryptedLogHash},
     validation_requests::{
     KeyValidationRequest, KeyValidationRequestAndGenerator, PrivateValidationRequests,
-    PublicValidationRequests, RollupValidationRequests, ScopedKeyValidationRequestAndGenerator
+    PublicValidationRequests, PublicValidationRequestArrayLengths, RollupValidationRequests,
+    ScopedKeyValidationRequestAndGenerator
 }
 },
     address::{AztecAddress, EthAddress, SaltedInitializationHash, PublicKeysHash},
@@ -504,7 +505,9 @@ impl FixtureBuilder {
             constants: self.to_constant_data(),
             call_request: self.to_public_call_request(),
             public_call_stack: subarray(self.public_inner_call_requests.storage),
+            previous_validation_request_array_lengths: PublicValidationRequestArrayLengths::empty(),
             validation_requests: self.to_public_validation_requests(),
+            previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths::empty(),
             accumulated_data: self.to_public_accumulated_data(),
             start_side_effect_counter: self.counter_start,
             end_side_effect_counter: self.counter,

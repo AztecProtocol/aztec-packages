@@ -92,6 +92,7 @@ import {
   PrivateKernelTailCircuitPublicInputs,
   PrivateValidationRequests,
   PublicAccumulatedData,
+  PublicAccumulatedDataArrayLengths,
   type PublicCallData,
   PublicCallRequest,
   type PublicCallStackItem,
@@ -110,6 +111,7 @@ import {
   type PublicKernelInnerCircuitPrivateInputs,
   type PublicKernelInnerData,
   type PublicKernelTailCircuitPrivateInputs,
+  PublicValidationRequestArrayLengths,
   PublicValidationRequests,
   type RECURSIVE_PROOF_LENGTH,
   ReadRequest,
@@ -217,6 +219,7 @@ import type {
   PrivateKernelTailCircuitPrivateInputs as PrivateKernelTailCircuitPrivateInputsNoir,
   PrivateKernelTailToPublicCircuitPrivateInputs as PrivateKernelTailToPublicCircuitPrivateInputsNoir,
   PrivateValidationRequests as PrivateValidationRequestsNoir,
+  PublicAccumulatedDataArrayLengths as PublicAccumulatedDataArrayLengthsNoir,
   PublicAccumulatedData as PublicAccumulatedDataNoir,
   PublicCallData as PublicCallDataNoir,
   PublicCallRequest as PublicCallRequestNoir,
@@ -236,6 +239,7 @@ import type {
   PublicKernelInnerData as PublicKernelInnerDataNoir,
   PublicKernelMergeCircuitPrivateInputs as PublicKernelMergeCircuitPrivateInputsNoir,
   PublicKernelTailCircuitPrivateInputs as PublicKernelTailCircuitPrivateInputsNoir,
+  PublicValidationRequestArrayLengths as PublicValidationRequestArrayLengthsNoir,
   PublicValidationRequests as PublicValidationRequestsNoir,
   ReadRequest as ReadRequestNoir,
   ReadRequestStatus as ReadRequestStatusNoir,
@@ -1316,6 +1320,28 @@ function mapPublicValidationRequestsFromNoir(requests: PublicValidationRequestsN
   );
 }
 
+function mapPublicValidationRequestArrayLengthsFromNoir(lengths: PublicValidationRequestArrayLengthsNoir) {
+  return new PublicValidationRequestArrayLengths(
+    mapNumberFromNoir(lengths.note_hash_read_requests),
+    mapNumberFromNoir(lengths.nullifier_read_requests),
+    mapNumberFromNoir(lengths.nullifier_non_existent_read_requests),
+    mapNumberFromNoir(lengths.l1_to_l2_msg_read_requests),
+    mapNumberFromNoir(lengths.public_data_reads),
+  );
+}
+
+function mapPublicValidationRequestArrayLengthsToNoir(
+  lengths: PublicValidationRequestArrayLengths,
+): PublicValidationRequestArrayLengthsNoir {
+  return {
+    note_hash_read_requests: mapNumberToNoir(lengths.noteHashReadRequests),
+    nullifier_read_requests: mapNumberToNoir(lengths.nullifierReadRequests),
+    nullifier_non_existent_read_requests: mapNumberToNoir(lengths.nullifierNonExistentReadRequests),
+    l1_to_l2_msg_read_requests: mapNumberToNoir(lengths.l1ToL2MsgReadRequests),
+    public_data_reads: mapNumberToNoir(lengths.publicDataReads),
+  };
+}
+
 export function mapPrivateAccumulatedDataFromNoir(
   privateAccumulatedData: PrivateAccumulatedDataNoir,
 ): PrivateAccumulatedData {
@@ -1412,6 +1438,34 @@ export function mapPublicAccumulatedDataToNoir(
     ),
     public_call_stack: mapTuple(publicAccumulatedData.publicCallStack, mapPublicCallRequestToNoir),
     gas_used: mapGasToNoir(publicAccumulatedData.gasUsed),
+  };
+}
+
+function mapPublicAccumulatedDataArrayLengthsFromNoir(lengths: PublicAccumulatedDataArrayLengthsNoir) {
+  return new PublicAccumulatedDataArrayLengths(
+    mapNumberFromNoir(lengths.note_hashes),
+    mapNumberFromNoir(lengths.nullifiers),
+    mapNumberFromNoir(lengths.l2_to_l1_msgs),
+    mapNumberFromNoir(lengths.note_encrypted_logs_hashes),
+    mapNumberFromNoir(lengths.encrypted_logs_hashes),
+    mapNumberFromNoir(lengths.unencrypted_logs_hashes),
+    mapNumberFromNoir(lengths.public_data_update_requests),
+    mapNumberFromNoir(lengths.public_call_stack),
+  );
+}
+
+function mapPublicAccumulatedDataArrayLengthsToNoir(
+  lengths: PublicAccumulatedDataArrayLengths,
+): PublicAccumulatedDataArrayLengthsNoir {
+  return {
+    note_hashes: mapNumberToNoir(lengths.noteHashes),
+    nullifiers: mapNumberToNoir(lengths.nullifiers),
+    l2_to_l1_msgs: mapNumberToNoir(lengths.l2ToL1Msgs),
+    note_encrypted_logs_hashes: mapNumberToNoir(lengths.noteEncryptedLogsHashes),
+    encrypted_logs_hashes: mapNumberToNoir(lengths.encryptedLogsHashes),
+    unencrypted_logs_hashes: mapNumberToNoir(lengths.unencryptedLogsHashes),
+    public_data_update_requests: mapNumberToNoir(lengths.publicDataUpdateRequests),
+    public_call_stack: mapNumberToNoir(lengths.publicCallStack),
   };
 }
 
@@ -2085,7 +2139,13 @@ function mapVMCircuitPublicInputsToNoir(inputs: VMCircuitPublicInputs): VMCircui
     constants: mapCombinedConstantDataToNoir(inputs.constants),
     call_request: mapPublicCallRequestToNoir(inputs.callRequest),
     public_call_stack: mapTuple(inputs.publicCallStack, mapPublicInnerCallRequestToNoir),
+    previous_validation_request_array_lengths: mapPublicValidationRequestArrayLengthsToNoir(
+      inputs.previousValidationRequestArrayLengths,
+    ),
     validation_requests: mapPublicValidationRequestsToNoir(inputs.validationRequests),
+    previous_accumulated_data_array_lengths: mapPublicAccumulatedDataArrayLengthsToNoir(
+      inputs.previousAccumulatedDataArrayLengths,
+    ),
     accumulated_data: mapPublicAccumulatedDataToNoir(inputs.accumulatedData),
     start_side_effect_counter: mapNumberToNoir(inputs.startSideEffectCounter),
     end_side_effect_counter: mapNumberToNoir(inputs.endSideEffectCounter),
@@ -2100,7 +2160,9 @@ export function mapVMCircuitPublicInputsFromNoir(inputs: VMCircuitPublicInputsNo
     mapCombinedConstantDataFromNoir(inputs.constants),
     mapPublicCallRequestFromNoir(inputs.call_request),
     mapTupleFromNoir(inputs.public_call_stack, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, mapPublicInnerCallRequestFromNoir),
+    mapPublicValidationRequestArrayLengthsFromNoir(inputs.previous_validation_request_array_lengths),
     mapPublicValidationRequestsFromNoir(inputs.validation_requests),
+    mapPublicAccumulatedDataArrayLengthsFromNoir(inputs.previous_accumulated_data_array_lengths),
     mapPublicAccumulatedDataFromNoir(inputs.accumulated_data),
     mapNumberFromNoir(inputs.start_side_effect_counter),
     mapNumberFromNoir(inputs.end_side_effect_counter),

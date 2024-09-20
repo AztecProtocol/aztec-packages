@@ -1,8 +1,9 @@
 use crate::public_kernel_phase::PublicKernelPhase;
 use dep::types::{
     abis::{
+    accumulated_data::PublicAccumulatedDataArrayLengths,
     kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, enqueued_call_data::EnqueuedCallData,
-    public_call_request::PublicCallRequest
+    public_call_request::PublicCallRequest, validation_requests::PublicValidationRequestArrayLengths
 },
     utils::arrays::array_length
 };
@@ -25,12 +26,23 @@ impl EnqueuedCallDataValidator {
         self.validate_revert_flag()
     }
 
-    pub fn validate_against_previous_kernel(self, previous_kernel: PublicKernelCircuitPublicInputs) {
+    pub fn validate_against_previous_kernel(
+        self,
+        previous_kernel: PublicKernelCircuitPublicInputs,
+        previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
+        previous_non_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
+        previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths
+    ) {
         self.validate_global_variables(previous_kernel);
         self.validate_against_call_request(previous_kernel);
         self.validate_counters(previous_kernel);
         self.validate_start_gas(previous_kernel);
         self.validate_transaction_fee(previous_kernel);
+        self.validate_array_lengths(
+            previous_validation_request_array_lengths,
+            previous_non_revertible_data_array_lengths,
+            previous_revertible_data_array_lengths
+        );
     }
 
     fn validate_revert_flag(self) {
@@ -106,5 +118,24 @@ impl EnqueuedCallDataValidator {
                 transaction_fee == computed_transaction_fee, "Transaction fee on teardown phase does not match expected value"
             );
         }
+    }
+
+    fn validate_array_lengths(
+        self,
+        previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
+        previous_non_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths,
+        previous_revertible_data_array_lengths: PublicAccumulatedDataArrayLengths
+    ) {
+        assert_eq(
+            self.enqueued_call.data.previous_validation_request_array_lengths, previous_validation_request_array_lengths, "mismatch previous_validation_request_array_lengths"
+        );
+        let prev_lengths = if self.phase == PublicKernelPhase.SETUP {
+            previous_non_revertible_data_array_lengths
+        } else {
+            previous_revertible_data_array_lengths
+        };
+        assert_eq(
+            self.enqueued_call.data.previous_accumulated_data_array_lengths, prev_lengths, "mismatch previoius_accumulated_data_array_lengths"
+        );
     }
 }

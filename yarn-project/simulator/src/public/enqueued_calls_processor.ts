@@ -260,6 +260,7 @@ export class EnqueuedCallsProcessor {
         publicKernelOutput,
         availableGas,
         transactionFee,
+        phase,
       );
 
       if (enqueuedCallResult.revertReason && !PhaseIsRevertible[phase]) {

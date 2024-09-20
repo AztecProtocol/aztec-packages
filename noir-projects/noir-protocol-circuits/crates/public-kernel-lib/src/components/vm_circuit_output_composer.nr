@@ -3,11 +3,15 @@ mod propagate_accumulated_data;
 use crate::{components::vm_circuit_output_composer::propagate_accumulated_data::propagate_accumulated_data};
 use dep::types::{
     abis::{
-    accumulated_data::PublicAccumulatedDataBuilder, combined_constant_data::CombinedConstantData,
-    gas::Gas, kernel_circuit_public_inputs::vm_circuit_public_inputs::VMCircuitPublicInputs,
+    accumulated_data::{PublicAccumulatedDataArrayLengths, PublicAccumulatedDataBuilder},
+    combined_constant_data::CombinedConstantData, gas::Gas,
+    kernel_circuit_public_inputs::vm_circuit_public_inputs::VMCircuitPublicInputs,
     public_call_request::PublicCallRequest, public_circuit_public_inputs::PublicCircuitPublicInputs,
     public_data_read::PublicDataRead, public_inner_call_request::PublicInnerCallRequest,
-    validation_requests::public_validation_requests_builder::PublicValidationRequestsBuilder
+    validation_requests::{
+    PublicValidationRequestArrayLengths,
+    public_validation_requests_builder::PublicValidationRequestsBuilder
+}
 },
     constants::MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, traits::is_empty,
     utils::arrays::array_to_bounded_vec
@@ -18,7 +22,9 @@ struct VMCircuitOutputComposer {
     constants: CombinedConstantData,
     call_request: PublicCallRequest,
     public_call_stack: BoundedVec<PublicInnerCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    previous_validation_request_array_lengths: PublicValidationRequestArrayLengths,
     validation_requests: PublicValidationRequestsBuilder,
+    previous_accumulated_data_array_lengths: PublicAccumulatedDataArrayLengths,
     accumulated_data: PublicAccumulatedDataBuilder,
     start_side_effect_counter: u32,
     end_side_effect_counter: u32,
@@ -37,7 +43,9 @@ impl VMCircuitOutputComposer {
             constants: previous_kernel.constants,
             call_request: previous_kernel.call_request,
             public_call_stack,
+            previous_validation_request_array_lengths: previous_kernel.previous_validation_request_array_lengths,
             validation_requests,
+            previous_accumulated_data_array_lengths: previous_kernel.previous_accumulated_data_array_lengths,
             accumulated_data,
             start_side_effect_counter: previous_kernel.start_side_effect_counter,
             end_side_effect_counter: previous_kernel.end_side_effect_counter,
@@ -62,7 +70,9 @@ impl VMCircuitOutputComposer {
             constants: self.constants,
             call_request: self.call_request,
             public_call_stack: self.public_call_stack.storage,
+            previous_validation_request_array_lengths: self.previous_validation_request_array_lengths,
             validation_requests: self.validation_requests.finish(),
+            previous_accumulated_data_array_lengths: self.previous_accumulated_data_array_lengths,
             accumulated_data: self.accumulated_data.finish(),
             start_side_effect_counter: self.start_side_effect_counter,
             end_side_effect_counter: self.end_side_effect_counter,

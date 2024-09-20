@@ -147,11 +147,13 @@ import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
   EnqueuedCallData,
+  PublicAccumulatedDataArrayLengths,
   PublicDataLeafHint,
   PublicInnerCallRequest,
   PublicKernelCircuitPrivateInputs,
   PublicKernelInnerCircuitPrivateInputs,
   PublicKernelInnerData,
+  PublicValidationRequestArrayLengths,
   PublicValidationRequests,
   ScopedL2ToL1Message,
   ScopedNoteHash,
@@ -340,6 +342,10 @@ function makePublicValidationRequests(seed = 1) {
   );
 }
 
+function makePublicValidationRequestArrayLengths(seed = 1) {
+  return new PublicValidationRequestArrayLengths(seed, seed + 1, seed + 2, seed + 3, seed + 4);
+}
+
 export function makeRollupValidationRequests(seed = 1) {
   return new RollupValidationRequests(new MaxBlockNumber(true, new Fr(seed + 0x31415)));
 }
@@ -408,6 +414,19 @@ function makePublicAccumulatedData(seed = 1, full = false): PublicAccumulatedDat
     ),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest, seed + 0x500, PublicCallRequest.empty),
     makeGas(seed + 0x600),
+  );
+}
+
+function makePublicAccumulatedDataArrayLengths(seed = 1) {
+  return new PublicAccumulatedDataArrayLengths(
+    seed,
+    seed + 1,
+    seed + 2,
+    seed + 3,
+    seed + 4,
+    seed + 5,
+    seed + 6,
+    seed + 7,
   );
 }
 
@@ -562,8 +581,10 @@ export function makeVMCircuitPublicInputs(seed = 1) {
     makeCombinedConstantData(seed),
     makePublicCallRequest(seed + 0x100),
     makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicInnerCallRequest, seed + 0x200),
-    makePublicValidationRequests(seed + 0x300),
-    makePublicAccumulatedData(seed + 0x400),
+    makePublicValidationRequestArrayLengths(seed + 0x300),
+    makePublicValidationRequests(seed + 0x310),
+    makePublicAccumulatedDataArrayLengths(seed + 0x400),
+    makePublicAccumulatedData(seed + 0x410),
     seed + 0x500,
     seed + 0x501,
     makeGas(seed + 0x600),
