@@ -7,7 +7,7 @@ use crate::components::{
 use dep::types::{
     abis::{
     kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs},
-    log_hash::{LogHash, NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash}
+    log_hash::{NoteLogHash, ScopedEncryptedLogHash, ScopedLogHash}
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message, traits::is_empty,
     utils::arrays::assert_exposed_sorted_transformed_value_array
@@ -24,7 +24,9 @@ impl TailOutputValidator {
         output: KernelCircuitPublicInputs,
         previous_kernel: PrivateKernelCircuitPublicInputs
     ) -> Self {
-        let hints = generate_tail_output_hints(previous_kernel);
+        let hints = unsafe {
+            generate_tail_output_hints(previous_kernel)
+        };
         TailOutputValidator { output, previous_kernel, hints }
     }
 

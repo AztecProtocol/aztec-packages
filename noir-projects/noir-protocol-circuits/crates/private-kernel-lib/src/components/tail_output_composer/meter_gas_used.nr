@@ -7,7 +7,7 @@ use dep::types::{
     utils::arrays::array_length
 };
 
-fn meter_gas_used(data: CombinedAccumulatedData, gas_settings: GasSettings) -> Gas {
+pub fn meter_gas_used(data: CombinedAccumulatedData, gas_settings: GasSettings) -> Gas {
     let mut metered_da_bytes = 0;
     let mut metered_l2_gas = 0;
 

@@ -84,7 +84,7 @@ export class SiblingPath<N extends number> {
    * Convert Sibling Path object into a tuple of field elements.
    * @returns A tuple representation of the sibling path.
    */
-  public toTuple<N extends number>(): Tuple<Fr, N> {
+  public toTuple(): Tuple<Fr, N> {
     const array = this.toFields();
     return makeTuple(array.length as N, i => array[i], 0);
   }

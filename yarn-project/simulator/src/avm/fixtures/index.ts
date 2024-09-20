@@ -1,5 +1,6 @@
+import { isNoirCallStackUnresolved } from '@aztec/circuit-types';
 import { GasFees, GlobalVariables, Header } from '@aztec/circuits.js';
-import { FunctionSelector } from '@aztec/foundation/abi';
+import { FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -9,13 +10,13 @@ import { strict as assert } from 'assert';
 import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
-import { type CommitmentsDB, type PublicContractsDB, type PublicStateDB } from '../../index.js';
+import { type WorldStateDB, resolveAssertionMessage, traverseCauseChain } from '../../index.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmContextInputs, AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, Uint8, Uint64 } from '../avm_memory_types.js';
-import { HostStorage } from '../journal/host_storage.js';
+import { type AvmRevertReason } from '../errors.js';
 import { AvmPersistableStateManager } from '../journal/journal.js';
 import { NullifierManager } from '../journal/nullifiers.js';
 import { PublicStorage } from '../journal/public_storage.js';
@@ -35,32 +36,19 @@ export function initContext(overrides?: {
   );
 }
 
-/** Creates an empty host storage with mocked dbs. */
-export function initHostStorage(overrides?: {
-  publicDb?: PublicStateDB;
-  contractsDb?: PublicContractsDB;
-  commitmentsDb?: CommitmentsDB;
-}): HostStorage {
-  return new HostStorage(
-    overrides?.publicDb || mock<PublicStateDB>(),
-    overrides?.contractsDb || mock<PublicContractsDB>(),
-    overrides?.commitmentsDb || mock<CommitmentsDB>(),
-  );
-}
-
 /** Creates an empty state manager with mocked host storage. */
 export function initPersistableStateManager(overrides?: {
-  hostStorage?: HostStorage;
+  worldStateDB?: WorldStateDB;
   trace?: PublicSideEffectTraceInterface;
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
 }): AvmPersistableStateManager {
-  const hostStorage = overrides?.hostStorage || initHostStorage();
+  const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
   return new AvmPersistableStateManager(
-    hostStorage,
+    worldStateDB,
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
-    overrides?.publicStorage || new PublicStorage(hostStorage.publicStateDb),
-    overrides?.nullifiers || new NullifierManager(hostStorage.commitmentsDb),
+    overrides?.publicStorage || new PublicStorage(worldStateDB),
+    overrides?.nullifiers || new NullifierManager(worldStateDB),
   );
 }
 
@@ -151,4 +139,26 @@ export function getAvmTestContractBytecode(functionName: string): Buffer {
     `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
   );
   return artifact.bytecode;
+}
+
+export function resolveAvmTestContractAssertionMessage(
+  functionName: string,
+  revertReason: AvmRevertReason,
+): string | undefined {
+  const functionArtifact = AvmTestContractArtifact.functions.find(f => f.name === functionName)!;
+
+  traverseCauseChain(revertReason, cause => {
+    revertReason = cause as AvmRevertReason;
+  });
+
+  if (!functionArtifact || !revertReason.noirCallStack || !isNoirCallStackUnresolved(revertReason.noirCallStack)) {
+    return undefined;
+  }
+
+  const debugMetadata = getFunctionDebugMetadata(AvmTestContractArtifact, functionArtifact);
+  if (!debugMetadata) {
+    return undefined;
+  }
+
+  return resolveAssertionMessage(revertReason.noirCallStack, debugMetadata);
 }

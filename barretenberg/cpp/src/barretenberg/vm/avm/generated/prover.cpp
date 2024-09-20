@@ -27,8 +27,8 @@ using FF = Flavor::FF;
  * @tparam settings Settings class.
  */
 AvmProver::AvmProver(std::shared_ptr<Flavor::ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key)
-    : key(input_key)
-    , commitment_key(commitment_key)
+    : key(std::move(input_key))
+    , commitment_key(std::move(commitment_key))
 {
     for (auto [prover_poly, key_poly] : zip_view(prover_polynomials.get_unshifted(), key->get_all())) {
         ASSERT(bb::flavor_get_label(prover_polynomials, prover_poly) == bb::flavor_get_label(*key, key_poly));

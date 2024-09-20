@@ -55,8 +55,12 @@ impl ResetOutputValidatorBuilder {
 
     pub fn get_validation_request_processor(self) -> PrivateValidationRequestProcessor<6, 3, 5, 2, 2> {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        let note_hash_read_request_hints = self.note_hash_read_request_hints_builder.to_hints();
-        let nullifier_read_request_hints = self.nullifier_read_request_hints_builder.to_hints();
+        let note_hash_read_request_hints = unsafe {
+            self.note_hash_read_request_hints_builder.to_hints()
+        };
+        let nullifier_read_request_hints = unsafe {
+            self.nullifier_read_request_hints_builder.to_hints()
+        };
 
         PrivateValidationRequestProcessor {
             validation_requests: previous_kernel.validation_requests,
@@ -73,7 +77,9 @@ impl ResetOutputValidatorBuilder {
 
     pub fn get_hints(self) -> ResetOutputHints {
         let previous_kernel = self.previous_kernel.to_private_kernel_circuit_public_inputs();
-        generate_reset_output_hints(previous_kernel, self.transient_data_index_hints)
+        unsafe {
+            generate_reset_output_hints(previous_kernel, self.transient_data_index_hints)
+        }
     }
 
     pub fn validate_with_hints(self, hints: ResetOutputHints) {

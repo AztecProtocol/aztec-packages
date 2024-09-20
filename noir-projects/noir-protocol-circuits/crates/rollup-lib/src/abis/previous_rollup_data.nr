@@ -14,24 +14,19 @@ struct PreviousRollupData{
 }
 
 impl Verifiable for PreviousRollupData {
-  fn verify(self) {
-    let inputs = BaseOrMergeRollupPublicInputs::serialize(self.base_or_merge_rollup_public_inputs);
-    std::verify_proof(
-        self.vk.key,
-        self.proof.fields,
-        inputs,
-        self.vk.hash
-    );
-  }
+    fn verify(self) {
+        let inputs = BaseOrMergeRollupPublicInputs::serialize(self.base_or_merge_rollup_public_inputs);
+        std::verify_proof(self.vk.key, self.proof.fields, inputs, self.vk.hash);
+    }
 }
 
 impl Empty for PreviousRollupData {
     fn empty() -> Self {
         PreviousRollupData {
             base_or_merge_rollup_public_inputs: BaseOrMergeRollupPublicInputs::empty(),
-            proof : NestedRecursiveProof::empty(),
-            vk : VerificationKey::empty(),
-            vk_witness : MembershipWitness::empty(),
+            proof: NestedRecursiveProof::empty(),
+            vk: VerificationKey::empty(),
+            vk_witness: MembershipWitness::empty()
         }
     }
 }
@@ -39,7 +34,9 @@ impl Empty for PreviousRollupData {
 impl PreviousRollupData {
     fn validate_in_vk_tree<let N: u32>(self, allowed_indices: [u32; N]) {
         let leaf_index = self.vk_witness.leaf_index as u32;
-        let index_hint = find_index_hint(allowed_indices, |index: u32| index == leaf_index);
+        let index_hint = unsafe {
+            find_index_hint(allowed_indices, |index: u32| index == leaf_index)
+        };
         assert_eq(allowed_indices[index_hint], leaf_index, "Invalid vk index");
 
         assert_check_membership(

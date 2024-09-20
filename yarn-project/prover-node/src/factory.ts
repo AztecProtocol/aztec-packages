@@ -1,7 +1,6 @@
 import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNode } from '@aztec/circuit-types';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/utils';
 import { createProverClient } from '@aztec/prover-client';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { createSimulationProvider } from '@aztec/simulator';
@@ -20,22 +19,17 @@ export async function createProverNode(
   deps: {
     telemetry?: TelemetryClient;
     log?: DebugLogger;
-    storeLog?: DebugLogger;
     aztecNodeTxProvider?: AztecNode;
     archiver?: Archiver;
   } = {},
 ) {
   const telemetry = deps.telemetry ?? new NoopTelemetryClient();
   const log = deps.log ?? createDebugLogger('aztec:prover');
-  const storeLog = deps.storeLog ?? createDebugLogger('aztec:prover:lmdb');
-
-  const store = await createStore(config, config.l1Contracts.rollupAddress, storeLog);
-
-  const archiver = deps.archiver ?? (await createArchiver(config, store, telemetry, { blockUntilSync: true }));
+  const archiver = deps.archiver ?? (await createArchiver(config, telemetry, { blockUntilSync: true }));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 
   const worldStateConfig = { ...config, worldStateProvenBlocksOnly: true };
-  const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, store, archiver, telemetry);
+  const worldStateSynchronizer = await createWorldStateSynchronizer(worldStateConfig, archiver, telemetry);
   await worldStateSynchronizer.start();
 
   const simulationProvider = await createSimulationProvider(config, log);

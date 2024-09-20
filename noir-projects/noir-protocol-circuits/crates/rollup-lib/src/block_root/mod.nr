@@ -1,8 +1,8 @@
 mod block_root_rollup_inputs;
 
 // Re-exports
-use block_root_rollup_inputs::BlockRootRollupInputs;
-use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
+pub use block_root_rollup_inputs::BlockRootRollupInputs;
+pub use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMergePublicInputs;
 
 mod tests {
     use crate::tests::block_root_rollup_inputs::default_block_root_rollup_inputs;

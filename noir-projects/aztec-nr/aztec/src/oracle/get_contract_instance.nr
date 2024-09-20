@@ -1,6 +1,6 @@
 use dep::protocol_types::{
-    address::AztecAddress, contract_instance::ContractInstance, utils::arr_copy_slice,
-    constants::CONTRACT_INSTANCE_LENGTH, utils::reader::Reader
+    address::AztecAddress, contract_instance::ContractInstance, constants::CONTRACT_INSTANCE_LENGTH,
+    utils::reader::Reader
 };
 
 #[oracle(getContractInstance)]
@@ -19,8 +19,13 @@ unconstrained pub fn get_contract_instance_internal_avm(address: AztecAddress) -
 }
 
 pub fn get_contract_instance(address: AztecAddress) -> ContractInstance {
-    let instance = ContractInstance::deserialize(get_contract_instance_internal(address));
-    assert(instance.to_address().eq(address));
+    let instance = unsafe {
+        ContractInstance::deserialize(get_contract_instance_internal(address))
+    };
+    // The to_address function combines all values in the instance object to produce an address, so by checking that we
+    // get the expected address we validate the entire struct.
+    assert_eq(instance.to_address(), address);
+
     instance
 }
 

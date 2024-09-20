@@ -174,8 +174,8 @@ template <class Params_> struct alignas(32) field {
 
     constexpr field(const field& other) noexcept = default;
     constexpr field(field&& other) noexcept = default;
-    constexpr field& operator=(const field& other) noexcept = default;
-    constexpr field& operator=(field&& other) noexcept = default;
+    constexpr field& operator=(const field& other) & noexcept = default;
+    constexpr field& operator=(field&& other) & noexcept = default;
     constexpr ~field() noexcept = default;
     alignas(32) uint64_t data[4]; // NOLINT
 
@@ -298,10 +298,10 @@ template <class Params_> struct alignas(32) field {
     // NOLINTNEXTLINE
     BB_INLINE constexpr field operator++(int) noexcept;
 
-    BB_INLINE constexpr field& operator*=(const field& other) noexcept;
-    BB_INLINE constexpr field& operator+=(const field& other) noexcept;
-    BB_INLINE constexpr field& operator-=(const field& other) noexcept;
-    constexpr field& operator/=(const field& other) noexcept;
+    BB_INLINE constexpr field& operator*=(const field& other) & noexcept;
+    BB_INLINE constexpr field& operator+=(const field& other) & noexcept;
+    BB_INLINE constexpr field& operator-=(const field& other) & noexcept;
+    constexpr field& operator/=(const field& other) & noexcept;
 
     // NOTE: comparison operators exist so that `field` is comparible with stl methods that require them.
     //       (e.g. std::sort)
@@ -315,7 +315,7 @@ template <class Params_> struct alignas(32) field {
     BB_INLINE constexpr field from_montgomery_form() const noexcept;
 
     BB_INLINE constexpr field sqr() const noexcept;
-    BB_INLINE constexpr void self_sqr() noexcept;
+    BB_INLINE constexpr void self_sqr() & noexcept;
 
     BB_INLINE constexpr field pow(const uint256_t& exponent) const noexcept;
     BB_INLINE constexpr field pow(uint64_t exponent) const noexcept;
@@ -332,17 +332,17 @@ template <class Params_> struct alignas(32) field {
      */
     constexpr std::pair<bool, field> sqrt() const noexcept;
 
-    BB_INLINE constexpr void self_neg() noexcept;
+    BB_INLINE constexpr void self_neg() & noexcept;
 
-    BB_INLINE constexpr void self_to_montgomery_form() noexcept;
-    BB_INLINE constexpr void self_from_montgomery_form() noexcept;
+    BB_INLINE constexpr void self_to_montgomery_form() & noexcept;
+    BB_INLINE constexpr void self_from_montgomery_form() & noexcept;
 
-    BB_INLINE constexpr void self_conditional_negate(uint64_t predicate) noexcept;
+    BB_INLINE constexpr void self_conditional_negate(uint64_t predicate) & noexcept;
 
     BB_INLINE constexpr field reduce_once() const noexcept;
-    BB_INLINE constexpr void self_reduce_once() noexcept;
+    BB_INLINE constexpr void self_reduce_once() & noexcept;
 
-    BB_INLINE constexpr void self_set_msb() noexcept;
+    BB_INLINE constexpr void self_set_msb() & noexcept;
     [[nodiscard]] BB_INLINE constexpr bool is_msb_set() const noexcept;
     [[nodiscard]] BB_INLINE constexpr uint64_t is_msb_set_word() const noexcept;
 

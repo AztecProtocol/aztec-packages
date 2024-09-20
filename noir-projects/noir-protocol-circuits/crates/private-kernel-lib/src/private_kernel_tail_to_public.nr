@@ -33,7 +33,9 @@ impl PrivateKernelTailToPublicCircuitPrivateInputs {
 
     pub fn execute(self) -> PublicKernelCircuitPublicInputs {
         // Generate output.
-        let output = self.generate_output();
+        let output = unsafe {
+            self.generate_output()
+        };
 
         // Validate inputs.
         PreviousKernelValidator::new(self.previous_kernel.public_inputs).validate_for_private_tail_to_public();
@@ -60,12 +62,12 @@ mod tests {
     use dep::types::{
         abis::{
         kernel_circuit_public_inputs::PublicKernelCircuitPublicInputs, gas::Gas,
-        note_hash::{NoteHash, ScopedNoteHash}, nullifier::{Nullifier, ScopedNullifier},
+        note_hash::ScopedNoteHash, nullifier::{Nullifier, ScopedNullifier},
         log_hash::{LogHash, NoteLogHash}
     },
         address::{AztecAddress, EthAddress},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq}, point::Point,
-        constants::{BASE_ROLLUP_INDEX, PRIVATE_KERNEL_INNER_INDEX}
+        constants::PRIVATE_KERNEL_INNER_INDEX
     };
 
     // TODO: Reduce the duplicated code/tests for PrivateKernelTailToPublicInputs and PrivateKernelTailInputs.

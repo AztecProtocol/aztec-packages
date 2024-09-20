@@ -24,7 +24,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
 
     // Define types relevant for inner circuit
     using InnerFlavor = MegaFlavor;
-    using InnerProverInstance = ProverInstance_<InnerFlavor>;
+    using InnerDeciderProvingKey = DeciderProvingKey_<InnerFlavor>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
 
     // Define additional types for testing purposes

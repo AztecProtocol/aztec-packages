@@ -1,5 +1,5 @@
 use crate::{
-    address::AztecAddress, abis::function_data::FunctionData, abis::gas_settings::GasSettings,
+    address::AztecAddress, abis::function_data::FunctionData,
     constants::{GENERATOR_INDEX__TX_REQUEST, TX_REQUEST_LENGTH}, hash::poseidon2_hash_with_separator,
     traits::{Hash, Serialize, Deserialize, Empty}, transaction::tx_context::TxContext,
     utils::reader::Reader
@@ -18,17 +18,17 @@ impl Empty for TxRequest {
             origin: AztecAddress::empty(),
             args_hash: 0,
             tx_context: TxContext::empty(),
-            function_data: FunctionData::empty(),
+            function_data: FunctionData::empty()
         }
     }
 }
 
 impl Eq for TxRequest {
     fn eq(self, other: Self) -> bool {
-        (self.origin == other.origin) &
-        (self.args_hash == other.args_hash) &
-        (self.tx_context == other.tx_context) &
-        (self.function_data == other.function_data)
+        (self.origin == other.origin)
+            & (self.args_hash == other.args_hash)
+            & (self.tx_context == other.tx_context)
+            & (self.function_data == other.function_data)
     }
 }
 
@@ -62,7 +62,7 @@ impl Deserialize<TX_REQUEST_LENGTH> for TxRequest {
             origin: reader.read_struct(AztecAddress::deserialize),
             args_hash: reader.read(),
             tx_context: reader.read_struct(TxContext::deserialize),
-            function_data: reader.read_struct(FunctionData::deserialize),
+            function_data: reader.read_struct(FunctionData::deserialize)
         };
 
         reader.finish();
@@ -76,8 +76,7 @@ mod tests {
         function_selector::FunctionSelector, function_data::FunctionData, gas_settings::GasSettings,
         gas::Gas, gas_fees::GasFees
     },
-        address::{AztecAddress, EthAddress}, contract_class_id::ContractClassId,
-        transaction::{tx_request::TxRequest, tx_context::TxContext}
+        address::AztecAddress, transaction::{tx_request::TxRequest, tx_context::TxContext}
     };
 
     #[test]

@@ -10,11 +10,11 @@ import {
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
 import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
-import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
+import { type PublicExecutor } from '@aztec/simulator';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { AbstractPhaseManager } from './abstract_phase_manager.js';
-import { type ContractsDataSourcePublicDB } from './public_db_sources.js';
+import { type WorldStateDB } from './public_db_sources.js';
 import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 
 export class TailPhaseManager extends AbstractPhaseManager {
@@ -24,8 +24,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
     publicKernel: PublicKernelCircuitSimulator,
     globalVariables: GlobalVariables,
     historicalHeader: Header,
-    protected publicContractsDB: ContractsDataSourcePublicDB,
-    protected publicStateDB: PublicStateDB,
+    protected worldStateDB: WorldStateDB,
     phase: PublicKernelType = PublicKernelType.TAIL,
   ) {
     super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
@@ -40,7 +39,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
     const [inputs, finalKernelOutput] = await this.simulate(previousPublicKernelOutput, previousKernelArtifact).catch(
       // the abstract phase manager throws if simulation gives error in non-revertible phase
       async err => {
-        await this.publicStateDB.rollbackToCommit();
+        await this.worldStateDB.rollbackToCommit();
         throw err;
       },
     );
@@ -77,6 +76,10 @@ export class TailPhaseManager extends AbstractPhaseManager {
 
     const { validationRequests, endNonRevertibleData: nonRevertibleData, end: revertibleData } = previousOutput;
 
+    const noteHashReadRequestHints = await this.hintsBuilder.getNoteHashReadRequestsHints(
+      validationRequests.noteHashReadRequests,
+    );
+
     const pendingNullifiers = mergeAccumulatedData(
       nonRevertibleData.nullifiers,
       revertibleData.nullifiers,
@@ -93,6 +96,10 @@ export class TailPhaseManager extends AbstractPhaseManager {
       pendingNullifiers,
     );
 
+    const l1ToL2MsgReadRequestHints = await this.hintsBuilder.getL1ToL2MsgReadRequestsHints(
+      validationRequests.l1ToL2MsgReadRequests,
+    );
+
     const pendingPublicDataWrites = mergeAccumulatedData(
       nonRevertibleData.publicDataUpdateRequests,
       revertibleData.publicDataUpdateRequests,
@@ -104,20 +111,15 @@ export class TailPhaseManager extends AbstractPhaseManager {
       pendingPublicDataWrites,
     );
 
-    const publicDataReadRequestHints = this.hintsBuilder.getPublicDataReadRequestHints(
-      validationRequests.publicDataReads,
-      pendingPublicDataWrites,
-      publicDataHints,
-    );
-
     const currentState = await this.db.getStateReference();
 
     return new PublicKernelTailCircuitPrivateInputs(
       previousKernel,
+      noteHashReadRequestHints,
       nullifierReadRequestHints,
       nullifierNonExistentReadRequestHints,
+      l1ToL2MsgReadRequestHints,
       publicDataHints,
-      publicDataReadRequestHints,
       currentState.partial,
     );
   }

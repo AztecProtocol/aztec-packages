@@ -1,16 +1,15 @@
 use dep::protocol_types::{
     abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
-    address::{AztecAddress, PartialAddress}, storage::map::derive_storage_slot_in_map,
-    constants::CANONICAL_KEY_REGISTRY_ADDRESS, traits::Deserialize
+    address::AztecAddress, traits::Deserialize
 };
 
 use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
 use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
 
-use crate::context::{PrivateContext, PublicContext, UnconstrainedContext, PrivateVoidCallInterface};
-use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer, TestAccount}, keys};
+use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
+use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer}};
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
-use crate::hash::{hash_args, hash_args_array};
+use crate::hash::hash_args;
 
 use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
 use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_created_note};
@@ -70,14 +69,6 @@ impl TestEnvironment {
 
     fn create_account(_self: Self) -> AztecAddress {
         let test_account = cheatcodes::create_account();
-        let address = test_account.address;
-        let keys = test_account.keys;
-
-        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
-        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
-        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
-        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m);
-
         test_account.address
     }
 
@@ -85,13 +76,6 @@ impl TestEnvironment {
         let test_account = cheatcodes::add_account(secret);
         let address = test_account.address;
         cheatcodes::advance_blocks_by(1);
-
-        let keys = test_account.keys;
-
-        keys::store_master_key(NULLIFIER_INDEX, address, keys.npk_m);
-        keys::store_master_key(INCOMING_INDEX, address, keys.ivpk_m);
-        keys::store_master_key(OUTGOING_INDEX, address, keys.ovpk_m);
-        keys::store_master_key(TAGGING_INDEX, address, keys.tpk_m);
 
         let selector = FunctionSelector::from_signature("constructor(Field,Field)");
 
@@ -102,11 +86,11 @@ impl TestEnvironment {
         address
     }
 
-    fn deploy<N, M>(self, path: str<N>, name: str<M>) -> Deployer<N, M> {
+    fn deploy<let N: u32, let M: u32>(self, path: str<N>, name: str<M>) -> Deployer<N, M> {
         Deployer { path, name, public_keys_hash: 0 }
     }
 
-    fn deploy_self<M>(self, name: str<M>) -> Deployer<0, M> {
+    fn deploy_self<let M: u32>(self, name: str<M>) -> Deployer<0, M> {
         Deployer { path: "", name, public_keys_hash: 0 }
     }
 
@@ -132,7 +116,7 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).unpack_into()
     }
 
-    fn call_private_void<C, let M: u32, Env, let N: u32>(
+    fn call_private_void<C, let M: u32, Env>(
         _self: Self,
         call_interface: C
     ) where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
@@ -154,7 +138,7 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).assert_empty();
     }
 
-    fn call_public<C, let M: u32, T, Env, let N: u32>(
+    fn call_public<C, let M: u32, T, Env>(
         _self: Self,
         call_interface: C
     ) -> T where C: CallInterface<M, PublicContextInputs, T, Env> {
@@ -164,22 +148,26 @@ impl TestEnvironment {
         let original_fn_selector = cheatcodes::get_function_selector();
         let target_address = call_interface.get_contract_address();
         let fn_selector = call_interface.get_selector();
+        let calldata = call_interface.get_args();
 
         cheatcodes::set_fn_selector(fn_selector);
         cheatcodes::set_contract_address(target_address);
         cheatcodes::set_msg_sender(original_contract_address);
         let mut inputs = cheatcodes::get_public_context_inputs();
-        inputs.args_hash = hash_args(call_interface.get_args());
+        inputs.calldata_length = call_interface.get_args().len() as Field;
         inputs.is_static_call = call_interface.get_is_static();
+        cheatcodes::set_calldata(calldata);
+
         let result = original_fn(inputs);
 
         cheatcodes::set_fn_selector(original_fn_selector);
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);
+        cheatcodes::set_calldata(calldata);
         result
     }
 
-    fn assert_public_call_fails<C, let M: u32, T, Env, let N: u32>(
+    fn assert_public_call_fails<C, let M: u32, T, Env>(
         _self: Self,
         call_interface: C
     ) where C: CallInterface<M, PublicContextInputs, T, Env> {
@@ -190,7 +178,7 @@ impl TestEnvironment {
         );
     }
 
-    fn assert_private_call_fails<C, let M: u32, T, Env, let N: u32>(
+    fn assert_private_call_fails<C, let M: u32, T, Env>(
         _self: Self,
         call_interface: C
     ) where C: CallInterface<M, PrivateContextInputs, T, Env> {
@@ -204,7 +192,9 @@ impl TestEnvironment {
         );
     }
 
-    pub fn store_note_in_cache<Note, let N: u32, let M: u32>(
+    /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
+    /// not having an encrypted log emitted. TXE alternative to `PXE.addNote(...)`.
+    pub fn add_note<Note, let N: u32, let M: u32>(
         _self: Self,
         note: &mut Note,
         storage_slot: Field,

@@ -1,99 +1,227 @@
 #pragma once
 
-#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
-namespace bb::stdlib {
+#include "../bigfield/bigfield.hpp"
+#include "../bigfield/goblin_field.hpp"
+#include "../byte_array/byte_array.hpp"
+#include "../circuit_builders/circuit_builders_fwd.hpp"
+#include "../field/field.hpp"
+#include "../memory/rom_table.hpp"
+#include "../memory/twin_rom_table.hpp"
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
+#include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
+
+namespace bb::stdlib::element_goblin {
 
 /**
- * @brief Goblin style batch multiplication
- *
- * @details In goblin-style arithmetization, the operands (points/scalars) for each mul-accumulate operation are
- * decomposed into smaller components and written to an operation queue via the builder. The components are also added
- * as witness variables. This function adds constraints demonstrating the fidelity of the point/scalar decompositions
- * given the indices of the components in the variables array. The actual mul-accumulate operations are performed
- * natively (without constraints) under the hood, and the final result is obtained by queueing an equality operation via
- * the builder. The components of the result are returned as indices into the variables array from which the resulting
- * accumulator point is re-constructed.
- * @note Because this is the only method for performing Goblin-style group operations (Issue #707), it is sometimes used
- * in situations where one of the scalars is 1 (e.g. to perform P = P_0 + z*P_1). In this case, we perform a simple add
- * accumulate instead of a mul-then_accumulate.
- *
- * @tparam C CircuitBuilder
- * @tparam Fq Base field
- * @tparam Fr Scalar field
- * @tparam G Native group
- * @param points
- * @param scalars
- * @param max_num_bits
- * @return element<C, Fq, Fr, G>
+ * @brief Custom element class for when using goblin
+ * @details When using goblin (builder = MEGA and element = bn254), the assumptions and heuristics
+ *          we apply vary considerably to the "default" case, justifying a separate class
+ *          (we use a `using` declaration to make `element` map to `goblin_element` if the correct parametrisation is
+ * used, see the `IsGoblinBigGroup` concept for details) Differences between goblin and regular biggroup elements:
+ *          1. state model is different (x/y coordinates are 2 136-bit field_t members instead of 4 68-bit field_t
+ * members)
+ *          2. on-curve checks are not applied in-circuit (they are applied in the ECCVM circuit)
+ *          3. we do not need to range-constrain the coordinates to be 136-bits (applied in the Translator circuit)
+ * @tparam Builder
+ * @tparam Fq
+ * @tparam Fr
+ * @tparam NativeGroup
  */
-template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<element>& points,
-                                                              const std::vector<Fr>& scalars,
-                                                              [[maybe_unused]] const size_t max_num_bits)
-{
-    auto builder = points[0].get_context();
+template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_element {
+  public:
+    using BaseField = Fq;
+    using bool_ct = stdlib::bool_t<Builder>;
+    using biggroup_tag = goblin_element; // Facilitates a constexpr check IsBigGroup
 
-    // Check that the internal accumulator is zero?
-    ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
+    goblin_element() = default;
+    goblin_element(const typename NativeGroup::affine_element& input)
+        : x(input.x)
+        , y(input.y)
+        , _is_infinity(input.is_point_at_infinity())
+    {}
+    goblin_element(const Fq& x, const Fq& y)
+        : x(x)
+        , y(y)
+        , _is_infinity(false)
+    {}
+    goblin_element(const goblin_element& other) = default;
+    goblin_element(goblin_element&& other) noexcept = default;
+    goblin_element& operator=(const goblin_element& other) = default;
+    goblin_element& operator=(goblin_element&& other) noexcept = default;
+    ~goblin_element() = default;
 
-    // Loop over all points and scalars
-    size_t num_points = points.size();
-    for (size_t i = 0; i < num_points; ++i) {
-        auto& point = points[i];
-        auto& scalar = scalars[i];
-
-        // Populate the goblin-style ecc op gates for the given mul inputs
-        ecc_op_tuple op_tuple;
-        bool scalar_is_constant_equal_one = scalar.get_witness_index() == IS_CONSTANT && scalar.get_value() == 1;
-        if (scalar_is_constant_equal_one) { // if scalar is 1, there is no need to perform a mul
-            op_tuple = builder->queue_ecc_add_accum(point.get_value());
-        } else { // otherwise, perform a mul-then-accumulate
-            op_tuple = builder->queue_ecc_mul_accum(point.get_value(), scalar.get_value());
+    static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
+    {
+        goblin_element out;
+        if (input.is_point_at_infinity()) {
+            Fq x = Fq::from_witness(ctx, NativeGroup::affine_one.x);
+            Fq y = Fq::from_witness(ctx, NativeGroup::affine_one.y);
+            out.x = x;
+            out.y = y;
+        } else {
+            Fq x = Fq::from_witness(ctx, input.x);
+            Fq y = Fq::from_witness(ctx, input.y);
+            out.x = x;
+            out.y = y;
         }
-
-        // Add constraints demonstrating that the EC point coordinates were decomposed faithfully. In particular, show
-        // that the lo-hi components that have been encoded in the op wires can be reconstructed via the limbs of the
-        // original point coordinates.
-        auto x_lo = Fr::from_witness_index(builder, op_tuple.x_lo);
-        auto x_hi = Fr::from_witness_index(builder, op_tuple.x_hi);
-        auto y_lo = Fr::from_witness_index(builder, op_tuple.y_lo);
-        auto y_hi = Fr::from_witness_index(builder, op_tuple.y_hi);
-        // Note: These constraints do not assume or enforce that the coordinates of the original point have been
-        // asserted to be in the field, only that they are less than the smallest power of 2 greater than the field
-        // modulus (a la the bigfield(lo, hi) constructor with can_overflow == false).
-        ASSERT(uint1024_t(point.x.get_maximum_value()) <= Fq::DEFAULT_MAXIMUM_REMAINDER);
-        ASSERT(uint1024_t(point.y.get_maximum_value()) <= Fq::DEFAULT_MAXIMUM_REMAINDER);
-        auto shift = Fr::from_witness(builder, Fq::shift_1);
-        x_lo.assert_equal(point.x.binary_basis_limbs[0].element + shift * point.x.binary_basis_limbs[1].element);
-        x_hi.assert_equal(point.x.binary_basis_limbs[2].element + shift * point.x.binary_basis_limbs[3].element);
-        y_lo.assert_equal(point.y.binary_basis_limbs[0].element + shift * point.y.binary_basis_limbs[1].element);
-        y_hi.assert_equal(point.y.binary_basis_limbs[2].element + shift * point.y.binary_basis_limbs[3].element);
-
-        // Add constraints demonstrating proper decomposition of scalar into endomorphism scalars
-        if (!scalar_is_constant_equal_one) {
-            auto z_1 = Fr::from_witness_index(builder, op_tuple.z_1);
-            auto z_2 = Fr::from_witness_index(builder, op_tuple.z_2);
-            auto beta = G::subgroup_field::cube_root_of_unity();
-            scalar.assert_equal(z_1 - z_2 * beta);
-        }
+        out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
+        return out;
     }
 
-    // Populate equality gates based on the internal accumulator point
-    auto op_tuple = builder->queue_ecc_eq();
+    void validate_on_curve() const
+    {
+        // happens in goblin eccvm
+    }
 
-    // Reconstruct the result of the batch mul using indices into the variables array
-    auto x_lo = Fr::from_witness_index(builder, op_tuple.x_lo);
-    auto x_hi = Fr::from_witness_index(builder, op_tuple.x_hi);
-    auto y_lo = Fr::from_witness_index(builder, op_tuple.y_lo);
-    auto y_hi = Fr::from_witness_index(builder, op_tuple.y_hi);
-    Fq point_x(x_lo, x_hi);
-    Fq point_y(y_lo, y_hi);
-    element result = element(point_x, point_y);
-    if (op_tuple.return_is_infinity) {
-        result.set_point_at_infinity(bool_ct(builder, true));
-    };
+    static goblin_element one(Builder* ctx)
+    {
+        uint256_t x = uint256_t(NativeGroup::one.x);
+        uint256_t y = uint256_t(NativeGroup::one.y);
+        Fq x_fq(ctx, x);
+        Fq y_fq(ctx, y);
+        return goblin_element(x_fq, y_fq);
+    }
 
-    return result;
+    goblin_element checked_unconditional_add(const goblin_element& other) const
+    {
+        return goblin_element::operator+(*this, other);
+    }
+    goblin_element checked_unconditional_subtract(const goblin_element& other) const
+    {
+        return goblin_element::operator-(*this, other);
+    }
+
+    goblin_element operator+(const goblin_element& other) const
+    {
+        return batch_mul({ *this, other }, { Fr(1), Fr(1) });
+    }
+    goblin_element operator-(const goblin_element& other) const
+    {
+        std::vector<goblin_element> points{ *this, other };
+        return batch_mul({ *this, other }, { Fr(1), -Fr(1) });
+    }
+    goblin_element operator-() const { return batch_mul({ *this }, { -Fr(1) }); }
+    goblin_element operator+=(const goblin_element& other)
+    {
+        *this = *this + other;
+        return *this;
+    }
+    goblin_element operator-=(const goblin_element& other)
+    {
+        *this = *this - other;
+        return *this;
+    }
+    std::array<goblin_element, 2> checked_unconditional_add_sub(const goblin_element& other) const
+    {
+        return std::array<goblin_element, 2>{ *this + other, *this - other };
+    }
+
+    goblin_element operator*(const Fr& scalar) const { return batch_mul({ *this }, { scalar }); }
+
+    goblin_element conditional_negate(const bool_ct& predicate) const
+    {
+        goblin_element negated = -(*this);
+        goblin_element result(*this);
+        result.y = Fq::conditional_assign(predicate, negated.y, result.y);
+        return result;
+    }
+
+    goblin_element normalize() const
+    {
+        // no need to normalize, all goblin eccvm operations are returned normalized
+        return *this;
+    }
+
+    goblin_element reduce() const
+    {
+        // no need to reduce, all goblin eccvm operations are returned normalized
+        return *this;
+    }
+
+    goblin_element dbl() const { return batch_mul({ *this }, { 2 }); }
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) max_num_bits is unused; could implement and
+    // use this to optimize other operations. interface compatible with biggroup.hpp, the final parameter
+    // handle_edge_cases is not needed as this is always done in the eccvm
+    static goblin_element batch_mul(const std::vector<goblin_element>& points,
+                                    const std::vector<Fr>& scalars,
+                                    const size_t max_num_bits = 0,
+                                    const bool handle_edge_cases = false);
+
+    // we use this data structure to add together a sequence of points.
+    // By tracking the previous values of x_1, y_1, \lambda, we can avoid
+
+    typename NativeGroup::affine_element get_value() const
+    {
+        bb::fq x_val = x.get_value().lo;
+        bb::fq y_val = y.get_value().lo;
+        auto result = typename NativeGroup::affine_element(x_val, y_val);
+        if (is_point_at_infinity().get_value()) {
+            result.self_set_infinity();
+        }
+        return result;
+    }
+
+    Builder* get_context() const
+    {
+        if (x.get_context() != nullptr) {
+            return x.get_context();
+        }
+        if (y.get_context() != nullptr) {
+            return y.get_context();
+        }
+        return nullptr;
+    }
+
+    Builder* get_context(const goblin_element& other) const
+    {
+        if (x.get_context() != nullptr) {
+            return x.get_context();
+        }
+        if (y.get_context() != nullptr) {
+            return y.get_context();
+        }
+        if (other.x.get_context() != nullptr) {
+            return other.x.get_context();
+        }
+        if (other.y.get_context() != nullptr) {
+            return other.y.get_context();
+        }
+        return nullptr;
+    }
+
+    bool_ct is_point_at_infinity() const { return _is_infinity; }
+    void set_point_at_infinity(const bool_ct& is_infinity) { _is_infinity = is_infinity; }
+    /**
+     * @brief Enforce x and y coordinates of a point to be (0,0) in the case of point at infinity
+     *
+     * @details We need to have a standard witness in Noir and the point at infinity can have non-zero random
+     * coefficients when we get it as output from our optimised algorithms. This function returns a (0,0) point, if
+     * it is a point at infinity
+     */
+    goblin_element get_standard_form() const
+    {
+        const bool_ct is_infinity = is_point_at_infinity();
+        goblin_element result(*this);
+        const Fq zero = Fq::zero();
+        result.x = Fq::conditional_assign(is_infinity, zero, result.x);
+        result.y = Fq::conditional_assign(is_infinity, zero, result.y);
+        return result;
+    }
+
+    Fq x;
+    Fq y;
+
+  private:
+    bool_ct _is_infinity;
+};
+
+template <typename C, typename Fq, typename Fr, typename G>
+inline std::ostream& operator<<(std::ostream& os, goblin_element<C, Fq, Fr, G> const& v)
+{
+    return os << "{ " << v.x << " , " << v.y << " }";
 }
+} // namespace bb::stdlib::element_goblin
 
-} // namespace bb::stdlib
+#include "biggroup_goblin_impl.hpp"

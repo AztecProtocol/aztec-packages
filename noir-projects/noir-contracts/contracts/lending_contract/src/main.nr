@@ -11,13 +11,12 @@ mod helpers;
 // - A way to repay all debt at once
 // - Liquidations
 contract Lending {
-    use dep::aztec::prelude::{FunctionSelector, AztecAddress, PrivateContext, Map, PublicMutable};
-    use dep::aztec::context::{PublicContext, gas::GasOpts};
+    use dep::aztec::prelude::{AztecAddress, Map, PublicMutable};
 
     use crate::asset::Asset;
     use crate::position::Position;
     use crate::interest_math::compute_multiplier;
-    use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value, compute_identifier};
+    use crate::helpers::{covered_by_collateral, debt_updates, debt_value, compute_identifier};
     use dep::token::Token;
     use dep::price_feed::PriceFeed;
 
@@ -81,7 +80,7 @@ contract Lending {
 
             // accumulator *= multiplier, and multiplier >= 1
             asset.interest_accumulator = (asset.interest_accumulator * multiplier) / precision;
-            asset.last_updated_ts = context.timestamp();
+            asset.last_updated_ts = timestamp;
 
             asset_loc.write(asset);
         }

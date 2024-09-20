@@ -33,7 +33,8 @@ template <typename FF_> class gasImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = ((new_term.main_sel_execution_row * (FF(1) - new_term.main_sel_op_external_call)) *
+            auto tmp = ((new_term.main_sel_execution_row *
+                         ((FF(1) - new_term.main_sel_op_external_call) - new_term.main_sel_op_static_call)) *
                         (((new_term.main_l2_gas_remaining_shift - new_term.main_l2_gas_remaining) +
                           new_term.main_base_l2_gas_op_cost) +
                          (new_term.main_dyn_l2_gas_op_cost * new_term.main_dyn_gas_multiplier)));
@@ -42,7 +43,8 @@ template <typename FF_> class gasImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = ((new_term.main_sel_execution_row * (FF(1) - new_term.main_sel_op_external_call)) *
+            auto tmp = ((new_term.main_sel_execution_row *
+                         ((FF(1) - new_term.main_sel_op_external_call) - new_term.main_sel_op_static_call)) *
                         (((new_term.main_da_gas_remaining_shift - new_term.main_da_gas_remaining) +
                           new_term.main_base_da_gas_op_cost) +
                          (new_term.main_dyn_da_gas_op_cost * new_term.main_dyn_gas_multiplier)));
@@ -52,18 +54,16 @@ template <typename FF_> class gasImpl {
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = (new_term.main_sel_execution_row *
-                        ((((FF(1) - (FF(2) * new_term.main_l2_out_of_gas)) * new_term.main_l2_gas_remaining_shift) -
-                          (FF(65536) * new_term.main_abs_l2_rem_gas_hi)) -
-                         new_term.main_abs_l2_rem_gas_lo));
+                        (((FF(1) - (FF(2) * new_term.main_l2_out_of_gas)) * new_term.main_l2_gas_remaining_shift) -
+                         new_term.main_abs_l2_rem_gas));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = (new_term.main_sel_execution_row *
-                        ((((FF(1) - (FF(2) * new_term.main_da_out_of_gas)) * new_term.main_da_gas_remaining_shift) -
-                          (FF(65536) * new_term.main_abs_da_rem_gas_hi)) -
-                         new_term.main_abs_da_rem_gas_lo));
+                        (((FF(1) - (FF(2) * new_term.main_da_out_of_gas)) * new_term.main_da_gas_remaining_shift) -
+                         new_term.main_abs_da_rem_gas));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }

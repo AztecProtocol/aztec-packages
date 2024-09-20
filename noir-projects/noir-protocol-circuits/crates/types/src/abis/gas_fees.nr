@@ -1,8 +1,4 @@
-use crate::{
-    abis::function_selector::FunctionSelector, address::{EthAddress, AztecAddress},
-    constants::GAS_FEES_LENGTH, traits::{Deserialize, Hash, Serialize, Empty},
-    abis::side_effect::Ordered, utils::reader::Reader
-};
+use crate::{constants::GAS_FEES_LENGTH, traits::{Deserialize, Serialize, Empty}};
 
 struct GasFees {
     fee_per_da_gas: Field,
@@ -36,8 +32,9 @@ impl Deserialize<GAS_FEES_LENGTH> for GasFees {
 }
 
 impl Eq for GasFees {
-    fn eq(self, other : GasFees) -> bool {
-        (self.fee_per_da_gas == other.fee_per_da_gas) & (self.fee_per_l2_gas == other.fee_per_l2_gas)
+    fn eq(self, other: GasFees) -> bool {
+        (self.fee_per_da_gas == other.fee_per_da_gas)
+            & (self.fee_per_l2_gas == other.fee_per_l2_gas)
     }
 }
 

@@ -26,7 +26,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using InnerProver = UltraProver_<InnerFlavor>;
     using InnerVerifier = UltraVerifier_<InnerFlavor>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-    using InnerProverInstance = ProverInstance_<InnerFlavor>;
+    using InnerDeciderProvingKey = DeciderProvingKey_<InnerFlavor>;
     using InnerCurve = bn254<InnerBuilder>;
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
@@ -36,7 +36,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
     using OuterProver = UltraProver_<OuterFlavor>;
     using OuterVerifier = UltraVerifier_<OuterFlavor>;
-    using OuterProverInstance = ProverInstance_<OuterFlavor>;
+    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
 
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
@@ -102,17 +102,17 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         OuterBuilder outer_circuit;
 
         // Compute native verification key
-        auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
-        InnerProver prover(instance); // A prerequisite for computing VK
-        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
+        auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+        InnerProver prover(proving_key); // A prerequisite for computing VK
+        auto honk_vk = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->proving_key);
         // Instantiate the recursive verifier using the native verification key
-        RecursiveVerifier verifier{ &outer_circuit, verification_key };
+        RecursiveVerifier verifier{ &outer_circuit, honk_vk };
 
         // Spot check some values in the recursive VK to ensure it was constructed correctly
-        EXPECT_EQ(verifier.key->circuit_size, verification_key->circuit_size);
-        EXPECT_EQ(verifier.key->log_circuit_size, verification_key->log_circuit_size);
-        EXPECT_EQ(verifier.key->num_public_inputs, verification_key->num_public_inputs);
-        for (auto [vk_poly, native_vk_poly] : zip_view(verifier.key->get_all(), verification_key->get_all())) {
+        EXPECT_EQ(verifier.key->circuit_size, honk_vk->circuit_size);
+        EXPECT_EQ(verifier.key->log_circuit_size, honk_vk->log_circuit_size);
+        EXPECT_EQ(verifier.key->num_public_inputs, honk_vk->num_public_inputs);
+        for (auto [vk_poly, native_vk_poly] : zip_view(verifier.key->get_all(), honk_vk->get_all())) {
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
     }
@@ -132,10 +132,11 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             auto inner_circuit = create_inner_circuit(inner_size);
 
             // Generate a proof over the inner circuit
-            auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
-            InnerProver inner_prover(instance);
-            info("test circuit size: ", instance->proving_key.circuit_size);
-            auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
+            auto inner_proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+            InnerProver inner_prover(inner_proving_key);
+            info("test circuit size: ", inner_proving_key->proving_key.circuit_size);
+            auto verification_key =
+                std::make_shared<typename InnerFlavor::VerificationKey>(inner_proving_key->proving_key);
             auto inner_proof = inner_prover.construct_proof();
 
             // Create a recursive verification circuit for the proof of the inner circuit
@@ -145,9 +146,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 inner_proof,
                 init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit));
 
-            auto outer_instance = std::make_shared<OuterProverInstance>(outer_circuit);
+            auto outer_proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
             auto outer_verification_key =
-                std::make_shared<typename OuterFlavor::VerificationKey>(outer_instance->proving_key);
+                std::make_shared<typename OuterFlavor::VerificationKey>(outer_proving_key->proving_key);
 
             return { outer_circuit.blocks, outer_verification_key };
         };
@@ -206,9 +207,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         auto inner_circuit = create_inner_circuit();
 
         // Generate a proof over the inner circuit
-        auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
-        InnerProver inner_prover(instance);
-        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
+        auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+        InnerProver inner_prover(proving_key);
+        auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->proving_key);
         auto inner_proof = inner_prover.construct_proof();
 
         // Create a recursive verification circuit for the proof of the inner circuit
@@ -234,7 +235,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         auto pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
         bool result = pcs_verification_key->pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
         info("input pairing points result: ", result);
-        auto recursive_result = native_verifier.instance->verification_key->pcs_verification_key->pairing_check(
+        auto recursive_result = native_verifier.verification_key->verification_key->pcs_verification_key->pairing_check(
             pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(recursive_result, native_result);
 
@@ -248,9 +249,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
         // Check 3: Construct and verify a proof of the recursive verifier circuit
         if constexpr (!IsSimulator<OuterBuilder>) {
-            auto instance = std::make_shared<OuterProverInstance>(outer_circuit);
-            OuterProver prover(instance);
-            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(instance->proving_key);
+            auto proving_key = std::make_shared<OuterDeciderProvingKey>(outer_circuit);
+            OuterProver prover(proving_key);
+            auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
             OuterVerifier verifier(verification_key);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
@@ -271,8 +272,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         auto inner_circuit = create_inner_circuit();
 
         // Generate a proof over the inner circuit
-        auto instance = std::make_shared<InnerProverInstance>(inner_circuit);
-        InnerProver inner_prover(instance);
+        auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+        InnerProver inner_prover(proving_key);
         auto inner_proof = inner_prover.construct_proof();
 
         // Arbitrarily tamper with the proof to be verified
@@ -282,7 +283,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         inner_proof = inner_prover.export_proof();
 
         // Generate the corresponding inner verification key
-        auto inner_verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(instance->proving_key);
+        auto inner_verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->proving_key);
 
         // Create a recursive verification circuit for the proof of the inner circuit
         OuterBuilder outer_circuit;

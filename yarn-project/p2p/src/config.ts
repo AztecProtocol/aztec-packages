@@ -2,14 +2,17 @@ import {
   type ConfigMappingsType,
   booleanConfigHelper,
   getConfigFromMappings,
+  getDefaultConfig,
   numberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
 
+import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './service/reqresp/config.js';
+
 /**
  * P2P client configuration values.
  */
-export interface P2PConfig {
+export interface P2PConfig extends P2PReqRespConfig {
   /**
    * A flag dictating whether the P2P subsystem should be enabled.
    */
@@ -87,6 +90,66 @@ export interface P2PConfig {
 
   /** How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven) */
   keepProvenTxsInPoolFor: number;
+
+  /**
+   * The interval of the gossipsub heartbeat to perform maintenance tasks.
+   */
+  gossipsubInterval: number;
+
+  /**
+   * The D parameter for the gossipsub protocol.
+   */
+  gossipsubD: number;
+
+  /**
+   * The Dlo parameter for the gossipsub protocol.
+   */
+  gossipsubDlo: number;
+
+  /**
+   * The Dhi parameter for the gossipsub protocol.
+   */
+  gossipsubDhi: number;
+
+  /**
+   * The number of gossipsub interval message cache windows to keep.
+   */
+  gossipsubMcacheLength: number;
+
+  /**
+   * How many message cache windows to include when gossiping with other pears.
+   */
+  gossipsubMcacheGossip: number;
+
+  /**
+   * The 'age' (in # of L2 blocks) of a processed tx after which we heavily penalize a peer for re-sending it.
+   */
+  severePeerPenaltyBlockLength: number;
+
+  /**
+   * The weight of the tx topic for the gossipsub protocol.  This determines how much the score for this specific topic contributes to the overall peer score.
+   */
+  gossipsubTxTopicWeight: number;
+
+  /**
+   * This is the weight applied to the penalty for delivering invalid messages.
+   */
+  gossipsubTxInvalidMessageDeliveriesWeight: number;
+
+  /**
+   * determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1.
+   */
+  gossipsubTxInvalidMessageDeliveriesDecay: number;
+
+  /**
+   * The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.
+   */
+  peerPenaltyValues: number[];
+
+  /**
+   * The chain id of the L1 chain.
+   */
+  l1ChainId: number;
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -170,6 +233,69 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven)',
     ...numberConfigHelper(0),
   },
+  gossipsubInterval: {
+    env: 'P2P_GOSSIPSUB_INTERVAL_MS',
+    description: 'The interval of the gossipsub heartbeat to perform maintenance tasks.',
+    ...numberConfigHelper(1_000),
+  },
+  gossipsubD: {
+    env: 'P2P_GOSSIPSUB_D',
+    description: 'The D parameter for the gossipsub protocol.',
+    ...numberConfigHelper(8),
+  },
+  gossipsubDlo: {
+    env: 'P2P_GOSSIPSUB_DLO',
+    description: 'The Dlo parameter for the gossipsub protocol.',
+    ...numberConfigHelper(4),
+  },
+  gossipsubDhi: {
+    env: 'P2P_GOSSIPSUB_DHI',
+    description: 'The Dhi parameter for the gossipsub protocol.',
+    ...numberConfigHelper(12),
+  },
+  gossipsubMcacheLength: {
+    env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
+    description: 'The number of gossipsub interval message cache windows to keep.',
+    ...numberConfigHelper(5),
+  },
+  gossipsubMcacheGossip: {
+    env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',
+    description: 'How many message cache windows to include when gossiping with other pears.',
+    ...numberConfigHelper(3),
+  },
+  gossipsubTxTopicWeight: {
+    env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',
+    description: 'The weight of the tx topic for the gossipsub protocol.',
+    ...numberConfigHelper(1),
+  },
+  gossipsubTxInvalidMessageDeliveriesWeight: {
+    env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_WEIGHT',
+    description: 'The weight of the tx invalid message deliveries for the gossipsub protocol.',
+    ...numberConfigHelper(-20),
+  },
+  gossipsubTxInvalidMessageDeliveriesDecay: {
+    env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_DECAY',
+    description: 'Determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1.',
+    ...numberConfigHelper(0.5),
+  },
+  peerPenaltyValues: {
+    env: 'P2P_PEER_PENALTY_VALUES',
+    parseEnv: (val: string) => val.split(',').map(Number),
+    description:
+      'The values for the peer scoring system. Passed as a comma separated list of values in order: low, mid, high tolerance errors.',
+    defaultValue: [2, 10, 50],
+  },
+  severePeerPenaltyBlockLength: {
+    env: 'P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH',
+    description: 'The "age" (in L2 blocks) of a tx after which we heavily penalize a peer for sending it.',
+    ...numberConfigHelper(30),
+  },
+  l1ChainId: {
+    env: 'L1_CHAIN_ID',
+    description: 'The chain id of the L1 chain.',
+    ...numberConfigHelper(31337),
+  },
+  ...p2pReqRespConfigMappings,
 };
 
 /**
@@ -178,6 +304,10 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
  */
 export function getP2PConfigEnvVars(): P2PConfig {
   return getConfigFromMappings<P2PConfig>(p2pConfigMappings);
+}
+
+export function getP2PDefaultConfig(): P2PConfig {
+  return getDefaultConfig<P2PConfig>(p2pConfigMappings);
 }
 
 /**

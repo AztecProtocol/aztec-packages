@@ -55,6 +55,20 @@ export class EthCheatCodes {
   }
 
   /**
+   * Get the auto mine status of the underlying chain
+   * @returns True if automine is on, false otherwise
+   */
+  public async isAutoMining(): Promise<boolean> {
+    try {
+      const res = await this.rpcCall('anvil_getAutomine', []);
+      return res.result;
+    } catch (err) {
+      this.logger.error(`Calling "anvil_getAutomine" failed with:`, err);
+    }
+    return false;
+  }
+
+  /**
    * Get the current blocknumber
    * @returns The current block number
    */
@@ -92,6 +106,19 @@ export class EthCheatCodes {
       throw new Error(`Error mining: ${res.error.message}`);
     }
     this.logger.info(`Mined ${numberOfBlocks} blocks`);
+  }
+
+  /**
+   * Set the balance of an account
+   * @param account - The account to set the balance for
+   * @param balance - The balance to set
+   */
+  public async setBalance(account: EthAddress, balance: bigint): Promise<void> {
+    const res = await this.rpcCall('anvil_setBalance', [account.toString(), toHex(balance)]);
+    if (res.error) {
+      throw new Error(`Error setting balance for ${account}: ${res.error.message}`);
+    }
+    this.logger.info(`Set balance for ${account} to ${balance}`);
   }
 
   /**

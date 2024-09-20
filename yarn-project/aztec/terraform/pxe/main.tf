@@ -70,9 +70,7 @@ resource "aws_service_discovery_service" "aztec-pxe" {
 }
 
 resource "aws_efs_file_system" "pxe_data_store" {
-  creation_token                  = "${var.DEPLOY_TAG}-pxe-data"
-  throughput_mode                 = "provisioned"
-  provisioned_throughput_in_mibps = 20
+  creation_token = "${var.DEPLOY_TAG}-pxe-data"
 
   tags = {
     Name = "${var.DEPLOY_TAG}-pxe-data"

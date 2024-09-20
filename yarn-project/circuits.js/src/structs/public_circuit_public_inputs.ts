@@ -38,6 +38,7 @@ import { Nullifier } from './nullifier.js';
 import { PublicCallRequest } from './public_call_request.js';
 import { ReadRequest } from './read_request.js';
 import { RevertCode } from './revert_code.js';
+import { TreeLeafReadRequest } from './tree_leaf_read_request.js';
 
 /**
  * Public inputs to a public circuit.
@@ -59,7 +60,7 @@ export class PublicCircuitPublicInputs {
     /**
      * Note Hash tree read requests executed during the call.
      */
-    public noteHashReadRequests: Tuple<ReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    public noteHashReadRequests: Tuple<TreeLeafReadRequest, typeof MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     /**
      * Nullifier read requests executed during the call.
      */
@@ -74,7 +75,7 @@ export class PublicCircuitPublicInputs {
     /**
      * L1 to L2 Message Read Requests per call.
      */
-    public l1ToL2MsgReadRequests: Tuple<ReadRequest, typeof MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL>,
+    public l1ToL2MsgReadRequests: Tuple<TreeLeafReadRequest, typeof MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL>,
     /**
      * Contract storage update requests executed during the call.
      */
@@ -160,10 +161,10 @@ export class PublicCircuitPublicInputs {
       CallContext.empty(),
       Fr.ZERO,
       Fr.ZERO,
-      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest.empty),
+      makeTuple(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, TreeLeafReadRequest.empty),
       makeTuple(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest.empty),
       makeTuple(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest.empty),
-      makeTuple(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, ReadRequest.empty),
+      makeTuple(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, TreeLeafReadRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest.empty),
@@ -272,10 +273,10 @@ export class PublicCircuitPublicInputs {
       reader.readObject(CallContext),
       reader.readObject(Fr),
       reader.readObject(Fr),
-      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
+      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, TreeLeafReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, ReadRequest),
+      reader.readArray(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, TreeLeafReadRequest),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest),
@@ -302,10 +303,10 @@ export class PublicCircuitPublicInputs {
       CallContext.fromFields(reader),
       reader.readField(),
       reader.readField(),
-      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, ReadRequest),
+      reader.readArray(MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, TreeLeafReadRequest),
       reader.readArray(MAX_NULLIFIER_READ_REQUESTS_PER_CALL, ReadRequest),
       reader.readArray(MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL, ReadRequest),
-      reader.readArray(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, ReadRequest),
+      reader.readArray(MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL, TreeLeafReadRequest),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, PublicCallRequest),

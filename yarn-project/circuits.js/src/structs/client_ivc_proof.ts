@@ -35,7 +35,7 @@ export class ClientIvcProof {
    */
   static async readFromOutputDirectory(directory: string) {
     const [instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer] = await Promise.all(
-      ['inst_vk', 'pg_acc', 'client_ivc_proof', 'translator_vk', 'ecc_vk'].map(fileName =>
+      ['final_decider_vk', 'pg_acc', 'client_ivc_proof', 'translator_vk', 'ecc_vk'].map(fileName =>
         fs.readFile(path.join(directory, fileName)),
       ),
     );
@@ -58,7 +58,7 @@ export class ClientIvcProof {
   async writeToOutputDirectory(directory: string) {
     const { instVkBuffer, pgAccBuffer, clientIvcProofBuffer, translatorVkBuffer, eccVkBuffer } = this;
     const fileData = [
-      ['inst_vk', instVkBuffer],
+      ['final_decider_vk', instVkBuffer],
       ['pg_acc', pgAccBuffer],
       ['client_ivc_proof', clientIvcProofBuffer],
       ['translator_vk', translatorVkBuffer],

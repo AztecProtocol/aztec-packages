@@ -11,13 +11,12 @@ use dep::types::{
     merkle_tree::VariableMerkleTree,
     constants::{
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
 },
-    utils::{uint256::U256, arrays::{array_length, array_merge}},
+    utils::{arrays::{array_length, array_merge}},
     abis::{
-    append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData,
-    public_data_update_request::PublicDataUpdateRequest, log_hash::{LogHash, ScopedLogHash}
+    accumulated_data::CombinedAccumulatedData, public_data_update_request::PublicDataUpdateRequest,
+    log_hash::{LogHash, ScopedLogHash}
 }
 };
 
@@ -25,7 +24,10 @@ use dep::types::{
  * Asserts that the tree formed by rollup circuits is filled greedily from L to R
  *
  */
-pub fn assert_txs_filled_from_left(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) {
+pub fn assert_txs_filled_from_left(
+    left: BaseOrMergeRollupPublicInputs,
+    right: BaseOrMergeRollupPublicInputs
+) {
     // assert that the left rollup is either a base (1 tx) or a balanced tree (num txs = power of 2)
     if (left.rollup_type == 1) {
         let left_txs = left.num_txs;
@@ -48,7 +50,10 @@ pub fn assert_txs_filled_from_left(left: BaseOrMergeRollupPublicInputs, right: B
  * Asserts that the constants used in the left and right child are identical
  *
  */
-pub fn assert_equal_constants(left: BaseOrMergeRollupPublicInputs, right: BaseOrMergeRollupPublicInputs) {
+pub fn assert_equal_constants(
+    left: BaseOrMergeRollupPublicInputs,
+    right: BaseOrMergeRollupPublicInputs
+) {
     assert(left.constants.eq(right.constants), "input proofs have different constants");
 }
 
@@ -288,7 +293,7 @@ pub fn compute_tx_effects_hash(
 
     let mut hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
     for offset in 0..TX_EFFECTS_HASH_INPUT_FIELDS {
-        let input_as_bytes = tx_effects_hash_input[offset].to_be_bytes(32);
+        let input_as_bytes: [u8; 32] = tx_effects_hash_input[offset].to_be_bytes();
         for byte_index in 0..32 {
             hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
         }

@@ -48,7 +48,7 @@ export class Body {
 
   /**
    * Computes the transactions effects hash for the L2 block
-   * This hash is also computed in the `AvailabilityOracle`.
+   * This hash is also computed in the `TxDecoder`.
    * @returns The txs effects hash.
    */
   getTxsEffectsHash() {

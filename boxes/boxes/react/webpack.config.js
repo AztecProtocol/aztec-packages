@@ -37,6 +37,7 @@ export default (_, argv) => ({
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],
     fallback: {
+      assert: require.resolve('assert/'),
       crypto: false,
       os: false,
       fs: false,
