@@ -1165,6 +1165,14 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
     }
 }
 
+/**
+ * @brief Write a toml file containing recursive verifier inputs for a given program + witness
+ *
+ * @tparam Flavor
+ * @param bytecodePath Path to the file containing the serialized circuit
+ * @param witnessPath Path to the file containing the serialized witness
+ * @param outputPath Path to write toml file
+ */
 template <IsUltraFlavor Flavor>
 void write_recursion_inputs_honk(const std::string& bytecodePath,
                                  const std::string& witnessPath,
@@ -1192,43 +1200,6 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     // Write the toml file containing recursion inputs
     std::string toml_path = outputPath + "/Prover.toml";
     acir_format::ProofSurgeon::write_recursion_inputs_prover_toml(proof, verification_key, toml_path);
-}
-
-template <IsUltraFlavor Flavor>
-void write_recursion_inputs_oink(const std::string& bytecodePath,
-                                 const std::string& witnessPath,
-                                 const std::string& outputPath)
-{
-    using Prover = UltraProver_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-    using FF = Flavor::FF;
-
-    // Construct a verification key from a partial form of the proving key which only has precomputed entities
-    Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
-    VerificationKey vk(prover.proving_key->proving_key);
-
-    std::vector<FF> proof{ CONST_OINK_PROOF_SIZE };
-    std::vector<FF> public_inputs = prover.proving_key->proving_key.public_inputs;
-    std::vector<FF> verification_key = vk->to_field_elements();
-
-    std::string proof_path = outputPath + "/proof";
-    std::string pub_inputs_path = outputPath + "/public_inputs";
-    std::string vk_path = outputPath + "/vk";
-
-    // Write the proof as fields
-    std::string proof_json = to_json(proof);
-    write_file(proof_path, { proof_json.begin(), proof_json.end() });
-    vinfo("Proof as fields written to: ", proof_path);
-
-    // Write the public inputs as fields
-    std::string pub_inputs_json = to_json(public_inputs);
-    write_file(pub_inputs_path, { pub_inputs_json.begin(), pub_inputs_json.end() });
-    vinfo("Public inputs as fields written to: ", pub_inputs_path);
-
-    // Write the vk as fields
-    auto vk_json = honk_vk_to_json(verification_key);
-    write_file(vk_path, { vk_json.begin(), vk_json.end() });
-    vinfo("VK as fields written to: ", vk_path);
 }
 
 /**
