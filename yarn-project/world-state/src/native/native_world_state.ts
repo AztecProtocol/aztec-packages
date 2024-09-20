@@ -64,6 +64,7 @@ export interface NativeInstance {
 
 export class NativeWorldStateService implements MerkleTreeDb {
   private nextMessageId = 1;
+  private initialHeader: Header | undefined;
 
   private encoder = new Encoder({
     // always encode JS objects as MessagePack maps
@@ -97,11 +98,10 @@ export class NativeWorldStateService implements MerkleTreeDb {
 
   protected async init() {
     const archive = await this.getTreeInfo(MerkleTreeId.ARCHIVE, false);
+    this.initialHeader = await this.buildInitialHeader();
     if (archive.size === 0n) {
-      // TODO (alexg) move this to the native module
-      // const header = await this.buildInitialHeader(true);
-      // await this.appendLeaves(MerkleTreeId.ARCHIVE, [header.hash()]);
-      // await this.commit();
+      await this.appendLeaves(MerkleTreeId.ARCHIVE, [this.initialHeader.hash()]);
+      await this.commit();
     }
   }
 
@@ -109,20 +109,13 @@ export class NativeWorldStateService implements MerkleTreeDb {
     return new MerkleTreeAdminOperationsFacade(this, true);
   }
 
-  // async buildInitialHeader(ic: boolean = false): Promise<Header> {
-  //   const state = await this.getStateReference(ic);
-  //   return new Header(
-  //     AppendOnlyTreeSnapshot.zero(),
-  //     ContentCommitment.empty(),
-  //     state,
-  //     GlobalVariables.empty(),
-  //     Fr.ZERO,
-  //   );
-  // }
+  async buildInitialHeader(): Promise<Header> {
+    const state = await this.getInitialStateReference();
+    return Header.empty({ state });
+  }
 
   public getInitialHeader(): Header {
-    // TODO (alexg) implement this
-    return Header.empty();
+    return this.initialHeader!;
   }
 
   async appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
@@ -265,6 +258,19 @@ export class NativeWorldStateService implements MerkleTreeDb {
     const resp = await this.call(WorldStateMessageType.GET_STATE_REFERENCE, {
       revision: worldStateRevision(includeUncommitted),
     });
+
+    return new StateReference(
+      treeStateReferenceToSnapshot(resp.state[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]),
+      new PartialStateReference(
+        treeStateReferenceToSnapshot(resp.state[MerkleTreeId.NOTE_HASH_TREE]),
+        treeStateReferenceToSnapshot(resp.state[MerkleTreeId.NULLIFIER_TREE]),
+        treeStateReferenceToSnapshot(resp.state[MerkleTreeId.PUBLIC_DATA_TREE]),
+      ),
+    );
+  }
+
+  async getInitialStateReference(): Promise<StateReference> {
+    const resp = await this.call(WorldStateMessageType.GET_INITIAL_STATE_REFERENCE, void 0);
 
     return new StateReference(
       treeStateReferenceToSnapshot(resp.state[MerkleTreeId.L1_TO_L2_MESSAGE_TREE]),

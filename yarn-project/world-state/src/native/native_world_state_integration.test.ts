@@ -60,12 +60,10 @@ describe('NativeWorldState', () => {
 
   describe('Initial state', () => {
     it.each(
-      allTrees
-        .filter(x => x[1] != MerkleTreeId.ARCHIVE)
-        .flatMap(t => [
-          [...t, false],
-          [...t, true],
-        ]),
+      allTrees.flatMap(t => [
+        [...t, false],
+        [...t, true],
+      ]),
     )('tree %s is the same', async (_, treeId, includeUncommitted) => {
       await assertSameTree(treeId, includeUncommitted);
     });
@@ -119,31 +117,35 @@ describe('NativeWorldState', () => {
       [
         MerkleTreeId[MerkleTreeId.NULLIFIER_TREE],
         MerkleTreeId.NULLIFIER_TREE,
-        Array(64)
+        Array(1024)
           .fill(0)
           .map(() => new NullifierLeaf(Fr.random()).toBuffer()),
       ],
       [
         MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE],
         MerkleTreeId.PUBLIC_DATA_TREE,
-        Array(64)
+        Array(1024)
           .fill(0)
           .map(() => new PublicDataTreeLeaf(Fr.random(), Fr.random()).toBuffer()),
       ],
-    ])('inserting real leaves into %s', async (_, treeId, leaves) => {
-      const height = Math.ceil(Math.log2(leaves.length) | 0);
-      const [native, js] = await Promise.all([
-        nativeWS.batchInsert(treeId, leaves, height),
-        legacyWS.batchInsert(treeId, leaves, height),
-      ]);
+    ])(
+      'inserting real leaves into %s',
+      async (_, treeId, leaves) => {
+        const height = Math.ceil(Math.log2(leaves.length) | 0);
+        const [native, js] = await Promise.all([
+          nativeWS.batchInsert(treeId, leaves, height),
+          legacyWS.batchInsert(treeId, leaves, height),
+        ]);
 
-      expect(native.sortedNewLeaves.map(Fr.fromBuffer)).toEqual(js.sortedNewLeaves.map(Fr.fromBuffer));
-      expect(native.sortedNewLeavesIndexes).toEqual(js.sortedNewLeavesIndexes);
-      expect(native.newSubtreeSiblingPath.toFields()).toEqual(js.newSubtreeSiblingPath.toFields());
-      expect(native.lowLeavesWitnessData).toEqual(js.lowLeavesWitnessData);
+        expect(native.sortedNewLeaves.map(Fr.fromBuffer)).toEqual(js.sortedNewLeaves.map(Fr.fromBuffer));
+        expect(native.sortedNewLeavesIndexes).toEqual(js.sortedNewLeavesIndexes);
+        expect(native.newSubtreeSiblingPath.toFields()).toEqual(js.newSubtreeSiblingPath.toFields());
+        expect(native.lowLeavesWitnessData).toEqual(js.lowLeavesWitnessData);
 
-      await assertSameTree(treeId, true);
-    });
+        await assertSameTree(treeId, true);
+      },
+      60_000,
+    );
 
     it.each<[string, FrTreeId, Fr[]]>([
       [MerkleTreeId[MerkleTreeId.NOTE_HASH_TREE], MerkleTreeId.NOTE_HASH_TREE, Array(64).fill(0).map(Fr.random)],
@@ -208,10 +210,15 @@ describe('NativeWorldState', () => {
       const [_nativeMs] = await elapsed(nativeWS.handleL2BlockAndMessages(block, messages));
       const [_legacyMs] = await elapsed(legacyWS.handleL2BlockAndMessages(block, messages));
 
-      // console.log(`Native: ${nativeMs} ms, Legacy: ${legacyMs} ms. Generating mock block took ${blockMS} ms`);
+      //console.log(`Native: ${_nativeMs} ms, Legacy: ${_legacyMs} ms. Generating mock block took ${_blockMS} ms`);
+
+      await assertSameTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, true);
+      await assertSameTree(MerkleTreeId.NOTE_HASH_TREE, true);
+      await assertSameTree(MerkleTreeId.PUBLIC_DATA_TREE, true);
+      await assertSameTree(MerkleTreeId.NULLIFIER_TREE, true);
 
       await assertSameState(false);
-    }, 15_000);
+    }, 150_000);
   });
 
   async function assertSameTree(treeId: MerkleTreeId, includeUncommitted = false) {

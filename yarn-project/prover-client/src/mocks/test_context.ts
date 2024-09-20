@@ -76,7 +76,7 @@ export class TestContext {
     const publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
     const telemetry = new NoopTelemetryClient();
 
-    let actualDb: MerkleTreeOperations;
+    let actualDb: MerkleTreeAdminOperations;
 
     if (worldState === 'native') {
       const dir = await fs.mkdtemp(join(tmpdir(), 'prover-client-world-state-'));

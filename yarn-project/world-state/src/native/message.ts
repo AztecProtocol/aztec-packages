@@ -49,6 +49,7 @@ export class TypedMessage<T, B> {
 export enum WorldStateMessageType {
   GET_TREE_INFO = 100,
   GET_STATE_REFERENCE,
+  GET_INITIAL_STATE_REFERENCE,
 
   GET_LEAF_VALUE,
   GET_LEAF_PREIMAGE,
@@ -170,6 +171,7 @@ interface SyncBlockResponse {
 export type WorldStateRequest = {
   [WorldStateMessageType.GET_TREE_INFO]: GetTreeInfoRequest;
   [WorldStateMessageType.GET_STATE_REFERENCE]: GetStateReferenceRequest;
+  [WorldStateMessageType.GET_INITIAL_STATE_REFERENCE]: void;
 
   [WorldStateMessageType.GET_LEAF_VALUE]: GetLeafRequest;
   [WorldStateMessageType.GET_LEAF_PREIMAGE]: GetLeafPreImageRequest;
@@ -192,6 +194,7 @@ export type WorldStateRequest = {
 export type WorldStateResponse = {
   [WorldStateMessageType.GET_TREE_INFO]: GetTreeInfoResponse;
   [WorldStateMessageType.GET_STATE_REFERENCE]: GetStateReferenceResponse;
+  [WorldStateMessageType.GET_INITIAL_STATE_REFERENCE]: GetStateReferenceResponse;
 
   [WorldStateMessageType.GET_LEAF_VALUE]: GetLeafResponse;
   [WorldStateMessageType.GET_LEAF_PREIMAGE]: GetLeafPreImageResponse;
