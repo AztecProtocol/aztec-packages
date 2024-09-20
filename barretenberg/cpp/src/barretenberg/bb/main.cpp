@@ -2,6 +2,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
@@ -131,6 +132,7 @@ std::string vk_to_json(std::vector<bb::fr> const& data)
     return format("[", join(map(rotated, [](auto fr) { return format("\"", fr, "\""); })), "]");
 }
 
+// WORKTODO: delete?
 std::string honk_vk_to_json(std::vector<bb::fr>& data)
 {
     return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
@@ -1163,6 +1165,95 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
     }
 }
 
+template <IsUltraFlavor Flavor>
+void write_recursion_inputs_honk(const std::string& bytecodePath,
+                                 const std::string& witnessPath,
+                                 const std::string& outputPath)
+{
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+    using FF = Flavor::FF;
+
+    vinfo("heeeere");
+
+    bool honk_recursion = true;
+    auto constraints = get_constraint_system(bytecodePath, honk_recursion);
+    auto witness = get_witness(witnessPath);
+    auto builder = acir_format::create_circuit<Builder>(constraints, 0, witness, honk_recursion);
+
+    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
+    init_bn254_crs(srs_size);
+
+    // Construct Honk proof
+    Prover prover{ builder };
+    std::vector<FF> proof = prover.construct_proof();
+
+    // Construct verification key
+    VerificationKey vk(prover.proving_key->proving_key);
+    std::vector<FF> verification_key = vk.to_field_elements();
+
+    // Get public inputs by cutting them out of the proof
+    std::vector<FF> pub_inputs = acir_format::ProofSurgeon::cut_public_inputs_from_proof(proof, vk.num_public_inputs);
+
+    std::string proof_path = outputPath + "/proof";
+    std::string pub_inputs_path = outputPath + "/public_inputs";
+    std::string vk_path = outputPath + "/vk";
+
+    // Write the proof as fields
+    std::string proof_json = to_json(proof);
+    write_file(proof_path, { proof_json.begin(), proof_json.end() });
+    vinfo("Proof as fields written to: ", proof_path);
+
+    // Write the public inputs as fields
+    std::string pub_inputs_json = to_json(pub_inputs);
+    write_file(pub_inputs_path, { pub_inputs_json.begin(), pub_inputs_json.end() });
+    vinfo("Public inputs as fields written to: ", pub_inputs_path);
+
+    // Write the vk as fields
+    auto vk_json = to_json(verification_key);
+    write_file(vk_path, { vk_json.begin(), vk_json.end() });
+    vinfo("VK as fields written to: ", vk_path);
+}
+
+template <IsUltraFlavor Flavor>
+void write_recursion_inputs_oink(const std::string& bytecodePath,
+                                 const std::string& witnessPath,
+                                 const std::string& outputPath)
+{
+    using Prover = UltraProver_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+    using FF = Flavor::FF;
+
+    // Construct a verification key from a partial form of the proving key which only has precomputed entities
+    Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
+    VerificationKey vk(prover.proving_key->proving_key);
+
+    std::vector<FF> proof{ CONST_OINK_PROOF_SIZE };
+    std::vector<FF> public_inputs = prover.proving_key->proving_key.public_inputs;
+    std::vector<FF> verification_key = vk->to_field_elements();
+
+    std::string proof_path = outputPath + "/proof";
+    std::string pub_inputs_path = outputPath + "/public_inputs";
+    std::string vk_path = outputPath + "/vk";
+
+    // Write the proof as fields
+    std::string proof_json = to_json(proof);
+    write_file(proof_path, { proof_json.begin(), proof_json.end() });
+    vinfo("Proof as fields written to: ", proof_path);
+
+    // Write the public inputs as fields
+    std::string pub_inputs_json = to_json(public_inputs);
+    write_file(pub_inputs_path, { pub_inputs_json.begin(), pub_inputs_json.end() });
+    vinfo("Public inputs as fields written to: ", pub_inputs_path);
+
+    // Write the vk as fields
+    auto vk_json = honk_vk_to_json(verification_key);
+    write_file(vk_path, { vk_json.begin(), vk_json.end() });
+    vinfo("VK as fields written to: ", vk_path);
+}
+
 /**
  * @brief Outputs proof as vector of field elements in readable format.
  *
@@ -1460,6 +1551,10 @@ int main(int argc, char* argv[])
         } else if (command == "vk_as_fields") {
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields(vk_path, output_path);
+        } else if (command == "write_recursion_inputs_honk") {
+            std::string output_path = get_option(args, "-o", "./wooHooo");
+            vinfo("HERE: output_path = ", output_path);
+            write_recursion_inputs_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
 #ifndef DISABLE_AZTEC_VM
         } else if (command == "avm_prove") {
             std::filesystem::path avm_bytecode_path = get_option(args, "--avm-bytecode", "./target/avm_bytecode.bin");

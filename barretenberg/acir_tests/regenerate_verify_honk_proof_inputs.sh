@@ -43,6 +43,13 @@ $BIN proof_as_fields_honk $VFLAG -c $CRS_PATH -p "./proofs/honk_$PROOF_NAME" -o 
 
 # cd back to barretenberg/acir_tests
 cd ../..
-python3 update_verify_honk_proof_inputs.py
+# define input and output file paths
+proof_file_path="acir_tests/assert_statement_recursive/proofs/honk_proof_a_fields.json"
+vk_file_path="acir_tests/assert_statement_recursive/target/honk_vk_fields.json"
+output_toml_path="../../noir/verify_honk_proof/Prover.toml"
+output_toml_path_2="../../noir/noir-repo/test_programs/execution_success/verify_honk_proof/Prover.toml"
+
+# run Python script to produce Prover toml
+python3 update_verify_honk_proof_inputs.py "$proof_file_path" "$vk_file_path" "$output_toml_path" "$output_toml_path_2"
 
 ./reset_acir_tests.sh --programs verify_honk_proof
