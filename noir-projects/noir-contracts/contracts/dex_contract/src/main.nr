@@ -106,6 +106,9 @@ contract DEX {
         //          4.4 finalize the partial note amount with `burned_amount - actual_amount` and emit the note.
         //
         // Note 1: This is essentially a 1 person alternative to the fee refund flow where we have a user and an FPC.
+        // Cost of this flow:
+        //      num calls: 2 private calls to setup the partial notes, 1 public call to add_liquidity, 2 public calls to finalize_transfer_to_public_with_refund
+        //      DA: up to 2 change notes when burning amount{0,1}, nullifiers to burn users notes, up to 2 refund notes, 1 public data write to mint pub balance to pool
 
         // Calculate the amount of liquidity tokens to mint
         let liquidity_token = Token::at(settings.liquidity_token);
