@@ -7,7 +7,9 @@ import { getRandomPort } from '@aztec/foundation/testing';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { type DataStoreConfig, openTmpStore } from '@aztec/kv-store/utils';
 
+import { SignableENR } from '@chainsafe/enr';
 import { describe, expect, it, jest } from '@jest/globals';
+import { multiaddr } from '@multiformats/multiaddr';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { type AttestationPool } from '../../attestation_pool/attestation_pool.js';
@@ -15,13 +17,11 @@ import { createP2PClient } from '../../client/index.js';
 import { MockBlockSource } from '../../client/mocks.js';
 import { type P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
-import { type TxPool } from '../../tx_pool/index.js';
-import { createLibP2PPeerId } from '../index.js';
-import { SignableENR } from '@chainsafe/enr';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
-import { AZTEC_ENR_KEY, AZTEC_NET } from '../discV5_service.js';
-import { multiaddr } from '@multiformats/multiaddr';
+import { type TxPool } from '../../tx_pool/index.js';
 import { convertToMultiaddr } from '../../util.js';
+import { AZTEC_ENR_KEY, AZTEC_NET } from '../discV5_service.js';
+import { createLibP2PPeerId } from '../index.js';
 import { PeerErrorSeverity } from '../peer_scoring.js';
 
 /**
@@ -55,7 +55,7 @@ describe('Req Resp p2p client integration', () => {
   const logger = createDebugLogger('p2p-client-integration-test');
 
   const getPorts = async (numberOfPeers: number) => {
-    let ports = [];
+    const ports = [];
     for (let i = 0; i < numberOfPeers; i++) {
       const port = (await getRandomPort()) || bootNodePort + i + 1;
       ports.push(port);
@@ -69,19 +69,21 @@ describe('Req Resp p2p client integration', () => {
 
     const ports = await getPorts(numberOfPeers);
 
-    const peerEnrs = await Promise.all(peerIdPrivateKeys.map(async (pk, i) => {
-      const peerId = await createLibP2PPeerId(pk);
-      const enr = SignableENR.createFromPeerId(peerId);
+    const peerEnrs = await Promise.all(
+      peerIdPrivateKeys.map(async (pk, i) => {
+        const peerId = await createLibP2PPeerId(pk);
+        const enr = SignableENR.createFromPeerId(peerId);
 
-      const udpAnnounceAddress = `127.0.0.1:${ports[i]}`;
-      const publicAddr = multiaddr(convertToMultiaddr(udpAnnounceAddress, 'udp'));
+        const udpAnnounceAddress = `127.0.0.1:${ports[i]}`;
+        const publicAddr = multiaddr(convertToMultiaddr(udpAnnounceAddress, 'udp'));
 
-      // ENRS must include the network and a discoverable address (udp for discv5)
-      enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
-      enr.setLocationMultiaddr(publicAddr);
+        // ENRS must include the network and a discoverable address (udp for discv5)
+        enr.set(AZTEC_ENR_KEY, Uint8Array.from([AZTEC_NET]));
+        enr.setLocationMultiaddr(publicAddr);
 
-      return enr.encodeTxt();
-    }));
+        return enr.encodeTxt();
+      }),
+    );
 
     for (let i = 0; i < numberOfPeers; i++) {
       // Note these bindings are important
@@ -220,7 +222,7 @@ describe('Req Resp p2p client integration', () => {
     'Will penalize peers that send invalid proofs',
     async () => {
       // We want to create a set of nodes and request transaction from them
-      const clients = await createClients(NUMBER_OF_PEERS, /*valid proofs*/false);
+      const clients = await createClients(NUMBER_OF_PEERS, /*valid proofs*/ false);
       const [client1, client2] = clients;
       const client2PeerId = (await client2.getEnr()?.peerId())!;
 
@@ -252,7 +254,7 @@ describe('Req Resp p2p client integration', () => {
     'Will penalize peers that send the wrong transaction',
     async () => {
       // We want to create a set of nodes and request transaction from them
-      const clients = await createClients(NUMBER_OF_PEERS, /*Valid proofs*/true);
+      const clients = await createClients(NUMBER_OF_PEERS, /*Valid proofs*/ true);
       const [client1, client2] = clients;
       const client2PeerId = (await client2.getEnr()?.peerId())!;
 

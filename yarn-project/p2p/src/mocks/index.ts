@@ -1,3 +1,5 @@
+import { type ClientProtocolCircuitVerifier, type Tx } from '@aztec/circuit-types';
+
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
@@ -16,7 +18,6 @@ import {
   noopValidator,
 } from '../service/reqresp/interface.js';
 import { ReqResp } from '../service/reqresp/reqresp.js';
-import { ClientProtocolCircuitVerifier, Tx } from '@aztec/circuit-types';
 
 /**
  * Creates a libp2p node, pre configured.
