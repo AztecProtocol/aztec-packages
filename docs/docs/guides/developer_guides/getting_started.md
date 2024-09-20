@@ -6,7 +6,7 @@ tags: [sandbox]
 
 This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI.
 
-The Sandbox is an Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet. 
+The Sandbox is an Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet.
 
 ## Prerequisites
 
@@ -17,11 +17,11 @@ You need two global dependencies iyour machine:
 
 ## Install and run the sandbox
 
-**Start Docker**
+### Start Docker
 
 Docker needs to be running in order to install the sandbox. Find instructions on the [Docker website](https://docs.docker.com/get-started/).
 
-**Install the sandbox**
+### Install the sandbox
 
 Run:
 
@@ -34,8 +34,9 @@ This will install the following tools:
 - **aztec** - launches various infrastructure subsystems (full sandbox, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
 - **aztec-nargo** - aztec's build of nargo, the noir compiler toolchain.
 - **aztec-up** - a tool to upgrade the aztec toolchain to the latest, or specific versions.
+- **aztec-wallet** - a tool for interacting with the aztec network
 
-**Start the sandbox**
+### Start the sandbox
 
 Once these have been installed, to start the sandbox, run:
 
@@ -96,21 +97,22 @@ Deploy tx fee:   200013616
 Account stored in database with aliases last & my-wallet
 ```
 
-You can double check by running `aztec-wallet get-accounts`.
+You can double check by running `aztec-wallet get-alias accounts:my-wallet`.
 
 With this new account, let's get some local test tokens!
 
 ## Deploying a contract
 
-The sandbox comes with some contracts that you can deploy and play with. One of these is an example token contract. 
+The sandbox comes with some contracts that you can deploy and play with. One of these is an example token contract.
 
 Deploy it with this:
 
 ```bash
-aztec-wallet deploy TokenContractArtifact --from accounts:my-wallet --args accounts:my-wallet TestToken TST 18 -a contracts:testtoken
+aztec-wallet deploy TokenContractArtifact --from accounts:my-wallet --args accounts:my-wallet TestToken TST 18 -a testtoken
 ```
 
-This takes 
+This takes
+
 - the contract artifact as the argument, which is `TokenContractArtifact`
 - the deployer account, which we aliased as `my-wallet`
 - the args that the contract constructor takes, which is the `admin` (`accounts:my-wallet`), `name` (`TestToken`), `symbol` (`TST`), and `decimals` (`18`).
@@ -136,10 +138,11 @@ In the next step, let's mint some tokens!
 Call the public mint function like this:
 
 ```bash
-aztec-wallet send mint_public --from accounts:my-wallet --contract-address contracts:testtoken --args accounts:my-wallet 100
+aztec-wallet send mint_public --from accounts:my-wallet --contract-address testtoken --args accounts:my-wallet 100
 ```
 
-This takes 
+This takes
+
 - the function name as the argument, whcih is `mint_public`
 - the `from` account (caller) which is `accounts:my-wallet`
 - the contract address, which is alised as `contracts:testtoken`
@@ -187,11 +190,13 @@ aztec-wallet create-secret -a shield
 ```
 
 Call the `shield` function like this:
+
 ```bash
-aztec-wallet send shield --from accounts:my-wallet --contract-address contracts:testtoken --args accounts:my-wallet 25 secrets:shield:hash 0
+aztec-wallet send shield --from accounts:my-wallet --contract-address testtoken --args accounts:my-wallet 25 secrets:shield:hash 0
 ```
 
 This takes the same parameters as our previous `send` call, plus the arguments which are
+
 - the account that is shielding the tokens (`$ACCOUNT_ADDRESS`)
 - the number of tokens to shield (`25`)
 - a `secret_hash` (`SECRET_HASH` which has been derived from a secret that you generated in the CLI)
@@ -218,13 +223,14 @@ aztec-wallet add-note TransparentNote pending_shields --contract-address testtok
 ```
 
 This takes
+
 - the type of note you are claiming (`TransparentNote`)
 - the name of the storage (`pending_shields`)
 - the contract address
 - the transaction hash the note was created in (automatically aliased as `last`)
 - the address to claim the note into (`accounts:my-wallet`)
 
-Don't worry if you don't understand what `TransparentNote` or `add-note` mean just yet. When you follow the tutorials, you'll learn more. 
+Don't worry if you don't understand what `TransparentNote` or `add-note` mean just yet. When you follow the tutorials, you'll learn more.
 
 A successful result will not print anything.
 
@@ -240,7 +246,7 @@ And then call `balance_of_private` to check that you have your tokens!
 aztec-wallet simulate balance_of_private --from my-wallet --contract-address testtoken --args accounts:my-wallet
 ```
 
-This should print 
+This should print
 
 ```bash
 Simulation result:  25n

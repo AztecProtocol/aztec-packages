@@ -7,7 +7,7 @@ tags: [portals, protocol, ethereum]
 importance: 1
 ---
 
-# L1 <--> L2 communication (Portals)
+# L1-L2 Communication (Portals)
 
 import Image from "@theme/IdealImage";
 
@@ -24,7 +24,7 @@ This page covers:
 - Message Boxes and how they work
 - How and why linking of contracts between L1 and L2 occurs
 
-# Objective
+## Objective
 
 The goal is to set up a minimal-complexity mechanism, that will allow a base-layer (L1) and the Aztec Network (L2) to communicate arbitrary messages such that:
 
@@ -32,7 +32,7 @@ The goal is to set up a minimal-complexity mechanism, that will allow a base-lay
 - L1 functions can `call` L2 functions.
 - The rollup-block size have a limited impact by the messages and their size.
 
-# High Level Overview
+## High Level Overview
 
 This document will contain communication abstractions that we use to support interaction between _private_ functions, _public_ functions and Layer 1 portal contracts.
 
