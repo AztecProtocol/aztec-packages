@@ -110,6 +110,7 @@ template <class Builder> class DataBusDepot {
             ASSERT(is_kernel_data); // Only kernels should contain databus commitments in their public inputs
             size_t start_idx = propagation_data.app_return_data_public_input_idx;
             Commitment app_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
+            info("assert_equality_of_commitments 1!");
             // App return data should correspond to the secondary calldata of the subsequent kernel
             assert_equality_of_commitments(app_return_data, commitments.secondary_calldata);
         }
@@ -119,6 +120,7 @@ template <class Builder> class DataBusDepot {
             size_t start_idx = propagation_data.kernel_return_data_public_input_idx;
             Commitment kernel_return_data = reconstruct_commitment_from_public_inputs(public_inputs, start_idx);
             // Previous kernel return data should correspond to the calldata of the subsequent kernel
+            info("assert_equality_of_commitments 2!");
             assert_equality_of_commitments(kernel_return_data, commitments.calldata);
         }
 

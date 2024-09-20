@@ -284,6 +284,7 @@ global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
 global RECURSIVE_PROOF_LENGTH: u32 = 439;
+global RECURSIVE_OINK_PROOF_LENGTH: u32 = 115;
 global NESTED_RECURSIVE_PROOF_LENGTH: u32 = 439;
 global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 

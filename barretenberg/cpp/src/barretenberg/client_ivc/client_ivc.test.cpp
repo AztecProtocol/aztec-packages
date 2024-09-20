@@ -125,6 +125,12 @@ TEST_F(ClientIVCTests, Basic)
     Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
     ivc.accumulate(circuit_0);
 
+    info(ivc.fold_output.accumulator->proving_key.num_public_inputs);
+    info(ivc.fold_output.accumulator->proving_key.contains_recursive_proof);
+    info(ivc.fold_output.accumulator->proving_key.databus_propagation_data.contains_app_return_data_commitment);
+    info(ivc.fold_output.accumulator->proving_key.databus_propagation_data.contains_kernel_return_data_commitment);
+    info(ivc.verification_queue[0].proof.size());
+
     // Create another circuit and accumulate
     Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
     ivc.accumulate(circuit_1);
@@ -142,9 +148,17 @@ TEST_F(ClientIVCTests, BasicFour)
     ClientIVC ivc;
 
     MockCircuitProducer circuit_producer;
-    for (size_t idx = 0; idx < 4; ++idx) {
+    for (size_t idx = 0; idx < 6; ++idx) {
         Builder circuit = circuit_producer.create_next_circuit(ivc);
+
         ivc.accumulate(circuit);
+
+        info("\n");
+        info(ivc.fold_output.accumulator->proving_key.num_public_inputs);
+        info(ivc.fold_output.accumulator->proving_key.contains_recursive_proof);
+        info(ivc.fold_output.accumulator->proving_key.databus_propagation_data.contains_app_return_data_commitment);
+        info(ivc.fold_output.accumulator->proving_key.databus_propagation_data.contains_kernel_return_data_commitment);
+        info(ivc.verification_queue.back().proof.size());
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
