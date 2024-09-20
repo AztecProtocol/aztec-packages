@@ -341,7 +341,7 @@ contract RollupTest is DecoderBase {
     rollup.prune();
   }
 
-  function testPruneDuringPropose() public setUpFor("mixed_block_1") {
+  function testPrune() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false);
 
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
@@ -369,6 +369,11 @@ contract RollupTest is DecoderBase {
 
     assertNotEq(rootMixed, bytes32(0), "Invalid root");
     assertNotEq(minHeightMixed, 0, "Invalid min height");
+
+    rollup.prune();
+    assertEq(inbox.inProgress(), 3, "Invalid in progress");
+    assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
 
     // @note  We alter what slot is specified in the empty block!
     //        This means that we keep the `empty_block_1` mostly as is, but replace the slot number

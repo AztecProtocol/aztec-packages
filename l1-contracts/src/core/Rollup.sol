@@ -55,9 +55,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   uint256 public constant CLAIM_DURATION_IN_L2_SLOTS = 13;
   uint256 public constant PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST = 1000;
 
-  uint256 public constant CLAIM_DURATION_IN_L2_SLOTS = 13;
-  uint256 public constant PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST = 1000;
-
   uint256 public immutable L1_BLOCK_AT_GENESIS;
   IRegistry public immutable REGISTRY;
   IInbox public immutable INBOX;
@@ -740,7 +737,22 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     }
   }
 
+  /**
+   * @notice  Get the archive root of a specific block
+   *
+   * @param _blockNumber - The block number to get the archive root of
+   *
+   * @return bytes32 - The archive root of the block
+   */
+  function archiveAt(uint256 _blockNumber) public view override(IRollup) returns (bytes32) {
+    if (_blockNumber <= tips.pendingBlockNumber) {
+      return blocks[_blockNumber].archive;
+    }
+    return bytes32(0);
+  }
+
   function _prune() internal {
+    // TODO #8656
     delete proofClaim;
 
     uint256 pending = tips.pendingBlockNumber;
