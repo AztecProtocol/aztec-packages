@@ -1,11 +1,10 @@
-import { type L1ToL2MessageSource, type L2BlockSource } from '@aztec/circuit-types';
+import { type L1ToL2MessageSource, type L2BlockSource, type WorldStateSynchronizer } from '@aztec/circuit-types';
 import { type EthAddress } from '@aztec/foundation/eth-address';
 import { type P2P } from '@aztec/p2p';
 import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
-import { type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { BlockBuilderFactory } from '../block_builder/index.js';
 import { type SequencerClientConfig } from '../config.js';

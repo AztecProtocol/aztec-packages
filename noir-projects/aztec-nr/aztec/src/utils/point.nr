@@ -48,10 +48,7 @@ mod test {
             154, 244, 31, 93, 233, 100, 70, 220, 55, 118, 161, 235, 45, 152, 187, 149, 107, 122, 205, 153, 121, 166, 120, 84, 190, 198, 250, 124, 41, 115, 189, 115
         ];
 
-        assert_eq(expected_compressed_point_positive_sign.len(), compressed_point.len());
-        for i in 0..expected_compressed_point_positive_sign.len() {
-            assert_eq(compressed_point[i], expected_compressed_point_positive_sign[i]);
-        }
+        assert_eq(expected_compressed_point_positive_sign, compressed_point);
     }
 
     #[test]
@@ -68,9 +65,6 @@ mod test {
             36, 115, 113, 101, 46, 85, 221, 116, 201, 175, 141, 190, 159, 180, 73, 49, 186, 41, 169, 34, 153, 148, 56, 75, 215, 7, 119, 150, 193, 78, 226, 181
         ];
 
-        assert_eq(expected_compressed_point_negative_sign.len(), compressed_point.len());
-        for i in 0..expected_compressed_point_negative_sign.len() {
-            assert_eq(compressed_point[i], expected_compressed_point_negative_sign[i]);
-        }
+        assert_eq(expected_compressed_point_negative_sign, compressed_point);
     }
 }

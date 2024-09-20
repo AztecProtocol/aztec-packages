@@ -20,6 +20,7 @@ env:
   TF_VAR_L1_CHAIN_ID: 11155111
   TF_VAR_ETHEREUM_HOST: https://sepolia.infura.io/v3/${{ secrets.SEPOLIA_API_KEY }}
   TF_VAR_PROVING_ENABLED: false
+  TF_VAR_BOT_TOKEN_CONTRACT: EasyPrivateTokenContract
   TF_VAR_API_KEY: ${{ secrets.SEPOLIANET_API_KEY }}
   # Node / Sequencer
   TF_VAR_BOOTSTRAP_NODES: ""
@@ -39,15 +40,7 @@ env:
   TF_VAR_PROVER_PRIVATE_KEYS: '["${{ secrets.SEPOLIA_PROVER_PRIVATE_KEY }}"]'
 
 jobs:
-  setup:
-    uses: ./.github/workflows/setup-runner.yml
-    with:
-      username: ${{ github.event.pull_request.user.login || github.actor }}
-      runner_type: builder-x86
-    secrets: inherit
-
   deploy:
-    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

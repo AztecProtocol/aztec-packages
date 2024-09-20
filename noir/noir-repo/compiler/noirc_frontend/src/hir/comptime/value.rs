@@ -24,10 +24,10 @@ use crate::{
         Expression, ExpressionKind, HirExpression, HirLiteral, Literal, NodeInterner, Path,
         StructId,
     },
-    node_interner::{ExprId, FuncId, StmtId, TraitId, TraitImplId},
+    node_interner::{ExprId, FuncId, InternedStatementKind, StmtId, TraitId, TraitImplId},
     parser::{self, NoirParser, TopLevelStatement},
     token::{SpannedToken, Token, Tokens},
-    QuotedType, Shared, Type, TypeBindings,
+    Kind, QuotedType, Shared, Type, TypeBindings,
 };
 use rustc_hash::FxHashMap as HashMap;
 
@@ -51,7 +51,11 @@ pub enum Value {
     FormatString(Rc<String>, Type),
     CtString(Rc<String>),
     Function(FuncId, Type, Rc<TypeBindings>),
-    Closure(HirLambda, Vec<Value>, Type),
+
+    // Closures also store their original scope (function & module)
+    // in case they use functions such as `Quoted::as_type` which require them.
+    Closure(HirLambda, Vec<Value>, Type, Option<FuncId>, ModuleId),
+
     Tuple(Vec<Value>),
     Struct(HashMap<Rc<String>, Value>, Type),
     Pointer(Shared<Value>, /* auto_deref */ bool),
@@ -120,12 +124,12 @@ impl Value {
             Value::U32(_) => Type::Integer(Signedness::Unsigned, IntegerBitSize::ThirtyTwo),
             Value::U64(_) => Type::Integer(Signedness::Unsigned, IntegerBitSize::SixtyFour),
             Value::String(value) => {
-                let length = Type::Constant(value.len() as u32);
+                let length = Type::Constant(value.len() as u32, Kind::u32());
                 Type::String(Box::new(length))
             }
             Value::FormatString(_, typ) => return Cow::Borrowed(typ),
             Value::Function(_, typ, _) => return Cow::Borrowed(typ),
-            Value::Closure(_, _, typ) => return Cow::Borrowed(typ),
+            Value::Closure(_, _, typ, ..) => return Cow::Borrowed(typ),
             Value::Tuple(fields) => {
                 Type::Tuple(vecmap(fields, |field| field.get_type().into_owned()))
             }
@@ -221,11 +225,6 @@ impl Value {
                 interner.store_instantiation_bindings(expr_id, unwrap_rc(bindings));
                 ExpressionKind::Resolved(expr_id)
             }
-            Value::Closure(_lambda, _env, _typ) => {
-                // TODO: How should a closure's environment be inlined?
-                let item = "Returning closures from a comptime fn".into();
-                return Err(InterpreterError::Unimplemented { item, location });
-            }
             Value::Tuple(fields) => {
                 let fields = try_vecmap(fields, |field| field.into_expression(interner, location))?;
                 ExpressionKind::Tuple(fields)
@@ -244,7 +243,7 @@ impl Value {
                 // Since we've provided the struct_type, the path should be ignored.
                 let type_name = Path::from_single(String::new(), location.span);
                 ExpressionKind::Constructor(Box::new(ConstructorExpression {
-                    type_name,
+                    typ: UnresolvedType::from_path(type_name),
                     fields,
                     struct_type,
                 }))
@@ -293,6 +292,7 @@ impl Value {
             | Value::Zeroed(_)
             | Value::Type(_)
             | Value::UnresolvedType(_)
+            | Value::Closure(..)
             | Value::ModuleDefinition(_) => {
                 let typ = self.get_type().into_owned();
                 let value = self.display(interner).to_string();
@@ -370,11 +370,6 @@ impl Value {
                 interner.store_instantiation_bindings(expr_id, unwrap_rc(bindings));
                 return Ok(expr_id);
             }
-            Value::Closure(_lambda, _env, _typ) => {
-                // TODO: How should a closure's environment be inlined?
-                let item = "Returning closures from a comptime fn".into();
-                return Err(InterpreterError::Unimplemented { item, location });
-            }
             Value::Tuple(fields) => {
                 let fields =
                     try_vecmap(fields, |field| field.into_hir_expression(interner, location))?;
@@ -427,6 +422,7 @@ impl Value {
             | Value::Zeroed(_)
             | Value::Type(_)
             | Value::UnresolvedType(_)
+            | Value::Closure(..)
             | Value::ModuleDefinition(_) => {
                 let typ = self.get_type().into_owned();
                 let value = self.display(interner).to_string();
@@ -453,6 +449,9 @@ impl Value {
             Value::Type(typ) => Token::QuotedType(interner.push_quoted_type(typ)),
             Value::Expr(ExprValue::Expression(expr)) => {
                 Token::InternedExpr(interner.push_expression_kind(expr))
+            }
+            Value::Expr(ExprValue::Statement(StatementKind::Expression(expr))) => {
+                Token::InternedExpr(interner.push_expression_kind(expr.kind))
             }
             Value::Expr(ExprValue::Statement(statement)) => {
                 Token::InternedStatement(interner.push_statement_kind(statement))
@@ -555,6 +554,7 @@ fn parse_tokens<T>(
     parser: impl NoirParser<T>,
     location: Location,
 ) -> IResult<T> {
+    let parser = parser.then_ignore(chumsky::primitive::end());
     match parser.parse(add_token_spans(tokens.clone(), location.span)) {
         Ok(expr) => Ok(expr),
         Err(mut errors) => {
@@ -598,7 +598,7 @@ impl<'value, 'interner> Display for ValuePrinter<'value, 'interner> {
             Value::CtString(value) => write!(f, "{value}"),
             Value::FormatString(value, _) => write!(f, "{value}"),
             Value::Function(..) => write!(f, "(function)"),
-            Value::Closure(_, _, _) => write!(f, "(closure)"),
+            Value::Closure(..) => write!(f, "(closure)"),
             Value::Tuple(fields) => {
                 let fields = vecmap(fields, |field| field.display(self.interner).to_string());
                 write!(f, "({})", fields.join(", "))
@@ -682,7 +682,7 @@ impl<'value, 'interner> Display for ValuePrinter<'value, 'interner> {
                 }
             }
             Value::Zeroed(typ) => write!(f, "(zeroed {typ})"),
-            Value::Type(typ) => write!(f, "{:?}", typ),
+            Value::Type(typ) => write!(f, "{}", typ),
             Value::Expr(ExprValue::Expression(expr)) => {
                 write!(f, "{}", remove_interned_in_expression_kind(self.interner, expr.clone()))
             }
@@ -862,7 +862,17 @@ fn remove_interned_in_expression_kind(
                 vecmap(block.statements, |stmt| remove_interned_in_statement(interner, stmt));
             ExpressionKind::Unsafe(BlockExpression { statements }, span)
         }
-        ExpressionKind::AsTraitPath(_) => expr,
+        ExpressionKind::AsTraitPath(mut path) => {
+            path.typ = remove_interned_in_unresolved_type(interner, path.typ);
+            path.trait_generics =
+                remove_interned_in_generic_type_args(interner, path.trait_generics);
+            ExpressionKind::AsTraitPath(path)
+        }
+        ExpressionKind::TypePath(mut path) => {
+            path.typ = remove_interned_in_unresolved_type(interner, path.typ);
+            path.turbofish = remove_interned_in_generic_type_args(interner, path.turbofish);
+            ExpressionKind::TypePath(path)
+        }
         ExpressionKind::Resolved(id) => {
             let expr = interner.expression(&id);
             expr.to_display_ast(interner, Span::default()).kind
@@ -872,7 +882,20 @@ fn remove_interned_in_expression_kind(
             remove_interned_in_expression_kind(interner, expr)
         }
         ExpressionKind::Error => expr,
+        ExpressionKind::InternedStatement(id) => remove_interned_in_statement_expr(interner, id),
     }
+}
+
+fn remove_interned_in_statement_expr(
+    interner: &NodeInterner,
+    id: InternedStatementKind,
+) -> ExpressionKind {
+    let expr = match interner.get_statement_kind(id).clone() {
+        StatementKind::Expression(expr) | StatementKind::Semi(expr) => expr.kind,
+        StatementKind::Interned(id) => remove_interned_in_statement_expr(interner, id),
+        _ => ExpressionKind::Error,
+    };
+    remove_interned_in_expression_kind(interner, expr)
 }
 
 fn remove_interned_in_literal(interner: &NodeInterner, literal: Literal) -> Literal {

@@ -8,9 +8,8 @@ contract NFT {
     use dep::aztec::{
         prelude::{NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
         encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note_with_keys},
-        hash::pedersen_hash, keys::getters::get_current_public_keys,
-        note::constants::MAX_NOTES_PER_PAGE, protocol_types::traits::is_empty,
-        utils::comparison::Comparator
+        hash::pedersen_hash, keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
+        protocol_types::traits::is_empty, utils::comparison::Comparator
     };
     use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
     use crate::types::nft_note::{NFTNote, NFTNoteHidingPoint};
@@ -141,7 +140,7 @@ contract NFT {
         transient_storage_slot_randomness: Field
     ) {
         // We create a partial NFT note hiding point with unpopulated/zero token id for 'to'
-        let to_npk_m_hash = get_current_public_keys(&mut context, to).npk_m.hash();
+        let to_npk_m_hash = get_public_keys(to).npk_m.hash();
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
         let hiding_point = NFTNoteHidingPoint::new(to_npk_m_hash, to_note_slot, note_randomness);
 
@@ -230,10 +229,10 @@ contract NFT {
         );
         assert(notes.len() == 1, "NFT not found when transferring");
 
-        let from_ovpk_m = get_current_public_keys(&mut context, from).ovpk_m;
-        let to_keys = get_current_public_keys(&mut context, to);
+        let from_ovpk_m = get_public_keys(from).ovpk_m;
+        let to_keys = get_public_keys(to);
 
-        let new_note = NFTNote::new(token_id, to_keys.npk_m.hash());
+        let mut new_note = NFTNote::new(token_id, to_keys.npk_m.hash());
         nfts.at(to).insert(&mut new_note).emit(encode_and_encrypt_note_with_keys(&mut context, from_ovpk_m, to_keys.ivpk_m, to));
     }
 
