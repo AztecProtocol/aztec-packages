@@ -24,7 +24,9 @@ std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> opera
  */
 void validate_trace_check_circuit(std::vector<Row>&& trace)
 {
-    validate_trace(std::move(trace), {}, {}, {}, false);
+    auto circuit_builder = AvmCircuitBuilder();
+    circuit_builder.set_trace(std::move(trace));
+    EXPECT_TRUE(circuit_builder.check_circuit());
 };
 
 /**
