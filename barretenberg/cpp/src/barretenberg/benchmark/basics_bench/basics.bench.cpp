@@ -62,6 +62,50 @@ void ff_from_literal(State& state)
     }
 }
 
+void malloc_and_free(State& state)
+{
+    for (auto _ : state) {
+        FF* ptr = (FF*)malloc((1 << state.range(0)) * sizeof(FF));
+        DoNotOptimize(ptr);
+    }
+}
+
+void vector_from_malloc_and_free(State& state)
+{
+    const auto f = [&state]() {
+        FF* ptr = (FF*)malloc((1 << state.range(0)) * sizeof(FF));
+        auto result = std::vector<FF>(ptr, ptr + (1 << state.range(0)));
+        free(ptr);
+        return result;
+    };
+
+    for (auto _ : state) {
+        auto result = f();
+        DoNotOptimize(result);
+    }
+}
+
+void unique_ptr(State& state)
+{
+    for (auto _ : state) {
+        auto ptr = std::make_unique<FF[]>(1 << state.range(0));
+        DoNotOptimize(ptr);
+    }
+}
+
+void vector_from_unique_ptr(State& state)
+{
+    const auto f = [&state]() {
+        auto ptr = std::make_unique<FF[]>(1 << state.range(0));
+        return std::vector<FF>(ptr.get(), ptr.get() + (1 << state.range(0)));
+    };
+
+    for (auto _ : state) {
+        auto result = f();
+        DoNotOptimize(result);
+    }
+}
+
 /**
  * @brief Benchmark for evaluating the cost of starting parallel_for
  *
@@ -495,9 +539,13 @@ void pippenger(State& state)
 }
 } // namespace
 
-BENCHMARK(ff_default_constructor)->Unit(kMillisecond)->DenseRange(17, 21);
-BENCHMARK(ff_limbs_constructor)->Unit(kMillisecond)->DenseRange(17, 21);
-BENCHMARK(ff_from_literal)->Unit(kMillisecond)->DenseRange(17, 21);
+BENCHMARK(ff_default_constructor)->Unit(kMillisecond)->DenseRange(20, 21);
+BENCHMARK(ff_limbs_constructor)->Unit(kMillisecond)->DenseRange(20, 21);
+BENCHMARK(ff_from_literal)->Unit(kMillisecond)->DenseRange(20, 21);
+BENCHMARK(vector_from_malloc_and_free)->Unit(kMillisecond)->DenseRange(20, 21);
+BENCHMARK(malloc_and_free)->Unit(kMillisecond)->DenseRange(20, 21);
+BENCHMARK(unique_ptr)->Unit(kMillisecond)->DenseRange(20, 21);
+BENCHMARK(vector_from_unique_ptr)->Unit(kMillisecond)->DenseRange(20, 21);
 BENCHMARK(parallel_for_field_element_addition)->Unit(kMicrosecond)->DenseRange(0, MAX_REPETITION_LOG);
 BENCHMARK(ff_addition)->Unit(kMicrosecond)->DenseRange(12, 30);
 BENCHMARK(ff_multiplication)->Unit(kMicrosecond)->DenseRange(12, 27);
