@@ -1,35 +1,17 @@
 import { PublicKernelType, type PublicProvingRequest, type Tx } from '@aztec/circuit-types';
-import {
-  type Fr,
-  type Gas,
-  type GlobalVariables,
-  type Header,
-  type PublicKernelCircuitPublicInputs,
-} from '@aztec/circuits.js';
+import { type Fr, type Gas, type PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
-import { type PublicExecutor } from '@aztec/simulator';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
-import { AbstractPhaseManager, makeAvmProvingRequest } from './abstract_phase_manager.js';
-import { type WorldStateDB } from './public_db_sources.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
+import { AbstractPhaseManager, type PhaseConfig, makeAvmProvingRequest } from './abstract_phase_manager.js';
 
 /**
  * The phase manager responsible for performing the fee preparation phase.
  */
 export class TeardownPhaseManager extends AbstractPhaseManager {
-  constructor(
-    db: MerkleTreeOperations,
-    publicExecutor: PublicExecutor,
-    publicKernel: PublicKernelCircuitSimulator,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    protected worldStateDB: WorldStateDB,
-    phase: PublicKernelType = PublicKernelType.TEARDOWN,
-  ) {
-    super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
+  constructor(config: PhaseConfig, public override phase: PublicKernelType = PublicKernelType.TEARDOWN) {
+    super(config);
   }
 
   override async handle(

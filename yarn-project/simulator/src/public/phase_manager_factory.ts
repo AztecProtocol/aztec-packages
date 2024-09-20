@@ -1,12 +1,8 @@
 import { PublicKernelType, type Tx } from '@aztec/circuit-types';
-import { type GlobalVariables, type Header, type PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
-import { type PublicExecutor } from '@aztec/simulator';
-import { type MerkleTreeOperations } from '@aztec/world-state';
+import { type PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
 
-import { type AbstractPhaseManager } from './abstract_phase_manager.js';
+import { type AbstractPhaseManager, type PhaseConfig } from './abstract_phase_manager.js';
 import { AppLogicPhaseManager } from './app_logic_phase_manager.js';
-import { type WorldStateDB } from './public_db_sources.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
 import { SetupPhaseManager } from './setup_phase_manager.js';
 import { TailPhaseManager } from './tail_phase_manager.js';
 import { TeardownPhaseManager } from './teardown_phase_manager.js';
@@ -24,36 +20,14 @@ export class CannotTransitionToSetupError extends Error {
 }
 
 export class PhaseManagerFactory {
-  public static phaseFromTx(
-    tx: Tx,
-    db: MerkleTreeOperations,
-    publicExecutor: PublicExecutor,
-    publicKernel: PublicKernelCircuitSimulator,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    worldStateDB: WorldStateDB,
-  ): AbstractPhaseManager | undefined {
+  public static phaseFromTx(tx: Tx, config: PhaseConfig): AbstractPhaseManager | undefined {
     const data = tx.data.forPublic!;
     if (data.needsSetup) {
-      return new SetupPhaseManager(db, publicExecutor, publicKernel, globalVariables, historicalHeader, worldStateDB);
+      return new SetupPhaseManager(config);
     } else if (data.needsAppLogic) {
-      return new AppLogicPhaseManager(
-        db,
-        publicExecutor,
-        publicKernel,
-        globalVariables,
-        historicalHeader,
-        worldStateDB,
-      );
+      return new AppLogicPhaseManager(config);
     } else if (data.needsTeardown) {
-      return new TeardownPhaseManager(
-        db,
-        publicExecutor,
-        publicKernel,
-        globalVariables,
-        historicalHeader,
-        worldStateDB,
-      );
+      return new TeardownPhaseManager(config);
     } else {
       return undefined;
     }
@@ -62,12 +36,7 @@ export class PhaseManagerFactory {
   public static phaseFromOutput(
     output: PublicKernelCircuitPublicInputs,
     currentPhaseManager: AbstractPhaseManager,
-    db: MerkleTreeOperations,
-    publicExecutor: PublicExecutor,
-    publicKernel: PublicKernelCircuitSimulator,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    worldStateDB: WorldStateDB,
+    config: PhaseConfig,
   ): AbstractPhaseManager | undefined {
     if (output.needsSetup) {
       throw new CannotTransitionToSetupError();
@@ -75,28 +44,14 @@ export class PhaseManagerFactory {
       if (currentPhaseManager.phase === PublicKernelType.APP_LOGIC) {
         throw new PhaseDidNotChangeError(currentPhaseManager.phase);
       }
-      return new AppLogicPhaseManager(
-        db,
-        publicExecutor,
-        publicKernel,
-        globalVariables,
-        historicalHeader,
-        worldStateDB,
-      );
+      return new AppLogicPhaseManager(config);
     } else if (output.needsTeardown) {
       if (currentPhaseManager.phase === PublicKernelType.TEARDOWN) {
         throw new PhaseDidNotChangeError(currentPhaseManager.phase);
       }
-      return new TeardownPhaseManager(
-        db,
-        publicExecutor,
-        publicKernel,
-        globalVariables,
-        historicalHeader,
-        worldStateDB,
-      );
+      return new TeardownPhaseManager(config);
     } else if (currentPhaseManager.phase !== PublicKernelType.TAIL) {
-      return new TailPhaseManager(db, publicExecutor, publicKernel, globalVariables, historicalHeader, worldStateDB);
+      return new TailPhaseManager(config);
     } else {
       return undefined;
     }
