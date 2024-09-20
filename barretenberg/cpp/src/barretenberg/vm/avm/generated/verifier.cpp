@@ -144,7 +144,6 @@ bool AvmVerifier::verify_proof(const HonkProof& proof,
 
     // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
     // unrolled protocol.
-
     auto opening_claim = ZeroMorph::verify(circuit_size,
                                            commitments.get_unshifted(),
                                            commitments.get_to_be_shifted(),
