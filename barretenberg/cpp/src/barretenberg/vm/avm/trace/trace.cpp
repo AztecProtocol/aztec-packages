@@ -3314,7 +3314,7 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
  * @brief SHA256 Compression with direct or indirect memory access.
  *
  * @param indirect byte encoding information about indirect/direct memory access.
- * @param h_init_offset An index in memory pointing to the first U32 value of the state array to be used in the next
+ * @param state_offset An index in memory pointing to the first U32 value of the state array to be used in the next
  * instance of sha256 compression.
  * @param input_offset An index in memory pointing to the first U32 value of the input array to be used in the next
  * instance of sha256 compression.
@@ -3323,21 +3323,28 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
  */
 void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
                                             uint32_t output_offset,
-                                            uint32_t h_init_offset,
-                                            uint32_t input_offset)
+                                            uint32_t state_offset,
+                                            uint32_t state_size_offset,
+                                            uint32_t inputs_offset,
+                                            uint32_t inputs_size_offset)
 {
     // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve the indirect flags, the results of this function are used to determine the memory offsets
     // that point to the starting memory addresses for the input and output values.
-    auto [resolved_h_init_offset, resolved_input_offset, resolved_output_offset] =
-        unpack_indirects<3>(indirect, { h_init_offset, input_offset, output_offset });
+    auto [resolved_output_offset,
+          resolved_state_offset,
+          resolved_state_size_offset,
+          resolved_inputs_offset,
+          resolved_inputs_size_offset] =
+        unpack_indirects<5>(indirect,
+                            { output_offset, state_offset, state_size_offset, inputs_offset, inputs_size_offset });
 
     auto read_a = constrained_read_from_memory(
-        call_ptr, clk, resolved_h_init_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IA);
+        call_ptr, clk, resolved_state_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(
-        call_ptr, clk, resolved_input_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
+        call_ptr, clk, resolved_inputs_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     // Constrain gas cost
@@ -3379,9 +3386,9 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
     // Input for hash is expanded to 512 bits
     std::vector<uint32_t> input_vec;
     // Read results are written to h_init array.
-    read_slice_from_memory<uint32_t>(resolved_h_init_offset, 8, h_init_vec);
+    read_slice_from_memory<uint32_t>(resolved_state_offset, 8, h_init_vec);
     // Read results are written to input array
-    read_slice_from_memory<uint32_t>(resolved_input_offset, 16, input_vec);
+    read_slice_from_memory<uint32_t>(resolved_inputs_offset, 16, input_vec);
 
     // Now that we have read all the values, we can perform the operation to get the resulting witness.
     // Note: We use the sha_op_clk to ensure that the sha256 operation is performed at the same clock cycle as the
