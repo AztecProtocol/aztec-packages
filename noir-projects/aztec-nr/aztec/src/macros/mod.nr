@@ -11,7 +11,29 @@ use notes::{NOTES, generate_note_export};
 use functions::transform_unconstrained;
 use utils::module_has_storage;
 
-pub comptime fn generate_contract_interface(m: Module) -> Quoted {
+/// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
+/// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
+pub comptime fn aztec(m: Module) -> Quoted {
+    let interface = generate_contract_interface(m);
+
+    let unconstrained_functions = m.functions().filter(
+        | f: FunctionDefinition | f.is_unconstrained() & !f.has_named_attribute("test") & !f.has_named_attribute("public")
+    );
+    for f in unconstrained_functions {
+        transform_unconstrained(f);
+    }
+
+    let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
+    let note_exports = generate_note_exports();
+
+    quote {
+        $note_exports
+        $interface
+        $compute_note_hash_and_optionally_a_nullifier
+    }
+}
+
+comptime fn generate_contract_interface(m: Module) -> Quoted {
     let module_name = m.name();
     let contract_stubs = STUBS.get(m);
     let fn_stubs_quote = if contract_stubs.is_some() {
@@ -79,7 +101,7 @@ pub comptime fn generate_contract_interface(m: Module) -> Quoted {
     }
 }
 
-pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
+comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
     let mut max_note_length: u32 = 0;
     let notes = NOTES.entries();
     let body = if notes.len() > 0 {
@@ -126,31 +148,11 @@ pub comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quote
     }
 }
 
-pub comptime fn generate_note_exports() -> Quoted {
+comptime fn generate_note_exports() -> Quoted {
     let notes = NOTES.values();
     notes.map(
         | (s, _, note_type_id): (StructDefinition, u32, Field) | {
             generate_note_export(s, note_type_id)
         }
     ).join(quote {})
-}
-
-pub comptime fn aztec(m: Module) -> Quoted {
-    let interface = generate_contract_interface(m);
-
-    let unconstrained_functions = m.functions().filter(
-        | f: FunctionDefinition | f.is_unconstrained() & !f.has_named_attribute("test") & !f.has_named_attribute("public")
-    );
-    for f in unconstrained_functions {
-        transform_unconstrained(f);
-    }
-
-    let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
-    let note_exports = generate_note_exports();
-
-    quote {
-        $note_exports
-        $interface
-        $compute_note_hash_and_optionally_a_nullifier
-    }
 }
