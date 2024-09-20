@@ -1195,7 +1195,8 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     std::vector<FF> verification_key = vk.to_field_elements();
 
     // Get public inputs by cutting them out of the proof
-    std::vector<FF> pub_inputs = acir_format::ProofSurgeon::cut_public_inputs_from_proof(proof, vk.num_public_inputs);
+    auto num_pub_inputs = vk.num_public_inputs - bb::AGGREGATION_OBJECT_SIZE;
+    std::vector<FF> public_inputs = acir_format::ProofSurgeon::cut_public_inputs_from_proof(proof, num_pub_inputs);
 
     std::string proof_path = outputPath + "/proof";
     std::string pub_inputs_path = outputPath + "/public_inputs";
@@ -1207,7 +1208,7 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     vinfo("Proof as fields written to: ", proof_path);
 
     // Write the public inputs as fields
-    std::string pub_inputs_json = to_json(pub_inputs);
+    std::string pub_inputs_json = to_json(public_inputs);
     write_file(pub_inputs_path, { pub_inputs_json.begin(), pub_inputs_json.end() });
     vinfo("Public inputs as fields written to: ", pub_inputs_path);
 
