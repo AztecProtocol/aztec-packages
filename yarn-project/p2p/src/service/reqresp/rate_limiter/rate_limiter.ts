@@ -5,6 +5,8 @@
  */
 import { type PeerId } from '@libp2p/interface';
 
+import { type PeerManager } from '../../peer_manager.js';
+import { PeerErrorSeverity } from '../../peer_scoring.js';
 import { type ReqRespSubProtocol, type ReqRespSubProtocolRateLimits } from '../interface.js';
 import { DEFAULT_RATE_LIMITS } from './rate_limits.js';
 
@@ -69,6 +71,12 @@ interface PeerRateLimiter {
   lastAccess: number;
 }
 
+enum RateLimitStatus {
+  Allowed,
+  DeniedGlobal,
+  DeniedPeer,
+}
+
 /**
  * SubProtocolRateLimiter: A rate limiter for managing request rates on a per-peer and global basis for a specific subprotocol.
  *
@@ -98,9 +106,9 @@ export class SubProtocolRateLimiter {
     this.peerQuotaTimeMs = peerQuotaTimeMs;
   }
 
-  allow(peerId: PeerId): boolean {
+  allow(peerId: PeerId): RateLimitStatus {
     if (!this.globalLimiter.allow()) {
-      return false;
+      return RateLimitStatus.DeniedGlobal;
     }
 
     const peerIdStr = peerId.toString();
@@ -115,7 +123,11 @@ export class SubProtocolRateLimiter {
     } else {
       peerLimiter.lastAccess = Date.now();
     }
-    return peerLimiter.limiter.allow();
+    const peerLimitAllowed = peerLimiter.limiter.allow();
+    if (!peerLimitAllowed) {
+      return RateLimitStatus.DeniedPeer;
+    }
+    return RateLimitStatus.Allowed;
   }
 
   cleanupInactivePeers() {
@@ -138,14 +150,16 @@ export class SubProtocolRateLimiter {
  * - Initializes with a set of rate limit configurations for different subprotocols.
  * - Creates a separate SubProtocolRateLimiter for each configured subprotocol.
  * - When a request comes in, it routes the rate limiting decision to the appropriate subprotocol limiter.
+ * - Peers who exceed their peer rate limits will be penalised by the peer manager.
  *
  * Usage:
  * ```
+ * const peerManager = new PeerManager(...);
  * const rateLimits = {
  *   subprotocol1: { peerLimit: { quotaCount: 10, quotaTimeMs: 1000 }, globalLimit: { quotaCount: 100, quotaTimeMs: 1000 } },
  *   subprotocol2: { peerLimit: { quotaCount: 5, quotaTimeMs: 1000 }, globalLimit: { quotaCount: 50, quotaTimeMs: 1000 } }
  * };
- * const limiter = new RequestResponseRateLimiter(rateLimits);
+ * const limiter = new RequestResponseRateLimiter(peerManager, rateLimits);
  *
  * Note: Ensure to call `stop()` when shutting down to properly clean up all subprotocol limiters.
  */
@@ -154,7 +168,7 @@ export class RequestResponseRateLimiter {
 
   private cleanupInterval: NodeJS.Timeout | undefined = undefined;
 
-  constructor(rateLimits: ReqRespSubProtocolRateLimits = DEFAULT_RATE_LIMITS) {
+  constructor(private peerManager: PeerManager, rateLimits: ReqRespSubProtocolRateLimits = DEFAULT_RATE_LIMITS) {
     this.subProtocolRateLimiters = new Map();
 
     for (const [subProtocol, protocolLimits] of Object.entries(rateLimits)) {
@@ -179,10 +193,19 @@ export class RequestResponseRateLimiter {
   allow(subProtocol: ReqRespSubProtocol, peerId: PeerId): boolean {
     const limiter = this.subProtocolRateLimiters.get(subProtocol);
     if (!limiter) {
-      // TODO: maybe throw an error here if no rate limiter is configured?
       return true;
     }
-    return limiter.allow(peerId);
+    const rateLimitStatus = limiter.allow(peerId);
+
+    switch (rateLimitStatus) {
+      case RateLimitStatus.DeniedPeer:
+        this.peerManager.penalizePeer(peerId, PeerErrorSeverity.MidToleranceError);
+        return false;
+      case RateLimitStatus.DeniedGlobal:
+        return false;
+      default:
+        return true;
+    }
   }
 
   cleanupInactivePeers() {

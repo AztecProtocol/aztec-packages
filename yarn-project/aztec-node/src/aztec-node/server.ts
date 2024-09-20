@@ -761,7 +761,7 @@ export class AztecNodeService implements AztecNode {
     const txValidators: TxValidator<Tx | ProcessedTx>[] = [
       new DataTxValidator(),
       new MetadataTxValidator(new Fr(this.l1ChainId), new Fr(blockNumber)),
-      new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest())),
+      new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest(), this.contractDataSource)),
     ];
 
     if (!isSimulation) {
