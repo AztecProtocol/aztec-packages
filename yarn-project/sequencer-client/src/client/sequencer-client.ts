@@ -6,7 +6,7 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
 
-import { OrchestratorBlockBuilderFactory } from '../block_builder/index.js';
+import { LightweightBlockBuilderFactory } from '../block_builder/index.js';
 import { type SequencerClientConfig } from '../config.js';
 import { GlobalVariableBuilder } from '../global_variable_builder/index.js';
 import { L1Publisher } from '../publisher/index.js';
@@ -60,7 +60,7 @@ export class SequencerClient {
       globalsBuilder,
       p2pClient,
       worldStateSynchronizer,
-      new OrchestratorBlockBuilderFactory(simulationProvider, telemetryClient),
+      new LightweightBlockBuilderFactory(telemetryClient),
       l2BlockSource,
       l1ToL2MessageSource,
       publicProcessorFactory,
