@@ -374,23 +374,6 @@ impl DebugShow {
                     output
                 );
             }
-            BlackBoxOp::SchnorrVerify {
-                public_key_x,
-                public_key_y,
-                message,
-                signature,
-                result,
-            } => {
-                debug_println!(
-                    self.enable_debug_trace,
-                    "  SCHNORR_VERIFY {} {} {} {} -> {}",
-                    public_key_x,
-                    public_key_y,
-                    message,
-                    signature,
-                    result
-                );
-            }
             BlackBoxOp::BigIntAdd { lhs, rhs, output } => {
                 debug_println!(
                     self.enable_debug_trace,

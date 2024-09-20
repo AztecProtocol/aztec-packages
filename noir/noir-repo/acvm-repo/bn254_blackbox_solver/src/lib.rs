@@ -8,7 +8,6 @@ mod embedded_curve_ops;
 mod generator;
 mod pedersen;
 mod poseidon2;
-mod schnorr;
 
 use ark_ec::AffineRepr;
 pub use embedded_curve_ops::{embedded_curve_add, multi_scalar_mul};
@@ -26,24 +25,6 @@ type FieldElement = acir::acir_field::GenericFieldElement<ark_bn254::Fr>;
 pub struct Bn254BlackBoxSolver;
 
 impl BlackBoxFunctionSolver<FieldElement> for Bn254BlackBoxSolver {
-    fn schnorr_verify(
-        &self,
-        public_key_x: &FieldElement,
-        public_key_y: &FieldElement,
-        signature: &[u8; 64],
-        message: &[u8],
-    ) -> Result<bool, BlackBoxResolutionError> {
-        let sig_s: [u8; 32] = signature[0..32].try_into().unwrap();
-        let sig_e: [u8; 32] = signature[32..64].try_into().unwrap();
-        Ok(schnorr::verify_signature(
-            public_key_x.into_repr(),
-            public_key_y.into_repr(),
-            sig_s,
-            sig_e,
-            message,
-        ))
-    }
-
     fn pedersen_commitment(
         &self,
         inputs: &[FieldElement],

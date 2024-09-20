@@ -216,19 +216,6 @@ impl<F: AcirField> GeneratedAcir<F> {
                 inputs: inputs[0].clone(),
                 outputs: outputs.try_into().expect("Compiler should generate correct size outputs"),
             },
-            BlackBoxFunc::SchnorrVerify => {
-                BlackBoxFuncCall::SchnorrVerify {
-                    public_key_x: inputs[0][0],
-                    public_key_y: inputs[1][0],
-                    // Schnorr signature is an r & s, 32 bytes each
-                    signature: inputs[2]
-                        .clone()
-                        .try_into()
-                        .expect("Compiler should generate correct size inputs"),
-                    message: inputs[3].clone(),
-                    output: outputs[0],
-                }
-            }
             BlackBoxFunc::PedersenCommitment => BlackBoxFuncCall::PedersenCommitment {
                 inputs: inputs[0].clone(),
                 outputs: (outputs[0], outputs[1]),
@@ -479,7 +466,7 @@ impl<F: AcirField> GeneratedAcir<F> {
     ///
     /// This equation however falls short when `t != 0` because then `t`
     /// may not be `1`. If `t` is non-zero, then `y` is also non-zero due to
-    /// `y == 1 - t` and the equation `y * t == 0` fails.  
+    /// `y == 1 - t` and the equation `y * t == 0` fails.
     ///
     /// To fix, we introduce another free variable called `z` and apply the following
     /// constraint instead: `y == 1 - t * z`.
@@ -489,7 +476,7 @@ impl<F: AcirField> GeneratedAcir<F> {
     ///
     /// We now arrive at the conclusion that when `t == 0`, `y` is `1` and when
     /// `t != 0`, then `y` is `0`.
-    ///  
+    ///
     /// Bringing it all together, We introduce two variables `y` and `z`,
     /// With the following equations:
     /// - `y == 1 - tz` (`z` is a value that is chosen to be the inverse of `t` by the prover)
@@ -667,9 +654,7 @@ fn black_box_func_expected_input_size(name: BlackBoxFunc) -> Option<usize> {
 
         // Signature verification algorithms will take in a variable
         // number of inputs, since the message/hashed-message can vary in size.
-        BlackBoxFunc::SchnorrVerify
-        | BlackBoxFunc::EcdsaSecp256k1
-        | BlackBoxFunc::EcdsaSecp256r1 => None,
+        BlackBoxFunc::EcdsaSecp256k1 | BlackBoxFunc::EcdsaSecp256r1 => None,
 
         // Inputs for multi scalar multiplication is an arbitrary number of [point, scalar] pairs.
         BlackBoxFunc::MultiScalarMul => None,
@@ -723,9 +708,7 @@ fn black_box_expected_output_size(name: BlackBoxFunc) -> Option<usize> {
         BlackBoxFunc::RANGE => Some(0),
 
         // Signature verification algorithms will return a boolean
-        BlackBoxFunc::SchnorrVerify
-        | BlackBoxFunc::EcdsaSecp256k1
-        | BlackBoxFunc::EcdsaSecp256r1 => Some(1),
+        BlackBoxFunc::EcdsaSecp256k1 | BlackBoxFunc::EcdsaSecp256r1 => Some(1),
 
         // Output of operations over the embedded curve
         // will be 2 field elements representing the point.

@@ -29,10 +29,7 @@ use hash::{solve_generic_256_hash_opcode, solve_sha_256_permutation_opcode};
 use logic::{and, xor};
 use pedersen::{pedersen, pedersen_hash};
 pub(crate) use range::solve_range_opcode;
-use signature::{
-    ecdsa::{secp256k1_prehashed, secp256r1_prehashed},
-    schnorr::schnorr_verify,
-};
+use signature::ecdsa::{secp256k1_prehashed, secp256r1_prehashed};
 
 /// Check if all of the inputs to the function have assignments
 ///
@@ -118,21 +115,6 @@ pub(crate) fn solve<F: AcirField>(
             }
             Ok(())
         }
-        BlackBoxFuncCall::SchnorrVerify {
-            public_key_x,
-            public_key_y,
-            signature,
-            message,
-            output,
-        } => schnorr_verify(
-            backend,
-            initial_witness,
-            *public_key_x,
-            *public_key_y,
-            signature.as_ref(),
-            message,
-            *output,
-        ),
         BlackBoxFuncCall::PedersenCommitment { inputs, domain_separator, outputs } => {
             pedersen(backend, initial_witness, inputs, *domain_separator, *outputs)
         }

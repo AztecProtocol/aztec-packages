@@ -58,30 +58,6 @@ pub enum BlackBoxFunc {
     /// - output is a byte array of length 32, i.e an array of 32
     /// (witness, 8), constrained to be the blake3 of the inputs.
     Blake3,
-
-    /// Verify a Schnorr signature over the embedded curve
-    /// - inputs are:
-    ///     - Public key as 2 (witness, 254)
-    ///     - signature as a vector of 64 bytes (witness, 8)
-    ///     - message as a vector of (witness, 8)
-    /// - output: A witness representing the result of the signature
-    /// verification; 0 for failure and 1 for success.
-    ///
-    /// Since the scalar field of the embedded curve is NOT the ACIR field, the
-    /// `(r,s)` signature is represented as a 64 bytes array for the two field
-    /// elements. On the other hand, the public key coordinates are ACIR fields.
-    /// The proving system decides how the message is to be hashed. Barretenberg
-    /// uses Blake2s.
-    ///
-    /// Verifies a Schnorr signature over a curve which is "pairing friendly"
-    /// with the curve on which the ACIR circuit is defined.
-    ///
-    /// The exact curve which this signature uses will vary based on the curve
-    /// being used by ACIR. For example, the BN254 curve supports Schnorr
-    /// signatures over the [Grumpkin][grumpkin] curve.
-    ///
-    /// [grumpkin]: https://hackmd.io/@aztec-network/ByzgNxBfd#2-Grumpkin---A-curve-on-top-of-BN-254-for-SNARK-efficient-group-operations
-    SchnorrVerify,
     /// Will be deprecated
     PedersenCommitment,
     /// Will be deprecated
@@ -206,7 +182,6 @@ impl BlackBoxFunc {
         match self {
             BlackBoxFunc::AES128Encrypt => "aes128_encrypt",
             BlackBoxFunc::SHA256 => "sha256",
-            BlackBoxFunc::SchnorrVerify => "schnorr_verify",
             BlackBoxFunc::Blake2s => "blake2s",
             BlackBoxFunc::Blake3 => "blake3",
             BlackBoxFunc::EcdsaSecp256k1 => "ecdsa_secp256k1",
@@ -236,7 +211,6 @@ impl BlackBoxFunc {
         match op_name {
             "aes128_encrypt" => Some(BlackBoxFunc::AES128Encrypt),
             "sha256" => Some(BlackBoxFunc::SHA256),
-            "schnorr_verify" => Some(BlackBoxFunc::SchnorrVerify),
             "blake2s" => Some(BlackBoxFunc::Blake2s),
             "blake3" => Some(BlackBoxFunc::Blake3),
             "ecdsa_secp256k1" => Some(BlackBoxFunc::EcdsaSecp256k1),

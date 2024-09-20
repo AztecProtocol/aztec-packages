@@ -53,14 +53,6 @@ pub enum BlackBoxOp {
         signature: HeapArray,
         result: MemoryAddress,
     },
-    /// Verifies a Schnorr signature over a curve which is "pairing friendly" with the curve on which the Brillig bytecode is defined.
-    SchnorrVerify {
-        public_key_x: MemoryAddress,
-        public_key_y: MemoryAddress,
-        message: HeapVector,
-        signature: HeapVector,
-        result: MemoryAddress,
-    },
     /// Will be deprecated
     PedersenCommitment {
         inputs: HeapVector,

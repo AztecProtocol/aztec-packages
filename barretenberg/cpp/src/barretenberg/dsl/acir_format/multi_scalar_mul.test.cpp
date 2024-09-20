@@ -70,7 +70,6 @@ TEST_F(MSMTests, TestMSM)
         .aes128_constraints = {},
         .sha256_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
