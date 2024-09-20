@@ -216,9 +216,8 @@ describe('Req Resp p2p client integration', () => {
     TEST_TIMEOUT,
   );
 
-
   it(
-    'Will penalize peers that send invalid transactions',
+    'Will penalize peers that send invalid proofs',
     async () => {
       // We want to create a set of nodes and request transaction from them
       const clients = await createClients(NUMBER_OF_PEERS, /*valid proofs*/false);
@@ -228,19 +227,54 @@ describe('Req Resp p2p client integration', () => {
       // Give the nodes time to discover each other
       await sleep(6000);
 
+      const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
+
       // Perform a get tx request from client 1
       const tx = mockTx();
       const txHash = tx.getTxHash();
-      // Mock the tx pool to return the tx we are looking for
+
+      // Return an invalid tx
       txPool.getTxByHash.mockImplementationOnce(() => tx);
 
-
       const requestedTx = await client1.requestTxByHash(txHash);
-
-      // Expect the tx to be the returned tx to be the same as the one we mocked
+      // Even though we got a response, the proof was deemed invalid
       expect(requestedTx).toBeUndefined();
 
-      expect((client1 as any).peerManager.penalizePeer).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.LowToleranceError);
+      // Mid tolerance error is due to the invalid proof
+      expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.MidToleranceError);
+
+      await shutdown(clients);
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
+    'Will penalize peers that send the wrong transaction',
+    async () => {
+      // We want to create a set of nodes and request transaction from them
+      const clients = await createClients(NUMBER_OF_PEERS, /*Valid proofs*/true);
+      const [client1, client2] = clients;
+      const client2PeerId = (await client2.getEnr()?.peerId())!;
+
+      // Give the nodes time to discover each other
+      await sleep(6000);
+
+      const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
+
+      // Perform a get tx request from client 1
+      const tx = mockTx();
+      const txHash = tx.getTxHash();
+      const tx2 = mockTx(420);
+
+      // Return an invalid tx
+      txPool.getTxByHash.mockImplementationOnce(() => tx2);
+
+      const requestedTx = await client1.requestTxByHash(txHash);
+      // Even though we got a response, the proof was deemed invalid
+      expect(requestedTx).toBeUndefined();
+
+      // Low tolerance error is due to the wrong tx
+      expect(penalizePeerSpy).toHaveBeenCalledWith(client2PeerId, PeerErrorSeverity.LowToleranceError);
 
       await shutdown(clients);
     },
