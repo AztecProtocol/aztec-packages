@@ -16,9 +16,7 @@ struct TransparentNote {
     secret_hash: Field,
 }
 
-
 impl NullifiableNote for TransparentNote {
-
 
     fn compute_nullifier(self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
         self.compute_nullifier_without_context()
@@ -46,7 +44,6 @@ impl TransparentNote {
     pub fn new(amount: Field, secret_hash: Field) -> Self {
         TransparentNote { amount, secret_hash, header: NoteHeader::empty() }
     }
-
 }
 
 impl Eq for TransparentNote {
