@@ -225,7 +225,7 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
     let signature_str_quote = signature_quote.as_str_quote();
 
     let computation_quote = quote {
-        protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote)
+        protocol_types::abis::event_selector::EventSelector::from_signature($signature_str_quote).to_field()
     };
     unquote!(computation_quote)
 }

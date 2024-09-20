@@ -38,7 +38,7 @@ impl MacroProcessor for AztecMacro {
         file_id: FileId,
         context: &HirContext,
     ) -> Result<SortedModule, (MacroError, FileId)> {
-        transform(ast, crate_id, file_id, context)
+        Ok(ast)
     }
 
     fn process_typed_ast(
@@ -46,7 +46,7 @@ impl MacroProcessor for AztecMacro {
         crate_id: &CrateId,
         context: &mut HirContext,
     ) -> Result<(), (MacroError, FileId)> {
-        transform_hir(crate_id, context).map_err(|(err, file_id)| (err.into(), file_id))
+        Ok(())
     }
 }
 

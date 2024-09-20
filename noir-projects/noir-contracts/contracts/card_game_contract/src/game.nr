@@ -144,10 +144,10 @@ impl Game {
         assert(self.started, "Game not started");
         assert(!self.finished, "Game finished");
 
-        let round_offset = self.current_round * (NUMBER_OF_PLAYERS as u64);
+        let round_offset = self.current_round * NUMBER_OF_PLAYERS;
 
         self.rounds_cards[round_offset + self.current_player] = card;
-        self.current_player = (self.current_player + 1) % (NUMBER_OF_PLAYERS as u64);
+        self.current_player = (self.current_player + 1) % NUMBER_OF_PLAYERS;
 
         if self.current_player == 0 {
             self._finish_round();

@@ -57,7 +57,7 @@ comptime fn generate_event_interface(s: StructDefinition) -> Quoted {
             }
 
             fn get_event_type_id() -> aztec::protocol_types::abis::event_selector::EventSelector {
-                $event_type_id
+                aztec::protocol_types::abis::event_selector::EventSelector::from_field($event_type_id)
             }
 
             fn emit<Env>(self, _emit: fn[Env](Self) -> ()) {
