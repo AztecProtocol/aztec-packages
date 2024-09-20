@@ -1,4 +1,6 @@
+// docs:start:imports
 import { AztecAddress, Contract, loadContractArtifact } from '@aztec/aztec.js';
+// docs:end:imports
 import TokenContractJson from '@aztec/noir-contracts.js/artifacts/token_contract-Token' assert { type: 'json' };
 
 import { readFileSync } from 'fs';

@@ -30,6 +30,10 @@ Last, copy-paste the code from the `Token` contract into `contracts/token/main.n
 
 ### Helper files
 
+:::info
+Remove the `mod test;` line from `contracts/token/src/main.nr` as we will not be using it in this tutorial.
+:::
+
 The `Token` contract also requires some helper files. You can view the files [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src). Copy the `types.nr` and the `types` folder into `contracts/token/src`.
 
 ## Compile your contract
@@ -53,7 +57,7 @@ Create a new file `src/deploy.mjs`:
 import { writeFileSync } from 'fs';
 import { Contract, loadContractArtifact, createPXEClient } from '@aztec/aztec.js';
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import TokenContractJson from "../contracts/token/target/token_contract-Token.json" assert { type: "json" };
+import TokenContractJson from "../contracts/token/target/token-Token.json" assert { type: "json" };
 
 
 #include_code dapp-deploy yarn-project/end-to-end/src/sample-dapp/deploy.mjs raw

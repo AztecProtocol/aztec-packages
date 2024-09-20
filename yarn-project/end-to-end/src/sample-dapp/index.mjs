@@ -1,20 +1,23 @@
+// docs:start:imports
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import { ExtendedNote, Fr, Note, computeSecretHash, createPXEClient } from '@aztec/aztec.js';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { getToken } from './contracts.mjs';
 
+// docs:end:imports
+
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 
+// docs:start:showAccounts
 async function showAccounts(pxe) {
-  // docs:start:showAccounts
   const accounts = await pxe.getRegisteredAccounts();
   console.log(`User accounts:\n${accounts.map(a => a.address).join('\n')}`);
-  // docs:end:showAccounts
 }
+// docs:end:showAccounts
 
+// docs:start:showPrivateBalances
 async function showPrivateBalances(pxe) {
-  // docs:start:showPrivateBalances
   const accounts = await pxe.getRegisteredAccounts();
   const token = await getToken(pxe);
 
@@ -23,9 +26,10 @@ async function showPrivateBalances(pxe) {
     const balance = await token.methods.balance_of_private(account.address).simulate();
     console.log(`Balance of ${account.address}: ${balance}`);
   }
-  // docs:end:showPrivateBalances
 }
+// docs:end:showPrivateBalances
 
+// docs:start:mintPrivateFunds
 async function mintPrivateFunds(pxe) {
   const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
@@ -55,9 +59,10 @@ async function mintPrivateFunds(pxe) {
 
   await showPrivateBalances(pxe);
 }
+// docs:end:mintPrivateFunds
 
+// docs:start:transferPrivateFunds
 async function transferPrivateFunds(pxe) {
-  // docs:start:transferPrivateFunds
   const [owner, recipient] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
 
@@ -69,8 +74,8 @@ async function transferPrivateFunds(pxe) {
   const receipt = await tx.wait();
   console.log(`Transaction has been mined on block ${receipt.blockNumber}`);
   await showPrivateBalances(pxe);
-  // docs:end:transferPrivateFunds
 }
+// docs:end:transferPrivateFunds
 
 async function showPublicBalances(pxe) {
   // docs:start:showPublicBalances
