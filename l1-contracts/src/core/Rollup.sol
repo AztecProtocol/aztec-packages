@@ -53,6 +53,9 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   // @todo  #8018
   uint256 public constant TIMELINESS_PROVING_IN_SLOTS = 100;
 
+  uint256 public constant CLAIM_DURATION_IN_L2_SLOTS = 13;
+  uint256 public constant PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST = 1000;
+
   uint256 public immutable L1_BLOCK_AT_GENESIS;
   IRegistry public immutable REGISTRY;
   IInbox public immutable INBOX;
@@ -63,6 +66,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   IVerifier public verifier;
 
   ChainTips public tips;
+  DataStructures.EpochProofClaim public proofClaim;
 
   // @todo  Validate assumption:
   //        Currently we assume that the archive root following a block is specific to the block
@@ -175,6 +179,60 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    */
   function setVkTreeRoot(bytes32 _vkTreeRoot) external override(ITestRollup) onlyOwner {
     vkTreeRoot = _vkTreeRoot;
+  }
+
+  function claimEpochProofRight(DataStructures.EpochProofQuote calldata _quote)
+    external
+    override(IRollup)
+  {
+    uint256 currentSlot = getCurrentSlot();
+    address currentProposer = getCurrentProposer();
+    uint256 epochToProve = getEpochToProve();
+
+    if (currentProposer != address(0) && currentProposer != msg.sender) {
+      revert Errors.Leonidas__InvalidProposer(currentProposer, msg.sender);
+    }
+
+    if (_quote.epochToProve != epochToProve) {
+      revert Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.epochToProve);
+    }
+
+    if (currentSlot % Constants.AZTEC_EPOCH_DURATION >= CLAIM_DURATION_IN_L2_SLOTS) {
+      revert Errors.Rollup__NotInClaimPhase(
+        currentSlot % Constants.AZTEC_EPOCH_DURATION, CLAIM_DURATION_IN_L2_SLOTS
+      );
+    }
+
+    // if the epoch to prove is not the one that has been claimed,
+    // then whatever is in the proofClaim is stale
+    if (proofClaim.epochToProve == epochToProve && proofClaim.proposerClaimant != address(0)) {
+      revert Errors.Rollup__ProofRightAlreadyClaimed();
+    }
+
+    if (_quote.bondAmount < PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST) {
+      revert Errors.Rollup__InsufficientBondAmount(
+        PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.bondAmount
+      );
+    }
+
+    if (_quote.validUntilSlot < currentSlot) {
+      revert Errors.Rollup__QuoteExpired(currentSlot, _quote.validUntilSlot);
+    }
+
+    // We don't currently unstake,
+    // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
+    // Blocked on submitting epoch proofs to this contract.
+    address bondProvider = PROOF_COMMITMENT_ESCROW.stakeBond(_quote);
+
+    proofClaim = DataStructures.EpochProofClaim({
+      epochToProve: epochToProve,
+      basisPointFee: _quote.basisPointFee,
+      bondAmount: _quote.bondAmount,
+      bondProvider: bondProvider,
+      proposerClaimant: msg.sender
+    });
+
+    emit ProofRightClaimed(epochToProve, bondProvider, msg.sender, _quote.bondAmount, currentSlot);
   }
 
   /**
@@ -480,7 +538,26 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return tips.pendingBlockNumber;
   }
 
+  /**
+   * @notice  Get the epoch that should be proven
+   *
+   * @dev    This is the epoch that should be proven. It does so by getting the epoch of the block
+   *        following the last proven block. If there is no such block (i.e. the pending chain is
+   *        the same as the proven chain), then revert.
+   *
+   * @return uint256 - The epoch to prove
+   */
+  function getEpochToProve() public view override(IRollup) returns (uint256) {
+    if (tips.provenBlockNumber == tips.pendingBlockNumber) {
+      revert Errors.Rollup__NoEpochToProve();
+    } else {
+      return getEpochAt(blocks[getProvenBlockNumber() + 1].slotNumber);
+    }
+  }
+
   function _prune() internal {
+    delete proofClaim;
+
     uint256 pending = tips.pendingBlockNumber;
 
     // @note  We are not deleting the blocks, but we are "winding back" the pendingTip to the last block that was proven.
@@ -501,12 +578,20 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     uint256 oldestPendingEpoch = getEpochAt(blocks[tips.provenBlockNumber + 1].slotNumber);
     uint256 startSlotOfPendingEpoch = oldestPendingEpoch * Constants.AZTEC_EPOCH_DURATION;
 
-    // TODO: #8608 adds a proof claim, which will allow us to prune the chain more aggressively.
-    //       That is what will add a `CLAIM_DURATION` to the pruning logic.
-    if (currentSlot < startSlotOfPendingEpoch + 2 * Constants.AZTEC_EPOCH_DURATION) {
+    // suppose epoch 1 is proven, epoch 2 is pending, epoch 3 is the current epoch.
+    // we prune the pending chain back to the end of epoch 1 if:
+    // - the proof claim phase of epoch 3 has ended without a claim to prove epoch 2 (or proof of epoch 2)
+    // - we reach epoch 4 without a proof of epoch 2 (regardless of whether a proof claim was submitted)
+    bool inClaimPhase = currentSlot
+      < startSlotOfPendingEpoch + Constants.AZTEC_EPOCH_DURATION + CLAIM_DURATION_IN_L2_SLOTS;
+
+    bool claimExists = currentSlot < startSlotOfPendingEpoch + 2 * Constants.AZTEC_EPOCH_DURATION
+      && proofClaim.epochToProve == oldestPendingEpoch && proofClaim.proposerClaimant != address(0);
+
+    if (inClaimPhase || claimExists) {
+      // If we are in the claim phase, do not prune
       return false;
     }
-
     return true;
   }
 
