@@ -98,7 +98,7 @@ void show_trace_info(const auto& trace)
     }());
 
     // The following computations are expensive, so we only do them in verbose mode.
-    if (verbose_logging) {
+    if (!verbose_logging) {
         return;
     }
 
