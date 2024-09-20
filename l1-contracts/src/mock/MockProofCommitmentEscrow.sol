@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {DataStructures} from "../core/libraries/DataStructures.sol";
+import {SignatureLib} from "../core/libraries/SignatureLib.sol";
 import {IProofCommitmentEscrow} from "../core/interfaces/IProofCommitmentEscrow.sol";
 
 contract MockProofCommitmentEscrow is IProofCommitmentEscrow {
@@ -18,7 +18,7 @@ contract MockProofCommitmentEscrow is IProofCommitmentEscrow {
     // do nothing
   }
 
-  function stakeBond(DataStructures.EpochProofQuote calldata)
+  function stakeBond(SignatureLib.Signature calldata, uint256)
     external
     pure
     override

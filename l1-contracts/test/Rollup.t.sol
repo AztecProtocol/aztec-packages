@@ -91,7 +91,6 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 1,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      rollup: address(0),
       basisPointFee: 0
     });
 
@@ -116,7 +115,6 @@ contract RollupTest is DecoderBase {
       epochToProve: 1,
       validUntilSlot: 1,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      rollup: address(0),
       basisPointFee: 0
     });
 
@@ -134,7 +132,6 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 1,
       bondAmount: 0,
-      rollup: address(0),
       basisPointFee: 0
     });
 
@@ -156,7 +153,6 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 0,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      rollup: address(0),
       basisPointFee: 0
     });
 
@@ -176,7 +172,6 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 1,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      rollup: address(0),
       basisPointFee: 0
     });
 
@@ -212,7 +207,6 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 1,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      rollup: address(0),
       basisPointFee: 0
     });
 
@@ -248,7 +242,6 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 1,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      rollup: address(0),
       basisPointFee: 0
     });
 
@@ -272,7 +265,6 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 2 * Constants.AZTEC_EPOCH_DURATION,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      rollup: address(0),
       basisPointFee: 0
     });
 
@@ -294,7 +286,6 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 2 * Constants.AZTEC_EPOCH_DURATION,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      rollup: address(0),
       basisPointFee: 0
     });
 
@@ -322,7 +313,6 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 2 * Constants.AZTEC_EPOCH_DURATION,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      rollup: address(0),
       basisPointFee: 0
     });
 
@@ -398,7 +388,7 @@ contract RollupTest is DecoderBase {
     rollup.prune();
   }
 
-  function testPruneDuringPropose() public setUpFor("mixed_block_1") {
+  function testPrune() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false);
 
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
@@ -427,12 +417,16 @@ contract RollupTest is DecoderBase {
     assertNotEq(rootMixed, bytes32(0), "Invalid root");
     assertNotEq(minHeightMixed, 0, "Invalid min height");
 
+    rollup.prune();
+    assertEq(inbox.inProgress(), 3, "Invalid in progress");
+    assertEq(rollup.getPendingBlockNumber(), 0, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
+
     // @note  We alter what slot is specified in the empty block!
     //        This means that we keep the `empty_block_1` mostly as is, but replace the slot number
     //        and timestamp as if it was created at a different point in time. This allow us to insert it
     //        as if it was the first block, even after we had originally inserted the mixed block.
     //        An example where this could happen would be if no-one could prove the mixed block.
-    // @note  We prune the pending chain as part of the propose call.
     _testBlock("empty_block_1", false, prunableAt);
 
     assertEq(inbox.inProgress(), 3, "Invalid in progress");
@@ -449,6 +443,15 @@ contract RollupTest is DecoderBase {
     assertNotEq(minHeightEmpty, 0, "Invalid min height");
     assertNotEq(rootEmpty, rootMixed, "Invalid root");
     assertNotEq(minHeightEmpty, minHeightMixed, "Invalid min height");
+  }
+
+  function testPruneDuringPropose() public setUpFor("mixed_block_1") {
+    _testBlock("mixed_block_1", false);
+    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION * 2);
+    _testBlock("mixed_block_1", false, Constants.AZTEC_EPOCH_DURATION * 2);
+
+    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
+    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
   }
 
   function testBlockFee() public setUpFor("mixed_block_1") {

@@ -48,11 +48,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     uint128 slotNumber;
   }
 
-  // @note  The number of slots within which a block must be proven
-  //        This number is currently pulled out of thin air and should be replaced when we are not blind
-  // @todo  #8018
-  uint256 public constant TIMELINESS_PROVING_IN_SLOTS = 100;
-
+  // See https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8401-proof-timeliness/proof-timeliness.ipynb
+  // for justification of CLAIM_DURATION_IN_L2_SLOTS.
   uint256 public constant CLAIM_DURATION_IN_L2_SLOTS = 13;
   uint256 public constant PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST = 1000;
 
@@ -108,27 +105,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       _addValidator(_validators[i]);
     }
     setupEpoch();
-  }
-
-  function status(uint256 myHeaderBlockNumber)
-    external
-    view
-    override(IRollup)
-    returns (
-      uint256 provenBlockNumber,
-      bytes32 provenArchive,
-      uint256 pendingBlockNumber,
-      bytes32 pendingArchive,
-      bytes32 archiveOfMyBlock
-    )
-  {
-    return (
-      tips.provenBlockNumber,
-      blocks[tips.provenBlockNumber].archive,
-      tips.pendingBlockNumber,
-      blocks[tips.pendingBlockNumber].archive,
-      archiveAt(myHeaderBlockNumber)
-    );
   }
 
   /**
@@ -222,7 +198,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     // We don't currently unstake,
     // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
     // Blocked on submitting epoch proofs to this contract.
-    address bondProvider = PROOF_COMMITMENT_ESCROW.stakeBond(_quote);
+    address bondProvider = PROOF_COMMITMENT_ESCROW.stakeBond(_quote.signature, _quote.bondAmount);
 
     proofClaim = DataStructures.EpochProofClaim({
       epochToProve: epochToProve,
@@ -452,6 +428,27 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     emit L2ProofVerified(header.globalVariables.blockNumber, _proverId);
   }
 
+  function status(uint256 myHeaderBlockNumber)
+    external
+    view
+    override(IRollup)
+    returns (
+      uint256 provenBlockNumber,
+      bytes32 provenArchive,
+      uint256 pendingBlockNumber,
+      bytes32 pendingArchive,
+      bytes32 archiveOfMyBlock
+    )
+  {
+    return (
+      tips.provenBlockNumber,
+      blocks[tips.provenBlockNumber].archive,
+      tips.pendingBlockNumber,
+      blocks[tips.pendingBlockNumber].archive,
+      archiveAt(myHeaderBlockNumber)
+    );
+  }
+
   /**
    * @notice  Check if msg.sender can propose at a given time
    *
@@ -555,7 +552,22 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     }
   }
 
+  /**
+   * @notice  Get the archive root of a specific block
+   *
+   * @param _blockNumber - The block number to get the archive root of
+   *
+   * @return bytes32 - The archive root of the block
+   */
+  function archiveAt(uint256 _blockNumber) public view override(IRollup) returns (bytes32) {
+    if (_blockNumber <= tips.pendingBlockNumber) {
+      return blocks[_blockNumber].archive;
+    }
+    return bytes32(0);
+  }
+
   function _prune() internal {
+    // TODO #8656
     delete proofClaim;
 
     uint256 pending = tips.pendingBlockNumber;
@@ -593,20 +605,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       return false;
     }
     return true;
-  }
-
-  /**
-   * @notice  Get the archive root of a specific block
-   *
-   * @param _blockNumber - The block number to get the archive root of
-   *
-   * @return bytes32 - The archive root of the block
-   */
-  function archiveAt(uint256 _blockNumber) public view override(IRollup) returns (bytes32) {
-    if (_blockNumber <= tips.pendingBlockNumber) {
-      return blocks[_blockNumber].archive;
-    }
-    return bytes32(0);
   }
 
   /**
