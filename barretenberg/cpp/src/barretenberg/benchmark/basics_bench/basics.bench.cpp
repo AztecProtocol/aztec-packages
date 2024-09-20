@@ -35,6 +35,33 @@ using Curve = curve::BN254;
 using Fr = Curve::ScalarField;
 #define MAX_REPETITION_LOG 12
 
+// using FF = uint64_t;
+using FF = Fr;
+
+void ff_default_constructor(State& state)
+{
+    for (auto _ : state) {
+        std::vector<FF> x(1 << state.range(0));
+        DoNotOptimize(x);
+    }
+}
+
+void ff_limbs_constructor(State& state)
+{
+    for (auto _ : state) {
+        std::vector<FF> x(1 << state.range(0), FF{ 0, 0, 0, 0 });
+        DoNotOptimize(x);
+    }
+}
+
+void ff_from_literal(State& state)
+{
+    for (auto _ : state) {
+        std::vector<FF> x(1 << state.range(0), FF(0));
+        DoNotOptimize(x);
+    }
+}
+
 /**
  * @brief Benchmark for evaluating the cost of starting parallel_for
  *
@@ -468,6 +495,9 @@ void pippenger(State& state)
 }
 } // namespace
 
+BENCHMARK(ff_default_constructor)->Unit(kMillisecond)->DenseRange(17, 21);
+BENCHMARK(ff_limbs_constructor)->Unit(kMillisecond)->DenseRange(17, 21);
+BENCHMARK(ff_from_literal)->Unit(kMillisecond)->DenseRange(17, 21);
 BENCHMARK(parallel_for_field_element_addition)->Unit(kMicrosecond)->DenseRange(0, MAX_REPETITION_LOG);
 BENCHMARK(ff_addition)->Unit(kMicrosecond)->DenseRange(12, 30);
 BENCHMARK(ff_multiplication)->Unit(kMicrosecond)->DenseRange(12, 27);
