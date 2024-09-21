@@ -344,50 +344,50 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant sumcheck_univariate_7_25 = 0x3160;
     uint256 internal constant sumcheck_univariate_7_26 = 0x3180;
     uint256 internal constant sumcheck_univariate_7_27 = 0x31a0;
-    uint256 internal constant eval_Q_M_loc = 0x31c0;
-    uint256 internal constant eval_Q_C_loc = 0x31e0;
-    uint256 internal constant eval_Q_L_loc = 0x3200;
-    uint256 internal constant eval_Q_R_loc = 0x3220;
-    uint256 internal constant eval_Q_O_loc = 0x3240;
-    uint256 internal constant eval_Q_4_loc = 0x3260;
-    uint256 internal constant eval_Q_ARITH_loc = 0x3280;
-    uint256 internal constant eval_Q_RANGE_loc = 0x32a0;
-    uint256 internal constant eval_Q_ELLIPTIC_loc = 0x32c0;
-    uint256 internal constant eval_Q_AUX_loc = 0x32e0;
-    uint256 internal constant eval_Q_LOOKUP_loc = 0x3300;
-    uint256 internal constant eval_Q_POSEIDON2_EXTERNAL_loc = 0x3320;
-    uint256 internal constant eval_Q_POSEIDON2_INTERNAL_loc = 0x3340;
-    uint256 internal constant eval_SIGMA_1_loc = 0x3360;
-    uint256 internal constant eval_SIGMA_2_loc = 0x3380;
-    uint256 internal constant eval_SIGMA_3_loc = 0x33a0;
-    uint256 internal constant eval_SIGMA_4_loc = 0x33c0;
-    uint256 internal constant eval_ID_1_loc = 0x33e0;
-    uint256 internal constant eval_ID_2_loc = 0x3400;
-    uint256 internal constant eval_ID_3_loc = 0x3420;
-    uint256 internal constant eval_ID_4_loc = 0x3440;
-    uint256 internal constant eval_TABLE_1_loc = 0x3460;
-    uint256 internal constant eval_TABLE_2_loc = 0x3480;
-    uint256 internal constant eval_TABLE_3_loc = 0x34a0;
-    uint256 internal constant eval_TABLE_4_loc = 0x34c0;
-    uint256 internal constant eval_LAGRANGE_FIRST_loc = 0x34e0;
-    uint256 internal constant eval_LAGRANGE_LAST_loc = 0x3500;
-    uint256 internal constant eval_W_L_loc = 0x3520;
-    uint256 internal constant eval_W_R_loc = 0x3540;
-    uint256 internal constant eval_W_O_loc = 0x3560;
-    uint256 internal constant eval_W_4_loc = 0x3580;
-    uint256 internal constant eval_Z_PERM_loc = 0x35a0;
-    uint256 internal constant eval_LOOKUP_INVERSES_loc = 0x35c0;
-    uint256 internal constant eval_LOOKUP_READ_COUNTS_loc = 0x35e0;
-    uint256 internal constant eval_LOOKUP_READ_TAGS_loc = 0x3600;
-    uint256 internal constant eval_TABLE_1_SHIFT_loc = 0x3620;
-    uint256 internal constant eval_TABLE_2_SHIFT_loc = 0x3640;
-    uint256 internal constant eval_TABLE_3_SHIFT_loc = 0x3660;
-    uint256 internal constant eval_TABLE_4_SHIFT_loc = 0x3680;
-    uint256 internal constant eval_W_L_SHIFT_loc = 0x36a0;
-    uint256 internal constant eval_W_R_SHIFT_loc = 0x36c0;
-    uint256 internal constant eval_W_O_SHIFT_loc = 0x36e0;
-    uint256 internal constant eval_W_4_SHIFT_loc = 0x3700;
-    uint256 internal constant eval_Z_PERM_SHIFT_loc = 0x3720;
+    uint256 internal constant QM_EVAL_LOC = 0x31c0;
+    uint256 internal constant QC_EVAL_LOC = 0x31e0;
+    uint256 internal constant Q1_EVAL_LOC = 0x3200;
+    uint256 internal constant Q2_EVAL_LOC = 0x3220;
+    uint256 internal constant Q3_EVAL_LOC = 0x3240;
+    uint256 internal constant Q4_EVAL_LOC = 0x3260;
+    uint256 internal constant QARITH_EVAL_LOC = 0x3280;
+    uint256 internal constant QRANGE_EVAL_LOC = 0x32a0;
+    uint256 internal constant QELLIPTIC_EVAL_LOC = 0x32c0;
+    uint256 internal constant QAUX_EVAL_LOC = 0x32e0;
+    uint256 internal constant QLOOKUP_EVAL_LOC = 0x3300;
+    uint256 internal constant QPOSEIDON2_EXTERNAL_EVAL_LOC = 0x3320;
+    uint256 internal constant QPOSEIDON2_INTERNAL_EVAL_LOC = 0x3340;
+    uint256 internal constant SIGMA1_EVAL_LOC = 0x3360;
+    uint256 internal constant SIGMA2_EVAL_LOC = 0x3380;
+    uint256 internal constant SIGMA3_EVAL_LOC = 0x33a0;
+    uint256 internal constant SIGMA4_EVAL_LOC = 0x33c0;
+    uint256 internal constant ID1_EVAL_LOC = 0x33e0;
+    uint256 internal constant ID2_EVAL_LOC = 0x3400;
+    uint256 internal constant ID3_EVAL_LOC = 0x3420;
+    uint256 internal constant ID4_EVAL_LOC = 0x3440;
+    uint256 internal constant TABLE1_EVAL_LOC = 0x3460;
+    uint256 internal constant TABLE2_EVAL_LOC = 0x3480;
+    uint256 internal constant TABLE3_EVAL_LOC = 0x34a0;
+    uint256 internal constant TABLE4_EVAL_LOC = 0x34c0;
+    uint256 internal constant LAGRANGE_FIRST_EVAL_LOC = 0x34e0;
+    uint256 internal constant LAGRANGE_LAST_EVAL_LOC = 0x3500;
+    uint256 internal constant W1_EVAL_LOC = 0x3520;
+    uint256 internal constant W2_EVAL_LOC = 0x3540;
+    uint256 internal constant W3_EVAL_LOC = 0x3560;
+    uint256 internal constant W4_EVAL_LOC = 0x3580;
+    uint256 internal constant Z_PERM_EVAL_LOC = 0x35a0;
+    uint256 internal constant LOOKUP_INVERSES_EVAL_LOC = 0x35c0;
+    uint256 internal constant LOOKUP_READ_COUNTS_EVAL_LOC = 0x35e0;
+    uint256 internal constant LOOKUP_READ_TAGS_EVAL_LOC = 0x3600;
+    uint256 internal constant TABLE1_SHIFT_EVAL_LOC = 0x3620;
+    uint256 internal constant TABLE2_SHIFT_EVAL_LOC = 0x3640;
+    uint256 internal constant TABLE3_SHIFT_EVAL_LOC = 0x3660;
+    uint256 internal constant TABLE4_SHIFT_EVAL_LOC = 0x3680;
+    uint256 internal constant W1_SHIFT_EVAL_LOC = 0x36a0;
+    uint256 internal constant W2_SHIFT_EVAL_LOC = 0x36c0;
+    uint256 internal constant W3_SHIFT_EVAL_LOC = 0x36e0;
+    uint256 internal constant W4_SHIFT_EVAL_LOC = 0x3700;
+    uint256 internal constant Z_PERM_SHIFT_EVAL_LOC = 0x3720;
 
     // Zermorph items
     uint256 internal constant zm_cqs_0_x0_loc = 0x3740;
@@ -641,7 +641,53 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant BARYCENTRIC_DENOMINATOR_INVERSES_6_LOC = 0x54e0;
     uint256 internal constant BARYCENTRIC_DENOMINATOR_INVERSES_7_LOC = 0x5500;
 
-    uint256 internal constant NEXT_FREE_LOC = 0x5520;
+    // How many are there -> 26
+    uint256 internal constant SUBRELATION_EVAL_LOC = 0x5520;
+    uint256 internal constant SUBRELATION_EVAL_1_LOC = 0x5540;
+    uint256 internal constant SUBRELATION_EVAL_2_LOC = 0x5560;
+    uint256 internal constant SUBRELATION_EVAL_3_LOC = 0x5580;
+    uint256 internal constant SUBRELATION_EVAL_4_LOC = 0x55a0;
+    uint256 internal constant SUBRELATION_EVAL_5_LOC = 0x55c0;
+    uint256 internal constant SUBRELATION_EVAL_6_LOC = 0x55e0;
+    uint256 internal constant SUBRELATION_EVAL_7_LOC = 0x5600;
+    uint256 internal constant SUBRELATION_EVAL_8_LOC = 0x5620;
+    uint256 internal constant SUBRELATION_EVAL_9_LOC = 0x5640;
+    uint256 internal constant SUBRELATION_EVAL_10_LOC = 0x5660;
+    uint256 internal constant SUBRELATION_EVAL_11_LOC = 0x5680;
+    uint256 internal constant SUBRELATION_EVAL_12_LOC = 0x56a0;
+    uint256 internal constant SUBRELATION_EVAL_13_LOC = 0x56c0;
+    uint256 internal constant SUBRELATION_EVAL_14_LOC = 0x56e0;
+    uint256 internal constant SUBRELATION_EVAL_15_LOC = 0x5700;
+    uint256 internal constant SUBRELATION_EVAL_16_LOC = 0x5720;
+    uint256 internal constant SUBRELATION_EVAL_17_LOC = 0x5740;
+    uint256 internal constant SUBRELATION_EVAL_18_LOC = 0x5760;
+    uint256 internal constant SUBRELATION_EVAL_19_LOC = 0x5780;
+    uint256 internal constant SUBRELATION_EVAL_20_LOC = 0x57a0;
+    uint256 internal constant SUBRELATION_EVAL_21_LOC = 0x57c0;
+    uint256 internal constant SUBRELATION_EVAL_22_LOC = 0x57e0;
+    uint256 internal constant SUBRELATION_EVAL_23_LOC = 0x5800;
+    uint256 internal constant SUBRELATION_EVAL_24_LOC = 0x5820;
+    uint256 internal constant SUBRELATION_EVAL_25_LOC = 0x5840;
+
+    uint256 internal constant POW_PARTIAL_EVALUATION_LOC = 0x5860;
+    uint256 internal constant NEXT_FREE_LOC = 0x5880;
+
+    // Aliases
+    // Aliases for wire values (Elliptic curve gadget)
+    uint256 internal constant EC_X_1 = W2_EVAL_LOC;
+    uint256 internal constant EC_Y_1 = W3_EVAL_LOC;
+    uint256 internal constant EC_X_2 = W1_SHIFT_EVAL_LOC;
+    uint256 internal constant EC_Y_2 = W4_SHIFT_EVAL_LOC;
+    uint256 internal constant EC_Y_3 = W3_SHIFT_EVAL_LOC;
+    uint256 internal constant EC_X_3 = W2_SHIFT_EVAL_LOC;
+
+    // Aliases for selectors (Elliptic curve gadget)
+    uint256 internal constant EC_Q_SIGN = Q1_EVAL_LOC;
+    uint256 internal constant EC_Q_IS_DOUBLE = QM_EVAL_LOC;
+
+    // -1/2 mod p
+    uint256 internal constant NEG_HALF_MODULO_P = 0x183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000000;
+    uint256 internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = 17; // -(-17)
 
     constructor() {
         // TODO: verify the points are on the curve in the constructor
@@ -879,7 +925,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // Generate Rho Challenge
                 // Hash all of the sumcheck evaluations
                 // Number of bytes to copy = 0x20 * NUMBER_OF_ENTITIES (44) = 0x580
-                mcopy(0x20, eval_Q_M_loc, 0x580)
+                mcopy(0x20, QM_EVAL_LOC, 0x580)
                 prev_challenge := mod(keccak256(0x00, 0x5a0), p)
                 mstore(0x00, prev_challenge)
 
@@ -962,8 +1008,31 @@ contract BlakeOptHonkVerifier is IVerifier {
                     revert(0x00, 0x0)
                 }
 
+                // TODO(md): do not need to store these if inverting now????
                 mstore(PUBLIC_INPUTS_DELTA_NUMERATOR_LOC, numerator_value)
                 mstore(PUBLIC_INPUTS_DELTA_DENOMINATOR_LOC, denominator_value)
+
+                // TODO(md): optimise this by performing the inversion later - but just doing it here for now
+                let dom_inverse := 0
+                {
+                    mstore(0, 0x20)
+                    mstore(0x20, 0x20)
+                    mstore(0x40, 0x20)
+                    mstore(0x60, denominator_value)
+                    mstore(0x80, sub(p, 2))
+                    mstore(0xa0, p)
+                    if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
+                        // TODO: custom error
+                        mstore(0x0, 0x69696969)
+                        revert(0x00, 0x04)
+                    }
+                    // 1 / (0 . 1 . 2 . 3 . 4 . 5 . 6 . 7)
+                    dom_inverse := mload(0x00)
+                }
+                // Calculate the public inputs delta
+                mstore(PUBLIC_INPUTS_DELTA_NUMERATOR_LOC, mulmod(numerator_value, dom_inverse, p))
+
+                // TODO(md): store the result in the numerator location
             }
 
             // Sumcheck
@@ -1151,7 +1220,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                     round_univariates_ptr, /*: uint256[] */
                     round_challenge, /*: uint256 */
                     p_clone, /*: uint256 */ /* TEMP */
-                    round
                 ) -> next_target /*: uint256 */ {
                     // Next target sum, Barycentric evaluation at the given challenge point
 
@@ -1226,7 +1294,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                     let total_sum := addmod(mload(round_univariates_off), mload(add(round_univariates_off, 0x20)), p)
                     valid := and(valid, eq(total_sum, round_target))
 
-                    round_target := computeNextTargetSum(round_univariates_off, round_challenge, p, round)
+                    round_target := computeNextTargetSum(round_univariates_off, round_challenge, p)
                     pow_partial_evaluation := partiallyEvaluatePOW(round_challenge, pow_partial_evaluation, round, p)
 
                     round := add(round, 1)
@@ -1236,6 +1304,382 @@ contract BlakeOptHonkVerifier is IVerifier {
                     // TODO: custom error
                     revert(0x00, 0x00)
                 }
+
+
+                // The final sumcheck round; accumulating evaluations
+                // Uses pow partial evaluation as the gate scaling factor
+
+                // NOTE: maybe mstore pow_partial_evaluation here rather than keeping on the stack
+                mstore(POW_PARTIAL_EVALUATION_LOC, pow_partial_evaluation)
+
+            /**
+             * COMPUTE ARITHMETIC WIDGET EVALUATION
+             */
+            {
+                /**
+                 * The basic arithmetic gate identity in standard plonk is as follows.
+                 * (w_1 . w_2 . q_m) + (w_1 . q_1) + (w_2 . q_2) + (w_3 . q_3) + (w_4 . q_4) + q_c = 0
+                 * However, for Ultraplonk, we extend this to support "passing" wires between rows (shown without alpha scaling below):
+                 * q_arith * ( ( (-1/2) * (q_arith - 3) * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c ) +
+                 * (q_arith - 1)*( α * (q_arith - 2) * (w_1 + w_4 - w_1_omega + q_m) + w_4_omega) ) = 0
+                 *
+                 * This formula results in several cases depending on q_arith:
+                 * 1. q_arith == 0: Arithmetic gate is completely disabled
+                 *
+                 * 2. q_arith == 1: Everything in the minigate on the right is disabled. The equation is just a standard plonk equation
+                 * with extra wires: q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c = 0
+                 *
+                 * 3. q_arith == 2: The (w_1 + w_4 - ...) term is disabled. THe equation is:
+                 * (1/2) * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + w_4_omega = 0
+                 * It allows defining w_4 at next index (w_4_omega) in terms of current wire values
+                 *
+                 * 4. q_arith == 3: The product of w_1 and w_2 is disabled, but a mini addition gate is enabled. α allows us to split
+                 * the equation into two:
+                 *
+                 * q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + 2 * w_4_omega = 0
+                 * and
+                 * w_1 + w_4 - w_1_omega + q_m = 0  (we are reusing q_m here)
+                 *
+                 * 5. q_arith > 3: The product of w_1 and w_2 is scaled by (q_arith - 3), while the w_4_omega term is scaled by (q_arith - 1).
+                 * The equation can be split into two:
+                 *
+                 * (q_arith - 3)* q_m * w_1 * w_ 2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + (q_arith - 1) * w_4_omega = 0
+                 * and
+                 * w_1 + w_4 - w_1_omega + q_m = 0
+                 *
+                 * The problem that q_m is used both in both equations can be dealt with by appropriately changing selector values at
+                 * the next gate. Then we can treat (q_arith - 1) as a simulated q_6 selector and scale q_m to handle (q_arith - 3) at
+                 * product.
+                 */
+                let w1q1 := mulmod(mload(W1_EVAL_LOC), mload(Q1_EVAL_LOC), p)
+                let w2q2 := mulmod(mload(W2_EVAL_LOC), mload(Q2_EVAL_LOC), p)
+                let w3q3 := mulmod(mload(W3_EVAL_LOC), mload(Q3_EVAL_LOC), p)
+                let w4q3 := mulmod(mload(W4_EVAL_LOC), mload(Q4_EVAL_LOC), p)
+
+                let q_arith := mload(QARITH_EVAL_LOC)
+                // w1w2qm := (w_1 . w_2 . q_m . (QARITH_EVAL_LOC - 3)) / 2
+                let w1w2qm :=
+                    mulmod(
+                        mulmod(
+                            mulmod(mulmod(mload(W1_EVAL_LOC), mload(W2_EVAL_LOC), p), mload(QM_EVAL_LOC), p),
+                            addmod(q_arith, sub(p, 3), p),
+                            p
+                        ),
+                        // TODO: calculate this in advance
+                        NEG_HALF_MODULO_P,
+                        // NEGATIVE_INVERSE_OF_2_MODULO_P,
+                        p
+                    )
+
+                log2(0x00, 0x00, 0x1, w1w2qm)
+
+                // (w_1 . w_2 . q_m . (q_arith - 3)) / -2) + (w_1 . q_1) + (w_2 . q_2) + (w_3 . q_3) + (w_4 . q_4) + q_c
+                let identity :=
+                    addmod(
+                        mload(QC_EVAL_LOC), addmod(w4q3, addmod(w3q3, addmod(w2q2, addmod(w1q1, w1w2qm, p), p), p), p), p
+                    )
+
+                log2(0x00, 0x00, 0x2, identity)
+
+                // if q_arith == 3 we evaluate an additional mini addition gate (on top of the regular one), where:
+                // w_1 + w_4 - w_1_omega + q_m = 0
+                // we use this gate to save an addition gate when adding or subtracting non-native field elements
+                // α * (q_arith - 2) * (w_1 + w_4 - w_1_omega + q_m)
+                let extra_small_addition_gate_identity :=
+                        mulmod(
+                            addmod(q_arith, sub(p, 2), p),
+                            addmod(
+                                mload(QM_EVAL_LOC),
+                                addmod(
+                                    sub(p, mload(W1_SHIFT_EVAL_LOC)), addmod(mload(W1_EVAL_LOC), mload(W4_EVAL_LOC), p), p
+                                ),
+                                p
+                            ),
+                            p
+                        )
+
+                // Split up the two relations
+                let contribution_1 := addmod(identity, mulmod(addmod(q_arith, sub(p, 1), p), mload(W4_SHIFT_EVAL_LOC), p), p)
+                contribution_1 := mulmod(mulmod(contribution_1, q_arith, p), mload(POW_PARTIAL_EVALUATION_LOC), p)
+                mstore(SUBRELATION_EVAL_LOC, contribution_1)
+
+                let contribution_2 := mulmod(extra_small_addition_gate_identity, addmod(q_arith, sub(p, 1), p), p)
+                contribution_2 := mulmod(contribution_2, q_arith, p)
+                contribution_2 := mulmod(contribution_2, mload(POW_PARTIAL_EVALUATION_LOC), p)
+                mstore(SUBRELATION_EVAL_1_LOC, contribution_2)
+            }
+
+            /**
+             * COMPUTE PERMUTATION WIDGET EVALUATION
+             */
+            {
+                let beta := mload(beta_challenge_loc)
+                let gamma := mload(gamma_challenge_loc)
+
+                /**
+                 * t1 = (W1 + gamma + beta * ID1) * (W2 + gamma + beta * ID2)
+                 * t2 = (W3 + gamma + beta * ID3) * (W4 + gamma + beta * ID4)
+                 * gp_numerator = t1 * t2
+                 * t1 = (W1 + gamma + beta * sigma_1_eval) * (W2 + gamma + beta * sigma_2_eval)
+                 * t2 = (W2 + gamma + beta * sigma_3_eval) * (W3 + gamma + beta * sigma_4_eval)
+                 * gp_denominator = t1 * t2
+                 */
+                let t1 :=
+                    mulmod(
+                        add(add(mload(W1_EVAL_LOC), gamma), mulmod(beta, mload(ID1_EVAL_LOC), p)),
+                        add(add(mload(W2_EVAL_LOC), gamma), mulmod(beta, mload(ID2_EVAL_LOC), p)),
+                        p
+                    )
+                let t2 :=
+                    mulmod(
+                        add(add(mload(W3_EVAL_LOC), gamma), mulmod(beta, mload(ID3_EVAL_LOC), p)),
+                        add(add(mload(W4_EVAL_LOC), gamma), mulmod(beta, mload(ID4_EVAL_LOC), p)),
+                        p
+                    )
+                let numerator := mulmod(t1, t2, p)
+                t1 :=
+                    mulmod(
+                        add(add(mload(W1_EVAL_LOC), gamma), mulmod(beta, mload(SIGMA1_EVAL_LOC), p)),
+                        add(add(mload(W2_EVAL_LOC), gamma), mulmod(beta, mload(SIGMA2_EVAL_LOC), p)),
+                        p
+                    )
+                t2 :=
+                    mulmod(
+                        add(add(mload(W3_EVAL_LOC), gamma), mulmod(beta, mload(SIGMA3_EVAL_LOC), p)),
+                        add(add(mload(W4_EVAL_LOC), gamma), mulmod(beta, mload(SIGMA4_EVAL_LOC), p)),
+                        p
+                    )
+                let denominator := mulmod(t1, t2, p)
+                log2(0x00, 0x00, 0x1, numerator)
+                log2(0x00, 0x00, 0x2, denominator)
+
+                {
+                    let acc := mulmod(addmod(mload(Z_PERM_EVAL_LOC), mload(LAGRANGE_FIRST_EVAL_LOC), p), numerator, p)
+
+                    log2(0x00, 0x00, 0x03, acc)
+
+                    acc := addmod(
+                        acc,
+                        sub(
+                            p,
+                            mulmod(
+                                addmod(
+                                mload(Z_PERM_SHIFT_EVAL_LOC),
+                                mulmod(
+                                    mload(LAGRANGE_LAST_EVAL_LOC),
+                                        mload(PUBLIC_INPUTS_DELTA_NUMERATOR_LOC),
+                                    p
+                                ),
+                                p
+                            ),
+                            denominator,
+                            p
+                        )
+                    ),
+                    p
+                    )
+
+                    log2(0x00, 0x00, 0x04, acc)
+
+                    acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
+                    mstore(SUBRELATION_EVAL_2_LOC, acc)
+
+                    log2(0x00, 0x00, 0x04, acc)
+
+                    acc := mulmod(mulmod(mload(LAGRANGE_LAST_EVAL_LOC), mload(Z_PERM_SHIFT_EVAL_LOC), p), mload(POW_PARTIAL_EVALUATION_LOC), p)
+
+                    log2(0x00, 0x00, 0x05, acc)
+                }
+            }
+
+                /**
+                 * LOGUP WIDGET EVALUATION
+                 */
+                {
+                    let eta := mload(eta_challenge_loc)
+                    let eta_two := mload(eta_two_challenge_loc)
+                    let eta_three := mload(eta_three_challenge_loc)
+
+                    let beta := mload(beta_challenge_loc)
+                    let gamma := mload(gamma_challenge_loc)
+
+                    let t0 := addmod(addmod(mload(TABLE1_EVAL_LOC), gamma, p), mulmod(mload(TABLE2_EVAL_LOC), eta, p), p)
+                    let t1 := addmod(mulmod(mload(TABLE3_EVAL_LOC), eta_two, p), mulmod(mload(TABLE4_EVAL_LOC), eta_three, p), p)
+                    let write_term := addmod(t0, t1, p)
+
+                    t0 := addmod(addmod(mload(W1_EVAL_LOC), gamma, p), mulmod(mload(Q2_EVAL_LOC), mload(W1_SHIFT_EVAL_LOC), p), p)
+                    t1 := addmod(mload(W2_EVAL_LOC), mulmod(mload(QM_EVAL_LOC), mload(W2_SHIFT_EVAL_LOC), p), p)
+                    let t2 := addmod(mload(W3_EVAL_LOC), mulmod(mload(QC_EVAL_LOC), mload(W3_SHIFT_EVAL_LOC), p), p)
+
+                    let read_term := addmod(t0, mulmod(t1, eta, p), p)
+                    read_term := addmod(read_term, mulmod(t2, eta_two, p), p)
+                    read_term := addmod(read_term, mulmod(mload(Q3_EVAL_LOC), eta_three, p), p)
+
+                    let read_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), write_term, p)
+                    let write_inverse := mulmod(mload(LOOKUP_INVERSES_EVAL_LOC), read_term, p)
+
+                    let inverse_exists_xor := addmod(mload(LOOKUP_READ_TAGS_EVAL_LOC), mload(QLOOKUP_EVAL_LOC), p)
+                    inverse_exists_xor := addmod(inverse_exists_xor, sub(p, mulmod(mload(LOOKUP_READ_TAGS_EVAL_LOC), mload(QLOOKUP_EVAL_LOC), p)), p)
+
+                    let accumulator_none := mulmod(mulmod(read_term, write_term, p), mload(LOOKUP_INVERSES_EVAL_LOC), p)
+                    accumulator_none := addmod(accumulator_none, sub(p, inverse_exists_xor), p)
+                    accumulator_none := mulmod(accumulator_none, mload(POW_PARTIAL_EVALUATION_LOC), p)
+
+                    let accumulator_one := mulmod(mload(QLOOKUP_EVAL_LOC), read_inverse, p)
+                    accumulator_one := addmod(accumulator_one, sub(p, mulmod(mload(LOOKUP_READ_COUNTS_EVAL_LOC), write_inverse, p)), p)
+
+                    mstore(SUBRELATION_EVAL_3_LOC, accumulator_none)
+                    mstore(SUBRELATION_EVAL_4_LOC, accumulator_one)
+                }
+
+                /**
+                 * DELTA RANGE RELATION
+                 */
+                {
+                    // TODO(md): optimise the calculations
+                    let minus_one := sub(p, 1)
+                    let minus_two := sub(p, 2)
+                    let minus_three := sub(p, 3)
+
+                    let delta_1 := addmod(mload(W2_EVAL_LOC), sub(p, mload(W1_EVAL_LOC)), p)
+                    let delta_2 := addmod(mload(W3_EVAL_LOC), sub(p, mload(W2_EVAL_LOC)), p)
+                    let delta_3 := addmod(mload(W4_EVAL_LOC), sub(p, mload(W3_EVAL_LOC)), p)
+                    let delta_4 := addmod(mload(W1_SHIFT_EVAL_LOC), sub(p, mload(W4_EVAL_LOC)), p)
+
+                    {
+                        let acc := delta_1
+                        acc := mulmod(acc, addmod(delta_1, minus_one, p), p)
+                        acc := mulmod(acc, addmod(delta_1, minus_two, p), p)
+                        acc := mulmod(acc, addmod(delta_1, minus_three, p), p)
+                        acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
+                        acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
+                        mstore(SUBRELATION_EVAL_5_LOC, acc)
+                        log2(0x00, 0x00, 0x05, acc)
+                    }
+
+                    {
+                        let acc := delta_2
+                        acc := mulmod(acc, addmod(delta_2, minus_one, p), p)
+                        acc := mulmod(acc, addmod(delta_2, minus_two, p), p)
+                        acc := mulmod(acc, addmod(delta_2, minus_three, p), p)
+                        acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
+                        acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
+                        mstore(SUBRELATION_EVAL_6_LOC, acc)
+                        log2(0x00, 0x00, 0x06, acc)
+                    }
+
+                    {
+                        let acc := delta_3
+                        acc := mulmod(acc, addmod(delta_3, minus_one, p), p)
+                        acc := mulmod(acc, addmod(delta_3, minus_two, p), p)
+                        acc := mulmod(acc, addmod(delta_3, minus_three, p), p)
+                        acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
+                        acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
+                        mstore(SUBRELATION_EVAL_7_LOC, acc)
+                        log2(0x00, 0x00, 0x07, acc)
+                    }
+
+                    {
+                        let acc := delta_4
+                        acc := mulmod(acc, addmod(delta_4, minus_one, p), p)
+                        acc := mulmod(acc, addmod(delta_4, minus_two, p), p)
+                        acc := mulmod(acc, addmod(delta_4, minus_three, p), p)
+                        acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
+                        acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
+                        mstore(SUBRELATION_EVAL_8_LOC, acc)
+                        log2(0x00, 0x00, 0x08, acc)
+                    }
+                }
+
+                /**
+                 * ELLIPTIC CURVE RELATION
+                 */
+                {
+
+                    // Contribution 10 point addition, x-coordinate check
+                    // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
+                    let x_diff := addmod(mload(EC_X_2), sub(p, mload(EC_X_1)), p)
+                    let y1_sqr := mulmod(mload(EC_Y_1), mload(EC_Y_1), p)
+                    {
+                        let y2_sqr := mulmod(mload(EC_Y_2), mload(EC_Y_2), p)
+                        let y1y2 := mulmod(mulmod(mload(EC_Y_1), mload(EC_Y_2), p), mload(EC_Q_SIGN), p)
+                        let x_add_identity := addmod(mload(EC_X_3), addmod(mload(EC_X_2), mload(EC_X_1), p), p)
+                        x_add_identity := mulmod(mulmod(x_add_identity, x_diff, p), x_diff, p)
+                        x_add_identity := addmod(x_add_identity, sub(p, y2_sqr), p)
+                        x_add_identity := addmod(x_add_identity, sub(p, y1_sqr), p)
+                        x_add_identity := addmod(x_add_identity, y1y2, p)
+                        x_add_identity := addmod(x_add_identity, y1y2, p)
+
+                        let eval := mulmod(x_add_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
+                        eval := mulmod(eval, mload(QELLIPTIC_EVAL_LOC), p)
+                        eval := mulmod(eval, addmod(1, sub(p, mload(EC_Q_IS_DOUBLE)), p), p)
+                        mstore(SUBRELATION_EVAL_9_LOC, eval)
+                        log2(0x00, 0x00, 0x09, eval)
+                    }
+
+                    {
+                        let y1_plus_y3 := addmod(mload(EC_Y_1), mload(EC_Y_3), p)
+                        let y_diff := mulmod(mload(EC_Y_2), mload(EC_Q_SIGN), p)
+                        y_diff := addmod(y_diff, sub(p, mload(EC_Y_1)), p)
+                        let y_add_identity := mulmod(y1_plus_y3, x_diff, p)
+                        y_add_identity := addmod(y_add_identity, mulmod(addmod(mload(EC_X_3), sub(p, mload(EC_X_1)), p), y_diff, p), p)
+
+                        let eval := mulmod(y_add_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
+                        eval := mulmod(eval, mload(QELLIPTIC_EVAL_LOC), p)
+                        eval := mulmod(eval, addmod(1, sub(p, mload(EC_Q_IS_DOUBLE)), p), p)
+                        mstore(SUBRELATION_EVAL_10_LOC, eval)
+                        log2(0x00, 0x00, 0x0A, eval)
+                    }
+
+                    {
+                        let x_pow_4 := mulmod(addmod(y1_sqr, GRUMPKIN_CURVE_B_PARAMETER_NEGATED, p), mload(EC_X_1), p)
+                        let y1_sqr_mul_4 := addmod(y1_sqr, y1_sqr, p)
+                        y1_sqr_mul_4 := addmod(y1_sqr_mul_4, y1_sqr_mul_4, p)
+
+                        let x1_pow_4_mul_9 := mulmod(x_pow_4, 9, p)
+
+                        let ep_x_double_identity := addmod(mload(EC_X_3), addmod(mload(EC_X_1), mload(EC_X_1), p), p)
+                        ep_x_double_identity := mulmod(ep_x_double_identity, y1_sqr_mul_4, p)
+                        ep_x_double_identity := addmod(ep_x_double_identity, sub(p, x1_pow_4_mul_9), p)
+
+                        let acc := mulmod(ep_x_double_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
+                        acc := mulmod(mulmod(acc, mload(QELLIPTIC_EVAL_LOC), p), mload(EC_Q_IS_DOUBLE), p)
+                        acc := addmod(acc, mload(SUBRELATION_EVAL_9_LOC), p)
+
+                        // Add to existing contribution - and double check that numbers here
+                        mstore(SUBRELATION_EVAL_9_LOC, acc)
+                        log2(0x00, 0x00, 0x09, acc)
+                    }
+
+                    {
+                        let x1_sqr_mul_3 := mulmod(addmod(addmod(mload(EC_X_1), mload(EC_X_1), p), mload(EC_X_1), p), mload(EC_X_1), p)
+                        let y_double_identity := mulmod(x1_sqr_mul_3, addmod(mload(EC_X_1), sub(p, mload(EC_X_3)), p), p)
+                        y_double_identity := addmod(
+                            y_double_identity,
+                            sub(p,
+                                mulmod(
+                                    addmod(mload(EC_Y_1), mload(EC_Y_1), p),
+                                    addmod(mload(EC_Y_1), mload(EC_Y_3), p),
+                                    p
+                                )
+                            )
+                        , p)
+
+                        let acc := mulmod(y_double_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
+                        acc := mulmod(mulmod(acc, mload(QELLIPTIC_EVAL_LOC), p), mload(EC_Q_IS_DOUBLE), p)
+                        acc := addmod(acc, mload(SUBRELATION_EVAL_10_LOC), p)
+
+                        // Add to existing contribution - and double check that numbers here
+                        mstore(SUBRELATION_EVAL_10_LOC, acc)
+                        log2(0x00, 0x00, 0x0A, acc)
+                    }
+                }
+
+                // Auxiliary Relation
+                {
+
+                }
+
             }
 
             mstore(0x00, 0x01)
