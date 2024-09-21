@@ -16,7 +16,7 @@ import {
     CONST_PROOF_SIZE_LOG_N
 } from "../HonkTypes.sol";
 
-import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint} from "../utils.sol";
+import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint, logFr, logG1} from "../utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
 import {MODULUS as P, MINUS_ONE, Fr, FrLib} from "../Fr.sol";
@@ -25,6 +25,8 @@ import {Transcript, TranscriptLib} from "../Transcript.sol";
 
 import {RelationsLib} from "../Relations.sol";
 
+import "forge-std/console.sol";
+
 // Errors
 error PublicInputsLengthWrong();
 error SumcheckFailed();
@@ -32,7 +34,7 @@ error ZeromorphFailed();
 
 /// Smart contract verifier of honk proofs
 contract BlakeHonkVerifier is IVerifier {
-    function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
+    function verify(bytes calldata proof, bytes32[] calldata publicInputs) public override returns (bool) {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
 
@@ -86,6 +88,9 @@ contract BlakeHonkVerifier is IVerifier {
                 denominatorAcc = denominatorAcc - beta;
             }
         }
+
+        logFr("numerator", numerator);
+        logFr("denominator", denominator);
 
         // Fr delta = numerator / denominator; // TOOO: batch invert later?
         publicInputDelta = FrLib.div(numerator, denominator);

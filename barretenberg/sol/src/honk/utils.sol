@@ -21,6 +21,27 @@ function bytes32ToString(bytes32 value) pure returns (string memory) {
     return string(str);
 }
 
+function logAsmG1(string memory name, uint256 startPointer) pure {
+    bytes32 x0;
+    bytes32 x1;
+    bytes32 y0;
+    bytes32 y1;
+    assembly {
+        x0 := mload(startPointer)
+        x1 := mload(add(startPointer, 0x20))
+        y0 := mload(add(startPointer, 0x40))
+        y1 := mload(add(startPointer, 0x60))
+    }
+
+    string memory x0_str = bytes32ToString(x0);
+    string memory x1_str = bytes32ToString(x1);
+    string memory y0_str = bytes32ToString(y0);
+    string memory y1_str = bytes32ToString(y1);
+
+    string memory message = string(abi.encodePacked(name, " x: ", x0_str, x1_str, " y: ", y0_str, y1_str));
+    console2.log(message);
+}
+
 function logG1(string memory name, Honk.G1ProofPoint memory point) pure {
     // TODO: convert both to hex before printing to line up with cpp
     string memory x_0 = bytes32ToString(bytes32(point.x_0));

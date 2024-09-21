@@ -11,6 +11,6 @@ evm_version = "cancun"
 runs = 1
 
 
-solc = "0.8.21"
+solc = "0.8.26"
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

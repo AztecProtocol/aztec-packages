@@ -9,6 +9,10 @@ import {
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
 
+import {logFr} from "./utils.sol";
+
+import "forge-std/console.sol";
+
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
     Fr eta;
@@ -35,6 +39,8 @@ library TranscriptLib {
         view
         returns (Transcript memory t)
     {
+        uint256 gasBefore = gasleft();
+
         Fr previousChallenge;
         (t.eta, t.etaTwo, t.etaThree, previousChallenge) = generateEtaChallenge(proof, publicInputs, publicInputsSize);
 
@@ -50,6 +56,9 @@ library TranscriptLib {
         (t.zmY, previousChallenge) = generateZMYChallenge(previousChallenge, proof);
 
         (t.zmX, t.zmZ, previousChallenge) = generateZMXZChallenges(previousChallenge, proof);
+
+        uint256 gasAfter = gasleft();
+        console.log("Gas used: ", gasBefore - gasAfter);
 
         return t;
     }
@@ -89,6 +98,8 @@ library TranscriptLib {
         round0[3 + publicInputsSize + 9] = bytes32(proof.w3.x_1);
         round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
         round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
+
+        // console.logBytes(abi.encodePacked(round0));
 
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
@@ -142,14 +153,21 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(alpha0)));
         (alphas[0], alphas[1]) = splitChallenge(nextPreviousChallenge);
 
+        // logFr("alpha0", alphas[0]);
+        // logFr("alpha1", alphas[1]);
+
         for (uint256 i = 1; i < NUMBER_OF_ALPHAS / 2; i++) {
             nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(nextPreviousChallenge))));
             (alphas[2 * i], alphas[2 * i + 1]) = splitChallenge(nextPreviousChallenge);
+
+            // logFr("alpha", 2 * i, alphas[2 * i]);
+            // logFr("alpha", 2 * i + 1, alphas[2 * i + 1]);
         }
         if (((NUMBER_OF_ALPHAS & 1) == 1) && (NUMBER_OF_ALPHAS > 2)) {
             nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(nextPreviousChallenge))));
             Fr unused;
             (alphas[NUMBER_OF_ALPHAS - 1], unused) = splitChallenge(nextPreviousChallenge);
+            // logFr("alpha", NUMBER_OF_ALPHAS - 1, alphas[NUMBER_OF_ALPHAS - 1]);
         }
     }
 
@@ -162,6 +180,7 @@ library TranscriptLib {
             previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
             Fr unused;
             (gateChallenges[i], unused) = splitChallenge(previousChallenge);
+            // logFr("gate", i, gateChallenges[i]);
         }
         nextPreviousChallenge = previousChallenge;
     }
@@ -179,9 +198,11 @@ library TranscriptLib {
             for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
                 univariateChal[j + 1] = proof.sumcheckUnivariates[i][j];
             }
+            // console.logBytes(abi.encodePacked(univariateChal));
             prevChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(univariateChal)));
             Fr unused;
             (sumcheckChallenges[i], unused) = splitChallenge(prevChallenge);
+            // logFr("sumcheck", i, sumcheckChallenges[i]);
         }
         nextPreviousChallenge = prevChallenge;
     }
@@ -202,6 +223,7 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
         Fr unused;
         (rho, unused) = splitChallenge(nextPreviousChallenge);
+        // logFr("rho", rho);
     }
 
     function generateZMYChallenge(Fr previousChallenge, Honk.Proof memory proof)
@@ -219,9 +241,11 @@ library TranscriptLib {
             zmY[4 + i * 4] = proof.zmCqs[i].y_1;
         }
 
+        // console.logBytes(abi.encodePacked(zmY));
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(zmY)));
         Fr unused;
         (zeromorphY, unused) = splitChallenge(nextPreviousChallenge);
+        // logFr("zmY", zeromorphY);
     }
 
     function generateZMXZChallenges(Fr previousChallenge, Honk.Proof memory proof)
@@ -239,6 +263,8 @@ library TranscriptLib {
 
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(buf)));
         (zeromorphX, zeromorphZ) = splitChallenge(nextPreviousChallenge);
+        // logFr("zmX", zeromorphX);
+        // logFr("zmZ", zeromorphZ);
     }
 
     // TODO: mod q proof points
