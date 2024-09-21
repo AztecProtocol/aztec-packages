@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726869487324,
+  "lastUpdate": 1726878110286,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5b27fbca982442251a350d6571bdd007b715d575",
-          "message": "feat(avm)!: variants for MOV opcode (#8440)\n\nYields an 11% to 21% reduction in bytecode size:\n```\navm_simulation_bytecode_size_in_bytes (Token:constructor): 10,658 (-18%)\navm_simulation_bytecode_size_in_bytes (FPC:constructor): 6,144 (-21%)\navm_simulation_bytecode_size_in_bytes (FPC:prepare_fee): 3,089 (-21%)\navm_simulation_bytecode_size_in_bytes (Token:transfer_public): 7,401 (-17%)\navm_simulation_bytecode_size_in_bytes (FPC:pay_refund): 3,911 (-19%)\navm_simulation_bytecode_size_in_bytes (Benchmarking:increment_balance): 2,620 (-16%)\navm_simulation_bytecode_size_in_bytes (FPC:pay_refund_with_shielded_rebate): 3,911 (-19%)\n```\n\nThere are some gas-related things to cleanup later.",
-          "timestamp": "2024-09-09T21:34:39+01:00",
-          "tree_id": "19a7437dc11e70d9420782cb37a832b143408aed",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5b27fbca982442251a350d6571bdd007b715d575"
-        },
-        "date": 1725915208242,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13275.568164999982,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10180.456505000002 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5080.736568000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4680.4629970000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39212.790968999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39212791000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14685.400835999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14685400000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3691965298,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3691965298 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 146259561,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 146259561 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3000622747,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3000622747 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 120731099,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 120731099 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 126681476,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126681476 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7247ddba274e691a7c5220848caf1fa9d6aa911e",
+          "message": "feat: reduce max memory in translator by freeing accumulator and eccvm (#8253)\n\nWe free the accumulator as soon as the decider_prover is done, the\r\neccvm_builder as soon as the eccvm_prover is constructed, the\r\ntranslator_builder as soon as the translator_prover is constructed, and\r\nthe eccvm_prover, as soon as we pass all the necessary information to\r\nthe translator_builder. The peak memory drops by 18MB, but what's\r\nsignificant is that the translator is no longer the bottleneck of the\r\nbenchmark, mostly due to freeing the accumulator.\r\n\r\nThe peak memory during the eccvm/translator drops from 666MiB to 328MiB,\r\na drop of 338MiB, which is approximately the size of one instance and\r\nthe commitment key, which is as expected.\r\nBefore:\r\n<img width=\"1180\" alt=\"Screenshot 2024-09-20 at 1 55 13 PM\"\r\nsrc=\"https://github.com/user-attachments/assets/469fe1e0-01ac-4e4e-a794-0266d15b4a5f\">\r\n\r\nAfter:\r\n<img width=\"1193\" alt=\"Screenshot 2024-09-19 at 6 28 39 PM\"\r\nsrc=\"https://github.com/user-attachments/assets/2f5c8873-5aa4-4631-a6f1-9a01aeef633c\">",
+          "timestamp": "2024-09-20T23:59:32Z",
+          "tree_id": "df47871825ea1b7f0403881d1e32c4f9bd913aa5",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7247ddba274e691a7c5220848caf1fa9d6aa911e"
+        },
+        "date": 1726878103331,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 35508.039739,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 33102.333335 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5065.420864000003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4657.826131999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 99999.80876700001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 99999809000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14631.000183999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14631000000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8463736260,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8463736260 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152397387,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152397387 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6882939781,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6882939781 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126519853,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126519853 ns\nthreads: 1"
           }
         ]
       }
