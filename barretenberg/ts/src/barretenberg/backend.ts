@@ -12,10 +12,7 @@ export class UltraPlonkBackend {
   // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   protected acirComposer: any;
 
-  constructor(
-    protected acirUncompressedBytecode: Uint8Array,
-    protected options: BackendOptions = { threads: 1 },
-  ) {  }
+  constructor(protected acirUncompressedBytecode: Uint8Array, protected options: BackendOptions = { threads: 1 }) {}
 
   /** @ignore */
   async instantiate(): Promise<void> {
@@ -48,11 +45,7 @@ export class UltraPlonkBackend {
   /** @description Generates a proof */
   async generateProof(compressedWitness: Uint8Array): Promise<Uint8Array> {
     await this.instantiate();
-    return this.api.acirCreateProof(
-      this.acirComposer,
-      this.acirUncompressedBytecode,
-      gunzip(compressedWitness),
-    )
+    return this.api.acirCreateProof(this.acirComposer, this.acirUncompressedBytecode, gunzip(compressedWitness));
   }
 
   /**
@@ -92,8 +85,8 @@ export class UltraPlonkBackend {
     const vk = await this.api.acirSerializeVerificationKeyIntoFields(this.acirComposer);
 
     return {
-      proofAsFields: proofAsFields.map((p) => p.toString()),
-      vkAsFields: vk[0].map((vk) => vk.toString()),
+      proofAsFields: proofAsFields.map(p => p.toString()),
+      vkAsFields: vk[0].map(vk => vk.toString()),
       vkHash: vk[1].toString(),
     };
   }
@@ -127,11 +120,7 @@ export class UltraHonkBackend {
 
   protected api!: Barretenberg;
 
-  constructor(
-    protected acirUncompressedBytecode: Uint8Array,
-    protected options: BackendOptions = { threads: 1 },
-  ) {
-  }
+  constructor(protected acirUncompressedBytecode: Uint8Array, protected options: BackendOptions = { threads: 1 }) {}
 
   /** @ignore */
   async instantiate(): Promise<void> {
@@ -158,10 +147,7 @@ export class UltraHonkBackend {
 
   async generateProof(compressedWitness: Uint8Array): Promise<Uint8Array> {
     await this.instantiate();
-    return this.api.acirProveUltraHonk(
-      this.acirUncompressedBytecode,
-      gunzip(compressedWitness),
-    );
+    return this.api.acirProveUltraHonk(this.acirUncompressedBytecode, gunzip(compressedWitness));
   }
 
   async verifyProof(proof: Uint8Array): Promise<boolean> {
@@ -198,7 +184,7 @@ export class UltraHonkBackend {
     return {
       // TODO(https://github.com/noir-lang/noir/issues/5661)
       proofAsFields: [],
-      vkAsFields: vk.map((vk) => vk.toString()),
+      vkAsFields: vk.map(vk => vk.toString()),
       // We use an empty string for the vk hash here as it is unneeded as part of the recursive artifacts
       // The user can be expected to hash the vk inside their circuit to check whether the vk is the circuit
       // they expect

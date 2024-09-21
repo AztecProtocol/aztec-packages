@@ -1,4 +1,4 @@
-import { BackendOptions, Barretenberg } from './index.js'
+import { BackendOptions, Barretenberg } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 
 // TODO: once UP is removed we can just roll this into the bas `Barretenberg` class.
@@ -30,7 +30,7 @@ export class BarretenbergVerifier {
       }
 
       const api = await Barretenberg.new(this.options);
-      await api.initSRSForCircuitSize(0)
+      await api.initSRSForCircuitSize(0);
 
       this.acirComposer = await api.acirNewAcirComposer(0);
       this.api = api;

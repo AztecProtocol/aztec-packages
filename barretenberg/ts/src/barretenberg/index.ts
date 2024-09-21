@@ -8,8 +8,8 @@ import createDebug from 'debug';
 import { Crs } from '../crs/index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 
-export { BarretenbergVerifier } from "./verifier.js"
-export { UltraPlonkBackend, UltraHonkBackend } from "./backend.js"
+export { BarretenbergVerifier } from './verifier.js';
+export { UltraPlonkBackend, UltraHonkBackend } from './backend.js';
 
 const debug = createDebug('bb.js:wasm');
 
@@ -53,11 +53,8 @@ export class Barretenberg extends BarretenbergApi {
 
   async acirInitSRS(bytecode: Uint8Array, honkRecursion: boolean): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_exact, _total, subgroupSize] = await this.acirGetCircuitSizes(
-      bytecode,
-      honkRecursion,
-    );
-    return this.initSRSForCircuitSize(subgroupSize)
+    const [_exact, _total, subgroupSize] = await this.acirGetCircuitSizes(bytecode, honkRecursion);
+    return this.initSRSForCircuitSize(subgroupSize);
   }
 
   async destroy() {
