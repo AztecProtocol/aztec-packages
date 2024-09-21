@@ -605,7 +605,6 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant sum_u_challenge_26_loc = 0x5180;
     uint256 internal constant sum_u_challenge_27_loc = 0x51a0;
 
-
     uint256 internal constant prev_challenge_loc = 0x51c0;
 
     uint256 internal constant PUBLIC_INPUTS_DELTA_NUMERATOR_LOC = 0x51e0;
@@ -715,13 +714,11 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant LOWER_128_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public override returns (bool) {
-
         // Load the verification key into memory
         loadVk();
 
         // Load the proof from calldata in one large chunk
         assembly {
-
             function splitChallenge(challenge) -> first, second {
                 first := and(challenge, LOWER_128_MASK)
                 second := shr(128, challenge)
@@ -746,9 +743,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // Load the proof into memory
                 // TODO: make sure this is evaluated as const
                 // The last item in the proof, and the first item in the proof
-                let proof_size := sub(zm_pi_y1_loc , proof_circuit_size_loc)
+                let proof_size := sub(zm_pi_y1_loc, proof_circuit_size_loc)
                 calldatacopy(proof_circuit_size_loc, proof_ptr, proof_size)
-
 
                 // TODO(md): IMPORTANT: Mod all of the base field items by q, and all prime field items by p
                 // for the sake of testing we are assuming that these are correct
@@ -756,7 +752,9 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // Generate challenges
 
                 // TODO: nice section headers ASCII
-                /** Generate Eta Challenges */
+                /**
+                 * Generate Eta Challenges
+                 */
 
                 // The use of mcpy will be a life saver here
                 // TODO: make sure that we have enough of a scratch space to work with here
@@ -823,7 +821,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let i := 1
                 // TODO: if we can afford bytecode size - unroll this
                 // For number of alphas / 2 ( 25 /2 )
-                for {} lt(i, 12) {i := add(i, 1)} {
+                for {} lt(i, 12) { i := add(i, 1) } {
                     prev_challenge := mod(keccak256(0x00, 0x20), p)
                     mstore(0x00, prev_challenge)
 
@@ -839,8 +837,6 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 let alpha_24 := and(prev_challenge, LOWER_128_MASK)
                 mstore(alpha_challenge_24_loc, alpha_24)
-
-
 
                 // GENERATE GATE Challenges
                 i := 0
@@ -891,7 +887,6 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 mstore(rho_challenge_loc, rho)
 
-
                 // Generate ZMY Challenge
                 // This is a hash of all of the zm cq's
                 // Each cq is a proof g1 point (0x80 bytes) for log n of circuit size
@@ -919,7 +914,6 @@ contract BlakeOptHonkVerifier is IVerifier {
             // Generate public inputa delta
             // TODO: think about how to optimize this further
             {
-
                 let beta := mload(beta_challenge_loc)
                 let gamma := mload(gamma_challenge_loc)
                 let domain_size := mload(proof_circuit_size_loc)
@@ -945,7 +939,7 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let public_inputs_ptr := add(calldataload(0x24), 0x24)
 
                 // endpoint_ptr = public_inputs_ptr + num_inputs * 0x20. // every public input is 0x20 bytes
-                let endpoint_ptr := add(public_inputs_ptr, mul(mload(proof_num_public_inputs_loc ), 0x20))
+                let endpoint_ptr := add(public_inputs_ptr, mul(mload(proof_num_public_inputs_loc), 0x20))
 
                 for {} lt(public_inputs_ptr, endpoint_ptr) { public_inputs_ptr := add(public_inputs_ptr, 0x20) } {
                     /**
@@ -969,9 +963,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                 }
 
                 mstore(PUBLIC_INPUTS_DELTA_NUMERATOR_LOC, numerator_value)
-                mstore(PUBLIC_INPUTS_DELTA_DENOMINATOR_LOC , denominator_value)
+                mstore(PUBLIC_INPUTS_DELTA_DENOMINATOR_LOC, denominator_value)
             }
-
 
             // Sumcheck
             {
@@ -983,14 +976,38 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // writing a series of individual values
                 function writeBarycentricTables() {
                     // We write into hardcoded memory regions
-                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_LOC, 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51)
-                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_1_LOC, 0x00000000000000000000000000000000000000000000000000000000000002d0)
-                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_2_LOC, 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff11)
-                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_3_LOC, 0x0000000000000000000000000000000000000000000000000000000000000090)
-                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_4_LOC, 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff71)
-                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_5_LOC, 0x00000000000000000000000000000000000000000000000000000000000000f0)
-                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_6_LOC, 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593effffd31)
-                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_7_LOC, 0x00000000000000000000000000000000000000000000000000000000000013b0)
+                    mstore(
+                        BARYCENTRIC_LAGRANGE_DENOMINATORS_LOC,
+                        0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51
+                    )
+                    mstore(
+                        BARYCENTRIC_LAGRANGE_DENOMINATORS_1_LOC,
+                        0x00000000000000000000000000000000000000000000000000000000000002d0
+                    )
+                    mstore(
+                        BARYCENTRIC_LAGRANGE_DENOMINATORS_2_LOC,
+                        0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff11
+                    )
+                    mstore(
+                        BARYCENTRIC_LAGRANGE_DENOMINATORS_3_LOC,
+                        0x0000000000000000000000000000000000000000000000000000000000000090
+                    )
+                    mstore(
+                        BARYCENTRIC_LAGRANGE_DENOMINATORS_4_LOC,
+                        0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff71
+                    )
+                    mstore(
+                        BARYCENTRIC_LAGRANGE_DENOMINATORS_5_LOC,
+                        0x00000000000000000000000000000000000000000000000000000000000000f0
+                    )
+                    mstore(
+                        BARYCENTRIC_LAGRANGE_DENOMINATORS_6_LOC,
+                        0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593effffd31
+                    )
+                    mstore(
+                        BARYCENTRIC_LAGRANGE_DENOMINATORS_7_LOC,
+                        0x00000000000000000000000000000000000000000000000000000000000013b0
+                    )
 
                     mstore(BARYCENTRIC_DOMAIN_LOC, 0x00)
                     mstore(BARYCENTRIC_DOMAIN_1_LOC, 0x01)
@@ -1001,7 +1018,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                     mstore(BARYCENTRIC_DOMAIN_6_LOC, 0x06)
                     mstore(BARYCENTRIC_DOMAIN_7_LOC, 0x07)
                 }
-
 
                 /**
                  * Batch inversion expects that the values are provided as a slab of memory
@@ -1131,14 +1147,20 @@ contract BlakeOptHonkVerifier is IVerifier {
                 }
 
                 // Note: pass around p to keep it on the stack
-                function computeNextTargetSum(round_univariates_ptr /*: uint256[] */, round_challenge /*: uint256 */, p_clone /*: uint256 */, /* TEMP */ round) -> next_target /*: uint256 */  {
+                function computeNextTargetSum(
+                    round_univariates_ptr, /*: uint256[] */
+                    round_challenge, /*: uint256 */
+                    p_clone, /*: uint256 */ /* TEMP */
+                    round
+                ) -> next_target /*: uint256 */ {
                     // Next target sum, Barycentric evaluation at the given challenge point
 
                     // Compute B(x)
                     let i := 0
                     let numerator_value := 1
                     for {} lt(i, BATCHED_RELATION_PARTIAL_LENGTH) {} {
-                        numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p_clone, i), p_clone), p_clone)
+                        numerator_value :=
+                            mulmod(numerator_value, addmod(round_challenge, sub(p_clone, i), p_clone), p_clone)
                         i := add(i, 1)
                     }
                     // NOTE: Correct
@@ -1148,7 +1170,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                     i := 0
                     for {} lt(i, BATCHED_RELATION_PARTIAL_LENGTH) {} {
                         let inv := mload(add(BARYCENTRIC_LAGRANGE_DENOMINATORS_LOC, mul(i, 0x20)))
-                        let rc_minus_domain := addmod(round_challenge, sub(p_clone, mload(add(BARYCENTRIC_DOMAIN_LOC, mul(i, 0x20)))), p_clone)
+                        let rc_minus_domain :=
+                            addmod(round_challenge, sub(p_clone, mload(add(BARYCENTRIC_DOMAIN_LOC, mul(i, 0x20)))), p_clone)
 
                         inv := mulmod(inv, rc_minus_domain, p_clone)
                         mstore(add(BARYCENTRIC_DENOMINATOR_INVERSES_LOC, mul(i, 0x20)), inv)
@@ -1173,11 +1196,14 @@ contract BlakeOptHonkVerifier is IVerifier {
                     next_target := mulmod(next_target, numerator_value, p_clone)
                 }
 
-                function partiallyEvaluatePOW(round_challenge /*: uint256 */, current_evaluation /*: uint256 */, round /*: uint256 */, p_clone /*: uint256 */) -> next_evaluation /*: uint256 */ {
+                function partiallyEvaluatePOW(
+                    round_challenge, /*: uint256 */ current_evaluation, /*: uint256 */ round, /*: uint256 */ p_clone
+                ) -> /*: uint256 */ next_evaluation /*: uint256 */ {
                     let gate_challenge := mload(add(gate_challenge_0_loc, mul(round, 0x20)))
                     let gate_challenge_minus_one := sub(gate_challenge, 1)
 
-                    let univariate_evaluation := addmod(1, mulmod(round_challenge, gate_challenge_minus_one, p_clone), p_clone)
+                    let univariate_evaluation :=
+                        addmod(1, mulmod(round_challenge, gate_challenge_minus_one, p_clone), p_clone)
 
                     next_evaluation := mulmod(current_evaluation, univariate_evaluation, p_clone)
                 }
@@ -1211,7 +1237,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                     revert(0x00, 0x00)
                 }
             }
-
 
             mstore(0x00, 0x01)
             return(0x00, 0x20)
