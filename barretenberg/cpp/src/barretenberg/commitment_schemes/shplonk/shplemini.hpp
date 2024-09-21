@@ -24,7 +24,8 @@ template <typename Curve> class ShpleminiProver_ {
     static OpeningClaim prove(FF circuit_size,
                               RefSpan<Polynomial> f_polynomials,
                               RefSpan<Polynomial> g_polynomials,
-                              RefSpan<FF> multilinear_evaluations,
+                              RefSpan<FF> unshifted_evaluations,
+                              RefSpan<FF> shifted_evaluations,
                               std::span<FF> multilinear_challenge,
                               const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                               const std::shared_ptr<Transcript>& transcript)
@@ -32,7 +33,8 @@ template <typename Curve> class ShpleminiProver_ {
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(circuit_size,
                                                                        f_polynomials,
                                                                        g_polynomials,
-                                                                       multilinear_evaluations,
+                                                                       unshifted_evaluations,
+                                                                       shifted_evaluations,
                                                                        multilinear_challenge,
                                                                        commitment_key,
                                                                        transcript);
@@ -107,7 +109,8 @@ template <typename Curve> class ShpleminiVerifier_ {
     static BatchOpeningClaim<Curve> compute_batch_opening_claim(const Fr N,
                                                                 RefSpan<Commitment> unshifted_commitments,
                                                                 RefSpan<Commitment> shifted_commitments,
-                                                                RefSpan<Fr> claimed_evaluations,
+                                                                RefSpan<Fr> unshifted_evaluations,
+                                                                RefSpan<Fr> shifted_evaluations,
                                                                 const std::vector<Fr>& multivariate_challenge,
                                                                 const Commitment& g1_identity,
                                                                 std::shared_ptr<Transcript>& transcript)
@@ -176,13 +179,15 @@ template <typename Curve> class ShpleminiVerifier_ {
         Fr batched_evaluation{ 0 };
         batch_multivariate_opening_claims(unshifted_commitments,
                                           shifted_commitments,
-                                          claimed_evaluations,
+                                          unshifted_evaluations,
+                                          shifted_evaluations,
                                           multivariate_batching_challenge,
                                           unshifted_scalar,
                                           shifted_scalar,
                                           commitments,
                                           scalars,
                                           batched_evaluation);
+        info("Verifier: ", batched_evaluation);
 
         // Place the commitments to Gemini Aᵢ to the vector of commitments, compute the contributions from
         // Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars
@@ -259,7 +264,8 @@ template <typename Curve> class ShpleminiVerifier_ {
      */
     static void batch_multivariate_opening_claims(RefSpan<Commitment> unshifted_commitments,
                                                   RefSpan<Commitment> shifted_commitments,
-                                                  RefSpan<Fr> claimed_evaluations,
+                                                  RefSpan<Fr> unshifted_evaluations,
+                                                  RefSpan<Fr> shifted_evaluations,
                                                   const Fr& multivariate_batching_challenge,
                                                   const Fr& unshifted_scalar,
                                                   const Fr& shifted_scalar,
@@ -267,27 +273,25 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                   std::vector<Fr>& scalars,
                                                   Fr& batched_evaluation)
     {
-        size_t evaluation_idx = 0;
         Fr current_batching_challenge = Fr(1);
-        for (auto& unshifted_commitment : unshifted_commitments) {
+        for (auto [unshifted_commitment, unshifted_evaluation] :
+             zip_view(unshifted_commitments, unshifted_evaluations)) {
             // Move unshifted commitments to the 'commitments' vector
             commitments.emplace_back(std::move(unshifted_commitment));
             // Compute −ρⁱ ⋅ (1/(z−r) + ν/(z+r)) and place into 'scalars'
             scalars.emplace_back(-unshifted_scalar * current_batching_challenge);
             // Accumulate the evaluation of ∑ ρⁱ ⋅ fᵢ at the sumcheck challenge
-            batched_evaluation += claimed_evaluations[evaluation_idx] * current_batching_challenge;
-            evaluation_idx += 1;
+            batched_evaluation += unshifted_evaluation * current_batching_challenge;
             // Update the batching challenge
             current_batching_challenge *= multivariate_batching_challenge;
         }
-        for (auto& shifted_commitment : shifted_commitments) {
+        for (auto [shifted_commitment, shifted_evaluation] : zip_view(shifted_commitments, shifted_evaluations)) {
             // Move shifted commitments to the 'commitments' vector
             commitments.emplace_back(std::move(shifted_commitment));
             // Compute −ρ⁽ⁱ⁺ᵏ⁾ ⋅ r⁻¹ ⋅ (1/(z−r) − ν/(z+r)) and place into 'scalars'
             scalars.emplace_back(-shifted_scalar * current_batching_challenge);
             // Accumulate the evaluation of ∑ ρ⁽ⁱ⁺ᵏ⁾ ⋅ f_shift, i at the sumcheck challenge
-            batched_evaluation += claimed_evaluations[evaluation_idx] * current_batching_challenge;
-            evaluation_idx += 1;
+            batched_evaluation += shifted_evaluation * current_batching_challenge;
             // Update the batching challenge
             current_batching_challenge *= multivariate_batching_challenge;
         }

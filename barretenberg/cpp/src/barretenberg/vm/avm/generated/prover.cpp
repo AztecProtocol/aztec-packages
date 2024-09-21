@@ -130,7 +130,8 @@ void AvmProver::execute_pcs_rounds()
     auto prover_opening_claim = ZeroMorph::prove(key->circuit_size,
                                                  prover_polynomials.get_unshifted(),
                                                  prover_polynomials.get_to_be_shifted(),
-                                                 sumcheck_output.claimed_evaluations.get_all(),
+                                                 sumcheck_output.claimed_evaluations.get_unshifted(),
+                                                 sumcheck_output.claimed_evaluations.get_shifted(),
                                                  sumcheck_output.challenge,
                                                  commitment_key,
                                                  transcript);

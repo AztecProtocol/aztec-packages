@@ -95,7 +95,8 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     auto prover_opening_claims = GeminiProver::prove(n,
                                                      RefArray{ poly1, poly2 },
                                                      RefArray{ poly2 },
-                                                     RefVector(multilinear_evaluations),
+                                                     RefArray{ eval1, eval2 },
+                                                     RefArray{ eval2_shift },
                                                      mle_opening_point,
                                                      this->ck(),
                                                      prover_transcript);
@@ -155,13 +156,13 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
     Commitment commitment1 = this->commit(poly1);
     Commitment commitment2 = this->commit(poly2);
     std::vector<Commitment> unshifted_commitments = { commitment1, commitment2 };
-    std::vector<Commitment> shifted_commitments = { commitment2 };
+    std::vector<Commitment> shifted_commitments = { commitment1 };
     auto eval1 = poly1.evaluate_mle(mle_opening_point);
     auto eval2 = poly2.evaluate_mle(mle_opening_point);
-    auto eval2_shift = poly2.evaluate_mle(mle_opening_point, true);
+    auto eval1_shift = poly1.evaluate_mle(mle_opening_point, true);
 
     // Collect multilinear evaluations for input to prover
-    std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval2_shift };
+    std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval1_shift };
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
@@ -172,8 +173,9 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims = GeminiProver::prove(n,
                                                      RefArray{ poly1, poly2 },
-                                                     RefArray{ poly2 },
-                                                     RefVector(multilinear_evaluations),
+                                                     RefArray{ poly1 },
+                                                     RefArray{ eval1, eval2 },
+                                                     RefArray{ eval1_shift },
                                                      mle_opening_point,
                                                      this->ck(),
                                                      prover_transcript);
@@ -196,7 +198,8 @@ TYPED_TEST(KZGTest, ShpleminiKzgWithShift)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
                                                                                     RefVector(unshifted_commitments),
                                                                                     RefVector(shifted_commitments),
-                                                                                    RefVector(multilinear_evaluations),
+                                                                                    RefArray{ eval1, eval2 },
+                                                                                    RefArray{ eval1_shift },
                                                                                     mle_opening_point,
                                                                                     this->vk()->get_g1_identity(),
                                                                                     verifier_transcript);

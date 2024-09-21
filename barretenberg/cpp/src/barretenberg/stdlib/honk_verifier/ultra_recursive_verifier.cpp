@@ -95,7 +95,8 @@ UltraRecursiveVerifier_<Flavor>::AggregationObject UltraRecursiveVerifier_<Flavo
     auto opening_claim = ZeroMorph::verify(key->circuit_size,
                                            commitments.get_unshifted(),
                                            commitments.get_to_be_shifted(),
-                                           claimed_evaluations.get_all(),
+                                           claimed_evaluations.get_unshifted(),
+                                           claimed_evaluations.get_shifted(),
                                            multivariate_challenge,
                                            Commitment::one(builder),
                                            transcript);

@@ -51,10 +51,10 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
 
     // Construct some random multilinear polynomials f_i and their evaluations v_i = f_i(u)
     std::vector<Polynomial> f_polynomials; // unshifted polynomials
-    std::vector<NativeFr> multilinear_evaluations;
+    std::vector<NativeFr> v_evaluations;
     for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
         f_polynomials.emplace_back(Polynomial::random(N, /* starting index for shift */ 1));
-        multilinear_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge));
+        v_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge));
     }
     // Construct some "shifted" multilinear polynomials h_i as the left-shift-by-1 of f_i
     std::vector<Polynomial> g_polynomials; // to-be-shifted polynomials
@@ -64,7 +64,7 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
         for (size_t i = 0; i < NUM_SHIFTED; ++i) {
             g_polynomials.emplace_back(f_polynomials[i]);
             h_polynomials.emplace_back(g_polynomials[i].shifted());
-            multilinear_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
+            w_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
         }
     }
 
@@ -88,7 +88,8 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     ZeroMorphProver::prove(N,
                            RefVector(f_polynomials),
                            RefVector(g_polynomials),
-                           RefVector(multilinear_evaluations),
+                           RefVector(v_evaluations),
+                           RefVector(w_evaluations),
                            u_challenge,
                            commitment_key,
                            prover_transcript);
@@ -119,7 +120,8 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     };
     auto stdlib_f_commitments = commitments_to_witnesses(f_commitments);
     auto stdlib_g_commitments = commitments_to_witnesses(g_commitments);
-    auto stdlib_multilinear_evaluations = elements_to_witness(multilinear_evaluations);
+    auto stdlib_v_evaluations = elements_to_witness(v_evaluations);
+    auto stdlib_w_evaluations = elements_to_witness(w_evaluations);
 
     std::vector<Fr> u_challenge_in_circuit(CONST_PROOF_SIZE_LOG_N);
     std::fill_n(u_challenge_in_circuit.begin(), CONST_PROOF_SIZE_LOG_N, Fr::from_witness(&builder, 0));
@@ -128,7 +130,8 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     [[maybe_unused]] auto opening_claim = ZeroMorphVerifier::verify(Fr::from_witness(&builder, N),
                                                                     RefVector(stdlib_f_commitments), // unshifted
                                                                     RefVector(stdlib_g_commitments), // to-be-shifted
-                                                                    RefVector(stdlib_multilinear_evaluations),
+                                                                    RefVector(stdlib_v_evaluations), // unshifted
+                                                                    RefVector(stdlib_w_evaluations), // shifted
                                                                     u_challenge_in_circuit,
                                                                     Commitment::one(&builder),
                                                                     stdlib_verifier_transcript);

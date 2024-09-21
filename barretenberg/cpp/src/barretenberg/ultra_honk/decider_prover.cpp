@@ -53,7 +53,8 @@ template <IsUltraFlavor Flavor> void DeciderProver_<Flavor>::execute_pcs_rounds(
         BatchedMultivariateOpeningScheme::prove(proving_key->proving_key.circuit_size,
                                                 proving_key->proving_key.polynomials.get_unshifted(),
                                                 proving_key->proving_key.polynomials.get_to_be_shifted(),
-                                                sumcheck_output.claimed_evaluations.get_all(),
+                                                sumcheck_output.claimed_evaluations.get_unshifted(),
+                                                sumcheck_output.claimed_evaluations.get_shifted(),
                                                 sumcheck_output.challenge,
                                                 commitment_key,
                                                 transcript);

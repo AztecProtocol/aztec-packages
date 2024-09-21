@@ -67,14 +67,10 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         for (size_t i = 0; i < NUM_SHIFTED; ++i) {
             g_polynomials.emplace_back(f_polynomials[i]);
             h_polynomials.emplace_back(g_polynomials[i].shifted());
-            w_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
+            w_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge, true));
         }
     }
 
-    std::vector<NativeFr> claimed_evaluations;
-    claimed_evaluations.reserve(v_evaluations.size() + w_evaluations.size());
-    claimed_evaluations.insert(claimed_evaluations.end(), v_evaluations.begin(), v_evaluations.end());
-    claimed_evaluations.insert(claimed_evaluations.end(), w_evaluations.begin(), w_evaluations.end());
     // Compute commitments [f_i]
     std::vector<NativeCommitment> f_commitments;
     auto commitment_key = std::make_shared<CommitmentKey>(4096);
@@ -92,7 +88,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     auto prover_opening_claims = ShpleminiProver::prove(N,
                                                         RefVector(f_polynomials),
                                                         RefVector(g_polynomials),
-                                                        RefVector(claimed_evaluations),
+                                                        RefVector(v_evaluations),
+                                                        RefVector(w_evaluations),
                                                         u_challenge,
                                                         commitment_key,
                                                         prover_transcript);
@@ -123,15 +120,17 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     };
     auto stdlib_f_commitments = commitments_to_witnesses(f_commitments);
     auto stdlib_g_commitments = commitments_to_witnesses(g_commitments);
-    auto stdlib_claimed_evaluations = elements_to_witness(claimed_evaluations);
+    auto stdlib_v_evaluations = elements_to_witness(v_evaluations);
+    auto stdlib_w_evaluations = elements_to_witness(w_evaluations);
 
     std::vector<Fr> u_challenge_in_circuit = elements_to_witness(u_challenge);
 
     [[maybe_unused]] auto opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, circuit_size),
+        ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, N),
                                                        RefVector(stdlib_f_commitments),
                                                        RefVector(stdlib_g_commitments),
-                                                       RefVector(stdlib_claimed_evaluations),
+                                                       RefVector(stdlib_v_evaluations),
+                                                       RefVector(stdlib_w_evaluations),
                                                        u_challenge_in_circuit,
                                                        Commitment::one(&builder),
                                                        stdlib_verifier_transcript);

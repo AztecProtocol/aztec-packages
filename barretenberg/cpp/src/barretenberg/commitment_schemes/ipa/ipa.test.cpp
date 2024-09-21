@@ -269,7 +269,8 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     auto prover_opening_claims = GeminiProver::prove(n,
                                                      RefArray{ poly1, poly2 },
                                                      RefArray{ poly2 },
-                                                     RefVector(multilinear_evaluations),
+                                                     RefArray{ eval1, eval2 },
+                                                     RefArray{ eval2 },
                                                      mle_opening_point,
                                                      this->ck(),
                                                      prover_transcript);
@@ -314,8 +315,6 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     auto eval2 = poly2.evaluate_mle(mle_opening_point);
     auto eval2_shift = poly2.evaluate_mle(mle_opening_point, true);
 
-    std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval2_shift };
-
     auto prover_transcript = NativeTranscript::prover_init_empty();
 
     // Run the full prover PCS protocol:
@@ -326,7 +325,8 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     auto prover_opening_claims = GeminiProver::prove(n,
                                                      RefArray{ poly1, poly2 },
                                                      RefArray{ poly2 },
-                                                     RefVector(multilinear_evaluations),
+                                                     RefArray{ eval1, eval2 },
+                                                     RefArray{ eval2_shift },
                                                      mle_opening_point,
                                                      this->ck(),
                                                      prover_transcript);
@@ -339,7 +339,8 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(n,
                                                                                     RefVector(unshifted_commitments),
                                                                                     RefVector(shifted_commitments),
-                                                                                    RefVector(multilinear_evaluations),
+                                                                                    RefArray{ eval1, eval2 },
+                                                                                    RefArray{ eval2_shift },
                                                                                     mle_opening_point,
                                                                                     this->vk()->get_g1_identity(),
                                                                                     verifier_transcript);
