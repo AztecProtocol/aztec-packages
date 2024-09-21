@@ -9,6 +9,7 @@ import { Crs } from '../crs/index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 
 export { BarretenbergVerifier } from "./verifier.js"
+export { UltraPlonkBackend, UltraHonkBackend } from "./backend.js"
 
 const debug = createDebug('bb.js:wasm');
 

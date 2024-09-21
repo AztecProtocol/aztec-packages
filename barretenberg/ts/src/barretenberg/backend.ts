@@ -2,7 +2,7 @@ import { decompressSync as gunzip } from 'fflate';
 import { BackendOptions, Barretenberg } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 
-export class BarretenbergBackend {
+export class UltraPlonkBackend {
   // These type assertions are used so that we don't
   // have to initialize `api` and `acirComposer` in the constructor.
   // These are initialized asynchronously in the `init` function,

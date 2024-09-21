@@ -3,10 +3,7 @@ import { Backend, CompiledCircuit, ProofData, VerifierBackend } from '@noir-lang
 import { BackendOptions } from './types.js';
 import { deflattenFields } from './public_inputs.js';
 import { reconstructProofWithPublicInputs, reconstructProofWithPublicInputsHonk } from './verifier.js';
-import {
-  BarretenbergBackend as BarretenbergBackendInternal,
-  UltrahonkBackend as UltrahonkBackendInternal,
-} from '@aztec/bb.js';
+import { UltraPlonkBackend, UltrahonkBackend as UltrahonkBackendInternal } from '@aztec/bb.js';
 
 // This is the number of bytes in a UltraPlonk proof
 // minus the public inputs.
