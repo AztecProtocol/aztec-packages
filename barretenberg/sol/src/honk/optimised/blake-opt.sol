@@ -1,13 +1,28 @@
+pragma solidity ^0.8.26;
+
 import {IVerifier} from "../../interfaces/IVerifier.sol";
+import {
+    CONST_PROOF_SIZE_LOG_N,
+    NUMBER_OF_SUBRELATIONS,
+    BATCHED_RELATION_PARTIAL_LENGTH,
+    NUMBER_OF_ENTITIES,
+    NUMBER_UNSHIFTED,
+    NUMBER_TO_BE_SHIFTED,
+    NUMBER_OF_ALPHAS
+} from "../HonkTypes.sol";
+
+import "forge-std/console.sol";
+
+import {logAsmG1, logFr, bytes32ToString} from "../utils.sol";
 
 // The plan
 // Write an optimised version of the add2 circuit
 contract BlakeOptHonkVerifier is IVerifier {
     // Constants representin proof locations in memory
     // Vk indicies
-    uint256 internal constant vk_circuit_size = 0x380;
-    uint256 internal constant vk_num_public_inputs = 0x3a0;
-    uint256 internal constant vk_pub_inputs_offset = 0x3c0;
+    uint256 internal constant vk_circuit_size_loc = 0x380;
+    uint256 internal constant vk_num_public_inputs_loc = 0x3a0;
+    uint256 internal constant vk_pub_inputs_offset_loc = 0x3c0;
     uint256 internal constant q_m_x_loc = 0x3e0;
     uint256 internal constant q_m_y_loc = 0x400;
     uint256 internal constant q_c_x_loc = 0x460;
@@ -67,9 +82,9 @@ contract BlakeOptHonkVerifier is IVerifier {
 
     // TODO: things in the proof that are variable length should be stored in
     // arrays eventually - then looped over so we dont have fixed constants for all circuit sizes
-    uint256 internal constant proof_circuit_size = 0x1160;
-    uint256 internal constant proof_num_public_inputs = 0x1180;
-    uint256 internal constant proof_pub_inputs_offset = 0x11a0;
+    uint256 internal constant proof_circuit_size_loc = 0x1160;
+    uint256 internal constant proof_num_public_inputs_loc = 0x1180;
+    uint256 internal constant proof_pub_inputs_offset_loc = 0x11a0;
     uint256 internal constant w_l_x0_loc = 0x11c0;
     uint256 internal constant w_l_x1_loc = 0x11e0;
     uint256 internal constant w_l_y0_loc = 0x1200;
@@ -82,26 +97,26 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant w_o_x1_loc = 0x12e0;
     uint256 internal constant w_o_y0_loc = 0x1300;
     uint256 internal constant w_o_y1_loc = 0x1320;
-    uint256 internal constant w_4_x0_loc = 0x1340;
-    uint256 internal constant w_4_x1_loc = 0x1360;
-    uint256 internal constant w_4_y0_loc = 0x1380;
-    uint256 internal constant w_4_y1_loc = 0x13a0;
-    uint256 internal constant z_perm_x0_loc = 0x13c0;
-    uint256 internal constant z_perm_x1_loc = 0x13e0;
-    uint256 internal constant z_perm_y0_loc = 0x1400;
-    uint256 internal constant z_perm_y1_loc = 0x1420;
-    uint256 internal constant lookup_inverses_x0_loc = 0x1440;
-    uint256 internal constant lookup_inverses_x1_loc = 0x1460;
-    uint256 internal constant lookup_inverses_y0_loc = 0x1480;
-    uint256 internal constant lookup_inverses_y1_loc = 0x14a0;
-    uint256 internal constant lookup_read_counts_x0_loc = 0x14c0;
-    uint256 internal constant lookup_read_counts_x1_loc = 0x14e0;
-    uint256 internal constant lookup_read_counts_y0_loc = 0x1500;
-    uint256 internal constant lookup_read_counts_y1_loc = 0x1520;
-    uint256 internal constant lookup_read_tags_x0_loc = 0x1540;
-    uint256 internal constant lookup_read_tags_x1_loc = 0x1560;
-    uint256 internal constant lookup_read_tags_y0_loc = 0x1580;
-    uint256 internal constant lookup_read_tags_y1_loc = 0x15a0;
+    uint256 internal constant lookup_read_counts_x0_loc = 0x1340;
+    uint256 internal constant lookup_read_counts_x1_loc = 0x1360;
+    uint256 internal constant lookup_read_counts_y0_loc = 0x1380;
+    uint256 internal constant lookup_read_counts_y1_loc = 0x13a0;
+    uint256 internal constant lookup_read_tags_x0_loc = 0x13c0;
+    uint256 internal constant lookup_read_tags_x1_loc = 0x13e0;
+    uint256 internal constant lookup_read_tags_y0_loc = 0x1400;
+    uint256 internal constant lookup_read_tags_y1_loc = 0x1420;
+    uint256 internal constant w_4_x0_loc = 0x1440;
+    uint256 internal constant w_4_x1_loc = 0x1460;
+    uint256 internal constant w_4_y0_loc = 0x1480;
+    uint256 internal constant w_4_y1_loc = 0x14a0;
+    uint256 internal constant lookup_inverses_x0_loc = 0x14c0;
+    uint256 internal constant lookup_inverses_x1_loc = 0x14e0;
+    uint256 internal constant lookup_inverses_y0_loc = 0x1500;
+    uint256 internal constant lookup_inverses_y1_loc = 0x1520;
+    uint256 internal constant z_perm_x0_loc = 0x1540;
+    uint256 internal constant z_perm_x1_loc = 0x1560;
+    uint256 internal constant z_perm_y0_loc = 0x1580;
+    uint256 internal constant z_perm_y1_loc = 0x15a0;
     uint256 internal constant sumcheck_univariate_0_0 = 0x15c0;
     uint256 internal constant sumcheck_univariate_0_1 = 0x15e0;
     uint256 internal constant sumcheck_univariate_0_2 = 0x1600;
@@ -326,266 +341,274 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant sumcheck_univariate_7_25 = 0x3160;
     uint256 internal constant sumcheck_univariate_7_26 = 0x3180;
     uint256 internal constant sumcheck_univariate_7_27 = 0x31a0;
-    uint256 internal constant eval_Q_M = 0x31c0;
-    uint256 internal constant eval_Q_C = 0x31e0;
-    uint256 internal constant eval_Q_L = 0x3200;
-    uint256 internal constant eval_Q_R = 0x3220;
-    uint256 internal constant eval_Q_O = 0x3240;
-    uint256 internal constant eval_Q_4 = 0x3260;
-    uint256 internal constant eval_Q_ARITH = 0x3280;
-    uint256 internal constant eval_Q_RANGE = 0x32a0;
-    uint256 internal constant eval_Q_ELLIPTIC = 0x32c0;
-    uint256 internal constant eval_Q_AUX = 0x32e0;
-    uint256 internal constant eval_Q_LOOKUP = 0x3300;
-    uint256 internal constant eval_SIGMA_1 = 0x3320;
-    uint256 internal constant eval_SIGMA_2 = 0x3340;
-    uint256 internal constant eval_SIGMA_3 = 0x3360;
-    uint256 internal constant eval_SIGMA_4 = 0x3380;
-    uint256 internal constant eval_ID_1 = 0x33a0;
-    uint256 internal constant eval_ID_2 = 0x33c0;
-    uint256 internal constant eval_ID_3 = 0x33e0;
-    uint256 internal constant eval_ID_4 = 0x3400;
-    uint256 internal constant eval_TABLE_1 = 0x3420;
-    uint256 internal constant eval_TABLE_2 = 0x3440;
-    uint256 internal constant eval_TABLE_3 = 0x3460;
-    uint256 internal constant eval_TABLE_4 = 0x3480;
-    uint256 internal constant eval_LAGRANGE_FIRST = 0x34a0;
-    uint256 internal constant eval_LAGRANGE_LAST = 0x34c0;
-    uint256 internal constant eval_W_L = 0x34e0;
-    uint256 internal constant eval_W_R = 0x3500;
-    uint256 internal constant eval_W_O = 0x3520;
-    uint256 internal constant eval_W_4 = 0x3540;
-    uint256 internal constant eval_Z_PERM = 0x3560;
-    uint256 internal constant eval_LOOKUP_INVERSES = 0x3580;
-    uint256 internal constant eval_LOOKUP_READ_COUNTS = 0x35a0;
-    uint256 internal constant eval_LOOKUP_READ_TAGS = 0x35c0;
-    uint256 internal constant eval_TABLE_1_SHIFT = 0x35e0;
-    uint256 internal constant eval_TABLE_2_SHIFT = 0x3600;
-    uint256 internal constant eval_TABLE_3_SHIFT = 0x3620;
-    uint256 internal constant eval_TABLE_4_SHIFT = 0x3640;
-    uint256 internal constant eval_W_L_SHIFT = 0x3660;
-    uint256 internal constant eval_W_R_SHIFT = 0x3680;
-    uint256 internal constant eval_W_O_SHIFT = 0x36a0;
-    uint256 internal constant eval_W_4_SHIFT = 0x36c0;
-    uint256 internal constant eval_Z_PERM_SHIFT = 0x36e0;
+    uint256 internal constant eval_Q_M_loc = 0x31c0;
+    uint256 internal constant eval_Q_C_loc = 0x31e0;
+    uint256 internal constant eval_Q_L_loc = 0x3200;
+    uint256 internal constant eval_Q_R_loc = 0x3220;
+    uint256 internal constant eval_Q_O_loc = 0x3240;
+    uint256 internal constant eval_Q_4_loc = 0x3260;
+    uint256 internal constant eval_Q_ARITH_loc = 0x3280;
+    uint256 internal constant eval_Q_RANGE_loc = 0x32a0;
+    uint256 internal constant eval_Q_ELLIPTIC_loc = 0x32c0;
+    uint256 internal constant eval_Q_AUX_loc = 0x32e0;
+    uint256 internal constant eval_Q_LOOKUP_loc = 0x3300;
+    uint256 internal constant eval_Q_POSEIDON2_EXTERNAL_loc = 0x3320;
+    uint256 internal constant eval_Q_POSEIDON2_INTERNAL_loc = 0x3340;
+    uint256 internal constant eval_SIGMA_1_loc = 0x3360;
+    uint256 internal constant eval_SIGMA_2_loc = 0x3380;
+    uint256 internal constant eval_SIGMA_3_loc = 0x33a0;
+    uint256 internal constant eval_SIGMA_4_loc = 0x33c0;
+    uint256 internal constant eval_ID_1_loc = 0x33e0;
+    uint256 internal constant eval_ID_2_loc = 0x3400;
+    uint256 internal constant eval_ID_3_loc = 0x3420;
+    uint256 internal constant eval_ID_4_loc = 0x3440;
+    uint256 internal constant eval_TABLE_1_loc = 0x3460;
+    uint256 internal constant eval_TABLE_2_loc = 0x3480;
+    uint256 internal constant eval_TABLE_3_loc = 0x34a0;
+    uint256 internal constant eval_TABLE_4_loc = 0x34c0;
+    uint256 internal constant eval_LAGRANGE_FIRST_loc = 0x34e0;
+    uint256 internal constant eval_LAGRANGE_LAST_loc = 0x3500;
+    uint256 internal constant eval_W_L_loc = 0x3520;
+    uint256 internal constant eval_W_R_loc = 0x3540;
+    uint256 internal constant eval_W_O_loc = 0x3560;
+    uint256 internal constant eval_W_4_loc = 0x3580;
+    uint256 internal constant eval_Z_PERM_loc = 0x35a0;
+    uint256 internal constant eval_LOOKUP_INVERSES_loc = 0x35c0;
+    uint256 internal constant eval_LOOKUP_READ_COUNTS_loc = 0x35e0;
+    uint256 internal constant eval_LOOKUP_READ_TAGS_loc = 0x3600;
+    uint256 internal constant eval_TABLE_1_SHIFT_loc = 0x3620;
+    uint256 internal constant eval_TABLE_2_SHIFT_loc = 0x3640;
+    uint256 internal constant eval_TABLE_3_SHIFT_loc = 0x3660;
+    uint256 internal constant eval_TABLE_4_SHIFT_loc = 0x3680;
+    uint256 internal constant eval_W_L_SHIFT_loc = 0x36a0;
+    uint256 internal constant eval_W_R_SHIFT_loc = 0x36c0;
+    uint256 internal constant eval_W_O_SHIFT_loc = 0x36e0;
+    uint256 internal constant eval_W_4_SHIFT_loc = 0x3700;
+    uint256 internal constant eval_Z_PERM_SHIFT_loc = 0x3720;
 
     // Zermorph items
-    uint256 internal constant zm_cqs_0_x0_loc = 0x3700;
-    uint256 internal constant zm_cqs_0_x1_loc = 0x3720;
-    uint256 internal constant zm_cqs_0_y0_loc = 0x3740;
-    uint256 internal constant zm_cqs_0_y1_loc = 0x3760;
-    uint256 internal constant zm_cqs_1_x0_loc = 0x3780;
-    uint256 internal constant zm_cqs_1_x1_loc = 0x37a0;
-    uint256 internal constant zm_cqs_1_y0_loc = 0x37c0;
-    uint256 internal constant zm_cqs_1_y1_loc = 0x37e0;
-    uint256 internal constant zm_cqs_2_x0_loc = 0x3800;
-    uint256 internal constant zm_cqs_2_x1_loc = 0x3820;
-    uint256 internal constant zm_cqs_2_y0_loc = 0x3840;
-    uint256 internal constant zm_cqs_2_y1_loc = 0x3860;
-    uint256 internal constant zm_cqs_3_x0_loc = 0x3880;
-    uint256 internal constant zm_cqs_3_x1_loc = 0x38a0;
-    uint256 internal constant zm_cqs_3_y0_loc = 0x38c0;
-    uint256 internal constant zm_cqs_3_y1_loc = 0x38e0;
-    uint256 internal constant zm_cqs_4_x0_loc = 0x3900;
-    uint256 internal constant zm_cqs_4_x1_loc = 0x3920;
-    uint256 internal constant zm_cqs_4_y0_loc = 0x3940;
-    uint256 internal constant zm_cqs_4_y1_loc = 0x3960;
-    uint256 internal constant zm_cqs_5_x0_loc = 0x3980;
-    uint256 internal constant zm_cqs_5_x1_loc = 0x39a0;
-    uint256 internal constant zm_cqs_5_y0_loc = 0x39c0;
-    uint256 internal constant zm_cqs_5_y1_loc = 0x39e0;
-    uint256 internal constant zm_cqs_6_x0_loc = 0x3a00;
-    uint256 internal constant zm_cqs_6_x1_loc = 0x3a20;
-    uint256 internal constant zm_cqs_6_y0_loc = 0x3a40;
-    uint256 internal constant zm_cqs_6_y1_loc = 0x3a60;
-    uint256 internal constant zm_cqs_7_x0_loc = 0x3a80;
-    uint256 internal constant zm_cqs_7_x1_loc = 0x3aa0;
-    uint256 internal constant zm_cqs_7_y0_loc = 0x3ac0;
-    uint256 internal constant zm_cqs_7_y1_loc = 0x3ae0;
-    uint256 internal constant zm_cqs_8_x0_loc = 0x3b00;
-    uint256 internal constant zm_cqs_8_x1_loc = 0x3b20;
-    uint256 internal constant zm_cqs_8_y0_loc = 0x3b40;
-    uint256 internal constant zm_cqs_8_y1_loc = 0x3b60;
-    uint256 internal constant zm_cqs_9_x0_loc = 0x3b80;
-    uint256 internal constant zm_cqs_9_x1_loc = 0x3ba0;
-    uint256 internal constant zm_cqs_9_y0_loc = 0x3bc0;
-    uint256 internal constant zm_cqs_9_y1_loc = 0x3be0;
-    uint256 internal constant zm_cqs_10_x0_loc = 0x3c00;
-    uint256 internal constant zm_cqs_10_x1_loc = 0x3c20;
-    uint256 internal constant zm_cqs_10_y0_loc = 0x3c40;
-    uint256 internal constant zm_cqs_10_y1_loc = 0x3c60;
-    uint256 internal constant zm_cqs_11_x0_loc = 0x3c80;
-    uint256 internal constant zm_cqs_11_x1_loc = 0x3ca0;
-    uint256 internal constant zm_cqs_11_y0_loc = 0x3cc0;
-    uint256 internal constant zm_cqs_11_y1_loc = 0x3ce0;
-    uint256 internal constant zm_cqs_12_x0_loc = 0x3d00;
-    uint256 internal constant zm_cqs_12_x1_loc = 0x3d20;
-    uint256 internal constant zm_cqs_12_y0_loc = 0x3d40;
-    uint256 internal constant zm_cqs_12_y1_loc = 0x3d60;
-    uint256 internal constant zm_cqs_13_x0_loc = 0x3d80;
-    uint256 internal constant zm_cqs_13_x1_loc = 0x3da0;
-    uint256 internal constant zm_cqs_13_y0_loc = 0x3dc0;
-    uint256 internal constant zm_cqs_13_y1_loc = 0x3de0;
-    uint256 internal constant zm_cqs_14_x0_loc = 0x3e00;
-    uint256 internal constant zm_cqs_14_x1_loc = 0x3e20;
-    uint256 internal constant zm_cqs_14_y0_loc = 0x3e40;
-    uint256 internal constant zm_cqs_14_y1_loc = 0x3e60;
-    uint256 internal constant zm_cqs_15_x0_loc = 0x3e80;
-    uint256 internal constant zm_cqs_15_x1_loc = 0x3ea0;
-    uint256 internal constant zm_cqs_15_y0_loc = 0x3ec0;
-    uint256 internal constant zm_cqs_15_y1_loc = 0x3ee0;
-    uint256 internal constant zm_cqs_16_x0_loc = 0x3f00;
-    uint256 internal constant zm_cqs_16_x1_loc = 0x3f20;
-    uint256 internal constant zm_cqs_16_y0_loc = 0x3f40;
-    uint256 internal constant zm_cqs_16_y1_loc = 0x3f60;
-    uint256 internal constant zm_cqs_17_x0_loc = 0x3f80;
-    uint256 internal constant zm_cqs_17_x1_loc = 0x3fa0;
-    uint256 internal constant zm_cqs_17_y0_loc = 0x3fc0;
-    uint256 internal constant zm_cqs_17_y1_loc = 0x3fe0;
-    uint256 internal constant zm_cqs_18_x0_loc = 0x4000;
-    uint256 internal constant zm_cqs_18_x1_loc = 0x4020;
-    uint256 internal constant zm_cqs_18_y0_loc = 0x4040;
-    uint256 internal constant zm_cqs_18_y1_loc = 0x4060;
-    uint256 internal constant zm_cqs_19_x0_loc = 0x4080;
-    uint256 internal constant zm_cqs_19_x1_loc = 0x40a0;
-    uint256 internal constant zm_cqs_19_y0_loc = 0x40c0;
-    uint256 internal constant zm_cqs_19_y1_loc = 0x40e0;
-    uint256 internal constant zm_cqs_20_x0_loc = 0x4100;
-    uint256 internal constant zm_cqs_20_x1_loc = 0x4120;
-    uint256 internal constant zm_cqs_20_y0_loc = 0x4140;
-    uint256 internal constant zm_cqs_20_y1_loc = 0x4160;
-    uint256 internal constant zm_cqs_21_x0_loc = 0x4180;
-    uint256 internal constant zm_cqs_21_x1_loc = 0x41a0;
-    uint256 internal constant zm_cqs_21_y0_loc = 0x41c0;
-    uint256 internal constant zm_cqs_21_y1_loc = 0x41e0;
-    uint256 internal constant zm_cqs_22_x0_loc = 0x4200;
-    uint256 internal constant zm_cqs_22_x1_loc = 0x4220;
-    uint256 internal constant zm_cqs_22_y0_loc = 0x4240;
-    uint256 internal constant zm_cqs_22_y1_loc = 0x4260;
-    uint256 internal constant zm_cqs_23_x0_loc = 0x4280;
-    uint256 internal constant zm_cqs_23_x1_loc = 0x42a0;
-    uint256 internal constant zm_cqs_23_y0_loc = 0x42c0;
-    uint256 internal constant zm_cqs_23_y1_loc = 0x42e0;
-    uint256 internal constant zm_cqs_24_x0_loc = 0x4300;
-    uint256 internal constant zm_cqs_24_x1_loc = 0x4320;
-    uint256 internal constant zm_cqs_24_y0_loc = 0x4340;
-    uint256 internal constant zm_cqs_24_y1_loc = 0x4360;
-    uint256 internal constant zm_cqs_25_x0_loc = 0x4380;
-    uint256 internal constant zm_cqs_25_x1_loc = 0x43a0;
-    uint256 internal constant zm_cqs_25_y0_loc = 0x43c0;
-    uint256 internal constant zm_cqs_25_y1_loc = 0x43e0;
-    uint256 internal constant zm_cqs_26_x0_loc = 0x4400;
-    uint256 internal constant zm_cqs_26_x1_loc = 0x4420;
-    uint256 internal constant zm_cqs_26_y0_loc = 0x4440;
-    uint256 internal constant zm_cqs_26_y1_loc = 0x4460;
-    uint256 internal constant zm_cqs_27_x0_loc = 0x4480;
-    uint256 internal constant zm_cqs_27_x1_loc = 0x44a0;
-    uint256 internal constant zm_cqs_27_y0_loc = 0x44c0;
-    uint256 internal constant zm_cqs_27_y1_loc = 0x44e0;
-    uint256 internal constant zm_cq_x0_loc = 0x4500;
-    uint256 internal constant zm_cq_x1_loc = 0x4520;
-    uint256 internal constant zm_cq_y0_loc = 0x4540;
-    uint256 internal constant zm_cq_y1_loc = 0x4560;
-    uint256 internal constant zm_pi_x0_loc = 0x4520;
-    uint256 internal constant zm_pi_x1_loc = 0x4540;
-    uint256 internal constant zm_pi_y0_loc = 0x4560;
-    uint256 internal constant zm_pi_y1_loc = 0x4580;
+    uint256 internal constant zm_cqs_0_x0_loc = 0x3740;
+    uint256 internal constant zm_cqs_0_x1_loc = 0x3760;
+    uint256 internal constant zm_cqs_0_y0_loc = 0x3780;
+    uint256 internal constant zm_cqs_0_y1_loc = 0x37a0;
+    uint256 internal constant zm_cqs_1_x0_loc = 0x37c0;
+    uint256 internal constant zm_cqs_1_x1_loc = 0x37e0;
+    uint256 internal constant zm_cqs_1_y0_loc = 0x3800;
+    uint256 internal constant zm_cqs_1_y1_loc = 0x3820;
+    uint256 internal constant zm_cqs_2_x0_loc = 0x3840;
+    uint256 internal constant zm_cqs_2_x1_loc = 0x3860;
+    uint256 internal constant zm_cqs_2_y0_loc = 0x3880;
+    uint256 internal constant zm_cqs_2_y1_loc = 0x38a0;
+    uint256 internal constant zm_cqs_3_x0_loc = 0x38c0;
+    uint256 internal constant zm_cqs_3_x1_loc = 0x38e0;
+    uint256 internal constant zm_cqs_3_y0_loc = 0x3900;
+    uint256 internal constant zm_cqs_3_y1_loc = 0x3920;
+    uint256 internal constant zm_cqs_4_x0_loc = 0x3940;
+    uint256 internal constant zm_cqs_4_x1_loc = 0x3960;
+    uint256 internal constant zm_cqs_4_y0_loc = 0x3980;
+    uint256 internal constant zm_cqs_4_y1_loc = 0x39a0;
+    uint256 internal constant zm_cqs_5_x0_loc = 0x39c0;
+    uint256 internal constant zm_cqs_5_x1_loc = 0x39e0;
+    uint256 internal constant zm_cqs_5_y0_loc = 0x3a00;
+    uint256 internal constant zm_cqs_5_y1_loc = 0x3a20;
+    uint256 internal constant zm_cqs_6_x0_loc = 0x3a40;
+    uint256 internal constant zm_cqs_6_x1_loc = 0x3a60;
+    uint256 internal constant zm_cqs_6_y0_loc = 0x3a80;
+    uint256 internal constant zm_cqs_6_y1_loc = 0x3aa0;
+    uint256 internal constant zm_cqs_7_x0_loc = 0x3ac0;
+    uint256 internal constant zm_cqs_7_x1_loc = 0x3ae0;
+    uint256 internal constant zm_cqs_7_y0_loc = 0x3b00;
+    uint256 internal constant zm_cqs_7_y1_loc = 0x3b20;
+    uint256 internal constant zm_cqs_8_x0_loc = 0x3b40;
+    uint256 internal constant zm_cqs_8_x1_loc = 0x3b60;
+    uint256 internal constant zm_cqs_8_y0_loc = 0x3b80;
+    uint256 internal constant zm_cqs_8_y1_loc = 0x3ba0;
+    uint256 internal constant zm_cqs_9_x0_loc = 0x3bc0;
+    uint256 internal constant zm_cqs_9_x1_loc = 0x3be0;
+    uint256 internal constant zm_cqs_9_y0_loc = 0x3c00;
+    uint256 internal constant zm_cqs_9_y1_loc = 0x3c20;
+    uint256 internal constant zm_cqs_10_x0_loc = 0x3c40;
+    uint256 internal constant zm_cqs_10_x1_loc = 0x3c60;
+    uint256 internal constant zm_cqs_10_y0_loc = 0x3c80;
+    uint256 internal constant zm_cqs_10_y1_loc = 0x3ca0;
+    uint256 internal constant zm_cqs_11_x0_loc = 0x3cc0;
+    uint256 internal constant zm_cqs_11_x1_loc = 0x3ce0;
+    uint256 internal constant zm_cqs_11_y0_loc = 0x3d00;
+    uint256 internal constant zm_cqs_11_y1_loc = 0x3d20;
+    uint256 internal constant zm_cqs_12_x0_loc = 0x3d40;
+    uint256 internal constant zm_cqs_12_x1_loc = 0x3d60;
+    uint256 internal constant zm_cqs_12_y0_loc = 0x3d80;
+    uint256 internal constant zm_cqs_12_y1_loc = 0x3da0;
+    uint256 internal constant zm_cqs_13_x0_loc = 0x3dc0;
+    uint256 internal constant zm_cqs_13_x1_loc = 0x3de0;
+    uint256 internal constant zm_cqs_13_y0_loc = 0x3e00;
+    uint256 internal constant zm_cqs_13_y1_loc = 0x3e20;
+    uint256 internal constant zm_cqs_14_x0_loc = 0x3e40;
+    uint256 internal constant zm_cqs_14_x1_loc = 0x3e60;
+    uint256 internal constant zm_cqs_14_y0_loc = 0x3e80;
+    uint256 internal constant zm_cqs_14_y1_loc = 0x3ea0;
+    uint256 internal constant zm_cqs_15_x0_loc = 0x3ec0;
+    uint256 internal constant zm_cqs_15_x1_loc = 0x3ee0;
+    uint256 internal constant zm_cqs_15_y0_loc = 0x3f00;
+    uint256 internal constant zm_cqs_15_y1_loc = 0x3f20;
+    uint256 internal constant zm_cqs_16_x0_loc = 0x3f40;
+    uint256 internal constant zm_cqs_16_x1_loc = 0x3f60;
+    uint256 internal constant zm_cqs_16_y0_loc = 0x3f80;
+    uint256 internal constant zm_cqs_16_y1_loc = 0x3fa0;
+    uint256 internal constant zm_cqs_17_x0_loc = 0x3fc0;
+    uint256 internal constant zm_cqs_17_x1_loc = 0x3fe0;
+    uint256 internal constant zm_cqs_17_y0_loc = 0x4000;
+    uint256 internal constant zm_cqs_17_y1_loc = 0x4020;
+    uint256 internal constant zm_cqs_18_x0_loc = 0x4040;
+    uint256 internal constant zm_cqs_18_x1_loc = 0x4060;
+    uint256 internal constant zm_cqs_18_y0_loc = 0x4080;
+    uint256 internal constant zm_cqs_18_y1_loc = 0x40a0;
+    uint256 internal constant zm_cqs_19_x0_loc = 0x40c0;
+    uint256 internal constant zm_cqs_19_x1_loc = 0x40e0;
+    uint256 internal constant zm_cqs_19_y0_loc = 0x4100;
+    uint256 internal constant zm_cqs_19_y1_loc = 0x4120;
+    uint256 internal constant zm_cqs_20_x0_loc = 0x4140;
+    uint256 internal constant zm_cqs_20_x1_loc = 0x4160;
+    uint256 internal constant zm_cqs_20_y0_loc = 0x4180;
+    uint256 internal constant zm_cqs_20_y1_loc = 0x41a0;
+    uint256 internal constant zm_cqs_21_x0_loc = 0x41c0;
+    uint256 internal constant zm_cqs_21_x1_loc = 0x41e0;
+    uint256 internal constant zm_cqs_21_y0_loc = 0x4200;
+    uint256 internal constant zm_cqs_21_y1_loc = 0x4220;
+    uint256 internal constant zm_cqs_22_x0_loc = 0x4240;
+    uint256 internal constant zm_cqs_22_x1_loc = 0x4260;
+    uint256 internal constant zm_cqs_22_y0_loc = 0x4280;
+    uint256 internal constant zm_cqs_22_y1_loc = 0x42a0;
+    uint256 internal constant zm_cqs_23_x0_loc = 0x42c0;
+    uint256 internal constant zm_cqs_23_x1_loc = 0x42e0;
+    uint256 internal constant zm_cqs_23_y0_loc = 0x4300;
+    uint256 internal constant zm_cqs_23_y1_loc = 0x4320;
+    uint256 internal constant zm_cqs_24_x0_loc = 0x4340;
+    uint256 internal constant zm_cqs_24_x1_loc = 0x4360;
+    uint256 internal constant zm_cqs_24_y0_loc = 0x4380;
+    uint256 internal constant zm_cqs_24_y1_loc = 0x43a0;
+    uint256 internal constant zm_cqs_25_x0_loc = 0x43c0;
+    uint256 internal constant zm_cqs_25_x1_loc = 0x43e0;
+    uint256 internal constant zm_cqs_25_y0_loc = 0x4400;
+    uint256 internal constant zm_cqs_25_y1_loc = 0x4420;
+    uint256 internal constant zm_cqs_26_x0_loc = 0x4440;
+    uint256 internal constant zm_cqs_26_x1_loc = 0x4460;
+    uint256 internal constant zm_cqs_26_y0_loc = 0x4480;
+    uint256 internal constant zm_cqs_26_y1_loc = 0x44a0;
+    uint256 internal constant zm_cqs_27_x0_loc = 0x44c0;
+    uint256 internal constant zm_cqs_27_x1_loc = 0x44e0;
+    uint256 internal constant zm_cqs_27_y0_loc = 0x4500;
+    uint256 internal constant zm_cqs_27_y1_loc = 0x4520;
+    uint256 internal constant zm_cq_x0_loc = 0x4540;
+    uint256 internal constant zm_cq_x1_loc = 0x4560;
+    uint256 internal constant zm_cq_y0_loc = 0x4580;
+    uint256 internal constant zm_cq_y1_loc = 0x45a0;
+    uint256 internal constant zm_pi_x0_loc = 0x45c0;
+    uint256 internal constant zm_pi_x1_loc = 0x45e0;
+    uint256 internal constant zm_pi_y0_loc = 0x4600;
+    uint256 internal constant zm_pi_y1_loc = 0x4620;
 
     // Challenges offsets
-    uint256 internal constant eta_challenge = 0x4540;
-    uint256 internal constant eta_two_challenge = 0x4560;
-    uint256 internal constant eta_three_challenge = 0x4580;
-    uint256 internal constant beta_challenge = 0x45a0;
-    uint256 internal constant gamma_challenge = 0x45c0;
-    uint256 internal constant rho_challenge = 0x45e0;
-    uint256 internal constant zm_x_challenge = 0x4600;
-    uint256 internal constant zm_y_challenge = 0x4620;
-    uint256 internal constant zm_Z_challenge = 0x4640;
-    uint256 internal constant zm_quotient_challenge = 0x4660;
-    uint256 internal constant public_inputs_delta_challenge = 0x4680;
-    uint256 internal constant alpha_challenge_0 = 0x46a0;
-    uint256 internal constant alpha_challenge_1 = 0x46c0;
-    uint256 internal constant alpha_challenge_2 = 0x46e0;
-    uint256 internal constant alpha_challenge_3 = 0x4700;
-    uint256 internal constant alpha_challenge_4 = 0x4720;
-    uint256 internal constant alpha_challenge_5 = 0x4740;
-    uint256 internal constant alpha_challenge_6 = 0x4760;
-    uint256 internal constant alpha_challenge_7 = 0x4780;
-    uint256 internal constant alpha_challenge_8 = 0x47a0;
-    uint256 internal constant alpha_challenge_9 = 0x47c0;
-    uint256 internal constant alpha_challenge_10 = 0x47e0;
-    uint256 internal constant alpha_challenge_11 = 0x4800;
-    uint256 internal constant alpha_challenge_12 = 0x4820;
-    uint256 internal constant alpha_challenge_13 = 0x4840;
-    uint256 internal constant alpha_challenge_14 = 0x4860;
-    uint256 internal constant alpha_challenge_15 = 0x4880;
-    uint256 internal constant alpha_challenge_16 = 0x48a0;
-    uint256 internal constant alpha_challenge_17 = 0x48c0;
-    uint256 internal constant alpha_challenge_18 = 0x48e0;
-    uint256 internal constant alpha_challenge_19 = 0x4900;
-    uint256 internal constant alpha_challenge_20 = 0x4920;
-    uint256 internal constant alpha_challenge_21 = 0x4940;
-    uint256 internal constant alpha_challenge_22 = 0x4960;
-    uint256 internal constant alpha_challenge_23 = 0x4980;
-    uint256 internal constant alpha_challenge_24 = 0x49a0;
-    uint256 internal constant gate_challenge_0 = 0x49c0;
-    uint256 internal constant gate_challenge_1 = 0x49e0;
-    uint256 internal constant gate_challenge_2 = 0x4a00;
-    uint256 internal constant gate_challenge_3 = 0x4a20;
-    uint256 internal constant gate_challenge_4 = 0x4a40;
-    uint256 internal constant gate_challenge_5 = 0x4a60;
-    uint256 internal constant gate_challenge_6 = 0x4a80;
-    uint256 internal constant gate_challenge_7 = 0x4aa0;
-    uint256 internal constant gate_challenge_8 = 0x4ac0;
-    uint256 internal constant gate_challenge_9 = 0x4ae0;
-    uint256 internal constant gate_challenge_10 = 0x4b00;
-    uint256 internal constant gate_challenge_11 = 0x4b20;
-    uint256 internal constant gate_challenge_12 = 0x4b40;
-    uint256 internal constant gate_challenge_13 = 0x4b60;
-    uint256 internal constant gate_challenge_14 = 0x4b80;
-    uint256 internal constant gate_challenge_15 = 0x4ba0;
-    uint256 internal constant gate_challenge_16 = 0x4bc0;
-    uint256 internal constant gate_challenge_17 = 0x4be0;
-    uint256 internal constant gate_challenge_18 = 0x4c00;
-    uint256 internal constant gate_challenge_19 = 0x4c20;
-    uint256 internal constant gate_challenge_20 = 0x4c40;
-    uint256 internal constant gate_challenge_21 = 0x4c60;
-    uint256 internal constant gate_challenge_22 = 0x4c80;
-    uint256 internal constant gate_challenge_23 = 0x4ca0;
-    uint256 internal constant gate_challenge_24 = 0x4cc0;
-    uint256 internal constant gate_challenge_25 = 0x4ce0;
-    uint256 internal constant gate_challenge_26 = 0x4d00;
-    uint256 internal constant gate_challenge_27 = 0x4d20;
-    uint256 internal constant sum_u_challenge_0 = 0x4d40;
-    uint256 internal constant sum_u_challenge_1 = 0x4d60;
-    uint256 internal constant sum_u_challenge_2 = 0x4d80;
-    uint256 internal constant sum_u_challenge_3 = 0x4da0;
-    uint256 internal constant sum_u_challenge_4 = 0x4dc0;
-    uint256 internal constant sum_u_challenge_5 = 0x4de0;
-    uint256 internal constant sum_u_challenge_6 = 0x4e00;
-    uint256 internal constant sum_u_challenge_7 = 0x4e20;
-    uint256 internal constant sum_u_challenge_8 = 0x4e40;
-    uint256 internal constant sum_u_challenge_9 = 0x4e60;
-    uint256 internal constant sum_u_challenge_10 = 0x4e80;
-    uint256 internal constant sum_u_challenge_11 = 0x4ea0;
-    uint256 internal constant sum_u_challenge_12 = 0x4ec0;
-    uint256 internal constant sum_u_challenge_13 = 0x4ee0;
-    uint256 internal constant sum_u_challenge_14 = 0x4f00;
-    uint256 internal constant sum_u_challenge_15 = 0x4f20;
-    uint256 internal constant sum_u_challenge_16 = 0x4f40;
-    uint256 internal constant sum_u_challenge_17 = 0x4f60;
-    uint256 internal constant sum_u_challenge_18 = 0x4f80;
-    uint256 internal constant sum_u_challenge_19 = 0x4fa0;
-    uint256 internal constant sum_u_challenge_20 = 0x4fc0;
-    uint256 internal constant sum_u_challenge_21 = 0x4fe0;
-    uint256 internal constant sum_u_challenge_22 = 0x5000;
-    uint256 internal constant sum_u_challenge_23 = 0x5020;
-    uint256 internal constant sum_u_challenge_24 = 0x5040;
-    uint256 internal constant sum_u_challenge_25 = 0x5060;
-    uint256 internal constant sum_u_challenge_26 = 0x5080;
-    uint256 internal constant sum_u_challenge_27 = 0x50a0;
+    uint256 internal constant eta_challenge_loc = 0x4640;
+    uint256 internal constant eta_two_challenge_loc = 0x4660;
+    uint256 internal constant eta_three_challenge_loc = 0x4680;
+    uint256 internal constant beta_challenge_loc = 0x46a0;
+    uint256 internal constant gamma_challenge_loc = 0x46c0;
+    uint256 internal constant rho_challenge_loc = 0x46e0;
+    uint256 internal constant zm_x_challenge_loc = 0x4700;
+    uint256 internal constant zm_y_challenge_loc = 0x4720;
+    uint256 internal constant zm_z_challenge_loc = 0x4740;
+    uint256 internal constant zm_quotient_challenge_loc = 0x4760;
+    uint256 internal constant public_inputs_delta_challenge_loc = 0x4780;
+    uint256 internal constant alpha_challenge_0_loc = 0x47a0;
+    uint256 internal constant alpha_challenge_1_loc = 0x47c0;
+    uint256 internal constant alpha_challenge_2_loc = 0x47e0;
+    uint256 internal constant alpha_challenge_3_loc = 0x4800;
+    uint256 internal constant alpha_challenge_4_loc = 0x4820;
+    uint256 internal constant alpha_challenge_5_loc = 0x4840;
+    uint256 internal constant alpha_challenge_6_loc = 0x4860;
+    uint256 internal constant alpha_challenge_7_loc = 0x4880;
+    uint256 internal constant alpha_challenge_8_loc = 0x48a0;
+    uint256 internal constant alpha_challenge_9_loc = 0x48c0;
+    uint256 internal constant alpha_challenge_10_loc = 0x48e0;
+    uint256 internal constant alpha_challenge_11_loc = 0x4900;
+    uint256 internal constant alpha_challenge_12_loc = 0x4920;
+    uint256 internal constant alpha_challenge_13_loc = 0x4940;
+    uint256 internal constant alpha_challenge_14_loc = 0x4960;
+    uint256 internal constant alpha_challenge_15_loc = 0x4980;
+    uint256 internal constant alpha_challenge_16_loc = 0x49a0;
+    uint256 internal constant alpha_challenge_17_loc = 0x49c0;
+    uint256 internal constant alpha_challenge_18_loc = 0x49e0;
+    uint256 internal constant alpha_challenge_19_loc = 0x4a00;
+    uint256 internal constant alpha_challenge_20_loc = 0x4a20;
+    uint256 internal constant alpha_challenge_21_loc = 0x4a40;
+    uint256 internal constant alpha_challenge_22_loc = 0x4a60;
+    uint256 internal constant alpha_challenge_23_loc = 0x4a80;
+    uint256 internal constant alpha_challenge_24_loc = 0x4aa0;
+    uint256 internal constant gate_challenge_0_loc = 0x4ac0;
+    uint256 internal constant gate_challenge_1_loc = 0x4ae0;
+    uint256 internal constant gate_challenge_2_loc = 0x4b00;
+    uint256 internal constant gate_challenge_3_loc = 0x4b20;
+    uint256 internal constant gate_challenge_4_loc = 0x4b40;
+    uint256 internal constant gate_challenge_5_loc = 0x4b60;
+    uint256 internal constant gate_challenge_6_loc = 0x4b80;
+    uint256 internal constant gate_challenge_7_loc = 0x4ba0;
+    uint256 internal constant gate_challenge_8_loc = 0x4bc0;
+    uint256 internal constant gate_challenge_9_loc = 0x4be0;
+    uint256 internal constant gate_challenge_10_loc = 0x4c00;
+    uint256 internal constant gate_challenge_11_loc = 0x4c20;
+    uint256 internal constant gate_challenge_12_loc = 0x4c40;
+    uint256 internal constant gate_challenge_13_loc = 0x4c60;
+    uint256 internal constant gate_challenge_14_loc = 0x4c80;
+    uint256 internal constant gate_challenge_15_loc = 0x4ca0;
+    uint256 internal constant gate_challenge_16_loc = 0x4cc0;
+    uint256 internal constant gate_challenge_17_loc = 0x4ce0;
+    uint256 internal constant gate_challenge_18_loc = 0x4d00;
+    uint256 internal constant gate_challenge_19_loc = 0x4d20;
+    uint256 internal constant gate_challenge_20_loc = 0x4d40;
+    uint256 internal constant gate_challenge_21_loc = 0x4d60;
+    uint256 internal constant gate_challenge_22_loc = 0x4d80;
+    uint256 internal constant gate_challenge_23_loc = 0x4da0;
+    uint256 internal constant gate_challenge_24_loc = 0x4dc0;
+    uint256 internal constant gate_challenge_25_loc = 0x4de0;
+    uint256 internal constant gate_challenge_26_loc = 0x4e00;
+    uint256 internal constant gate_challenge_27_loc = 0x4e20;
+    uint256 internal constant sum_u_challenge_0_loc = 0x4e40;
+    uint256 internal constant sum_u_challenge_1_loc = 0x4e60;
+    uint256 internal constant sum_u_challenge_2_loc = 0x4e80;
+    uint256 internal constant sum_u_challenge_3_loc = 0x4ea0;
+    uint256 internal constant sum_u_challenge_4_loc = 0x4ec0;
+    uint256 internal constant sum_u_challenge_5_loc = 0x4ee0;
+    uint256 internal constant sum_u_challenge_6_loc = 0x4f00;
+    uint256 internal constant sum_u_challenge_7_loc = 0x4f20;
+    uint256 internal constant sum_u_challenge_8_loc = 0x4f40;
+    uint256 internal constant sum_u_challenge_9_loc = 0x4f60;
+    uint256 internal constant sum_u_challenge_10_loc = 0x4f80;
+    uint256 internal constant sum_u_challenge_11_loc = 0x4fa0;
+    uint256 internal constant sum_u_challenge_12_loc = 0x4fc0;
+    uint256 internal constant sum_u_challenge_13_loc = 0x4fe0;
+    uint256 internal constant sum_u_challenge_14_loc = 0x5000;
+    uint256 internal constant sum_u_challenge_15_loc = 0x5020;
+    uint256 internal constant sum_u_challenge_16_loc = 0x5040;
+    uint256 internal constant sum_u_challenge_17_loc = 0x5060;
+    uint256 internal constant sum_u_challenge_18_loc = 0x5080;
+    uint256 internal constant sum_u_challenge_19_loc = 0x50a0;
+    uint256 internal constant sum_u_challenge_20_loc = 0x50c0;
+    uint256 internal constant sum_u_challenge_21_loc = 0x50e0;
+    uint256 internal constant sum_u_challenge_22_loc = 0x5100;
+    uint256 internal constant sum_u_challenge_23_loc = 0x5120;
+    uint256 internal constant sum_u_challenge_24_loc = 0x5140;
+    uint256 internal constant sum_u_challenge_25_loc = 0x5160;
+    uint256 internal constant sum_u_challenge_26_loc = 0x5180;
+    uint256 internal constant sum_u_challenge_27_loc = 0x51a0;
 
-    uint256 internal constant prev_challenge_loc = 0x50c0;
+
+    uint256 internal constant prev_challenge_loc = 0x51c0;
+
+    uint256 internal constant PUBLIC_INPUTS_DELTA_NUMERATOR_LOC = 0x51e0;
+    uint256 internal constant PUBLIC_INPUTS_DELTA_DENOMINATOR_LOC = 0x5200;
+
+    uint256 internal constant store_gas_loc = 0x5620;
 
     constructor() {
         // TODO: verify the points are on the curve in the constructor
@@ -657,141 +680,280 @@ contract BlakeOptHonkVerifier is IVerifier {
 
     uint256 internal constant LOWER_128_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
-    function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool) {
+    function verify(bytes calldata proof, bytes32[] calldata publicInputs) public override returns (bool) {
+
         // Load the verification key into memory
         loadVk();
 
         // Load the proof from calldata in one large chunk
         assembly {
+
             function splitChallenge(challenge) -> first, second {
                 first := and(challenge, LOWER_128_MASK)
-                second := shr(challenge, 128)
+                second := shr(128, challenge)
             }
 
             let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
             let p := 21888242871839275222246405745257275088548364400416034343698204186575808495617 // Prime field order
 
             // Add the skip offset to the given pointer
-            let proof_ptr := add(calldataload(0x04), 0x24)
 
-            // As all of our proof points are written in contiguous parts of memory, we call use a single
-            // calldatacopy to place all of our proof into the correct memory regions
+            // TODO(md): potential further optimisations
+            // Rather than mcpying the entire sections to be hashed, we would get away with copying the previous hash
+            // into the value before ( by caching the value we are swapping it with in scratch space ) and then
+            // copying the value back when we are done hashing
+            // rather than copying the entire section over to the lower registers
+            {
+                let proof_ptr := add(calldataload(0x04), 0x24)
 
-            // Load the proof into memory
-            // TODO: make sure this is evaluated as const
-            let proof_size := sub(zm_pi_y1_loc, proof_circuit_size)
-            calldatacopy(proof_ptr, w_l_x0_loc, proof_size)
-            // TODO(md): IMPORTANT: Mod all of the base field items by q, and all prime field items by p
-            // for the sake of testing we are assuming that these are correct
+                // As all of our proof points are written in contiguous parts of memory, we call use a single
+                // calldatacopy to place all of our proof into the correct memory regions
 
-            // Generate challenges
+                // Load the proof into memory
+                // TODO: make sure this is evaluated as const
+                // The last item in the proof, and the first item in the proof
+                let proof_size := sub(zm_pi_y1_loc , proof_circuit_size_loc)
+                calldatacopy(proof_circuit_size_loc, proof_ptr, proof_size)
 
-            // TODO: nice section headers ASCII
-            /** Generate Eta Challenges */
+                mstore(store_gas_loc, gas())
 
-            // The use of mcpy will be a life saver here
-            // TODO: make sure that we have enough of a scratch space to work with here
-            // TODO: use an mcpy alternative once off plane - is it available in yul yet?
-            let number_of_public_inputs := mload(proof_num_public_inputs)
 
-            // Note: can be mcpyed from proof
-            // TODO: work what memory can be used here - if we use 0 solidity at all we can get
-            // away with ignoring free memory practices entirely
-            mstore(0x00, mload(proof_circuit_size))
-            mstore(0x20, number_of_public_inputs)
-            mstore(0x40, mload(proof_circuit_size))
+                // TODO(md): IMPORTANT: Mod all of the base field items by q, and all prime field items by p
+                // for the sake of testing we are assuming that these are correct
 
-            let public_inputs_start := add(calldataload(0x24), 0x24)
-            let public_inputs_size := mul(number_of_public_inputs, 0x20)
-            // Copy the public inputs into the eta buffer
-            calldatacopy(0x60, public_inputs_start, public_inputs_size)
+                // Generate challenges
 
-            let eta_input_length := add(0x60, public_inputs_size)
+                // TODO: nice section headers ASCII
+                /** Generate Eta Challenges */
 
-            // Note: size will change once proof points are made smaller for keccak flavor
-            // Right now it is 0x20 * 16 - should be 8
-            mcopy(add(0x60, public_inputs_size), w_l_x1_loc, 0x200)
+                // The use of mcpy will be a life saver here
+                // TODO: make sure that we have enough of a scratch space to work with here
+                // TODO: use an mcpy alternative once off plane - is it available in yul yet?
+                let number_of_public_inputs := mload(proof_num_public_inputs_loc)
 
-            let prev_challenge := mod(keccak256(0x00, eta_input_length), p)
-            mstore(0x00, prev_challenge)
+                // Note: can be mcpyed from proof
+                // TODO: work what memory can be used here - if we use 0 solidity at all we can get
+                // away with ignoring free memory practices entirely
 
-            // TODO: remember how to function jump
-            let eta, etaTwo := splitChallenge(prev_challenge)
+                // TODO(md): This section could be an mcpy
+                mstore(0x00, mload(proof_circuit_size_loc))
+                mstore(0x20, number_of_public_inputs)
+                mstore(0x40, mload(proof_pub_inputs_offset_loc))
 
-            mstore(eta_challenge, eta)
-            mstore(eta_two_challenge, etaTwo)
+                let public_inputs_start := add(calldataload(0x24), 0x24)
+                let public_inputs_size := mul(number_of_public_inputs, 0x20)
+                // Copy the public inputs into the eta buffer
+                calldatacopy(0x60, public_inputs_start, public_inputs_size)
 
-            prev_challenge := mod(keccak256(0x00, 0x20), p)
+                // 0x260 = 3 * 32 bytes + 4 * 96 bytes for (w1,w2,w3)
+                let eta_input_length := add(0x1e0, public_inputs_size)
 
-            // TODO: update memory pointer
-            mstore(0x00, prev_challenge_loc)
-            let eta_three := and(prev_challenge, LOWER_128_MASK)
+                // Note: size will change once proof points are made smaller for keccak flavor
+                // Right now it is 0x20 * 16 - should be 8
+                mcopy(add(0x60, public_inputs_size), w_l_x0_loc, 0x1a0)
 
-            mstore(eta_three_challenge, eta_three)
-
-            // Generate Beta and Gamma Chalenges
-            mcopy(0x20, lookup_read_counts_x0_loc, 0x180)
-
-            prev_challenge := mod(keccak256(0x00, 0x1a0), p)
-            mstore(0x00, prev_challenge)
-            let beta, gamma := splitChallenge(prev_challenge)
-
-            mstore(beta_challenge, beta)
-            mstore(gamma_challenge, gamma)
-
-            // Generate Alpha challenges - non-linearise the gate contributions
-            mcopy(0x20, lookup_inverses_x0_loc, 0x100)
-
-            prev_challenge := mod(keccak256(0x00, 0x120), p)
-            let alphas_0, alphas_1 := splitChallenge(prev_challenge)
-
-            let i := 0
-            // TODO: if we can afford bytecode size - unroll this
-            // For number of alphas / 2 ( 25 /2 )
-            for {} lt(i, 12) {i := add(i, 1)} {
-                prev_challenge := mod(keccak256(0x00, 0x20), p)
-                let alpha_0, alpha_1 := splitChallenge(prev_challenge)
-
-                let alpha_off_set := add(alpha_challenge_0, mul(i, 0x40))
+                let prev_challenge := mod(keccak256(0x00, eta_input_length), p)
                 mstore(0x00, prev_challenge)
-                mstore(alpha_off_set, alpha_0)
-                mstore(add(alpha_off_set, 0x20), alpha_1)
-            }
-            // The final alpha challenge
-            prev_challenge := mod(keccak256(0x00, 0x20), p)
-            mstore(alpha_challenge_24, prev_challenge)
 
+                // TODO: remember how to function jump
+                let eta, etaTwo := splitChallenge(prev_challenge)
 
-            // GENERATE GATE Challenges
-            i := 0
-            for {} lt(i, 28) {} {
+                mstore(eta_challenge_loc, eta)
+                mstore(eta_two_challenge_loc, etaTwo)
+
+                prev_challenge := mod(keccak256(0x00, 0x20), p)
+
+                // TODO: update memory pointer
+                mstore(0x00, prev_challenge)
+                let eta_three := and(prev_challenge, LOWER_128_MASK)
+
+                mstore(eta_three_challenge_loc, eta_three)
+
+                // Generate Beta and Gamma Chalenges
+                mcopy(0x20, lookup_read_counts_x0_loc, 0x180)
+
+                prev_challenge := mod(keccak256(0x00, 0x1a0), p)
+                mstore(0x00, prev_challenge)
+                let beta, gamma := splitChallenge(prev_challenge)
+
+                log2(0x00, 0x00, beta, gamma)
+
+                mstore(beta_challenge_loc, beta)
+                mstore(gamma_challenge_loc, gamma)
+
+                // Generate Alpha challenges - non-linearise the gate contributions
+                mcopy(0x20, lookup_inverses_x0_loc, 0x100)
+
+                prev_challenge := mod(keccak256(0x00, 0x120), p)
+                mstore(0x00, prev_challenge)
+                let alphas_0, alphas_1 := splitChallenge(prev_challenge)
+
+                let i := 1
+                // TODO: if we can afford bytecode size - unroll this
+                // For number of alphas / 2 ( 25 /2 )
+                for {} lt(i, 12) {i := add(i, 1)} {
+                    prev_challenge := mod(keccak256(0x00, 0x20), p)
+                    mstore(0x00, prev_challenge)
+
+                    let alpha_even, alpha_odd := splitChallenge(prev_challenge)
+
+                    let alpha_off_set := add(alpha_challenge_0_loc, mul(i, 0x40))
+                    mstore(alpha_off_set, alpha_even)
+                    mstore(add(alpha_off_set, 0x20), alpha_odd)
+                }
+                // The final alpha challenge
                 prev_challenge := mod(keccak256(0x00, 0x20), p)
                 mstore(0x00, prev_challenge)
-                let gate_offset := add(gate_challenge_0, mul(0x20, i))
-                mstore(gate_challenge_0, and(prev_challenge, LOWER_128_MASK))
 
-                i := add(i, 1)
+                let alpha_24 := and(prev_challenge, LOWER_128_MASK)
+                mstore(alpha_challenge_24_loc, alpha_24)
+
+
+
+                // GENERATE GATE Challenges
+                i := 0
+                for {} lt(i, CONST_PROOF_SIZE_LOG_N) {} {
+                    prev_challenge := mod(keccak256(0x00, 0x20), p)
+                    mstore(0x00, prev_challenge)
+                    let gate_off := add(gate_challenge_0_loc, mul(0x20, i))
+                    let gate_challenge := and(prev_challenge, LOWER_128_MASK)
+
+                    mstore(gate_off, gate_challenge)
+
+                    i := add(i, 1)
+                }
+
+                // TODO: I think that the order of the values taken from the univariates is wrong
+                // it should be [proof_size, batched length]
+                // rather than as written above [batched_size]{proof_size}
+                // Total nuber of iterations is 28 , with 8 for each univariate
+                i := 0
+                for {} lt(i, CONST_PROOF_SIZE_LOG_N) {} {
+                    // Increase by 20 * batched relation length (8)
+                    // 20 * 8 = 160 (0xa0)
+                    let proof_off := mul(i, 0x100)
+                    let read_off := add(sumcheck_univariate_0_0, proof_off)
+
+                    mcopy(0x20, read_off, 0x100)
+
+                    // Hash 0xa0 + 20 (prev hash) = 0xc0
+                    prev_challenge := mod(keccak256(0x00, 0x120), p)
+                    mstore(0x00, prev_challenge)
+
+                    let sumcheck_u_challenge := and(prev_challenge, LOWER_128_MASK)
+
+                    let write_off := add(sum_u_challenge_0_loc, mul(i, 0x20))
+                    mstore(write_off, sumcheck_u_challenge)
+
+                    i := add(i, 1)
+                }
+
+                // Generate Rho Challenge
+                // Hash all of the sumcheck evaluations
+                // Number of bytes to copy = 0x20 * NUMBER_OF_ENTITIES (44) = 0x580
+                mcopy(0x20, eval_Q_M_loc, 0x580)
+                prev_challenge := mod(keccak256(0x00, 0x5a0), p)
+                mstore(0x00, prev_challenge)
+
+                let rho := and(prev_challenge, LOWER_128_MASK)
+
+                mstore(rho_challenge_loc, rho)
+
+
+                // Generate ZMY Challenge
+                // This is a hash of all of the zm cq's
+                // Each cq is a proof g1 point (0x80 bytes) for log n of circuit size
+                // 0x80 * 28 = 0xe00
+                mcopy(0x20, zm_cqs_0_x0_loc, 0xe00)
+
+                prev_challenge := mod(keccak256(0x00, 0xe20), p)
+                mstore(0x00, prev_challenge)
+
+                let zmY := and(prev_challenge, LOWER_128_MASK)
+
+                mstore(zm_y_challenge_loc, zmY)
+
+                // Generate zmX, zmZ Challenges
+                mcopy(0x20, zm_cq_x0_loc, 0x80)
+                prev_challenge := mod(keccak256(0x00, 0xa0), p)
+
+                let zmX, zmZ := splitChallenge(prev_challenge)
+                mstore(zm_x_challenge_loc, zmX)
+                mstore(zm_z_challenge_loc, zmZ)
+
+                // All challenges have been generated
             }
 
-            // TODO: I think that the order of the values taken from the univariates is wrong
-            // it should be [proof_size, batched length]
-            // rather than as written above [batched_size]{proof_size}
+            // Generate public inputa delta
+            // TODO: think about how to optimize this further
+            {
 
-            // Generate Sumcheck Challenges
-            // MCPY the univariates for each one
-            i := 0
-            for {} lt(i, 28) {} {
-                // We will always copy as many coefficients of the batched relation length
-                let univariate_offset := add(sumcheck_univariate_0_0, mul())
-                // mcpy(0x20, )
+                let beta := mload(beta_challenge_loc)
+                let gamma := mload(gamma_challenge_loc)
+                let domain_size := mload(proof_circuit_size_loc)
+                // NOTE(md): compiler broken when offset is used in a variable name?
+                let pub_off := mload(proof_pub_inputs_offset_loc)
+
+                log4(0x00, 0x00, beta, gamma, domain_size, pub_off)
+
+                let numerator_value := 1
+                let denominator_value := 1
+
+                let p_clone := p // move p to the front of the stack
+
+                // Assume both domainSize and offset are less than p
+                // numerator_acc = gamma + (beta * (domainSize + offset))
+                let numerator_acc := addmod(gamma, mulmod(beta, add(domain_size, pub_off), p_clone), p_clone)
+                // demonimator_acc = gamma - (beta * (offset + 1))
+                let beta_x_off := mulmod(beta, add(pub_off, 1), p_clone)
+                let denominator_acc := addmod(gamma, sub(p_clone, beta_x_off), p_clone)
+
+                log1(0x00, 0x00, numerator_acc)
+                log1(0x00, 0x00, denominator_acc)
+
+                let valid_inputs := true
+                // Load the starting point of the public inputs (jump over the selector and the length of public inputs [0x24])
+                let public_inputs_ptr := add(calldataload(0x24), 0x24)
+
+                // endpoint_ptr = public_inputs_ptr + num_inputs * 0x20. // every public input is 0x20 bytes
+                let endpoint_ptr := add(public_inputs_ptr, mul(mload(proof_num_public_inputs_loc ), 0x20))
+
+                for {} lt(public_inputs_ptr, endpoint_ptr) { public_inputs_ptr := add(public_inputs_ptr, 0x20) } {
+                    /**
+                     * TODO: update comment
+                     * input = public_input[i]
+                     * valid_inputs &= input < p
+                     * temp = input + gamma
+                     * numerator_value *= (β.σ(i) + wᵢ + γ)  // σ(i) = 0x05.ωⁱ
+                     * denominator_value *= (β.σ'(i) + wᵢ + γ) // σ'(i) = 0x0c.ωⁱ
+                     */
+                    let input := calldataload(public_inputs_ptr)
+
+                    valid_inputs := and(valid_inputs, lt(input, p_clone))
+
+                    numerator_value := mulmod(numerator_value, addmod(numerator_acc, input, p_clone), p_clone)
+                    denominator_value := mulmod(denominator_value, addmod(denominator_acc, input, p_clone), p_clone)
+
+                    numerator_acc := addmod(numerator_acc, beta, p_clone)
+                    denominator_acc := addmod(denominator_acc, sub(p_clone, beta), p_clone)
+                }
+
+                // Revert if not all public inputs are field elements (i.e. < p)
+                if iszero(valid_inputs) {
+                    // TODO: custom errors
+                    // mstore(0x00, PUBLIC_INPUT_GE_P_SELECTOR)
+                    revert(0x00, 0x0)
+                }
+
+                log2(0x00, 0x00, numerator_value, denominator_value)
+
+                mstore(PUBLIC_INPUTS_DELTA_NUMERATOR_LOC, numerator_value)
+                mstore(PUBLIC_INPUTS_DELTA_DENOMINATOR_LOC , denominator_value)
             }
 
 
-
-
-
+            mstore(0x00, 0x01)
+            return(0x00, 0x20)
         }
-
-        return false;
     }
 }

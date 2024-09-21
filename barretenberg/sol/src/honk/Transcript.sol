@@ -11,6 +11,10 @@ import {
 import {Fr, FrLib} from "./Fr.sol";
 import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
 
+import {logFr} from "./utils.sol";
+
+import "forge-std/console.sol";
+
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
     // Oink
@@ -53,6 +57,9 @@ library TranscriptLib {
         (t.shplonkNu, previousChallenge) = generateShplonkNuChallenge(proof, previousChallenge);
 
         (t.shplonkZ, previousChallenge) = generateShplonkZChallenge(proof, previousChallenge);
+
+        uint256 gasAfter = gasleft();
+        console.log("Gas used: ", gasBefore - gasAfter);
 
         return t;
     }
@@ -112,6 +119,8 @@ library TranscriptLib {
         round0[3 + publicInputsSize + 10] = bytes32(proof.w3.y_0);
         round0[3 + publicInputsSize + 11] = bytes32(proof.w3.y_1);
 
+        // console.logBytes(abi.encodePacked(round0));
+
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(round0)));
         (eta, etaTwo) = splitChallenge(previousChallenge);
         previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
@@ -164,14 +173,21 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(alpha0)));
         (alphas[0], alphas[1]) = splitChallenge(nextPreviousChallenge);
 
+        // logFr("alpha0", alphas[0]);
+        // logFr("alpha1", alphas[1]);
+
         for (uint256 i = 1; i < NUMBER_OF_ALPHAS / 2; i++) {
             nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(nextPreviousChallenge))));
             (alphas[2 * i], alphas[2 * i + 1]) = splitChallenge(nextPreviousChallenge);
+
+            // logFr("alpha", 2 * i, alphas[2 * i]);
+            // logFr("alpha", 2 * i + 1, alphas[2 * i + 1]);
         }
         if (((NUMBER_OF_ALPHAS & 1) == 1) && (NUMBER_OF_ALPHAS > 2)) {
             nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(nextPreviousChallenge))));
             Fr unused;
             (alphas[NUMBER_OF_ALPHAS - 1], unused) = splitChallenge(nextPreviousChallenge);
+            // logFr("alpha", NUMBER_OF_ALPHAS - 1, alphas[NUMBER_OF_ALPHAS - 1]);
         }
     }
 
@@ -184,6 +200,7 @@ library TranscriptLib {
             previousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge))));
             Fr unused;
             (gateChallenges[i], unused) = splitChallenge(previousChallenge);
+            // logFr("gate", i, gateChallenges[i]);
         }
         nextPreviousChallenge = previousChallenge;
     }
@@ -201,9 +218,11 @@ library TranscriptLib {
             for (uint256 j = 0; j < BATCHED_RELATION_PARTIAL_LENGTH; j++) {
                 univariateChal[j + 1] = proof.sumcheckUnivariates[i][j];
             }
+            // console.logBytes(abi.encodePacked(univariateChal));
             prevChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(univariateChal)));
             Fr unused;
             (sumcheckChallenges[i], unused) = splitChallenge(prevChallenge);
+            // logFr("sumcheck", i, sumcheckChallenges[i]);
         }
         nextPreviousChallenge = prevChallenge;
     }
@@ -224,6 +243,7 @@ library TranscriptLib {
         nextPreviousChallenge = FrLib.fromBytes32(keccak256(abi.encodePacked(rhoChallengeElements)));
         Fr unused;
         (rho, unused) = splitChallenge(nextPreviousChallenge);
+        // logFr("rho", rho);
     }
 
     function generateGeminiRChallenge(Honk.Proof memory proof, Fr prevChallenge)

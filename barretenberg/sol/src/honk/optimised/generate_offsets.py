@@ -48,11 +48,11 @@ proof_g1 = [
     "w_l",
     "w_r",
     "w_o",
-    "w_4",
-    "z_perm",
-    "lookup_inverses",
     "lookup_read_counts",
     "lookup_read_tags"
+    "lookup_inverses",
+    "z_perm",
+    "w_4",
 ]
 
 entities = [
