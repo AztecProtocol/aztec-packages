@@ -11,6 +11,9 @@ import {
     NUMBER_OF_ALPHAS
 } from "../HonkTypes.sol";
 
+// Log_N for this particular circuit is 15, used in sumcheck
+uint256 constant LOG_N = 15;
+
 import "forge-std/console.sol";
 
 import {logAsmG1, logFr, bytes32ToString} from "../utils.sol";
@@ -608,7 +611,38 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant PUBLIC_INPUTS_DELTA_NUMERATOR_LOC = 0x51e0;
     uint256 internal constant PUBLIC_INPUTS_DELTA_DENOMINATOR_LOC = 0x5200;
 
-    uint256 internal constant store_gas_loc = 0x5620;
+    // The number of barycentric domain values is dependant on the highest degree relation
+    // Number of barycentric domain values is 8
+    // We write slab memory addresses manually as i dont trust the compiler
+    uint256 internal constant BARYCENTRIC_LAGRANGE_DENOMINATORS_LOC = 0x5220;
+    uint256 internal constant BARYCENTRIC_LAGRANGE_DENOMINATORS_1_LOC = 0x5240;
+    uint256 internal constant BARYCENTRIC_LAGRANGE_DENOMINATORS_2_LOC = 0x5260;
+    uint256 internal constant BARYCENTRIC_LAGRANGE_DENOMINATORS_3_LOC = 0x5280;
+    uint256 internal constant BARYCENTRIC_LAGRANGE_DENOMINATORS_4_LOC = 0x52a0;
+    uint256 internal constant BARYCENTRIC_LAGRANGE_DENOMINATORS_5_LOC = 0x52c0;
+    uint256 internal constant BARYCENTRIC_LAGRANGE_DENOMINATORS_6_LOC = 0x52e0;
+    uint256 internal constant BARYCENTRIC_LAGRANGE_DENOMINATORS_7_LOC = 0x5300;
+
+    // = BARYCENTRIC_LAGRANGE_DENOMINATORS_LOC + 8 * 0x20
+    uint256 internal constant BARYCENTRIC_DOMAIN_LOC = 0x5320;
+    uint256 internal constant BARYCENTRIC_DOMAIN_1_LOC = 0x5340;
+    uint256 internal constant BARYCENTRIC_DOMAIN_2_LOC = 0x5360;
+    uint256 internal constant BARYCENTRIC_DOMAIN_3_LOC = 0x5380;
+    uint256 internal constant BARYCENTRIC_DOMAIN_4_LOC = 0x53a0;
+    uint256 internal constant BARYCENTRIC_DOMAIN_5_LOC = 0x53c0;
+    uint256 internal constant BARYCENTRIC_DOMAIN_6_LOC = 0x53e0;
+    uint256 internal constant BARYCENTRIC_DOMAIN_7_LOC = 0x5400;
+
+    uint256 internal constant BARYCENTRIC_DENOMINATOR_INVERSES_LOC = 0x5420;
+    uint256 internal constant BARYCENTRIC_DENOMINATOR_INVERSES_1_LOC = 0x5440;
+    uint256 internal constant BARYCENTRIC_DENOMINATOR_INVERSES_2_LOC = 0x5460;
+    uint256 internal constant BARYCENTRIC_DENOMINATOR_INVERSES_3_LOC = 0x5480;
+    uint256 internal constant BARYCENTRIC_DENOMINATOR_INVERSES_4_LOC = 0x54a0;
+    uint256 internal constant BARYCENTRIC_DENOMINATOR_INVERSES_5_LOC = 0x54c0;
+    uint256 internal constant BARYCENTRIC_DENOMINATOR_INVERSES_6_LOC = 0x54e0;
+    uint256 internal constant BARYCENTRIC_DENOMINATOR_INVERSES_7_LOC = 0x5500;
+
+    uint256 internal constant NEXT_FREE_LOC = 0x5520;
 
     constructor() {
         // TODO: verify the points are on the curve in the constructor
@@ -714,8 +748,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                 // The last item in the proof, and the first item in the proof
                 let proof_size := sub(zm_pi_y1_loc , proof_circuit_size_loc)
                 calldatacopy(proof_circuit_size_loc, proof_ptr, proof_size)
-
-                mstore(store_gas_loc, gas())
 
 
                 // TODO(md): IMPORTANT: Mod all of the base field items by q, and all prime field items by p
@@ -908,9 +940,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let beta_x_off := mulmod(beta, add(pub_off, 1), p_clone)
                 let denominator_acc := addmod(gamma, sub(p_clone, beta_x_off), p_clone)
 
-                log1(0x00, 0x00, numerator_acc)
-                log1(0x00, 0x00, denominator_acc)
-
                 let valid_inputs := true
                 // Load the starting point of the public inputs (jump over the selector and the length of public inputs [0x24])
                 let public_inputs_ptr := add(calldataload(0x24), 0x24)
@@ -920,12 +949,6 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 for {} lt(public_inputs_ptr, endpoint_ptr) { public_inputs_ptr := add(public_inputs_ptr, 0x20) } {
                     /**
-                     * TODO: update comment
-                     * input = public_input[i]
-                     * valid_inputs &= input < p
-                     * temp = input + gamma
-                     * numerator_value *= (β.σ(i) + wᵢ + γ)  // σ(i) = 0x05.ωⁱ
-                     * denominator_value *= (β.σ'(i) + wᵢ + γ) // σ'(i) = 0x0c.ωⁱ
                      */
                     let input := calldataload(public_inputs_ptr)
 
@@ -945,10 +968,248 @@ contract BlakeOptHonkVerifier is IVerifier {
                     revert(0x00, 0x0)
                 }
 
-                log2(0x00, 0x00, numerator_value, denominator_value)
-
                 mstore(PUBLIC_INPUTS_DELTA_NUMERATOR_LOC, numerator_value)
                 mstore(PUBLIC_INPUTS_DELTA_DENOMINATOR_LOC , denominator_value)
+            }
+
+
+            // Sumcheck
+            {
+                // We write the barycentric domain values into memory
+                // These are written once per program execution, and reused across all
+                // sumcheck rounds
+                // TODO: Optimisation: If we can write these into the program bytecode then
+                // we could use a codecopy to load them into memory as a single slab, rather than
+                // writing a series of individual values
+                function writeBarycentricTables() {
+                    // We write into hardcoded memory regions
+                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_LOC, 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51)
+                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_1_LOC, 0x00000000000000000000000000000000000000000000000000000000000002d0)
+                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_2_LOC, 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff11)
+                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_3_LOC, 0x0000000000000000000000000000000000000000000000000000000000000090)
+                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_4_LOC, 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffff71)
+                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_5_LOC, 0x00000000000000000000000000000000000000000000000000000000000000f0)
+                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_6_LOC, 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593effffd31)
+                    mstore(BARYCENTRIC_LAGRANGE_DENOMINATORS_7_LOC, 0x00000000000000000000000000000000000000000000000000000000000013b0)
+
+                    mstore(BARYCENTRIC_DOMAIN_LOC, 0x00)
+                    mstore(BARYCENTRIC_DOMAIN_1_LOC, 0x01)
+                    mstore(BARYCENTRIC_DOMAIN_2_LOC, 0x02)
+                    mstore(BARYCENTRIC_DOMAIN_3_LOC, 0x03)
+                    mstore(BARYCENTRIC_DOMAIN_4_LOC, 0x04)
+                    mstore(BARYCENTRIC_DOMAIN_5_LOC, 0x05)
+                    mstore(BARYCENTRIC_DOMAIN_6_LOC, 0x06)
+                    mstore(BARYCENTRIC_DOMAIN_7_LOC, 0x07)
+                }
+
+
+                /**
+                 * Batch inversion expects that the values are provided as a slab of memory
+                 * Each 32 bytes each (Frs)
+                 *
+                 * We use Montgomery's batch inversion trick to invert the values
+                 * One inversion is required for each round of sumcheck, as it is used to compute the
+                 * Barycentric evaluations
+                 *
+                 * The way batch inversion works is as follows. Let's say you want to compute \{ 1/x_1, 1/x_2, ..., 1/x_n \}
+                 * The trick is to compute the product x_1x_2...x_n , whilst storing all of the temporary products.
+                 * i.e. we have an array A = [x_1, x_1x_2, ..., x_1x_2...x_n]
+                 * We then compute a single inverse: I = 1 / x_1x_2...x_n
+                 * Finally, we can use our accumulated products, to quotient out individual inverses.
+                 * We can get an individual inverse at index i, by computing I.A_{i-1}.(x_nx_n-1...x_i+1)
+                 * The last product term we can compute on-the-fly, as it grows by one element for each additional inverse that we
+                 * require.
+                 */
+                function batchInvertInplace(p_clone) {
+                    // We know that there will be 8 denominators
+                    let accumulator := mload(BARYCENTRIC_DENOMINATOR_INVERSES_LOC)
+
+                    // 0
+                    let t0 := accumulator
+                    accumulator := mulmod(accumulator, mload(BARYCENTRIC_DENOMINATOR_INVERSES_1_LOC), p_clone)
+                    // 0 . 1
+                    let t1 := accumulator
+                    accumulator := mulmod(accumulator, mload(BARYCENTRIC_DENOMINATOR_INVERSES_2_LOC), p_clone)
+                    // 0 . 1 . 2
+                    let t2 := accumulator
+                    accumulator := mulmod(accumulator, mload(BARYCENTRIC_DENOMINATOR_INVERSES_3_LOC), p_clone)
+                    // 0 . 1 . 2 . 3
+                    let t3 := accumulator
+                    accumulator := mulmod(accumulator, mload(BARYCENTRIC_DENOMINATOR_INVERSES_4_LOC), p_clone)
+                    // 0 . 1 . 2 . 3 . 4
+                    let t4 := accumulator
+                    accumulator := mulmod(accumulator, mload(BARYCENTRIC_DENOMINATOR_INVERSES_5_LOC), p_clone)
+                    // 0 . 1 . 2 . 3 . 4 . 5
+                    let t5 := accumulator
+                    accumulator := mulmod(accumulator, mload(BARYCENTRIC_DENOMINATOR_INVERSES_6_LOC), p_clone)
+                    // 0 . 1 . 2 . 3 . 4 . 5 . 6
+                    let t6 := accumulator
+                    accumulator := mulmod(accumulator, mload(BARYCENTRIC_DENOMINATOR_INVERSES_7_LOC), p_clone)
+                    // 0 . 1 . 2 . 3 . 4 . 5 . 6 . 7
+
+                    {
+                        mstore(0, 0x20)
+                        mstore(0x20, 0x20)
+                        mstore(0x40, 0x20)
+                        mstore(0x60, accumulator)
+                        mstore(0x80, sub(p_clone, 2))
+                        mstore(0xa0, p_clone)
+                        if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
+                            // TODO: custom error
+                            mstore(0x0, 0x69696969)
+                            revert(0x00, 0x04)
+                        }
+                        // 1 / (0 . 1 . 2 . 3 . 4 . 5 . 6 . 7)
+                        accumulator := mload(0x00)
+                    }
+
+                    // (0 . 1 . 2 . 3 . 4 . 5 . 6) / (0 . 1 . 2 . 3 . 4 . 5 . 6 . 7)  = 1 / 7
+                    t6 := mulmod(accumulator, t6, p_clone)
+                    let temp := mload(BARYCENTRIC_DENOMINATOR_INVERSES_7_LOC)
+                    // Inverse of 1/7
+                    mstore(BARYCENTRIC_DENOMINATOR_INVERSES_7_LOC, t6)
+
+                    // 1 / (0 . 1 . 2 . 3 . 4 . 5 . 6)
+                    accumulator := mulmod(accumulator, temp, p_clone)
+
+                    // (0 . 1 . 2 . 3 . 4 . 5) / (0 . 1 . 2 . 3 . 4 . 5 . 6)  = 1 / 6
+                    t5 := mulmod(accumulator, t5, p_clone)
+                    temp := mload(BARYCENTRIC_DENOMINATOR_INVERSES_6_LOC)
+                    // Inverse of 1/6
+                    mstore(BARYCENTRIC_DENOMINATOR_INVERSES_6_LOC, t5)
+
+                    // 1 / (0 . 1 . 2 . 3 . 4 . 5)
+                    accumulator := mulmod(accumulator, temp, p_clone)
+
+                    // (0 . 1 . 2 . 3 . 4) / (0 . 1 . 2 . 3 . 4 . 5)  = 1 / 5
+                    t4 := mulmod(accumulator, t4, p_clone)
+                    temp := mload(BARYCENTRIC_DENOMINATOR_INVERSES_5_LOC)
+                    // Inverse of 1/5
+                    mstore(BARYCENTRIC_DENOMINATOR_INVERSES_5_LOC, t4)
+
+                    // 1 / (0 . 1 . 2 . 3 . 4)
+                    accumulator := mulmod(accumulator, temp, p_clone)
+
+                    // (0 . 1 . 2 . 3) / (0 . 1 . 2 . 3 . 4)  = 1 / 4
+                    t3 := mulmod(accumulator, t3, p_clone)
+
+                    temp := mload(BARYCENTRIC_DENOMINATOR_INVERSES_4_LOC)
+                    // Inverse of 1/4
+                    mstore(BARYCENTRIC_DENOMINATOR_INVERSES_4_LOC, t3)
+
+                    // 1 / (0 . 1 . 2 . 3)
+                    accumulator := mulmod(accumulator, temp, p_clone)
+
+                    // (0 . 1 . 2) / (0 . 1 . 2 . 3)  = 1 / 3
+                    t2 := mulmod(accumulator, t2, p_clone)
+
+                    temp := mload(BARYCENTRIC_DENOMINATOR_INVERSES_3_LOC)
+                    // Inverse of 1/3
+                    mstore(BARYCENTRIC_DENOMINATOR_INVERSES_3_LOC, t2)
+
+                    // 1 / (0 . 1 . 2)
+                    accumulator := mulmod(accumulator, temp, p_clone)
+
+                    // (0 . 1) / (0 . 1 . 2)  = 1 / 2
+                    t1 := mulmod(accumulator, t1, p_clone)
+
+                    temp := mload(BARYCENTRIC_DENOMINATOR_INVERSES_2_LOC)
+                    // Inverse of 1/2
+                    mstore(BARYCENTRIC_DENOMINATOR_INVERSES_2_LOC, t1)
+
+                    // 1 / (0 . 1)
+                    accumulator := mulmod(accumulator, temp, p_clone)
+
+                    // 0 / (0 . 1)  = 1 / 0 (Note: index not value)
+                    t0 := mulmod(accumulator, t0, p_clone)
+                    // 1 / 0
+                    temp := mload(BARYCENTRIC_DENOMINATOR_INVERSES_1_LOC)
+                    mstore(BARYCENTRIC_DENOMINATOR_INVERSES_1_LOC, t0)
+
+                    accumulator := mulmod(accumulator, temp, p_clone)
+                    mstore(BARYCENTRIC_DENOMINATOR_INVERSES_LOC, accumulator)
+                }
+
+                // Note: pass around p to keep it on the stack
+                function computeNextTargetSum(round_univariates_ptr /*: uint256[] */, round_challenge /*: uint256 */, p_clone /*: uint256 */, /* TEMP */ round) -> next_target /*: uint256 */  {
+                    // Next target sum, Barycentric evaluation at the given challenge point
+
+                    // Compute B(x)
+                    let i := 0
+                    let numerator_value := 1
+                    for {} lt(i, BATCHED_RELATION_PARTIAL_LENGTH) {} {
+                        numerator_value := mulmod(numerator_value, addmod(round_challenge, sub(p_clone, i), p_clone), p_clone)
+                        i := add(i, 1)
+                    }
+                    // NOTE: Correct
+
+                    // Calculate domainInverses for barycentric evaluation
+                    // TODO_OPT(md): could be unrolled
+                    i := 0
+                    for {} lt(i, BATCHED_RELATION_PARTIAL_LENGTH) {} {
+                        let inv := mload(add(BARYCENTRIC_LAGRANGE_DENOMINATORS_LOC, mul(i, 0x20)))
+                        let rc_minus_domain := addmod(round_challenge, sub(p_clone, mload(add(BARYCENTRIC_DOMAIN_LOC, mul(i, 0x20)))), p_clone)
+
+                        inv := mulmod(inv, rc_minus_domain, p_clone)
+                        mstore(add(BARYCENTRIC_DENOMINATOR_INVERSES_LOC, mul(i, 0x20)), inv)
+                        i := add(i, 1)
+                    }
+
+                    batchInvertInplace(p_clone)
+
+                    // Compute the next round target
+                    // TODO( ): that means we are messing up in here
+                    i := 0
+                    for {} lt(i, BATCHED_RELATION_PARTIAL_LENGTH) {} {
+                        let off := mul(i, 0x20)
+                        let term := mload(add(round_univariates_ptr, off))
+                        let inverse := mload(add(BARYCENTRIC_DENOMINATOR_INVERSES_LOC, off))
+
+                        term := mulmod(term, inverse, p_clone)
+                        next_target := addmod(next_target, term, p_clone)
+                        i := add(i, 1)
+                    }
+
+                    next_target := mulmod(next_target, numerator_value, p_clone)
+                }
+
+                function partiallyEvaluatePOW(round_challenge /*: uint256 */, current_evaluation /*: uint256 */, round /*: uint256 */, p_clone /*: uint256 */) -> next_evaluation /*: uint256 */ {
+                    let gate_challenge := mload(add(gate_challenge_0_loc, mul(round, 0x20)))
+                    let gate_challenge_minus_one := sub(gate_challenge, 1)
+
+                    let univariate_evaluation := addmod(1, mulmod(round_challenge, gate_challenge_minus_one, p_clone), p_clone)
+
+                    next_evaluation := mulmod(current_evaluation, univariate_evaluation, p_clone)
+                }
+
+                writeBarycentricTables()
+
+                let round := 0
+                let valid := true
+                let round_target := 0
+                let pow_partial_evaluation := 1
+
+                // TODO(md): update, but set at 2 for now
+                for {} lt(round, 15) {} {
+                    let round_univariates_off := add(sumcheck_univariate_0_0, mul(round, 0x100))
+                    let challenge_off := add(sum_u_challenge_0_loc, mul(round, 0x20))
+
+                    let round_challenge := mload(challenge_off)
+
+                    // Total sum = u[0] + u[1]
+                    let total_sum := addmod(mload(round_univariates_off), mload(add(round_univariates_off, 0x20)), p)
+                    valid := and(valid, eq(total_sum, round_target))
+
+                    round_target := computeNextTargetSum(round_univariates_off, round_challenge, p, round)
+                    pow_partial_evaluation := partiallyEvaluatePOW(round_challenge, pow_partial_evaluation, round, p)
+
+                    round := add(round, 1)
+                }
+
+                if iszero(valid) {
+                    // TODO: custom error
+                    revert(0x00, 0x00)
+                }
             }
 
 
