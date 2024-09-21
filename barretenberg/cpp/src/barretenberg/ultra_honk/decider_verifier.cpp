@@ -60,7 +60,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     if constexpr (bb::IsAnyOf<Flavor, UltraKeccakFlavor>) {
         auto opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
                                                                     commitments.get_unshifted(),
-                                                                    commitments.get_shifted(),
+                                                                    commitments.get_to_be_shifted(),
                                                                     claimed_evaluations.get_all(),
                                                                     multivariate_challenge,
                                                                     Commitment::one(),
