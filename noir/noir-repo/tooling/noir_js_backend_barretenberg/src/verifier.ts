@@ -41,7 +41,7 @@ export class UltraHonkVerifier {
   /** @description Verifies a proof */
   async verifyProof(proofData: ProofData, verificationKey: Uint8Array): Promise<boolean> {
     const proof = reconstructProofWithPublicInputsHonk(proofData);
-    return this.verifier.acirVerifyUltraHonk(proof, verificationKey);
+    return this.verifier.verifyUltrahonkProof(proof, verificationKey);
   }
 
   async destroy(): Promise<void> {

@@ -10,12 +10,12 @@ import { UltraPlonkBackend, UltrahonkBackend as UltrahonkBackendInternal } from 
 const numBytesInProofWithoutPublicInputs: number = 2144;
 
 export class BarretenbergBackend implements Backend, VerifierBackend {
-  protected backend!: BarretenbergBackendInternal;
+  protected backend!: UltraPlonkBackend;
 
   constructor(acirCircuit: CompiledCircuit, options: BackendOptions = { threads: 1 }) {
     const acirBytecodeBase64 = acirCircuit.bytecode;
     const acirUncompressedBytecode = acirToUint8Array(acirBytecodeBase64);
-    this.backend = new BarretenbergBackendInternal(acirUncompressedBytecode, options);
+    this.backend = new UltraPlonkBackend(acirUncompressedBytecode, options);
   }
 
   /** @description Generates a proof */
