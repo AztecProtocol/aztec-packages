@@ -236,7 +236,7 @@ template <typename Flavor> class RelationUtils {
      */
     static void scale_and_batch_elements(auto& tuple,
                                          const RelationSeparator& challenges,
-                                         FF current_scalar,
+                                         const FF& current_scalar,
                                          FF& result)
         requires bb::IsFoldingFlavor<Flavor>
     {

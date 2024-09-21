@@ -85,11 +85,18 @@ void vector_from_malloc_and_free(State& state)
     }
 }
 
+// Try to illustrate: cost of putting stuff in the uninitialized vector is _all_ instantiation cost. This we always paid
+// for, hence there should be negligible additional cost in this loop.
 void unique_ptr(State& state)
 {
     for (auto _ : state) {
-        auto ptr = std::make_unique<FF[]>(1 << state.range(0));
-        DoNotOptimize(ptr);
+        // std::unique_ptr<FF[]> ptr(new FF[1 << state.range(0)]);
+        for (size_t idx = 0; idx < 1 << state.range(0); idx++) {
+            // ptr[idx] = idx + 1; // 19ms with or without'
+            auto x = FF(idx + 1); // 10ms
+            DoNotOptimize(x);
+        }
+        // DoNotOptimize(ptr);
     }
 }
 

@@ -78,7 +78,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
         const size_t polynomial_size = polynomials.get_polynomial_size();
         std::vector<FF> aggregate_relation_evaluations(polynomial_size);
-        auto subrelation_evaluations = std::shared_ptr<RelationEvaluations[]>(new RelationEvaluations[polynomial_size]);
+        std::shared_ptr<RelationEvaluations[]> subrelation_evaluations(new RelationEvaluations[polynomial_size]);
         const std::vector<FF> linearly_dependent_contribution_accumulators = parallel_for_heuristic(
             polynomial_size,
             /*accumulator default*/ FF(0),
@@ -89,13 +89,14 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
 
                 // evaluate all subrelations on (row, relation_params) and accumulate in evals (separator is 1 since we
                 // are not summing across rows here)
-                RelationUtils::accumulate_relation_evaluations(row, evals, relation_parameters, 1);
+                RelationUtils::accumulate_relation_evaluations(row, evals, relation_parameters, FF(1));
 
                 FF output{ 0 };
                 FF running_challenge{ 1 };
                 RelationUtils::scale_and_batch_elements(
                     evals, alpha, running_challenge, output, linearly_dependent_contribution_accumulator);
 
+                subrelation_evaluations[static_cast<ptrdiff_t>(row_idx)] = evals;
                 aggregate_relation_evaluations[row_idx] = output;
             },
             thread_heuristics::ALWAYS_MULTITHREAD);

@@ -103,8 +103,7 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CFLAGS": "-gdwarf-4",
         "CXXFLAGS": "-gdwarf-4",
-        "LDFLAGS": "-gdwarf-4",
-        "MULTITHREADING": "OFF"
+        "LDFLAGS": "-gdwarf-4"
       },
       "cacheVariables": {
         "ENABLE_ASAN": "OFF",
@@ -172,8 +171,7 @@
       "description": "Build with globally installed Clang-16 in release with ASSERTs mode",
       "inherits": "clang16",
       "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
