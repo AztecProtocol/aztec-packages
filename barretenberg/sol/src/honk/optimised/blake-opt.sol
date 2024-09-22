@@ -670,15 +670,16 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant SUBRELATION_EVAL_25_LOC = 0x5840;
 
     uint256 internal constant POW_PARTIAL_EVALUATION_LOC = 0x5860;
+    uint256 internal constant FINAL_ROUND_TARGET_LOC = 0x5880;
 
     // Temporary storage for the auxiliary relation evaluations
-    uint256 internal constant AUX_NON_NATIVE_FIELD_IDENTITY = 0x5880;
-    uint256 internal constant AUX_LIMB_ACCUMULATOR_IDENTITY = 0x58a0;
-    uint256 internal constant AUX_RAM_CONSISTENCY_CHECK_IDENTITY = 0x58c0;
-    uint256 internal constant AUX_ROM_CONSISTENCY_CHECK_IDENTITY = 0x58e0;
-    uint256 internal constant AUX_MEMORY_CHECK_IDENTITY = 0x5900;
+    uint256 internal constant AUX_NON_NATIVE_FIELD_IDENTITY = 0x58a0;
+    uint256 internal constant AUX_LIMB_ACCUMULATOR_IDENTITY = 0x58c0;
+    uint256 internal constant AUX_RAM_CONSISTENCY_CHECK_IDENTITY = 0x58e0;
+    uint256 internal constant AUX_ROM_CONSISTENCY_CHECK_IDENTITY = 0x5900;
+    uint256 internal constant AUX_MEMORY_CHECK_IDENTITY = 0x5920;
 
-    uint256 internal constant NEXT_FREE_LOC = 0x5920;
+    uint256 internal constant NEXT_FREE_LOC = 0x5940;
 
     // Aliases
     // Aliases for wire values (Elliptic curve gadget)
@@ -700,6 +701,13 @@ contract BlakeOptHonkVerifier is IVerifier {
     // Auxiliary relation constants
     uint256 internal constant LIMB_SIZE = 0x100000000000000000; // 2<<68
     uint256 internal constant SUBLIMB_SHIFT = 0x4000; // 2<<14
+
+    // Poseidon internal constants
+
+    uint256 internal constant POS_INTENAL_MATRIX_D_0 = 0x10dc6e9c006ea38b04b1e03b4bd9490c0d03f98929ca1d7fb56821fd19d3b6e7;
+    uint256 internal constant POS_INTENAL_MATRIX_D_1 = 0x0c28145b6a44df3e0149b3d0a30b3bb599df9756d4dd9b84a86b38cfb45a740b;
+    uint256 internal constant POS_INTENAL_MATRIX_D_2 = 0x00544b8338791518b2c7645a50392798b21f75bb60e3596170067d00141cac15;
+    uint256 internal constant POS_INTENAL_MATRIX_D_3 = 0x222c01175718386f2e2e82eb122789e352e105a3b8fa852613bc534433ee428b;
 
     constructor() {
         // TODO: verify the points are on the curve in the constructor
@@ -875,6 +883,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                 prev_challenge := mod(keccak256(0x00, 0x120), p)
                 mstore(0x00, prev_challenge)
                 let alphas_0, alphas_1 := splitChallenge(prev_challenge)
+                mstore(alpha_challenge_0_loc, alphas_0)
+                mstore(alpha_challenge_1_loc, alphas_1)
 
                 let i := 1
                 // TODO: if we can afford bytecode size - unroll this
@@ -1323,6 +1333,7 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 // NOTE: maybe mstore pow_partial_evaluation here rather than keeping on the stack
                 mstore(POW_PARTIAL_EVALUATION_LOC, pow_partial_evaluation)
+                mstore(FINAL_ROUND_TARGET_LOC, round_target)
 
             /**
              * COMPUTE ARITHMETIC WIDGET EVALUATION
@@ -1383,15 +1394,11 @@ contract BlakeOptHonkVerifier is IVerifier {
                         p
                     )
 
-                log2(0x00, 0x00, 0x1, w1w2qm)
-
                 // (w_1 . w_2 . q_m . (q_arith - 3)) / -2) + (w_1 . q_1) + (w_2 . q_2) + (w_3 . q_3) + (w_4 . q_4) + q_c
                 let identity :=
                     addmod(
                         mload(QC_EVAL_LOC), addmod(w4q3, addmod(w3q3, addmod(w2q2, addmod(w1q1, w1w2qm, p), p), p), p), p
                     )
-
-                log2(0x00, 0x00, 0x2, identity)
 
                 // if q_arith == 3 we evaluate an additional mini addition gate (on top of the regular one), where:
                 // w_1 + w_4 - w_1_omega + q_m = 0
@@ -1411,14 +1418,16 @@ contract BlakeOptHonkVerifier is IVerifier {
                         )
 
                 // Split up the two relations
-                let contribution_1 := addmod(identity, mulmod(addmod(q_arith, sub(p, 1), p), mload(W4_SHIFT_EVAL_LOC), p), p)
-                contribution_1 := mulmod(mulmod(contribution_1, q_arith, p), mload(POW_PARTIAL_EVALUATION_LOC), p)
-                mstore(SUBRELATION_EVAL_LOC, contribution_1)
+                let contribution_0 := addmod(identity, mulmod(addmod(q_arith, sub(p, 1), p), mload(W4_SHIFT_EVAL_LOC), p), p)
+                contribution_0 := mulmod(mulmod(contribution_0, q_arith, p), mload(POW_PARTIAL_EVALUATION_LOC), p)
+                mstore(SUBRELATION_EVAL_LOC, contribution_0)
+                log2(0x00, 0x00, 0x0, contribution_0)
 
-                let contribution_2 := mulmod(extra_small_addition_gate_identity, addmod(q_arith, sub(p, 1), p), p)
-                contribution_2 := mulmod(contribution_2, q_arith, p)
-                contribution_2 := mulmod(contribution_2, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                mstore(SUBRELATION_EVAL_1_LOC, contribution_2)
+                let contribution_1 := mulmod(extra_small_addition_gate_identity, addmod(q_arith, sub(p, 1), p), p)
+                contribution_1 := mulmod(contribution_1, q_arith, p)
+                contribution_1 := mulmod(contribution_1, mload(POW_PARTIAL_EVALUATION_LOC), p)
+                mstore(SUBRELATION_EVAL_1_LOC, contribution_1)
+                log2(0x00, 0x00, 0x1, contribution_1)
             }
 
             /**
@@ -1462,13 +1471,9 @@ contract BlakeOptHonkVerifier is IVerifier {
                         p
                     )
                 let denominator := mulmod(t1, t2, p)
-                log2(0x00, 0x00, 0x1, numerator)
-                log2(0x00, 0x00, 0x2, denominator)
 
                 {
                     let acc := mulmod(addmod(mload(Z_PERM_EVAL_LOC), mload(LAGRANGE_FIRST_EVAL_LOC), p), numerator, p)
-
-                    log2(0x00, 0x00, 0x03, acc)
 
                     acc := addmod(
                         acc,
@@ -1491,16 +1496,15 @@ contract BlakeOptHonkVerifier is IVerifier {
                     p
                     )
 
-                    log2(0x00, 0x00, 0x04, acc)
-
                     acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
                     mstore(SUBRELATION_EVAL_2_LOC, acc)
 
-                    log2(0x00, 0x00, 0x04, acc)
+                    log2(0x00, 0x00, 0x02, acc)
 
                     acc := mulmod(mulmod(mload(LAGRANGE_LAST_EVAL_LOC), mload(Z_PERM_SHIFT_EVAL_LOC), p), mload(POW_PARTIAL_EVALUATION_LOC), p)
+                    mstore(SUBRELATION_EVAL_3_LOC, acc)
 
-                    log2(0x00, 0x00, 0x05, acc)
+                    log2(0x00, 0x00, 0x03, acc)
                 }
             }
 
@@ -1540,8 +1544,10 @@ contract BlakeOptHonkVerifier is IVerifier {
                     let accumulator_one := mulmod(mload(QLOOKUP_EVAL_LOC), read_inverse, p)
                     accumulator_one := addmod(accumulator_one, sub(p, mulmod(mload(LOOKUP_READ_COUNTS_EVAL_LOC), write_inverse, p)), p)
 
-                    mstore(SUBRELATION_EVAL_3_LOC, accumulator_none)
-                    mstore(SUBRELATION_EVAL_4_LOC, accumulator_one)
+                    mstore(SUBRELATION_EVAL_4_LOC, accumulator_none)
+                    mstore(SUBRELATION_EVAL_5_LOC, accumulator_one)
+                    log2(0x00, 0x00, 0x04, accumulator_none)
+                    log2(0x00, 0x00, 0x05, accumulator_one)
                 }
 
                 /**
@@ -1565,8 +1571,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                         acc := mulmod(acc, addmod(delta_1, minus_three, p), p)
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_5_LOC, acc)
-                        log2(0x00, 0x00, 0x05, acc)
+                        mstore(SUBRELATION_EVAL_6_LOC, acc)
+                        log2(0x00, 0x00, 0x06, acc)
                     }
 
                     {
@@ -1576,8 +1582,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                         acc := mulmod(acc, addmod(delta_2, minus_three, p), p)
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_6_LOC, acc)
-                        log2(0x00, 0x00, 0x06, acc)
+                        mstore(SUBRELATION_EVAL_7_LOC, acc)
+                        log2(0x00, 0x00, 0x07, acc)
                     }
 
                     {
@@ -1587,8 +1593,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                         acc := mulmod(acc, addmod(delta_3, minus_three, p), p)
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_7_LOC, acc)
-                        log2(0x00, 0x00, 0x07, acc)
+                        mstore(SUBRELATION_EVAL_8_LOC, acc)
+                        log2(0x00, 0x00, 0x08, acc)
                     }
 
                     {
@@ -1598,8 +1604,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                         acc := mulmod(acc, addmod(delta_4, minus_three, p), p)
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_8_LOC, acc)
-                        log2(0x00, 0x00, 0x08, acc)
+                        mstore(SUBRELATION_EVAL_9_LOC, acc)
+                        log2(0x00, 0x00, 0x09, acc)
                     }
                 }
 
@@ -1625,8 +1631,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                         let eval := mulmod(x_add_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         eval := mulmod(eval, mload(QELLIPTIC_EVAL_LOC), p)
                         eval := mulmod(eval, addmod(1, sub(p, mload(EC_Q_IS_DOUBLE)), p), p)
-                        mstore(SUBRELATION_EVAL_9_LOC, eval)
-                        log2(0x00, 0x00, 0x09, eval)
+                        mstore(SUBRELATION_EVAL_10_LOC, eval)
+                        log2(0x00, 0x00, 0x0A, eval)
                     }
 
                     {
@@ -1639,8 +1645,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                         let eval := mulmod(y_add_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         eval := mulmod(eval, mload(QELLIPTIC_EVAL_LOC), p)
                         eval := mulmod(eval, addmod(1, sub(p, mload(EC_Q_IS_DOUBLE)), p), p)
-                        mstore(SUBRELATION_EVAL_10_LOC, eval)
-                        log2(0x00, 0x00, 0x0A, eval)
+                        mstore(SUBRELATION_EVAL_11_LOC, eval)
+                        log2(0x00, 0x00, 0x0B, eval)
                     }
 
                     {
@@ -1656,11 +1662,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         let acc := mulmod(ep_x_double_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         acc := mulmod(mulmod(acc, mload(QELLIPTIC_EVAL_LOC), p), mload(EC_Q_IS_DOUBLE), p)
-                        acc := addmod(acc, mload(SUBRELATION_EVAL_9_LOC), p)
+                        acc := addmod(acc, mload(SUBRELATION_EVAL_10_LOC), p)
 
                         // Add to existing contribution - and double check that numbers here
-                        mstore(SUBRELATION_EVAL_9_LOC, acc)
-                        log2(0x00, 0x00, 0x09, acc)
+                        mstore(SUBRELATION_EVAL_10_LOC, acc)
+                        log2(0x00, 0x00, 0x0A, acc)
                     }
 
                     {
@@ -1679,11 +1685,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         let acc := mulmod(y_double_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         acc := mulmod(mulmod(acc, mload(QELLIPTIC_EVAL_LOC), p), mload(EC_Q_IS_DOUBLE), p)
-                        acc := addmod(acc, mload(SUBRELATION_EVAL_10_LOC), p)
+                        acc := addmod(acc, mload(SUBRELATION_EVAL_11_LOC), p)
 
                         // Add to existing contribution - and double check that numbers here
-                        mstore(SUBRELATION_EVAL_10_LOC, acc)
-                        log2(0x00, 0x00, 0x0A, acc)
+                        mstore(SUBRELATION_EVAL_11_LOC, acc)
+                        log2(0x00, 0x00, 0x0B, acc)
                     }
                 }
 
@@ -2122,7 +2128,179 @@ contract BlakeOptHonkVerifier is IVerifier {
                 }
             }
 
+            /*
+             * Poseidon External Relation
+             */
+            {
+                let s1 := addmod(mload(W1_EVAL_LOC), mload(Q1_EVAL_LOC), p)
+                let s2 := addmod(mload(W2_EVAL_LOC), mload(Q2_EVAL_LOC), p)
+                let s3 := addmod(mload(W3_EVAL_LOC), mload(Q3_EVAL_LOC), p)
+                let s4 := addmod(mload(W4_EVAL_LOC), mload(Q4_EVAL_LOC), p)
+
+                // u1 := s1 * s1 * s1 * s1 * s1;
+                let t0 := mulmod(s1, s1, p)
+                let u1 := mulmod(t0, mulmod(t0, s1, p), p)
+
+                // u2 := s2 * s2 * s2 * s2 * s2;
+                t0 := mulmod(s2, s2, p)
+                let u2 := mulmod(t0, mulmod(t0, s2, p), p)
+
+                // u3 := s3 * s3 * s3 * s3 * s3;
+                t0 := mulmod(s3, s3, p)
+                let u3 := mulmod(t0, mulmod(t0, s3, p), p)
+
+                // u4 := s4 * s4 * s4 * s4 * s4;
+                t0 := mulmod(s4, s4, p)
+                let u4 := mulmod(t0, mulmod(t0, s4, p), p)
+
+                // matrix mul v = M_E * u with 14 additions
+                t0 := addmod(u1, u2, p)
+                let t1 := addmod(u3, u4, p)
+
+                let t2 := addmod(u2, u2, p)
+                t2 := addmod(t2, t1, p)
+
+                let t3 := addmod(u4, u4, p)
+                t3 := addmod(t3, t0, p)
+
+                let v4 := addmod(t1, t1, p)
+                v4 := addmod(v4, v4, p)
+                v4 := addmod(v4, t3, p)
+
+                let v2 := addmod(t0, t0, p)
+                v2 := addmod(v2, v2, p)
+                v2 := addmod(v2, t2, p)
+
+                let v1 := addmod(t3, v2, p)
+                let v3 := addmod(t2, v4, p)
+
+                let q_pos_by_scaling := mulmod(mload(QPOSEIDON2_EXTERNAL_EVAL_LOC), mload(POW_PARTIAL_EVALUATION_LOC), p)
+
+                mstore(
+                    SUBRELATION_EVAL_18_LOC,
+                    addmod(
+                        mload(SUBRELATION_EVAL_18_LOC),
+                        mulmod(q_pos_by_scaling, addmod(v1, sub(p, mload(W1_SHIFT_EVAL_LOC)), p), p),
+                        p
+                    )
+                )
+
+                mstore(
+                    SUBRELATION_EVAL_19_LOC,
+                    addmod(
+                        mload(SUBRELATION_EVAL_19_LOC),
+                        mulmod(q_pos_by_scaling, addmod(v2, sub(p, mload(W2_SHIFT_EVAL_LOC)), p), p),
+                        p
+                    )
+                )
+
+                mstore(
+                    SUBRELATION_EVAL_20_LOC,
+                    addmod(
+                        mload(SUBRELATION_EVAL_20_LOC),
+                        mulmod(q_pos_by_scaling, addmod(v3, sub(p, mload(W3_SHIFT_EVAL_LOC)), p), p),
+                        p
+                    )
+                )
+
+                mstore(
+                    SUBRELATION_EVAL_21_LOC,
+                    addmod(
+                        mload(SUBRELATION_EVAL_21_LOC),
+                        mulmod(q_pos_by_scaling, addmod(v4, sub(p, mload(W4_SHIFT_EVAL_LOC)), p), p),
+                        p
+                    )
+                )
+
+                log2(0x00, 0x00, 18, mload(SUBRELATION_EVAL_18_LOC))
+                log2(0x00, 0x00, 19, mload(SUBRELATION_EVAL_19_LOC))
+                log2(0x00, 0x00, 20, mload(SUBRELATION_EVAL_20_LOC))
+                log2(0x00, 0x00, 21, mload(SUBRELATION_EVAL_21_LOC))
             }
+
+            /*
+             * Poseidon Internal Relation
+             */
+            {
+
+                // TODO(md): could reuse s1 etc?
+                let s1 := addmod(mload(W1_EVAL_LOC), mload(Q1_EVAL_LOC), p)
+
+                // apply s-box round
+                let t0 := mulmod(s1, s1, p)
+                let u1 := mulmod(t0, mulmod(t0, s1, p), p)
+                let u2 := mload(W2_EVAL_LOC)
+                let u3 := mload(W3_EVAL_LOC)
+                let u4 := mload(W4_EVAL_LOC)
+
+                // matrix mul v = M_I * u 4 muls and 7 additions
+                let u_sum := addmod(u1, u2, p)
+                u_sum := addmod(u_sum, addmod(u3, u4, p), p)
+
+                let q_pos_by_scaling := mulmod(mload(QPOSEIDON2_INTERNAL_EVAL_LOC), mload(POW_PARTIAL_EVALUATION_LOC), p)
+
+                let v1 := addmod(mulmod(u1, POS_INTENAL_MATRIX_D_0 , p), u_sum, p)
+
+                mstore(SUBRELATION_EVAL_22_LOC, mulmod(q_pos_by_scaling, addmod(v1, sub(p, mload(W1_SHIFT_EVAL_LOC)), p), p))
+
+                let v2 := addmod(mulmod(u2, POS_INTENAL_MATRIX_D_1, p), u_sum, p)
+
+                mstore(SUBRELATION_EVAL_23_LOC, mulmod(q_pos_by_scaling, addmod(v2, sub(p, mload(W2_SHIFT_EVAL_LOC)), p), p))
+
+                let v3 := addmod(mulmod(u3, POS_INTENAL_MATRIX_D_2, p), u_sum, p)
+
+                mstore(SUBRELATION_EVAL_24_LOC, mulmod(q_pos_by_scaling, addmod(v3, sub(p, mload(W3_SHIFT_EVAL_LOC)), p), p))
+
+                let v4 := addmod(mulmod(u4, POS_INTENAL_MATRIX_D_3, p), u_sum, p)
+                mstore(SUBRELATION_EVAL_25_LOC, mulmod(q_pos_by_scaling, addmod(v4, sub(p, mload(W4_SHIFT_EVAL_LOC)), p), p))
+
+                log2(0x00, 0x00, 22, mload(SUBRELATION_EVAL_22_LOC))
+                log2(0x00, 0x00, 23, mload(SUBRELATION_EVAL_23_LOC))
+                log2(0x00, 0x00, 24, mload(SUBRELATION_EVAL_24_LOC))
+                log2(0x00, 0x00, 25, mload(SUBRELATION_EVAL_25_LOC))
+            }
+
+            log4(0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
+            log4(0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
+
+            // Scale and batch subrelations by subrelation challenges
+            // linear combination of subrelations
+            let accumulator := mload(SUBRELATION_EVAL_LOC)
+            log2(0x00, 0x00, 0x00, accumulator)
+
+            // TODO(md): unroll???
+            // TODO(md): not optimal
+            for {let i:= 1} lt(i, NUMBER_OF_SUBRELATIONS) {i := add(i, 1)} {
+                let evaluation_off := mul(i, 0x20)
+                let challenge_off := sub(evaluation_off , 0x20)
+
+                let eval := mload(add(SUBRELATION_EVAL_LOC, evaluation_off))
+                let challenge := mload(add(alpha_challenge_0_loc, challenge_off))
+
+                let sum := mulmod(eval, challenge, p)
+                // log2(0x00, 0x00, i, sum)
+
+                accumulator := addmod(
+                    accumulator,
+                    sum,
+                    // mulmod(
+                    //     mload(add(SUBRELATION_EVAL_LOC, evaluation_off)),
+                    //     mload(add(alpha_challenge_0_loc, challenge_off)),
+                    //     p),
+                    p)
+                log2(0x00, 0x00, i, accumulator)
+            }
+
+            log1(0x00, 0x00, accumulator)
+
+            let sumcheck_valid := eq(accumulator, mload(FINAL_ROUND_TARGET_LOC))
+            if iszero(sumcheck_valid) {
+                // TOOD: errs
+                mstore(0x00, 0x69696969)
+                return(0x00, 0x20)
+            }
+            }
+
 
             mstore(0x00, 0x01)
             return(0x00, 0x20)
