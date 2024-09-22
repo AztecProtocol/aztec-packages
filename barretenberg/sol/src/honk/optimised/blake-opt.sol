@@ -670,7 +670,15 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant SUBRELATION_EVAL_25_LOC = 0x5840;
 
     uint256 internal constant POW_PARTIAL_EVALUATION_LOC = 0x5860;
-    uint256 internal constant NEXT_FREE_LOC = 0x5880;
+
+    // Temporary storage for the auxiliary relation evaluations
+    uint256 internal constant AUX_NON_NATIVE_FIELD_IDENTITY = 0x5880;
+    uint256 internal constant AUX_LIMB_ACCUMULATOR_IDENTITY = 0x58a0;
+    uint256 internal constant AUX_RAM_CONSISTENCY_CHECK_IDENTITY = 0x58c0;
+    uint256 internal constant AUX_ROM_CONSISTENCY_CHECK_IDENTITY = 0x58e0;
+    uint256 internal constant AUX_MEMORY_CHECK_IDENTITY = 0x5900;
+
+    uint256 internal constant NEXT_FREE_LOC = 0x5920;
 
     // Aliases
     // Aliases for wire values (Elliptic curve gadget)
@@ -688,6 +696,10 @@ contract BlakeOptHonkVerifier is IVerifier {
     // -1/2 mod p
     uint256 internal constant NEG_HALF_MODULO_P = 0x183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000000;
     uint256 internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = 17; // -(-17)
+
+    // Auxiliary relation constants
+    uint256 internal constant LIMB_SIZE = 0x100000000000000000; // 2<<68
+    uint256 internal constant SUBLIMB_SHIFT = 0x4000; // 2<<14
 
     constructor() {
         // TODO: verify the points are on the curve in the constructor
@@ -1676,9 +1688,439 @@ contract BlakeOptHonkVerifier is IVerifier {
                 }
 
                 // Auxiliary Relation
+            {
                 {
+                    /**
+                     * Non native field arithmetic gate 2
+                     *             _                                                                               _
+                     *            /   _                   _                               _       14                \
+                     * q_2 . q_4 |   (w_1 . w_2) + (w_1 . w_2) + (w_1 . w_4 + w_2 . w_3 - w_3) . 2    - w_3 - w_4   |
+                     *            \_                                                                               _/
+                     *
+                     * limb_subproduct = w_1 . w_2_shift + w_1_shift . w_2
+                     * non_native_field_gate_2 = w_1 * w_4 + w_4 * w_3 - w_3_shift
+                     * non_native_field_gate_2 = non_native_field_gate_2 * limb_size
+                     * non_native_field_gate_2 -= w_4_shift
+                     * non_native_field_gate_2 += limb_subproduct
+                     * non_native_field_gate_2 *= q_4
+                     * limb_subproduct *= limb_size
+                     * limb_subproduct += w_1_shift * w_2
+                     * non_native_field_gate_1 = (limb_subproduct + w_3 + w_4) * q_3
+                     * non_native_field_gate_3 = (limb_subproduct + w_4 - (w_3_shift + w_4_shift)) * q_m
+                     * non_native_field_identity = (non_native_field_gate_1 + non_native_field_gate_2 + non_native_field_gate_3) * q_2
+                     */
+                    let limb_subproduct :=
+                        addmod(
+                            mulmod(mload(W1_EVAL_LOC), mload(W2_SHIFT_EVAL_LOC), p),
+                            mulmod(mload(W1_SHIFT_EVAL_LOC), mload(W2_EVAL_LOC), p),
+                            p
+                        )
 
+                    let non_native_field_gate_2 :=
+                        addmod(
+                            addmod(
+                                mulmod(mload(W1_EVAL_LOC), mload(W4_EVAL_LOC), p),
+                                mulmod(mload(W2_EVAL_LOC), mload(W3_EVAL_LOC), p),
+                                p
+                            ),
+                            sub(p, mload(W3_SHIFT_EVAL_LOC)),
+                            p
+                        )
+                    non_native_field_gate_2 := mulmod(non_native_field_gate_2, LIMB_SIZE, p)
+                    non_native_field_gate_2 := addmod(non_native_field_gate_2, sub(p, mload(W4_SHIFT_EVAL_LOC)), p)
+                    non_native_field_gate_2 := addmod(non_native_field_gate_2, limb_subproduct, p)
+                    non_native_field_gate_2 := mulmod(non_native_field_gate_2, mload(Q4_EVAL_LOC), p)
+
+                    limb_subproduct := mulmod(limb_subproduct, LIMB_SIZE, p)
+                    limb_subproduct :=
+                        addmod(limb_subproduct, mulmod(mload(W1_SHIFT_EVAL_LOC), mload(W2_SHIFT_EVAL_LOC), p), p)
+
+                    let non_native_field_gate_1 :=
+                        mulmod(
+                            addmod(limb_subproduct, sub(p, addmod(mload(W3_EVAL_LOC), mload(W4_EVAL_LOC), p)), p),
+                            mload(Q3_EVAL_LOC),
+                            p
+                        )
+
+                    let non_native_field_gate_3 :=
+                        mulmod(
+                            addmod(
+                                addmod(limb_subproduct, mload(W4_EVAL_LOC), p),
+                                sub(p, addmod(mload(W3_SHIFT_EVAL_LOC), mload(W4_SHIFT_EVAL_LOC), p)),
+                                p
+                            ),
+                            mload(QM_EVAL_LOC),
+                            p
+                        )
+                    let non_native_field_identity :=
+                        mulmod(
+                            addmod(addmod(non_native_field_gate_1, non_native_field_gate_2, p), non_native_field_gate_3, p),
+                            mload(Q2_EVAL_LOC),
+                            p
+                        )
+
+                    mstore(AUX_NON_NATIVE_FIELD_IDENTITY, non_native_field_identity)
                 }
+
+                {
+                    /**
+                     * limb_accumulator_1 = w_2_omega;
+                     * limb_accumulator_1 *= SUBLIMB_SHIFT;
+                     * limb_accumulator_1 += w_1_omega;
+                     * limb_accumulator_1 *= SUBLIMB_SHIFT;
+                     * limb_accumulator_1 += w_3;
+                     * limb_accumulator_1 *= SUBLIMB_SHIFT;
+                     * limb_accumulator_1 += w_2;
+                     * limb_accumulator_1 *= SUBLIMB_SHIFT;
+                     * limb_accumulator_1 += w_1;
+                     * limb_accumulator_1 -= w_4;
+                     * limb_accumulator_1 *= q_4;
+                     */
+                    let limb_accumulator_1 := mulmod(mload(W2_SHIFT_EVAL_LOC), SUBLIMB_SHIFT, p)
+                    limb_accumulator_1 := addmod(limb_accumulator_1, mload(W1_SHIFT_EVAL_LOC), p)
+                    limb_accumulator_1 := mulmod(limb_accumulator_1, SUBLIMB_SHIFT, p)
+                    limb_accumulator_1 := addmod(limb_accumulator_1, mload(W3_EVAL_LOC), p)
+                    limb_accumulator_1 := mulmod(limb_accumulator_1, SUBLIMB_SHIFT, p)
+                    limb_accumulator_1 := addmod(limb_accumulator_1, mload(W2_EVAL_LOC), p)
+                    limb_accumulator_1 := mulmod(limb_accumulator_1, SUBLIMB_SHIFT, p)
+                    limb_accumulator_1 := addmod(limb_accumulator_1, mload(W1_EVAL_LOC), p)
+                    limb_accumulator_1 := addmod(limb_accumulator_1, sub(p, mload(W4_EVAL_LOC)), p)
+                    limb_accumulator_1 := mulmod(limb_accumulator_1, mload(Q4_EVAL_LOC), p)
+
+                    /**
+                     * limb_accumulator_2 = w_3_omega;
+                     * limb_accumulator_2 *= SUBLIMB_SHIFT;
+                     * limb_accumulator_2 += w_2_omega;
+                     * limb_accumulator_2 *= SUBLIMB_SHIFT;
+                     * limb_accumulator_2 += w_1_omega;
+                     * limb_accumulator_2 *= SUBLIMB_SHIFT;
+                     * limb_accumulator_2 += w_4;
+                     * limb_accumulator_2 *= SUBLIMB_SHIFT;
+                     * limb_accumulator_2 += w_3;
+                     * limb_accumulator_2 -= w_4_omega;
+                     * limb_accumulator_2 *= q_m;
+                     */
+                    let limb_accumulator_2 := mulmod(mload(W3_SHIFT_EVAL_LOC), SUBLIMB_SHIFT, p)
+                    limb_accumulator_2 := addmod(limb_accumulator_2, mload(W2_SHIFT_EVAL_LOC), p)
+                    limb_accumulator_2 := mulmod(limb_accumulator_2, SUBLIMB_SHIFT, p)
+                    limb_accumulator_2 := addmod(limb_accumulator_2, mload(W1_SHIFT_EVAL_LOC), p)
+                    limb_accumulator_2 := mulmod(limb_accumulator_2, SUBLIMB_SHIFT, p)
+                    limb_accumulator_2 := addmod(limb_accumulator_2, mload(W4_EVAL_LOC), p)
+                    limb_accumulator_2 := mulmod(limb_accumulator_2, SUBLIMB_SHIFT, p)
+                    limb_accumulator_2 := addmod(limb_accumulator_2, mload(W3_EVAL_LOC), p)
+                    limb_accumulator_2 := addmod(limb_accumulator_2, sub(p, mload(W4_SHIFT_EVAL_LOC)), p)
+                    limb_accumulator_2 := mulmod(limb_accumulator_2, mload(QM_EVAL_LOC), p)
+
+                    mstore(
+                        AUX_LIMB_ACCUMULATOR_IDENTITY,
+                        mulmod(addmod(limb_accumulator_1, limb_accumulator_2, p), mload(Q3_EVAL_LOC), p)
+                    )
+                }
+
+                {
+                    /**
+                     * MEMORY
+                     *
+                     * A RAM memory record contains a tuple of the following fields:
+                     *  * i: `index` of memory cell being accessed
+                     *  * t: `timestamp` of memory cell being accessed (used for RAM, set to 0 for ROM)
+                     *  * v: `value` of memory cell being accessed
+                     *  * a: `access` type of record. read: 0 = read, 1 = write
+                     *  * r: `record` of memory cell. record = access + index * eta + timestamp * eta_two + value * eta_three
+                     *
+                     * A ROM memory record contains a tuple of the following fields:
+                     *  * i: `index` of memory cell being accessed
+                     *  * v: `value1` of memory cell being accessed (ROM tables can store up to 2 values per index)
+                     *  * v2:`value2` of memory cell being accessed (ROM tables can store up to 2 values per index)
+                     *  * r: `record` of memory cell. record = index * eta + value2 * eta_two + value1 * eta_three
+                     *
+                     *  When performing a read/write access, the values of i, t, v, v2, a, r are stored in the following wires +
+                     * selectors, depending on whether the gate is a RAM read/write or a ROM read
+                     *
+                     *  | gate type | i  | v2/t  |  v | a  | r  |
+                     *  | --------- | -- | ----- | -- | -- | -- |
+                     *  | ROM       | w1 | w2    | w3 | -- | w4 |
+                     *  | RAM       | w1 | w2    | w3 | qc | w4 |
+                     *
+                     * (for accesses where `index` is a circuit constant, it is assumed the circuit will apply a copy constraint on
+                     * `w2` to fix its value)
+                     *
+                     *
+                     */
+
+                    /**
+                    * Memory Record Check
+                    * Partial degree: 1
+                    * Total degree: 4
+                    *
+                    * A ROM/ROM access gate can be evaluated with the identity:
+                    *
+                    * qc + w1 \eta + w2 \eta_two + w3 \eta_three - w4 = 0
+                    *
+                    * For ROM gates, qc = 0
+                    */
+                    /**
+                     * memory_record_check = w_3 * eta_three;
+                     * memory_record_check += w_2 * eta_two;
+                     * memory_record_check += w_1 * eta;
+                     * memory_record_check += q_c;
+                     *
+                     * partial_record_check = memory_record_check;
+                     *
+                     * memory_record_check -= w_4;
+                     */
+                    // TODO(md): update these - formula has changed with lower degree
+                    let memory_record_check := mulmod(mload(W3_EVAL_LOC), mload(eta_three_challenge_loc), p)
+                    memory_record_check := addmod(memory_record_check, mulmod(mload(W2_EVAL_LOC), mload(eta_two_challenge_loc), p), p)
+                    memory_record_check := addmod(memory_record_check, mulmod(mload(W1_EVAL_LOC), mload(eta_challenge_loc), p), p)
+                    memory_record_check := addmod(memory_record_check, mload(QC_EVAL_LOC), p)
+
+                    let partial_record_check := memory_record_check
+                    memory_record_check := addmod(memory_record_check, sub(p, mload(W4_EVAL_LOC)), p)
+
+                    mstore(AUX_MEMORY_CHECK_IDENTITY, memory_record_check)
+
+
+                    /**
+                     * ROM Consistency Check
+                     * Partial degree: 1
+                     * Total degree: 4
+                     *
+                     * For every ROM read, a set equivalence check is applied between the record witnesses, and a second set of
+                     * records that are sorted.
+                     *
+                     * We apply the following checks for the sorted records:
+                     *
+                     * 1. w1, w2, w3 correctly map to 'index', 'v1, 'v2' for a given record value at w4
+                     * 2. index values for adjacent records are monotonically increasing
+                     * 3. if, at gate i, index_i == index_{i + 1}, then value1_i == value1_{i + 1} and value2_i == value2_{i + 1}
+                     *
+                     */
+                    // index_delta = w_1_omega - w_1
+                    let index_delta := addmod(mload(W1_SHIFT_EVAL_LOC), sub(p, mload(W1_EVAL_LOC)), p)
+
+                    // record_delta = w_4_omega - w_4
+                    let record_delta := addmod(mload(W4_SHIFT_EVAL_LOC), sub(p, mload(W4_EVAL_LOC)), p)
+
+                    // index_is_monotonically_increasing = index_delta * (index_delta - 1)
+                    let index_is_monotonically_increasing := mulmod(index_delta, addmod(index_delta, sub(p, 1), p), p)
+
+                    // adjacent_values_match_if_adjacent_indices_match = record_delta * (1 - index_delta)
+                    let adjacent_values_match_if_adjacent_indices_match :=
+                        mulmod(record_delta, addmod(1, sub(p, index_delta), p), p)
+
+                    mstore(
+                        SUBRELATION_EVAL_13_LOC,
+                        mulmod(
+                            adjacent_values_match_if_adjacent_indices_match,
+                            mulmod(
+                                mload(Q1_EVAL_LOC),
+                                mulmod(
+                                    mload(Q2_EVAL_LOC),
+                                    mulmod(
+                                        mload(QAUX_EVAL_LOC),
+                                        mload(POW_PARTIAL_EVALUATION_LOC),
+                                        p
+                                    ),
+                                    p
+                                ),
+                                p
+                            ),
+                            p
+                        ))
+
+                    // ROM_CONSISTENCY_CHECK_2
+                    mstore(
+                        SUBRELATION_EVAL_14_LOC,
+                        mulmod(
+                            index_is_monotonically_increasing,
+                            mulmod(
+                                mload(Q1_EVAL_LOC),
+                                mulmod(
+                                    mload(Q2_EVAL_LOC),
+                                    mulmod(
+                                        mload(QAUX_EVAL_LOC),
+                                        mload(POW_PARTIAL_EVALUATION_LOC),
+                                        p
+                                    ),
+                                    p
+                                ),
+                                p
+                                ),
+                                p
+                            )
+                        )
+
+                    log2(0x00, 0x00, 13, mload(SUBRELATION_EVAL_13_LOC))
+                    log2(0x00, 0x00, 14, mload(SUBRELATION_EVAL_14_LOC))
+
+                    mstore(
+                        AUX_ROM_CONSISTENCY_CHECK_IDENTITY,
+                        mulmod(
+                            memory_record_check,
+                            mulmod(
+                                mload(Q1_EVAL_LOC),
+                                mload(Q2_EVAL_LOC),
+                                p
+                            ),
+                            p
+                        )
+                    )
+
+                    {
+                    /**
+                     * RAM Consistency Check
+                     *
+                     * The 'access' type of the record is extracted with the expression `w_4 - ap.partial_record_check`
+                     * (i.e. for an honest Prover `w1 * eta + w2 * eta^2 + w3 * eta^3 - w4 = access`.
+                     * This is validated by requiring `access` to be boolean
+                     *
+                     * For two adjacent entries in the sorted list if _both_
+                     *  A) index values match
+                     *  B) adjacent access value is 0 (i.e. next gate is a READ)
+                     * then
+                     *  C) both values must match.
+                     * The gate boolean check is
+                     * (A && B) => C  === !(A && B) || C ===  !A || !B || C
+                     *
+                     * N.B. it is the responsibility of the circuit writer to ensure that every RAM cell is initialized
+                     * with a WRITE operation.
+                     */
+                        /**
+                         * next_gate_access_type = w_3_shift * eta_three;
+                         * next_gate_access_type += (w_2_shift * eta_two);
+                         * next_gate_access_type += (w_1_shift * eta);
+                         * next_gate_access_type += w_4_shift;
+                         * next_gate_access_type *= eta;
+                         * next_gate_access_type = w_4_omega - next_gate_access_type;
+                         */
+                        let next_gate_access_type := mulmod(mload(W3_SHIFT_EVAL_LOC), mload(eta_three_challenge_loc), p)
+                        next_gate_access_type := addmod(next_gate_access_type, mulmod(mload(W2_SHIFT_EVAL_LOC), mload(eta_two_challenge_loc), p), p)
+                        next_gate_access_type := addmod(next_gate_access_type, mulmod(mload(W1_SHIFT_EVAL_LOC), mload(eta_challenge_loc), p), p)
+                        next_gate_access_type := addmod(mload(W4_SHIFT_EVAL_LOC), sub(p, next_gate_access_type), p)
+
+                        // value_delta = w_3_omega - w_3
+                        let value_delta := addmod(mload(W3_SHIFT_EVAL_LOC), sub(p, mload(W3_EVAL_LOC)), p)
+                        //  adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation = (1 - index_delta) * value_delta * (1 - next_gate_access_type);
+
+                        let adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation :=
+                            mulmod(
+                                addmod(1, sub(p, index_delta), p),
+                                mulmod(value_delta, addmod(1, sub(p, next_gate_access_type), p), p),
+                                p
+                            )
+
+
+                        // We can't apply the RAM consistency check identity on the final entry in the sorted list (the wires in the
+                        // next gate would make the identity fail).  We need to validate that its 'access type' bool is correct. Can't
+                        // do  with an arithmetic gate because of the  `eta` factors. We need to check that the *next* gate's access
+                        // type is  correct, to cover this edge case
+                        // deg 2 or 4
+                        /**
+                         * access_type = w_4 - partial_record_check
+                         * access_check = access_type^2 - access_type
+                         * next_gate_access_type_is_boolean = next_gate_access_type^2 - next_gate_access_type
+                         */
+                        let access_type := addmod(mload(W4_EVAL_LOC), sub(p, partial_record_check), p)
+                        let access_check := mulmod(access_type, addmod(access_type, sub(p, 1), p), p)
+                        let next_gate_access_type_is_boolean :=
+                            mulmod(next_gate_access_type, addmod(next_gate_access_type, sub(p, 1), p), p)
+
+
+                        // scaled_activation_selector = q_arith * q_aux * alpha
+                        let scaled_activation_selector := mulmod(
+                            mload(QARITH_EVAL_LOC),
+                            mulmod(
+                                mload(QAUX_EVAL_LOC),
+                                mload(POW_PARTIAL_EVALUATION_LOC),
+                                p
+                            ),
+                            p
+                        )
+
+                        mstore(
+                            SUBRELATION_EVAL_15_LOC,
+                            mulmod(
+                                adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation,
+                                scaled_activation_selector,
+                                p
+                            )
+                        )
+
+                        mstore(
+                            SUBRELATION_EVAL_16_LOC,
+                            mulmod(
+                                index_is_monotonically_increasing,
+                                scaled_activation_selector,
+                                p
+                            )
+                        )
+
+                        mstore(
+                            SUBRELATION_EVAL_17_LOC,
+                            mulmod(
+                                next_gate_access_type_is_boolean,
+                                scaled_activation_selector,
+                                p
+                            )
+                        )
+
+                        log2(0x00, 0x00, 15, mload(SUBRELATION_EVAL_15_LOC))
+                        log2(0x00, 0x00, 16, mload(SUBRELATION_EVAL_16_LOC))
+                        log2(0x00, 0x00, 17, mload(SUBRELATION_EVAL_17_LOC))
+
+                        mstore(AUX_RAM_CONSISTENCY_CHECK_IDENTITY, mulmod(access_check, mload(QARITH_EVAL_LOC), p))
+                    }
+
+                    {
+                        // timestamp_delta = w_2_omega - w_2
+                        let timestamp_delta := addmod(mload(W2_SHIFT_EVAL_LOC), sub(p, mload(W2_EVAL_LOC)), p)
+
+                        // TODO(md): formula discrepancy between relations.sol and blake-opt.sol
+                        // TODO: suspicious
+
+                        // RAM_timestamp_check_identity = (1 - index_delta) * timestamp_delta - w_3
+                        let RAM_TIMESTAMP_CHECK_IDENTITY :=
+                            addmod(
+                                mulmod(timestamp_delta, addmod(1, sub(p, index_delta), p), p), sub(p, mload(W3_EVAL_LOC)), p
+                            )
+
+                        /**
+                         * memory_identity = ROM_consistency_check_identity;
+                         * memory_identity += RAM_timestamp_check_identity * q_4;
+                         * memory_identity += memory_record_check * q_m;
+                         * memory_identity *= q_1;
+                         * memory_identity += (RAM_consistency_check_identity * q_arith);
+                         *
+                         * auxiliary_identity = memory_identity + non_native_field_identity + limb_accumulator_identity;
+                         * auxiliary_identity *= q_aux;
+                         * auxiliary_identity *= alpha_base;
+                         */
+                        let memory_identity := mload(AUX_ROM_CONSISTENCY_CHECK_IDENTITY)
+                        memory_identity :=
+                            addmod(memory_identity,
+                                mulmod(RAM_TIMESTAMP_CHECK_IDENTITY,
+                                    mulmod(
+                                        mload(Q4_EVAL_LOC),
+                                        mload(Q1_EVAL_LOC),
+                                     p),
+                                p),
+                            p)
+
+                        memory_identity :=
+                            addmod(memory_identity, mulmod(mload(AUX_MEMORY_CHECK_IDENTITY), mulmod(mload(QM_EVAL_LOC), mload(Q1_EVAL_LOC), p), p), p)
+                        memory_identity :=
+                            addmod(memory_identity, mload(AUX_RAM_CONSISTENCY_CHECK_IDENTITY), p)
+
+
+                        let auxiliary_identity := addmod(memory_identity, mload(AUX_NON_NATIVE_FIELD_IDENTITY), p)
+                        auxiliary_identity := addmod(auxiliary_identity, mload(AUX_LIMB_ACCUMULATOR_IDENTITY), p)
+
+                        auxiliary_identity := mulmod(auxiliary_identity, mulmod(mload(QAUX_EVAL_LOC), mload(POW_PARTIAL_EVALUATION_LOC), p), p)
+                        mstore(SUBRELATION_EVAL_12_LOC, auxiliary_identity)
+                    }
+                }
+            }
 
             }
 
