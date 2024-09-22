@@ -35,6 +35,7 @@ error ZeromorphFailed();
 /// Smart contract verifier of honk proofs
 contract BlakeHonkVerifier is IVerifier {
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public override returns (bool) {
+        uint256 gasBefore = gasleft();
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
 
@@ -52,6 +53,8 @@ contract BlakeHonkVerifier is IVerifier {
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
         if (!sumcheckVerified) revert SumcheckFailed();
+        uint256 gasAfter = gasleft();
+        console.log("Gas used until sumcheck: ", gasBefore - gasAfter);
 
         // Zeromorph
         bool zeromorphVerified = verifyZeroMorph(p, vk, t);
@@ -88,9 +91,6 @@ contract BlakeHonkVerifier is IVerifier {
                 denominatorAcc = denominatorAcc - beta;
             }
         }
-
-        logFr("numerator", numerator);
-        logFr("denominator", denominator);
 
         // Fr delta = numerator / denominator; // TOOO: batch invert later?
         publicInputDelta = FrLib.div(numerator, denominator);
@@ -166,7 +166,6 @@ contract BlakeHonkVerifier is IVerifier {
         for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
             numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
         }
-
         // Calculate domain size N of inverses -- TODO: montgomery's trick
         Fr[BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
         for (uint256 i; i < BATCHED_RELATION_PARTIAL_LENGTH; ++i) {

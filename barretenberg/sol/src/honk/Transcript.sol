@@ -39,8 +39,6 @@ library TranscriptLib {
         view
         returns (Transcript memory t)
     {
-        uint256 gasBefore = gasleft();
-
         Fr previousChallenge;
         (t.eta, t.etaTwo, t.etaThree, previousChallenge) = generateEtaChallenge(proof, publicInputs, publicInputsSize);
 
@@ -56,9 +54,6 @@ library TranscriptLib {
         (t.zmY, previousChallenge) = generateZMYChallenge(previousChallenge, proof);
 
         (t.zmX, t.zmZ, previousChallenge) = generateZMXZChallenges(previousChallenge, proof);
-
-        uint256 gasAfter = gasleft();
-        console.log("Gas used: ", gasBefore - gasAfter);
 
         return t;
     }

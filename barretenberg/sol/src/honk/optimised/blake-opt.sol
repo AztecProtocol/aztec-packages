@@ -780,6 +780,8 @@ contract BlakeOptHonkVerifier is IVerifier {
     uint256 internal constant LOWER_128_MASK = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
 
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public override returns (bool) {
+        uint256 gasBefore = gasleft();
+
         // Load the verification key into memory
         loadVk();
 
@@ -871,8 +873,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                 prev_challenge := mod(keccak256(0x00, 0x1a0), p)
                 mstore(0x00, prev_challenge)
                 let beta, gamma := splitChallenge(prev_challenge)
-
-                log2(0x00, 0x00, beta, gamma)
 
                 mstore(beta_challenge_loc, beta)
                 mstore(gamma_challenge_loc, gamma)
@@ -987,8 +987,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let domain_size := mload(proof_circuit_size_loc)
                 // NOTE(md): compiler broken when offset is used in a variable name?
                 let pub_off := mload(proof_pub_inputs_offset_loc)
-
-                log4(0x00, 0x00, beta, gamma, domain_size, pub_off)
 
                 let numerator_value := 1
                 let denominator_value := 1
@@ -1421,13 +1419,11 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let contribution_0 := addmod(identity, mulmod(addmod(q_arith, sub(p, 1), p), mload(W4_SHIFT_EVAL_LOC), p), p)
                 contribution_0 := mulmod(mulmod(contribution_0, q_arith, p), mload(POW_PARTIAL_EVALUATION_LOC), p)
                 mstore(SUBRELATION_EVAL_LOC, contribution_0)
-                log2(0x00, 0x00, 0x0, contribution_0)
 
                 let contribution_1 := mulmod(extra_small_addition_gate_identity, addmod(q_arith, sub(p, 1), p), p)
                 contribution_1 := mulmod(contribution_1, q_arith, p)
                 contribution_1 := mulmod(contribution_1, mload(POW_PARTIAL_EVALUATION_LOC), p)
                 mstore(SUBRELATION_EVAL_1_LOC, contribution_1)
-                log2(0x00, 0x00, 0x1, contribution_1)
             }
 
             /**
@@ -1499,12 +1495,8 @@ contract BlakeOptHonkVerifier is IVerifier {
                     acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
                     mstore(SUBRELATION_EVAL_2_LOC, acc)
 
-                    log2(0x00, 0x00, 0x02, acc)
-
                     acc := mulmod(mulmod(mload(LAGRANGE_LAST_EVAL_LOC), mload(Z_PERM_SHIFT_EVAL_LOC), p), mload(POW_PARTIAL_EVALUATION_LOC), p)
                     mstore(SUBRELATION_EVAL_3_LOC, acc)
-
-                    log2(0x00, 0x00, 0x03, acc)
                 }
             }
 
@@ -1546,8 +1538,6 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                     mstore(SUBRELATION_EVAL_4_LOC, accumulator_none)
                     mstore(SUBRELATION_EVAL_5_LOC, accumulator_one)
-                    log2(0x00, 0x00, 0x04, accumulator_none)
-                    log2(0x00, 0x00, 0x05, accumulator_one)
                 }
 
                 /**
@@ -1572,7 +1562,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         mstore(SUBRELATION_EVAL_6_LOC, acc)
-                        log2(0x00, 0x00, 0x06, acc)
                     }
 
                     {
@@ -1583,7 +1572,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         mstore(SUBRELATION_EVAL_7_LOC, acc)
-                        log2(0x00, 0x00, 0x07, acc)
                     }
 
                     {
@@ -1594,7 +1582,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         mstore(SUBRELATION_EVAL_8_LOC, acc)
-                        log2(0x00, 0x00, 0x08, acc)
                     }
 
                     {
@@ -1605,7 +1592,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         mstore(SUBRELATION_EVAL_9_LOC, acc)
-                        log2(0x00, 0x00, 0x09, acc)
                     }
                 }
 
@@ -1632,7 +1618,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                         eval := mulmod(eval, mload(QELLIPTIC_EVAL_LOC), p)
                         eval := mulmod(eval, addmod(1, sub(p, mload(EC_Q_IS_DOUBLE)), p), p)
                         mstore(SUBRELATION_EVAL_10_LOC, eval)
-                        log2(0x00, 0x00, 0x0A, eval)
                     }
 
                     {
@@ -1646,7 +1631,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                         eval := mulmod(eval, mload(QELLIPTIC_EVAL_LOC), p)
                         eval := mulmod(eval, addmod(1, sub(p, mload(EC_Q_IS_DOUBLE)), p), p)
                         mstore(SUBRELATION_EVAL_11_LOC, eval)
-                        log2(0x00, 0x00, 0x0B, eval)
                     }
 
                     {
@@ -1666,7 +1650,6 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         // Add to existing contribution - and double check that numbers here
                         mstore(SUBRELATION_EVAL_10_LOC, acc)
-                        log2(0x00, 0x00, 0x0A, acc)
                     }
 
                     {
@@ -1689,7 +1672,6 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                         // Add to existing contribution - and double check that numbers here
                         mstore(SUBRELATION_EVAL_11_LOC, acc)
-                        log2(0x00, 0x00, 0x0B, acc)
                     }
                 }
 
@@ -1957,9 +1939,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                             )
                         )
 
-                    log2(0x00, 0x00, 13, mload(SUBRELATION_EVAL_13_LOC))
-                    log2(0x00, 0x00, 14, mload(SUBRELATION_EVAL_14_LOC))
-
                     mstore(
                         AUX_ROM_CONSISTENCY_CHECK_IDENTITY,
                         mulmod(
@@ -2070,10 +2049,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                                 p
                             )
                         )
-
-                        log2(0x00, 0x00, 15, mload(SUBRELATION_EVAL_15_LOC))
-                        log2(0x00, 0x00, 16, mload(SUBRELATION_EVAL_16_LOC))
-                        log2(0x00, 0x00, 17, mload(SUBRELATION_EVAL_17_LOC))
 
                         mstore(AUX_RAM_CONSISTENCY_CHECK_IDENTITY, mulmod(access_check, mload(QARITH_EVAL_LOC), p))
                     }
@@ -2211,11 +2186,6 @@ contract BlakeOptHonkVerifier is IVerifier {
                         p
                     )
                 )
-
-                log2(0x00, 0x00, 18, mload(SUBRELATION_EVAL_18_LOC))
-                log2(0x00, 0x00, 19, mload(SUBRELATION_EVAL_19_LOC))
-                log2(0x00, 0x00, 20, mload(SUBRELATION_EVAL_20_LOC))
-                log2(0x00, 0x00, 21, mload(SUBRELATION_EVAL_21_LOC))
             }
 
             /*
@@ -2253,20 +2223,11 @@ contract BlakeOptHonkVerifier is IVerifier {
 
                 let v4 := addmod(mulmod(u4, POS_INTENAL_MATRIX_D_3, p), u_sum, p)
                 mstore(SUBRELATION_EVAL_25_LOC, mulmod(q_pos_by_scaling, addmod(v4, sub(p, mload(W4_SHIFT_EVAL_LOC)), p), p))
-
-                log2(0x00, 0x00, 22, mload(SUBRELATION_EVAL_22_LOC))
-                log2(0x00, 0x00, 23, mload(SUBRELATION_EVAL_23_LOC))
-                log2(0x00, 0x00, 24, mload(SUBRELATION_EVAL_24_LOC))
-                log2(0x00, 0x00, 25, mload(SUBRELATION_EVAL_25_LOC))
             }
-
-            log4(0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
-            log4(0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
 
             // Scale and batch subrelations by subrelation challenges
             // linear combination of subrelations
             let accumulator := mload(SUBRELATION_EVAL_LOC)
-            log2(0x00, 0x00, 0x00, accumulator)
 
             // TODO(md): unroll???
             // TODO(md): not optimal
@@ -2274,24 +2235,14 @@ contract BlakeOptHonkVerifier is IVerifier {
                 let evaluation_off := mul(i, 0x20)
                 let challenge_off := sub(evaluation_off , 0x20)
 
-                let eval := mload(add(SUBRELATION_EVAL_LOC, evaluation_off))
-                let challenge := mload(add(alpha_challenge_0_loc, challenge_off))
-
-                let sum := mulmod(eval, challenge, p)
-                // log2(0x00, 0x00, i, sum)
-
                 accumulator := addmod(
                     accumulator,
-                    sum,
-                    // mulmod(
-                    //     mload(add(SUBRELATION_EVAL_LOC, evaluation_off)),
-                    //     mload(add(alpha_challenge_0_loc, challenge_off)),
-                    //     p),
+                    mulmod(
+                        mload(add(SUBRELATION_EVAL_LOC, evaluation_off)),
+                        mload(add(alpha_challenge_0_loc, challenge_off)),
+                        p),
                     p)
-                log2(0x00, 0x00, i, accumulator)
             }
-
-            log1(0x00, 0x00, accumulator)
 
             let sumcheck_valid := eq(accumulator, mload(FINAL_ROUND_TARGET_LOC))
             if iszero(sumcheck_valid) {
@@ -2300,6 +2251,9 @@ contract BlakeOptHonkVerifier is IVerifier {
                 return(0x00, 0x20)
             }
             }
+
+            let gasAfter := gas()
+            log1(0x00, 0x00, sub(gasBefore, gasAfter))
 
 
             mstore(0x00, 0x01)
