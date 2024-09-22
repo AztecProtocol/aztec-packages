@@ -15,4 +15,5 @@ export enum TopicType {
   tx = 'tx',
   block_proposal = 'block_proposal',
   block_attestation = 'block_attestation',
+  epoch_proof_quote = 'epoch_proof_quote',
 }

@@ -22,7 +22,7 @@ export class BlockProposalHash extends Buffer32 {
  * be included in the head of the chain
  */
 export class BlockProposal extends Gossipable {
-  static override p2pTopic: string;
+  static override p2pTopic = createTopicString(TopicType.block_proposal);
 
   private sender: EthAddress | undefined;
 
@@ -34,10 +34,6 @@ export class BlockProposal extends Gossipable {
     public readonly signature: Signature,
   ) {
     super();
-  }
-
-  static {
-    this.p2pTopic = createTopicString(TopicType.block_proposal);
   }
 
   override p2pMessageIdentifier(): Buffer32 {

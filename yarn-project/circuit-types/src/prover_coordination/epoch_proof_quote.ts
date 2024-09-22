@@ -7,11 +7,11 @@ import { type FieldsOf } from '@aztec/foundation/types';
 
 import { Gossipable } from '../p2p/gossipable.js';
 import { getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
+import { TopicType, createTopicString } from '../p2p/topic_type.js';
 import { EpochProofQuotePayload } from './epoch_proof_quote_payload.js';
 
 export class EpochProofQuote extends Gossipable {
-  // TODO:
-  static override p2pTopic: string = '';
+  static override p2pTopic: string = createTopicString(TopicType.epoch_proof_quote);
 
   private sender: EthAddress | undefined;
 

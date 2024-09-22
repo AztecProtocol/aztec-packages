@@ -22,7 +22,7 @@ export class BlockAttestationHash extends Buffer32 {
  * will produce a block attestation over the header of the block
  */
 export class BlockAttestation extends Gossipable {
-  static override p2pTopic: string;
+  static override p2pTopic = createTopicString(TopicType.block_attestation);
 
   private sender: EthAddress | undefined;
 
@@ -34,10 +34,6 @@ export class BlockAttestation extends Gossipable {
     public readonly signature: Signature,
   ) {
     super();
-  }
-
-  static {
-    this.p2pTopic = createTopicString(TopicType.block_attestation);
   }
 
   override p2pMessageIdentifier(): Buffer32 {
