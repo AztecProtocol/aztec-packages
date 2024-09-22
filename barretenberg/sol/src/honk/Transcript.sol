@@ -58,9 +58,6 @@ library TranscriptLib {
 
         (t.shplonkZ, previousChallenge) = generateShplonkZChallenge(proof, previousChallenge);
 
-        uint256 gasAfter = gasleft();
-        console.log("Gas used: ", gasBefore - gasAfter);
-
         return t;
     }
 
