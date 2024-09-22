@@ -1,4 +1,4 @@
-import { BlockAttestation, BlockProposal, type TxHash } from '@aztec/circuit-types';
+import { BlockAttestation, BlockProposal, ConsensusPayload, type TxHash } from '@aztec/circuit-types';
 import { type Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto';
@@ -21,7 +21,7 @@ export class ValidationService {
   createBlockProposal(header: Header, archive: Fr, txs: TxHash[]): Promise<BlockProposal> {
     const payloadSigner = (payload: Buffer32) => this.keyStore.signMessage(payload);
 
-    return BlockProposal.createProposalFromSigner(header, archive, txs, payloadSigner);
+    return BlockProposal.createProposalFromSigner(new ConsensusPayload(header, archive, txs), payloadSigner);
   }
 
   /**
@@ -38,6 +38,6 @@ export class ValidationService {
 
     const buf = Buffer32.fromBuffer(keccak256(proposal.getPayload()));
     const sig = await this.keyStore.signMessage(buf);
-    return new BlockAttestation(proposal.header, proposal.archive, proposal.txs, sig);
+    return new BlockAttestation(proposal.payload, sig);
   }
 }
