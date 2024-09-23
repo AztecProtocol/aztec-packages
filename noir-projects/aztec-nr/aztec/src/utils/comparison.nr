@@ -34,8 +34,7 @@ pub fn compare(lhs: Field, operation: u8, rhs: Field) -> bool {
     } else if (operation == Comparator.GTE) {
         !is_lt
     } else {
-        assert(false, "Invalid operation");
-        false // Noir would complain without boolean value here
+        panic(f"Invalid operation")
     }
 }
 
