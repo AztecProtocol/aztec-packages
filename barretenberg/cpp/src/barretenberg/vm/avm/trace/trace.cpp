@@ -1394,7 +1394,7 @@ void AvmTraceBuilder::op_is_static_call(uint8_t indirect, uint32_t dst_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
     FF ia_value = kernel_trace_builder.op_is_static_call(clk);
-    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::U1);
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
     row.main_sel_op_is_static_call = FF(1);
 
     // Constrain gas cost
