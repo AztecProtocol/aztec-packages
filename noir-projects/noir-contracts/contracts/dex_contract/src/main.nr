@@ -2,7 +2,7 @@ mod lib;
 
 use dep::aztec::macros::aztec;
 
-// A minimal implementation of Uniswap v2 style AMM DEX pool.
+// A Noir implementation of simplified Uniswap v2 pool.
 #[aztec]
 contract DEX {
     use crate::lib::get_quote;
@@ -58,6 +58,8 @@ contract DEX {
         // We don't need to initialize the reserves as the default in storage is 0.
     }
 
+    // Adds liquidity for `liquidity_provider` to the pool. `amount0Desired` and `amount1Desired` are the amounts
+    // of tokens we ideally want to add. `amount0Min` and `amount1Min` are the minimum amounts we are willing to add.
     #[public]
     fn add_liquidity(liquidity_provider: AztecAddress, amount0Desired: u32, amount1Desired: u32, amount0Min: u32, amount1Min: u32, nonce: Field) {
         if (!liquidity_provider.eq(context.msg_sender())) {
@@ -78,12 +80,16 @@ contract DEX {
         let mut amount0 = amount0Desired;
         let mut amount1 = amount1Desired;
         if ((reserve0 != 0) | (reserve1 != 0)) {
+            // First calculate the optimal amount of token1 based on the desired amount of token0.
             let amount1Optimal = get_quote(amount0Desired, reserve0, reserve1);
             if (amount1Optimal <= amount1Desired) {
+                // Revert if the optimal amount of token1 is less than the desired amount of token1.
                 assert(amount1Optimal >= amount1Min, "INSUFFICIENT_1_AMOUNT");
                 amount0 = amount0Desired;
                 amount1 = amount1Optimal;
             } else {
+                // We got more amount of token1 than desired so we try repeating the process but this time by quoting
+                // based on token1.
                 let amount0Optimal = get_quote(amount1Desired, reserve1, reserve0);
                 assert(amount0Optimal <= amount0Desired);
                 assert(amount0Optimal >= amount0Min, "INSUFFICIENT_0_AMOUNT");
@@ -94,7 +100,7 @@ contract DEX {
 
         // TODO: Transfer the tokens to this contract. How do we do it? this does not work with authwits as we don't know the amounts before calling this function.
         // We could use partial notes for this:
-        // 1. A user knows the maximum amount0, amount1 they want to deposit,
+        // 1. A user knows the maximum amount0, amount1 (the desired amounts are max) they want to deposit,
         // 2. user calls private `token{0, 1}.prepare_transfer_to_public_with_refund(from, to, amount{0,1}, transient_storage_slot_randomness)` functions,
         //    --> these functions will burn the amounts, prepare the partial notes and stores both the burned amounts and the partial notes in the transient storage!
         // 3. user calls DEX.add_liquidity(..., transient_storage_slot_randomness) with the amounts they want to deposit,
@@ -139,21 +145,63 @@ contract DEX {
             assert(nonce == 0, "invalid nonce");
         }
 
+        let reserves = storage.reserves.read();
         let settings = storage.settings.read();
+
+        let token0 = Token::at(settings.token0);
+        let token1 = Token::at(settings.token1);
         let liquidity_token = Token::at(settings.liquidity_token);
 
-        // burn the liquidity token from `from` and transfer the amounts to `from`
-        // TODO: shall we try to burn private balance? UX-wise burning public one is not an issue because the liquidity
-        // provider can always unshield and he can do it in 1 tx thanks to BatchCall.
-        // TODO: Current token's burn_public does not care about admin rights so this does not work without authwit.
-        liquidity_token.burn_public(liquidity_provider, liquidity).call(&mut context);
+        // We transfer the liquidity tokens from the liquidity provider to this contract.
+        // TODO: I am transferring the liquidity tokens in public here to follow the Uniswap v2 implementation.
+        // --> There are 2 things we need to discuss here:
+        //     1. This is assuming the dev has the liquidity token in public. I think this is fine as we mint to public
+        //        and I am not really sure if it makes sense to not have liquidity tokens in public as these tokens are
+        //        commonly used in other DeFi (e.g. borrowing against the liquidity token in AAVE) and for that we'll
+        //        most likely need them to be public.
+        //     2. The "transfer from" flows are less efficient as they check authwits. It might be the most efficient
+        //        to just make users transfer the liquidity token to the pool in a `BatchCall`.
+        liquidity_token.transfer_public(liquidity_provider, liquidity).call(&mut context);
 
         // TODO:
-        // (uint amount0, uint amount1) = IUniswapV2Pair(pair).burn(to);
-        // (address token0,) = UniswapV2Library.sortTokens(tokenA, tokenB);
-        // (amountA, amountB) = tokenA == token0 ? (amount0, amount1) : (amount1, amount0);
-        // require(amountA >= amountAMin, 'UniswapV2Router: INSUFFICIENT_A_AMOUNT');
-        // require(amountB >= amountBMin, 'UniswapV2Router: INSUFFICIENT_B_AMOUNT');
+
+        // Calculate the amounts to be added to the pool
+        let reserve0 = reserves.reserve0;
+        let reserve1 = reserves.reserve1;
+
+
+        let balance0 = token0.balance_of_public().call(&mut context);
+        let balance1 = token1.balance_of_public().call(&mut context);
+
+        // Uniswap burns balance of the pool instead of just burning based on the `liquidity` arg on input. I assume
+        // the do this to release stranded liquidity (e.g. somebody transferring liquidity tokens by accident). This
+        // might not make sense here as the liqudity token is a separate contract and hence we need to do a costly
+        // public call to get the balance.
+        // TODO: Shall we streamline this and just burn based on the `liquidity` arg? Maybe we could even avoid
+        //       the transfer and just allow the pool to directly call
+        //       `liquidity_token.burn_public(liquidity_provider, liquidity)`.
+        let liquidity = liquidity_token.balance_of_public().call(&mut context);
+
+        // bool feeOn = _mintFee(_reserve0, _reserve1);
+        // uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
+        // amount0 = liquidity.mul(balance0) / _totalSupply; // using balances ensures pro-rata distribution
+        // amount1 = liquidity.mul(balance1) / _totalSupply; // using balances ensures pro-rata distribution
+        // require(amount0 > 0 && amount1 > 0, 'UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED');
+        // _burn(address(this), liquidity);
+        // _safeTransfer(_token0, to, amount0);
+        // _safeTransfer(_token1, to, amount1);
+        // balance0 = IERC20(_token0).balanceOf(address(this));
+        // balance1 = IERC20(_token1).balanceOf(address(this));
+
+        // _update(balance0, balance1, _reserve0, _reserve1);
+        // if (feeOn) kLast = uint(reserve0).mul(reserve1); // reserve0 and reserve1 are up-to-date
+        // emit Burn(msg.sender, amount0, amount1, to);
+
+
+
+
+        assert(amount0 >= amount0Min, "INSUFFICIENT_0_AMOUNT");
+        assert(amount1 >= amount1Min, "INSUFFICIENT_1_AMOUNT");
     }
 
     /**
