@@ -727,7 +727,7 @@ jobs:
         run: |
           echo "${{github.ref_name}}"
           ./spartan/scripts/setup_local_k8s.sh
-          ./scripts/earthly-ci -P --no-output ./yarn-project/end-to-end/+network-transfer --values-file=${{ matrix.values_file }}
+          earthly ./yarn-project/end-to-end/+network-transfer --values-file=${{ matrix.values_file }}
 
   merge-check:
     runs-on: ubuntu-20.04
