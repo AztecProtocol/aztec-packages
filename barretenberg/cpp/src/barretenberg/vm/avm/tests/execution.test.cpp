@@ -110,7 +110,7 @@ TEST_F(AvmExecutionTests, basicAddReturn)
     EXPECT_THAT(instructions.at(1),
                 AllOf(Field(&Instruction::op_code, OpCode::RETURN),
                       Field(&Instruction::operands,
-                            ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint16_t>(0), VariantWith<uint16_t>(0)))));
+                            ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
 
     auto trace = gen_trace_from_instr(instructions);
     validate_trace(std::move(trace), public_inputs, {}, {});
@@ -247,7 +247,7 @@ TEST_F(AvmExecutionTests, powerWithMulOpcodes)
     EXPECT_THAT(instructions.at(14),
                 AllOf(Field(&Instruction::op_code, OpCode::RETURN),
                       Field(&Instruction::operands,
-                            ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint16_t>(0), VariantWith<uint16_t>(0)))));
+                            ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(0), VariantWith<uint32_t>(0)))));
 
     auto trace = gen_trace_from_instr(instructions);
 
@@ -305,7 +305,7 @@ TEST_F(AvmExecutionTests, simpleInternalCall)
     // INTERNALCALL
     EXPECT_THAT(instructions.at(1),
                 AllOf(Field(&Instruction::op_code, OpCode::INTERNALCALL),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint16_t>(4)))));
+                      Field(&Instruction::operands, ElementsAre(VariantWith<uint32_t>(4)))));
 
     // INTERNALRETURN
     EXPECT_EQ(instructions.at(5).op_code, OpCode::INTERNALRETURN);
@@ -458,9 +458,9 @@ TEST_F(AvmExecutionTests, jumpAndCalldatacopy)
                 AllOf(Field(&Instruction::op_code, OpCode::CALLDATACOPY),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint16_t>(0),
-                                        VariantWith<uint16_t>(1),
-                                        VariantWith<uint16_t>(10)))));
+                                        VariantWith<uint32_t>(0),
+                                        VariantWith<uint32_t>(1),
+                                        VariantWith<uint32_t>(10)))));
 
     // JUMP
     EXPECT_THAT(instructions.at(3),
@@ -667,10 +667,10 @@ TEST_F(AvmExecutionTests, cmovOpcode)
                 AllOf(Field(&Instruction::op_code, OpCode::CMOV),
                       Field(&Instruction::operands,
                             ElementsAre(VariantWith<uint8_t>(0),
-                                        VariantWith<uint16_t>(16),
-                                        VariantWith<uint16_t>(17),
-                                        VariantWith<uint16_t>(32),
-                                        VariantWith<uint16_t>(18)))));
+                                        VariantWith<uint32_t>(16),
+                                        VariantWith<uint32_t>(17),
+                                        VariantWith<uint32_t>(32),
+                                        VariantWith<uint32_t>(18)))));
 
     auto trace = gen_trace_from_instr(instructions);
 
@@ -1727,89 +1727,95 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
 }
 
 // Positive test for L2GASLEFT opcode
-// TEST_F(AvmExecutionTests, l2GasLeft)
-// {
-//     std::string bytecode_hex = to_hex(OpCode::SET_16) + // opcode SET
-//                                "00"                     // Indirect flag
-//                                + to_hex(AvmMemoryTag::U32) +
-//                                "0101"                        // val 257
-//                                "0011"                        // dst_offset 17
-//                                + to_hex(OpCode::L2GASLEFT) + // opcode L2GASLEFT
-//                                "01"                          // Indirect flag
-//                                "00000011"                    // dst_offset (indirect addr: 17)
-//                                + to_hex(OpCode::RETURN) +    // opcode RETURN
-//                                "00"                          // Indirect flag
-//                                "00000000"                    // ret offset 0
-//                                "00000000";                   // ret size 0
+TEST_F(AvmExecutionTests, l2GasLeft)
+{
+    std::string bytecode_hex = to_hex(OpCode::SET_16) + // opcode SET
+                               "00"                     // Indirect flag
+                               + to_hex(AvmMemoryTag::U32) +
+                               "0101"                           // val 257
+                               "0011"                           // dst_offset 17
+                               + to_hex(OpCode::GETENVVAR_16) + // opcode L2GASLEFT
+                               "01"                             // Indirect flag
+                               + to_hex(static_cast<uint8_t>(EnvironmentVariable::L2GASLEFT)) +
+                               "0011"                     // dst_offset (indirect addr: 17)
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
 
-//     auto bytecode = hex_to_bytes(bytecode_hex);
-//     auto instructions = Deserialization::parse(bytecode);
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
 
-//     ASSERT_THAT(instructions, SizeIs(3));
+    ASSERT_THAT(instructions, SizeIs(3));
 
-//     // L2GASLEFT
-//     EXPECT_THAT(instructions.at(1),
-//                 AllOf(Field(&Instruction::op_code, OpCode::L2GASLEFT),
-//                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(1),
-//                       VariantWith<uint16_t>(17)))));
+    // L2GASLEFT
+    EXPECT_THAT(instructions.at(1),
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(1),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::L2GASLEFT)),
+                                        VariantWith<uint16_t>(17)))));
 
-//     auto trace = gen_trace_from_instr(instructions);
+    auto trace = gen_trace_from_instr(instructions);
 
-//     // Find the first row enabling the L2GASLEFT selector
-//     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_l2gasleft == 1; });
+    // Find the first row enabling the L2GASLEFT selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_l2gasleft == 1; });
 
-//     uint32_t expected_rem_gas = DEFAULT_INITIAL_L2_GAS -
-//                                 static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::SET_8).base_l2_gas_fixed_table) -
-//                                 static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::L2GASLEFT).base_l2_gas_fixed_table);
+    uint32_t expected_rem_gas = DEFAULT_INITIAL_L2_GAS -
+                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::SET_8).base_l2_gas_fixed_table) -
+                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::GETENVVAR_16).base_l2_gas_fixed_table);
 
-//     EXPECT_EQ(row->main_ia, expected_rem_gas);
-//     EXPECT_EQ(row->main_mem_addr_a, 257); // Resolved direct address: 257
+    EXPECT_EQ(row->main_ia, expected_rem_gas);
+    EXPECT_EQ(row->main_mem_addr_a, 257); // Resolved direct address: 257
 
-//     validate_trace(std::move(trace), public_inputs);
-// }
+    validate_trace(std::move(trace), public_inputs);
+}
 
-// // Positive test for DAGASLEFT opcode
-// TEST_F(AvmExecutionTests, daGasLeft)
-// {
-//     std::string bytecode_hex = to_hex(OpCode::ADD_16) + // opcode ADD
-//                                "00"                     // Indirect flag
-//                                + to_hex(AvmMemoryTag::U32) +
-//                                "0007"                        // addr a 7
-//                                "0009"                        // addr b 9
-//                                "0001"                        // addr c 1
-//                                + to_hex(OpCode::DAGASLEFT) + // opcode DAGASLEFT
-//                                "00"                          // Indirect flag
-//                                "00000027"                    // dst_offset 39
-//                                + to_hex(OpCode::RETURN) +    // opcode RETURN
-//                                "00"                          // Indirect flag
-//                                "00000000"                    // ret offset 0
-//                                "00000000";                   // ret size 0
+// Positive test for DAGASLEFT opcode
+TEST_F(AvmExecutionTests, daGasLeft)
+{
+    std::string bytecode_hex = to_hex(OpCode::ADD_16) + // opcode ADD
+                               "00"                     // Indirect flag
+                               + to_hex(AvmMemoryTag::U32) +
+                               "0007"                           // addr a 7
+                               "0009"                           // addr b 9
+                               "0001"                           // addr c 1
+                               + to_hex(OpCode::GETENVVAR_16) + // opcode L2GASLEFT
+                               "00"                             // Indirect flag
+                               + to_hex(static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT)) +
+                               "0027"                     // dst_offset (indirect addr: 17)
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
 
-//     auto bytecode = hex_to_bytes(bytecode_hex);
-//     auto instructions = Deserialization::parse(bytecode);
+    auto bytecode = hex_to_bytes(bytecode_hex);
+    auto instructions = Deserialization::parse(bytecode);
 
-//     ASSERT_THAT(instructions, SizeIs(3));
+    ASSERT_THAT(instructions, SizeIs(3));
 
-//     // DAGASLEFT
-//     EXPECT_THAT(instructions.at(1),
-//                 AllOf(Field(&Instruction::op_code, OpCode::DAGASLEFT),
-//                       Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0),
-//                       VariantWith<uint16_t>(39)))));
+    // DAGASLEFT
+    EXPECT_THAT(instructions.at(1),
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT)),
+                                        VariantWith<uint16_t>(39)))));
 
-//     auto trace = gen_trace_from_instr(instructions);
+    auto trace = gen_trace_from_instr(instructions);
 
-//     // Find the first row enabling the DAGASLEFT selector
-//     auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_dagasleft == 1; });
+    // Find the first row enabling the DAGASLEFT selector
+    auto row = std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_dagasleft == 1; });
 
-//     uint32_t expected_rem_gas = DEFAULT_INITIAL_DA_GAS -
-//                                 static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::ADD_8).base_da_gas_fixed_table) -
-//                                 static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::DAGASLEFT).base_da_gas_fixed_table);
+    uint32_t expected_rem_gas = DEFAULT_INITIAL_DA_GAS -
+                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::ADD_8).base_da_gas_fixed_table) -
+                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::GETENVVAR_16).base_da_gas_fixed_table);
 
-//     EXPECT_EQ(row->main_ia, expected_rem_gas);
-//     EXPECT_EQ(row->main_mem_addr_a, 39);
+    EXPECT_EQ(row->main_ia, expected_rem_gas);
+    EXPECT_EQ(row->main_mem_addr_a, 39);
 
-//     validate_trace(std::move(trace), public_inputs);
-// }
+    validate_trace(std::move(trace), public_inputs);
+}
 
 // Should throw whenever the wrong number of public inputs are provided
 TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
