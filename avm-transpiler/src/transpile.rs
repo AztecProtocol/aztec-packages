@@ -12,7 +12,7 @@ use noirc_errors::debug_info::DebugInfo;
 use crate::bit_traits::bits_needed_for;
 use crate::instructions::{
     AvmInstruction, AvmOperand, AvmTypeTag, ALL_DIRECT, FIRST_OPERAND_INDIRECT,
-    SECOND_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
+    SECOND_OPERAND_INDIRECT, THIRD_OPERAND_INDIRECT, ZEROTH_OPERAND_INDIRECT,
 };
 use crate::opcodes::AvmOpcode;
 use crate::utils::{dbg_print_avm_program, dbg_print_brillig_program, make_operand};
@@ -865,19 +865,24 @@ fn generate_mov_instruction(indirect: Option<u8>, source: u32, dest: u32) -> Avm
 /// (array goes in -> field element comes out)
 fn handle_black_box_function(avm_instrs: &mut Vec<AvmInstruction>, operation: &BlackBoxOp) {
     match operation {
-        BlackBoxOp::Sha256 { message, output } => {
-            let message_offset = message.pointer.0;
-            let message_size_offset = message.size.0;
-            let dest_offset = output.pointer.0;
-            assert_eq!(output.size, 32, "SHA256 output size must be 32!");
+        BlackBoxOp::Sha256Compression { input, hash_values, output } => {
+            let inputs_offset = input.pointer.0;
+            let inputs_size_offset = input.size.0;
+            let state_offset = hash_values.pointer.0;
+            let state_size_offset = hash_values.size.0;
+            let output_offset = output.pointer.0;
 
             avm_instrs.push(AvmInstruction {
-                opcode: AvmOpcode::SHA256,
-                indirect: Some(ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT),
+                opcode: AvmOpcode::SHA256COMPRESSION,
+                indirect: Some(
+                    ZEROTH_OPERAND_INDIRECT | FIRST_OPERAND_INDIRECT | THIRD_OPERAND_INDIRECT,
+                ),
                 operands: vec![
-                    AvmOperand::U32 { value: dest_offset as u32 },
-                    AvmOperand::U32 { value: message_offset as u32 },
-                    AvmOperand::U32 { value: message_size_offset as u32 },
+                    AvmOperand::U32 { value: output_offset as u32 },
+                    AvmOperand::U32 { value: state_offset as u32 },
+                    AvmOperand::U32 { value: state_size_offset as u32 },
+                    AvmOperand::U32 { value: inputs_offset as u32 },
+                    AvmOperand::U32 { value: inputs_size_offset as u32 },
                 ],
                 ..Default::default()
             });
