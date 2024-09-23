@@ -21,7 +21,6 @@ allow_list=(
   "e2e-max-block-number"
   "e2e-nested-contract"
   "e2e-ordering"
-  "e2e-prover-full"
   "e2e-static-calls"
 )
 

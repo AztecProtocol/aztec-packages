@@ -47,7 +47,7 @@ export class MerkleTree {
   }
 
   /** Returns a nice string representation of the tree, useful for debugging purposes. */
-  public drawTree() {
+  public drawTree(elemSize = 8) {
     const levels: string[][] = [];
     const tree = this.nodes;
     const maxRowSize = Math.ceil(tree.length / 2);
@@ -58,7 +58,7 @@ export class MerkleTree {
       levels.push(
         tree
           .slice(rowOffset, rowOffset + rowSize)
-          .map(n => n.toString('hex').slice(0, 8) + ' '.repeat((paddingSize - 1) * 9)),
+          .map(n => n.toString('hex').slice(0, elemSize) + ' '.repeat((paddingSize - 1) * (elemSize + 1))),
       );
       rowOffset += rowSize;
       paddingSize <<= 1;
