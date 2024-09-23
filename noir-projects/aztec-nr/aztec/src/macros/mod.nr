@@ -17,17 +17,17 @@ pub comptime fn aztec(m: Module) -> Quoted {
         let signature = function_signature(name, parameters).as_quoted_str!();
         let selector: FunctionSelector = unquote!(quote { FunctionSelector::from_signature($signature) });
 
-        // Compute parameters size and return size
         let mut parameters_size = 0;
         for param in parameters {
             parameters_size += size_in_fields(param.1);
         }
-        let return_size = size_in_fields(return_type);
 
         let reads = parameters.map(|param: (Quoted, Type)| {
             let (param_name, param_type) = param;
+            let param_size = size_in_fields(param_type);
             quote { 
-                let ($param_name, input_calldata_index) = $param_type::from_calldata(input_calldata, input_calldata_index);
+                let $param_name = $param_type::deserialize($calldata_copy_fn(avm_input_calldata_offset, $param_size));
+                avm_input_calldata_offset += $param_size;
             }
         });
         let read = reads.join(quote { });
@@ -38,13 +38,11 @@ pub comptime fn aztec(m: Module) -> Quoted {
 
         let if_ = quote { 
             if selector == $selector {
-                let input_calldata: [Field; $parameters_size] = $calldata_copy_fn(0, $parameters_size);
-                let input_calldata_index = 0;
+                let mut avm_input_calldata_offset = 0;
                 $read
-                let return_value = $call;
-                let mut return_array: [Field; $return_size] = [0; $return_size];
-                return_value.to_calldata(&mut return_array, 0);
-                $avm_return_fn(return_array);
+                let avm_return_value = $call.serialize();
+                let avm_return_array = avm_return_value.serialize();
+                $avm_return_fn(avm_return_array);
             }
         };
         if_
