@@ -98,7 +98,7 @@ void show_trace_info(const auto& trace)
     }());
 
     // The following computations are expensive, so we only do them in verbose mode.
-    if (verbose_logging) {
+    if (!verbose_logging) {
         return;
     }
 
@@ -367,10 +367,12 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     // For EMITUNENCRYPTEDLOG
     for (size_t i = 0; i < MAX_UNENCRYPTED_LOGS_PER_CALL; i++) {
         size_t dest_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + i;
-        size_t pcpi_offset = PCPI_NEW_UNENCRYPTED_LOGS_OFFSET + (i * 2);
+        size_t pcpi_offset =
+            PCPI_NEW_UNENCRYPTED_LOGS_OFFSET + (i * 3); // 3 because we have metadata, this is the window size
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+        ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset + 2];
     }
 
     return public_inputs;
@@ -931,12 +933,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                                    std::get<uint32_t>(inst.operands.at(2)));
 
             break;
-        case OpCode::SHA256:
-            trace_builder.op_sha256(std::get<uint8_t>(inst.operands.at(0)),
-                                    std::get<uint32_t>(inst.operands.at(1)),
-                                    std::get<uint32_t>(inst.operands.at(2)),
-                                    std::get<uint32_t>(inst.operands.at(3)));
-            break;
         case OpCode::PEDERSEN:
             trace_builder.op_pedersen_hash(std::get<uint8_t>(inst.operands.at(0)),
                                            std::get<uint32_t>(inst.operands.at(1)),
@@ -972,12 +968,13 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                          std::get<uint8_t>(inst.operands.at(5)));
             break;
 
-            // Future Gadgets -- pending changes in noir
         case OpCode::SHA256COMPRESSION:
             trace_builder.op_sha256_compression(std::get<uint8_t>(inst.operands.at(0)),
                                                 std::get<uint32_t>(inst.operands.at(1)),
                                                 std::get<uint32_t>(inst.operands.at(2)),
-                                                std::get<uint32_t>(inst.operands.at(3)));
+                                                std::get<uint32_t>(inst.operands.at(3)),
+                                                std::get<uint32_t>(inst.operands.at(4)),
+                                                std::get<uint32_t>(inst.operands.at(5)));
             break;
 
         case OpCode::KECCAKF1600:

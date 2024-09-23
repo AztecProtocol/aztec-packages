@@ -2,6 +2,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
 #include "polynomial_arithmetic.hpp"
@@ -10,6 +11,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <sys/stat.h>
 #include <unordered_map>
 #include <utility>
@@ -185,16 +187,21 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
 
 template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
 {
-    const size_t m = evaluation_points.size();
+    if (size() == 0) {
+        return Fr(0);
+    }
+
+    const size_t n = evaluation_points.size();
+    const size_t dim = numeric::get_msb(end_index() - 1) + 1; // Round up to next power of 2
 
     // To simplify handling of edge cases, we assume that the index space is always a power of 2
-    ASSERT(virtual_size() == static_cast<size_t>(1 << m));
+    ASSERT(virtual_size() == static_cast<size_t>(1 << n));
 
-    // we do m rounds l = 0,...,m-1.
+    // We first fold over dim rounds l = 0,...,dim-1.
     // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
     // at u₀,..., u_l.
-    // in round 0, this is half the size of n
-    size_t n_l = 1 << (m - 1);
+    // In round 0, this is half the size of dim
+    size_t n_l = 1 << (dim - 1);
 
     // temporary buffer of half the size of the Polynomial
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with DontZeroMemory::FLAG
@@ -215,15 +222,22 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
         const size_t ALLOW_ONE_PAST_READ = 1;
         tmp[i] = get(i * 2 + offset) + u_l * (get(i * 2 + 1 + offset, ALLOW_ONE_PAST_READ) - get(i * 2 + offset));
     }
-    // partially evaluate the m-1 remaining points
-    for (size_t l = 1; l < m; ++l) {
-        n_l = 1 << (m - l - 1);
+
+    // partially evaluate the dim-1 remaining points
+    for (size_t l = 1; l < dim; ++l) {
+        n_l = 1 << (dim - l - 1);
         u_l = evaluation_points[l];
         for (size_t i = 0; i < n_l; ++i) {
             tmp[i] = tmp[i * 2] + u_l * (tmp[(i * 2) + 1] - tmp[i * 2]);
         }
     }
-    Fr result = tmp[0];
+    auto result = tmp[0];
+
+    // We handle the "trivial" dimensions which are full of zeros.
+    for (size_t i = dim; i < n; i++) {
+        result *= (Fr(1) - evaluation_points[i]);
+    }
+
     return result;
 }
 
