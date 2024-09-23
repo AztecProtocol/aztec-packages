@@ -5,9 +5,6 @@ pub comptime fn aztec(m: Module) -> Quoted {
     let functions = m.functions();
     let functions = functions.filter(|function: FunctionDefinition| function.has_named_attribute("public"));
 
-    let calldata_copy_fn = super::context::public_context::calldata_copy;
-    let avm_return_fn = super::context::public_context::avm_return;
-
     let ifs = functions.map(
         |function: FunctionDefinition| {
         let name = function.name();
@@ -26,7 +23,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
             let (param_name, param_type) = param;
             let param_size = size_in_fields(param_type);
             quote { 
-                let $param_name = $param_type::deserialize($calldata_copy_fn(avm_input_calldata_offset, $param_size));
+                let $param_name = $param_type::deserialize(dep::aztec::context::public_context::calldata_copy(avm_input_calldata_offset, $param_size));
                 avm_input_calldata_offset += $param_size;
             }
         });
@@ -42,7 +39,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
                 $read
                 let avm_return_value = $call.serialize();
                 let avm_return_array = avm_return_value.serialize();
-                $avm_return_fn(avm_return_array);
+                dep::aztec::context::public_context::avm_return(avm_return_array);
             }
         };
         if_
