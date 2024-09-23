@@ -31,10 +31,8 @@ import {
   type BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
   type BaseRollupInputs,
-  ContentCommitment,
   Fr,
   type GlobalVariables,
-  Header,
   type KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
@@ -48,7 +46,6 @@ import {
   type RecursiveProof,
   type RootParityInput,
   RootParityInputs,
-  StateReference,
   type TUBE_PROOF_LENGTH,
   TubeInputs,
   type VerificationKeyAsFields,
@@ -58,7 +55,6 @@ import {
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256Trunc } from '@aztec/foundation/crypto';
 import { AbortError } from '@aztec/foundation/error';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -73,6 +69,7 @@ import { inspect } from 'util';
 
 import {
   buildBaseRollupInput,
+  buildHeaderFromCircuitOutputs,
   createMergeRollupInputs,
   getBlockRootRollupInput,
   getSubtreeSiblingPath,
@@ -416,29 +413,14 @@ export class ProvingOrchestrator implements BlockProver {
       throw new Error(`Invalid proving state, final merge inputs before block root circuit missing.`);
     }
 
-    const contentCommitment = new ContentCommitment(
-      new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
-      sha256Trunc(
-        Buffer.concat([previousMergeData[0].txsEffectsHash.toBuffer(), previousMergeData[1].txsEffectsHash.toBuffer()]),
-      ),
-      this.provingState.finalRootParityInput.publicInputs.shaRoot.toBuffer(),
-      sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
+    const l1ToL2TreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.db);
+
+    return buildHeaderFromCircuitOutputs(
+      [previousMergeData[0], previousMergeData[1]],
+      this.provingState.finalRootParityInput.publicInputs,
+      rootRollupOutputs,
+      l1ToL2TreeSnapshot,
     );
-    const state = new StateReference(
-      await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.db),
-      previousMergeData[1].end,
-    );
-    const header = new Header(
-      rootRollupOutputs.previousArchive,
-      contentCommitment,
-      state,
-      previousMergeData[0].constants.globalVariables,
-      previousMergeData[0].accumulatedFees.add(previousMergeData[1].accumulatedFees),
-    );
-    if (!header.hash().equals(rootRollupOutputs.endBlockHash)) {
-      throw new Error(`Block header mismatch in finalise.`);
-    }
-    return header;
   }
 
   /**
