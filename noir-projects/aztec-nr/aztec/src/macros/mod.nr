@@ -1,9 +1,12 @@
 use protocol_types::abis::function_selector::FunctionSelector;
 use std::meta::unquote;
+use super::context::inputs::public_context_inputs::PublicContextInputs;
 
 pub comptime fn aztec(m: Module) -> Quoted {
     let functions = m.functions();
     let functions = functions.filter(|function: FunctionDefinition| function.has_named_attribute("public"));
+
+    let public_context_inputs = get_type::<PublicContextInputs>();
 
     let ifs = functions.map(
         |function: FunctionDefinition| {
@@ -14,27 +17,40 @@ pub comptime fn aztec(m: Module) -> Quoted {
         let signature = function_signature(name, parameters).as_quoted_str!();
         let selector: FunctionSelector = unquote!(quote { FunctionSelector::from_signature($signature) });
 
+        let mut parameter_index = 0;
+
         let reads = parameters.map(|param: (Quoted, Type)| {
-            let (param_name, param_type) = param;
+            let param_type = param.1;
             let param_size = size_in_fields(param_type);
-            quote { 
-                let $param_name = $param_type::deserialize(dep::aztec::context::public_context::calldata_copy(avm_input_calldata_offset, $param_size));
-                avm_input_calldata_offset += $param_size;
-            }
+            let param_name = f"arg{parameter_index}".quoted_contents();
+            let read = quote { let $param_name = dep::aztec::protocol_types::traits::Deserialize::deserialize(dep::aztec::context::public_context::calldata_copy(offset, $param_size)); };
+            let increment = quote { offset += $param_size; };
+            let read = if parameter_index == 0 {
+                quote { $increment }
+            } else {
+                quote { $read $increment }
+            };
+            parameter_index += 1;
+            read
         });
         let read = reads.join(quote { });
 
-        let args = parameters.map(|param: (Quoted, Type)| param.0);
+        let mut args = &[];
+        for parameter_index in 0..parameters.len() {
+            let param_name = f"arg{parameter_index}".quoted_contents();
+            args = args.push_back(quote { $param_name });
+        }
+
         let args = args.join(quote { , });
         let call = quote { $name($args) };
 
         let if_ = quote { 
             if selector == $selector {
-                let mut avm_input_calldata_offset = 0;
+                let mut offset = 0;
                 $read
-                let avm_return_value = $call.serialize();
-                let avm_return_array = avm_return_value.serialize();
-                dep::aztec::context::public_context::avm_return(avm_return_array);
+                let return_value = dep::aztec::protocol_types::traits::Serialize::serialize($call);
+                let return_array = return_value.serialize();
+                dep::aztec::context::public_context::avm_return(return_array);
             }
         };
         if_
@@ -47,7 +63,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
     let from_field_fn = FunctionSelector::from_field;
 
     let body = quote {
-        pub fn public_entrypoint(selector: Field) {
+        pub fn public_entrypoint(arg0: $public_context_inputs, selector: Field) {
             let cdoffset = 0;
             let selector = $from_field_fn(selector);
             $dispatch
@@ -116,4 +132,9 @@ comptime fn tuple_size_in_fields(typ: Type) -> Option<u32> {
         size
     }
     )
+}
+
+comptime fn get_type<T>() -> Type {
+    let t: T = std::mem::zeroed();
+    std::meta::type_of(t)
 }
