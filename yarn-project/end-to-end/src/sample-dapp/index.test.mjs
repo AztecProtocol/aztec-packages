@@ -33,7 +33,7 @@ describe('token', () => {
       noteTypeId,
       receipt.txHash,
     );
-    await pxe.addNote(extendedNote);
+    await owner.addNote(extendedNote);
 
     await token.methods.redeem_shield({ address: owner.getAddress() }, initialBalance, secret).send().wait();
   }, 120_000);

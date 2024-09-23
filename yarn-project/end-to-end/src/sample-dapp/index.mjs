@@ -90,8 +90,8 @@ async function showPublicBalances(pxe) {
 }
 // docs:end:showPublicBalances
 
+// docs:start:mintPublicFunds
 async function mintPublicFunds(pxe) {
-  // docs:start:mintPublicFunds
   const [owner] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
 
@@ -103,7 +103,6 @@ async function mintPublicFunds(pxe) {
   const receipt = await tx.wait();
   console.log(`Transaction has been mined on block ${receipt.blockNumber}`);
   await showPublicBalances(pxe);
-  // docs:end:mintPublicFunds
 
   // docs:start:showLogs
   const blockNumber = await pxe.getBlockNumber();
@@ -112,6 +111,7 @@ async function mintPublicFunds(pxe) {
   for (const log of textLogs) console.log(`Log emitted: ${log}`);
   // docs:end:showLogs
 }
+// docs:end:mintPublicFunds
 
 async function main() {
   const pxe = createPXEClient(PXE_URL);
