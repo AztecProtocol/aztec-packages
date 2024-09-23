@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726878110286,
+  "lastUpdate": 1727095033846,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dc433064391b2ac93bca6b838adac271fbd28991",
-          "message": "feat(avm)!: variants for SET opcode (#8441)\n\nSaves approx 5-10% bytecode size*\n\nThis one is not expected to save a lot of space because it already unofficially had variants (however the addresses are getting smaller now). This PR also\n* Allows SET_FF with size field\n* Therefore removes extra Brillig codegen necessary to handle big fields\n* Makes serde of SET opcodes uniform (does not need special casing)\n* Avoids extra casting in the transpiler, making set opcodes 1-1 with Brillig (no pc adjustment needed)\n\n*don't believe the benchmark run, that one is against master and takes into account the whole PR stack.",
-          "timestamp": "2024-09-09T23:22:37+01:00",
-          "tree_id": "d291d7f2b2680a3625d8c0fdd8e901d71b7ce3c3",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/dc433064391b2ac93bca6b838adac271fbd28991"
-        },
-        "date": 1725921703568,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13360.131502999991,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10308.13568 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5074.588801999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4657.327785 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39378.348893,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39378349000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14727.095038000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14727094000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3682756707,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3682756707 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 148944380,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 148944380 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2997095699,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2997095699 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 123703531,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 123703531 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 126519853,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126519853 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aee4c2dde7576fad1c47e407ee0dca43dac2b1b4",
+          "message": "fix: unencryptedlogs witgen (#8669)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\r\nline.",
+          "timestamp": "2024-09-23T13:21:13+01:00",
+          "tree_id": "ab4c8de6d51eace13988021ed356790caa3fd1d6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/aee4c2dde7576fad1c47e407ee0dca43dac2b1b4"
+        },
+        "date": 1727095026987,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 35519.744156,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 33173.925431 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5094.787852999985,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4680.429264 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 100156.09508300001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 100156095000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14689.026764000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14689028000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8529613306,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8529613306 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 151630054,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 151630054 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6955644574,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6955644574 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126376435,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126376435 ns\nthreads: 1"
           }
         ]
       }
