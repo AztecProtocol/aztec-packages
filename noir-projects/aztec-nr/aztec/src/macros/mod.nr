@@ -109,15 +109,23 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             acc + len
         });
 
-        let if_statements = notes.map(
-            | (typ, (_, _, _)): (Type, (StructDefinition, u32, Field)) | {
-                quote {
-                    if note_type_id == $typ::get_note_type_id() {
-                        aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::deserialize_content, note_header, compute_nullifier, serialized_note)
-                    }
+        let mut if_statements_list = &[];
+
+        for i in 0..notes.len() {
+            let (typ, (_, _, _)) = notes[i];
+            let if_or_else_if = if i == 0 {
+                quote { if }
+            } else {
+                quote { else if }
+            };
+            if_statements_list = if_statements_list.push_back(quote {
+                $if_or_else_if note_type_id == $typ::get_note_type_id() {
+                    aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::deserialize_content, note_header, compute_nullifier, serialized_note)
                 }
+            });
         }
-        ).join(quote{});
+
+        let if_statements = if_statements_list.join(quote {});
 
         quote {
             let note_header = aztec::prelude::NoteHeader::new(contract_address, nonce, storage_slot);
