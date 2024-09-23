@@ -28,10 +28,10 @@ contract DEX {
 
     #[derive(Serialize)]
     struct Reserves {
-        // TODO: Replace the use of u32 with larger type everywhere in this contract.
+        // TODO: Replace the use of u64 with larger type everywhere in this contract.
         // Didn't use U128 here because of https://github.com/AztecProtocol/aztec-packages/issues/8271 and because it might be insufficient.
-        reserve0: u32,
-        reserve1: u32,
+        reserve0: u64,
+        reserve1: u64,
     }
 
     #[storage]
@@ -40,7 +40,7 @@ contract DEX {
         reserves: PublicMutable<Reserves, Context>,
     }
 
-    global MINIMUM_LIQUIDITY: u32 = 1000;
+    global MINIMUM_LIQUIDITY: u64 = 1000;
     global LOCK_STORAGE_SLOT = 980908; // Arbitrarily chosen lock storage slot.
 
     #[public]
@@ -62,7 +62,7 @@ contract DEX {
     // Adds liquidity for `liquidity_provider` to the pool. `amount0Desired` and `amount1Desired` are the amounts
     // of tokens we ideally want to add. `amount0Min` and `amount1Min` are the minimum amounts we are willing to add.
     #[public]
-    fn add_liquidity(liquidity_provider: AztecAddress, amount0Desired: u32, amount1Desired: u32, amount0Min: u32, amount1Min: u32, nonce: Field) {
+    fn add_liquidity(liquidity_provider: AztecAddress, amount0Desired: u64, amount1Desired: u64, amount0Min: u64, amount1Min: u64, nonce: Field) {
         // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _lock(&mut context);
 
@@ -122,12 +122,12 @@ contract DEX {
 
         // Calculate the amount of liquidity tokens to mint
         let liquidity_token = Token::at(tokens.liquidity_token);
-        let total_supply = liquidity_token.total_supply().view(&mut context) as u32; // TODO: Nuke the cast here.
-        let mut liquidity: u32 = 0;
+        let total_supply = liquidity_token.total_supply().view(&mut context) as u64; // TODO: Nuke the cast here.
+        let mut liquidity: u64 = 0;
         if (total_supply == 0) {
             // TODO: This is using Tonelli-Shanks to compute sqrt but Uni is using babylonian method. Is it fine to use a different one?
             // TODO: avoid the casts here. Shall we use a method natively working with some integer type?
-            liquidity = std::ec::sqrt((amount0 * amount1 - MINIMUM_LIQUIDITY) as Field) as u32;
+            liquidity = std::ec::sqrt((amount0 * amount1 - MINIMUM_LIQUIDITY) as Field) as u64;
             liquidity_token.mint_public(AztecAddress::zero(), MINIMUM_LIQUIDITY as Field).call(&mut context); // permanently lock the first MINIMUM_LIQUIDITY tokens
         } else {
             liquidity = std::cmp::min(amount0 * total_supply / reserve0, amount1 * total_supply / reserve1);
@@ -145,7 +145,7 @@ contract DEX {
     }
 
     #[public]
-    fn remove_liquidity(liquidity_provider: AztecAddress, liquidity: u32, amount0Min: u32, amount1Min: u32, nonce: Field) {
+    fn remove_liquidity(liquidity_provider: AztecAddress, liquidity: u64, amount0Min: u64, amount1Min: u64, nonce: Field) {
         // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _lock(&mut context);
 
@@ -189,8 +189,8 @@ contract DEX {
         let amount0 = liquidity * balance0 / total_supply;
         let amount1 = liquidity * balance1 / total_supply;
         // TODO: Nuke these castings. Ideally make Token return integer and not Field.
-        assert(amount0 as u32 >= amount0Min, "INSUFFICIENT_0_AMOUNT");
-        assert(amount1 as u32 >= amount1Min, "INSUFFICIENT_1_AMOUNT");
+        assert(amount0 as u64 >= amount0Min, "INSUFFICIENT_0_AMOUNT");
+        assert(amount1 as u64 >= amount1Min, "INSUFFICIENT_1_AMOUNT");
 
         liquidity_token.burn_public(context.this_address(), liquidity, nonce).call(&mut context);
         // Note: Here we could also transfer to private if we prepared the partial notes. This might make sense to do
@@ -205,7 +205,7 @@ contract DEX {
         balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
 
         // TODO: Nuke these castings. Ideally make Token return integer and not Field.
-        let updated_reserves = Reserves { reserve0: balance0 as u32, reserve1: balance1 as u32};
+        let updated_reserves = Reserves { reserve0: balance0 as u64, reserve1: balance1 as u64};
         storage.reserves.write(updated_reserves);
 
         // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
