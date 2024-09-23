@@ -7,6 +7,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
     let functions = functions.filter(|function: FunctionDefinition| function.has_named_attribute("public"));
 
     let public_context_inputs = get_type::<PublicContextInputs>();
+    let unit = get_type::<()>();
 
     let ifs = functions.map(
         |function: FunctionDefinition| {
@@ -44,13 +45,21 @@ pub comptime fn aztec(m: Module) -> Quoted {
         let args = args.join(quote { , });
         let call = quote { $name($args) };
 
+        let return_code = if return_type == unit {
+            quote { $call }
+        } else {
+            quote { 
+                let return_value = dep::aztec::protocol_types::traits::Serialize::serialize($call);
+                let return_array = return_value.serialize();
+                dep::aztec::context::public_context::avm_return(return_array);
+            }
+        };
+
         let if_ = quote { 
             if selector == $selector {
                 let mut offset = 0;
                 $read
-                let return_value = dep::aztec::protocol_types::traits::Serialize::serialize($call);
-                let return_array = return_value.serialize();
-                dep::aztec::context::public_context::avm_return(return_array);
+                $return_code
             }
         };
         if_
