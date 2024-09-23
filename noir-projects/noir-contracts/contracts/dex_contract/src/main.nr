@@ -118,7 +118,7 @@ contract DEX {
 
         // Calculate the amount of liquidity tokens to mint
         let liquidity_token = Token::at(settings.liquidity_token);
-        let total_supply = liquidity_token.total_supply().call(&mut context);
+        let total_supply = liquidity_token.total_supply().view(&mut context);
         let mut liquidity: u32 = 0;
         if (total_supply == 0) {
             // TODO: This is using Tonelli-Shanks to compute sqrt but Uni is using babylonian method. Is it fine to use a different one?
@@ -161,47 +161,46 @@ contract DEX {
         //        most likely need them to be public.
         //     2. The "transfer from" flows are less efficient as they check authwits. It might be the most efficient
         //        to just make users transfer the liquidity token to the pool in a `BatchCall`.
-        liquidity_token.transfer_public(liquidity_provider, liquidity).call(&mut context);
-
-        // TODO:
+        liquidity_token.transfer_public(liquidity_provider, context.this_address(), liquidity, nonce).call(&mut context);
 
         // Calculate the amounts to be added to the pool
         let reserve0 = reserves.reserve0;
         let reserve1 = reserves.reserve1;
 
-
-        let balance0 = token0.balance_of_public().call(&mut context);
-        let balance1 = token1.balance_of_public().call(&mut context);
+        let mut balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
+        let mut balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
 
         // Uniswap burns balance of the pool instead of just burning based on the `liquidity` arg on input. I assume
-        // the do this to release stranded liquidity (e.g. somebody transferring liquidity tokens by accident). This
-        // might not make sense here as the liqudity token is a separate contract and hence we need to do a costly
-        // public call to get the balance.
+        // they do this to release stranded liquidity (e.g. somebody transferring liquidity tokens directly to the pool
+        // by accident). This might not make sense here as the liqudity token is a separate contract and hence we need
+        // to do a costly public call to get the balance.
         // TODO: Shall we streamline this and just burn based on the `liquidity` arg? Maybe we could even avoid
         //       the transfer and just allow the pool to directly call
         //       `liquidity_token.burn_public(liquidity_provider, liquidity)`.
-        let liquidity = liquidity_token.balance_of_public().call(&mut context);
+        let liquidity = liquidity_token.balance_of_public(context.this_address()).view(&mut context);
+        let total_supply = liquidity_token.total_supply().view(&mut context);
 
-        // bool feeOn = _mintFee(_reserve0, _reserve1);
-        // uint _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
-        // amount0 = liquidity.mul(balance0) / _totalSupply; // using balances ensures pro-rata distribution
-        // amount1 = liquidity.mul(balance1) / _totalSupply; // using balances ensures pro-rata distribution
-        // require(amount0 > 0 && amount1 > 0, 'UniswapV2: INSUFFICIENT_LIQUIDITY_BURNED');
-        // _burn(address(this), liquidity);
-        // _safeTransfer(_token0, to, amount0);
-        // _safeTransfer(_token1, to, amount1);
-        // balance0 = IERC20(_token0).balanceOf(address(this));
-        // balance1 = IERC20(_token1).balanceOf(address(this));
+        let amount0 = liquidity * balance0 / total_supply;
+        let amount1 = liquidity * balance1 / total_supply;
+        // TODO: Nuke these castings. Ideally make Token return integer and not Field.
+        assert(amount0 as u32 >= amount0Min as u32, "INSUFFICIENT_0_AMOUNT");
+        assert(amount1 as u32 >= amount1Min as u32, "INSUFFICIENT_1_AMOUNT");
 
-        // _update(balance0, balance1, _reserve0, _reserve1);
-        // if (feeOn) kLast = uint(reserve0).mul(reserve1); // reserve0 and reserve1 are up-to-date
-        // emit Burn(msg.sender, amount0, amount1, to);
+        liquidity_token.burn_public(context.this_address(), liquidity, nonce).call(&mut context);
+        // Note: Here we could also transfer to private if we prepared the partial notes. This might make sense to do
+        // if the expectation is that users will mostly want to have private balances.
+        token0.transfer_public(context.this_address(), liquidity_provider, amount0, nonce).call(&mut context);
+        token1.transfer_public(context.this_address(), liquidity_provider, amount1, nonce).call(&mut context);
 
+        // We load the balances again directly from the token because Uni v2 does it like this. I assume it's solely
+        // to protect against reentrancy attacks from the token contracts (since we called transfer_public above).
+        // This might be to costly as these require a static public call. TODO: Consider lock designs.
+        balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
+        balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
 
-
-
-        assert(amount0 >= amount0Min, "INSUFFICIENT_0_AMOUNT");
-        assert(amount1 >= amount1Min, "INSUFFICIENT_1_AMOUNT");
+        // TODO: Nuke these castings. Ideally make Token return integer and not Field.
+        let updated_reserves = Reserves { reserve0: balance0 as u32, reserve1: balance1 as u32};
+        storage.reserves.write(updated_reserves);
     }
 
     /**
