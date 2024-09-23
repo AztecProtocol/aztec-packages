@@ -47,15 +47,7 @@ pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
 pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
     let fn_name = f.name();
     let fn_parameters = f.parameters();
-    // Fixes [ typ ; ( len : numeric Field ) ] error
     let fn_return_type = f.return_type();
-    // let fn_return_type_quoted = if fn_return_type.as_array().is_some() {
-    //     let (element_type, array_len) = fn_return_type.as_array().unwrap();
-    //     let array_len = array_len.as_constant().unwrap();
-    //     quote { [$element_type; $array_len] }
-    // } else {
-    //     quote { $fn_return_type }
-    // };
 
     let fn_visibility = get_fn_visibility(f);
     let is_static_call = is_fn_view(f);
