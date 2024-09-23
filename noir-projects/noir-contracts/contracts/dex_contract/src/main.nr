@@ -26,6 +26,7 @@ contract DEX {
         liquidity_token: AztecAddress,
     }
 
+    // TODO: Nuke these reserves and just do balance_of_public on the tokens instead?
     #[derive(Serialize)]
     struct Reserves {
         // TODO: Replace the use of u64 with larger type everywhere in this contract.
@@ -153,16 +154,22 @@ contract DEX {
         _unlock(&mut context);
     }
 
+    // Removes liquidity from the pool and transfers the tokens to the partial notes prepared on token0 and token1.
+    // It is necessary that the liquidity provider transfers the liquidity tokens to the contract in a `BatchCall`
+    // before calling this function.
+    // Note: Do we consider this to be too dangerous? E.g. users accidentally transferring liquidity tokens to the pool
+    // in a separate tx and then getting rugged by bots? Just transferring is the most efficient because we already
+    // know the liquidity amount so we don't need partial notes and it's the most flexible: users can either call
+    // `Token::transfer_in_public` or `Token::transfer_to_public` and this contract does not care.
+    // `transfer_preparer_storage_slot_commitment` is a storage slot commitment used for both partial notes finalized
+    // in this tx (token0 and token1 notes).
     #[public]
-    fn remove_liquidity(liquidity_provider: AztecAddress, liquidity: u64, amount0Min: u64, amount1Min: u64, nonce: Field) {
+    fn remove_liquidity(amount0Min: u64, amount1Min: u64, transfer_preparer_storage_slot_commitment: Field) {
         // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _lock(&mut context);
 
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
+        // Note: We don't use authwit here as the permission from a user is given by the fact that he prepared
+        // the partial notes.
 
         let tokens = storage.tokens.read();
 
@@ -170,28 +177,11 @@ contract DEX {
         let token1 = Token::at(tokens.token1);
         let liquidity_token = Token::at(tokens.liquidity_token);
 
-        // We transfer the liquidity tokens from the liquidity provider to this contract.
-        // TODO: I am transferring the liquidity tokens in public here to follow the Uniswap v2 implementation.
-        // --> There are 2 things we need to discuss here:
-        //     1. This is assuming the dev has the liquidity token in public. I think this is fine as we mint to public
-        //        and I am not really sure if it makes sense to not have liquidity tokens in public as these tokens are
-        //        commonly used in other DeFi (e.g. borrowing against the liquidity token in AAVE) and for that we'll
-        //        most likely need them to be public.
-        //     2. The "transfer from" flows are less efficient as they check authwits. It might be the most efficient
-        //        to just make users transfer the liquidity token to the pool in a `BatchCall`.
-        liquidity_token.transfer_public(liquidity_provider, context.this_address(), liquidity, nonce).call(&mut context);
-
         // Calculate the amounts to be added to the pool
         let mut balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
         let mut balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
 
-        // Uniswap burns balance of the pool instead of just burning based on the `liquidity` arg on input. I assume
-        // they do this to release stranded liquidity (e.g. somebody transferring liquidity tokens directly to the pool
-        // by accident). This might not make sense here as the liqudity token is a separate contract and hence we need
-        // to do a costly public call to get the balance.
-        // TODO: Shall we streamline this and just burn based on the `liquidity` arg? Maybe we could even avoid
-        //       the transfer and just allow the pool to directly call
-        //       `liquidity_token.burn_public(liquidity_provider, liquidity)`.
+
         let liquidity = liquidity_token.balance_of_public(context.this_address()).view(&mut context);
         let total_supply = liquidity_token.total_supply().view(&mut context);
 
@@ -204,8 +194,10 @@ contract DEX {
         liquidity_token.burn_public(context.this_address(), liquidity, nonce).call(&mut context);
         // Note: Here we could also transfer to private if we prepared the partial notes. This might make sense to do
         // if the expectation is that users will mostly want to have private balances.
-        token0.transfer_public(context.this_address(), liquidity_provider, amount0, nonce).call(&mut context);
-        token1.transfer_public(context.this_address(), liquidity_provider, amount1, nonce).call(&mut context);
+        // TODO: Implement `prepare_transfer_to_private` and `finalize_transfer_to_private` in the Token contract
+        // (it's just on the NFT now).
+        token0.finalize_transfer_to_private(amount0, transfer_preparer_storage_slot_commitment).call(&mut context);
+        token1.finalize_transfer_to_private(amount1, transfer_preparer_storage_slot_commitment).call(&mut context);
 
         // We load the balances again directly from the token because Uni v2 does it like this. But why do they do
         // this? It's not to protect against reentrancy attacks as there are locks. Is it to protect against some weird
@@ -219,17 +211,6 @@ contract DEX {
 
         // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _unlock(&mut context);
-    }
-
-    /**
-     * Cancel a private authentication witness.
-     * @param inner_hash The inner hash of the authwit to cancel.
-     */
-    #[private]
-    fn cancel_authwit(inner_hash: Field) {
-        let on_behalf_of = context.msg_sender();
-        let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
-        context.push_nullifier(nullifier);
     }
 
     // After locking and unlocking there will be 1 public data write because we always commit the last change and
