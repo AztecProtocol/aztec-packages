@@ -313,6 +313,11 @@ export class TXEService {
     return toForeignCallResult([toSingle(functionSelector.toField())]);
   }
 
+  setIsStaticCall(isStaticCall: ForeignCallSingle) {
+    (this.typedOracle as TXE).setIsStaticCall(fromSingle(isStaticCall).toBool());
+    return toForeignCallResult([]);
+  }
+
   avmOpcodeIsStaticCall() {
     const isStaticCall = (this.typedOracle as TXE).getIsStaticCall();
     return toForeignCallResult([toSingle(new Fr(isStaticCall ? 1 : 0))]);
