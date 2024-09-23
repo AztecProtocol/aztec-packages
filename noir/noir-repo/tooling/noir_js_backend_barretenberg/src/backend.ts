@@ -3,6 +3,7 @@ import { Backend, CompiledCircuit, ProofData, VerifierBackend } from '@noir-lang
 import { deflattenFields } from './public_inputs.js';
 import { reconstructProofWithPublicInputs, reconstructProofWithPublicInputsHonk } from './verifier.js';
 import { BackendOptions, UltraPlonkBackend, UltraHonkBackend as UltraHonkBackendInternal } from '@aztec/bb.js';
+import { decompressSync as gunzip } from 'fflate';
 
 // This is the number of bytes in a UltraPlonk proof
 // minus the public inputs.
@@ -19,7 +20,7 @@ export class BarretenbergBackend implements Backend, VerifierBackend {
 
   /** @description Generates a proof */
   async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
-    const proofWithPublicInputs = await this.backend.generateProof(compressedWitness);
+    const proofWithPublicInputs = await this.backend.generateProof(gunzip(compressedWitness));
 
     const splitIndex = proofWithPublicInputs.length - numBytesInProofWithoutPublicInputs;
 
@@ -94,7 +95,7 @@ export class UltraHonkBackend implements Backend, VerifierBackend {
   }
 
   async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
-    const proofWithPublicInputs = await this.backend.generateProof(compressedWitness);
+    const proofWithPublicInputs = await this.backend.generateProof(gunzip(compressedWitness));
     const proofAsStrings = deflattenFields(proofWithPublicInputs.slice(4));
 
     const numPublicInputs = Number(proofAsStrings[1]);

@@ -321,7 +321,6 @@ __metadata:
     comlink: ^4.4.1
     commander: ^10.0.1
     debug: ^4.3.4
-    fflate: ^0.8.0
     tslib: ^2.4.0
   bin:
     bb.js: ./dest/node/main.js
@@ -3371,7 +3370,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.34.0
+    "@noir-lang/types": 0.31.0
     glob: ^10.3.10
     ts-command-line-args: ^2.5.1
   bin:
@@ -3380,12 +3379,13 @@ __metadata:
   linkType: soft
 
 "@noir-lang/noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 0.34.0
-  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=0a6cc4&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 0.31.0
+  resolution: "@noir-lang/noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=1adb3c&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/acvm_js": 0.50.0
-    "@noir-lang/noirc_abi": 0.34.0
-    "@noir-lang/types": 0.34.0
+    "@noir-lang/acvm_js": 0.47.0
+    "@noir-lang/noirc_abi": 0.31.0
+    "@noir-lang/types": 0.31.0
+  checksum: 98132370d4f4e1ac1b5f6c5b461f451d9df79d051fcc6136572030e3cb7b4472f9f9c2b93e899ddf753901108d1ec45ed4f6fee435058297cd90d5ff985b5b6d
   languageName: node
   linkType: hard
 
@@ -3393,7 +3393,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@noir-lang/noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@noir-lang/types": 0.34.0
+    "@noir-lang/types": 0.31.0
   languageName: node
   linkType: soft
 
@@ -8824,13 +8824,6 @@ __metadata:
   version: 4.2.3
   resolution: "fecha@npm:4.2.3"
   checksum: f94e2fb3acf5a7754165d04549460d3ae6c34830394d20c552197e3e000035d69732d74af04b9bed3283bf29fe2a9ebdcc0085e640b0be3cc3658b9726265e31
-  languageName: node
-  linkType: hard
-
-"fflate@npm:^0.8.0":
-  version: 0.8.2
-  resolution: "fflate@npm:0.8.2"
-  checksum: 29470337b85d3831826758e78f370e15cda3169c5cd4477c9b5eea2402261a74b2975bae816afabe1c15d21d98591e0d30a574f7103aa117bff60756fa3035d4
   languageName: node
   linkType: hard
 

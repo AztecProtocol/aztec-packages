@@ -1,4 +1,3 @@
-import { decompressSync as gunzip } from 'fflate';
 import { BackendOptions, Barretenberg } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
 
@@ -44,9 +43,9 @@ export class UltraPlonkBackend {
   }
 
   /** @description Generates a proof */
-  async generateProof(compressedWitness: Uint8Array): Promise<Uint8Array> {
+  async generateProof(uncompressedWitness: Uint8Array): Promise<Uint8Array> {
     await this.instantiate();
-    return this.api.acirCreateProof(this.acirComposer, this.acirUncompressedBytecode, gunzip(compressedWitness));
+    return this.api.acirCreateProof(this.acirComposer, this.acirUncompressedBytecode, uncompressedWitness);
   }
 
   /**
@@ -146,9 +145,9 @@ export class UltraHonkBackend {
     }
   }
 
-  async generateProof(compressedWitness: Uint8Array): Promise<Uint8Array> {
+  async generateProof(uncompressedWitness: Uint8Array): Promise<Uint8Array> {
     await this.instantiate();
-    return this.api.acirProveUltraHonk(this.acirUncompressedBytecode, gunzip(compressedWitness));
+    return this.api.acirProveUltraHonk(this.acirUncompressedBytecode, uncompressedWitness);
   }
 
   async verifyProof(proof: Uint8Array): Promise<boolean> {
