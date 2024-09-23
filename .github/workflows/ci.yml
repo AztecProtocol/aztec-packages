@@ -692,6 +692,38 @@ jobs:
           delete: ${{ !steps.gates_diff.outputs.markdown }}
           message: ${{ steps.gates_diff.outputs.markdown }}
 
+  # Make sure k8s works with a kind deployment.
+  k8s-deploy-test:
+    needs: [build, changes]
+    # NOTE: a bit underspecced for PR-oriented development
+    if: github.ref_name == 'master' || contains(github.ref_name, 'k8s')
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        values_file: ["default.yaml", "3-validators.yaml"]
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      - name: Setup
+        uses: ./.github/ensure-local-images
+        timeout-minutes: 45
+        with:
+          builder_type: builder-x86
+          # these are copied to the tester and expected by the earthly command below
+          # if they fail to copy, it will try to build them on the tester and fail
+          builder_images_to_copy: aztecprotocol/aztec:${{ env.GIT_COMMIT }} aztecprotocol/end-to-end:${{ env.GIT_COMMIT }}
+          # command to produce the images in case they don't exist
+          builder_command: scripts/earthly-ci ./yarn-project+export-e2e-test-images
+      - name: Setup Env
+        run: ./scripts/setup_env.sh ${{ env.DOCKERHUB_PASSWORD }}
+        env:
+          PULL_REQUEST: "${{ github.event.pull_request.number }}"
+          BRANCH: "${{ github.ref_name }}"
+      - name: Test
+        run: |
+          ./spartan/scripts/setup_local_k8s.sh
+          ./scripts/earthly-ci -P --no-output ./yarn-project/end-to-end/+network-transfer --values-file=${{ matrix.values_file }}
+
   merge-check:
     runs-on: ubuntu-20.04
     needs:
@@ -726,6 +758,7 @@ jobs:
       - boxes
       - boxes-test
       # - protocol-circuits-gates-report # non-blocking
+      - k8s-deploy-test # if on appropriate branch
     if: always()
     steps:
       - name: Report overall success (non-draft)
@@ -781,6 +814,7 @@ jobs:
       - boxes
       - boxes-test
       # - protocol-circuits-gates-report # non-blocking
+      - k8s-deploy-test # if on appropriate branch
     if: github.event.pull_request.draft == false && !cancelled()
     steps:
       - name: Check for Rerun

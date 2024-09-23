@@ -1,0 +1,3 @@
+#!/bin/bash
+# useful for finding forgotten external contributions
+gh pr list --state open --json number,title,headRefName,isCrossRepository,headRepository --jq '.[] | select(.isCrossRepository == true) | {number, title, headRefName, repository: .headRepository.name}'
