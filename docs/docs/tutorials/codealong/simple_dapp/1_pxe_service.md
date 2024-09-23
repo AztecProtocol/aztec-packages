@@ -37,7 +37,7 @@ Let's try loading the accounts:
 
 #include_code showAccounts yarn-project/end-to-end/src/sample-dapp/index.mjs javascript
 
-Run again the above, and we should see:
+Call the `showAccounts` function from `main`, run again the above, and you should see something like:
 
 ```
 User accounts:
