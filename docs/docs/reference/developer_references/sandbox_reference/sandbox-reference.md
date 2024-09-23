@@ -78,7 +78,7 @@ SEQ_MAX_SECONDS_BETWEEN_BLOCKS=0 # Sequencer will produce a block with less than
 SEQ_MIN_SECONDS_BETWEEN_BLOCKS=0 # Minimum seconds to wait between consecutive blocks. (default: 0)
 
 ## Validator variables ##
-VALIDATOR_PRIVATE_KEY=0x01234567890abcde01234567890abcde  # Private key of the ethereum account that will be used to perform validator duties 
+VALIDATOR_PRIVATE_KEY=0x01234567890abcde01234567890abcde  # Private key of the ethereum account that will be used to perform validator duties
 ```
 
 **PXE**
@@ -165,7 +165,7 @@ You can see all of our example contracts in the monorepo [here (GitHub  link)](h
 If you wish to run components of the Aztec network stack separately, you can use the `aztec start` command with various options for enabling components.
 
 ```bash
-aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] ----p2p-bootstrap [p2pOptions]
+aztec start --node [nodeOptions] --pxe [pxeOptions] --archiver [archiverOptions] --sequencer [sequencerOptions] --prover [proverOptions] --p2p-bootstrap [p2pOptions]
 ```
 
 Starting the aztec node alongside a PXE, sequencer or archiver, will attach the components to the node. Eg if you want to run a PXE separately to a node, you can [read this guide](../../../guides/developer_guides/local_env/run_more_than_one_pxe_sandbox.md).
