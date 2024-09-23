@@ -74,3 +74,4 @@ contract EcdsaKAccount {
         std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message)
     }
 }
+

@@ -1,6 +1,8 @@
 // Serde test for the block attestation type
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
+
 import { BlockAttestation } from './block_attestation.js';
-import { makeBlockAttestation, randomSigner } from './mocks.js';
+import { makeBlockAttestation } from './mocks.js';
 
 describe('Block Attestation serialization / deserialization', () => {
   it('Should serialize / deserialize', () => {
@@ -13,7 +15,7 @@ describe('Block Attestation serialization / deserialization', () => {
   });
 
   it('Should serialize / deserialize + recover sender', () => {
-    const account = randomSigner();
+    const account = Secp256k1Signer.random();
 
     const proposal = makeBlockAttestation(account);
     const serialized = proposal.toBuffer();
