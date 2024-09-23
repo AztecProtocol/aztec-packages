@@ -265,10 +265,13 @@ void AvmKernelTraceBuilder::op_l1_to_l2_msg_exists(uint32_t clk,
     kernel_trace.push_back(entry);
 }
 
-void AvmKernelTraceBuilder::op_emit_unencrypted_log(uint32_t clk, uint32_t side_effect_counter, const FF& log_hash)
+void AvmKernelTraceBuilder::op_emit_unencrypted_log(uint32_t clk,
+                                                    uint32_t side_effect_counter,
+                                                    const FF& log_hash,
+                                                    const FF& log_length)
 {
     uint32_t offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + emit_unencrypted_log_offset;
-    perform_kernel_output_lookup(offset, side_effect_counter, log_hash, FF(0));
+    perform_kernel_output_lookup(offset, side_effect_counter, log_hash, log_length);
     emit_unencrypted_log_offset++;
 
     KernelTraceEntry entry = {
