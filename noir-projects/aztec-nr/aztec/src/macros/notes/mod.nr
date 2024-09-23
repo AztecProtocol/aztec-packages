@@ -2,7 +2,7 @@ use std::{
     meta::{type_of, unquote, typ::fresh_type_variable}, collections::umap::UHashMap,
     hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
 };
-use protocol_types::{meta::{flatten_to_fields, pack_from_fields}, utils::field::field_from_bytes};
+use protocol_types::meta::{flatten_to_fields, pack_from_fields};
 use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector, note_interface::NoteInterface};
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
@@ -17,7 +17,7 @@ comptime fn compute_note_type_id(name: Quoted) -> Field {
             let bytes = $name_as_str_quote.as_bytes();
             let hash = protocol_types::hash::poseidon2_hash_bytes(bytes);
             let hash_bytes = hash.to_be_bytes::<4>();
-            field_from_bytes(hash_bytes, true)
+            protocol_types::utils::field::field_from_bytes(hash_bytes, true)
         }
     )
 }
