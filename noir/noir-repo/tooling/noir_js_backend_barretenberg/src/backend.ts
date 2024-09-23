@@ -3,7 +3,7 @@ import { Backend, CompiledCircuit, ProofData, VerifierBackend } from '@noir-lang
 import { BackendOptions } from './types.js';
 import { deflattenFields } from './public_inputs.js';
 import { reconstructProofWithPublicInputs, reconstructProofWithPublicInputsHonk } from './verifier.js';
-import { UltraPlonkBackend, UltrahonkBackend as UltrahonkBackendInternal } from '@aztec/bb.js';
+import { UltraPlonkBackend, UltraHonkBackend as UltraHonkBackendInternal } from '@aztec/bb.js';
 
 // This is the number of bytes in a UltraPlonk proof
 // minus the public inputs.
@@ -86,12 +86,12 @@ export class UltraHonkBackend implements Backend, VerifierBackend {
   // These are initialized asynchronously in the `init` function,
   // constructors cannot be asynchronous which is why we do this.
 
-  protected backend!: UltrahonkBackendInternal;
+  protected backend!: UltraHonkBackendInternal;
 
   constructor(acirCircuit: CompiledCircuit, options: BackendOptions = { threads: 1 }) {
     const acirBytecodeBase64 = acirCircuit.bytecode;
     const acirUncompressedBytecode = acirToUint8Array(acirBytecodeBase64);
-    this.backend = new UltrahonkBackendInternal(acirUncompressedBytecode, options);
+    this.backend = new UltraHonkBackendInternal(acirUncompressedBytecode, options);
   }
 
   async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
