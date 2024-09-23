@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include "tracy/Tracy.hpp"
 #include <memory>
 #ifndef BB_USE_OP_COUNT
 // require a semicolon to appease formatters
@@ -154,6 +155,7 @@ struct OpCountTimeReporter {
 #define BB_OP_COUNT_CYCLES() BB_OP_COUNT_CYCLES_NAME(__func__)
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME_NAME(name)                                                                                    \
+    ZoneScopedN(name);                                                                                             \
     bb::detail::OpCountTimeReporter __bb_op_count_time(bb::detail::GlobalOpCount<name>::ensure_stats())
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BB_OP_COUNT_TIME() BB_OP_COUNT_TIME_NAME(__func__)

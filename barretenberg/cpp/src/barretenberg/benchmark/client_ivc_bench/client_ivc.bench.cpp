@@ -93,6 +93,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
     Proof proof;
     for (auto _ : state) {
         BB_REPORT_OP_COUNT_IN_BENCH(state);
+        ZoneScopedNS("Client IVC Bench", 60);
         perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
         proof = ivc.prove();
     }

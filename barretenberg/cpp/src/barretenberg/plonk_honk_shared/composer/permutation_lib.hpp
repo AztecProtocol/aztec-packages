@@ -62,7 +62,7 @@ template <size_t NUM_WIRES, bool generalized> struct PermutationMapping {
      */
     PermutationMapping(size_t circuit_size)
     {
-        ZoneScopedN("PermutationMapping constructor");
+        // ZoneScopedN("PermutationMapping constructor");
         for (uint8_t col_idx = 0; col_idx < NUM_WIRES; ++col_idx) {
             sigmas[col_idx].reserve(circuit_size);
             if constexpr (generalized) {
@@ -386,12 +386,12 @@ void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuil
     } else if constexpr (IsUltraFlavor<Flavor>) { // any UltraHonk flavor
         // Compute Honk-style sigma and ID polynomials from the corresponding mappings
         {
-            ZoneScopedN("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
+            // ZoneScopedN("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
             compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
                 key->polynomials.get_sigmas(), mapping.sigmas, key);
         }
         {
-            ZoneScopedN("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
+            // ZoneScopedN("compute_honk_style_permutation_lagrange_polynomials_from_mapping");
             compute_honk_style_permutation_lagrange_polynomials_from_mapping<Flavor>(
                 key->polynomials.get_ids(), mapping.ids, key);
         }

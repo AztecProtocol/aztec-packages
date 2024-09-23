@@ -129,7 +129,7 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
                 std::shared_ptr<CommitmentKey_> commitment_key = nullptr)
     {
         if (commitment_key == nullptr) {
-            ZoneScopedN("init commitment key");
+            // ZoneScopedN("init commitment key");
             this->commitment_key = std::make_shared<CommitmentKey_>(circuit_size);
         } else {
             // Don't create another commitment key if we already have one

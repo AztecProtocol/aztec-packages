@@ -219,14 +219,14 @@ class GoblinProver {
      */
     GoblinProof prove(MergeProof merge_proof_in = {})
     {
-        ZoneScopedN("Goblin::prove");
+        // ZoneScopedN("Goblin::prove");
         goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
         {
-            ZoneScopedN("prove_eccvm");
+            // ZoneScopedN("prove_eccvm");
             prove_eccvm();
         }
         {
-            ZoneScopedN("prove_translator");
+            // ZoneScopedN("prove_translator");
             prove_translator();
         }
         return goblin_proof;

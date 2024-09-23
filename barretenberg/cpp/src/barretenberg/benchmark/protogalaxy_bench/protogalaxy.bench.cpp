@@ -1,5 +1,4 @@
 #include <benchmark/benchmark.h>
-#include "tracy/Tracy.hpp"
 #include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"

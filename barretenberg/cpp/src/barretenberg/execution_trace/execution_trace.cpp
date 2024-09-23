@@ -27,7 +27,7 @@ template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_blo
 template <class Flavor>
 void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
-    ZoneScopedN("trace populate");
+    // ZoneScopedN("trace populate");
     // Share wire polynomials, selector polynomials between proving key and builder and copy cycles from raw circuit
     // data
     auto trace_data = construct_trace_data(builder, proving_key, is_structured);
@@ -36,18 +36,18 @@ void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::Provin
         proving_key.pub_inputs_offset = trace_data.pub_inputs_offset;
     }
     if constexpr (IsUltraPlonkOrHonk<Flavor>) {
-        ZoneScopedN("add_memory_records_to_proving_key");
+        // ZoneScopedN("add_memory_records_to_proving_key");
         add_memory_records_to_proving_key(trace_data, builder, proving_key);
     }
 
     if constexpr (IsGoblinFlavor<Flavor>) {
-        ZoneScopedN("add_ecc_op_wires_to_proving_key");
+        // ZoneScopedN("add_ecc_op_wires_to_proving_key");
         add_ecc_op_wires_to_proving_key(builder, proving_key);
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
     {
-        ZoneScopedN("compute_permutation_argument_polynomials");
+        // ZoneScopedN("compute_permutation_argument_polynomials");
         compute_permutation_argument_polynomials<Flavor>(builder, &proving_key, trace_data.copy_cycles);
     }
 }
@@ -73,7 +73,8 @@ template <class Flavor>
 typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(
     Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
-    ZoneScopedN("construct_trace_data");
+    // ZoneScopedN("construct_trace_data");
+    TraceData trace_data{ builder, proving_key };
 
     if constexpr (IsPlonkFlavor<Flavor>) {
         // Complete the public inputs execution trace block from builder.public_inputs
@@ -91,7 +92,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         // Update wire polynomials and copy cycles
         // NB: The order of row/column loops is arbitrary but needs to be row/column to match old copy_cycle code
         {
-            ZoneScopedN("populating wires and copy_cycles");
+            // ZoneScopedN("populating wires and copy_cycles");
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
@@ -137,6 +138,24 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         offset += block.get_fixed_size(is_structured);
     }
     return trace_data;
+}
+
+template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_block(Builder& builder)
+{
+    // ZoneScopedN("populate_public_inputs_block");
+    // Update the public inputs block
+    for (auto& idx : builder.public_inputs) {
+        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+            if (wire_idx < 2) { // first two wires get a copy of the public inputs
+                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(idx);
+            } else { // the remaining wires get zeros
+                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(builder.zero_idx);
+            }
+        }
+        for (auto& selector : builder.blocks.pub_inputs.selectors) {
+            selector.emplace_back(0);
+        }
+    }
 }
 
 template <class Flavor>
