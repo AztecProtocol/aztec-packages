@@ -82,8 +82,8 @@ TEST_F(LMDBTreeStoreTest, can_write_and_read_meta_data)
     metaData.initialRoot = VALUES[1];
     metaData.root = VALUES[2];
     metaData.depth = 40;
-    metaData.finalisedBlockHeight = 87;
-    metaData.unfinalisedBlockHeight = 95;
+    metaData.oldestHistoricBlock = 87;
+    metaData.blockHeight = 95;
     metaData.name = "Note hash tree";
     metaData.size = 60;
     LMDBTreeStore store(_directory, "DB1", _mapSize, _maxReaders);

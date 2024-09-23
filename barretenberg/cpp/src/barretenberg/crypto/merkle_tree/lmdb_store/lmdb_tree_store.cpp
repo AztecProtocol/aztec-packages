@@ -13,6 +13,7 @@
 #include <exception>
 #include <lmdb.h>
 #include <optional>
+#include <stdexcept>
 #include <vector>
 
 namespace bb::crypto::merkle_tree {
@@ -38,12 +39,9 @@ int block_key_cmp(const MDB_val* a, const MDB_val* b)
     return value_cmp<uint64_t>(a, b);
 }
 
-LMDBTreeStore::LMDBTreeStore(const std::string& directory,
-                             const std::string& name,
-                             uint64_t mapSizeKb,
-                             uint64_t maxNumReaders)
-    : _name(name)
-    , _directory(directory)
+LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders)
+    : _name(std::move(name))
+    , _directory(std::move(directory))
     , _environment(std::make_shared<LMDBEnvironment>(_directory, mapSizeKb, 4, maxNumReaders))
 {
 
@@ -128,17 +126,6 @@ bool LMDBTreeStore::read_meta_data(TreeMeta& metaData, LMDBTreeStore::ReadTransa
     return success;
 }
 
-bool LMDBTreeStore::read_leaf_indices(const fr& leafValue, Indices& indices, LMDBTreeStore::ReadTransaction& tx)
-{
-    FrKeyType key(leafValue);
-    std::vector<uint8_t> data;
-    bool success = tx.get_value<FrKeyType>(key, data, *_leafValueToIndexDatabase);
-    if (success) {
-        msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
-    }
-    return success;
-}
-
 void LMDBTreeStore::write_leaf_indices(const fr& leafValue, const Indices& indices, LMDBTreeStore::WriteTransaction& tx)
 {
     msgpack::sbuffer buffer;
@@ -150,13 +137,7 @@ void LMDBTreeStore::write_leaf_indices(const fr& leafValue, const Indices& indic
 
 bool LMDBTreeStore::read_node(const fr& nodeHash, NodePayload& nodeData, ReadTransaction& tx)
 {
-    FrKeyType key(nodeHash);
-    std::vector<uint8_t> data;
-    bool success = tx.get_value<FrKeyType>(key, data, *_nodeDatabase);
-    if (success) {
-        msgpack::unpack((const char*)data.data(), data.size()).get().convert(nodeData);
-    }
-    return success;
+    return get_node_data(nodeHash, nodeData, tx);
 }
 
 void LMDBTreeStore::write_node(const fr& nodeHash, const NodePayload& nodeData, WriteTransaction& tx)
@@ -166,6 +147,48 @@ void LMDBTreeStore::write_node(const fr& nodeHash, const NodePayload& nodeData, 
     std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
     FrKeyType key(nodeHash);
     tx.put_value<FrKeyType>(key, encoded, *_nodeDatabase);
+}
+
+void LMDBTreeStore::increment_node_reference_count(const fr& nodeHash, WriteTransaction& tx)
+{
+    NodePayload nodePayload;
+    bool success = get_node_data(nodeHash, nodePayload, tx);
+    if (!success) {
+        throw std::runtime_error("Failed to find node when attempting to increases reference count");
+    }
+    ++nodePayload.ref;
+    write_node(nodeHash, nodePayload, tx);
+}
+
+void LMDBTreeStore::set_or_increment_node_reference_count(const fr& nodeHash,
+                                                          NodePayload& nodeData,
+                                                          WriteTransaction& tx)
+{
+    // Set to zero here and enrich from DB if present
+    nodeData.ref = 0;
+    get_node_data(nodeHash, nodeData, tx);
+    // Increment now to the correct value
+    ++nodeData.ref;
+    write_node(nodeHash, nodeData, tx);
+}
+
+void LMDBTreeStore::decrement_node_reference_count(const fr& nodeHash, NodePayload& nodeData, WriteTransaction& tx)
+{
+    bool success = get_node_data(nodeHash, nodeData, tx);
+    if (!success) {
+        throw std::runtime_error("Failed to find node when attempting to increases reference count");
+    }
+    if (--nodeData.ref == 0) {
+        tx.delete_value(nodeHash, *_nodeDatabase);
+        return;
+    }
+    write_node(nodeHash, nodeData, tx);
+}
+
+void LMDBTreeStore::delete_leaf_by_hash(const fr& leafHash, WriteTransaction& tx)
+{
+    FrKeyType key(leafHash);
+    tx.delete_value(key, *_leafHashToPreImageDatabase);
 }
 
 fr LMDBTreeStore::find_low_leaf(const fr& leafValue,

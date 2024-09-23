@@ -15,18 +15,17 @@ struct TreeMeta {
     bb::fr root;
     index_t initialSize;
     bb::fr initialRoot;
-    uint64_t finalisedBlockHeight;
-    uint64_t unfinalisedBlockHeight;
+    uint64_t oldestHistoricBlock;
+    uint64_t blockHeight;
 
-    MSGPACK_FIELDS(
-        name, depth, size, committedSize, root, initialSize, initialRoot, finalisedBlockHeight, unfinalisedBlockHeight)
+    MSGPACK_FIELDS(name, depth, size, committedSize, root, initialSize, initialRoot, oldestHistoricBlock, blockHeight)
 
     bool operator==(const TreeMeta& other) const
     {
         return name == other.name && depth == other.depth && size == other.size &&
                committedSize == other.committedSize && root == other.root && initialRoot == other.initialRoot &&
-               initialSize == other.initialSize && unfinalisedBlockHeight == other.unfinalisedBlockHeight &&
-               finalisedBlockHeight == other.finalisedBlockHeight;
+               initialSize == other.initialSize && blockHeight == other.blockHeight &&
+               oldestHistoricBlock == other.oldestHistoricBlock;
     }
 };
 

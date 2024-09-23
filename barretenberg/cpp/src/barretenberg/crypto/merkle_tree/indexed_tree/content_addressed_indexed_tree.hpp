@@ -226,7 +226,7 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(S
         store_.get_meta(meta, *tx, false);
     }
 
-    if (meta.unfinalisedBlockHeight != 0) {
+    if (meta.blockHeight != 0) {
         return;
     }
 
@@ -307,6 +307,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
     auto job = [=, this]() {
         execute_and_report<GetIndexedLeafResponse<LeafValueType>>(
             [=, this](TypedResponse<GetIndexedLeafResponse<LeafValueType>>& response) {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
                 ReadTransactionPtr tx = store_.create_read_transaction();
                 BlockPayload blockData;
                 if (!store_.get_block_data(blockNumber, blockData, *tx)) {
@@ -391,6 +394,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
     auto job = [=, this]() -> void {
         execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
                 typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
                 BlockPayload blockData;
                 if (!store_.get_block_data(blockNumber, blockData, *tx)) {
@@ -443,6 +449,9 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
     auto job = [=, this]() {
         execute_and_report<GetLowIndexedLeafResponse>(
             [=, this](TypedResponse<GetLowIndexedLeafResponse>& response) {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
                 typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
                 BlockPayload blockData;
                 if (!store_.get_block_data(blockNumber, blockData, *tx)) {

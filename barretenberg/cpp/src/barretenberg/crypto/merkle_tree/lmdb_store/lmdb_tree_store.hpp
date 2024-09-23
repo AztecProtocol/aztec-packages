@@ -59,7 +59,7 @@ class LMDBTreeStore {
     using SharedPtr = std::shared_ptr<LMDBTreeStore>;
     using ReadTransaction = LMDBTreeReadTransaction;
     using WriteTransaction = LMDBTreeWriteTransaction;
-    LMDBTreeStore(const std::string& directory, const std::string& name, uint64_t mapSizeKb, uint64_t maxNumReaders);
+    LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders);
     LMDBTreeStore(const LMDBTreeStore& other) = delete;
     LMDBTreeStore(LMDBTreeStore&& other) = delete;
     LMDBTreeStore& operator=(const LMDBTreeStore& other) = delete;
@@ -77,7 +77,7 @@ class LMDBTreeStore {
 
     bool read_meta_data(TreeMeta& metaData, ReadTransaction& tx);
 
-    bool read_leaf_indices(const fr& leafValue, Indices& indices, ReadTransaction& tx);
+    template <typename TxType> bool read_leaf_indices(const fr& leafValue, Indices& indices, TxType& tx);
 
     fr find_low_leaf(const fr& leafValue, Indices& indices, std::optional<index_t> sizeLimit, ReadTransaction& tx);
 
@@ -87,10 +87,19 @@ class LMDBTreeStore {
 
     void write_node(const fr& nodeHash, const NodePayload& nodeData, WriteTransaction& tx);
 
-    template <typename LeafType> bool read_leaf_by_hash(const fr& leafHash, LeafType& leafData, ReadTransaction& tx);
+    void increment_node_reference_count(const fr& nodeHash, WriteTransaction& tx);
+
+    void set_or_increment_node_reference_count(const fr& nodeHash, NodePayload& nodeData, WriteTransaction& tx);
+
+    void decrement_node_reference_count(const fr& nodeHash, NodePayload& nodeData, WriteTransaction& tx);
+
+    template <typename LeafType, typename TxType>
+    bool read_leaf_by_hash(const fr& leafHash, LeafType& leafData, TxType& tx);
 
     template <typename LeafType>
     void write_leaf_by_hash(const fr& leafHash, const LeafType& leafData, WriteTransaction& tx);
+
+    void delete_leaf_by_hash(const fr& leafHash, WriteTransaction& tx);
 
   private:
     std::string _name;
@@ -100,14 +109,27 @@ class LMDBTreeStore {
     LMDBDatabase::Ptr _nodeDatabase;
     LMDBDatabase::Ptr _leafValueToIndexDatabase;
     LMDBDatabase::Ptr _leafHashToPreImageDatabase;
+
+    template <typename TxType> bool get_node_data(const fr& nodeHash, NodePayload& nodeData, TxType& tx);
 };
 
-template <typename LeafType>
-bool LMDBTreeStore::read_leaf_by_hash(const fr& leafHash, LeafType& leafData, ReadTransaction& tx)
+template <typename TxType> bool LMDBTreeStore::read_leaf_indices(const fr& leafValue, Indices& indices, TxType& tx)
+{
+    FrKeyType key(leafValue);
+    std::vector<uint8_t> data;
+    bool success = tx.template get_value<FrKeyType>(key, data, *_leafValueToIndexDatabase);
+    if (success) {
+        msgpack::unpack((const char*)data.data(), data.size()).get().convert(indices);
+    }
+    return success;
+}
+
+template <typename LeafType, typename TxType>
+bool LMDBTreeStore::read_leaf_by_hash(const fr& leafHash, LeafType& leafData, TxType& tx)
 {
     FrKeyType key(leafHash);
     std::vector<uint8_t> data;
-    bool success = tx.get_value<FrKeyType>(key, data, *_leafHashToPreImageDatabase);
+    bool success = tx.template get_value<FrKeyType>(key, data, *_leafHashToPreImageDatabase);
     if (success) {
         msgpack::unpack((const char*)data.data(), data.size()).get().convert(leafData);
     }
@@ -122,5 +144,16 @@ void LMDBTreeStore::write_leaf_by_hash(const fr& leafHash, const LeafType& leafD
     std::vector<uint8_t> encoded(buffer.data(), buffer.data() + buffer.size());
     FrKeyType key(leafHash);
     tx.put_value<FrKeyType>(key, encoded, *_leafHashToPreImageDatabase);
+}
+
+template <typename TxType> bool LMDBTreeStore::get_node_data(const fr& nodeHash, NodePayload& nodeData, TxType& tx)
+{
+    FrKeyType key(nodeHash);
+    std::vector<uint8_t> data;
+    bool success = tx.template get_value<FrKeyType>(key, data, *_nodeDatabase);
+    if (success) {
+        msgpack::unpack((const char*)data.data(), data.size()).get().convert(nodeData);
+    }
+    return success;
 }
 } // namespace bb::crypto::merkle_tree
