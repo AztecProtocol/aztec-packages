@@ -4,7 +4,7 @@ import type {
   L2BlockSource,
   MerkleTreeOperations,
   ProverClient,
-  TxProvider,
+  ProverCoordination,
   WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -37,7 +37,7 @@ export class ProverNode {
     private l1ToL2MessageSource: L1ToL2MessageSource,
     private contractDataSource: ContractDataSource,
     private worldState: WorldStateSynchronizer,
-    private txProvider: TxProvider,
+    private coordination: ProverCoordination,
     private simulator: SimulationProvider,
     private telemetryClient: TelemetryClient,
     options: { pollingIntervalMs?: number; disableAutomaticProving?: boolean; maxPendingJobs?: number } = {},
@@ -127,7 +127,7 @@ export class ProverNode {
   }
 
   public sendEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    return this.txProvider.addEpochProofQuote(quote);
+    return this.coordination.addEpochProofQuote(quote);
   }
 
   /**
@@ -208,7 +208,7 @@ export class ProverNode {
       this.publisher,
       this.l2BlockSource,
       this.l1ToL2MessageSource,
-      this.txProvider,
+      this.coordination,
       this.metrics,
       cleanUp,
     );

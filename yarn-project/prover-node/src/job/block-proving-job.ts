@@ -6,9 +6,9 @@ import {
   type L2BlockSource,
   PROVING_STATUS,
   type ProcessedTx,
+  type ProverCoordination,
   type Tx,
   type TxHash,
-  type TxProvider,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -35,7 +35,7 @@ export class BlockProvingJob {
     private publisher: L1Publisher,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
-    private txProvider: TxProvider,
+    private coordination: ProverCoordination,
     private metrics: ProverNodeMetrics,
     private cleanUp: (job: BlockProvingJob) => Promise<void> = () => Promise.resolve(),
   ) {
@@ -142,7 +142,7 @@ export class BlockProvingJob {
 
   private async getTxs(txHashes: TxHash[]): Promise<Tx[]> {
     const txs = await Promise.all(
-      txHashes.map(txHash => this.txProvider.getTxByHash(txHash).then(tx => [txHash, tx] as const)),
+      txHashes.map(txHash => this.coordination.getTxByHash(txHash).then(tx => [txHash, tx] as const)),
     );
     const notFound = txs.filter(([_, tx]) => !tx);
     if (notFound.length) {
