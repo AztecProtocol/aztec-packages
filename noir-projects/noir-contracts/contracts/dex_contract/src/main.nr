@@ -16,11 +16,11 @@ contract DEX {
     use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
     use dep::token::Token;
 
-    // We store the settings of the pool in a struct such that to load it from PublicImmutable asserts only
-    // a single merkle proof.
+    // We store the tokens of the pool in a struct such that to load it from PublicImmutable asserts only a single
+    // merkle proof.
     // (Once we actually do the optimization. WIP in https://github.com/AztecProtocol/aztec-packages/pull/8022).
     #[derive(Serialize)]
-    struct Settings {
+    struct Tokens {
         token0: AztecAddress,
         token1: AztecAddress,
         liquidity_token: AztecAddress,
@@ -36,7 +36,7 @@ contract DEX {
 
     #[storage]
     struct Storage<Context> {
-        settings: PublicImmutable<Settings, Context>,
+        tokens: PublicImmutable<Tokens, Context>,
         reserves: PublicMutable<Reserves, Context>,
     }
 
@@ -52,8 +52,8 @@ contract DEX {
         // it was deployed correctly.
         let liquidity_token = AztecAddress::zero();
 
-        let settings = Settings { token0, token1, liquidity_token };
-        storage.settings.initialize(settings);
+        let tokens = Tokens { token0, token1, liquidity_token };
+        storage.tokens.initialize(tokens);
 
         // We don't need to initialize the reserves as the default in storage is 0.
     }
@@ -71,7 +71,7 @@ contract DEX {
         assert(amount0Desired > 0 & amount1Desired > 0, "INSUFFICIENT_INPUT_AMOUNTS");
 
         let reserves = storage.reserves.read();
-        let settings = storage.settings.read();
+        let tokens = storage.tokens.read();
 
         // Calculate the amounts to be added to the pool
         let reserve0 = reserves.reserve0;
@@ -117,7 +117,7 @@ contract DEX {
         //      DA: up to 2 change notes when burning amount{0,1}, nullifiers to burn users notes, up to 2 refund notes, 1 public data write to mint pub balance to pool
 
         // Calculate the amount of liquidity tokens to mint
-        let liquidity_token = Token::at(settings.liquidity_token);
+        let liquidity_token = Token::at(tokens.liquidity_token);
         let total_supply = liquidity_token.total_supply().view(&mut context);
         let mut liquidity: u32 = 0;
         if (total_supply == 0) {
@@ -145,12 +145,11 @@ contract DEX {
             assert(nonce == 0, "invalid nonce");
         }
 
-        let reserves = storage.reserves.read();
-        let settings = storage.settings.read();
+        let tokens = storage.tokens.read();
 
-        let token0 = Token::at(settings.token0);
-        let token1 = Token::at(settings.token1);
-        let liquidity_token = Token::at(settings.liquidity_token);
+        let token0 = Token::at(tokens.token0);
+        let token1 = Token::at(tokens.token1);
+        let liquidity_token = Token::at(tokens.liquidity_token);
 
         // We transfer the liquidity tokens from the liquidity provider to this contract.
         // TODO: I am transferring the liquidity tokens in public here to follow the Uniswap v2 implementation.
@@ -164,9 +163,6 @@ contract DEX {
         liquidity_token.transfer_public(liquidity_provider, context.this_address(), liquidity, nonce).call(&mut context);
 
         // Calculate the amounts to be added to the pool
-        let reserve0 = reserves.reserve0;
-        let reserve1 = reserves.reserve1;
-
         let mut balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
         let mut balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
 
