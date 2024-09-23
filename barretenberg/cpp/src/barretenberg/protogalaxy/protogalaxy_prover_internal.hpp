@@ -113,14 +113,14 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
     static std::vector<FF> construct_coefficients_tree(std::span<const FF> betas,
                                                        std::span<const FF> deltas,
                                                        const std::vector<std::vector<FF>>& prev_level_coeffs,
-                                                       size_t level = 1)
+                                                       const size_t level = 1)
     {
-        if (level == betas.size()) {
+        if (prev_level_coeffs.size() == 1) {
             return prev_level_coeffs[0];
         }
 
-        auto degree = level + 1;
-        auto prev_level_width = prev_level_coeffs.size();
+        const size_t degree{ level + 1 };
+        const size_t prev_level_width{ prev_level_coeffs.size() };
         std::vector<std::vector<FF>> level_coeffs(prev_level_width / 2, std::vector<FF>(degree + 1, 0));
         parallel_for_heuristic(
             prev_level_width / 2,
@@ -148,17 +148,17 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      */
     static std::vector<FF> construct_perturbator_coefficients(std::span<const FF> betas,
                                                               std::span<const FF> deltas,
-                                                              const std::vector<FF>& full_honk_evaluations)
+                                                              const std::vector<FF>& subrelation_evaluations)
     {
-        auto width = full_honk_evaluations.size();
+        const size_t width = subrelation_evaluations.size();
         std::vector<std::vector<FF>> first_level_coeffs(width / 2, std::vector<FF>(2, 0));
         parallel_for_heuristic(
             width / 2,
             [&](size_t parent) {
                 size_t node = parent * 2;
                 first_level_coeffs[parent][0] =
-                    full_honk_evaluations[node] + full_honk_evaluations[node + 1] * betas[0];
-                first_level_coeffs[parent][1] = full_honk_evaluations[node + 1] * deltas[0];
+                    subrelation_evaluations[node] + subrelation_evaluations[node + 1] * betas[0];
+                first_level_coeffs[parent][1] = subrelation_evaluations[node + 1] * deltas[0];
             },
             /* overestimate */ thread_heuristics::FF_MULTIPLICATION_COST * 3);
         return construct_coefficients_tree(betas, deltas, first_level_coeffs);
@@ -171,12 +171,19 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         const std::shared_ptr<const DeciderPK>& accumulator, const std::vector<FF>& deltas)
     {
         BB_OP_COUNT_TIME();
+
         auto [subrelation_evaluations, aggregate_relation_evaluations] = compute_row_evaluations(
             accumulator->proving_key.polynomials, accumulator->alphas, accumulator->relation_parameters);
         const auto betas = accumulator->gate_challenges;
         ASSERT(betas.size() == deltas.size());
-        Polynomial<FF> perturbator(construct_perturbator_coefficients(betas, deltas, aggregate_relation_evaluations));
-        return std::make_pair(subrelation_evaluations, perturbator);
+
+        std::vector<FF> perturbator(construct_perturbator_coefficients(betas, deltas, aggregate_relation_evaluations));
+        // Populate the remaining coefficients with zeros to reach the required constant size
+        for (size_t idx = accumulator->proving_key.log_circuit_size; idx < CONST_PG_LOG_N; ++idx) {
+            perturbator.emplace_back(FF(0));
+        }
+
+        return std::make_pair(subrelation_evaluations, Polynomial<FF>(perturbator));
     }
 
     /**

@@ -55,7 +55,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
     const size_t log_circuit_size = accumulator->proving_key.log_circuit_size;
 
     const FF delta = transcript->template get_challenge<FF>("delta");
-    const std::vector<FF> deltas = compute_round_challenge_pows(log_circuit_size, delta);
+    const std::vector<FF> deltas = compute_round_challenge_pows(CONST_PG_LOG_N, delta);
     // An honest prover with valid initial key computes that the perturbator is 0 in the first round
     const auto compute_first_round_relation_evaluations = [&log_circuit_size]() {
         auto result = std::shared_ptr<RelationEvaluations[]>(new RelationEvaluations[1 << log_circuit_size]);
@@ -70,10 +70,8 @@ ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
     // different
-    if (accumulator->is_accumulator) {
-        for (size_t idx = 1; idx <= log_circuit_size; idx++) {
-            transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
-        }
+    for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {
+        transcript->send_to_verifier("perturbator_" + std::to_string(idx), perturbator[idx]);
     }
 
     return std::make_tuple(deltas, subrelation_evaluations, perturbator);
