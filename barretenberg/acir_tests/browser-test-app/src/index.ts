@@ -21,6 +21,7 @@ async function runTest(
   debug(`verified: ${verified}`);
 
   await backend.destroy();
+  await verifier.destroy();
 
   debug("test complete.");
   return verified;
