@@ -2,6 +2,7 @@ mod asset;
 mod position;
 mod interest_math;
 mod helpers;
+mod test;
 
 // Single asset CDP contract.
 // Shoving re-entries up the ass.

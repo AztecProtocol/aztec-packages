@@ -1,3 +1,5 @@
+mod test;
+
 // A demonstration of inclusion and non-inclusion proofs.
 use dep::aztec::macros::aztec;
 

@@ -7,3 +7,6 @@ type = "contract"
 [dependencies]
 aztec = { path = "../../../aztec-nr/aztec" }
 authwit = { path = "../../../aztec-nr/authwit" }
+protocol_types = { path = "../../../noir-protocol-circuits/crates/types" }
+schnorr_account_contract = { path = "../schnorr_account_contract" }
+auth_registry_contract = { path = "../auth_registry_contract" }

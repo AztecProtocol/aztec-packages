@@ -1,5 +1,6 @@
 mod cards;
 mod game;
+mod test;
 
 use dep::aztec::macros::aztec;
 
