@@ -15,11 +15,6 @@ namespace bb {
 using Flavor = MegaFlavor;
 using FF = typename Flavor::FF;
 
-/**
- * @brief As expected, this is about NUM_SUBRELAITONSS (40ish) * cost of FF alloc (33ms at size 2^21)
- *
- * @param state
- */
 void vector_of_evaluations(State& state) noexcept
 {
     using RelationEvaluations = typename Flavor::TupleOfArraysOfValues;
@@ -30,11 +25,6 @@ void vector_of_evaluations(State& state) noexcept
     }
 }
 
-/**
- * @brief As expected, this is about NUM_SUBRELAITONSS (40ish) * cost of FF alloc (33ms at size 2^21)
- *
- * @param state
- */
 void compute_row_evaluations(State& state) noexcept
 {
     using Fun = ProtogalaxyProverInternal<DeciderProvingKeys_<Flavor, 2>>;
