@@ -4,6 +4,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "legacy_polynomial.hpp"
+#include "polynomial.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <gtest/gtest.h>
@@ -1090,7 +1091,8 @@ TYPED_TEST(PolynomialTests, interpolation_constructor)
     }
 }
 
-TYPED_TEST(PolynomialTests, evaluate_mle)
+// LegacyPolynomials MLE
+TYPED_TEST(PolynomialTests, evaluate_mle_legacy)
 {
     using FF = TypeParam;
 
@@ -1145,6 +1147,52 @@ TYPED_TEST(PolynomialTests, evaluate_mle)
     test_case(32);
     test_case(4);
     test_case(2);
+}
+
+/*
+ * @brief Compare that the mle evaluation over Polynomials match the mle evaluation of
+ *        LegacyPolynomials.
+ */
+TYPED_TEST(PolynomialTests, evaluate_mle)
+{
+    using FF = TypeParam;
+
+    auto test_case = [](size_t n, size_t dim) {
+        auto& engine = numeric::get_debug_randomness();
+        size_t k = 1 << dim;
+
+        std::vector<FF> evaluation_points;
+        evaluation_points.resize(n);
+        for (size_t i = 0; i < n; i++) {
+            evaluation_points[i] = FF::random_element(&engine);
+        }
+
+        LegacyPolynomial<FF> legacy_poly(1 << n);
+        Polynomial<FF> poly(k, 1 << n);
+        for (size_t i = 0; i < k; ++i) {
+            auto const rnd = FF::random_element(&engine);
+            legacy_poly[i] = rnd;
+            poly.at(i) = rnd;
+        }
+
+        const FF legacy_res = legacy_poly.evaluate_mle(evaluation_points);
+        const FF res = poly.evaluate_mle(evaluation_points);
+
+        EXPECT_EQ(legacy_res, res);
+
+        // Same with shifted polynomials
+        legacy_poly[0] = FF(0);
+        poly.at(0) = FF(0);
+
+        const FF legacy_shift_res = legacy_poly.evaluate_mle(evaluation_points, true);
+        const FF shift_res = poly.evaluate_mle(evaluation_points, true);
+
+        EXPECT_EQ(legacy_shift_res, shift_res);
+    };
+
+    test_case(9, 3);
+    test_case(8, 8);
+    test_case(13, 1);
 }
 
 /**

@@ -548,7 +548,7 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("get_da_gas_left");
         let _ = get_da_gas_left(inputs);
         dep::aztec::oracle::debug_log::debug_log("emit_unencrypted_log");
-        // let _ = emit_unencrypted_log(inputs);
+        let _ = emit_unencrypted_log(inputs);
         dep::aztec::oracle::debug_log::debug_log("note_hash_exists");
         let _ = note_hash_exists(inputs, 1, 2);
         dep::aztec::oracle::debug_log::debug_log("new_note_hash");
