@@ -35,6 +35,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer, elapsed } from '@aztec/foundation/timer';
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type AztecKVStore, type AztecSingleton } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/utils';
 import {
   type AppendOnlyTree,
   type IndexedTree,
@@ -47,6 +48,7 @@ import {
   newTree,
 } from '@aztec/merkle-tree';
 import { type TelemetryClient } from '@aztec/telemetry-client';
+import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type Hasher } from '@aztec/types/interfaces';
 
 import {
@@ -117,6 +119,14 @@ export class MerkleTrees implements MerkleTreeDb {
     const merkleTrees = new MerkleTrees(store, client, log);
     await merkleTrees.#init();
     return merkleTrees;
+  }
+
+  /**
+   * Creates a temporary store. Useful for testing.
+   */
+  public static tmp() {
+    const store = openTmpStore();
+    return MerkleTrees.new(store, new NoopTelemetryClient());
   }
 
   /**
