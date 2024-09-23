@@ -378,7 +378,7 @@ class MegaFlavor {
         ProverPolynomials(size_t circuit_size)
         {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
-            // of these polys (in aztec_ivc_bench only).
+            // of these polys (in client_ivc_bench only).
             BB_OP_COUNT_TIME_NAME("ProverPolynomials(size_t)");
 
             for (auto& poly : get_to_be_shifted()) {
@@ -562,7 +562,7 @@ class MegaFlavor {
         /**
          * @brief Serialize verification key to field elements
          */
-        std::vector<FF> to_field_elements()
+        std::vector<FF> to_field_elements() const
         {
             using namespace bb::field_conversion;
 
@@ -585,7 +585,7 @@ class MegaFlavor {
             serialize_to_field_buffer(this->databus_propagation_data.kernel_return_data_public_input_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
 
-            for (Commitment& commitment : this->get_all()) {
+            for (const Commitment& commitment : this->get_all()) {
                 serialize_to_field_buffer(commitment, elements);
             }
 

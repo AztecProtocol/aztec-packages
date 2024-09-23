@@ -24,7 +24,9 @@ std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> opera
  */
 void validate_trace_check_circuit(std::vector<Row>&& trace)
 {
-    validate_trace(std::move(trace), {}, {}, {}, false);
+    auto circuit_builder = AvmCircuitBuilder();
+    circuit_builder.set_trace(std::move(trace));
+    EXPECT_TRUE(circuit_builder.check_circuit());
 };
 
 /**
@@ -40,6 +42,9 @@ void validate_trace(std::vector<Row>&& trace,
                     bool with_proof,
                     bool expect_proof_failure)
 {
+    // This is here for our nighly test runs.
+    with_proof |= std::getenv("AVM_ENABLE_FULL_PROVING") != nullptr;
+
     const std::string avm_dump_trace_path =
         std::getenv("AVM_DUMP_TRACE_PATH") != nullptr ? std::getenv("AVM_DUMP_TRACE_PATH") : "";
     if (!avm_dump_trace_path.empty()) {

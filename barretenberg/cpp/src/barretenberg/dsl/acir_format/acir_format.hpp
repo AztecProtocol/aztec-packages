@@ -5,7 +5,7 @@
 #include "avm_recursion_constraint.hpp"
 #endif
 
-#include "barretenberg/aztec_ivc/aztec_ivc.hpp"
+#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "bigint_constraint.hpp"
@@ -25,6 +25,7 @@
 #include "recursion_constraint.hpp"
 #include "schnorr_verify.hpp"
 #include "sha256_constraint.hpp"
+#include <cstdint>
 #include <utility>
 #include <vector>
 
@@ -40,7 +41,6 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> logic_constraints;
     std::vector<size_t> range_constraints;
     std::vector<size_t> aes128_constraints;
-    std::vector<size_t> sha256_constraints;
     std::vector<size_t> sha256_compression;
     std::vector<size_t> schnorr_constraints;
     std::vector<size_t> ecdsa_k1_constraints;
@@ -89,7 +89,6 @@ struct AcirFormat {
     std::vector<LogicConstraint> logic_constraints;
     std::vector<RangeConstraint> range_constraints;
     std::vector<AES128Constraint> aes128_constraints;
-    std::vector<Sha256Constraint> sha256_constraints;
     std::vector<Sha256Compression> sha256_compression;
     std::vector<SchnorrConstraint> schnorr_constraints;
     std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
@@ -125,6 +124,7 @@ struct AcirFormat {
 
     // Set of constrained witnesses
     std::set<uint32_t> constrained_witness = {};
+    std::map<uint32_t, uint32_t> minimal_range = {};
 
     // Indices of the original opcode that originated each constraint in AcirFormat.
     AcirFormatOriginalOpcodeIndices original_opcode_indices;
@@ -135,7 +135,6 @@ struct AcirFormat {
                    logic_constraints,
                    range_constraints,
                    aes128_constraints,
-                   sha256_constraints,
                    sha256_compression,
                    schnorr_constraints,
                    ecdsa_k1_constraints,
@@ -210,7 +209,7 @@ Builder create_circuit(AcirFormat& constraint_system,
                        bool collect_gates_per_opcode = false);
 
 MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
-                                         AztecIVC& ivc,
+                                         ClientIVC& ivc,
                                          const WitnessVector& witness = {},
                                          const size_t size_hint = 0);
 

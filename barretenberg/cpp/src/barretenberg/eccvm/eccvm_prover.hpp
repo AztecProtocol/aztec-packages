@@ -53,9 +53,6 @@ class ECCVMProver {
 
     CommitmentLabels commitment_labels;
 
-    // Container for d + 1 Fold polynomials produced by Gemini
-    std::vector<Polynomial> gemini_polynomials;
-
     Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
     FF nu_challenge;               // needed in both Shplonk rounds
 

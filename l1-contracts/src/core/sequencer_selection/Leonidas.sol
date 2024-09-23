@@ -289,9 +289,6 @@ contract Leonidas is Ownable, ILeonidas {
   function getProposerAt(uint256 _ts) public view override(ILeonidas) returns (address) {
     uint256 epochNumber = getEpochAt(_ts);
     uint256 slot = getSlotAt(_ts);
-    if (epochNumber == 0) {
-      return address(0);
-    }
 
     Epoch storage epoch = epochs[epochNumber];
 
@@ -378,8 +375,7 @@ contract Leonidas is Ownable, ILeonidas {
     // Validate the attestations
     uint256 validAttestations = 0;
 
-    bytes32 ethSignedDigest = _digest.toEthSignedMessageHash();
-
+    bytes32 digest = _digest.toEthSignedMessageHash();
     for (uint256 i = 0; i < _signatures.length; i++) {
       SignatureLib.Signature memory signature = _signatures[i];
       if (signature.isEmpty) {
@@ -387,7 +383,7 @@ contract Leonidas is Ownable, ILeonidas {
       }
 
       // The verification will throw if invalid
-      signature.verify(committee[i], ethSignedDigest);
+      signature.verify(committee[i], digest);
       validAttestations++;
     }
 

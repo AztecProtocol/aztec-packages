@@ -92,16 +92,14 @@ export enum Opcode {
   // Gadgets
   KECCAK,
   POSEIDON2,
-  SHA256, // temp - may be removed, but alot of contracts rely on it
+  SHA256COMPRESSION,
+  KECCAKF1600,
   PEDERSEN, // temp - may be removed, but alot of contracts rely on it
   ECADD,
   MSM,
   PEDERSENCOMMITMENT,
   // Conversion
   TORADIXLE,
-  // Future Gadgets -- pending changes in noir
-  SHA256COMPRESSION,
-  KECCAKF1600, // Here for when we eventually support this
 }
 
 // Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.
@@ -109,6 +107,7 @@ export enum Opcode {
 // Note that cpp code introduced an additional enum value TAG to express the instruction tag. In TS,
 // this one is parsed as UINT8.
 export enum OperandType {
+  UINT1,
   UINT8,
   UINT16,
   UINT32,
@@ -122,6 +121,7 @@ type OperandWriter = (value: any) => void;
 
 // Specifies how to read and write each operand type.
 const OPERAND_SPEC = new Map<OperandType, [number, () => OperandNativeType, OperandWriter]>([
+  [OperandType.UINT1, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
   [OperandType.UINT8, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
   [OperandType.UINT16, [2, Buffer.prototype.readUint16BE, Buffer.prototype.writeUint16BE]],
   [OperandType.UINT32, [4, Buffer.prototype.readUint32BE, Buffer.prototype.writeUint32BE]],

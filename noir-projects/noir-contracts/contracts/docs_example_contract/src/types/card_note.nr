@@ -4,11 +4,9 @@ use dep::aztec::{
     protocol_types::{traits::Serialize, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator}
 };
 
-// Shows how to create a custom note
-
-global CARD_NOTE_LEN: Field = 3;
+global CARD_NOTE_LEN: u32 = 3;
 // CARD_NOTE_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global CARD_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
+global CARD_NOTE_BYTES_LEN: u32 = 3 * 32 + 64;
 
 // docs:start:state_vars-CardNote
 #[aztec(note)]

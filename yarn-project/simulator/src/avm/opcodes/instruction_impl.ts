@@ -4,22 +4,6 @@ import { OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
 
-/** Wire format that informs deserialization for instructions with two operands. */
-export const TwoOperandWireFormat8 = [
-  OperandType.UINT8,
-  OperandType.UINT8,
-  OperandType.UINT8,
-  OperandType.UINT8,
-  OperandType.UINT8,
-];
-export const TwoOperandWireFormat16 = [
-  OperandType.UINT8,
-  OperandType.UINT8,
-  OperandType.UINT8,
-  OperandType.UINT16,
-  OperandType.UINT16,
-];
-
 /** Wire format that informs deserialization for instructions with three operands. */
 export const ThreeOperandWireFormat8 = [
   OperandType.UINT8,
@@ -37,25 +21,6 @@ export const ThreeOperandWireFormat16 = [
   OperandType.UINT16,
   OperandType.UINT16,
 ];
-
-/**
- * Covers (de)serialization for an instruction with:
- * indirect, inTag, and two operands.
- */
-export abstract class TwoOperandInstruction extends Instruction {
-  // Informs (de)serialization. See Instruction.deserialize.
-  static readonly wireFormat8: OperandType[] = TwoOperandWireFormat8;
-  static readonly wireFormat16: OperandType[] = TwoOperandWireFormat16;
-
-  constructor(
-    protected indirect: number,
-    protected inTag: number,
-    protected aOffset: number,
-    protected dstOffset: number,
-  ) {
-    super();
-  }
-}
 
 /**
  * Covers (de)serialization for an instruction with:
