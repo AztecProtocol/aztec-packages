@@ -170,7 +170,7 @@ comptime fn generate_note_hiding_point(
     let mut new_trait_bounds_list = &[];
     // TODO(#8648): Generate generators at comptime instead of importing here.
     let num_generators_in_generators_nr: u32 = 5;
-    assert(indexed_fixed_fields.len() <=  num_generators_in_generators_nr, "not enough generators");
+    assert(indexed_fixed_fields.len() <= num_generators_in_generators_nr, "not enough generators");
     for i in 0..indexed_fixed_fields.len() {
         let (field_name, _, index) = indexed_fixed_fields[i];
         let arg_type = f"N{i}".quoted_contents();
