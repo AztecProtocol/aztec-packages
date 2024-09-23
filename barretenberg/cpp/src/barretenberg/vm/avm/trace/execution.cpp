@@ -367,10 +367,12 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     // For EMITUNENCRYPTEDLOG
     for (size_t i = 0; i < MAX_UNENCRYPTED_LOGS_PER_CALL; i++) {
         size_t dest_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + i;
-        size_t pcpi_offset = PCPI_NEW_UNENCRYPTED_LOGS_OFFSET + (i * 2);
+        size_t pcpi_offset =
+            PCPI_NEW_UNENCRYPTED_LOGS_OFFSET + (i * 3); // 3 because we have metadata, this is the window size
 
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
+        ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset + 2];
     }
 
     return public_inputs;
