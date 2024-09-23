@@ -50,14 +50,12 @@ pub comptime fn aztec(m: Module) -> Quoted {
         } else {
             quote { 
                 let return_value = dep::aztec::protocol_types::traits::Serialize::serialize($call);
-                let return_array = return_value.serialize();
-                dep::aztec::context::public_context::avm_return(return_array);
+                dep::aztec::context::public_context::avm_return(return_value);
             }
         };
 
         let if_ = quote { 
             if selector == $selector {
-                let mut offset = 0;
                 $read
                 $return_code
             }
@@ -73,8 +71,8 @@ pub comptime fn aztec(m: Module) -> Quoted {
 
     let body = quote {
         pub fn public_entrypoint(arg0: $public_context_inputs, selector: Field) {
-            let cdoffset = 0;
             let selector = $from_field_fn(selector);
+            let mut offset = 0;
             $dispatch
         }
     };
