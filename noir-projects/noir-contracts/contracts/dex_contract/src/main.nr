@@ -118,7 +118,7 @@ contract DEX {
 
         // Calculate the amount of liquidity tokens to mint
         let liquidity_token = Token::at(tokens.liquidity_token);
-        let total_supply = liquidity_token.total_supply().view(&mut context);
+        let total_supply = liquidity_token.total_supply().view(&mut context) as u32; // TODO: Nuke the cast here.
         let mut liquidity: u32 = 0;
         if (total_supply == 0) {
             // TODO: This is using Tonelli-Shanks to compute sqrt but Uni is using babylonian method. Is it fine to use a different one?
@@ -138,7 +138,7 @@ contract DEX {
     }
 
     #[public]
-    fn remove_liquidity(liquidity_provider: AztecAddress, liquidity: Field, amount0Min: Field, amount1Min: Field, nonce: Field) {
+    fn remove_liquidity(liquidity_provider: AztecAddress, liquidity: u32, amount0Min: u32, amount1Min: u32, nonce: Field) {
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
@@ -179,8 +179,8 @@ contract DEX {
         let amount0 = liquidity * balance0 / total_supply;
         let amount1 = liquidity * balance1 / total_supply;
         // TODO: Nuke these castings. Ideally make Token return integer and not Field.
-        assert(amount0 as u32 >= amount0Min as u32, "INSUFFICIENT_0_AMOUNT");
-        assert(amount1 as u32 >= amount1Min as u32, "INSUFFICIENT_1_AMOUNT");
+        assert(amount0 as u32 >= amount0Min, "INSUFFICIENT_0_AMOUNT");
+        assert(amount1 as u32 >= amount1Min, "INSUFFICIENT_1_AMOUNT");
 
         liquidity_token.burn_public(context.this_address(), liquidity, nonce).call(&mut context);
         // Note: Here we could also transfer to private if we prepared the partial notes. This might make sense to do
