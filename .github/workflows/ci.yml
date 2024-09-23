@@ -698,9 +698,9 @@ jobs:
 
   # Make sure k8s works with a kind deployment.
   k8s-deploy-test:
-    needs: [build, changes]
+    needs: build
     # NOTE: a bit underspecced for PR-oriented development
-    if: github.ref_name == 'master' || contains(github.ref_name, 'k8s')
+    #if: github.ref_name == 'master' || contains(github.ref_name, 'k8s')
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -725,6 +725,7 @@ jobs:
           BRANCH: "${{ github.ref_name }}"
       - name: Test
         run: |
+          echo "${{github.ref_name}}"
           ./spartan/scripts/setup_local_k8s.sh
           ./scripts/earthly-ci -P --no-output ./yarn-project/end-to-end/+network-transfer --values-file=${{ matrix.values_file }}
 
