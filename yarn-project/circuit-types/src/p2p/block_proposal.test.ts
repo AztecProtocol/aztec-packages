@@ -3,8 +3,8 @@ import { BlockProposal } from './block_proposal.js';
 import { makeBlockProposal, randomSigner } from './mocks.js';
 
 describe('Block Proposal serialization / deserialization', () => {
-  it('Should serialize / deserialize', async () => {
-    const proposal = await makeBlockProposal();
+  it('Should serialize / deserialize', () => {
+    const proposal = makeBlockProposal();
 
     const serialized = proposal.toBuffer();
     const deserialized = BlockProposal.fromBuffer(serialized);
@@ -12,17 +12,17 @@ describe('Block Proposal serialization / deserialization', () => {
     expect(deserialized).toEqual(proposal);
   });
 
-  it('Should serialize / deserialize + recover sender', async () => {
+  it('Should serialize / deserialize + recover sender', () => {
     const account = randomSigner();
 
-    const proposal = await makeBlockProposal(account);
+    const proposal = makeBlockProposal(account);
     const serialized = proposal.toBuffer();
     const deserialized = BlockProposal.fromBuffer(serialized);
 
     expect(deserialized).toEqual(proposal);
 
     // Recover signature
-    const sender = await deserialized.getSender();
-    expect(sender.toChecksumString()).toEqual(account.address);
+    const sender = deserialized.getSender();
+    expect(sender).toEqual(account.address);
   });
 });

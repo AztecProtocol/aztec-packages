@@ -99,7 +99,7 @@ export class TokenContractTest {
         this.badAccount = await DocsExampleContract.at(badAccountAddress, this.wallets[0]);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
-        expect(await this.asset.methods.admin().simulate()).toBe(this.accounts[0].address.toBigInt());
+        expect(await this.asset.methods.get_admin().simulate()).toBe(this.accounts[0].address.toBigInt());
       },
     );
 

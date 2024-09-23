@@ -1,5 +1,8 @@
 ---
 title: FaceID Wallet (Mac Only)
+tags: [sandbox, wallet, cli]
+keywords: [wallet, cli wallet, faceid]
+importance: 3
 ---
 
 In this tutorial, we will use Apple Mac's Secure Enclave to store the private key, and use it in Aztec's [CLI Wallet](../../../reference/developer_references/sandbox_reference/cli_wallet_reference.md). This enables fully private, native, and seedless account abstraction!
@@ -12,7 +15,7 @@ Aztec is in active development and this has only been tested on MacOS. Please re
 
 ## Prerequisites
 
-For this tutorial, we will need to have the the [Sandbox](../../../reference/developer_references/sandbox_reference/index.md) installed.
+For this tutorial, we will need to have the [Sandbox](../../../reference/developer_references/sandbox_reference/index.md) installed.
 
 We also need to install Secretive, a nice open-source package that allows us to store keys on the Secure Enclave. You can head to the [secretive releases page](https://github.com/maxgoedjen/secretive/releases) and get the last release's `zip`, unzip and move to Applications, or use [Homebrew](https://brew.sh/):
 

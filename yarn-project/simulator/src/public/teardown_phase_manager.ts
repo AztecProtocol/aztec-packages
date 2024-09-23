@@ -1,36 +1,17 @@
 import { PublicKernelType, type PublicProvingRequest, type Tx } from '@aztec/circuit-types';
-import {
-  type Fr,
-  type Gas,
-  type GlobalVariables,
-  type Header,
-  type PublicKernelCircuitPublicInputs,
-} from '@aztec/circuits.js';
+import { type Fr, type Gas, type PublicKernelCircuitPublicInputs } from '@aztec/circuits.js';
 import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
-import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
-import { AbstractPhaseManager, makeAvmProvingRequest } from './abstract_phase_manager.js';
-import { type ContractsDataSourcePublicDB } from './public_db_sources.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
+import { AbstractPhaseManager, type PhaseConfig, makeAvmProvingRequest } from './abstract_phase_manager.js';
 
 /**
  * The phase manager responsible for performing the fee preparation phase.
  */
 export class TeardownPhaseManager extends AbstractPhaseManager {
-  constructor(
-    db: MerkleTreeOperations,
-    publicExecutor: PublicExecutor,
-    publicKernel: PublicKernelCircuitSimulator,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    protected publicContractsDB: ContractsDataSourcePublicDB,
-    protected publicStateDB: PublicStateDB,
-    phase: PublicKernelType = PublicKernelType.TEARDOWN,
-  ) {
-    super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
+  constructor(config: PhaseConfig, public override phase: PublicKernelType = PublicKernelType.TEARDOWN) {
+    super(config);
   }
 
   override async handle(
@@ -43,12 +24,12 @@ export class TeardownPhaseManager extends AbstractPhaseManager {
       await this.processEnqueuedPublicCalls(tx, previousPublicKernelOutput, previousKernelArtifact).catch(
         // the abstract phase manager throws if simulation gives error in a non-revertible phase
         async err => {
-          await this.publicStateDB.rollbackToCommit();
+          await this.worldStateDB.rollbackToCommit();
           throw err;
         },
       );
     if (revertReason) {
-      await this.publicStateDB.rollbackToCheckpoint();
+      await this.worldStateDB.rollbackToCheckpoint();
       tx.filterRevertedLogs(kernelOutput);
     } else {
       // TODO(#6464): Should we allow emitting contracts in the public teardown phase?

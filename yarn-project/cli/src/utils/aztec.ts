@@ -118,7 +118,7 @@ export async function deployAztecContracts(
 }
 
 /** Sets the assumed proven block number on the rollup contract on L1 */
-export async function setAssumeProvenUntil(
+export async function setAssumeProvenThrough(
   blockNumber: number,
   rollupAddress: EthAddress,
   walletClient: WalletClient<HttpTransport, Chain, Account>,
@@ -128,7 +128,7 @@ export async function setAssumeProvenUntil(
     abi: RollupAbi,
     client: walletClient,
   });
-  const hash = await rollup.write.setAssumeProvenUntilBlockNumber([BigInt(blockNumber)]);
+  const hash = await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(blockNumber)]);
   await walletClient.extend(publicActions).waitForTransactionReceipt({ hash });
 }
 

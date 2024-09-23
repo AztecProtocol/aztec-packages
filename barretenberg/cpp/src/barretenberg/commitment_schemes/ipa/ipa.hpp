@@ -593,7 +593,6 @@ template <typename Curve_> class IPA {
     static OpeningClaim<Curve> reduce_batch_opening_claim(
         const BatchOpeningClaim<Curve>&  batch_opening_claim)
     {
-        using Utils = CommitmentSchemesUtils<Curve>;
         // Extract batch_mul arguments from the accumulator
         const auto& commitments = batch_opening_claim.commitments;
         const auto& scalars = batch_opening_claim.scalars;
@@ -604,7 +603,7 @@ template <typename Curve_> class IPA {
             shplonk_output_commitment =
                 GroupElement::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
         } else {
-            shplonk_output_commitment = Utils::batch_mul_native(commitments, scalars);
+            shplonk_output_commitment = batch_mul_native(commitments, scalars);
         }
         // Output an opening claim to be verified by the IPA opening protocol
         return { { shplonk_eval_challenge, Fr(0) }, shplonk_output_commitment };

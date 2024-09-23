@@ -178,7 +178,7 @@ This is used to get a result out of an execution, either private or public. It c
 
 #include_code public_getter /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
 
-#include_code simulate_public_getter yarn-project/end-to-end/src/e2e_auth_contract.test.ts typescript
+#include_code simulate_function yarn-project/end-to-end/src/composed/docs_examples.test.ts typescript
 
 :::warning
 No correctness is guaranteed on the result of `simulate`! Correct execution is entirely optional and left up to the client that handles this request.

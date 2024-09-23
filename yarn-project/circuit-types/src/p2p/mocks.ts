@@ -1,41 +1,39 @@
 import { makeHeader } from '@aztec/circuits.js/testing';
+import { Buffer32 } from '@aztec/foundation/buffer';
+import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-
-import { type PrivateKeyAccount } from 'viem';
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { TxHash } from '../tx/tx_hash.js';
 import { BlockAttestation } from './block_attestation.js';
 import { BlockProposal } from './block_proposal.js';
-import { get0xStringHashedSignaturePayload } from './block_utils.js';
-import { Signature } from './signature.js';
+import { getHashedSignaturePayloadEthSignedMessage } from './block_utils.js';
 
-export const makeBlockProposal = async (signer?: PrivateKeyAccount): Promise<BlockProposal> => {
+export const makeBlockProposal = (signer?: Secp256k1Signer): BlockProposal => {
   signer = signer || randomSigner();
 
   const blockHeader = makeHeader(1);
   const archive = Fr.random();
   const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
-  const hash = get0xStringHashedSignaturePayload(archive, txs);
-  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: hash } }));
+  const hash = getHashedSignaturePayloadEthSignedMessage(archive, txs);
+  const signature = signer.sign(hash);
 
   return new BlockProposal(blockHeader, archive, txs, signature);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
-export const makeBlockAttestation = async (signer?: PrivateKeyAccount): Promise<BlockAttestation> => {
+export const makeBlockAttestation = (signer?: Secp256k1Signer): BlockAttestation => {
   signer = signer || randomSigner();
 
   const blockHeader = makeHeader(1);
   const archive = Fr.random();
   const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
-  const hash = get0xStringHashedSignaturePayload(archive, txs);
-  const signature = Signature.from0xString(await signer.signMessage({ message: { raw: hash } }));
+  const hash = getHashedSignaturePayloadEthSignedMessage(archive, txs);
+  const signature = signer.sign(hash);
 
   return new BlockAttestation(blockHeader, archive, txs, signature);
 };
 
-export const randomSigner = (): PrivateKeyAccount => {
-  const privateKey = generatePrivateKey();
-  return privateKeyToAccount(privateKey);
+export const randomSigner = (): Secp256k1Signer => {
+  const privateKey = Buffer32.random();
+  return new Secp256k1Signer(privateKey);
 };

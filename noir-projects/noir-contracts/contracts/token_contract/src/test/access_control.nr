@@ -11,7 +11,7 @@ unconstrained fn access_control() {
     env.call_public(set_admin_call_interface);
 
     // Check it worked
-    let get_admin_call_interface = Token::at(token_contract_address).admin();
+    let get_admin_call_interface = Token::at(token_contract_address).get_admin();
     let admin = env.call_public(get_admin_call_interface);
     assert(admin == recipient.to_field());
 
