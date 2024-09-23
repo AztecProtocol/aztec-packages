@@ -169,18 +169,17 @@ StateReference WorldState::get_state_reference(WorldStateRevision revision) cons
     Fork::SharedPtr fork = retrieve_fork(revision.forkId);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     StateReference state_reference;
+    std::mutex state_ref_mutex;
     bool uncommitted = include_uncommitted(revision);
 
     for (const auto& [id, tree] : fork->_trees) {
-        std::visit(
-            [&signal, &state_reference, id, uncommitted](auto&& wrapper) {
-                auto callback = [&signal, &state_reference, id](const TypedResponse<TreeMetaResponse>& meta) {
-                    state_reference.insert({ id, { meta.inner.meta.root, meta.inner.meta.size } });
-                    signal.signal_decrement();
-                };
-                wrapper.tree->get_meta_data(uncommitted, callback);
-            },
-            tree);
+        auto callback = [&signal, &state_reference, &state_ref_mutex, id](const TypedResponse<TreeMetaResponse>& meta) {
+            std::lock_guard<std::mutex> lock(state_ref_mutex);
+            state_reference.insert({ id, { meta.inner.meta.root, meta.inner.meta.size } });
+            signal.signal_decrement();
+        };
+        std::visit([&callback, uncommitted](auto&& wrapper) { wrapper.tree->get_meta_data(uncommitted, callback); },
+                   tree);
     }
 
     signal.wait_for_level(0);
