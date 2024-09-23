@@ -634,10 +634,12 @@ contract AvmTest {
 
 mod tests {
     use super::AvmTest;
+    use aztec::context::inputs::public_context_inputs::PublicContextInputs;
 
     #[test]
     fn contract_has_public_entrypoint() {
         let selector = 0;
-        AvmTest::public_entrypoint(selector);
+        let inputs = PublicContextInputs::empty();
+        AvmTest::public_entrypoint(inputs, selector);
     }
 }
