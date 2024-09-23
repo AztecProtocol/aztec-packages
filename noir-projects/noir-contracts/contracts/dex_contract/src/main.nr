@@ -26,19 +26,9 @@ contract DEX {
         liquidity_token: AztecAddress,
     }
 
-    // TODO: Nuke these reserves and just do balance_of_public on the tokens instead?
-    #[derive(Serialize)]
-    struct Reserves {
-        // TODO: Replace the use of u64 with larger type everywhere in this contract.
-        // Didn't use U128 here because of https://github.com/AztecProtocol/aztec-packages/issues/8271 and because it might be insufficient.
-        reserve0: u64,
-        reserve1: u64,
-    }
-
     #[storage]
     struct Storage<Context> {
         tokens: PublicImmutable<Tokens, Context>,
-        reserves: PublicMutable<Reserves, Context>,
     }
 
     global MINIMUM_LIQUIDITY: u64 = 1000;
@@ -56,8 +46,6 @@ contract DEX {
 
         let tokens = Tokens { token0, token1, liquidity_token };
         storage.tokens.initialize(tokens);
-
-        // We don't need to initialize the reserves as the default in storage is 0.
     }
 
     // Privately adds liquidity for `liquidity_provider` to the pool (identity of liquidity provider not revealed).
@@ -79,14 +67,15 @@ contract DEX {
 
         assert(amount0Desired > 0 & amount1Desired > 0, "INSUFFICIENT_INPUT_AMOUNTS");
 
-        let reserves = storage.reserves.read();
         let tokens = storage.tokens.read();
-
-        let reserve0 = reserves.reserve0;
-        let reserve1 = reserves.reserve1;
 
         let token0 = Token::at(tokens.token0);
         let token1 = Token::at(tokens.token1);
+
+
+        let reserve0 = token0.balance_of_public(context.this_address()).view(&mut context) as u64; // TODO: Nuke the cast here.
+        let reserve1 = token1.balance_of_public(context.this_address()).view(&mut context) as u64; // TODO: Nuke the cast here.
+
         let liquidity_token = Token::at(tokens.liquidity_token);
 
         // Calculate the amounts to be added to the pool
@@ -146,10 +135,6 @@ contract DEX {
         // TODO: Implement `prepare_mint_to_private` and `finalize_mint_to_private` in the Token contract.
         liquidity_token.finalize_mint_to_private(transfer_preparer_storage_slot_commitment, liquidity).call(&mut context);
 
-        // Update the reserves
-        let updated_reserves = Reserves { reserve0: reserve0 + amount0, reserve1: reserve1 + amount1 };
-        storage.reserves.write(updated_reserves);
-
         // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _unlock(&mut context);
     }
@@ -204,10 +189,6 @@ contract DEX {
         // token accounting which could be affected by the transfer calls above?
         balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
         balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
-
-        // TODO: Nuke these castings. Ideally make Token return integer and not Field.
-        let updated_reserves = Reserves { reserve0: balance0 as u64, reserve1: balance1 as u64};
-        storage.reserves.write(updated_reserves);
 
         // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _unlock(&mut context);
