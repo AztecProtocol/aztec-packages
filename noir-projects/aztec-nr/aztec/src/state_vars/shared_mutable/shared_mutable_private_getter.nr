@@ -2,7 +2,7 @@ use dep::protocol_types::{traits::{FromField, ToField}, address::AztecAddress, h
 
 use crate::{context::PrivateContext, state_vars::shared_mutable::shared_mutable::SharedMutable};
 
-struct SharedMutablePrivateGetter<T, INITIAL_DELAY> {
+struct SharedMutablePrivateGetter<T, let INITIAL_DELAY: u32> {
     context: &mut PrivateContext,
     // The contract address of the contract we want to read from
     other_contract_address: AztecAddress,
@@ -12,7 +12,7 @@ struct SharedMutablePrivateGetter<T, INITIAL_DELAY> {
 
 // We have this as a view-only interface to reading Shared Mutables in other contracts.
 // Currently the Shared Mutable does not support this. We can adapt SharedMutable at a later date
-impl<T, INITIAL_DELAY> SharedMutablePrivateGetter<T, INITIAL_DELAY>  where T: FromField + ToField + Eq {
+impl<T, let INITIAL_DELAY: u32> SharedMutablePrivateGetter<T, INITIAL_DELAY>  where T: FromField + ToField + Eq {
     pub fn new(
         context: &mut PrivateContext,
         other_contract_address: AztecAddress,
@@ -25,7 +25,7 @@ impl<T, INITIAL_DELAY> SharedMutablePrivateGetter<T, INITIAL_DELAY>  where T: Fr
 
     pub fn get_value_in_private(self, header: Header) -> T {
         // We create a dummy SharedMutable state variable so that we can reuse its historical_read_from_public_storage
-        // method, greatly reducing code duplication. 
+        // method, greatly reducing code duplication.
         let dummy: SharedMutable<T, INITIAL_DELAY, ()> = SharedMutable::new((), self.storage_slot);
         let (value_change, delay_change, historical_block_number) = dummy.historical_read_from_public_storage(header, self.other_contract_address);
 

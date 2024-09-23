@@ -3,7 +3,7 @@ contract Escrow {
     use dep::aztec::prelude::{AztecAddress, PrivateImmutable};
     use dep::aztec::{
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-        keys::getters::get_current_public_keys
+        keys::getters::get_public_keys
     };
 
     // docs:start:addressnote_import
@@ -20,8 +20,8 @@ contract Escrow {
     #[aztec(private)]
     #[aztec(initializer)]
     fn constructor(owner: AztecAddress) {
-        let owner_keys = get_current_public_keys(&mut context, owner);
-        let msg_sender_keys = get_current_public_keys(&mut context, context.msg_sender());
+        let owner_keys = get_public_keys(owner);
+        let msg_sender_keys = get_public_keys(context.msg_sender());
         // docs:start:addressnote_new
         let mut note = AddressNote::new(owner, owner_keys.npk_m.hash());
         // docs:end:addressnote_new

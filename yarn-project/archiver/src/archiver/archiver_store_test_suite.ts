@@ -1,4 +1,4 @@
-import { type Body, InboxLeaf, L2Block, LogId, LogType, TxHash } from '@aztec/circuit-types';
+import { InboxLeaf, L2Block, LogId, LogType, TxHash } from '@aztec/circuit-types';
 import '@aztec/circuit-types/jest';
 import { AztecAddress, Fr, INITIAL_L2_BLOCK_NUM, L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js';
 import {
@@ -15,7 +15,6 @@ import {
 } from '@aztec/types/contracts';
 
 import { type ArchiverDataStore, type ArchiverL1SynchPoint } from './archiver_store.js';
-import { type DataRetrieval } from './structs/data_retrieval.js';
 import { type L1Published } from './structs/published.js';
 
 /**
@@ -26,7 +25,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
   describe(testName, () => {
     let store: ArchiverDataStore;
     let blocks: L1Published<L2Block>[];
-    let blockBodies: DataRetrieval<Body>;
     const blockTests: [number, number, () => L1Published<L2Block>[]][] = [
       [1, 1, () => blocks.slice(0, 1)],
       [10, 1, () => blocks.slice(9, 10)],
@@ -41,17 +39,9 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         data: L2Block.random(i + 1),
         l1: { blockNumber: BigInt(i + 10), blockHash: `0x${i}`, timestamp: BigInt(i * 1000) },
       }));
-      blockBodies = {
-        retrievedData: blocks.map(block => block.data.body),
-        lastProcessedL1BlockNumber: 4n,
-      };
     });
 
     describe('addBlocks', () => {
-      it('returns success when adding block bodies', async () => {
-        await expect(store.addBlockBodies(blockBodies)).resolves.toBe(true);
-      });
-
       it('returns success when adding blocks', async () => {
         await expect(store.addBlocks(blocks)).resolves.toBe(true);
       });
@@ -65,7 +55,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     describe('getBlocks', () => {
       beforeEach(async () => {
         await store.addBlocks(blocks);
-        await store.addBlockBodies(blockBodies);
       });
 
       it.each(blockTests)('retrieves previously stored blocks', async (start, limit, getExpectedBlocks) => {
@@ -101,7 +90,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await expect(store.getSynchPoint()).resolves.toEqual({
           blocksSynchedTo: undefined,
           messagesSynchedTo: undefined,
-          blockBodiesSynchedTo: undefined,
           provenLogsSynchedTo: undefined,
         } satisfies ArchiverL1SynchPoint);
       });
@@ -111,17 +99,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await expect(store.getSynchPoint()).resolves.toEqual({
           blocksSynchedTo: 19n,
           messagesSynchedTo: undefined,
-          blockBodiesSynchedTo: undefined,
-          provenLogsSynchedTo: undefined,
-        } satisfies ArchiverL1SynchPoint);
-      });
-
-      it('returns the L1 block number in which the most recent L2 block body was published', async () => {
-        await store.addBlockBodies(blockBodies);
-        await expect(store.getSynchPoint()).resolves.toEqual({
-          blocksSynchedTo: undefined,
-          messagesSynchedTo: undefined,
-          blockBodiesSynchedTo: blockBodies.lastProcessedL1BlockNumber,
           provenLogsSynchedTo: undefined,
         } satisfies ArchiverL1SynchPoint);
       });
@@ -134,7 +111,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await expect(store.getSynchPoint()).resolves.toEqual({
           blocksSynchedTo: undefined,
           messagesSynchedTo: 1n,
-          blockBodiesSynchedTo: undefined,
           provenLogsSynchedTo: undefined,
         } satisfies ArchiverL1SynchPoint);
       });
@@ -144,7 +120,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         await expect(store.getSynchPoint()).resolves.toEqual({
           blocksSynchedTo: undefined,
           messagesSynchedTo: undefined,
-          blockBodiesSynchedTo: undefined,
           provenLogsSynchedTo: 3n,
         } satisfies ArchiverL1SynchPoint);
       });
@@ -212,7 +187,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
           ),
         );
         await store.addBlocks(blocks);
-        await store.addBlockBodies(blockBodies);
       });
 
       it.each([
@@ -364,7 +338,6 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         }));
 
         await store.addBlocks(blocks);
-        await store.addBlockBodies(blockBodies);
 
         await Promise.all(
           blocks.map(block =>
