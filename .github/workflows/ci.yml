@@ -701,7 +701,7 @@ jobs:
     needs: [build, changes]
     # NOTE: a bit underspecced for PR-oriented development
     if: github.ref_name == 'master' || contains(github.ref_name, 'k8s')
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         values_file: ["default.yaml", "3-validators.yaml"]
