@@ -172,7 +172,7 @@ class VerificationKey_ : public PrecomputedCommitments {
      *
      * @return std::vector<FF>
      */
-    std::vector<FF> to_field_elements()
+    std::vector<FF> to_field_elements() const
     {
         using namespace bb::field_conversion;
 
@@ -189,7 +189,7 @@ class VerificationKey_ : public PrecomputedCommitments {
         serialize_to_field_buffer(this->contains_recursive_proof, elements);
         serialize_to_field_buffer(this->recursive_proof_public_input_indices, elements);
 
-        for (Commitment& commitment : this->get_all()) {
+        for (const Commitment& commitment : this->get_all()) {
             serialize_to_field_buffer(commitment, elements);
         }
 

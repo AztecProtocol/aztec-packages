@@ -1,7 +1,7 @@
 import { AvmCircuitInputs, AvmVerificationKeyData, FunctionSelector, Gas, GlobalVariables } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AvmSimulator, type PublicContractsDB, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
+import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
   initContext,
@@ -21,11 +21,10 @@ import { type BBSuccess, BB_RESULT, generateAvmProof, verifyAvmProof } from './b
 import { getPublicInputs } from './test/test_avm.js';
 import { extractAvmVkData } from './verification_key/verification_key_data.js';
 
-const TIMEOUT = 60_000;
+const TIMEOUT = 180_000;
 const TIMESTAMP = new Fr(99833);
 
-// FIXME: This fails with "main_kernel_value_out_evaluation failed".
-describe.skip('AVM WitGen, proof generation and verification', () => {
+describe('AVM WitGen, proof generation and verification', () => {
   it(
     'Should prove and verify bulk_testing',
     async () => {
@@ -58,7 +57,7 @@ const proveAndVerifyAvmTestContract = async (
   globals.timestamp = TIMESTAMP;
   const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
 
-  const contractsDb = mock<PublicContractsDB>();
+  const worldStateDB = mock<WorldStateDB>();
   const contractInstance = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
@@ -67,9 +66,8 @@ const proveAndVerifyAvmTestContract = async (
     initializationHash: new Fr(0x101112),
     publicKeysHash: new Fr(0x161718),
   }).withAddress(environment.address);
-  contractsDb.getContractInstance.mockResolvedValue(Promise.resolve(contractInstance));
+  worldStateDB.getContractInstance.mockResolvedValue(Promise.resolve(contractInstance));
 
-  const worldStateDB = mock<WorldStateDB>();
   const storageValue = new Fr(5);
   worldStateDB.storageRead.mockResolvedValue(Promise.resolve(storageValue));
 

@@ -1,4 +1,4 @@
-import { MerkleTreeId, type ProcessedTx } from '@aztec/circuit-types';
+import { MerkleTreeId, type ProcessedTx, getTreeHeight } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -8,9 +8,10 @@ import {
   type BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
   ConstantRollupData,
+  ContentCommitment,
   Fr,
   type GlobalVariables,
-  type Header,
+  Header,
   KernelData,
   type L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NULLIFIERS_PER_TX,
@@ -28,6 +29,7 @@ import {
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PUBLIC_DATA_SUBTREE_SIBLING_PATH_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
+  type ParityPublicInputs,
   PartialStateReference,
   PreviousRollupBlockData,
   PreviousRollupData,
@@ -40,13 +42,15 @@ import {
   type RootParityInput,
   RootRollupInputs,
   StateDiffHints,
-  type StateReference,
+  StateReference,
   VK_TREE_HEIGHT,
   type VerificationKeyAsFields,
   type VerificationKeyData,
 } from '@aztec/circuits.js';
 import { assertPermutation, makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { sha256Trunc } from '@aztec/foundation/crypto';
+import { type DebugLogger } from '@aztec/foundation/log';
 import { type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { HintsBuilder, computeFeePayerBalanceLeafSlot } from '@aztec/simulator';
@@ -209,6 +213,40 @@ export function createBlockMergeRollupInputs(
   return mergeInputs;
 }
 
+export function buildHeaderFromCircuitOutputs(
+  previousMergeData: [BaseOrMergeRollupPublicInputs, BaseOrMergeRollupPublicInputs],
+  parityPublicInputs: ParityPublicInputs,
+  rootRollupOutputs: BlockRootOrBlockMergePublicInputs,
+  l1ToL2TreeSnapshot: AppendOnlyTreeSnapshot,
+  logger?: DebugLogger,
+) {
+  const contentCommitment = new ContentCommitment(
+    new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
+    sha256Trunc(
+      Buffer.concat([previousMergeData[0].txsEffectsHash.toBuffer(), previousMergeData[1].txsEffectsHash.toBuffer()]),
+    ),
+    parityPublicInputs.shaRoot.toBuffer(),
+    sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
+  );
+  const state = new StateReference(l1ToL2TreeSnapshot, previousMergeData[1].end);
+  const header = new Header(
+    rootRollupOutputs.previousArchive,
+    contentCommitment,
+    state,
+    previousMergeData[0].constants.globalVariables,
+    previousMergeData[0].accumulatedFees.add(previousMergeData[1].accumulatedFees),
+  );
+  if (!header.hash().equals(rootRollupOutputs.endBlockHash)) {
+    logger?.error(
+      `Block header mismatch when building header from circuit outputs.` +
+        `\n\nBuilt: ${toFriendlyJSON(header)}` +
+        `\n\nCircuit: ${toFriendlyJSON(rootRollupOutputs)}`,
+    );
+    throw new Error(`Block header mismatch`);
+  }
+  return header;
+}
+
 // Validate that the roots of all local trees match the output of the root circuit simulation
 export async function validateBlockRootOutput(
   blockRootOutput: BlockRootOrBlockMergePublicInputs,
@@ -238,6 +276,12 @@ export async function validateState(state: StateReference, db: MerkleTreeOperati
   );
 }
 
+export async function getRootTreeSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeOperations) {
+  const { size } = await db.getTreeInfo(treeId);
+  const path = await db.getSiblingPath(treeId, size);
+  return padArrayEnd(path.toFields(), Fr.ZERO, getTreeHeight(treeId));
+}
+
 // Builds the inputs for the block root rollup circuit, without making any changes to trees
 export async function getBlockRootRollupInput(
   rollupOutputLeft: BaseOrMergeRollupPublicInputs,
@@ -258,21 +302,9 @@ export async function getBlockRootRollupInput(
     getPreviousRollupDataFromPublicInputs(rollupOutputRight, rollupProofRight, verificationKeyRight),
   ];
 
-  const getRootTreeSiblingPath = async (treeId: MerkleTreeId) => {
-    const { size } = await db.getTreeInfo(treeId);
-    const path = await db.getSiblingPath(treeId, size);
-    return path.toFields();
-  };
-
   // Get blocks tree
   const startArchiveSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
-  const newArchiveSiblingPathArray = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE);
-
-  const newArchiveSiblingPath = makeTuple(
-    ARCHIVE_HEIGHT,
-    i => (i < newArchiveSiblingPathArray.length ? newArchiveSiblingPathArray[i] : Fr.ZERO),
-    0,
-  );
+  const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, db);
 
   return BlockRootRollupInputs.from({
     previousRollupData,

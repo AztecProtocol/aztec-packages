@@ -162,7 +162,6 @@ class AvmTraceBuilder {
     // Gadgets
     void op_keccak(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
     void op_poseidon2_permutation(uint8_t indirect, uint32_t input_offset, uint32_t output_offset);
-    void op_sha256(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
     void op_pedersen_hash(uint8_t indirect,
                           uint32_t gen_ctx_offset,
                           uint32_t output_offset,
@@ -195,7 +194,12 @@ class AvmTraceBuilder {
                         uint8_t output_bits);
 
     // Future Gadgets -- pending changes in noir
-    void op_sha256_compression(uint8_t indirect, uint32_t output_offset, uint32_t h_init_offset, uint32_t input_offset);
+    void op_sha256_compression(uint8_t indirect,
+                               uint32_t output_offset,
+                               uint32_t state_offset,
+                               uint32_t state_size_offset,
+                               uint32_t inputs_offset,
+                               uint32_t inputs_size_offset);
     void op_keccakf1600(uint8_t indirect, uint32_t output_offset, uint32_t input_offset, uint32_t input_size_offset);
 
     std::vector<Row> finalize();

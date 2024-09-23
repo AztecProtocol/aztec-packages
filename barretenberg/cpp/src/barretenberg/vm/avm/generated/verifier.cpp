@@ -28,17 +28,9 @@ AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
 using FF = AvmFlavor::FF;
 
 // Evaluate the given public input column over the multivariate challenge points
-[[maybe_unused]] inline FF evaluate_public_input_column(const std::vector<FF>& points,
-                                                        const size_t circuit_size,
-                                                        std::vector<FF> challenges)
+inline FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
 {
-
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6361): we pad the points to the circuit size in order
-    // to get the correct evaluation. This is not efficient, and will not be valid in production.
-    std::vector<FF> new_points(circuit_size, 0);
-    std::copy(points.begin(), points.end(), new_points.data());
-
-    Polynomial<FF> polynomial(new_points);
+    Polynomial<FF> polynomial(points, key->circuit_size);
     return polynomial.evaluate_mle(challenges);
 }
 
@@ -109,34 +101,32 @@ bool AvmVerifier::verify_proof(const HonkProof& proof,
     std::vector<FF> mle_challenge(multivariate_challenge.begin(),
                                   multivariate_challenge.begin() + static_cast<int>(log_circuit_size));
 
-    FF main_kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], circuit_size, mle_challenge);
+    FF main_kernel_inputs_evaluation = evaluate_public_input_column(public_inputs[0], mle_challenge);
     if (main_kernel_inputs_evaluation != claimed_evaluations.main_kernel_inputs) {
         vinfo("main_kernel_inputs_evaluation failed");
         return false;
     }
-    FF main_kernel_value_out_evaluation = evaluate_public_input_column(public_inputs[1], circuit_size, mle_challenge);
+    FF main_kernel_value_out_evaluation = evaluate_public_input_column(public_inputs[1], mle_challenge);
     if (main_kernel_value_out_evaluation != claimed_evaluations.main_kernel_value_out) {
         vinfo("main_kernel_value_out_evaluation failed");
         return false;
     }
-    FF main_kernel_side_effect_out_evaluation =
-        evaluate_public_input_column(public_inputs[2], circuit_size, mle_challenge);
+    FF main_kernel_side_effect_out_evaluation = evaluate_public_input_column(public_inputs[2], mle_challenge);
     if (main_kernel_side_effect_out_evaluation != claimed_evaluations.main_kernel_side_effect_out) {
         vinfo("main_kernel_side_effect_out_evaluation failed");
         return false;
     }
-    FF main_kernel_metadata_out_evaluation =
-        evaluate_public_input_column(public_inputs[3], circuit_size, mle_challenge);
+    FF main_kernel_metadata_out_evaluation = evaluate_public_input_column(public_inputs[3], mle_challenge);
     if (main_kernel_metadata_out_evaluation != claimed_evaluations.main_kernel_metadata_out) {
         vinfo("main_kernel_metadata_out_evaluation failed");
         return false;
     }
-    FF main_calldata_evaluation = evaluate_public_input_column(public_inputs[4], circuit_size, mle_challenge);
+    FF main_calldata_evaluation = evaluate_public_input_column(public_inputs[4], mle_challenge);
     if (main_calldata_evaluation != claimed_evaluations.main_calldata) {
         vinfo("main_calldata_evaluation failed");
         return false;
     }
-    FF main_returndata_evaluation = evaluate_public_input_column(public_inputs[5], circuit_size, mle_challenge);
+    FF main_returndata_evaluation = evaluate_public_input_column(public_inputs[5], mle_challenge);
     if (main_returndata_evaluation != claimed_evaluations.main_returndata) {
         vinfo("main_returndata_evaluation failed");
         return false;

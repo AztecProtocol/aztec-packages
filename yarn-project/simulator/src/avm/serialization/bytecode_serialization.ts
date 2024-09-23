@@ -1,7 +1,7 @@
 import { PedersenCommitment } from '../opcodes/commitment.js';
 import { DAGasLeft, L2GasLeft } from '../opcodes/context_getters.js';
 import { EcAdd } from '../opcodes/ec_add.js';
-import { Keccak, KeccakF1600, Pedersen, Poseidon2, Sha256 } from '../opcodes/hashing.js';
+import { Keccak, KeccakF1600, Pedersen, Poseidon2, Sha256Compression } from '../opcodes/hashing.js';
 import {
   Add,
   Address,
@@ -167,7 +167,7 @@ const INSTRUCTION_SET = () =>
     [EcAdd.opcode, Instruction.deserialize.bind(EcAdd)],
     [Keccak.opcode, Instruction.deserialize.bind(Keccak)],
     [Poseidon2.opcode, Instruction.deserialize.bind(Poseidon2)],
-    [Sha256.opcode, Instruction.deserialize.bind(Sha256)],
+    [Sha256Compression.opcode, Instruction.deserialize.bind(Sha256Compression)],
     [Pedersen.opcode, Instruction.deserialize.bind(Pedersen)],
     [MultiScalarMul.opcode, Instruction.deserialize.bind(MultiScalarMul)],
     [PedersenCommitment.opcode, Instruction.deserialize.bind(PedersenCommitment)],
