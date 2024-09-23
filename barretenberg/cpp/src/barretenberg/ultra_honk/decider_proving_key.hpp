@@ -79,6 +79,7 @@ template <class Flavor> class DeciderProvingKey_ {
 
         // If Goblin, construct the databus polynomials
         if constexpr (IsGoblinFlavor<Flavor>) {
+            ZoneScopedN("constructing databus polynomials");
             construct_databus_polynomials(circuit);
         }
 
@@ -87,13 +88,19 @@ template <class Flavor> class DeciderProvingKey_ {
         proving_key.polynomials.lagrange_last = Polynomial(1, dyadic_circuit_size, dyadic_circuit_size - 1);
         proving_key.polynomials.lagrange_first.at(0) = 1;
         proving_key.polynomials.lagrange_last.at(dyadic_circuit_size - 1) = 1;
+        {
+            ZoneScopedN("constructing lookup table polynomials");
+            construct_lookup_table_polynomials<Flavor>(
+                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size);
+        }
 
-        construct_lookup_table_polynomials<Flavor>(proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size);
-
-        construct_lookup_read_counts<Flavor>(proving_key.polynomials.lookup_read_counts,
-                                             proving_key.polynomials.lookup_read_tags,
-                                             circuit,
-                                             dyadic_circuit_size);
+        {
+            ZoneScopedN("constructing lookup read counts");
+            construct_lookup_read_counts<Flavor>(proving_key.polynomials.lookup_read_counts,
+                                                 proving_key.polynomials.lookup_read_tags,
+                                                 circuit,
+                                                 dyadic_circuit_size);
+        }
 
         // Construct the public inputs array
         for (size_t i = 0; i < proving_key.num_public_inputs; ++i) {
@@ -109,28 +116,36 @@ template <class Flavor> class DeciderProvingKey_ {
             proving_key.databus_propagation_data = circuit.databus_propagation_data;
         }
 
-        // Allocate the lookup_inverses polynomial
-        const size_t tables_size = circuit.get_tables_size();
-        const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-        const size_t table_offset = dyadic_circuit_size - tables_size;
-        const size_t lookup_inverses_start = std::min(lookup_offset, table_offset);
-        const size_t lookup_inverses_end =
-            std::max(lookup_offset + circuit.blocks.lookup.size(), table_offset + tables_size);
-        proving_key.polynomials.lookup_inverses =
-            Polynomial(lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
-        if constexpr (HasDataBus<Flavor>) {
-            const size_t q_busread_end = circuit.blocks.busread.trace_offset + circuit.blocks.busread.size();
-            // Allocate the databus inverse polynomials
-            proving_key.polynomials.calldata_inverses =
-                Polynomial(std::max(circuit.get_calldata().size(), q_busread_end), dyadic_circuit_size);
-            proving_key.polynomials.secondary_calldata_inverses =
-                Polynomial(std::max(circuit.get_secondary_calldata().size(), q_busread_end), dyadic_circuit_size);
-            proving_key.polynomials.return_data_inverses =
-                Polynomial(std::max(circuit.get_return_data().size(), q_busread_end), dyadic_circuit_size);
+        {
+            ZoneScopedN("constructing lookup and databus inverses");
+            // Allocate the lookup_inverses polynomial
+            const size_t tables_size = circuit.get_tables_size();
+            const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of
+            // trace
+            const size_t table_offset = dyadic_circuit_size - tables_size;
+            const size_t lookup_inverses_start = std::min(lookup_offset, table_offset);
+            const size_t lookup_inverses_end =
+                std::max(lookup_offset + circuit.blocks.lookup.size(), table_offset + tables_size);
+            info("lookup_inverses size: ", lookup_inverses_end - lookup_inverses_start);
+            proving_key.polynomials.lookup_inverses =
+                Polynomial(lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
+            if constexpr (HasDataBus<Flavor>) {
+                const size_t q_busread_end = circuit.blocks.busread.trace_offset + circuit.blocks.busread.size();
+                // Allocate the databus inverse polynomials
+                proving_key.polynomials.calldata_inverses =
+                    Polynomial(std::max(circuit.get_calldata().size(), q_busread_end), dyadic_circuit_size);
+                proving_key.polynomials.secondary_calldata_inverses =
+                    Polynomial(std::max(circuit.get_secondary_calldata().size(), q_busread_end), dyadic_circuit_size);
+                proving_key.polynomials.return_data_inverses =
+                    Polynomial(std::max(circuit.get_return_data().size(), q_busread_end), dyadic_circuit_size);
+            }
         }
-        // Allocate the z_perm polynomial
-        proving_key.polynomials.z_perm = Polynomial::shiftable(proving_key.circuit_size);
+        {
+            ZoneScopedN("constructing z_perm");
+            // Allocate the z_perm polynomial
+            proving_key.polynomials.z_perm = Polynomial::shiftable(proving_key.circuit_size);
+        }
 
         // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are defined.
         proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly

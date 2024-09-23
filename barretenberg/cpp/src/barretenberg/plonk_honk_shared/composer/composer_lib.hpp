@@ -24,6 +24,7 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
     const size_t tables_size = circuit.get_tables_size();
     ASSERT(dyadic_circuit_size > tables_size + additional_offset);
+    info("size of table polynomials: ", tables_size);
     size_t offset = dyadic_circuit_size - tables_size - additional_offset;
 
     // Allocate the table polynomials

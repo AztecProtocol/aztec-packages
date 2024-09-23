@@ -61,6 +61,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
 
     // Allocate the wires and selectors polynomials
     if constexpr (IsHonkFlavor<Flavor>) {
+        ZoneScopedN("allocating wires and selectors");
         builder.blocks.compute_offsets(is_structured);
         for (auto& wire : proving_key.polynomials.get_wires()) {
             wire = Polynomial::shiftable(proving_key.circuit_size);
@@ -73,8 +74,10 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
             if (&block == &builder.blocks.arithmetic) {
                 size_t arith_size = builder.blocks.aux.trace_offset - builder.blocks.arithmetic.trace_offset +
                                     builder.blocks.aux.size();
+                info("arith_size: ", arith_size);
                 selector = Polynomial(arith_size, proving_key.circuit_size, builder.blocks.arithmetic.trace_offset);
             } else {
+                info("block.size(): ", block.size());
                 selector = Polynomial(block.size(), proving_key.circuit_size, block.trace_offset);
             }
         }
@@ -113,8 +116,7 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         // Insert the selector values for this block into the selector polynomials at the correct offset
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
         for (size_t selector_idx = 0; selector_idx < NUM_SELECTORS; selector_idx++) {
-            auto selector_poly = trace_data.selectors[selector_idx];
-            auto selector = block.selectors[selector_idx];
+            auto& selector = block.selectors[selector_idx];
             for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
                 size_t trace_row_idx = row_idx + offset;
                 trace_data.selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
