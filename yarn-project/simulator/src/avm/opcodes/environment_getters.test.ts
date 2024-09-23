@@ -8,32 +8,8 @@ import { randomInt } from 'crypto';
 import { type AvmContext } from '../avm_context.js';
 import { TypeTag } from '../avm_memory_types.js';
 import { initContext, initExecutionEnvironment, initGlobalVariables } from '../fixtures/index.js';
-import {
-  Address,
-  BlockNumber,
-  ChainId,
-  FeePerDAGas,
-  FeePerL2Gas,
-  FunctionSelector,
-  Sender,
-  StorageAddress,
-  Timestamp,
-  TransactionFee,
-  Version,
-} from './environment_getters.js';
-
-type GetterInstruction =
-  | typeof Sender
-  | typeof StorageAddress
-  | typeof Address
-  | typeof FunctionSelector
-  | typeof TransactionFee
-  | typeof ChainId
-  | typeof Version
-  | typeof BlockNumber
-  | typeof Timestamp
-  | typeof FeePerDAGas
-  | typeof FeePerL2Gas;
+import { Opcode } from '../serialization/instruction_serialization.js';
+import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 
 describe('Environment getters', () => {
   const address = AztecAddress.random();
@@ -47,6 +23,7 @@ describe('Environment getters', () => {
   const timestamp = new Fr(randomInt(100000)); // cap timestamp since must fit in u64
   const feePerDaGas = Fr.random();
   const feePerL2Gas = Fr.random();
+  const isStaticCall = true;
   const gasFees = new GasFees(feePerDaGas, feePerL2Gas);
   const globals = initGlobalVariables({
     chainId,
@@ -62,38 +39,45 @@ describe('Environment getters', () => {
     functionSelector,
     transactionFee,
     globals,
+    isStaticCall,
   });
   let context: AvmContext;
   beforeEach(() => {
     context = initContext({ env });
   });
 
-  describe.each([
-    [Address, address.toField()],
-    [StorageAddress, storageAddress.toField()],
-    [Sender, sender.toField()],
-    [FunctionSelector, functionSelector.toField(), TypeTag.UINT32],
-    [TransactionFee, transactionFee.toField()],
-    [ChainId, chainId.toField()],
-    [Version, version.toField()],
-    [BlockNumber, blockNumber.toField()],
-    [Timestamp, timestamp.toField(), TypeTag.UINT64],
-    [FeePerDAGas, feePerDaGas.toField()],
-    [FeePerL2Gas, feePerL2Gas.toField()],
-  ])('Environment getters instructions', (instrClass: GetterInstruction, value: Fr, tag: TypeTag = TypeTag.FIELD) => {
-    it(`${instrClass.name} should (de)serialize correctly`, () => {
-      const buf = Buffer.from([
-        instrClass.opcode, // opcode
-        0x01, // indirect
-        ...Buffer.from('12345678', 'hex'), // dstOffset
-      ]);
-      const instr = new instrClass(/*indirect=*/ 0x01, /*dstOffset=*/ 0x12345678);
+  it(`Should (de)serialize correctly`, () => {
+    const buf = Buffer.from([
+      Opcode.GETENVVAR_16, // opcode
+      0x01, // indirect
+      0x05, // var idx
+      ...Buffer.from('1234', 'hex'), // dstOffset
+    ]);
+    const instr = new GetEnvVar(/*indirect=*/ 0x01, 5, /*dstOffset=*/ 0x1234).as(
+      Opcode.GETENVVAR_16,
+      GetEnvVar.wireFormat16,
+    );
 
-      expect(instrClass.deserialize(buf)).toEqual(instr);
-      expect(instr.serialize()).toEqual(buf);
-    });
-    it(`${instrClass.name} should read '${instrClass.type}' correctly`, async () => {
-      const instruction = new instrClass(/*indirect=*/ 0, /*dstOffset=*/ 0);
+    expect(GetEnvVar.as(GetEnvVar.wireFormat16).deserialize(buf)).toEqual(instr);
+    expect(instr.serialize()).toEqual(buf);
+  });
+
+  describe.each([
+    [EnvironmentVariable.ADDRESS, address.toField()],
+    [EnvironmentVariable.STORAGEADDRESS, storageAddress.toField()],
+    [EnvironmentVariable.SENDER, sender.toField()],
+    [EnvironmentVariable.FUNCTIONSELECTOR, functionSelector.toField(), TypeTag.UINT32],
+    [EnvironmentVariable.TRANSACTIONFEE, transactionFee.toField()],
+    [EnvironmentVariable.CHAINID, chainId.toField()],
+    [EnvironmentVariable.VERSION, version.toField()],
+    [EnvironmentVariable.BLOCKNUMBER, blockNumber.toField()],
+    [EnvironmentVariable.TIMESTAMP, timestamp.toField(), TypeTag.UINT64],
+    [EnvironmentVariable.FEEPERDAGAS, feePerDaGas.toField()],
+    [EnvironmentVariable.FEEPERL2GAS, feePerL2Gas.toField()],
+    [EnvironmentVariable.ISSTATICCALL, new Fr(isStaticCall ? 1 : 0)],
+  ])('Environment getter instructions', (envVar: EnvironmentVariable, value: Fr, tag: TypeTag = TypeTag.FIELD) => {
+    it(`Should read '${EnvironmentVariable[envVar]}' correctly`, async () => {
+      const instruction = new GetEnvVar(/*indirect=*/ 0, envVar, /*dstOffset=*/ 0);
 
       await instruction.execute(context);
 

@@ -4,6 +4,7 @@ use dep::protocol_types::traits::Empty;
 struct PublicContextInputs {
     // TODO: Remove this structure and get calldata size at compile time.
     calldata_length: Field,
+    // This is currently unused but it's here to avoid changing serialization.
     is_static_call: bool
 }
 
