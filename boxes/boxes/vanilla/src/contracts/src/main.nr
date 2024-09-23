@@ -11,8 +11,8 @@ contract Vanilla {
     use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
 
     #[storage]
-    struct Storage {
-        numbers: Map<AztecAddress, PrivateMutable<ValueNote>>,
+    struct Storage<Context> {
+        numbers: Map<AztecAddress, PrivateMutable<ValueNote, Context>, Context>,
     }
 
     #[private]

@@ -110,7 +110,7 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
         });
 
         let if_statements = notes.map(
-            | (typ, (note, _, _)): (Type, (StructDefinition, u32, Field)) | {
+            | (typ, (_, _, _)): (Type, (StructDefinition, u32, Field)) | {
                 quote {
                     if note_type_id == $typ::get_note_type_id() {
                         aztec::note::utils::compute_note_hash_and_optionally_a_nullifier($typ::deserialize_content, note_header, compute_nullifier, serialized_note)

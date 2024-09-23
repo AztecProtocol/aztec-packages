@@ -8,11 +8,11 @@ contract BoxReact {
         encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
         macros::{storage::storage, functions::{private, public, initializer}}
     };
-    use dep::value_note::value_note::{ValueNote, VALUE_NOTE_LEN};
+    use dep::value_note::value_note::ValueNote;
 
     #[storage]
-    struct Storage {
-        numbers: Map<AztecAddress, PrivateMutable<ValueNote>>,
+    struct Storage<Context> {
+        numbers: Map<AztecAddress, PrivateMutable<ValueNote, Context>, Context>,
     }
 
     #[private]
