@@ -3,6 +3,7 @@ import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import {
   type AztecNode,
   type ClientProtocolCircuitVerifier,
+  type EpochProofQuote,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type L1ToL2MessageSource,
@@ -59,6 +60,7 @@ import {
   DataTxValidator,
   DoubleSpendTxValidator,
   InMemoryAttestationPool,
+  MemoryEpochProofQuotePool,
   MetadataTxValidator,
   type P2P,
   TxProofValidator,
@@ -121,6 +123,14 @@ export class AztecNodeService implements AztecNode {
     this.log.info(message);
   }
 
+  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
+    return Promise.resolve(this.p2pClient.broadcastEpochProofQuote(quote));
+  }
+
+  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
+    return this.p2pClient.getEpochProofQuotes(epoch);
+  }
+
   /**
    * initializes the Aztec Node, wait for component to sync.
    * @param config - The configuration to be used by the aztec node.
@@ -154,6 +164,7 @@ export class AztecNodeService implements AztecNode {
     const p2pClient = await createP2PClient(
       config,
       new InMemoryAttestationPool(),
+      new MemoryEpochProofQuotePool(),
       archiver,
       proofVerifier,
       worldStateSynchronizer,
@@ -229,8 +240,8 @@ export class AztecNodeService implements AztecNode {
    * Method to determine if the node is ready to accept transactions.
    * @returns - Flag indicating the readiness for tx submission.
    */
-  public async isReady() {
-    return (await this.p2pClient.isReady()) ?? false;
+  public isReady() {
+    return Promise.resolve(this.p2pClient.isReady() ?? false);
   }
 
   /**

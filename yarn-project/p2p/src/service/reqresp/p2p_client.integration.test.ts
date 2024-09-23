@@ -17,6 +17,7 @@ import { createP2PClient } from '../../client/index.js';
 import { MockBlockSource } from '../../client/mocks.js';
 import { type P2PClient } from '../../client/p2p_client.js';
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
+import { type EpochProofQuotePool } from '../../epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { AlwaysFalseCircuitVerifier, AlwaysTrueCircuitVerifier } from '../../mocks/index.js';
 import { type TxPool } from '../../tx_pool/index.js';
 import { convertToMultiaddr } from '../../util.js';
@@ -47,6 +48,7 @@ const NUMBER_OF_PEERS = 2;
 describe('Req Resp p2p client integration', () => {
   let txPool: Mockify<TxPool>;
   let attestationPool: Mockify<AttestationPool>;
+  let epochProofQuotePool: Mockify<EpochProofQuotePool>;
   let blockSource: MockBlockSource;
   let kvStore: AztecKVStore;
   let worldStateSynchronizer: WorldStateSynchronizer;
@@ -134,6 +136,11 @@ describe('Req Resp p2p client integration', () => {
         getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
       };
 
+      epochProofQuotePool = {
+        addQuote: jest.fn(),
+        getQuotes: jest.fn().mockReturnValue([]),
+      };
+
       blockSource = new MockBlockSource();
       proofVerifier = alwaysTrueVerifier ? new AlwaysTrueCircuitVerifier() : new AlwaysFalseCircuitVerifier();
       kvStore = openTmpStore();
@@ -144,6 +151,7 @@ describe('Req Resp p2p client integration', () => {
       const client = await createP2PClient(
         config,
         attestationPool as unknown as AttestationPool,
+        epochProofQuotePool as unknown as EpochProofQuotePool,
         blockSource,
         proofVerifier,
         worldStateSynchronizer,

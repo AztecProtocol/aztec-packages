@@ -1,6 +1,7 @@
 import {
   type BlockAttestation,
   type BlockProposal,
+  type EpochProofQuote,
   type L2Block,
   L2BlockDownloader,
   type L2BlockSource,
@@ -15,6 +16,7 @@ import { type ENR } from '@chainsafe/enr';
 
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { getP2PConfigEnvVars } from '../config.js';
+import { type EpochProofQuotePool } from '../epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { TX_REQ_PROTOCOL } from '../service/reqresp/interface.js';
 import type { P2PService } from '../service/service.js';
 import { type TxPool } from '../tx_pool/index.js';
@@ -61,6 +63,21 @@ export interface P2P {
    * @returns BlockAttestations
    */
   getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]>;
+
+  /**
+   * Queries the EpochProofQuote pool for quotes for the given epoch
+   *
+   * @param epoch  - the epoch to query
+   * @returns EpochProofQuotes
+   */
+  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
+
+  /**
+   * Broadcasts an EpochProofQuote to other peers.
+   *
+   * @param quote - the quote to broadcast
+   */
+  broadcastEpochProofQuote(quote: EpochProofQuote): void;
 
   /**
    * Registers a callback from the validator client that determines how to behave when
@@ -134,7 +151,7 @@ export interface P2P {
    * Indicates if the p2p client is ready for transaction submission.
    * @returns A boolean flag indicating readiness.
    */
-  isReady(): Promise<boolean>;
+  isReady(): boolean;
 
   /**
    * Returns the current status of the p2p client.
@@ -186,6 +203,7 @@ export class P2PClient implements P2P {
     private l2BlockSource: L2BlockSource,
     private txPool: TxPool,
     private attestationPool: AttestationPool,
+    private epochProofQuotePool: EpochProofQuotePool,
     private p2pService: P2PService,
     private keepProvenTxsFor: number,
     private log = createDebugLogger('aztec:p2p'),
@@ -200,6 +218,22 @@ export class P2PClient implements P2P {
 
     this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
+  }
+
+  #assertIsReady() {
+    if (!this.isReady()) {
+      throw new Error('P2P client not ready');
+    }
+  }
+
+  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
+    return Promise.resolve(this.epochProofQuotePool.getQuotes(epoch));
+  }
+
+  broadcastEpochProofQuote(quote: EpochProofQuote): void {
+    this.#assertIsReady();
+    this.epochProofQuotePool.addQuote(quote);
+    return this.p2pService.propagate(quote);
   }
 
   /**
@@ -363,10 +397,7 @@ export class P2PClient implements P2P {
    * @returns Empty promise.
    **/
   public async sendTx(tx: Tx): Promise<void> {
-    const ready = await this.isReady();
-    if (!ready) {
-      throw new Error('P2P client not ready');
-    }
+    this.#assertIsReady();
     await this.txPool.addTxs([tx]);
     this.p2pService.propagate(tx);
   }
@@ -391,10 +422,7 @@ export class P2PClient implements P2P {
    * @returns Empty promise.
    **/
   public async deleteTxs(txHashes: TxHash[]): Promise<void> {
-    const ready = await this.isReady();
-    if (!ready) {
-      throw new Error('P2P client not ready');
-    }
+    this.#assertIsReady();
     await this.txPool.deleteTxs(txHashes);
   }
 
@@ -403,7 +431,7 @@ export class P2PClient implements P2P {
    * @returns True if the P2P client is ready to receive txs.
    */
   public isReady() {
-    return Promise.resolve(this.currentState === P2PClientState.RUNNING);
+    return this.currentState === P2PClientState.RUNNING;
   }
 
   /**

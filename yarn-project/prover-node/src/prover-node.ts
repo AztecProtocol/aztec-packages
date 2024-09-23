@@ -1,10 +1,11 @@
-import {
-  type L1ToL2MessageSource,
-  type L2BlockSource,
-  type MerkleTreeOperations,
-  type ProverClient,
-  type TxProvider,
-  type WorldStateSynchronizer,
+import type {
+  EpochProofQuote,
+  L1ToL2MessageSource,
+  L2BlockSource,
+  MerkleTreeOperations,
+  ProverClient,
+  TxProvider,
+  WorldStateSynchronizer,
 } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -123,6 +124,10 @@ export class ProverNode {
     } catch (err) {
       this.log.error(`Error in prover node work`, err);
     }
+  }
+
+  public sendEpochProofQuote(quote: EpochProofQuote): Promise<void> {
+    return this.txProvider.addEpochProofQuote(quote);
   }
 
   /**

@@ -8,6 +8,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
 import { P2PClient } from '../client/p2p_client.js';
 import { type P2PConfig } from '../config.js';
+import { type EpochProofQuotePool } from '../epoch_proof_quote_pool/epoch_proof_quote_pool.js';
 import { DiscV5Service } from '../service/discV5_service.js';
 import { DummyP2PService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
@@ -19,6 +20,7 @@ export * from './p2p_client.js';
 export const createP2PClient = async (
   _config: P2PConfig & DataStoreConfig,
   attestationsPool: AttestationPool,
+  epochProofQuotePool: EpochProofQuotePool,
   l2BlockSource: L2BlockSource,
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
@@ -52,7 +54,15 @@ export const createP2PClient = async (
   } else {
     p2pService = new DummyP2PService();
   }
-  return new P2PClient(store, l2BlockSource, txPool, attestationsPool, p2pService, config.keepProvenTxsInPoolFor);
+  return new P2PClient(
+    store,
+    l2BlockSource,
+    txPool,
+    attestationsPool,
+    epochProofQuotePool,
+    p2pService,
+    config.keepProvenTxsInPoolFor,
+  );
 };
 
 async function configureP2PClientAddresses(_config: P2PConfig & DataStoreConfig): Promise<P2PConfig & DataStoreConfig> {
