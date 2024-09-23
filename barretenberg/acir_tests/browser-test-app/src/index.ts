@@ -16,8 +16,9 @@ async function runTest(
   const proof = await backend.generateProof(witness);
 
   debug(`verifying...`);
+  const verificationKey = backend.getVerificationKey();
   const verifier = new BarretenbergVerifier({ threads });
-  const verified = await verifier.verifyUltraplonkProof(proof);
+  const verified = await verifier.verifyUltraplonkProof(proof, verificationKey);
   debug(`verified: ${verified}`);
 
   await backend.destroy();
