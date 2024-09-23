@@ -1,11 +1,9 @@
 use std::{
-    meta::{type_of, unquote}, collections::umap::UHashMap,
+    meta::{type_of, unquote, typ::fresh_type_variable}, collections::umap::UHashMap,
     hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
 };
-use protocol_types::{meta::flatten_to_fields, utils::field::field_from_bytes};
+use protocol_types::{meta::{flatten_to_fields, pack_from_fields}, utils::field::field_from_bytes};
 use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector, note_interface::NoteInterface};
-use protocol_types::meta::pack_from_fields;
-use std::meta::typ::fresh_type_variable;
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 
@@ -14,19 +12,14 @@ comptime mut global NOTES: UHashMap<Type, (StructDefinition, u32, Field), BuildH
 comptime fn compute_note_type_id(name: Quoted) -> Field {
     let name_as_str_quote = name.as_str_quote();
 
-    let hash: [u8; 32] = unquote!(
+    unquote!(
         quote {
             let bytes = $name_as_str_quote.as_bytes();
-            std::hash::keccak256(bytes, bytes.len() as u32)
+            let hash = protocol_types::hash::poseidon2_hash_bytes(bytes);
+            let hash_bytes = hash.to_be_bytes::<4>();
+            field_from_bytes(hash_bytes, true)
         }
-    );
-
-    let mut selector_be_bytes = [0; 4];
-    for i in 0..4 {
-        selector_be_bytes[i] = hash[i];
-    }
-
-    field_from_bytes(selector_be_bytes, true)
+    )
 }
 
 comptime fn generate_note_interface(
