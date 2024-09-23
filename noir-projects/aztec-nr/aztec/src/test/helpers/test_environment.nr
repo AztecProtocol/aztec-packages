@@ -11,7 +11,7 @@ use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deplo
 use crate::hash::hash_args;
 
 use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};
-use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_created_note};
+use crate::oracle::{arguments::pack_arguments, execution::{get_block_number, get_contract_address, get_version, get_chain_id}, notes::notify_created_note};
 
 pub struct TestEnvironment {}
 
@@ -62,7 +62,11 @@ impl TestEnvironment {
 
         let mut inputs = cheatcodes::get_private_context_inputs(historical_block_number);
 
-        PrivateContext::new(inputs, 0)
+        let mut ctx = PrivateContext::new(inputs, 0);
+        ctx.inputs.tx_context.version = get_version();
+        ctx.inputs.tx_context.chain_id = get_chain_id();
+
+        ctx
     }
 
     unconstrained fn create_account(_self: Self) -> AztecAddress {
@@ -85,11 +89,19 @@ impl TestEnvironment {
     }
 
     unconstrained fn deploy<let N: u32, let M: u32>(_self: Self, path: str<N>, name: str<M>) -> Deployer<N, M> {
-        Deployer { path, name, public_keys_hash: 0 }
+        Deployer { path, name, public_keys_hash: 0, secret: 0 }
     }
 
     unconstrained fn deploy_self<let M: u32>(_self: Self, name: str<M>) -> Deployer<0, M> {
-        Deployer { path: "", name, public_keys_hash: 0 }
+        Deployer { path: "", name, public_keys_hash: 0, secret: 0 }
+    }
+
+    unconstrained fn deploy_with_public_keys<let N: u32, let M: u32>(_self: Self, path: str<N>, name: str<M>, secret: Field) -> Deployer<N, M> {
+        Deployer { path, name, public_keys_hash: 0, secret }
+    }
+
+    unconstrained fn deploy_self_with_public_keys<let M: u32>(_self: Self, name: str<M>, secret: Field) -> Deployer<0, M> {
+        Deployer { path: "", name, public_keys_hash: 0, secret }
     }
 
     unconstrained fn call_private<C, let M: u32, T, Env, let N: u32>(
@@ -161,6 +173,16 @@ impl TestEnvironment {
         result
     }
 
+    unconstrained fn call_unconstrained<T, Env>(_self: Self, contract_address: AztecAddress, unconstrained_function_lambda: unconstrained fn[Env] () -> T) -> T {
+        let current_contract_address = get_contract_address();
+
+        cheatcodes::set_contract_address(contract_address);
+        let ret = unconstrained_function_lambda();
+        cheatcodes::set_contract_address(current_contract_address);
+
+        ret
+    }
+
     unconstrained fn assert_public_call_fails<C, let M: u32, T, Env>(
         _self: Self,
         call_interface: C
@@ -176,6 +198,9 @@ impl TestEnvironment {
         _self: Self,
         call_interface: C
     ) where C: CallInterface<M, PrivateContextInputs, T, Env> {
+        // We need to pack arguments here to make them available to the simulation that happens within the txe oracle.
+        pack_arguments(call_interface.get_args());
+
         cheatcodes::assert_private_call_fails(
             call_interface.get_contract_address(),
             call_interface.get_selector(),

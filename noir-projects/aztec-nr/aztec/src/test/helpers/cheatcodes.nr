@@ -27,9 +27,11 @@ unconstrained pub fn deploy<let N: u32, let M: u32, let P: u32>(
     name: str<M>,
     initializer: str<P>,
     args: [Field],
-    public_keys_hash: Field
+    // Public keys hash is overwritten if a secret key is specified
+    public_keys_hash: Field,
+    secret_key: Field,
 ) -> ContractInstance {
-    let instance_fields = oracle_deploy(path, name, initializer, args, public_keys_hash);
+    let instance_fields = oracle_deploy(path, name, initializer, args, public_keys_hash, secret_key);
     ContractInstance::deserialize(instance_fields)
 }
 
@@ -129,7 +131,8 @@ unconstrained fn oracle_deploy<let N: u32, let M: u32, let P: u32>(
     name: str<M>,
     initializer: str<P>,
     args: [Field],
-    public_keys_hash: Field
+    public_keys_hash: Field,
+    secret_key: Field,
 ) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
 
 #[oracle(directStorageWrite)]

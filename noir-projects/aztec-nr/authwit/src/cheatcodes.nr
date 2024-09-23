@@ -42,3 +42,33 @@ pub fn add_public_authwit_from_call_interface<C, let M: u32, T, P, Env>(
     set_authorized(&mut context, message_hash, true);
     cheatcodes::set_contract_address(current_contract);
 }
+
+unconstrained pub fn set_public_authwit_from_inner_hash(
+    consumer: AztecAddress,
+    on_behalf_of: AztecAddress,
+    inner_hash: Field,
+    authorize: bool,
+) {
+    let current_contract = get_contract_address();
+    cheatcodes::set_contract_address(on_behalf_of);
+    let inputs = cheatcodes::get_private_context_inputs(get_block_number());
+    let chain_id = inputs.tx_context.chain_id;
+    let version = inputs.tx_context.version;
+    let message_hash = compute_authwit_message_hash(consumer, chain_id, version, inner_hash);
+    let mut inputs = cheatcodes::get_public_context_inputs();
+    let mut context = PublicContext::new(inputs);
+    set_authorized(&mut context, message_hash, authorize);
+    cheatcodes::set_contract_address(current_contract);
+}
+
+unconstrained pub fn add_private_authwit_from_inner_hash(
+    consumer: AztecAddress,
+    on_behalf_of: AztecAddress,
+    inner_hash: Field,
+) {
+    let inputs = cheatcodes::get_private_context_inputs(get_block_number());
+    let chain_id = inputs.tx_context.chain_id;
+    let version = inputs.tx_context.version;
+    let message_hash = compute_authwit_message_hash(consumer, chain_id, version, inner_hash);
+    cheatcodes::add_authwit(on_behalf_of, message_hash);
+}
