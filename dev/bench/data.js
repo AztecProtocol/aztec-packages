@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727127660581,
+  "lastUpdate": 1727127760804,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "blorktronics@gmail.com",
-            "name": "Zachary James Williamson",
-            "username": "zac-williamson"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d5b239745178d1ce4eb8b8d32fa4b366c13c3c94",
-          "message": "feat: (bb) 128-bit challenges (#8406)\n\nThis PR modifies our Transcript class to achieve the following:\r\n\r\nevery time a hash function is used to generate challenges, the output is\r\nsplit into two 128-bit field elements to generate 2 challenges per hash\r\n\r\nThis change gives us the following benefits:\r\n\r\n1. the amount of hashing required to fold/verifier proofs is reduced\r\n2. where challenges map to Verifier scalar multiplications, those scalar\r\nmuls are now half-width and can be more efficiently evaluated (requires\r\nadditional code to support)\r\n\r\nCloses https://github.com/AztecProtocol/barretenberg/issues/741.\r\n\r\n---------\r\n\r\nCo-authored-by: lucasxia01 <lucasxia01@gmail.com>\r\nCo-authored-by: Maxim Vezenov <mvezenov@gmail.com>",
-          "timestamp": "2024-09-10T19:10:30Z",
-          "tree_id": "6b7977d741e52bd5d82a58985d61e262cfdab95a",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d5b239745178d1ce4eb8b8d32fa4b366c13c3c94"
-        },
-        "date": 1725996445068,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13127.101986999975,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10069.191004 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5076.867936999989,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4691.005517 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39334.764146,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39334764000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14744.864604000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14744865000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3624839788,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3624839788 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 145737530,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 145737530 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2958358087,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2958358087 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 122646242,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 122646242 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 126293666,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 126293666 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "02cff0b525d9d6b1c854219f06713a8b94a8e9f5",
+          "message": "feat(avm)!: GETENVVAR + ISSTATICCALL (#8692)\n\nThe reason I'm keeping all the oracles on the Noir side, is because I\nneed to pass the enum index as an immediate and Noir doesn't allow that\nin any other way. That is, if you had an oracle `get_env_var(var_idx:\nu8)`, when you call it like `get_env_var(12)` you would get a memory\naddress with the 12 in it; and not the `12` constant.",
+          "timestamp": "2024-09-23T22:22:48+01:00",
+          "tree_id": "85849c2669a46e1bd2e5360dd2c0da4494958ac6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/02cff0b525d9d6b1c854219f06713a8b94a8e9f5"
+        },
+        "date": 1727127753822,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 35921.812904000006,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 32961.710527999996 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5168.4432219999935,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4780.557187000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 100701.421666,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 100701422000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14730.694588,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14730695000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8555063148,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8555063148 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 151466359,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 151466359 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 7012223068,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 7012223068 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128665911,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128665911 ns\nthreads: 1"
           }
         ]
       }
