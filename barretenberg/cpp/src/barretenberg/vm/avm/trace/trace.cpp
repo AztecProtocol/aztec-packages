@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -2493,18 +2494,67 @@ void AvmTraceBuilder::op_emit_unencrypted_log(uint8_t indirect,
                                               uint32_t log_offset,
                                               [[maybe_unused]] uint32_t log_size_offset)
 {
+    std::vector<uint8_t> bytes_to_hash;
+
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // FIXME: read (and constrain) log_size_offset
     auto [resolved_log_offset, resolved_log_size_offset] =
         unpack_indirects<2>(indirect, { log_offset, log_size_offset });
-    auto log_size = unconstrained_read_from_memory(resolved_log_size_offset);
 
-    // FIXME: we need to constrain the log_size_offset mem read (and tag check), not just one field!
-    // FIXME: we shouldn't pass resolved_log_offset.offset; we should modify create_kernel_output_opcode to take an
-    // addresswithmode.
-    Row row = create_kernel_output_opcode(indirect, clk, resolved_log_offset.offset);
-    kernel_trace_builder.op_emit_unencrypted_log(clk, side_effect_counter, row.main_ia);
+    FF contract_address = std::get<0>(kernel_trace_builder.public_inputs)[ADDRESS_SELECTOR];
+    std::vector<uint8_t> contract_address_bytes = contract_address.to_buffer();
+
+    // Unencrypted logs are hashed with sha256 and truncated to 31 bytes - and then padded back to 32 bytes
+    bytes_to_hash.insert(bytes_to_hash.end(),
+                         std::make_move_iterator(contract_address_bytes.begin()),
+                         std::make_move_iterator(contract_address_bytes.end()));
+
+    uint32_t log_size = static_cast<uint32_t>(unconstrained_read_from_memory(resolved_log_size_offset));
+    // The size is in fields of 32 bytes, the length used for the hash is in terms of bytes
+    uint32_t num_bytes = log_size * 32;
+    std::vector<uint8_t> log_size_bytes = to_buffer(num_bytes);
+    // Add the log size to the hash to bytes
+    bytes_to_hash.insert(bytes_to_hash.end(),
+                         std::make_move_iterator(log_size_bytes.begin()),
+                         std::make_move_iterator(log_size_bytes.end()));
+
+    // Load the log values from memory
+    // This first read might be indirect which subsequent reads should not be
+    FF initial_direct_addr = resolved_log_offset.mode == AddressingMode::DIRECT
+                                 ? resolved_log_offset.offset
+                                 : unconstrained_read_from_memory(resolved_log_offset.offset);
+
+    AddressWithMode direct_field_addr = AddressWithMode(static_cast<uint32_t>(initial_direct_addr));
+    // We need to read the rest of the log_size number of elements
+    std::vector<uint8_t> log_value_bytes;
+    for (uint32_t i = 0; i < log_size; i++) {
+        FF log_value = unconstrained_read_from_memory(direct_field_addr + i);
+        std::vector<uint8_t> log_value_byte = log_value.to_buffer();
+        bytes_to_hash.insert(bytes_to_hash.end(),
+                             std::make_move_iterator(log_value_byte.begin()),
+                             std::make_move_iterator(log_value_byte.end()));
+    }
+
+    std::array<uint8_t, 32> output = crypto::sha256(bytes_to_hash);
+    // Truncate the hash to 31 bytes so it will be a valid field element
+    FF trunc_hash = FF(from_buffer<uint256_t>(output.data()) >> 8);
+
+    // The + 32 here is for the contract_address in bytes, the +4 is for the extra 4 bytes that contain log_size and is
+    // prefixed to message see toBuffer in unencrypted_l2_log.ts
+    FF length_of_preimage = num_bytes + 32 + 4;
+    // The + 4 is because the kernels store the length of the
+    // processed log as 4 bytes; thus for this length value to match the log length stored in the kernels, we need to
+    // add four to the length here. [Copied from unencrypted_l2_log.ts]
+    FF metadata_log_length = length_of_preimage + 4;
+    Row row = Row{
+        .main_clk = clk,
+        .main_ia = trunc_hash,
+        .main_ib = metadata_log_length,
+        .main_internal_return_ptr = internal_return_ptr,
+        .main_pc = pc++,
+    };
+    kernel_trace_builder.op_emit_unencrypted_log(clk, side_effect_counter, trunc_hash, metadata_log_length);
     row.main_sel_op_emit_unencrypted_log = FF(1);
 
     // Constrain gas cost
@@ -2981,61 +3031,6 @@ void AvmTraceBuilder::op_poseidon2_permutation(uint8_t indirect, uint32_t input_
 }
 
 /**
- * @brief SHA256 Hash with direct or indirect memory access.
- * This function is temporary until we have transitioned to sha256Compression
- * @param indirect byte encoding information about indirect/direct memory access.
- * @param output_offset An index in memory pointing to where the first U32 value of the output array should be
- * stored.
- * @param input_offset An index in memory pointing to the first U8 value of the state array to be used in the next
- * instance of sha256.
- * @param input_size_offset An index in memory pointing to the U32 value of the input size.
- */
-void AvmTraceBuilder::op_sha256(uint8_t indirect,
-                                uint32_t output_offset,
-                                uint32_t input_offset,
-                                uint32_t input_size_offset)
-{
-    auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    auto [resolved_output_offset, resolved_input_offset, resolved_input_size_offset] =
-        unpack_indirects<3>(indirect, { output_offset, input_offset, input_size_offset });
-
-    gas_trace_builder.constrain_gas(clk, OpCode::SHA256);
-
-    auto input_length_read = constrained_read_from_memory(
-        call_ptr, clk, resolved_input_size_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
-
-    // Store the clock time that we will use to line up the gadget later
-    auto sha256_op_clk = clk;
-    main_trace.push_back(Row{
-        .main_clk = clk,
-        .main_ib = input_length_read.val, // Message Length
-        .main_ind_addr_b = FF(input_length_read.indirect_address),
-        .main_internal_return_ptr = FF(internal_return_ptr),
-        .main_mem_addr_b = FF(input_length_read.direct_address),
-        .main_pc = FF(pc++),
-        .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U32)),
-        .main_sel_mem_op_b = FF(1),
-        .main_sel_op_sha256 = FF(1),
-        .main_sel_resolve_ind_addr_b = FF(static_cast<uint32_t>(input_length_read.is_indirect)),
-        .main_tag_err = FF(static_cast<uint32_t>(!input_length_read.tag_match)),
-    });
-    clk++;
-
-    std::vector<uint8_t> input;
-    input.reserve(uint32_t(input_length_read.val));
-    read_slice_from_memory<uint8_t>(resolved_input_offset, uint32_t(input_length_read.val), input);
-
-    std::array<uint8_t, 32> result = sha256_trace_builder.sha256(input, sha256_op_clk);
-
-    std::vector<FF> ff_result;
-    for (uint32_t i = 0; i < 32; i++) {
-        ff_result.emplace_back(result[i]);
-    }
-    // Write the result to memory after
-    write_slice_to_memory(resolved_output_offset, AvmMemoryTag::U8, ff_result);
-}
-
-/**
  * @brief Pedersen Hash with direct or indirect memory access.
  * @param indirect byte encoding information about indirect/direct memory access.
  * @param gen_ctx_offset An index in memory pointing to where the u32 offset for the pedersen hash generators.
@@ -3369,7 +3364,7 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
  * @brief SHA256 Compression with direct or indirect memory access.
  *
  * @param indirect byte encoding information about indirect/direct memory access.
- * @param h_init_offset An index in memory pointing to the first U32 value of the state array to be used in the next
+ * @param state_offset An index in memory pointing to the first U32 value of the state array to be used in the next
  * instance of sha256 compression.
  * @param input_offset An index in memory pointing to the first U32 value of the input array to be used in the next
  * instance of sha256 compression.
@@ -3378,21 +3373,28 @@ void AvmTraceBuilder::op_to_radix_le(uint8_t indirect,
  */
 void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
                                             uint32_t output_offset,
-                                            uint32_t h_init_offset,
-                                            uint32_t input_offset)
+                                            uint32_t state_offset,
+                                            uint32_t state_size_offset,
+                                            uint32_t inputs_offset,
+                                            uint32_t inputs_size_offset)
 {
     // The clk plays a crucial role in this function as we attempt to write across multiple lines in the main trace.
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     // Resolve the indirect flags, the results of this function are used to determine the memory offsets
     // that point to the starting memory addresses for the input and output values.
-    auto [resolved_h_init_offset, resolved_input_offset, resolved_output_offset] =
-        unpack_indirects<3>(indirect, { h_init_offset, input_offset, output_offset });
+    auto [resolved_output_offset,
+          resolved_state_offset,
+          resolved_state_size_offset,
+          resolved_inputs_offset,
+          resolved_inputs_size_offset] =
+        unpack_indirects<5>(indirect,
+                            { output_offset, state_offset, state_size_offset, inputs_offset, inputs_size_offset });
 
     auto read_a = constrained_read_from_memory(
-        call_ptr, clk, resolved_h_init_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IA);
+        call_ptr, clk, resolved_state_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IA);
     auto read_b = constrained_read_from_memory(
-        call_ptr, clk, resolved_input_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
+        call_ptr, clk, resolved_inputs_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
     bool tag_match = read_a.tag_match && read_b.tag_match;
 
     // Constrain gas cost
@@ -3434,9 +3436,9 @@ void AvmTraceBuilder::op_sha256_compression(uint8_t indirect,
     // Input for hash is expanded to 512 bits
     std::vector<uint32_t> input_vec;
     // Read results are written to h_init array.
-    read_slice_from_memory<uint32_t>(resolved_h_init_offset, 8, h_init_vec);
+    read_slice_from_memory<uint32_t>(resolved_state_offset, 8, h_init_vec);
     // Read results are written to input array
-    read_slice_from_memory<uint32_t>(resolved_input_offset, 16, input_vec);
+    read_slice_from_memory<uint32_t>(resolved_inputs_offset, 16, input_vec);
 
     // Now that we have read all the values, we can perform the operation to get the resulting witness.
     // Note: We use the sha_op_clk to ensure that the sha256 operation is performed at the same clock cycle as the

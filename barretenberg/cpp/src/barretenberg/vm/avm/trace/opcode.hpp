@@ -116,16 +116,14 @@ enum class OpCode : uint8_t {
     // Gadgets
     KECCAK,
     POSEIDON2,
-    SHA256,
+    SHA256COMPRESSION,
+    KECCAKF1600,
     PEDERSEN,
     ECADD,
     MSM,
     PEDERSENCOMMITMENT,
     // Conversions
     TORADIXLE,
-    // Future Gadgets -- pending changes in noir
-    SHA256COMPRESSION,
-    KECCAKF1600, // Here for when we eventually support this
 
     // Sentinel
     LAST_OPCODE_SENTINEL,
