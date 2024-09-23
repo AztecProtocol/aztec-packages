@@ -1494,6 +1494,7 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", "./target/contract.sol");
             contract(output_path, vk_path);
         } else if (command == "contract_ultra_honk") {
+            vinfo("Warning: Contract incomplete. Do not use in production!");
             std::string output_path = get_option(args, "-o", "./target/contract.sol");
             contract_honk(output_path, vk_path);
         } else if (command == "write_vk") {
