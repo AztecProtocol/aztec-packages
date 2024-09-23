@@ -295,7 +295,7 @@ global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
 global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3817;
-global AVM_PUBLIC_COLUMN_MAX_SIZE_LOG = 8;
+global AVM_PUBLIC_COLUMN_MAX_SIZE_LOG2 = 8;
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
  * We start from 1 to avoid the default generators. The generator indices are listed

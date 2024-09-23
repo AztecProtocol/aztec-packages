@@ -143,33 +143,21 @@ template <typename Fr> class Polynomial {
     Polynomial shifted() const;
 
     /**
-     * @brief evaluates p(X) = ∑ᵢ aᵢ⋅Xⁱ considered as multi-linear extension p(X₀,…,Xₘ₋₁) = ∑ᵢ aᵢ⋅Lᵢ(X₀,…,Xₘ₋₁)
-     * at u = (u₀,…,uₘ₋₁)
-     *
-     * @details this function allocates a temporary buffer of size n/2
-     *
-     * @param evaluation_points an MLE evaluation point u = (u₀,…,uₘ₋₁)
-     * @param shift evaluates p'(X₀,…,Xₘ₋₁) = 1⋅L₀(X₀,…,Xₘ₋₁) + ∑ᵢ˲₁ aᵢ₋₁⋅Lᵢ(X₀,…,Xₘ₋₁) if true
-     * @return Fr p(u₀,…,uₘ₋₁)
-     */
-    Fr evaluate_mle(std::span<const Fr> evaluation_points, bool shift = false) const;
-
-    /**
      * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u = (u_0,…,u_{n-1})
-     *        in a more efficient way if a_j == 0 for any j >= 2^k where k is less or equal
-     *        to n. In this case, we fold over k dimensions and then multiply the result by
-     *        (1 - u_k) * (1 - u_{k+1}) ... * (1 - u_{n-1}). Note that in this case, for any
+     *        If the polynomial is embedded into a lower dimension k<n, i.e, start_index + size <= 2^k,
+     *        we evaluate it in a more efficient way. Note that a_j == 0 for any j >= 2^k.
+     *        We fold over k dimensions and then multiply the result by
+     *        (1 - u_k) * (1 - u_{k+1}) ... * (1 - u_{n-1}). In this case, for any
      *        i < 2^k, L_i is a multiple of (1 - X_k) * (1 - X_{k+1}) ... * (1 - X_{n-1}). Dividing
      *        p by this monomial leads to a multilinear extension over variables X_0, X_1, ..X_{k-1}.
      *
-     * @param evaluation_points evaluation vector of size n
-     * @param dim dimension of hypercube, i.e., value k above
+     * @details this function allocates a temporary buffer of size 2^(k-1)
      *
-     * @details The current polynomial is asssumed to have virtual size equal to 2^k with k <= n. This means
-     *          that the virtual size will determine the number of dimensions to fold. Superfluous virtual
-     *          size will have superfluous extra cost.
+     * @param evaluation_points evaluation vector of size n
+     * @param shift a boolean and when set to true, we evaluate the shifted counterpart polynomial:
+     *              enforce a_0 == 0 and compute \sum_i a_{i+1}*L_i(X_0,…,X_{n-1})
      */
-    Fr evaluate_bounded_mle(std::span<const Fr> evaluation_points, size_t dim) const;
+    Fr evaluate_mle(std::span<const Fr> evaluation_points, bool shift = false) const;
 
     /**
      * @brief Partially evaluates in the last k variables a polynomial interpreted as a multilinear extension.

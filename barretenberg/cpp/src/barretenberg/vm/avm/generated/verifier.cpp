@@ -28,11 +28,10 @@ AvmVerifier& AvmVerifier::operator=(AvmVerifier&& other) noexcept
 using FF = AvmFlavor::FF;
 
 // Evaluate the given public input column over the multivariate challenge points
-inline FF evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
+inline FF AvmVerifier::evaluate_public_input_column(const std::vector<FF>& points, std::vector<FF> challenges)
 {
-    constexpr size_t MAX_COL_SIZE = 1 << AVM_PUBLIC_COLUMN_MAX_SIZE_LOG;
-    Polynomial<FF> polynomial(points, MAX_COL_SIZE);
-    return polynomial.evaluate_bounded_mle(challenges, AVM_PUBLIC_COLUMN_MAX_SIZE_LOG);
+    Polynomial<FF> polynomial(points, key->circuit_size);
+    return polynomial.evaluate_mle(challenges);
 }
 
 /**

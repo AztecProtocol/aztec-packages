@@ -1091,7 +1091,8 @@ TYPED_TEST(PolynomialTests, interpolation_constructor)
     }
 }
 
-TYPED_TEST(PolynomialTests, evaluate_mle)
+// LegacyPolynomials MLE
+TYPED_TEST(PolynomialTests, evaluate_mle_legacy)
 {
     using FF = TypeParam;
 
@@ -1149,14 +1150,16 @@ TYPED_TEST(PolynomialTests, evaluate_mle)
 }
 
 /*
- * @brief Compare that the bounded mle evaluation is equal to the mle evaluation.
+ * @brief Compare that the mle evaluation over Polynomials match the mle evaluation of
+ *        LegacyPolynomials.
  */
-TYPED_TEST(PolynomialTests, evaluate_bounded_mle)
+TYPED_TEST(PolynomialTests, evaluate_mle)
 {
     using FF = TypeParam;
 
     auto test_case = [](size_t n, size_t dim) {
         auto& engine = numeric::get_debug_randomness();
+        size_t k = 1 << dim;
 
         std::vector<FF> evaluation_points;
         evaluation_points.resize(n);
@@ -1164,22 +1167,27 @@ TYPED_TEST(PolynomialTests, evaluate_bounded_mle)
             evaluation_points[i] = FF::random_element(&engine);
         }
 
-        const size_t bounded_size = 1 << dim;
-        Polynomial<FF> bounded_poly(bounded_size);
-        for (size_t i = 0; i < bounded_size; ++i) {
-            bounded_poly.at(i) = FF::random_element(&engine);
+        LegacyPolynomial<FF> legacy_poly(1 << n);
+        Polynomial<FF> poly(k, 1 << n);
+        for (size_t i = 0; i < k; ++i) {
+            auto const rnd = FF::random_element(&engine);
+            legacy_poly[i] = rnd;
+            poly.at(i) = rnd;
         }
 
-        const size_t size = 1 << n;
-        Polynomial<FF> poly(size);
-        for (size_t i = 0; i < bounded_size; ++i) {
-            poly.at(i) = bounded_poly.at(i);
-        }
-
-        const FF bounded_res = bounded_poly.evaluate_bounded_mle(evaluation_points, dim);
+        const FF legacy_res = legacy_poly.evaluate_mle(evaluation_points);
         const FF res = poly.evaluate_mle(evaluation_points);
 
-        EXPECT_EQ(bounded_res, res);
+        EXPECT_EQ(legacy_res, res);
+
+        // Same with shifted polynomials
+        legacy_poly[0] = FF(0);
+        poly.at(0) = FF(0);
+
+        const FF legacy_shift_res = legacy_poly.evaluate_mle(evaluation_points, true);
+        const FF shift_res = poly.evaluate_mle(evaluation_points, true);
+
+        EXPECT_EQ(legacy_shift_res, shift_res);
     };
 
     test_case(9, 3);
