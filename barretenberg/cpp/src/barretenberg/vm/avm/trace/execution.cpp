@@ -933,12 +933,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                                    std::get<uint32_t>(inst.operands.at(2)));
 
             break;
-        case OpCode::SHA256:
-            trace_builder.op_sha256(std::get<uint8_t>(inst.operands.at(0)),
-                                    std::get<uint32_t>(inst.operands.at(1)),
-                                    std::get<uint32_t>(inst.operands.at(2)),
-                                    std::get<uint32_t>(inst.operands.at(3)));
-            break;
         case OpCode::PEDERSEN:
             trace_builder.op_pedersen_hash(std::get<uint8_t>(inst.operands.at(0)),
                                            std::get<uint32_t>(inst.operands.at(1)),
@@ -974,12 +968,13 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                          std::get<uint8_t>(inst.operands.at(5)));
             break;
 
-            // Future Gadgets -- pending changes in noir
         case OpCode::SHA256COMPRESSION:
             trace_builder.op_sha256_compression(std::get<uint8_t>(inst.operands.at(0)),
                                                 std::get<uint32_t>(inst.operands.at(1)),
                                                 std::get<uint32_t>(inst.operands.at(2)),
-                                                std::get<uint32_t>(inst.operands.at(3)));
+                                                std::get<uint32_t>(inst.operands.at(3)),
+                                                std::get<uint32_t>(inst.operands.at(4)),
+                                                std::get<uint32_t>(inst.operands.at(5)));
             break;
 
         case OpCode::KECCAKF1600:

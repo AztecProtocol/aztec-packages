@@ -944,10 +944,12 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
                                "09"                                  // value 9 (i.e. where the input will be read from)
                                "23"                                  // dst_offset 35
                                + to_hex(OpCode::SHA256COMPRESSION) + // opcode SHA256COMPRESSION
-                               "07"                                  // Indirect flag (first 3 operands indirect)
-                               "00000024"                            // output offset (indirect 36)
-                               "00000022"                            // state offset (indirect 34)
-                               "00000023"                            // input offset (indirect 35)
+                               "00"                                  // Indirect flag
+                               "00000100"                            // output offset
+                               "00000001"                            // state offset
+                               "0000000F"                            // state size
+                               "00000009"                            // input offset
+                               "00000008"                            // input size
                                + to_hex(OpCode::RETURN) +            // opcode RETURN
                                "00"                                  // Indirect flag
                                "00000100"                            // ret offset 256
@@ -964,74 +966,6 @@ TEST_F(AvmExecutionTests, sha256CompressionOpcode)
     // 4091010797,3974542186]),
     std::vector<FF> expected_output = { 1862536192, 526086805, 2067405084,    593147560,
                                         726610467,  813867028, 4091010797ULL, 3974542186ULL };
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
-
-    EXPECT_EQ(returndata, expected_output);
-
-    validate_trace(std::move(trace), public_inputs, calldata, returndata);
-}
-
-// Positive test with SHA256
-TEST_F(AvmExecutionTests, sha256Opcode)
-{
-
-    // Test vectors taken from noir black_box_solver
-    // Uint8Array.from([0x61, 0x62, 0x63]),
-    // Uint8Array.from([
-    //   0xba, 0x78, 0x16, 0xbf, 0x8f, 0x01, 0xcf, 0xea, 0x41, 0x41, 0x40, 0xde, 0x5d, 0xae, 0x22, 0x23, 0xb0, 0x03,
-    //   0x61, 0xa3, 0x96, 0x17, 0x7a, 0x9c, 0xb4, 0x10, 0xff, 0x61, 0xf2, 0x00, 0x15, 0xad,
-    // ]),
-    std::vector<FF> expected_output = {
-        FF(0xba), FF(0x78), FF(0x16), FF(0xbf), FF(0x8f), FF(0x01), FF(0xcf), FF(0xea), FF(0x41), FF(0x41), FF(0x40),
-        FF(0xde), FF(0x5d), FF(0xae), FF(0x22), FF(0x23), FF(0xb0), FF(0x03), FF(0x61), FF(0xa3), FF(0x96), FF(0x17),
-        FF(0x7a), FF(0x9c), FF(0xb4), FF(0x10), FF(0xff), FF(0x61), FF(0xf2), FF(0x00), FF(0x15), FF(0xad),
-    };
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // Initial SET operations to store state and input
-                               "00"                    // Indirect Flag
-                               + to_hex(AvmMemoryTag::U8) +
-                               "61"                      // val 97
-                               "01"                      // dst_offset 1
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect src (input)
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U8) +
-                               "62"                      // value 98 (i.e. where the src will be read from)A
-                               "02"                      // input_offset 2
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect src (input)
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "63"                      // value 99 (i.e. where the src will be read from)
-                               "03"                      // input_offset 36
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect src (input)
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "01"                      // value 1 (i.e. where the src will be read from)
-                               "24"                      // input_offset 36
-                               + to_hex(OpCode::SET_8) + //
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U8) +
-                               "03"                       // value 3 (i.e. where the length parameter is stored)
-                               "25"                       // input_offset 37
-                               + to_hex(OpCode::SET_16) + // opcode SET for indirect dst (output)
-                               "00"                       // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "0100"                     // value 256 (i.e. where the ouput will be written to)
-                               "0023"                     // dst_offset 35
-                               + to_hex(OpCode::SHA256) + // opcode SHA256
-                               "03"                       // Indirect flag (first 2 operands indirect)
-                               "00000023"                 // output offset (indirect 35)
-                               "00000024"                 // input offset (indirect 36)
-                               "00000025"                 // length offset 37
-                               + to_hex(OpCode::RETURN) + // opcode RETURN
-                               "00"                       // Indirect flag
-                               "00000100"                 // ret offset 256
-                               "00000020";                // ret size 32
-
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Deserialization::parse(bytecode);
-
-    // Assign a vector that we will mutate internally in gen_trace to store the return values;
-    std::vector<FF> returndata = std::vector<FF>();
-    std::vector<FF> calldata = std::vector<FF>();
     auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
 
     EXPECT_EQ(returndata, expected_output);
