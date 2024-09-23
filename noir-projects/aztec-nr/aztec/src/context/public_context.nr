@@ -109,8 +109,7 @@ impl PublicContext {
         _function_selector: FunctionSelector,
         _args: [Field]
     ) -> FunctionReturns<RETURNS_COUNT> {
-        assert(false, "'delegate_call_public_function' not implemented!");
-        FunctionReturns::new([0; RETURNS_COUNT])
+        panic(f"'delegate_call_public_function' not implemented!")
     }
 
     fn push_note_hash(_self: &mut Self, note_hash: Field) {
