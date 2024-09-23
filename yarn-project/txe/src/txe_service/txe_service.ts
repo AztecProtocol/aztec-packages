@@ -313,6 +313,11 @@ export class TXEService {
     return toForeignCallResult([toSingle(functionSelector.toField())]);
   }
 
+  avmOpcodeIsStaticCall() {
+    const isStaticCall = (this.typedOracle as TXE).getIsStaticCall();
+    return toForeignCallResult([toSingle(isStaticCall.toField())]);
+  }
+
   async avmOpcodeChainId() {
     const chainId = await (this.typedOracle as TXE).getChainId();
     return toForeignCallResult([toSingle(chainId)]);

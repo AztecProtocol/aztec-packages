@@ -281,6 +281,11 @@ export class TXE implements TypedOracle {
     return Promise.resolve(this.contractAddress);
   }
 
+  getIsStaticCall() {
+    // Fixed false value copied from getPublicContextInputs.
+    return Promise.resolve(false);
+  }
+
   getRandomField() {
     return Fr.random();
   }
