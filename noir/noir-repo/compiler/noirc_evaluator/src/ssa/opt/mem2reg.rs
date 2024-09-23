@@ -746,7 +746,7 @@ impl<'f> PerFunctionContext<'f> {
                     if let Some((_, counter)) = remaining_last_stores.get_mut(store_address) {
                         // TODO this was saturating https://github.com/noir-lang/noir/issues/6124
                         *counter = counter.wrapping_sub(1);
-                                        }                    }
+                    }
                 } else if let Some((_, counter)) = remaining_last_stores.get_mut(store_address) {
                     *counter += 1;
                 } else {
