@@ -10,6 +10,8 @@
 #include <random>
 #include <span>
 
+#define DISABLE_ASM 1
+
 #ifndef DISABLE_ASM
 #ifdef __BMI2__
 #define BBERG_NO_ASM 0

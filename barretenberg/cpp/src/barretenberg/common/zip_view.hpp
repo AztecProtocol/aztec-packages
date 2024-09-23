@@ -76,6 +76,7 @@ static_assert(__cplusplus >= 201703L,
               " must be c++17 or greater"); // could be rewritten in c++11, but the features you must use will be buggy
                                             // in an older compiler anyways.
 #include "barretenberg/common/assert.hpp"
+#include <algorithm>
 #include <cassert>
 #include <functional>
 #include <iostream>

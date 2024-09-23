@@ -1,5 +1,7 @@
 #pragma once
 
+#define DISABLE_ASM 1
+
 #if (BBERG_NO_ASM == 0)
 #include "./field_impl.hpp"
 #include "asm_macros.hpp"

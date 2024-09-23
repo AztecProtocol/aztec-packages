@@ -1,5 +1,5 @@
 #include <benchmark/benchmark.h>
-
+#include "tracy/Tracy.hpp"
 #include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
 #include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp"
@@ -86,7 +86,7 @@ void prove(State& state) noexcept
 }
 
 BENCHMARK(vector_of_evaluations)->DenseRange(15, 21)->Unit(kMillisecond);
-BENCHMARK(compute_row_evaluations)->DenseRange(15, 21)->Unit(kMillisecond);
+BENCHMARK(compute_row_evaluations)->DenseRange(15, 21)->Unit(kMillisecond)->Iterations(1);
 // We stick to just k=1 for compile-time reasons.
 BENCHMARK(prove)->/* vary the circuit size */ DenseRange(14, 20)->Unit(kMillisecond);
 

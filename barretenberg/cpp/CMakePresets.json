@@ -111,13 +111,30 @@
       }
     },
     {
+      "name": "default-dbg",
+      "displayName": "Debugging build with default clang",
+      "description": "Build with globally installed default clang in debug mode",
+      "inherits": "default",
+      "binaryDir": "build-debug",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CFLAGS": "-gdwarf-4",
+        "CXXFLAGS": "-gdwarf-4",
+        "LDFLAGS": "-gdwarf-4"
+      },
+      "cacheVariables": {
+        "ENABLE_ASAN": "OFF",
+        "DISABLE_ASM": "ON"
+      }
+    },    {
       "name": "tracy",
       "displayName": "Release build with tracy, optimized for memory tracking",
       "description": "Release build with tracy, optimized for memory tracking",
-      "inherits": "clang16",
+      "inherits": "default-dbg",
       "binaryDir": "build-tracy",
       "cacheVariables": {
-        "ENABLE_TRACY": "ON"
+        "ENABLE_TRACY": "ON",
+        "HAVE_STD_REGEX": "ON"
       }
     },
     {
