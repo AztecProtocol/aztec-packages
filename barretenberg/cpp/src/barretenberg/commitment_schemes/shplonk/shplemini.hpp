@@ -178,7 +178,6 @@ template <typename Curve> class ShpleminiVerifier_ {
                                           commitments,
                                           scalars,
                                           batched_evaluation);
-        info("Verifier: ", batched_evaluation);
 
         // Place the commitments to Gemini Aᵢ to the vector of commitments, compute the contributions from
         // Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars
