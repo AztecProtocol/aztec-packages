@@ -238,7 +238,7 @@ describe('NativeWorldState', () => {
 
   async function mockBlock(blockNum = 1, merkleTrees?: MerkleTreeDb) {
     merkleTrees ??= await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient());
-    const l2Block = L2Block.random(blockNum, 32); // 2 txs
+    const l2Block = L2Block.random(blockNum, 32); // 32 txs
     const l1ToL2Messages = Array(16).fill(0).map(Fr.random);
 
     const paddedTxEffects = padArrayEnd(

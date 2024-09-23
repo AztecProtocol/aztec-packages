@@ -325,15 +325,18 @@ bool WorldState::sync_block(StateReference& block_state_ref,
 
     {
         auto& wrapper = std::get<TreeWithStore<PublicDataTree>>(fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE));
+        std::vector<PublicDataLeafValue> leaves;
+        size_t total_leaves = 0;
         for (const auto& batch : public_writes) {
-            Signal batch_signal(1);
-            // TODO (alexg) should trees serialize writes internally or should we do it here?
-            wrapper.tree->add_or_update_values(
-                batch, 0, [&batch_signal](const auto&) { batch_signal.signal_level(0); });
-            batch_signal.wait_for_level(0);
+            total_leaves += batch.size();
         }
 
-        signal.signal_decrement();
+        leaves.reserve(total_leaves);
+        for (const auto& batch : public_writes) {
+            leaves.insert(leaves.end(), batch.begin(), batch.end());
+        }
+
+        wrapper.tree->add_or_update_values(leaves, 0, decr);
     }
 
     signal.wait_for_level();
