@@ -1209,13 +1209,6 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
     // Write all components to the TOML file
     std::string toml_path = outputPath + "/Prover.toml";
     write_file(toml_path, { toml_content.begin(), toml_content.end() });
-
-    // Write to additional dir for noir-sync purposes
-    std::string part_to_remove = "/noir-repo/test_programs/execution_success";
-    size_t pos = toml_path.find(part_to_remove);
-    std::string toml_path_2 = toml_path; // define path here
-    toml_path_2.erase(pos, part_to_remove.length());
-    write_file(toml_path_2, { toml_content.begin(), toml_content.end() });
 }
 
 /**
