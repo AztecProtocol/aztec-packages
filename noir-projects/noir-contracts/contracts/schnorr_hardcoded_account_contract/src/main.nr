@@ -35,14 +35,9 @@ contract SchnorrHardcodedAccount {
         for i in 0..64 {
             signature[i] = witness[i] as u8;
         }
-
+        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key_x, y: public_key_y, is_infinite: false };
         // Verify signature using hardcoded public key
-        std::schnorr::verify_signature(
-            public_key_x,
-            public_key_y,
-            signature,
-            outer_hash.to_be_bytes::<32>()
-        )
+        std::schnorr::verify_signature(pub_key, signature, outer_hash.to_be_bytes::<32>())
     }
     // docs:end:is-valid
 }
