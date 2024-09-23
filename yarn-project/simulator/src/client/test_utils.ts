@@ -1,6 +1,5 @@
-import { Fq, Fr, GeneratorIndex, Point } from '@aztec/circuits.js';
+import { Fq, Fr, Point } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { pedersenCommit } from '@aztec/foundation/crypto';
 
 // Copied over from `noir-projects/aztec-nr/aztec/src/generators.nr`
 const GENERATORS = [
