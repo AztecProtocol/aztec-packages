@@ -72,8 +72,8 @@ describe('Logs', () => {
       const event0 = TestLogContract.events.ExampleEvent0.decode(decryptedLog0!.payload);
 
       // We check that the event was decoded correctly
-      expect(event0?.value0).toStrictEqual(preimage[0]);
-      expect(event0?.value1).toStrictEqual(preimage[1]);
+      expect(event0?.value0).toStrictEqual(preimage[0].toBigInt());
+      expect(event0?.value1).toStrictEqual(preimage[1].toBigInt());
 
       // We check that an event that does not match, is not decoded correctly due to an event type id mismatch
       const badEvent0 = TestLogContract.events.ExampleEvent1.decode(decryptedLog0!.payload);
@@ -183,7 +183,9 @@ describe('Logs', () => {
       );
 
       expect(collectedEvent0sWithOutgoing.sort(exampleEvent0Sort)).toStrictEqual(
-        preimage.map(preimage => ({ value0: preimage[0], value1: preimage[1] })).sort(exampleEvent0Sort),
+        preimage
+          .map(preimage => ({ value0: preimage[0].toBigInt(), value1: preimage[1].toBigInt() }))
+          .sort(exampleEvent0Sort),
       );
 
       expect([...collectedEvent0sWithIncoming, ...collectedEvent0sWithOutgoing].sort(exampleEvent0Sort)).toStrictEqual(
