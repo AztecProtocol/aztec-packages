@@ -420,6 +420,8 @@ export interface PXE {
     limit: number,
     vpks: Point[],
   ): Promise<T[]>;
+
+  registerPlugin(contractAddress: AztecAddress, topic: Fr, plugin: { toBuffer: () => Buffer }): Promise<void>;
 }
 // docs:end:pxe-interface
 

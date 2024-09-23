@@ -226,4 +226,8 @@ export class SimulatorOracle implements DBOracle {
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {
     return this.contractDataOracle.getDebugFunctionName(contractAddress, selector);
   }
+
+  public requestPlugin(contractAddress: AztecAddress, topic: Fr): Buffer | undefined {
+    return this.db.getPlugin(contractAddress, topic);
+  }
 }

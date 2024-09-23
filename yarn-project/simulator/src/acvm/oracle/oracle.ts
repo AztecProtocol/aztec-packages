@@ -492,4 +492,9 @@ export class Oracle {
     // Convert each byte of ciphertext to a field and return it
     return Array.from(ciphertext).map(byte => toACVMField(byte));
   }
+
+  async requestCapsule([topic]: ACVMField[], input: ACVMField[]) {
+    const returned = await this.typedOracle.requestCapsule(Fr.fromString(topic), input.map(fromACVMField));
+    return returned.map(toACVMField);
+  }
 }

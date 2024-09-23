@@ -280,4 +280,8 @@ export abstract class TypedOracle {
   debugLog(_message: string, _fields: Fr[]): void {
     throw new OracleMethodNotAvailableError('debugLog');
   }
+
+  requestCapsule(_topic: Fr, _input: Fr[]): Promise<Fr[]> {
+    throw new OracleMethodNotAvailableError('requestCapsule');
+  }
 }

@@ -698,6 +698,19 @@ export class ClientExecutionContext extends ViewDataOracle {
     return values;
   }
 
+  public override async requestCapsule(topic: Fr, input: Fr[]): Promise<Fr[]> {
+    const pluginBuf = this.db.requestPlugin(this.contractAddress, topic);
+
+    if (pluginBuf === undefined) {
+      throw new Error('Did not find plugin that handles topic for the contract address');
+    }
+
+    const plugin = HttpPlugin.fromBuffer(pluginBuf!);
+    const serialized = await plugin.process(input, topic);
+
+    return serialized;
+  }
+
   public override aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {
     const aes128 = new Aes128();
     return aes128.encryptBufferCBC(input, initializationVector, key);
@@ -709,5 +722,35 @@ export class ClientExecutionContext extends ViewDataOracle {
 
   public getDebugFunctionName() {
     return this.db.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+  }
+}
+class HttpPlugin {
+  #fetchUri: string;
+
+  constructor(fetchUri: string) {
+    this.#fetchUri = fetchUri;
+  }
+
+  public async process(input: Fr[], topic: Fr): Promise<Fr[]> {
+    let uri: string = `${this.#fetchUri.replace(/\/$/, '')}/${topic.toString()}`;
+
+    if (input.length > 0) {
+      uri = input.reduce((acc, curr, i) => `${acc}${i === 0 ? '?' : '&'}${i}=${curr.toString()}`, uri);
+    }
+
+    const res = await fetch(uri);
+    const resJson = await res.json();
+
+    const serialized = resJson.map(Fr.fromString);
+
+    return serialized;
+  }
+
+  toBuffer(): Buffer {
+    return Buffer.from(this.#fetchUri);
+  }
+
+  static fromBuffer(buf: Buffer): HttpPlugin {
+    return new HttpPlugin(buf.toString('utf-8'));
   }
 }

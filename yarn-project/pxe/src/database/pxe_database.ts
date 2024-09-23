@@ -181,4 +181,8 @@ export interface PxeDatabase extends ContractArtifactDatabase, ContractInstanceD
    * @returns The estimated size in bytes of this db.
    */
   estimateSize(): Promise<number>;
+
+  getPlugin(contractAddress: AztecAddress, topic: Fr): Buffer | undefined;
+
+  setPlugin(contractAddress: AztecAddress, topic: Fr, input: { toBuffer: () => Buffer }): Promise<void>;
 }

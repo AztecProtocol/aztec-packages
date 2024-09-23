@@ -189,4 +189,6 @@ export interface DBOracle extends CommitmentsDB {
    * @returns The block number.
    */
   getBlockNumber(): Promise<number>;
+
+  requestPlugin(contractAddress: AztecAddress, topic: Fr): Buffer | undefined;
 }
