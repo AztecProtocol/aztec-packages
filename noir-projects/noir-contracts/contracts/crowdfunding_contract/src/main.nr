@@ -24,8 +24,8 @@ contract Crowdfunding {
     #[event]
     #[derive(Serialize)]
     struct WithdrawalProcessed {
-        who: Field,
-        amount: Field,
+        who: AztecAddress,
+        amount: u64,
     }
 
     // docs:start:storage
@@ -102,6 +102,6 @@ contract Crowdfunding {
     #[public]
     #[internal]
     fn _publish_donation_receipts(amount: u64, to: AztecAddress) {
-        WithdrawalProcessed { amount: amount as Field, who: to.to_field() }.emit(encode_event(&mut context));
+        WithdrawalProcessed { amount, who: to }.emit(encode_event(&mut context));
     }
 }

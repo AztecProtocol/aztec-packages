@@ -8,8 +8,10 @@ use dep::aztec::{
 global VALUE_NOTE_LEN: u32 = 3; // 3 plus a header.
 
 // docs:start:value-note-def
-#[derive(Serialize)]
+// ValueNote is used as fn parameter in the Claim contract, so it has to implement the Serialize trait.
+// It is important that the order of these annotations is preserved so that derive(Serialize) runs AFTER the note macro, which injects the note header.
 #[note]
+#[derive(Serialize)]
 pub struct ValueNote {
     value: Field,
    // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
