@@ -7,6 +7,7 @@ import type {
   ProverCoordination,
   WorldStateSynchronizer,
 } from '@aztec/circuit-types';
+import { AZTEC_EPOCH_DURATION } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type L1Publisher } from '@aztec/sequencer-client';
@@ -14,6 +15,7 @@ import { PublicProcessorFactory, type SimulationProvider } from '@aztec/simulato
 import { type TelemetryClient } from '@aztec/telemetry-client';
 import { type ContractDataSource } from '@aztec/types/contracts';
 
+import { type ProofQuoteGovernor } from './governor/proof-quote-governor.js';
 import { BlockProvingJob, type BlockProvingJobState } from './job/block-proving-job.js';
 import { ProverNodeMetrics } from './metrics.js';
 
@@ -24,7 +26,8 @@ import { ProverNodeMetrics } from './metrics.js';
  */
 export class ProverNode {
   private log = createDebugLogger('aztec:prover-node');
-  private runningPromise: RunningPromise | undefined;
+  private submitQuoteRunningPromise: RunningPromise | undefined;
+  private proveEpochRunningPromise: RunningPromise | undefined;
   private latestBlockWeAreProving: number | undefined;
   private jobs: Map<string, BlockProvingJob> = new Map();
   private options: { pollingIntervalMs: number; disableAutomaticProving: boolean; maxPendingJobs: number };
@@ -32,6 +35,7 @@ export class ProverNode {
 
   constructor(
     private prover: ProverClient,
+    private governor: ProofQuoteGovernor,
     private publisher: L1Publisher,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
@@ -57,8 +61,12 @@ export class ProverNode {
    * This may change once we implement a prover coordination mechanism.
    */
   start() {
-    this.runningPromise = new RunningPromise(this.work.bind(this), this.options.pollingIntervalMs);
-    this.runningPromise.start();
+    this.submitQuoteRunningPromise = new RunningPromise(this.submitQuotes.bind(this), this.options.pollingIntervalMs);
+    this.submitQuoteRunningPromise.start();
+
+    this.proveEpochRunningPromise = new RunningPromise(this.proveEpoch.bind(this), this.options.pollingIntervalMs);
+    this.proveEpochRunningPromise.start();
+
     this.log.info('Started ProverNode');
   }
 
@@ -67,7 +75,7 @@ export class ProverNode {
    */
   async stop() {
     this.log.info('Stopping ProverNode');
-    await this.runningPromise?.stop();
+    await this.submitQuoteRunningPromise?.stop();
     await this.prover.stop();
     await this.l2BlockSource.stop();
     this.publisher.interrupt();
@@ -77,10 +85,10 @@ export class ProverNode {
   }
 
   /**
-   * Single iteration of recurring work. This method is called periodically by the running promise.
-   * Checks whether there are new blocks to prove, proves them, and submits them.
+   * Single iteration of checking if something can be proven, and this node wants to.
+   * This method is called periodically by the running promise.
    */
-  protected async work() {
+  protected async submitQuotes() {
     try {
       if (this.options.disableAutomaticProving) {
         return;
@@ -111,19 +119,28 @@ export class ProverNode {
         return;
       }
 
-      const fromBlock = latestProven + 1;
-      const toBlock = fromBlock; // We only prove one block at a time for now
+      const oldestUnprovenBlock = await this.l2BlockSource.getBlock(latestProven + 1);
+      if (!oldestUnprovenBlock) {
+        this.log.error(`Failed to fetch block ${latestProven + 1}`);
+        return;
+      }
 
-      try {
-        await this.startProof(fromBlock, toBlock);
-      } finally {
-        // If we fail to create a proving job for the given block, skip it instead of getting stuck on it.
-        this.log.verbose(`Setting ${toBlock} as latest block we are proving`);
-        this.latestBlockWeAreProving = toBlock;
+      const epoch = oldestUnprovenBlock.header.globalVariables.slotNumber.toBigInt() / BigInt(AZTEC_EPOCH_DURATION);
+
+      const quote = await this.governor.produceEpochProofQuote(epoch);
+      if (quote) {
+        await this.sendEpochProofQuote(quote);
       }
     } catch (err) {
-      this.log.error(`Error in prover node work`, err);
+      this.log.error(`Error in prover node submitQuotes`, err);
     }
+  }
+
+  protected async proveEpoch() {
+    // TODO:
+    // check from l1 publisher if our quote was claimed
+    // if so, start proving
+    // await this.startProof(fromBlock, toBlock);
   }
 
   public sendEpochProofQuote(quote: EpochProofQuote): Promise<void> {

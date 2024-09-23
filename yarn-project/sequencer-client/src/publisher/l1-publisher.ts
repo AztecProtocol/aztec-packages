@@ -38,7 +38,7 @@ import { prettyLogVeimError } from './utils.js';
 /**
  * Stats for a sent transaction.
  */
-export type TransactionStats = {
+type TransactionStats = {
   /** Hash of the transaction. */
   transactionHash: string;
   /** Size in bytes of the tx calldata */
@@ -50,7 +50,7 @@ export type TransactionStats = {
 /**
  * Minimal information from a tx receipt.
  */
-export type MinimalTransactionReceipt = {
+type MinimalTransactionReceipt = {
   /** True if the tx was successful, false if reverted. */
   status: boolean;
   /** Hash of the transaction. */
@@ -64,7 +64,7 @@ export type MinimalTransactionReceipt = {
 };
 
 /** Arguments to the process method of the rollup contract */
-export type L1ProcessArgs = {
+type L1ProcessArgs = {
   /** The L2 block header. */
   header: Buffer;
   /** A root of the archive tree after the L2 block is applied. */
@@ -80,7 +80,7 @@ export type L1ProcessArgs = {
 };
 
 /** Arguments to the submitProof method of the rollup contract */
-export type L1SubmitProofArgs = {
+type L1SubmitProofArgs = {
   /** The L2 block header. */
   header: Buffer;
   /** A root of the archive tree after the L2 block is applied. */
@@ -92,6 +92,20 @@ export type L1SubmitProofArgs = {
   /** The aggregation object for the block's proof. */
   aggregationObject: Buffer;
 };
+
+/** Arguments to the submitProof method of the rollup contract */
+export interface SubmitProofArgs {
+  /** The L2 block header. */
+  header: Header;
+  /** A root of the archive tree after the L2 block is applied. */
+  archiveRoot: Fr;
+  /** Identifier of the prover. */
+  proverId: Fr;
+  /** The aggregation object for the block's proof. */
+  aggregationObject: Fr[];
+  /** The proof for the block. */
+  proof: Proof;
+}
 
 /**
  * Publishes L2 blocks to L1. This implementation does *not* retry a transaction in
@@ -206,6 +220,10 @@ export class L1Publisher {
     }
   }
 
+  public getCurrentProofClaim() {
+    return Promise.resolve(undefined);
+  }
+
   public async getCurrentEpochCommittee(): Promise<EthAddress[]> {
     const committee = await this.rollupContract.read.getCurrentEpochCommittee();
     return committee.map(EthAddress.fromString);
@@ -299,13 +317,13 @@ export class L1Publisher {
     return false;
   }
 
-  public async submitProof(
-    header: Header,
-    archiveRoot: Fr,
-    proverId: Fr,
-    aggregationObject: Fr[],
-    proof: Proof,
-  ): Promise<boolean> {
+  public async submitProof({
+    header,
+    archiveRoot,
+    proverId,
+    aggregationObject,
+    proof,
+  }: SubmitProofArgs): Promise<boolean> {
     const ctx = { blockNumber: header.globalVariables.blockNumber, slotNumber: header.globalVariables.slotNumber };
 
     const txArgs: L1SubmitProofArgs = {

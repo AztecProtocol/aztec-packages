@@ -9,6 +9,7 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { type ProverNodeConfig } from './config.js';
+import { SimpleProofQuoteGovernor } from './governor/simple-proof-quote-governor.js';
 import { AztecNodeProverCoordination } from './prover-coordination/aztec-node-prover-coordination.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNode } from './prover-node.js';
@@ -43,8 +44,11 @@ export async function createProverNode(
     ? new AztecNodeProverCoordination(deps.aztecNodeTxProvider)
     : createProverCoordination(config);
 
+  const quoteGovernor = await SimpleProofQuoteGovernor.new(config);
+
   return new ProverNode(
     prover!,
+    quoteGovernor,
     publisher,
     archiver,
     archiver,

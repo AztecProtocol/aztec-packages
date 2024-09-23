@@ -109,13 +109,14 @@ export class BlockProvingJob {
       this.log.info(`Finalised proof for block range`, { fromBlock, toBlock, uuid: this.uuid });
 
       this.state = 'publishing-proof';
-      await this.publisher.submitProof(
-        block.header,
-        block.archive.root,
-        this.prover.getProverId(),
-        aggregationObject,
-        proof,
-      );
+
+      await this.publisher.submitProof({
+        header: block.header,
+        archiveRoot: block.archive.root,
+        proverId: this.prover.getProverId(),
+        aggregationObject: aggregationObject,
+        proof: proof,
+      });
       this.log.info(`Submitted proof for block range`, { fromBlock, toBlock, uuid: this.uuid });
 
       this.state = 'completed';

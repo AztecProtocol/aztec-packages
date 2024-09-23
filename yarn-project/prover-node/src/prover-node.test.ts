@@ -14,11 +14,13 @@ import { type ContractDataSource } from '@aztec/types/contracts';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { type ProofQuoteGovernor } from './governor/proof-quote-governor.js';
 import { type BlockProvingJob } from './job/block-proving-job.js';
 import { ProverNode } from './prover-node.js';
 
 describe('prover-node', () => {
   let prover: MockProxy<ProverClient>;
+  let governor: MockProxy<ProofQuoteGovernor>;
   let publisher: MockProxy<L1Publisher>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -38,6 +40,7 @@ describe('prover-node', () => {
 
   beforeEach(() => {
     prover = mock<ProverClient>();
+    governor = mock<ProofQuoteGovernor>();
     publisher = mock<L1Publisher>();
     l2BlockSource = mock<L2BlockSource>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
@@ -53,6 +56,7 @@ describe('prover-node', () => {
     jobs = [];
     proverNode = new TestProverNode(
       prover,
+      governor,
       publisher,
       l2BlockSource,
       l1ToL2MessageSource,
@@ -172,8 +176,12 @@ describe('prover-node', () => {
       return job;
     }
 
-    public override work() {
-      return super.work();
+    public override submitQuotes() {
+      return super.submitQuotes();
+    }
+
+    public override proveEpoch(): Promise<void> {
+      return super.proveEpoch();
     }
   }
 });

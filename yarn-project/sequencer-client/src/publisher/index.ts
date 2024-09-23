@@ -1,2 +1,2 @@
-export { L1Publisher } from './l1-publisher.js';
 export * from './config.js';
+export { L1Publisher, SubmitProofArgs } from './l1-publisher.js';
