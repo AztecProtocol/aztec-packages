@@ -83,11 +83,13 @@ class AvmTraceBuilder {
     void op_cast(uint8_t indirect, uint32_t a_offset, uint32_t dst_offset, AvmMemoryTag dst_tag);
 
     // Execution Environment
+    void op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset);
     void op_address(uint8_t indirect, uint32_t dst_offset);
     void op_storage_address(uint8_t indirect, uint32_t dst_offset);
     void op_sender(uint8_t indirect, uint32_t dst_offset);
     void op_function_selector(uint8_t indirect, uint32_t dst_offset);
     void op_transaction_fee(uint8_t indirect, uint32_t dst_offset);
+    void op_is_static_call(uint8_t indirect, uint32_t dst_offset);
 
     // Execution Environment - Globals
     void op_chain_id(uint8_t indirect, uint32_t dst_offset);
@@ -289,7 +291,7 @@ class AvmTraceBuilder {
                                  uint32_t success_offset,
                                  [[maybe_unused]] uint32_t function_selector_offset);
 
-    void execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t dst_offset);
+    void execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset);
 
     void finalise_mem_trace_lookup_counts();
 

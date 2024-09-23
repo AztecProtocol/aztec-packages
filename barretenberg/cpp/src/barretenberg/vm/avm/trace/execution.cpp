@@ -14,6 +14,7 @@
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm/constants.hpp"
 #include "barretenberg/vm/stats.hpp"
 
@@ -262,6 +263,7 @@ VmPublicInputs Execution::convert_public_inputs(std::vector<FF> const& public_in
     // kernel_inputs[ADDRESS_SELECTOR] = public_inputs_vec[ADDRESS_SELECTOR];                 // Address
     kernel_inputs[STORAGE_ADDRESS_SELECTOR] = public_inputs_vec[STORAGE_ADDRESS_SELECTOR]; // Storage Address
     kernel_inputs[FUNCTION_SELECTOR_SELECTOR] = public_inputs_vec[FUNCTION_SELECTOR_SELECTOR];
+    kernel_inputs[IS_STATIC_CALL_SELECTOR] = public_inputs_vec[IS_STATIC_CALL_SELECTOR];
 
     // PublicCircuitPublicInputs - GlobalVariables
     kernel_inputs[CHAIN_ID_SELECTOR] = public_inputs_vec[CHAIN_ID_OFFSET];         // Chain ID
@@ -670,46 +672,10 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
 
             // Execution Environment
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6284): support indirect for below
-        case OpCode::ADDRESS:
-            trace_builder.op_address(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::STORAGEADDRESS:
-            trace_builder.op_storage_address(std::get<uint8_t>(inst.operands.at(0)),
-                                             std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::SENDER:
-            trace_builder.op_sender(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::FUNCTIONSELECTOR:
-            trace_builder.op_function_selector(std::get<uint8_t>(inst.operands.at(0)),
-                                               std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::TRANSACTIONFEE:
-            trace_builder.op_transaction_fee(std::get<uint8_t>(inst.operands.at(0)),
-                                             std::get<uint32_t>(inst.operands.at(1)));
-            break;
-
-            // Execution Environment - Globals
-        case OpCode::CHAINID:
-            trace_builder.op_chain_id(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::VERSION:
-            trace_builder.op_version(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::BLOCKNUMBER:
-            trace_builder.op_block_number(std::get<uint8_t>(inst.operands.at(0)),
-                                          std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::TIMESTAMP:
-            trace_builder.op_timestamp(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::FEEPERL2GAS:
-            trace_builder.op_fee_per_l2_gas(std::get<uint8_t>(inst.operands.at(0)),
-                                            std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::FEEPERDAGAS:
-            trace_builder.op_fee_per_da_gas(std::get<uint8_t>(inst.operands.at(0)),
-                                            std::get<uint32_t>(inst.operands.at(1)));
+        case OpCode::GETENVVAR_16:
+            trace_builder.op_get_env_var(std::get<uint8_t>(inst.operands.at(0)),
+                                         std::get<uint8_t>(inst.operands.at(1)),
+                                         std::get<uint16_t>(inst.operands.at(2)));
             break;
 
             // Execution Environment - Calldata
@@ -718,14 +684,6 @@ std::vector<Row> Execution::gen_trace(std::vector<Instruction> const& instructio
                                            std::get<uint32_t>(inst.operands.at(1)),
                                            std::get<uint32_t>(inst.operands.at(2)),
                                            std::get<uint32_t>(inst.operands.at(3)));
-            break;
-
-            // Machine State - Gas
-        case OpCode::L2GASLEFT:
-            trace_builder.op_l2gasleft(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
-            break;
-        case OpCode::DAGASLEFT:
-            trace_builder.op_dagasleft(std::get<uint8_t>(inst.operands.at(0)), std::get<uint32_t>(inst.operands.at(1)));
             break;
 
             // Machine State - Internal Control Flow
