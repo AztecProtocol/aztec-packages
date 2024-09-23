@@ -30,6 +30,7 @@ export class UltraPlonkBackend {
       const api = await Barretenberg.new(this.options);
 
       const honkRecursion = false;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [_exact, _total, subgroupSize] = await api.acirGetCircuitSizes(
         this.acirUncompressedBytecode,
         honkRecursion,
@@ -164,7 +165,9 @@ export class UltraHonkBackend {
 
   // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
   async generateRecursiveProofArtifacts(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _proof: Uint8Array,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _numOfPublicInputs: number,
   ): Promise<{ proofAsFields: string[]; vkAsFields: string[]; vkHash: string }> {
     await this.instantiate();
