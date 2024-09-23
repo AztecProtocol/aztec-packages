@@ -14,11 +14,6 @@ pub comptime fn aztec(m: Module) -> Quoted {
         let signature = function_signature(name, parameters).as_quoted_str!();
         let selector: FunctionSelector = unquote!(quote { FunctionSelector::from_signature($signature) });
 
-        let mut parameters_size = 0;
-        for param in parameters {
-            parameters_size += size_in_fields(param.1);
-        }
-
         let reads = parameters.map(|param: (Quoted, Type)| {
             let (param_name, param_type) = param;
             let param_size = size_in_fields(param_type);
