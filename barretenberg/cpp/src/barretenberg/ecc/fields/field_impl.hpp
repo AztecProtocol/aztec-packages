@@ -11,9 +11,6 @@
 
 #include "./field_declarations.hpp"
 
-#define DISABLE_ASM 1
-
-
 namespace bb {
 
 // clang-format off
