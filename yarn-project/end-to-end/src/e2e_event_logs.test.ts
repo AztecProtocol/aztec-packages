@@ -177,7 +177,9 @@ describe('Logs', () => {
 
       const exampleEvent0Sort = (a: ExampleEvent0, b: ExampleEvent0) => (a.value0 > b.value0 ? 1 : -1);
       expect(collectedEvent0sWithIncoming.sort(exampleEvent0Sort)).toStrictEqual(
-        preimage.map(preimage => ({ value0: preimage[0], value1: preimage[1] })).sort(exampleEvent0Sort),
+        preimage
+          .map(preimage => ({ value0: preimage[0].toBigInt(), value1: preimage[1].toBigInt() }))
+          .sort(exampleEvent0Sort),
       );
 
       expect(collectedEvent0sWithOutgoing.sort(exampleEvent0Sort)).toStrictEqual(
@@ -229,7 +231,9 @@ describe('Logs', () => {
 
       const exampleEvent0Sort = (a: ExampleEvent0, b: ExampleEvent0) => (a.value0 > b.value0 ? 1 : -1);
       expect(collectedEvent0s.sort(exampleEvent0Sort)).toStrictEqual(
-        preimage.map(preimage => ({ value0: preimage[0], value1: preimage[1] })).sort(exampleEvent0Sort),
+        preimage
+          .map(preimage => ({ value0: preimage[0].toBigInt(), value1: preimage[1].toBigInt() }))
+          .sort(exampleEvent0Sort),
       );
 
       const exampleEvent1Sort = (a: ExampleEvent1, b: ExampleEvent1) => (a.value2 > b.value2 ? 1 : -1);
