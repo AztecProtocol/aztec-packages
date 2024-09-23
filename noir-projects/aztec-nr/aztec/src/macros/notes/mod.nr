@@ -120,7 +120,7 @@ comptime fn generate_note_properties(s: StructDefinition) -> Quoted {
         }
     ).join(quote {,});
 
-    // TODO: Properly handle non-field types
+    // TODO #8694: Properly handle non-field types https://github.com/AztecProtocol/aztec-packages/issues/8694
     let mut properties_list = &[];
     for i in 0..non_header_fields.len() {
         let (name, _) = non_header_fields[i];
