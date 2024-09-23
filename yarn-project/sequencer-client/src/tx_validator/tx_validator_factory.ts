@@ -2,7 +2,7 @@ import { type AllowedElement, type ProcessedTx, type Tx, type TxValidator } from
 import { type GlobalVariables } from '@aztec/circuits.js';
 import { AggregateTxValidator, DataTxValidator, DoubleSpendTxValidator, MetadataTxValidator } from '@aztec/p2p';
 import { FeeJuiceAddress } from '@aztec/protocol-contracts/fee-juice';
-import { WorldStateDB, WorldStatePublicDB } from '@aztec/simulator';
+import { WorldStateDB } from '@aztec/simulator';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type MerkleTreeOperations } from '@aztec/world-state';
 
@@ -17,16 +17,17 @@ export class TxValidatorFactory {
   ) {}
 
   validatorForNewTxs(globalVariables: GlobalVariables, setupAllowList: AllowedElement[]): TxValidator<Tx> {
+    const worldStateDB = new WorldStateDB(this.merkleTreeDb, this.contractDataSource);
     return new AggregateTxValidator(
       new DataTxValidator(),
       new MetadataTxValidator(globalVariables.chainId, globalVariables.blockNumber),
-      new DoubleSpendTxValidator(new WorldStateDB(this.merkleTreeDb)),
+      new DoubleSpendTxValidator(worldStateDB),
       new PhasesTxValidator(this.contractDataSource, setupAllowList),
-      new GasTxValidator(new WorldStatePublicDB(this.merkleTreeDb), FeeJuiceAddress, this.enforceFees),
+      new GasTxValidator(worldStateDB, FeeJuiceAddress, this.enforceFees),
     );
   }
 
   validatorForProcessedTxs(): TxValidator<ProcessedTx> {
-    return new DoubleSpendTxValidator(new WorldStateDB(this.merkleTreeDb));
+    return new DoubleSpendTxValidator(new WorldStateDB(this.merkleTreeDb, this.contractDataSource));
   }
 }

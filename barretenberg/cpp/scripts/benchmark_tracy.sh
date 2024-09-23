@@ -29,6 +29,7 @@ ssh $BOX "
 	./tracy-capture -a 127.0.0.1 -f -o trace-$BENCHMARK & ;
 	sleep 0.1 ;
 	cd ~/aztec-packages/barretenberg/cpp/build-$PRESET ;
+	ninja $BENCHMARK ;
 	$COMMAND ;
 " &
 wait # TODO(AD) hack - not sure why needed

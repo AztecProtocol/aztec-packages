@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/trace/opcode.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/vm/avm/trace/helper.hpp"
 
 namespace bb::avm_trace {
 
@@ -190,8 +191,10 @@ std::string to_string(OpCode opcode)
         return "KECCAK";
     case OpCode::POSEIDON2:
         return "POSEIDON2";
-    case OpCode::SHA256:
-        return "SHA256";
+    case OpCode::SHA256COMPRESSION:
+        return "SHA256COMPRESSION";
+    case OpCode::KECCAKF1600:
+        return "KECCAKF1600";
     case OpCode::PEDERSEN:
         return "PEDERSEN";
     case OpCode::ECADD:
@@ -201,11 +204,6 @@ std::string to_string(OpCode opcode)
     // Conversions
     case OpCode::TORADIXLE:
         return "TORADIXLE";
-    // Future Gadgets -- pending changes in noir
-    case OpCode::SHA256COMPRESSION:
-        return "SHA256COMPRESSION";
-    case OpCode::KECCAKF1600:
-        return "KECCAKF1600";
     // Sentinel
     case OpCode::LAST_OPCODE_SENTINEL:
         return "LAST_OPCODE_SENTINEL";

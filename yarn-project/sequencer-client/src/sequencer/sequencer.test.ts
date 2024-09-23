@@ -2,6 +2,7 @@ import {
   BlockAttestation,
   BlockProposal,
   type BlockSimulator,
+  ConsensusPayload,
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
@@ -76,14 +77,14 @@ describe('sequencer', () => {
   const committee = [EthAddress.random()];
   const getSignatures = () => [mockedSig];
   const getAttestations = () => {
-    const attestation = new BlockAttestation(block.header, archive, [], mockedSig);
+    const attestation = new BlockAttestation(new ConsensusPayload(block.header, archive, []), mockedSig);
     (attestation as any).sender = committee[0];
 
     return [attestation];
   };
 
   const createBlockProposal = () => {
-    return new BlockProposal(block.header, archive, [TxHash.random()], mockedSig);
+    return new BlockProposal(new ConsensusPayload(block.header, archive, [TxHash.random()]), mockedSig);
   };
 
   let block: L2Block;

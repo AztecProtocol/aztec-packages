@@ -243,10 +243,7 @@ fn empty_statement(statement: &mut Statement) {
 }
 
 fn empty_constrain_statement(constrain_statement: &mut ConstrainStatement) {
-    empty_expression(&mut constrain_statement.0);
-    if let Some(expression) = &mut constrain_statement.1 {
-        empty_expression(expression);
-    }
+    empty_expressions(&mut constrain_statement.arguments);
 }
 
 fn empty_expressions(expressions: &mut [Expression]) {
@@ -295,6 +292,12 @@ fn empty_expression(expression: &mut Expression) {
             empty_unresolved_type(&mut path.typ);
             empty_path(&mut path.trait_path);
             empty_ident(&mut path.impl_item);
+            empty_type_args(&mut path.trait_generics);
+        }
+        ExpressionKind::TypePath(path) => {
+            empty_unresolved_type(&mut path.typ);
+            empty_ident(&mut path.item);
+            empty_type_args(&mut path.turbofish);
         }
         ExpressionKind::Quote(..)
         | ExpressionKind::Resolved(_)

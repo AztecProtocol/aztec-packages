@@ -9,8 +9,8 @@ use dep::aztec::{
 };
 use dep::std::{embedded_curve_ops::multi_scalar_mul, hash::from_field_unsafe};
 
-global UINT_NOTE_LEN: Field = 3; // 3 plus a header.
-global UINT_NOTE_BYTES_LEN: Field = 3 * 32 + 64;
+global UINT_NOTE_LEN: u32 = 3; // 3 plus a header.
+global UINT_NOTE_BYTES_LEN: u32 = 3 * 32 + 64;
 
 #[aztec(note)]
 struct UintNote {

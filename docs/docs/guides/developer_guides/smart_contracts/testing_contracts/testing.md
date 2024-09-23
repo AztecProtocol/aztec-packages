@@ -1,6 +1,8 @@
 ---
 title: Testing Contracts in the TXE
-tags: [contracts, tests]
+tags: [contracts, tests, testing, txe]
+keywords: [tests, testing, txe]
+importance: 1
 ---
 
 Aztec contracts can be tested in a variety of ways depending on the needs of a particular application and the complexity of the interactions they must support.
@@ -36,7 +38,7 @@ So to summarize:
 
 ### Running TXE
 
-If you have [the sandbox](../../getting_started/quickstart.md) installed, you can run TXE tests using:
+If you have [the sandbox](../../getting_started.md) installed, you can run TXE tests using:
 
 `aztec test`
 
