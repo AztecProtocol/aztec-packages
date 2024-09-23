@@ -115,6 +115,25 @@ enum class OpCode : uint8_t {
     LAST_OPCODE_SENTINEL,
 };
 
+enum class EnvironmentVariable {
+    ADDRESS,
+    STORAGEADDRESS,
+    SENDER,
+    FUNCTIONSELECTOR,
+    TRANSACTIONFEE,
+    CHAINID,
+    VERSION,
+    BLOCKNUMBER,
+    TIMESTAMP,
+    FEEPERL2GAS,
+    FEEPERDAGAS,
+    ISSTATICCALL,
+    L2GASLEFT,
+    DAGASLEFT,
+    // sentinel
+    MAX_ENV_VAR
+};
+
 class Bytecode {
   public:
     static bool is_valid(uint8_t byte);

@@ -171,7 +171,7 @@ namespace main(256);
     pol KERNEL_INPUT_SELECTORS = sel_op_address + sel_op_storage_address + sel_op_sender
                                + sel_op_function_selector + sel_op_transaction_fee + sel_op_chain_id
                                + sel_op_version + sel_op_block_number + sel_op_timestamp
-                               + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas;
+                               + sel_op_fee_per_l2_gas + sel_op_fee_per_da_gas + sel_op_is_static_call;
     // Ensure that only one kernel lookup is active when the kernel_in_offset is active
     #[KERNEL_INPUT_ACTIVE_CHECK]
     KERNEL_INPUT_SELECTORS * (1 - sel_q_kernel_lookup) = 0;

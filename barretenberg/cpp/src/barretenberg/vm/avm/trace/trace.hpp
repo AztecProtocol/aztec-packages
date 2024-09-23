@@ -291,24 +291,6 @@ class AvmTraceBuilder {
                                  uint32_t success_offset,
                                  [[maybe_unused]] uint32_t function_selector_offset);
 
-    enum class EnvironmentVariable {
-        ADDRESS,
-        STORAGEADDRESS,
-        SENDER,
-        FUNCTIONSELECTOR,
-        TRANSACTIONFEE,
-        CHAINID,
-        VERSION,
-        BLOCKNUMBER,
-        TIMESTAMP,
-        FEEPERL2GAS,
-        FEEPERDAGAS,
-        ISSTATICCALL,
-        L2GASLEFT,
-        DAGASLEFT,
-        // sentinel
-        MAX_ENV_VAR
-    };
     void execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset);
 
     void finalise_mem_trace_lookup_counts();

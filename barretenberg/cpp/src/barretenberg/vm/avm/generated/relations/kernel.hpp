@@ -43,16 +43,17 @@ template <typename FF_> class kernelImpl {
         const auto constants_START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = FF(160);
         const auto constants_START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = FF(162);
         const auto main_KERNEL_INPUT_SELECTORS =
-            ((((((((((new_term.main_sel_op_address + new_term.main_sel_op_storage_address) +
-                     new_term.main_sel_op_sender) +
-                    new_term.main_sel_op_function_selector) +
-                   new_term.main_sel_op_transaction_fee) +
-                  new_term.main_sel_op_chain_id) +
-                 new_term.main_sel_op_version) +
-                new_term.main_sel_op_block_number) +
-               new_term.main_sel_op_timestamp) +
-              new_term.main_sel_op_fee_per_l2_gas) +
-             new_term.main_sel_op_fee_per_da_gas);
+            (((((((((((new_term.main_sel_op_address + new_term.main_sel_op_storage_address) +
+                      new_term.main_sel_op_sender) +
+                     new_term.main_sel_op_function_selector) +
+                    new_term.main_sel_op_transaction_fee) +
+                   new_term.main_sel_op_chain_id) +
+                  new_term.main_sel_op_version) +
+                 new_term.main_sel_op_block_number) +
+                new_term.main_sel_op_timestamp) +
+               new_term.main_sel_op_fee_per_l2_gas) +
+              new_term.main_sel_op_fee_per_da_gas) +
+             new_term.main_sel_op_is_static_call);
         const auto main_KERNEL_OUTPUT_SELECTORS =
             ((((((((new_term.main_sel_op_note_hash_exists + new_term.main_sel_op_emit_note_hash) +
                    new_term.main_sel_op_nullifier_exists) +

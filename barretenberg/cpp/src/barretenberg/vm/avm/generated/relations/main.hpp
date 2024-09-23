@@ -27,16 +27,17 @@ template <typename FF_> class mainImpl {
         const auto constants_MEM_TAG_FF = FF(7);
         const auto constants_misc_INTERNAL_CALL_SPACE_ID = FF(255);
         const auto main_KERNEL_INPUT_SELECTORS =
-            ((((((((((new_term.main_sel_op_address + new_term.main_sel_op_storage_address) +
-                     new_term.main_sel_op_sender) +
-                    new_term.main_sel_op_function_selector) +
-                   new_term.main_sel_op_transaction_fee) +
-                  new_term.main_sel_op_chain_id) +
-                 new_term.main_sel_op_version) +
-                new_term.main_sel_op_block_number) +
-               new_term.main_sel_op_timestamp) +
-              new_term.main_sel_op_fee_per_l2_gas) +
-             new_term.main_sel_op_fee_per_da_gas);
+            (((((((((((new_term.main_sel_op_address + new_term.main_sel_op_storage_address) +
+                      new_term.main_sel_op_sender) +
+                     new_term.main_sel_op_function_selector) +
+                    new_term.main_sel_op_transaction_fee) +
+                   new_term.main_sel_op_chain_id) +
+                  new_term.main_sel_op_version) +
+                 new_term.main_sel_op_block_number) +
+                new_term.main_sel_op_timestamp) +
+               new_term.main_sel_op_fee_per_l2_gas) +
+              new_term.main_sel_op_fee_per_da_gas) +
+             new_term.main_sel_op_is_static_call);
         const auto main_KERNEL_OUTPUT_SELECTORS =
             ((((((((new_term.main_sel_op_note_hash_exists + new_term.main_sel_op_emit_note_hash) +
                    new_term.main_sel_op_nullifier_exists) +
