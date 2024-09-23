@@ -315,7 +315,7 @@ export class TXEService {
 
   avmOpcodeIsStaticCall() {
     const isStaticCall = (this.typedOracle as TXE).getIsStaticCall();
-    return toForeignCallResult([toSingle(isStaticCall.toField())]);
+    return toForeignCallResult([toSingle(new Fr(isStaticCall ? 1 : 0))]);
   }
 
   async avmOpcodeChainId() {

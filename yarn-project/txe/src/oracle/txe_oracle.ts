@@ -283,7 +283,7 @@ export class TXE implements TypedOracle {
 
   getIsStaticCall() {
     // Fixed false value copied from getPublicContextInputs.
-    return Promise.resolve(false);
+    return false;
   }
 
   getRandomField() {
