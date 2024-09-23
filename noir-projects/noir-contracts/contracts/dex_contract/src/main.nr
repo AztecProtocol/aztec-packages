@@ -8,7 +8,7 @@ contract DEX {
     use crate::lib::get_quote;
 
     use dep::aztec::{
-        prelude::{NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, PublicImmutable, PrivateSet, AztecAddress},
+        prelude::{NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, PublicImmutable, PrivateSet, AztecAddress, PublicContext},
         encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note_with_keys},
         hash::pedersen_hash, keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
         protocol_types::traits::is_empty, utils::comparison::Comparator
@@ -41,6 +41,7 @@ contract DEX {
     }
 
     global MINIMUM_LIQUIDITY: u32 = 1000;
+    global LOCK_STORAGE_SLOT = 980908; // Arbitrarily chosen lock storage slot.
 
     #[public]
     #[initializer]
@@ -62,6 +63,9 @@ contract DEX {
     // of tokens we ideally want to add. `amount0Min` and `amount1Min` are the minimum amounts we are willing to add.
     #[public]
     fn add_liquidity(liquidity_provider: AztecAddress, amount0Desired: u32, amount1Desired: u32, amount0Min: u32, amount1Min: u32, nonce: Field) {
+        // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
+        _lock(&mut context);
+
         if (!liquidity_provider.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, liquidity_provider);
         } else {
@@ -135,10 +139,16 @@ contract DEX {
         // Update the reserves
         let updated_reserves = Reserves { reserve0: reserve0 + amount0, reserve1: reserve1 + amount1 };
         storage.reserves.write(updated_reserves);
+
+        // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
+        _unlock(&mut context);
     }
 
     #[public]
     fn remove_liquidity(liquidity_provider: AztecAddress, liquidity: u32, amount0Min: u32, amount1Min: u32, nonce: Field) {
+        // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
+        _lock(&mut context);
+
         if (!from.eq(context.msg_sender())) {
             assert_current_call_valid_authwit_public(&mut context, from);
         } else {
@@ -188,15 +198,18 @@ contract DEX {
         token0.transfer_public(context.this_address(), liquidity_provider, amount0, nonce).call(&mut context);
         token1.transfer_public(context.this_address(), liquidity_provider, amount1, nonce).call(&mut context);
 
-        // We load the balances again directly from the token because Uni v2 does it like this. I assume it's solely
-        // to protect against reentrancy attacks from the token contracts (since we called transfer_public above).
-        // This might be to costly as these require a static public call. TODO: Consider lock designs.
+        // We load the balances again directly from the token because Uni v2 does it like this. But why do they do
+        // this? It's not to protect against reentrancy attacks as there are locks. Is it to protect against some weird
+        // token accounting which could be affected by the transfer calls above?
         balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
         balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
 
         // TODO: Nuke these castings. Ideally make Token return integer and not Field.
         let updated_reserves = Reserves { reserve0: balance0 as u32, reserve1: balance1 as u32};
         storage.reserves.write(updated_reserves);
+
+        // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
+        _unlock(&mut context);
     }
 
     /**
@@ -208,5 +221,22 @@ contract DEX {
         let on_behalf_of = context.msg_sender();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
         context.push_nullifier(nullifier);
+    }
+
+    // After locking and unlocking there will be 1 public data write because we always commit the last change and
+    // "val1 --> val2 --> val1" does not result in 0 public data writes. TODO: Either optimize this or introduce
+    // transient storage.
+    #[contract_library_method]
+    fn _lock(context: &mut PublicContext) {
+        let already_locked: bool = context.storage_read(LOCK_STORAGE_SLOT);
+        assert(!already_locked, "Already locked");
+        context.storage_write(LOCK_STORAGE_SLOT, true);
+    }
+
+    #[contract_library_method]
+    fn _unlock(context: &mut PublicContext) {
+        let already_locked: bool = context.storage_read(LOCK_STORAGE_SLOT);
+        assert(already_locked, "Not locked");
+        context.storage_write(LOCK_STORAGE_SLOT, false);
     }
 }
