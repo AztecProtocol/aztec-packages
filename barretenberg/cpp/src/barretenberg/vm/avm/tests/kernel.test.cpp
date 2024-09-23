@@ -4,6 +4,7 @@
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/kernel_trace.hpp"
 #include "barretenberg/vm/avm/trace/trace.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm/constants.hpp"
 #include "common.test.hpp"
 
@@ -192,15 +193,15 @@ TEST_F(AvmKernelPositiveTests, kernelSender)
     uint32_t indirect_dst_offset = 69;
     // We test that the sender opcode is included at index 0 in the public inputs
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_sender(/*indirect*/ false, dst_offset);
+        trace_builder.op_sender(/*indirect*/ 0, dst_offset);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(
-            /*indirect*/ false,
+            /*indirect*/ 0,
             /*value*/ dst_offset,
             /*dst_offset*/ indirect_dst_offset,
             AvmMemoryTag::U32);
-        trace_builder.op_sender(/*indirect*/ true, indirect_dst_offset);
+        trace_builder.op_sender(/*indirect*/ 1, indirect_dst_offset);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -226,15 +227,15 @@ TEST_F(AvmKernelPositiveTests, kernelAddress)
     uint32_t dst_offset = 42;
     uint32_t indirect_dst_offset = 69;
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_address(/*indirect*/ false, dst_offset);
+        trace_builder.op_address(/*indirect*/ 0, dst_offset);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(
-            /*indirect*/ false,
+            /*indirect*/ 0,
             /*value*/ dst_offset,
             /*dst_offset*/ indirect_dst_offset,
             AvmMemoryTag::U32);
-        trace_builder.op_address(/*indirect*/ true, indirect_dst_offset);
+        trace_builder.op_address(/*indirect*/ 1, indirect_dst_offset);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -259,15 +260,15 @@ TEST_F(AvmKernelPositiveTests, kernelStorageAddress)
     uint32_t dst_offset = 42;
     uint32_t indirect_dst_offset = 69;
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_storage_address(/*indirect*/ false, dst_offset);
+        trace_builder.op_storage_address(/*indirect*/ 0, dst_offset);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(
-            /*indirect*/ false,
+            /*indirect*/ 0,
             /*value*/ dst_offset,
             /*dst_offset*/ indirect_dst_offset,
             AvmMemoryTag::U32);
-        trace_builder.op_storage_address(/*indirect*/ true, indirect_dst_offset);
+        trace_builder.op_storage_address(/*indirect*/ 1, indirect_dst_offset);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -295,15 +296,15 @@ TEST_F(AvmKernelPositiveTests, kernelFunctionSelector)
     uint32_t indirect_dst_offset = 69;
     // We test that the function selector opcode is included at index 0 in the public inputs
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_function_selector(/*indirect*/ false, dst_offset);
+        trace_builder.op_function_selector(/*indirect*/ 0, dst_offset);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(
-            /*indirect*/ false,
+            /*indirect*/ 0,
             /*value*/ dst_offset,
             /*dst_offset*/ indirect_dst_offset,
             AvmMemoryTag::U32);
-        trace_builder.op_function_selector(/*indirect*/ true, indirect_dst_offset);
+        trace_builder.op_function_selector(/*indirect*/ 1, indirect_dst_offset);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -329,15 +330,15 @@ TEST_F(AvmKernelPositiveTests, kernelFeePerDa)
     uint32_t dst_offset = 42;
     uint32_t indirect_dst_offset = 69;
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_fee_per_da_gas(/*indirect*/ false, dst_offset);
+        trace_builder.op_fee_per_da_gas(/*indirect*/ 0, dst_offset);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(
-            /*indirect*/ false,
+            /*indirect*/ 0,
             /*value*/ dst_offset,
             /*dst_offset*/ indirect_dst_offset,
             AvmMemoryTag::U32);
-        trace_builder.op_fee_per_da_gas(/*indirect*/ true, indirect_dst_offset);
+        trace_builder.op_fee_per_da_gas(/*indirect*/ 1, indirect_dst_offset);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -363,15 +364,15 @@ TEST_F(AvmKernelPositiveTests, kernelFeePerL2)
     uint32_t dst_offset = 42;
     uint32_t indirect_dst_offset = 69;
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_fee_per_l2_gas(/*indirect*/ false, dst_offset);
+        trace_builder.op_fee_per_l2_gas(/*indirect*/ 0, dst_offset);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(
-            /*indirect*/ false,
+            /*indirect*/ 0,
             /*value*/ dst_offset,
             /*dst_offset*/ indirect_dst_offset,
             AvmMemoryTag::U32);
-        trace_builder.op_fee_per_l2_gas(/*indirect*/ true, indirect_dst_offset);
+        trace_builder.op_fee_per_l2_gas(/*indirect*/ 1, indirect_dst_offset);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -397,15 +398,15 @@ TEST_F(AvmKernelPositiveTests, kernelTransactionFee)
     uint32_t dst_offset = 42;
     uint32_t indirect_dst_offset = 69;
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_transaction_fee(/*indirect*/ false, dst_offset);
+        trace_builder.op_transaction_fee(/*indirect*/ 0, dst_offset);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(
-            /*indirect*/ false,
+            /*indirect*/ 0,
             /*value*/ dst_offset,
             /*dst_offset*/ indirect_dst_offset,
             AvmMemoryTag::U32);
-        trace_builder.op_transaction_fee(/*indirect*/ true, indirect_dst_offset);
+        trace_builder.op_transaction_fee(/*indirect*/ 1, indirect_dst_offset);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -426,20 +427,54 @@ TEST_F(AvmKernelPositiveTests, kernelTransactionFee)
     test_kernel_lookup(true, indirect_apply_opcodes, checks);
 }
 
+TEST_F(AvmKernelPositiveTests, kernelIsStaticCall)
+{
+    uint32_t dst_offset = 42;
+    uint32_t indirect_dst_offset = 69;
+    auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
+        trace_builder.op_is_static_call(/*indirect*/ 0, dst_offset);
+    };
+    auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
+        trace_builder.op_set(
+            /*indirect*/ 0,
+            /*value*/ dst_offset,
+            /*dst_offset*/ indirect_dst_offset,
+            AvmMemoryTag::U32);
+        trace_builder.op_is_static_call(/*indirect*/ 1, indirect_dst_offset);
+    };
+
+    auto checks = [=](bool indirect, const std::vector<Row>& trace) {
+        auto row = std::ranges::find_if(
+            trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_is_static_call == FF(1); });
+        EXPECT_TRUE(row != trace.end());
+
+        expect_row(row,
+                   /*kernel_in_offset=*/IS_STATIC_CALL_SELECTOR,
+                   /*ia=*/IS_STATIC_CALL_SELECTOR +
+                       1, // Note the value generated above for public inputs is the same as the index read + 1
+                   /*ind_a*/ indirect ? indirect_dst_offset : 0,
+                   /*mem_addr_a=*/dst_offset,
+                   /*w_in_tag=*/AvmMemoryTag::FF);
+    };
+
+    test_kernel_lookup(false, direct_apply_opcodes, checks);
+    test_kernel_lookup(true, indirect_apply_opcodes, checks);
+}
+
 TEST_F(AvmKernelPositiveTests, kernelChainId)
 {
     uint32_t dst_offset = 42;
     uint32_t indirect_dst_offset = 69;
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_chain_id(/*indirect*/ false, dst_offset);
+        trace_builder.op_chain_id(/*indirect*/ 0, dst_offset);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(
-            /*indirect*/ false,
+            /*indirect*/ 0,
             /*value*/ dst_offset,
             /*dst_offset*/ indirect_dst_offset,
             AvmMemoryTag::U32);
-        trace_builder.op_chain_id(/*indirect*/ true, indirect_dst_offset);
+        trace_builder.op_chain_id(/*indirect*/ 1, indirect_dst_offset);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -465,15 +500,15 @@ TEST_F(AvmKernelPositiveTests, kernelVersion)
     uint32_t dst_offset = 42;
     uint32_t indirect_dst_offset = 69;
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_version(/*indirect*/ false, dst_offset);
+        trace_builder.op_version(/*indirect*/ 0, dst_offset);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(
-            /*indirect*/ false,
+            /*indirect*/ 0,
             /*value*/ dst_offset,
             /*dst_offset*/ indirect_dst_offset,
             AvmMemoryTag::U32);
-        trace_builder.op_version(/*indirect*/ true, indirect_dst_offset);
+        trace_builder.op_version(/*indirect*/ 1, indirect_dst_offset);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -499,15 +534,15 @@ TEST_F(AvmKernelPositiveTests, kernelBlockNumber)
     uint32_t dst_offset = 42;
     uint32_t indirect_dst_offset = 69;
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_block_number(/*indirect*/ false, dst_offset);
+        trace_builder.op_block_number(/*indirect*/ 0, dst_offset);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(
-            /*indirect*/ false,
+            /*indirect*/ 0,
             /*value*/ dst_offset,
             /*dst_offset*/ indirect_dst_offset,
             AvmMemoryTag::U32);
-        trace_builder.op_block_number(/*indirect*/ true, indirect_dst_offset);
+        trace_builder.op_block_number(/*indirect*/ 1, indirect_dst_offset);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -533,15 +568,15 @@ TEST_F(AvmKernelPositiveTests, kernelTimestamp)
     uint32_t dst_offset = 42;
     uint32_t indirect_dst_offset = 69;
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_timestamp(/*indirect*/ false, dst_offset);
+        trace_builder.op_timestamp(/*indirect*/ 0, dst_offset);
     };
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(
-            /*indirect*/ false,
+            /*indirect*/ 0,
             /*value*/ dst_offset,
             /*dst_offset*/ indirect_dst_offset,
             AvmMemoryTag::U32);
-        trace_builder.op_timestamp(/*indirect*/ true, indirect_dst_offset);
+        trace_builder.op_timestamp(/*indirect*/ 1, indirect_dst_offset);
     };
 
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
@@ -592,7 +627,7 @@ void negative_test_incorrect_ia_kernel_lookup(OpcodesFunc apply_opcodes,
     // memory trace should only have one row for these tests as well, so first row has looked-up val
     ta.mem_val = incorrect_ia;
 
-    check_trace(/*indirect*/ false, trace);
+    check_trace(/*indirect*/ 0, trace);
 
     EXPECT_THROW_WITH_MESSAGE(validate_trace_check_circuit(std::move(trace)), expected_message);
 }
@@ -603,9 +638,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaSender)
     FF incorrect_ia = FF(69);
 
     // We test that the sender opcode is inlcuded at index x in the public inputs
-    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_sender(/*indirect*/ false, dst_offset);
-    };
+    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_sender(/*indirect*/ 0, dst_offset); };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_sender == FF(1); });
@@ -629,9 +662,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaAddress)
     FF incorrect_ia = FF(69);
 
     // We test that the sender opcode is inlcuded at index x in the public inputs
-    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_address(/*indirect*/ false, dst_offset);
-    };
+    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_address(/*indirect*/ 0, dst_offset); };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_address == FF(1); });
@@ -656,7 +687,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaStorageAddress)
 
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_storage_address(/*indirect*/ false, dst_offset);
+        trace_builder.op_storage_address(/*indirect*/ 0, dst_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(
@@ -682,7 +713,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaFunctionSelector)
 
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_function_selector(/*indirect*/ false, dst_offset);
+        trace_builder.op_function_selector(/*indirect*/ 0, dst_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(
@@ -708,7 +739,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaDaGas)
 
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_fee_per_da_gas(/*indirect*/ false, dst_offset);
+        trace_builder.op_fee_per_da_gas(/*indirect*/ 0, dst_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(
@@ -734,7 +765,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIal2Gas)
 
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_fee_per_l2_gas(/*indirect*/ false, dst_offset);
+        trace_builder.op_fee_per_l2_gas(/*indirect*/ 0, dst_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(
@@ -760,7 +791,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTransactionFee)
 
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_transaction_fee(/*indirect*/ false, dst_offset);
+        trace_builder.op_transaction_fee(/*indirect*/ 0, dst_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(
@@ -785,9 +816,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaChainId)
     FF incorrect_ia = FF(69);
 
     // We test that the sender opcode is inlcuded at index x in the public inputs
-    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_chain_id(/*indirect*/ false, dst_offset);
-    };
+    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_chain_id(/*indirect*/ 0, dst_offset); };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_chain_id == FF(1); });
@@ -811,9 +840,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaVersion)
     FF incorrect_ia = FF(69);
 
     // We test that the sender opcode is inlcuded at index x in the public inputs
-    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_version(/*indirect*/ false, dst_offset);
-    };
+    auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) { trace_builder.op_version(/*indirect*/ 0, dst_offset); };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row =
             std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_version == FF(1); });
@@ -838,7 +865,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaBlockNumber)
 
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_block_number(/*indirect*/ false, dst_offset);
+        trace_builder.op_block_number(/*indirect*/ 0, dst_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row =
@@ -864,7 +891,7 @@ TEST_F(AvmKernelNegativeTests, incorrectIaTimestamp)
 
     // We test that the sender opcode is inlcuded at index x in the public inputs
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
-        trace_builder.op_timestamp(/*indirect*/ false, dst_offset);
+        trace_builder.op_timestamp(/*indirect*/ 0, dst_offset);
     };
     auto checks = [=](bool indirect, const std::vector<Row>& trace) {
         auto row =
@@ -1171,7 +1198,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelNoteHashExists)
     auto direct_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
         // TODO(#8287): Leaf index isnt constrained properly so we just set it to 0
-        trace_builder.op_note_hash_exists(/*indirect*/ false, value_offset, 0, metadata_offset);
+        trace_builder.op_note_hash_exists(/*indirect*/ 0, value_offset, 0, metadata_offset);
     };
     // TODO: fix
     auto indirect_apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
@@ -1299,7 +1326,7 @@ TEST_F(AvmKernelOutputPositiveTests, kernelL1ToL2MsgExists)
     auto apply_opcodes = [=](AvmTraceBuilder& trace_builder) {
         trace_builder.op_set(0, value, value_offset, AvmMemoryTag::FF);
         // TODO(#8287): Leaf index isnt constrained properly so we just set it to 0
-        trace_builder.op_l1_to_l2_msg_exists(/*indirect*/ false, value_offset, 0, metadata_offset);
+        trace_builder.op_l1_to_l2_msg_exists(/*indirect*/ 0, value_offset, 0, metadata_offset);
     };
     auto checks = [=]([[maybe_unused]] bool indirect, const std::vector<Row>& trace) {
         auto row = std::ranges::find_if(

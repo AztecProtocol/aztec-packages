@@ -88,38 +88,12 @@ std::string to_string(OpCode opcode)
     case OpCode::CAST_16:
         return "CAST_16";
     // Execution Environment
-    case OpCode::ADDRESS:
-        return "ADDRESS";
-    case OpCode::STORAGEADDRESS:
-        return "STORAGEADDRESS";
-    case OpCode::SENDER:
-        return "SENDER";
-    case OpCode::FUNCTIONSELECTOR:
-        return "FUNCTIONSELECTOR";
-    case OpCode::TRANSACTIONFEE:
-        return "TRANSACTIONFEE";
-    // Execution Environment - Globals
-    case OpCode::CHAINID:
-        return "CHAINID";
-    case OpCode::VERSION:
-        return "VERSION";
-    case OpCode::BLOCKNUMBER:
-        return "BLOCKNUMBER";
-    case OpCode::TIMESTAMP:
-        return "TIMESTAMP";
-    case OpCode::FEEPERL2GAS:
-        return "FEEPERL2GAS";
-    case OpCode::FEEPERDAGAS:
-        return "FEEPERDAGAS";
+    case OpCode::GETENVVAR_16:
+        return "GETENVVAR_16";
     // Execution Environment - Calldata
     case OpCode::CALLDATACOPY:
         return "CALLDATACOPY";
     // Machine State
-    // Machine State - Gas
-    case OpCode::L2GASLEFT:
-        return "L2GASLEFT";
-    case OpCode::DAGASLEFT:
-        return "DAGASLEFT";
     // Machine State - Internal Control Flow
     case OpCode::JUMP_16:
         return "JUMP_16";
@@ -191,8 +165,10 @@ std::string to_string(OpCode opcode)
         return "KECCAK";
     case OpCode::POSEIDON2:
         return "POSEIDON2";
-    case OpCode::SHA256:
-        return "SHA256";
+    case OpCode::SHA256COMPRESSION:
+        return "SHA256COMPRESSION";
+    case OpCode::KECCAKF1600:
+        return "KECCAKF1600";
     case OpCode::PEDERSEN:
         return "PEDERSEN";
     case OpCode::ECADD:
@@ -202,11 +178,6 @@ std::string to_string(OpCode opcode)
     // Conversions
     case OpCode::TORADIXLE:
         return "TORADIXLE";
-    // Future Gadgets -- pending changes in noir
-    case OpCode::SHA256COMPRESSION:
-        return "SHA256COMPRESSION";
-    case OpCode::KECCAKF1600:
-        return "KECCAKF1600";
     // Sentinel
     case OpCode::LAST_OPCODE_SENTINEL:
         return "LAST_OPCODE_SENTINEL";

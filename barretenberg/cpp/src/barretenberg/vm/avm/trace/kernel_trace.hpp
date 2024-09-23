@@ -27,6 +27,7 @@ class AvmKernelTraceBuilder {
         TIMESTAMP,
         FEE_PER_DA_GAS,
         FEE_PER_L2_GAS,
+        IS_STATIC_CALL,
         // OUT
         SLOAD,
         SSTORE,
@@ -73,6 +74,7 @@ class AvmKernelTraceBuilder {
     FF op_sender(uint32_t clk);
     FF op_function_selector(uint32_t clk);
     FF op_transaction_fee(uint32_t clk);
+    FF op_is_static_call(uint32_t clk);
 
     // Globals
     FF op_chain_id(uint32_t clk);
