@@ -18,7 +18,7 @@ use crate::{
         Expression, ExpressionKind, HirExpression, HirLiteral, Literal, NodeInterner, Path,
         StructId,
     },
-    node_interner::{ExprId, FuncId, InternedStatementKind, StmtId, TraitId, TraitImplId},
+    node_interner::{ExprId, FuncId, StmtId, TraitId, TraitImplId},
     parser::{self, NoirParser, TopLevelStatement},
     token::{SpannedToken, Token, Tokens},
     Kind, QuotedType, Shared, Type, TypeBindings,

@@ -2312,10 +2312,6 @@ impl Methods {
                         } else {
                             return Some(method);
                         }
-                    } else {
-                        // Just return the first method whose name matches since we
-                        // can't match object types on static methods.
-                        return Some(method);
                     }
                 }
                 Type::Error => (),

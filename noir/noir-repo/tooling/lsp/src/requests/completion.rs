@@ -1686,48 +1686,6 @@ fn get_array_element_type(typ: Type) -> Option<Type> {
     }
 }
 
-fn get_field_type(typ: &Type, name: &str) -> Option<Type> {
-    match typ {
-        Type::Struct(struct_type, generics) => {
-            Some(struct_type.borrow().get_field(name, generics)?.0)
-        }
-        Type::Tuple(types) => {
-            if let Ok(index) = name.parse::<i32>() {
-                types.get(index as usize).cloned()
-            } else {
-                None
-            }
-        }
-        Type::Alias(alias_type, generics) => Some(alias_type.borrow().get_type(generics)),
-        Type::TypeVariable(var, _) | Type::NamedGeneric(var, _, _) => {
-            if let TypeBinding::Bound(typ) = &*var.borrow() {
-                get_field_type(typ, name)
-            } else {
-                None
-            }
-        }
-        _ => None,
-    }
-}
-
-fn get_array_element_type(typ: Type) -> Option<Type> {
-    match typ {
-        Type::Array(_, typ) | Type::Slice(typ) => Some(*typ),
-        Type::Alias(alias_type, generics) => {
-            let typ = alias_type.borrow().get_type(&generics);
-            get_array_element_type(typ)
-        }
-        Type::TypeVariable(var, _) | Type::NamedGeneric(var, _, _) => {
-            if let TypeBinding::Bound(typ) = &*var.borrow() {
-                get_array_element_type(typ.clone())
-            } else {
-                None
-            }
-        }
-        _ => None,
-    }
-}
-
 /// Returns true if name matches a prefix written in code.
 /// `prefix` must already be in snake case.
 /// This method splits both name and prefix by underscore,
