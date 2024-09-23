@@ -279,16 +279,13 @@ export class Archiver implements ArchiveSource {
       await this.rollup.read.status([localPendingBlockNumber]);
 
     const updateProvenBlock = async () => {
-      // Only update the proven block number if we are behind. And only if we have the state
-      if (provenBlockNumber > BigInt(await this.getProvenBlockNumber())) {
-        const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
-        if (
-          localBlockForDestinationProvenBlockNumber &&
-          provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
-        ) {
-          this.log.info(`Updating the proven block number to ${provenBlockNumber}`);
-          await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
-        }
+      const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
+      if (
+        localBlockForDestinationProvenBlockNumber &&
+        provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
+      ) {
+        this.log.info(`Updating the proven block number to ${provenBlockNumber}`);
+        await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
       }
     };
 
@@ -300,6 +297,8 @@ export class Archiver implements ArchiveSource {
       return;
     }
 
+    await updateProvenBlock();
+
     // Related to the L2 reorgs of the pending chain. We are only interested in actually addressing a reorg if there
     // are any state that could be impacted by it. If we have no blocks, there is no impact.
     if (localPendingBlockNumber > 0) {
@@ -310,8 +309,6 @@ export class Archiver implements ArchiveSource {
 
       const noBlockSinceLast = localPendingBlock && pendingArchive === localPendingBlock.archive.root.toString();
       if (noBlockSinceLast) {
-        // While there have been no L2 blocks, there might have been a proof, so we will update if needed.
-        await updateProvenBlock();
         await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
         this.log.verbose(`No blocks to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
         return;
