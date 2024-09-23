@@ -1,5 +1,6 @@
 export { Crs } from './crs/index.js';
 export {
+  BackendOptions,
   Barretenberg,
   BarretenbergSync,
   BarretenbergVerifier,
