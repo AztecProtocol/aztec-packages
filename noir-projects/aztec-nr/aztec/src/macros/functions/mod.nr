@@ -149,7 +149,7 @@ pub comptime fn private(f: FunctionDefinition) -> Quoted {
     };
 
     // Initialization checks are not included in contracts that don't have initializers.
-    let init_check = if module_has_initializer & !fn_has_noinitcheck(f) {
+    let init_check = if module_has_initializer & !is_fn_initializer(f) & !fn_has_noinitcheck(f) {
         create_init_check(f)
     } else {
         quote {}
