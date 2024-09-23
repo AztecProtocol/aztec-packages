@@ -155,6 +155,16 @@ FF AvmKernelTraceBuilder::op_fee_per_l2_gas(uint32_t clk)
     return perform_kernel_input_lookup(FEE_PER_L2_GAS_SELECTOR);
 }
 
+FF AvmKernelTraceBuilder::op_is_static_call(uint32_t clk)
+{
+    KernelTraceEntry entry = {
+        .clk = clk,
+        .operation = KernelTraceOpType::IS_STATIC_CALL,
+    };
+    kernel_trace.push_back(entry);
+    return perform_kernel_input_lookup(IS_STATIC_CALL_SELECTOR);
+}
+
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6481): need to process hint from avm in order to know if
 // output should be set to true or not
 void AvmKernelTraceBuilder::op_note_hash_exists(uint32_t clk,
@@ -399,6 +409,10 @@ void AvmKernelTraceBuilder::finalize(std::vector<AvmFullRow<FF>>& main_trace)
                 dest.main_kernel_in_offset = FEE_PER_L2_GAS_SELECTOR;
                 dest.main_sel_q_kernel_lookup = 1;
                 break;
+            case KernelTraceOpType::IS_STATIC_CALL:
+                dest.main_kernel_in_offset = IS_STATIC_CALL_SELECTOR;
+                dest.main_sel_q_kernel_lookup = 1;
+                break;
             // OUT
             case KernelTraceOpType::NOTE_HASH_EXISTS:
                 dest.main_kernel_out_offset = src.kernel_out_offset;
@@ -500,25 +514,11 @@ void AvmKernelTraceBuilder::finalize_columns(std::vector<AvmFullRow<FF>>& main_t
     for (auto const& [selector, count] : kernel_input_selector_counter) {
         main_trace.at(selector).lookup_into_kernel_counts = FF(count);
     }
-    // for (uint32_t i = 0; i < KERNEL_INPUTS_LENGTH; i++) {
-    //     auto value = kernel_input_selector_counter.find(i);
-    //     if (value != kernel_input_selector_counter.end()) {
-    //         auto& dest = main_trace.at(i);
-    //         dest.lookup_into_kernel_counts = FF(value->second);
-    //     }
-    // }
 
     // Write lookup counts for outputs
     for (auto const& [selector, count] : kernel_output_selector_counter) {
         main_trace.at(selector).kernel_output_lookup_counts = FF(count);
     }
-    // for (uint32_t i = 0; i < KERNEL_OUTPUTS_LENGTH; i++) {
-    //     auto value = kernel_output_selector_counter.find(i);
-    //     if (value != kernel_output_selector_counter.end()) {
-    //         auto& dest = main_trace.at(i);
-    //         dest.kernel_output_lookup_counts = FF(value->second);
-    //     }
-    // }
 }
 
 } // namespace bb::avm_trace

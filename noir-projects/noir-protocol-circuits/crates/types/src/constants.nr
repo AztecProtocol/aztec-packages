@@ -294,7 +294,7 @@ global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3817;
+global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3822;
 global AVM_PUBLIC_COLUMN_MAX_SIZE_LOG2 = 8;
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
@@ -379,6 +379,7 @@ global SENDER_SELECTOR: u32 = 0;
 global ADDRESS_SELECTOR: u32 = SENDER_SELECTOR + 1;
 global STORAGE_ADDRESS_SELECTOR: u32 = ADDRESS_SELECTOR;
 global FUNCTION_SELECTOR_SELECTOR: u32 = ADDRESS_SELECTOR + 1;
+global IS_STATIC_CALL_SELECTOR: u32 = FUNCTION_SELECTOR_SELECTOR + 2;
 // Global Variables
 global START_GLOBAL_VARIABLES: u32 = CALL_CONTEXT_LENGTH + HEADER_LENGTH;
 global CHAIN_ID_SELECTOR: u32 = START_GLOBAL_VARIABLES;

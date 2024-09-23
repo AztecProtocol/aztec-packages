@@ -1390,19 +1390,17 @@ void AvmTraceBuilder::op_transaction_fee(uint8_t indirect, uint32_t dst_offset)
     main_trace.push_back(row);
 }
 
-void AvmTraceBuilder::op_is_static_call([[maybe_unused]] uint8_t indirect, [[maybe_unused]] uint32_t dst_offset)
+void AvmTraceBuilder::op_is_static_call(uint8_t indirect, uint32_t dst_offset)
 {
-    // TO BE IMPLEMENTED.
-    op_mov(0, 0, 0);
-    // auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
-    // FF ia_value = kernel_trace_builder.op_is_static_call(clk);
-    // Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::U1);
-    // row.main_sel_op_is_static_call = FF(1);
+    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    FF ia_value = kernel_trace_builder.op_is_static_call(clk);
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::U1);
+    row.main_sel_op_is_static_call = FF(1);
 
-    // // Constrain gas cost
-    // gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
-    // main_trace.push_back(row);
+    main_trace.push_back(row);
 }
 
 /**************************************************************************************************
