@@ -117,14 +117,14 @@ describe('NativeWorldState', () => {
       [
         MerkleTreeId[MerkleTreeId.NULLIFIER_TREE],
         MerkleTreeId.NULLIFIER_TREE,
-        Array(1024)
+        Array(64)
           .fill(0)
           .map(() => new NullifierLeaf(Fr.random()).toBuffer()),
       ],
       [
         MerkleTreeId[MerkleTreeId.PUBLIC_DATA_TREE],
         MerkleTreeId.PUBLIC_DATA_TREE,
-        Array(1024)
+        Array(64)
           .fill(0)
           .map(() => new PublicDataTreeLeaf(Fr.random(), Fr.random()).toBuffer()),
       ],
@@ -210,7 +210,7 @@ describe('NativeWorldState', () => {
       const [_nativeMs] = await elapsed(nativeWS.handleL2BlockAndMessages(block, messages));
       const [_legacyMs] = await elapsed(legacyWS.handleL2BlockAndMessages(block, messages));
 
-      //console.log(`Native: ${_nativeMs} ms, Legacy: ${_legacyMs} ms. Generating mock block took ${_blockMS} ms`);
+      console.log(`Native: ${_nativeMs} ms, Legacy: ${_legacyMs} ms. Generating mock block took ${_blockMS} ms`);
 
       await assertSameTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, true);
       await assertSameTree(MerkleTreeId.NOTE_HASH_TREE, true);
@@ -238,7 +238,7 @@ describe('NativeWorldState', () => {
 
   async function mockBlock(blockNum = 1, merkleTrees?: MerkleTreeDb) {
     merkleTrees ??= await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient());
-    const l2Block = L2Block.random(blockNum, 2); // 2 txs
+    const l2Block = L2Block.random(blockNum, 32); // 2 txs
     const l1ToL2Messages = Array(16).fill(0).map(Fr.random);
 
     const paddedTxEffects = padArrayEnd(
