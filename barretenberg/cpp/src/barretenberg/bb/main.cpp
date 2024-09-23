@@ -1212,6 +1212,48 @@ void write_recursion_inputs_honk(const std::string& bytecodePath,
 }
 
 /**
+ * @brief Write a toml file containing recursive verifier inputs for a given program + witness
+ *
+ * @tparam Flavor
+ * @param bytecodePath Path to the file containing the serialized circuit
+ * @param witnessPath Path to the file containing the serialized witness
+ * @param outputPath Path to write toml file
+ */
+template <IsUltraFlavor Flavor>
+void write_recursion_inputs_oink(const std::string& bytecodePath,
+                                 const std::string& witnessPath,
+                                 const std::string& outputPath)
+{
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+    using FF = Flavor::FF;
+
+    bool honk_recursion = true;
+    auto constraints = get_constraint_system(bytecodePath, /*honk_recursion=*/true);
+    auto witness = get_witness(witnessPath);
+    auto builder = acir_format::create_circuit<Builder>(constraints, 0, witness, honk_recursion);
+
+    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
+    init_bn254_crs(srs_size);
+
+    // Construct Honk proof and verification key
+    Prover prover{ builder };
+    std::vector<FF> proof = std::vector<FF>(acir_format::CONST_OINK_PROOF_SIZE);
+    std::vector<FF> public_inputs = { prover.proving_key->proving_key.public_inputs[0] }; // WORKTODO
+    VerificationKey verification_key(prover.proving_key->proving_key);
+
+    // Construct a string with the content of the toml file (vk hash, proof, public inputs, vk)
+    std::string toml_content =
+        acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(proof, verification_key, public_inputs);
+
+    // Write all components to the TOML file
+    std::string toml_path = outputPath + "/Prover.toml";
+    write_file(toml_path, { toml_content.begin(), toml_content.end() });
+}
+
+/**
  * @brief Outputs proof as vector of field elements in readable format.
  *
  * Communication:
@@ -1511,6 +1553,9 @@ int main(int argc, char* argv[])
         } else if (command == "write_recursion_inputs_honk") {
             std::string output_path = get_option(args, "-o", "./target");
             write_recursion_inputs_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
+        } else if (command == "write_recursion_inputs_oink") {
+            std::string output_path = get_option(args, "-o", "./target");
+            write_recursion_inputs_oink<UltraFlavor>(bytecode_path, witness_path, output_path);
 #ifndef DISABLE_AZTEC_VM
         } else if (command == "avm_prove") {
             std::filesystem::path avm_bytecode_path = get_option(args, "--avm-bytecode", "./target/avm_bytecode.bin");

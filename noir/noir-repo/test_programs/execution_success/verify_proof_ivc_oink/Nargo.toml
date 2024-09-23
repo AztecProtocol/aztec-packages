@@ -1,5 +1,5 @@
 [package]
-name = "verify_honk_proof"
+name = "verify_proof_ivc_oink"
 type = "bin"
 authors = [""]
 
