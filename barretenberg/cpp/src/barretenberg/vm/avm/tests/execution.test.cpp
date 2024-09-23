@@ -1831,15 +1831,14 @@ TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
 TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
 {
     // Set values into the first register to emit
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode Set
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "01" // value 1
-                               "01" // dst_offset 1
-                               // Cast set to field
-                               + to_hex(OpCode::CAST_8) + // opcode CAST
-                               "00"                       // Indirect flag
-                               + to_hex(AvmMemoryTag::FF) +
+    std::string bytecode_hex = to_hex(OpCode::SET_8) +                // opcode Set
+                               "00"                                   // Indirect flag
+                               + to_hex(AvmMemoryTag::U32) +          // tag U32
+                               "01"                                   // value 1
+                               "01"                                   // dst_offset 1
+                               + to_hex(OpCode::CAST_8) +             // opcode CAST (to field)
+                               "00"                                   // Indirect flag
+                               + to_hex(AvmMemoryTag::FF) +           // tag FF
                                "01"                                   // dst 1
                                "01"                                   // dst 1
                                + to_hex(OpCode::EMITNOTEHASH) +       // opcode EMITNOTEHASH
@@ -1902,13 +1901,15 @@ TEST_F(AvmExecutionTests, kernelOutputEmitOpcodes)
     // CHECK EMIT UNENCRYPTED LOG
     auto emit_log_row =
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_emit_unencrypted_log == 1; });
-    EXPECT_EQ(emit_log_row->main_ia, 1);
+    // Trust me bro for now, this is the truncated sha output
+    FF expected_hash = FF(std::string("0x006db65fd59fd356f6729140571b5bcd6bb3b83492a16e1bf0a3884442fc3c8a"));
+    EXPECT_EQ(emit_log_row->main_ia, expected_hash);
     EXPECT_EQ(emit_log_row->main_side_effect_counter, 2);
 
     uint32_t emit_log_out_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET;
     auto emit_log_kernel_out_row =
         std::ranges::find_if(trace.begin(), trace.end(), [&](Row r) { return r.main_clk == emit_log_out_offset; });
-    EXPECT_EQ(emit_log_kernel_out_row->main_kernel_value_out, 1);
+    EXPECT_EQ(emit_log_kernel_out_row->main_kernel_value_out, expected_hash);
     EXPECT_EQ(emit_log_kernel_out_row->main_kernel_side_effect_out, 2);
     feed_output(emit_log_out_offset, 1, 2, 0);
 

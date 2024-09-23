@@ -55,6 +55,7 @@ jobs:
       barretenberg-cpp: ${{ steps.filter.outputs.barretenberg-cpp }}
       noir: ${{ steps.filter.outputs.noir }}
       noir-projects: ${{ steps.filter.outputs.noir-projects }}
+      txe: ${{ steps.filter.outputs.txe }}
       l1-contracts: ${{ steps.filter.outputs.l1-contracts }}
       non-docs: ${{ steps.filter.outputs.non-docs }}
       non-misc-ci: ${{ steps.filter.outputs.non-misc-ci }}
@@ -80,6 +81,8 @@ jobs:
               - 'l1-contracts/**'
             noir-projects:
               - 'noir-projects/**'
+            txe:
+              - 'yarn-project/txe/**'
             non-barretenberg-cpp:
               - '!(barretenberg/cpp/**)'
               # don't consider AVM stuff 'core bb'
@@ -87,6 +90,7 @@ jobs:
               - barretenberg/cpp/src/barretenberg/vm/**
               - barretenberg/cpp/src/barretenberg/**/generated/*
               - barretenberg/cpp/src/barretenberg/client_ivc/client_ivc.{hpp,cpp}
+              - barretenberg/cpp/src/barretenberg/bb/main.cpp
             non-docs:
               - '!(docs/**)'
             non-misc-ci:
@@ -489,7 +493,7 @@ jobs:
   noir-projects:
     needs: [build-images, changes, build]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true'
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true' || needs.changes.outputs.txe == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
