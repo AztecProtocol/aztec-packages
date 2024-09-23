@@ -1,7 +1,5 @@
 import { type PublicKernelRequest, PublicKernelType, type Tx } from '@aztec/circuit-types';
 import {
-  type GlobalVariables,
-  type Header,
   type KernelCircuitPublicInputs,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -10,25 +8,12 @@ import {
   mergeAccumulatedData,
 } from '@aztec/circuits.js';
 import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
-import { type PublicExecutor, type PublicStateDB } from '@aztec/simulator';
-import { type MerkleTreeOperations } from '@aztec/world-state';
 
-import { AbstractPhaseManager } from './abstract_phase_manager.js';
-import { type ContractsDataSourcePublicDB } from './public_db_sources.js';
-import { type PublicKernelCircuitSimulator } from './public_kernel_circuit_simulator.js';
+import { AbstractPhaseManager, type PhaseConfig } from './abstract_phase_manager.js';
 
 export class TailPhaseManager extends AbstractPhaseManager {
-  constructor(
-    db: MerkleTreeOperations,
-    publicExecutor: PublicExecutor,
-    publicKernel: PublicKernelCircuitSimulator,
-    globalVariables: GlobalVariables,
-    historicalHeader: Header,
-    protected publicContractsDB: ContractsDataSourcePublicDB,
-    protected publicStateDB: PublicStateDB,
-    phase: PublicKernelType = PublicKernelType.TAIL,
-  ) {
-    super(db, publicExecutor, publicKernel, globalVariables, historicalHeader, phase);
+  constructor(config: PhaseConfig, public override phase: PublicKernelType = PublicKernelType.TAIL) {
+    super(config);
   }
 
   override async handle(
@@ -40,7 +25,7 @@ export class TailPhaseManager extends AbstractPhaseManager {
     const [inputs, finalKernelOutput] = await this.simulate(previousPublicKernelOutput, previousKernelArtifact).catch(
       // the abstract phase manager throws if simulation gives error in non-revertible phase
       async err => {
-        await this.publicStateDB.rollbackToCommit();
+        await this.worldStateDB.rollbackToCommit();
         throw err;
       },
     );

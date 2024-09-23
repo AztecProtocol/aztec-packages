@@ -92,7 +92,6 @@ void AvmProver::execute_log_derivative_inverse_commitments_round()
 {
     // Commit to all logderivative inverse polynomials
     for (auto [commitment, key_poly] : zip_view(witness_commitments.get_derived(), key->get_derived())) {
-        // We don't use commit_sparse here because the logderivative inverse polynomials are dense
         commitment = commitment_key->commit(key_poly);
     }
 

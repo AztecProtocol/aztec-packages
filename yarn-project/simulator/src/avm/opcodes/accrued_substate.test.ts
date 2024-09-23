@@ -2,17 +2,12 @@ import { Fr } from '@aztec/circuits.js';
 
 import { mock } from 'jest-mock-extended';
 
+import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { type AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
-import {
-  initContext,
-  initExecutionEnvironment,
-  initHostStorage,
-  initPersistableStateManager,
-} from '../fixtures/index.js';
-import { type HostStorage } from '../journal/host_storage.js';
+import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
 import { mockL1ToL2MessageExists, mockNoteHashExists, mockNullifierExists } from '../test_utils.js';
 import {
@@ -26,7 +21,7 @@ import {
 } from './accrued_substate.js';
 
 describe('Accrued Substate', () => {
-  let hostStorage: HostStorage;
+  let worldStateDB: WorldStateDB;
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
   let context: AvmContext;
@@ -43,9 +38,9 @@ describe('Accrued Substate', () => {
   const existsOffset = 2;
 
   beforeEach(() => {
-    hostStorage = initHostStorage();
+    worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();
-    persistableState = initPersistableStateManager({ hostStorage, trace });
+    persistableState = initPersistableStateManager({ worldStateDB, trace });
     context = initContext({ persistableState, env: initExecutionEnvironment({ address, storageAddress, sender }) });
   });
 
@@ -83,7 +78,7 @@ describe('Accrued Substate', () => {
         : '';
       it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
         if (mockAtLeafIndex !== undefined) {
-          mockNoteHashExists(hostStorage, mockAtLeafIndex, value0);
+          mockNoteHashExists(worldStateDB, mockAtLeafIndex, value0);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // noteHash
@@ -160,7 +155,7 @@ describe('Accrued Substate', () => {
         const storageAddressOffset = 1;
 
         if (exists) {
-          mockNullifierExists(hostStorage, leafIndex, value0);
+          mockNullifierExists(worldStateDB, leafIndex, value0);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
@@ -229,7 +224,7 @@ describe('Accrued Substate', () => {
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {
-      mockNullifierExists(hostStorage, leafIndex); // db will say that nullifier already exists
+      mockNullifierExists(worldStateDB, leafIndex); // db will say that nullifier already exists
       context.machineState.memory.set(value0Offset, new Field(value0));
       await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
         new InstructionExecutionError(
@@ -275,7 +270,7 @@ describe('Accrued Substate', () => {
 
       it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
         if (mockAtLeafIndex !== undefined) {
-          mockL1ToL2MessageExists(hostStorage, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
+          mockL1ToL2MessageExists(worldStateDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // noteHash

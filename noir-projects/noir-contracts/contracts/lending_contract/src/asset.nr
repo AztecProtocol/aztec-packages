@@ -13,7 +13,7 @@ struct Asset {
     oracle: AztecAddress,
 }
 
-global SERIALIZED_LEN: Field = 6;
+global SERIALIZED_LEN: u32 = 6;
 
 impl Serialize<SERIALIZED_LEN> for Asset {
     fn serialize(Asset: Asset) -> [Field; SERIALIZED_LEN] {

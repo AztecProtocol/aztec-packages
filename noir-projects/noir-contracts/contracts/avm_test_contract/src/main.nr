@@ -215,6 +215,19 @@ contract AvmTest {
         1
     }
 
+    #[aztec(public)]
+    fn assert_calldata_copy(args: [Field; 3]) {
+        let offset = 2; // Make this 0 when PublicContextInputs is removed.
+        let cd: [Field; 3] = dep::aztec::context::public_context::calldata_copy(offset, 3);
+        assert(cd == args, "Calldata copy failed");
+    }
+
+    #[aztec(public)]
+    fn return_oracle() -> [Field; 3] {
+        dep::aztec::context::public_context::avm_return([1, 2, 3]);
+        [4, 5, 6] // Should not get here.
+    }
+
     /************************************************************************
      * Hashing functions
      ************************************************************************/
@@ -470,5 +483,83 @@ contract AvmTest {
     fn enqueue_public_from_private() {
         AvmTest::at(context.this_address()).set_opcode_u8().enqueue_view(&mut context);
         AvmTest::at(context.this_address()).set_read_storage_single(5).enqueue(&mut context);
+    }
+
+    /************************************************************************
+     * Bulk testing: exercise many functions in a single call.
+     * It only makes sense to call functions with side effects (or oracle
+     * calls - but not blackboxes!), since otherwise the whole call will
+     * be optimized away.
+     ************************************************************************/
+    #[aztec(public)]
+    fn bulk_testing(args_field: [Field; 10], args_u8: [u8; 10]) {
+        // Using "inputs" here is a bit of a hack. It's the PublicContextInputs injected
+        // by the public macros. It's needed by the non-nested call to an entry point function.
+        set_storage_single(inputs, 30);
+
+        dep::aztec::oracle::debug_log::debug_log("set_storage_list");
+        set_storage_list(inputs, 40, 50);
+        dep::aztec::oracle::debug_log::debug_log("read_storage_list");
+        let _ = set_storage_map(inputs, context.this_address(), 60);
+        dep::aztec::oracle::debug_log::debug_log("add_storage_map");
+        let _ = add_storage_map(inputs, context.this_address(), 10);
+        dep::aztec::oracle::debug_log::debug_log("read_storage_map");
+        let _ = read_storage_map(inputs, context.this_address());
+        dep::aztec::oracle::debug_log::debug_log("keccak_hash");
+        let _ = keccak_hash(inputs, args_u8);
+        dep::aztec::oracle::debug_log::debug_log("sha256_hash");
+        let _ = sha256_hash(inputs, args_u8);
+        dep::aztec::oracle::debug_log::debug_log("poseidon2_hash");
+        let _ = poseidon2_hash(inputs, args_field);
+        dep::aztec::oracle::debug_log::debug_log("pedersen_hash");
+        let _ = pedersen_hash(inputs, args_field);
+        dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
+        let _ = pedersen_hash_with_index(inputs, args_field);
+        dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
+        test_get_contract_instance(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_address");
+        let _ = get_address(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_storage_address");
+        let _ = get_storage_address(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_sender");
+        let _ = get_sender(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_function_selector");
+        let _ = get_function_selector(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_transaction_fee");
+        let _ = get_transaction_fee(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_chain_id");
+        let _ = get_chain_id(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_version");
+        let _ = get_version(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_block_number");
+        let _ = get_block_number(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_timestamp");
+        let _ = get_timestamp(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_fee_per_l2_gas");
+        let _ = get_fee_per_l2_gas(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_fee_per_da_gas");
+        let _ = get_fee_per_da_gas(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_l2_gas_left");
+        let _ = get_l2_gas_left(inputs);
+        dep::aztec::oracle::debug_log::debug_log("get_da_gas_left");
+        let _ = get_da_gas_left(inputs);
+        dep::aztec::oracle::debug_log::debug_log("emit_unencrypted_log");
+        let _ = emit_unencrypted_log(inputs);
+        dep::aztec::oracle::debug_log::debug_log("note_hash_exists");
+        let _ = note_hash_exists(inputs, 1, 2);
+        dep::aztec::oracle::debug_log::debug_log("new_note_hash");
+        let _ = new_note_hash(inputs, 1);
+        dep::aztec::oracle::debug_log::debug_log("new_nullifier");
+        let _ = new_nullifier(inputs, 1);
+        dep::aztec::oracle::debug_log::debug_log("nullifier_exists");
+        let _ = nullifier_exists(inputs, 1);
+        dep::aztec::oracle::debug_log::debug_log("l1_to_l2_msg_exists");
+        let _ = l1_to_l2_msg_exists(inputs, 1, 2);
+        dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
+        let _ = send_l2_to_l1_msg(inputs, EthAddress::from_field(0x2020), 1);
+        dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
+        let _ = nested_call_to_add(inputs, 1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
+        let _ = nested_static_call_to_add(inputs, 1, 2);
     }
 }
