@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"

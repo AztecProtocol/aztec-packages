@@ -42,38 +42,32 @@ namespace bb {
 template <typename Curve>
 template <typename Transcript>
 std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
-    [[maybe_unused]] Fr circuit_size,  // Will be used when constant proof sizes are in
+    Fr circuit_size,
     RefSpan<Polynomial> f_polynomials, // unshifted
     RefSpan<Polynomial> g_polynomials, // to-be-shifted
-    RefSpan<Fr> unshifted_evaluations,
-    RefSpan<Fr> shifted_evaluations,
     std::span<Fr> multilinear_challenge,
     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
     const std::shared_ptr<Transcript>& transcript)
 {
-    ASSERT(unshifted_evaluations.size() + shifted_evaluations.size() == f_polynomials.size() + g_polynomials.size());
     size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
     size_t n = 1 << log_n;
 
     Fr rho = transcript->template get_challenge<Fr>("rho");
-    std::vector<Fr> rhos = gemini::powers_of_rho(rho, unshifted_evaluations.size() + shifted_evaluations.size());
+    std::vector<Fr> rhos = gemini::powers_of_rho(rho, f_polynomials.size() + g_polynomials.size());
 
     // Compute batched polynomials
     Polynomial batched_unshifted(n);
     Polynomial batched_to_be_shifted = Polynomial::shiftable(1 << log_n);
-    // Fr batched_evaluation = Fr::zero();
 
     const size_t num_unshifted = f_polynomials.size();
     const size_t num_to_be_shifted = g_polynomials.size();
     for (size_t i = 0; i < num_unshifted; i++) {
         Fr rho_challenge = rhos[i];
         batched_unshifted.add_scaled(f_polynomials[i], rho_challenge);
-        // batched_evaluation += unshifted_evaluations[i] * rho_challenge;
     }
     for (size_t i = 0; i < num_to_be_shifted; i++) {
         Fr rho_challenge = rhos[num_unshifted + i];
         batched_to_be_shifted.add_scaled(g_polynomials[i], rho_challenge);
-        // batched_evaluation += shifted_evaluations[i] * rho_challenge;
     }
 
     auto fold_polynomials = compute_fold_polynomials(

@@ -64,7 +64,8 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
     auto multivariate_to_univariate_opening_claim = ZeroMorph::verify(circuit_size,
                                                                       commitments.get_unshifted(),
                                                                       commitments.get_to_be_shifted(),
-                                                                      claimed_evaluations.get_all(),
+                                                                      claimed_evaluations.get_unshifted(),
+                                                                      claimed_evaluations.get_shifted(),
                                                                       multivariate_challenge,
                                                                       key->pcs_verification_key->get_g1_identity(),
                                                                       transcript);

@@ -34,6 +34,7 @@ class UltraKeccakFlavor : public bb::UltraFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1094): Add aggregation
     class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         VerificationKey() = default;

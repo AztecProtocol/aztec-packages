@@ -1,4 +1,3 @@
-
 #include "./translator_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"

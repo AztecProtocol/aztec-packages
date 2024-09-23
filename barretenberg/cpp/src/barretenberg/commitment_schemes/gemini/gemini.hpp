@@ -112,8 +112,6 @@ template <typename Curve> class GeminiProver_ {
     static std::vector<Claim> prove(const Fr circuit_size,
                                     RefSpan<Polynomial> f_polynomials,
                                     RefSpan<Polynomial> g_polynomials,
-                                    RefSpan<Fr> unshifted_evaluations,
-                                    RefSpan<Fr> shifted_evaluations,
                                     std::span<Fr> multilinear_challenge,
                                     const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                     const std::shared_ptr<Transcript>& transcript);
@@ -138,7 +136,7 @@ template <typename Curve> class GeminiVerifier_ {
      * (Cⱼ, Aⱼ(-r^{2ʲ}), -r^{2}), j = [1, ..., m-1]
      */
     static std::vector<OpeningClaim<Curve>> reduce_verification(std::span<Fr> multilinear_challenge,
-                                                                std::span<Fr> multilinear_evaluations, /* u */
+                                                                std::span<Fr> multilinear_evaluations,
                                                                 RefSpan<GroupElement> unshifted_commitments,
                                                                 RefSpan<GroupElement> to_be_shifted_commitments,
                                                                 auto& transcript)
@@ -176,7 +174,7 @@ template <typename Curve> class GeminiVerifier_ {
         const std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
         // Compute evaluation A₀(r)
         auto a_0_pos = compute_gemini_batched_univariate_evaluation(
-            batched_evaluation, multilinear_challenge, r_squares, evaluations);
+            num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations);
 
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
@@ -243,12 +241,13 @@ template <typename Curve> class GeminiVerifier_ {
      * @param fold_polynomial_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return Evaluation \f$ A_0(r) \f$.
      */
-    static Fr compute_gemini_batched_univariate_evaluation(Fr& batched_eval_accumulator,
+    static Fr compute_gemini_batched_univariate_evaluation(size_t evaluation_point_size,
+                                                           Fr& batched_eval_accumulator,
                                                            std::span<const Fr> evaluation_point,
                                                            std::span<const Fr> challenge_powers,
                                                            std::span<const Fr> fold_polynomial_evals)
     {
-        const size_t num_variables = evaluation_point.size();
+        const size_t num_variables = evaluation_point_size;
 
         const auto& evals = fold_polynomial_evals;
 

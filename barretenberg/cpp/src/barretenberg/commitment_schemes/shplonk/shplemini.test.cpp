@@ -117,9 +117,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     EXPECT_EQ(batched_evaluation, verifier_batched_evaluation);
     EXPECT_EQ(-expected_result, shplemini_result);
 }
-0x0a77620a91f94ac0e8a3823a0d30688bbae0064fee682d386addae7400feb51e,
-    0x13cc6c8e5f61f0c514dcab6c00b9b7fcd13f1cee5e7027383601c3726e036f3f TYPED_TEST(ShpleminiTest,
-                                                                                  CorrectnessOfGeminiClaimBatching)
+TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 {
     using GeminiProver = GeminiProver_<TypeParam>;
     using ShpleminiVerifier = ShpleminiVerifier_<TypeParam>;

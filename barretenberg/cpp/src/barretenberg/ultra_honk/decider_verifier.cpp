@@ -57,6 +57,8 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
     }
 
     std::array<GroupElement, 2> pairing_points;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1109): Remove this hack once the verifier runs on
+    // Shplemini for all Ultra flavors
     if constexpr (bb::IsAnyOf<Flavor, UltraKeccakFlavor>) {
         auto opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
                                                                     commitments.get_unshifted(),
@@ -67,8 +69,9 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                                     Commitment::one(),
                                                                     transcript);
         pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
-
     } else {
+        // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
+        // unrolled protocol.
         auto opening_claim = ZeroMorph::verify(accumulator->verification_key->circuit_size,
                                                commitments.get_unshifted(),
                                                commitments.get_to_be_shifted(),
@@ -79,10 +82,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
                                                transcript);
         pairing_points = PCS::reduce_verify(opening_claim, transcript);
     }
-    // Execute ZeroMorph rounds. See https://hackmd.io/dlf9xEwhTQyE3hiGbq4FsA?view for a complete description of the
-    // unrolled protocol.
-
-    auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
+    bool verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
 
     return sumcheck_verified.value() && verified;
 }

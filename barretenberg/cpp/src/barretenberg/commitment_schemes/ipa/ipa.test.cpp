@@ -77,8 +77,8 @@ TEST_F(IPATest, OpenZeroPolynomial)
     EXPECT_TRUE(result);
 }
 
-// This test makes sure that even if the whole vector \vec{b} generated from the x, at which we open the polynomial, is
-// zero, IPA behaves
+// This test makes sure that even if the whole vector \vec{b} generated from the x, at which we open the polynomial,
+// is zero, IPA behaves
 TEST_F(IPATest, OpenAtZero)
 {
     using IPA = IPA<Curve>;
@@ -266,14 +266,8 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims = GeminiProver::prove(n,
-                                                     RefArray{ poly1, poly2 },
-                                                     RefArray{ poly2 },
-                                                     RefArray{ eval1, eval2 },
-                                                     RefArray{ eval2 },
-                                                     mle_opening_point,
-                                                     this->ck(),
-                                                     prover_transcript);
+    auto prover_opening_claims = GeminiProver::prove(
+        n, RefArray{ poly1, poly2 }, RefArray{ poly2 }, mle_opening_point, this->ck(), prover_transcript);
 
     const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
     IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
@@ -322,14 +316,8 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims = GeminiProver::prove(n,
-                                                     RefArray{ poly1, poly2 },
-                                                     RefArray{ poly2 },
-                                                     RefArray{ eval1, eval2 },
-                                                     RefArray{ eval2_shift },
-                                                     mle_opening_point,
-                                                     this->ck(),
-                                                     prover_transcript);
+    auto prover_opening_claims = GeminiProver::prove(
+        n, RefArray{ poly1, poly2 }, RefArray{ poly2 }, mle_opening_point, this->ck(), prover_transcript);
 
     const auto opening_claim = ShplonkProver::prove(this->ck(), prover_opening_claims, prover_transcript);
     IPA::compute_opening_proof(this->ck(), opening_claim, prover_transcript);
