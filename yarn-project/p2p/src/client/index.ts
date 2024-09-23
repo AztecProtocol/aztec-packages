@@ -6,9 +6,11 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { type AttestationPool } from '../attestation_pool/attestation_pool.js';
+import { InMemoryAttestationPool } from '../attestation_pool/memory_attestation_pool.js';
 import { P2PClient } from '../client/p2p_client.js';
 import { type P2PConfig } from '../config.js';
 import { type EpochProofQuotePool } from '../epoch_proof_quote_pool/epoch_proof_quote_pool.js';
+import { MemoryEpochProofQuotePool } from '../epoch_proof_quote_pool/memory_epoch_proof_quote_pool.js';
 import { DiscV5Service } from '../service/discV5_service.js';
 import { DummyP2PService } from '../service/dummy_service.js';
 import { LibP2PService, createLibP2PPeerId } from '../service/index.js';
@@ -19,17 +21,22 @@ export * from './p2p_client.js';
 
 export const createP2PClient = async (
   _config: P2PConfig & DataStoreConfig,
-  attestationsPool: AttestationPool,
-  epochProofQuotePool: EpochProofQuotePool,
   l2BlockSource: L2BlockSource,
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
   telemetry: TelemetryClient = new NoopTelemetryClient(),
-  deps: { txPool?: TxPool; store?: AztecKVStore } = {},
+  deps: {
+    txPool?: TxPool;
+    store?: AztecKVStore;
+    attestationsPool?: AttestationPool;
+    epochProofQuotePool?: EpochProofQuotePool;
+  } = {},
 ) => {
   let config = { ..._config };
   const store = deps.store ?? (await createStore('p2p', config, createDebugLogger('aztec:p2p:lmdb')));
   const txPool = deps.txPool ?? new AztecKVTxPool(store, telemetry);
+  const attestationsPool = deps.attestationsPool ?? new InMemoryAttestationPool();
+  const epochProofQuotePool = deps.epochProofQuotePool ?? new MemoryEpochProofQuotePool();
 
   let p2pService;
 

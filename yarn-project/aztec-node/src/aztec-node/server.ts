@@ -58,8 +58,6 @@ import {
   AggregateTxValidator,
   DataTxValidator,
   DoubleSpendTxValidator,
-  InMemoryAttestationPool,
-  MemoryEpochProofQuotePool,
   MetadataTxValidator,
   type P2P,
   TxProofValidator,
@@ -160,15 +158,7 @@ export class AztecNodeService implements AztecNode {
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
 
     // create the tx pool and the p2p client, which will need the l2 block source
-    const p2pClient = await createP2PClient(
-      config,
-      new InMemoryAttestationPool(),
-      new MemoryEpochProofQuotePool(),
-      archiver,
-      proofVerifier,
-      worldStateSynchronizer,
-      telemetry,
-    );
+    const p2pClient = await createP2PClient(config, archiver, proofVerifier, worldStateSynchronizer, telemetry);
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchronizer.start()]);

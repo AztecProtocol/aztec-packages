@@ -146,18 +146,11 @@ describe('Req Resp p2p client integration', () => {
       kvStore = openTmpStore();
       const deps = {
         txPool: txPool as unknown as TxPool,
+        attestationPool: attestationPool as unknown as AttestationPool,
+        epochProofQuotePool: epochProofQuotePool as unknown as EpochProofQuotePool,
         store: kvStore,
       };
-      const client = await createP2PClient(
-        config,
-        attestationPool as unknown as AttestationPool,
-        epochProofQuotePool as unknown as EpochProofQuotePool,
-        blockSource,
-        proofVerifier,
-        worldStateSynchronizer,
-        undefined,
-        deps,
-      );
+      const client = await createP2PClient(config, blockSource, proofVerifier, worldStateSynchronizer, undefined, deps);
 
       await client.start();
       clients.push(client);

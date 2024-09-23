@@ -9,9 +9,9 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { type ProverNodeConfig } from './config.js';
+import { AztecNodeProverCoordination } from './prover-coordination/aztec-node-prover-coordination.js';
+import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNode } from './prover-node.js';
-import { AztecNodeTxProvider } from './tx-provider/aztec-node-tx-provider.js';
-import { createTxProvider } from './tx-provider/factory.js';
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
@@ -40,8 +40,8 @@ export async function createProverNode(
   const publisher = new L1Publisher(config, telemetry);
 
   const txProvider = deps.aztecNodeTxProvider
-    ? new AztecNodeTxProvider(deps.aztecNodeTxProvider)
-    : createTxProvider(config);
+    ? new AztecNodeProverCoordination(deps.aztecNodeTxProvider)
+    : createProverCoordination(config);
 
   return new ProverNode(
     prover!,

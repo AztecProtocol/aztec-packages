@@ -1,7 +1,7 @@
-import { type AztecNode, type EpochProofQuote, type Tx, type TxHash, type TxProvider } from '@aztec/circuit-types';
+import type { AztecNode, EpochProofQuote, ProverCoordination, Tx, TxHash } from '@aztec/circuit-types';
 
-/** Implements TxProvider by querying an Aztec node for the txs. */
-export class AztecNodeTxProvider implements TxProvider {
+/** Implements ProverCoordinator by wrapping an Aztec node */
+export class AztecNodeProverCoordination implements ProverCoordination {
   constructor(private node: AztecNode) {}
 
   getTxByHash(txHash: TxHash): Promise<Tx | undefined> {

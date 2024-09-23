@@ -244,7 +244,7 @@ export async function createAndSyncProverNode(
   // Prover node config is for simulated proofs
   const proverConfig: ProverNodeConfig = {
     ...aztecNodeConfig,
-    txProviderNodeUrl: undefined,
+    proverCoordinationNodeUrl: undefined,
     dataDirectory: undefined,
     proverId: new Fr(42),
     realProofs: false,
