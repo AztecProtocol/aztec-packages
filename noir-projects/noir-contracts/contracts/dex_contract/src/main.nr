@@ -59,28 +59,36 @@ contract DEX {
         // We don't need to initialize the reserves as the default in storage is 0.
     }
 
-    // Adds liquidity for `liquidity_provider` to the pool. `amount0Desired` and `amount1Desired` are the amounts
-    // of tokens we ideally want to add. `amount0Min` and `amount1Min` are the minimum amounts we are willing to add.
+    // Privately adds liquidity for `liquidity_provider` to the pool (identity of liquidity provider not revealed).
+    // `amount0Desired` and `amount1Desired` are the amounts of tokens we ideally want to add. `amount0Min`
+    // and `amount1Min` are the minimum amounts we are willing to add. `transfer_preparer_storage_slot_commitment`
+    // is a storage slot commitment used for all 3 partial notes finalized in this tx (token0 refund note, token1
+    // refund note, liquidity token partial note).
+    // (Note: It's fine to use 1 commitment for all 3 partial notes as it's used for transient storage in different
+    // contracts). It's necessary to prepare the 3 partial notes in a `BatchCall` before calling this function.
+    // Note: We needed to make the identity of liquidity provider private because we don't have a transfer_from flow
+    // where the token amount is not known in advance and we don't need to know the amounts for partial notes.
     #[public]
-    fn add_liquidity(liquidity_provider: AztecAddress, amount0Desired: u64, amount1Desired: u64, amount0Min: u64, amount1Min: u64, nonce: Field) {
+    fn add_liquidity(amount0Desired: u64, amount1Desired: u64, amount0Min: u64, amount1Min: u64, transfer_preparer_storage_slot_commitment: Field) {
         // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _lock(&mut context);
 
-        if (!liquidity_provider.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, liquidity_provider);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
+        // Note: We don't use authwit here as the permission from a user is given by the fact that he prepared
+        // the partial notes.
 
         assert(amount0Desired > 0 & amount1Desired > 0, "INSUFFICIENT_INPUT_AMOUNTS");
 
         let reserves = storage.reserves.read();
         let tokens = storage.tokens.read();
 
-        // Calculate the amounts to be added to the pool
         let reserve0 = reserves.reserve0;
         let reserve1 = reserves.reserve1;
 
+        let token0 = Token::at(tokens.token0);
+        let token1 = Token::at(tokens.token1);
+        let liquidity_token = Token::at(tokens.liquidity_token);
+
+        // Calculate the amounts to be added to the pool
         let mut amount0 = amount0Desired;
         let mut amount1 = amount1Desired;
         if ((reserve0 != 0) | (reserve1 != 0)) {
@@ -102,13 +110,12 @@ contract DEX {
             }
         }
 
-        // TODO: Transfer the tokens to this contract. How do we do it? this does not work with authwits as we don't know the amounts before calling this function.
-        // We could use partial notes for this:
+        // Now we transfer the tokens to this contract. This is how we'll do this:
         // 1. A user knows the maximum amount0, amount1 (the desired amounts are max) they want to deposit,
         // 2. user calls private `token{0, 1}.prepare_transfer_to_public_with_refund(from, to, amount{0,1}, transient_storage_slot_randomness)` functions,
         //    --> these functions will burn the amounts, prepare the partial notes and stores both the burned amounts and the partial notes in the transient storage!
         // 3. user calls DEX.add_liquidity(..., transient_storage_slot_randomness) with the amounts they want to deposit,
-        // 4. the `add_liquidity` func computes the amounts to deposit and calls token{0, 1}.finalize_transfer_to_public_with_refund(actual_amount{0,1}, transient_storage_slot_randomness),
+        // 4. the `add_liquidity` func computes the amounts to deposit and calls token{0, 1}.finalize_transfer_to_public_with_refund(actual_amount{0,1}, transfer_preparer_storage_slot_commitment),
         //   --> this function will:
         //          4.1 load both the partial note and the burned amount from transient storage
         //          4.2 check that actual_amount < burned_amount,
@@ -119,9 +126,11 @@ contract DEX {
         // Cost of this flow:
         //      num calls: 2 private calls to setup the partial notes, 1 public call to add_liquidity, 2 public calls to finalize_transfer_to_public_with_refund
         //      DA: up to 2 change notes when burning amount{0,1}, nullifiers to burn users notes, up to 2 refund notes, 1 public data write to mint pub balance to pool
+        // TODO: Implement `prepare_transfer_to_public_with_refund` and `finalize_transfer_to_public_with_refund` in the Token contract.
+        token0.finalize_transfer_to_public_with_refund(transfer_preparer_storage_slot_commitment, amount0).call(&mut context);
+        token1.finalize_transfer_to_public_with_refund(transfer_preparer_storage_slot_commitment, amount1).call(&mut context);
 
         // Calculate the amount of liquidity tokens to mint
-        let liquidity_token = Token::at(tokens.liquidity_token);
         let total_supply = liquidity_token.total_supply().view(&mut context) as u64; // TODO: Nuke the cast here.
         let mut liquidity: u64 = 0;
         if (total_supply == 0) {
@@ -133,8 +142,8 @@ contract DEX {
             liquidity = std::cmp::min(amount0 * total_supply / reserve0, amount1 * total_supply / reserve1);
         }
         assert(liquidity > 0, "INSUFFICIENT_LIQUIDITY_MINTED");
-        // TODO: Should we mint here to private? It would be more costly.
-        liquidity_token.mint_public(liquidity_provider, liquidity as Field).call(&mut context);
+        // TODO: Implement `prepare_mint_to_private` and `finalize_mint_to_private` in the Token contract.
+        liquidity_token.finalize_mint_to_private(transfer_preparer_storage_slot_commitment, liquidity).call(&mut context);
 
         // Update the reserves
         let updated_reserves = Reserves { reserve0: reserve0 + amount0, reserve1: reserve1 + amount1 };
