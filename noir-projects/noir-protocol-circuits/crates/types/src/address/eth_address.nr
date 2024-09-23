@@ -1,7 +1,7 @@
 use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Empty, ToField, Serialize, Deserialize}, utils};
 
 struct EthAddress{
-    inner : Field,
+    inner : Field
 }
 
 impl Eq for EthAddress {
