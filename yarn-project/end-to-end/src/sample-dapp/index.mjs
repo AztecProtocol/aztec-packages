@@ -53,9 +53,9 @@ async function mintPrivateFunds(pxe) {
     noteTypeId,
     receipt.txHash,
   );
-  await pxe.addNote(extendedNote);
+  await owner.addNote(extendedNote);
 
-  await token.methods.redeem_shield(owner.getAddress(), mintAmount, secret).send().wait();
+  await token.withWallet(owner).methods.redeem_shield(owner.getAddress(), mintAmount, secret).send().wait();
 
   await showPrivateBalances(pxe);
 }
@@ -66,7 +66,7 @@ async function transferPrivateFunds(pxe) {
   const [owner, recipient] = await getInitialTestAccountsWallets(pxe);
   const token = await getToken(owner);
 
-  const tx = token.methods.transfer(owner.getAddress(), recipient.getAddress(), 1n, 0).send();
+  const tx = token.withWallet(owner).methods.transfer(recipient.getAddress(), 1n, 0).send();
   console.log(`Sent transfer transaction ${await tx.getTxHash()}`);
   await showPrivateBalances(pxe);
 
@@ -77,8 +77,8 @@ async function transferPrivateFunds(pxe) {
 }
 // docs:end:transferPrivateFunds
 
+// docs:start:showPublicBalances
 async function showPublicBalances(pxe) {
-  // docs:start:showPublicBalances
   const accounts = await pxe.getRegisteredAccounts();
   const token = await getToken(pxe);
 
@@ -87,8 +87,8 @@ async function showPublicBalances(pxe) {
     const balance = await token.methods.balance_of_public(account.address).simulate();
     console.log(`Balance of ${account.address}: ${balance}`);
   }
-  // docs:end:showPublicBalances
 }
+// docs:end:showPublicBalances
 
 async function mintPublicFunds(pxe) {
   // docs:start:mintPublicFunds
