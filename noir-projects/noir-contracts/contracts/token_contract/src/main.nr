@@ -505,7 +505,7 @@ contract Token {
         context.set_public_teardown_function(
             context.this_address(),
             comptime {
-            FunctionSelector::from_signature("complete_refund(((Field,Field,bool)),((Field,Field,bool)),Field)")
+            FunctionSelector::from_signature("complete_refund((Field,Field,bool),(Field,Field,bool),Field)")
         },
             [
             fee_payer_point.inner.x, fee_payer_point.inner.y, fee_payer_point.inner.is_infinite as Field, user_point.inner.x, user_point.inner.y, user_point.inner.is_infinite as Field, funded_amount
