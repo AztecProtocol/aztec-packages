@@ -1,9 +1,8 @@
 import { acirToUint8Array } from './serialize.js';
 import { Backend, CompiledCircuit, ProofData, VerifierBackend } from '@noir-lang/types';
-import { BackendOptions } from './types.js';
 import { deflattenFields } from './public_inputs.js';
 import { reconstructProofWithPublicInputs, reconstructProofWithPublicInputsHonk } from './verifier.js';
-import { UltraPlonkBackend, UltraHonkBackend as UltraHonkBackendInternal } from '@aztec/bb.js';
+import { BackendOptions, UltraPlonkBackend, UltraHonkBackend as UltraHonkBackendInternal } from '@aztec/bb.js';
 
 // This is the number of bytes in a UltraPlonk proof
 // minus the public inputs.

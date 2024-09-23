@@ -1,7 +1,6 @@
 import { ProofData } from '@noir-lang/types';
-import { BackendOptions } from './types.js';
 import { flattenFieldsAsArray } from './public_inputs.js';
-import { BarretenbergVerifier as BarretenbergVerifierInternal } from '@aztec/bb.js';
+import { BackendOptions, BarretenbergVerifier as BarretenbergVerifierInternal } from '@aztec/bb.js';
 
 export class BarretenbergVerifier {
   private verifier!: BarretenbergVerifierInternal;
