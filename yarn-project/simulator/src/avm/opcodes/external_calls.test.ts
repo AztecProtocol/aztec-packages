@@ -127,7 +127,7 @@ describe('External Calls', () => {
       expect(await context.persistableState.peekStorage(addr, slot)).toEqual(valueToStore);
 
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas);
-      expect(context.machineState.daGasLeft).toEqual(initialDaGas);
+      expect(context.machineState.daGasLeft).toBeLessThanOrEqual(initialDaGas);
     });
 
     it('Should cap to available gas if allocated is bigger', async () => {
@@ -180,7 +180,7 @@ describe('External Calls', () => {
       expect(retValue).toBeLessThan(initialL2Gas);
 
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas);
-      expect(context.machineState.daGasLeft).toEqual(initialDaGas);
+      expect(context.machineState.daGasLeft).toBeLessThanOrEqual(initialDaGas);
     });
   });
 

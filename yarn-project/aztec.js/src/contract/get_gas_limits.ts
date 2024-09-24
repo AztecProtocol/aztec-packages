@@ -1,4 +1,4 @@
-import { PublicKernelType, type SimulatedTx } from '@aztec/circuit-types';
+import { PublicKernelPhase, type SimulatedTx } from '@aztec/circuit-types';
 import { Gas } from '@aztec/circuits.js';
 
 /**
@@ -14,7 +14,7 @@ export function getGasLimits(simulatedTx: SimulatedTx, simulationTeardownGasLimi
     const publicGasUsed = Object.values(simulatedTx.publicOutput.gasUsed)
       .filter(Boolean)
       .reduce((total, current) => total.add(current), Gas.empty());
-    const teardownGas = simulatedTx.publicOutput.gasUsed[PublicKernelType.TEARDOWN] ?? Gas.empty();
+    const teardownGas = simulatedTx.publicOutput.gasUsed[PublicKernelPhase.TEARDOWN] ?? Gas.empty();
 
     return {
       totalGas: privateGasUsed.add(publicGasUsed).mul(1 + pad),
