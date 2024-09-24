@@ -4,10 +4,11 @@ import { spawn } from "child_process";
 import { ethers } from "ethers";
 import solc from "solc";
 import linker from "solc/linker.js";
+import { info } from "console";
 
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
 // This excludes the public inputs which are sent separately to the Solidity verifier
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 423;
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 303;
 
 // We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
 // it simplifies of parallelising the test suite
@@ -149,6 +150,7 @@ const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
   // Compute the number of public inputs, not accounted  for in the constant NUMBER_OF_FIELDS_IN_PROOF
   const numPublicInputs = proofAsFields.length - NUMBER_OF_FIELDS_IN_PROOF;
+  info(numPublicInputs);
   let publicInputsOffset = 0;
 
   // Honk proofs contain 3 pieces of metadata before the public inputs, while plonk does not

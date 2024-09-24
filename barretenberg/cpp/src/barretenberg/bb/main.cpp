@@ -1099,6 +1099,12 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
     auto proof = prover.construct_proof();
+    // TODO(): remove this hack, put in place to only send the proof up to sumcheck to the contract
+    if constexpr (std::same_as<Flavor, UltraKeccakFlavor>) {
+        auto num_public_inputs = static_cast<uint32_t>(prover.proving_key->proving_key.num_public_inputs);
+        proof.erase(proof.begin() + num_public_inputs + 303, proof.end());
+    }
+    info(proof.size());
     if (outputPath == "-") {
         writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to stdout");
@@ -1494,7 +1500,6 @@ int main(int argc, char* argv[])
             std::string output_path = get_option(args, "-o", "./target/contract.sol");
             contract(output_path, vk_path);
         } else if (command == "contract_ultra_honk") {
-            vinfo("Warning: Contract incomplete. Do not use in production!");
             std::string output_path = get_option(args, "-o", "./target/contract.sol");
             contract_honk(output_path, vk_path);
         } else if (command == "write_vk") {
