@@ -53,25 +53,11 @@ enum class OpCode : uint8_t {
     CAST_16,
 
     // Execution Environment
-    ADDRESS,
-    STORAGEADDRESS,
-    SENDER,
-    FUNCTIONSELECTOR,
-    TRANSACTIONFEE,
-    // Execution Environment - Globals
-    CHAINID,
-    VERSION,
-    BLOCKNUMBER,
-    TIMESTAMP,
-    FEEPERL2GAS,
-    FEEPERDAGAS,
+    GETENVVAR_16,
     // Execution Environment - Calldata
     CALLDATACOPY,
 
     // Machine State
-    // Machine State - Gas
-    L2GASLEFT,
-    DAGASLEFT,
     // Machine State - Internal Control Flow
     JUMP_16,
     JUMPI_16,
@@ -127,6 +113,25 @@ enum class OpCode : uint8_t {
 
     // Sentinel
     LAST_OPCODE_SENTINEL,
+};
+
+enum class EnvironmentVariable {
+    ADDRESS,
+    STORAGEADDRESS,
+    SENDER,
+    FUNCTIONSELECTOR,
+    TRANSACTIONFEE,
+    CHAINID,
+    VERSION,
+    BLOCKNUMBER,
+    TIMESTAMP,
+    FEEPERL2GAS,
+    FEEPERDAGAS,
+    ISSTATICCALL,
+    L2GASLEFT,
+    DAGASLEFT,
+    // sentinel
+    MAX_ENV_VAR
 };
 
 class Bytecode {

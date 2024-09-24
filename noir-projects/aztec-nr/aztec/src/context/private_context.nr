@@ -34,7 +34,7 @@ use dep::protocol_types::{
 };
 
 // When finished, one can call .finish() to convert back to the abi
-struct PrivateContext {
+pub struct PrivateContext {
     // docs:start:private-context
     inputs: PrivateContextInputs,
     side_effect_counter: u32,
