@@ -14,7 +14,7 @@ use crate::{
     keys::public_keys::{OvpkM, IvpkM}
 };
 
-pub fn compute_encrypted_event_log<Event, let NB: u32, let MB: u32, let OB: u32>(
+pub fn compute_encrypted_event_log<Event, let N: u32, let OB: u32>(
     contract_address: AztecAddress,
     randomness: Field,
     ovsk_app: Field,
@@ -22,7 +22,7 @@ pub fn compute_encrypted_event_log<Event, let NB: u32, let MB: u32, let OB: u32>
     ivpk: IvpkM,
     recipient: AztecAddress,
     event: Event
-) -> [u8; OB] where Event: EventInterface<NB, MB> {
+) -> [u8; OB] where Event: EventInterface<N> {
     let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
 
     let header = EncryptedLogHeader::new(contract_address);
@@ -65,7 +65,7 @@ pub fn compute_encrypted_event_log<Event, let NB: u32, let MB: u32, let OB: u32>
     encrypted_bytes
 }
 
-pub fn compute_encrypted_note_log<Note, let N: u32, let NB: u32, let M: u32>(
+pub fn compute_encrypted_note_log<Note, let N: u32, let M: u32>(
     contract_address: AztecAddress,
     storage_slot: Field,
     ovsk_app: Field,
@@ -74,7 +74,7 @@ pub fn compute_encrypted_note_log<Note, let N: u32, let NB: u32, let M: u32>(
     recipient: AztecAddress,
     note: Note,
     num_public_values: u8 // Number of values to be appended to the log in public (used in partial note flow).
-) -> [u8; M] where Note: NoteInterface<N, NB> {
+) -> [u8; M] where Note: NoteInterface<N> {
     let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
 
     let header = EncryptedLogHeader::new(contract_address);
