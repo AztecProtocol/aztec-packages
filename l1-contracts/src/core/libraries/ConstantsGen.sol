@@ -228,6 +228,7 @@ library Constants {
   uint256 internal constant ADDRESS_SELECTOR = 1;
   uint256 internal constant STORAGE_ADDRESS_SELECTOR = 1;
   uint256 internal constant FUNCTION_SELECTOR_SELECTOR = 2;
+  uint256 internal constant IS_STATIC_CALL_SELECTOR = 4;
   uint256 internal constant START_GLOBAL_VARIABLES = 29;
   uint256 internal constant CHAIN_ID_SELECTOR = 29;
   uint256 internal constant VERSION_SELECTOR = 30;

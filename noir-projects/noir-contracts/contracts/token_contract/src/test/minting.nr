@@ -77,7 +77,7 @@ unconstrained fn mint_private_success() {
     // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
     env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 
@@ -108,7 +108,7 @@ unconstrained fn mint_private_failure_double_spend() {
     // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
     env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 
@@ -167,7 +167,7 @@ unconstrained fn mint_private_failure_overflow_recipient() {
     // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
     env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 
@@ -207,12 +207,12 @@ unconstrained fn mint_private_failure_overflow_total_supply() {
     // Store 2 notes in the cache so we can redeem it for owner and recipient
     env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash_owner),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
     env.add_note(
         &mut TransparentNote::new(mint_amount, secret_hash_recipient),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 

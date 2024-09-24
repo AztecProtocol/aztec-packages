@@ -109,8 +109,7 @@ impl PublicContext {
         _function_selector: FunctionSelector,
         _args: [Field]
     ) -> FunctionReturns<RETURNS_COUNT> {
-        assert(false, "'delegate_call_public_function' not implemented!");
-        FunctionReturns::new([0; RETURNS_COUNT])
+        panic(f"'delegate_call_public_function' not implemented!")
     }
 
     fn push_note_hash(_self: &mut Self, note_hash: Field) {
@@ -175,6 +174,9 @@ impl PublicContext {
     }
     fn da_gas_left(_self: Self) -> Field {
         da_gas_left()
+    }
+    fn is_static_call(_self: Self) -> bool {
+        is_static_call() == 1
     }
 
     fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Field) -> [Field; N] {
@@ -253,6 +255,9 @@ unconstrained fn l2_gas_left() -> Field {
 }
 unconstrained fn da_gas_left() -> Field {
     da_gas_left_opcode()
+}
+unconstrained fn is_static_call() -> Field {
+    is_static_call_opcode()
 }
 unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u8 {
     note_hash_exists_opcode(note_hash, leaf_index)
@@ -356,6 +361,9 @@ unconstrained fn l2_gas_left_opcode() -> Field {}
 
 #[oracle(avmOpcodeDaGasLeft)]
 unconstrained fn da_gas_left_opcode() -> Field {}
+
+#[oracle(avmOpcodeIsStaticCall)]
+unconstrained fn is_static_call_opcode() -> Field {}
 
 #[oracle(avmOpcodeNoteHashExists)]
 unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u8 {}

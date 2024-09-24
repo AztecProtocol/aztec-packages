@@ -35,21 +35,8 @@ pub enum AvmOpcode {
     CAST_8,
     CAST_16,
     // Execution environment
-    ADDRESS,
-    STORAGEADDRESS,
-    SENDER,
-    FUNCTIONSELECTOR,
-    TRANSACTIONFEE,
-    CHAINID,
-    VERSION,
-    BLOCKNUMBER,
-    TIMESTAMP,
-    FEEPERL2GAS,
-    FEEPERDAGAS,
+    GETENVVAR_16,
     CALLDATACOPY,
-    // Gas
-    L2GASLEFT,
-    DAGASLEFT,
     // Control flow
     JUMP_16,
     JUMPI_16,
@@ -138,25 +125,11 @@ impl AvmOpcode {
             AvmOpcode::CAST_16 => "CAST_16",
 
             // Execution Environment
-            AvmOpcode::ADDRESS => "ADDRESS",
-            AvmOpcode::STORAGEADDRESS => "STORAGEADDRESS",
-            AvmOpcode::SENDER => "SENDER",
-            AvmOpcode::FUNCTIONSELECTOR => "FUNCTIONSELECTOR",
-            AvmOpcode::TRANSACTIONFEE => "TRANSACTIONFEE",
-            // Execution Environment - Globals
-            AvmOpcode::CHAINID => "CHAINID",
-            AvmOpcode::VERSION => "VERSION",
-            AvmOpcode::BLOCKNUMBER => "BLOCKNUMBER",
-            AvmOpcode::TIMESTAMP => "TIMESTAMP",
-            AvmOpcode::FEEPERL2GAS => "FEEPERL2GAS",
-            AvmOpcode::FEEPERDAGAS => "FEEPERDAGAS",
+            AvmOpcode::GETENVVAR_16 => "GETENVVAR_16",
             // Execution Environment - Calldata
             AvmOpcode::CALLDATACOPY => "CALLDATACOPY",
 
             // Machine State
-            // Machine State - Gas
-            AvmOpcode::L2GASLEFT => "L2GASLEFT",
-            AvmOpcode::DAGASLEFT => "DAGASLEFT",
             // Machine State - Internal Control Flow
             AvmOpcode::JUMP_16 => "JUMP_16",
             AvmOpcode::JUMPI_16 => "JUMPI_16",
