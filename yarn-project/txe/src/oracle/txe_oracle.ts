@@ -80,6 +80,7 @@ export class TXE implements TypedOracle {
   private contractAddress: AztecAddress;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
+  private isStaticCall = false;
   // This will hold the _real_ calldata. That is, the one without the PublicContextInputs.
   // TODO: Remove this comment once PublicContextInputs are removed.
   private calldata: Fr[] = [];
@@ -279,6 +280,14 @@ export class TXE implements TypedOracle {
 
   getContractAddress() {
     return Promise.resolve(this.contractAddress);
+  }
+
+  setIsStaticCall(isStatic: boolean) {
+    this.isStaticCall = isStatic;
+  }
+
+  getIsStaticCall() {
+    return this.isStaticCall;
   }
 
   getRandomField() {

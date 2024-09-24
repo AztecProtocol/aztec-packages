@@ -1,6 +1,7 @@
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { compact } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Bufferable } from '@aztec/foundation/serialize';
 import {
@@ -855,21 +856,18 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
   });
 }
 
-export function makeGlobalVariables(
-  seed = 1,
-  blockNumber: number | undefined = undefined,
-  slotNumber: number | undefined = undefined,
-): GlobalVariables {
-  return new GlobalVariables(
-    new Fr(seed),
-    new Fr(seed + 1),
-    new Fr(blockNumber ?? seed + 2),
-    new Fr(slotNumber ?? seed + 3),
-    new Fr(seed + 4),
-    EthAddress.fromField(new Fr(seed + 5)),
-    AztecAddress.fromField(new Fr(seed + 6)),
-    new GasFees(new Fr(seed + 7), new Fr(seed + 8)),
-  );
+export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<GlobalVariables>> = {}): GlobalVariables {
+  return GlobalVariables.from({
+    chainId: new Fr(seed),
+    version: new Fr(seed + 1),
+    blockNumber: new Fr(seed + 2),
+    slotNumber: new Fr(seed + 3),
+    timestamp: new Fr(seed + 4),
+    coinbase: EthAddress.fromField(new Fr(seed + 5)),
+    feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
+    gasFees: new GasFees(new Fr(seed + 7), new Fr(seed + 8)),
+    ...compact(overrides),
+  });
 }
 
 export function makeGasFees(seed = 1) {
@@ -1142,7 +1140,10 @@ export function makeHeader(
     makeAppendOnlyTreeSnapshot(seed + 0x100),
     makeContentCommitment(seed + 0x200, txsEffectsHash),
     makeStateReference(seed + 0x600),
-    makeGlobalVariables((seed += 0x700), blockNumber, slotNumber),
+    makeGlobalVariables((seed += 0x700), {
+      ...(blockNumber ? { blockNumber: new Fr(blockNumber) } : {}),
+      ...(slotNumber ? { slotNumber: new Fr(slotNumber) } : {}),
+    }),
     fr(seed + 0x800),
   );
 }

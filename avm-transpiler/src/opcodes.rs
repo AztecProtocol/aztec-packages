@@ -35,21 +35,8 @@ pub enum AvmOpcode {
     CAST_8,
     CAST_16,
     // Execution environment
-    ADDRESS,
-    STORAGEADDRESS,
-    SENDER,
-    FUNCTIONSELECTOR,
-    TRANSACTIONFEE,
-    CHAINID,
-    VERSION,
-    BLOCKNUMBER,
-    TIMESTAMP,
-    FEEPERL2GAS,
-    FEEPERDAGAS,
+    GETENVVAR_16,
     CALLDATACOPY,
-    // Gas
-    L2GASLEFT,
-    DAGASLEFT,
     // Control flow
     JUMP_16,
     JUMPI_16,
@@ -88,16 +75,14 @@ pub enum AvmOpcode {
     // Gadgets
     KECCAK,
     POSEIDON2,
-    SHA256,   // temp - may be removed, but alot of contracts rely on it
+    SHA256COMPRESSION,
+    KECCAKF1600,
     PEDERSEN, // temp - may be removed, but alot of contracts rely on it
     ECADD,
     MSM,
     PEDERSENCOMMITMENT, // temp
     // Conversions
     TORADIXLE,
-    // Other
-    SHA256COMPRESSION,
-    KECCAKF1600,
 }
 
 impl AvmOpcode {
@@ -140,25 +125,11 @@ impl AvmOpcode {
             AvmOpcode::CAST_16 => "CAST_16",
 
             // Execution Environment
-            AvmOpcode::ADDRESS => "ADDRESS",
-            AvmOpcode::STORAGEADDRESS => "STORAGEADDRESS",
-            AvmOpcode::SENDER => "SENDER",
-            AvmOpcode::FUNCTIONSELECTOR => "FUNCTIONSELECTOR",
-            AvmOpcode::TRANSACTIONFEE => "TRANSACTIONFEE",
-            // Execution Environment - Globals
-            AvmOpcode::CHAINID => "CHAINID",
-            AvmOpcode::VERSION => "VERSION",
-            AvmOpcode::BLOCKNUMBER => "BLOCKNUMBER",
-            AvmOpcode::TIMESTAMP => "TIMESTAMP",
-            AvmOpcode::FEEPERL2GAS => "FEEPERL2GAS",
-            AvmOpcode::FEEPERDAGAS => "FEEPERDAGAS",
+            AvmOpcode::GETENVVAR_16 => "GETENVVAR_16",
             // Execution Environment - Calldata
             AvmOpcode::CALLDATACOPY => "CALLDATACOPY",
 
             // Machine State
-            // Machine State - Gas
-            AvmOpcode::L2GASLEFT => "L2GASLEFT",
-            AvmOpcode::DAGASLEFT => "DAGASLEFT",
             // Machine State - Internal Control Flow
             AvmOpcode::JUMP_16 => "JUMP_16",
             AvmOpcode::JUMPI_16 => "JUMPI_16",
@@ -202,17 +173,15 @@ impl AvmOpcode {
 
             // Gadgets
             AvmOpcode::KECCAK => "KECCAK",
+            AvmOpcode::KECCAKF1600 => "KECCAKF1600",
             AvmOpcode::POSEIDON2 => "POSEIDON2",
-            AvmOpcode::SHA256 => "SHA256 ",
+            AvmOpcode::SHA256COMPRESSION => "SHA256COMPRESSION",
             AvmOpcode::PEDERSEN => "PEDERSEN",
             AvmOpcode::ECADD => "ECADD",
             AvmOpcode::MSM => "MSM",
             AvmOpcode::PEDERSENCOMMITMENT => "PEDERSENCOMMITMENT",
             // Conversions
             AvmOpcode::TORADIXLE => "TORADIXLE",
-            // Other
-            AvmOpcode::SHA256COMPRESSION => "SHA256COMPRESSION",
-            AvmOpcode::KECCAKF1600 => "KECCAKF1600",
         }
     }
 }

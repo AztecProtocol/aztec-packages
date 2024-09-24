@@ -43,8 +43,8 @@ import {
 } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import {
+  type AbiDecoded,
   type ContractArtifact,
-  type DecodedReturn,
   EventSelector,
   FunctionSelector,
   encodeArguments,
@@ -568,7 +568,7 @@ export class PXEService implements PXE {
     to: AztecAddress,
     _from?: AztecAddress,
     scopes?: AztecAddress[],
-  ): Promise<DecodedReturn> {
+  ): Promise<AbiDecoded> {
     // all simulations must be serialized w.r.t. the synchronizer
     return await this.jobQueue.put(async () => {
       // TODO - Should check if `from` has the permission to call the view function.
@@ -965,17 +965,11 @@ export class PXEService implements PXE {
         }
         if (visibleEvent.payload.event.items.length !== eventMetadata.fieldNames.length) {
           throw new Error(
-            'Something is weird here, we have matching FunctionSelectors, but the actual payload has mismatched length',
+            'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
           );
         }
 
-        return eventMetadata.fieldNames.reduce(
-          (acc, curr, i) => ({
-            ...acc,
-            [curr]: visibleEvent.payload.event.items[i],
-          }),
-          {} as T,
-        );
+        return eventMetadata.decode(visibleEvent.payload);
       })
       .filter(visibleEvent => visibleEvent !== undefined) as T[];
 
@@ -1002,17 +996,11 @@ export class PXEService implements PXE {
 
         if (unencryptedLogBuf.byteLength !== eventMetadata.fieldNames.length * 32 + 32) {
           throw new Error(
-            'Something is weird here, we have matching FunctionSelectors, but the actual payload has mismatched length',
+            'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
           );
         }
 
-        return eventMetadata.fieldNames.reduce(
-          (acc, curr, i) => ({
-            ...acc,
-            [curr]: new Fr(unencryptedLogBuf.subarray(i * 32, i * 32 + 32)),
-          }),
-          {} as T,
-        );
+        return eventMetadata.decode(unencryptedLog.log);
       })
       .filter(unencryptedLog => unencryptedLog !== undefined) as T[];
 

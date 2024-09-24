@@ -8,13 +8,17 @@ mod types;
 // Including a nonce in the message hash ensures that the message can only be used once.
 // The SharedMutables are used for access control related to minters and blacklist.
 
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract TokenBlacklist {
     // Libs
     use dep::aztec::{
         hash::compute_secret_hash,
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
-        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
-        utils::comparison::Comparator
+        encrypted_logs::encrypted_note_emission::{encode_and_encrypt_note_unconstrained, encode_and_encrypt_note},
+        utils::comparison::Comparator,
+        macros::{storage::storage, functions::{private, public, initializer, view, internal}}
     };
 
     use dep::authwit::{auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public}};
@@ -24,42 +28,42 @@ contract TokenBlacklist {
     // Changing an address' roles has a certain block delay before it goes into effect.
     global CHANGE_ROLES_DELAY_BLOCKS: u32 = 2;
 
-    #[aztec(storage)]
-    struct Storage {
-        balances: BalancesMap<TokenNote>,
-        total_supply: PublicMutable<U128>,
-        pending_shields: PrivateSet<TransparentNote>,
-        public_balances: Map<AztecAddress, PublicMutable<U128>>,
-        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS>>,
+    #[storage]
+    struct Storage<Context> {
+        balances: BalancesMap<TokenNote, Context>,
+        total_supply: PublicMutable<U128, Context>,
+        pending_shields: PrivateSet<TransparentNote, Context>,
+        public_balances: Map<AztecAddress, PublicMutable<U128, Context>, Context>,
+        roles: Map<AztecAddress, SharedMutable<UserFlags, CHANGE_ROLES_DELAY_BLOCKS, Context>, Context>,
     }
 
     // docs:start:constructor
-    #[aztec(public)]
-    #[aztec(initializer)]
+    #[public]
+    #[initializer]
     fn constructor(admin: AztecAddress) {
         let admin_roles = UserFlags { is_admin: true, is_minter: false, is_blacklisted: false };
         storage.roles.at(admin).schedule_value_change(admin_roles);
     }
 
-    #[aztec(public)]
-    #[aztec(view)]
+    #[public]
+    #[view]
     fn total_supply() -> pub Field {
         storage.total_supply.read().to_field()
     }
 
-    #[aztec(public)]
-    #[aztec(view)]
+    #[public]
+    #[view]
     fn balance_of_public(owner: AztecAddress) -> pub Field {
         storage.public_balances.at(owner).read().to_field()
     }
 
-    #[aztec(public)]
-    #[aztec(view)]
+    #[public]
+    #[view]
     fn get_roles(user: AztecAddress) -> UserFlags {
         storage.roles.at(user).get_current_value_in_public()
     }
 
-    #[aztec(public)]
+    #[public]
     fn update_roles(user: AztecAddress, roles: UserFlags) {
         let caller_roles = storage.roles.at(context.msg_sender()).get_current_value_in_public();
         assert(caller_roles.is_admin, "caller is not admin");
@@ -67,7 +71,7 @@ contract TokenBlacklist {
         storage.roles.at(user).schedule_value_change(roles);
     }
 
-    #[aztec(public)]
+    #[public]
     fn mint_public(to: AztecAddress, amount: Field) {
         let to_roles = storage.roles.at(to).get_current_value_in_public();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
@@ -83,7 +87,7 @@ contract TokenBlacklist {
         storage.total_supply.write(supply);
     }
 
-    #[aztec(public)]
+    #[public]
     fn mint_private(amount: Field, secret_hash: Field) {
         let caller_roles = storage.roles.at(context.msg_sender()).get_current_value_in_public();
         assert(caller_roles.is_minter, "caller is not minter");
@@ -96,7 +100,7 @@ contract TokenBlacklist {
         pending_shields.insert_from_public(&mut note);
     }
 
-    #[aztec(public)]
+    #[public]
     fn shield(from: AztecAddress, amount: Field, secret_hash: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value_in_public();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -118,7 +122,7 @@ contract TokenBlacklist {
         pending_shields.insert_from_public(&mut note);
     }
 
-    #[aztec(public)]
+    #[public]
     fn transfer_public(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value_in_public();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -139,7 +143,7 @@ contract TokenBlacklist {
         storage.public_balances.at(to).write(to_balance);
     }
 
-    #[aztec(public)]
+    #[public]
     fn burn_public(from: AztecAddress, amount: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value_in_public();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -158,7 +162,7 @@ contract TokenBlacklist {
         storage.total_supply.write(new_supply);
     }
 
-    #[aztec(private)]
+    #[private]
     fn redeem_shield(to: AztecAddress, amount: Field, secret: Field) {
         let to_roles = storage.roles.at(to).get_current_value_in_private();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
@@ -182,7 +186,7 @@ contract TokenBlacklist {
         storage.balances.add(to, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, caller, to));
     }
 
-    #[aztec(private)]
+    #[private]
     fn unshield(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value_in_private();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -201,7 +205,7 @@ contract TokenBlacklist {
     }
 
     // docs:start:transfer_private
-    #[aztec(private)]
+    #[private]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value_in_private();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -219,7 +223,7 @@ contract TokenBlacklist {
         storage.balances.add(to, amount).emit(encode_and_encrypt_note_unconstrained(&mut context, from, to));
     }
 
-    #[aztec(private)]
+    #[private]
     fn burn(from: AztecAddress, amount: Field, nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value_in_private();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -237,15 +241,15 @@ contract TokenBlacklist {
 
     /// Internal ///
 
-    #[aztec(public)]
-    #[aztec(internal)]
+    #[public]
+    #[internal]
     fn _increase_public_balance(to: AztecAddress, amount: Field) {
         let new_balance = storage.public_balances.at(to).read().add(U128::from_integer(amount));
         storage.public_balances.at(to).write(new_balance);
     }
 
-    #[aztec(public)]
-    #[aztec(internal)]
+    #[public]
+    #[internal]
     fn _reduce_total_supply(amount: Field) {
         // Only to be called from burn.
         let new_supply = storage.total_supply.read().sub(U128::from_integer(amount));
