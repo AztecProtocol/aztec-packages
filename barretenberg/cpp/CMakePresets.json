@@ -121,6 +121,37 @@
       }
     },
     {
+      "name": "tracy-time",
+      "displayName": "Build for tracy time profiling",
+      "description": "Build for tracy time profiling",
+      "binaryDir": "build-tracy-time",
+      "inherits": "clang16",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CFLAGS": "-g -fno-omit-frame-pointer",
+        "CXXFLAGS": "-g -fno-omit-frame-pointer",
+        "LDFLAGS": "-g -fno-omit-frame-pointer -rdynamic"
+      },
+      "cacheVariables": {
+        "ENABLE_TRACY": "ON"
+      }
+    },
+    {
+      "name": "tracy-default",
+      "displayName": "Release build with tracy using default clang",
+      "description": "Release build with tracy using default clang",
+      "inherits": "default",
+      "binaryDir": "build-tracy",
+      "cacheVariables": {
+        "ENABLE_TRACY": "ON",
+        "HAVE_STD_REGEX": "ON"
+      },
+      "environment": {
+        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TIME_ONLY"
+      }
+    },
+
+    {
       "name": "tracy-gates",
       "displayName": "Release build with tracy - but hacked for gate tracking",
       "description": "Release build with tracy - but hacker for gate tracking",
@@ -475,6 +506,11 @@
       "name": "tracy",
       "inherits": "default",
       "configurePreset": "tracy"
+    },
+    {
+      "name": "tracy-time",
+      "inherits": "default",
+      "configurePreset": "tracy-time"
     },
     {
       "name": "clang16-pic",
