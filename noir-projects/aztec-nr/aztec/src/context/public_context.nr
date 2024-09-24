@@ -5,16 +5,15 @@ use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use crate::context::inputs::public_context_inputs::PublicContextInputs;
 use crate::context::gas::GasOpts;
-use crate::hash::ArgsHasher;
 
 struct PublicContext {
-    inputs: PublicContextInputs,
+    hash_getter: fn[(u32,)]() -> Field,
     args_hash: Option<Field>
 }
 
 impl PublicContext {
-    pub fn new(inputs: PublicContextInputs) -> Self {
-        PublicContext { inputs, args_hash: Option::none() }
+    pub fn new(hash_getter: fn[(u32,)]() -> Field) -> Self {
+        PublicContext { hash_getter, args_hash: Option::none() }
     }
 
     pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T) where T: Serialize<N> {
@@ -133,15 +132,7 @@ impl PublicContext {
     }
     fn get_args_hash(mut self) -> Field {
         if !self.args_hash.is_some() {
-            let mut hasher = ArgsHasher::new();
-
-            // TODO: this should be replaced with the compile-time calldata size.
-            for i in 0..self.inputs.calldata_length as u32 {
-                let argn: [Field; 1] = calldata_copy((2 + i) as u32, 1);
-                hasher.add(argn[0]);
-            }
-
-            self.args_hash = Option::some(hasher.hash());
+            self.args_hash = Option::some((self.hash_getter)());
         }
 
         self.args_hash.unwrap()
@@ -313,11 +304,11 @@ unconstrained fn storage_write(storage_slot: Field, value: Field) {
     storage_write_opcode(storage_slot, value);
 }
 
-impl Empty for PublicContext {
-    fn empty() -> Self {
-        PublicContext::new(PublicContextInputs::empty())
-    }
-}
+// impl Empty for PublicContext {
+//     fn empty() -> Self {
+//         PublicContext::new(PublicContextInputs::empty())
+//     }
+// }
 
 // AVM oracles (opcodes) follow, do not use directly.
 #[oracle(avmOpcodeAddress)]

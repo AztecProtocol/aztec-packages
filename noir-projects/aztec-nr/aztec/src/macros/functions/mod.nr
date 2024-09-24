@@ -247,7 +247,18 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
     );
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
-    let context_creation = quote { let mut context = dep::aztec::context::public_context::PublicContext::new(inputs); };
+    let context_creation = quote {
+        // FIXME: Calculate calldata.
+        comptime let CALLDATA_SIZE: u32 = 5;
+        let hash_getter = || {
+            let mut hasher = dep::aztec::hash::ArgsHasher::new();
+            let mut fields = std::meta::unquote!(quote { [0; $CALLDATA_SIZE] });
+            fields = dep::aztec::context::public_context::calldata_copy(/* FIXME: make 0 */2, CALLDATA_SIZE);
+            hasher.add_multiple(fields);
+            hasher.hash()
+        };
+        let mut context = dep::aztec::context::public_context::PublicContext::new(hash_getter);
+    };
 
     // Modifications introduced by the different marker attributes.
 

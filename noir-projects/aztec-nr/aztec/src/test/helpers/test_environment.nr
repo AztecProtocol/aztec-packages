@@ -44,8 +44,8 @@ impl TestEnvironment {
     }
 
     fn public(_self: Self) -> PublicContext {
-        let mut inputs = cheatcodes::get_public_context_inputs();
-        PublicContext::new(inputs)
+        let f: u32 = 0;
+        PublicContext::new(|| f as Field)
     }
 
     fn private(&mut self) -> PrivateContext {
