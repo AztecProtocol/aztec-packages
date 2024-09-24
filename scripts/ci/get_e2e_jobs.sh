@@ -23,6 +23,7 @@ allow_list=(
   "e2e-ordering"
   "e2e-static-calls"
   "integration-l1-publisher"
+  "e2e-cheat-codes"
 )
 
 # Add labels from input to the allow_list
