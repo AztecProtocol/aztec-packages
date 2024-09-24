@@ -1,8 +1,6 @@
 import { type Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { inspect } from 'util';
-
 import { STATE_REFERENCE_LENGTH } from '../constants.gen.js';
 import { PartialStateReference } from './partial_state_reference.js';
 import { AppendOnlyTreeSnapshot } from './rollup/append_only_tree_snapshot.js';
@@ -57,14 +55,5 @@ export class StateReference {
 
   isEmpty(): boolean {
     return this.l1ToL2MessageTree.isZero() && this.partial.isEmpty();
-  }
-
-  [inspect.custom]() {
-    return `StateReference {
-  l1ToL2MessageTree: ${inspect(this.l1ToL2MessageTree)},
-  noteHashTree: ${inspect(this.partial.noteHashTree)},
-  nullifierTree: ${inspect(this.partial.nullifierTree)},
-  publicDataTree: ${inspect(this.partial.publicDataTree)},
-}`;
   }
 }

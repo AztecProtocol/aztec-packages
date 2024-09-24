@@ -28,8 +28,8 @@ export class OrchestratorBlockBuilder implements BlockSimulator {
   startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<ProvingTicket> {
     return this.orchestrator.startNewBlock(numTxs, globalVariables, l1ToL2Messages);
   }
-  cancel(): void {
-    this.orchestrator.cancel();
+  cancelBlock(): void {
+    this.orchestrator.cancelBlock();
   }
   finaliseBlock(): Promise<SimulationBlockResult> {
     return this.orchestrator.finaliseBlock();

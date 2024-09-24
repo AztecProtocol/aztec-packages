@@ -129,7 +129,7 @@ export class BlockProvingJob {
   }
 
   public stop() {
-    this.prover.cancel();
+    this.prover.cancelBlock();
   }
 
   private async getBlock(blockNumber: number): Promise<L2Block> {
