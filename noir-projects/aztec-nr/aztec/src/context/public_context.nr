@@ -14,7 +14,7 @@ struct PublicContext {
 }
 
 impl PublicContext {
-    pub fn new(inputs: PublicContextInputs, compute_args_hash: fn () -> Field) -> Self {
+    pub fn new(inputs: PublicContextInputs, compute_args_hash: fn() -> Field) -> Self {
         PublicContext { inputs, args_hash: Option::none(), compute_args_hash }
     }
 
