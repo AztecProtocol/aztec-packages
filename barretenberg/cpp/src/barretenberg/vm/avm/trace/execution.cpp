@@ -149,9 +149,13 @@ void show_trace_info(const auto& trace)
 Execution::TraceBuilderConstructor Execution::trace_builder_constructor = [](VmPublicInputs public_inputs,
                                                                              ExecutionHints execution_hints,
                                                                              uint32_t side_effect_counter,
-                                                                             std::vector<FF> calldata) {
-    return AvmTraceBuilder(
-        std::move(public_inputs), std::move(execution_hints), side_effect_counter, std::move(calldata));
+                                                                             std::vector<FF> calldata,
+                                                                             std::vector<uint8_t> contract_bytecode) {
+    return AvmTraceBuilder(std::move(public_inputs),
+                           std::move(execution_hints),
+                           side_effect_counter,
+                           std::move(calldata),
+                           contract_bytecode);
 };
 
 /**
@@ -186,7 +190,7 @@ std::tuple<AvmFlavor::VerificationKey, HonkProof> Execution::prove(std::vector<u
 
     std::vector<FF> returndata;
     std::vector<Row> trace = AVM_TRACK_TIME_V(
-        "prove/gen_trace", gen_trace(bytecode, returndata, calldata, public_inputs_vec, execution_hints));
+        "prove/gen_trace", gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints));
     if (!avm_dump_trace_path.empty()) {
         info("Dumping trace as CSV to: " + avm_dump_trace_path.string());
         dump_trace_as_csv(trace, avm_dump_trace_path);
@@ -256,21 +260,6 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
 }
 
 /**
- * @brief Generate the execution trace pertaining to the supplied instructions.
- *
- * @param instructions A vector of the instructions to be executed.
- * @param calldata expressed as a vector of finite field elements.
- * @return The trace as a vector of Row.
- */
-std::vector<Row> Execution::gen_trace(std::vector<uint8_t> const& bytecode,
-                                      std::vector<FF> const& calldata,
-                                      std::vector<FF> const& public_inputs_vec)
-{
-    std::vector<FF> returndata{};
-    return gen_trace(bytecode, returndata, calldata, public_inputs_vec);
-}
-
-/**
  * @brief Generate the execution trace pertaining to the supplied instructions returns the return data.
  *
  * @param instructions A vector of the instructions to be executed.
@@ -279,9 +268,9 @@ std::vector<Row> Execution::gen_trace(std::vector<uint8_t> const& bytecode,
  * @return The trace as a vector of Row.
  */
 std::vector<Row> Execution::gen_trace(std::vector<uint8_t> const& bytecode,
-                                      std::vector<FF>& returndata,
                                       std::vector<FF> const& calldata,
                                       std::vector<FF> const& public_inputs_vec,
+                                      std::vector<FF>& returndata,
                                       ExecutionHints const& execution_hints)
 
 {
@@ -295,8 +284,8 @@ std::vector<Row> Execution::gen_trace(std::vector<uint8_t> const& bytecode,
         !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[START_SIDE_EFFECT_COUNTER_PCPI_OFFSET])
                                    : 0;
 
-    AvmTraceBuilder trace_builder =
-        Execution::trace_builder_constructor(public_inputs, execution_hints, start_side_effect_counter, calldata);
+    AvmTraceBuilder trace_builder = Execution::trace_builder_constructor(
+        public_inputs, execution_hints, start_side_effect_counter, calldata, bytecode);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution
@@ -747,6 +736,7 @@ std::vector<Row> Execution::gen_trace(std::vector<uint8_t> const& bytecode,
     }
 
     auto trace = trace_builder.finalize();
+
     show_trace_info(trace);
     return trace;
 }

@@ -2,6 +2,8 @@ import { bufferAsFields } from '@aztec/foundation/abi';
 import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
+import { strict as assert } from 'assert';
+
 import { GeneratorIndex, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS } from '../constants.gen.js';
 import { type ContractClass } from './interfaces/contract_class.js';
 import { computePrivateFunctionsRoot } from './private_function.js';
@@ -20,53 +22,54 @@ import { computePrivateFunctionsRoot } from './private_function.js';
  * @returns The identifier.
  */
 export function computeContractClassId(contractClass: ContractClass | ContractClassIdPreimage): Fr {
-    return computeContractClassIdWithPreimage(contractClass).id;
+  return computeContractClassIdWithPreimage(contractClass).id;
 }
 
 /** Computes a contract class id and returns it along with its preimage. */
 export function computeContractClassIdWithPreimage(
-    contractClass: ContractClass | ContractClassIdPreimage,
+  contractClass: ContractClass | ContractClassIdPreimage,
 ): ContractClassIdPreimage & { id: Fr } {
-    const artifactHash = contractClass.artifactHash;
-    const privateFunctionsRoot =
-        'privateFunctionsRoot' in contractClass
-            ? contractClass.privateFunctionsRoot
-            : computePrivateFunctionsRoot(contractClass.privateFunctions);
-    const publicBytecodeCommitment =
-        'publicBytecodeCommitment' in contractClass
-            ? contractClass.publicBytecodeCommitment
-            : computePublicBytecodeCommitment(contractClass.packedBytecode);
-    const id = poseidon2HashWithSeparator(
-        [artifactHash, privateFunctionsRoot, publicBytecodeCommitment],
-        GeneratorIndex.CONTRACT_LEAF, // TODO(@spalladino): Review all generator indices in this file
-    );
-    return { id, artifactHash, privateFunctionsRoot, publicBytecodeCommitment };
+  const artifactHash = contractClass.artifactHash;
+  const privateFunctionsRoot =
+    'privateFunctionsRoot' in contractClass
+      ? contractClass.privateFunctionsRoot
+      : computePrivateFunctionsRoot(contractClass.privateFunctions);
+  const publicBytecodeCommitment =
+    'publicBytecodeCommitment' in contractClass
+      ? contractClass.publicBytecodeCommitment
+      : computePublicBytecodeCommitment(contractClass.packedBytecode);
+  const id = poseidon2HashWithSeparator(
+    [artifactHash, privateFunctionsRoot, publicBytecodeCommitment],
+    GeneratorIndex.CONTRACT_LEAF, // TODO(@spalladino): Review all generator indices in this file
+  );
+  return { id, artifactHash, privateFunctionsRoot, publicBytecodeCommitment };
 }
 
 /** Returns the preimage of a contract class id given a contract class. */
 export function computeContractClassIdPreimage(contractClass: ContractClass): ContractClassIdPreimage {
-    const privateFunctionsRoot = computePrivateFunctionsRoot(contractClass.privateFunctions);
-    const publicBytecodeCommitment = computePublicBytecodeCommitment(contractClass.packedBytecode);
-    return { artifactHash: contractClass.artifactHash, privateFunctionsRoot, publicBytecodeCommitment };
+  const privateFunctionsRoot = computePrivateFunctionsRoot(contractClass.privateFunctions);
+  const publicBytecodeCommitment = computePublicBytecodeCommitment(contractClass.packedBytecode);
+  return { artifactHash: contractClass.artifactHash, privateFunctionsRoot, publicBytecodeCommitment };
 }
 
 /** Preimage of a contract class id. */
 export type ContractClassIdPreimage = {
-    artifactHash: Fr;
-    privateFunctionsRoot: Fr;
-    publicBytecodeCommitment: Fr;
+  artifactHash: Fr;
+  privateFunctionsRoot: Fr;
+  publicBytecodeCommitment: Fr;
 };
 
-// TODO(#5860): Replace with actual implementation
-// Changed to work with canonical contracts that may have non-deterministic noir compiles and we want to keep the address constant
 export function computePublicBytecodeCommitment(packedBytecode: Buffer) {
-    const numFieldElems = Math.ceil(packedBytecode.length / (Fr.SIZE_IN_BYTES - 1)); // We pack them into chunks of 31 bytes
-    // Convert Buffer into chunks of field elements
-    const encodedBytecode: Fr[] = bufferAsFields(packedBytecode, numFieldElems);
-    // Hash it
-    let bytecodeCommitment = new Fr(0);
-    for (let i = 0; i < encodedBytecode.length; i++) {
-        bytecodeCommitment = poseidon2Hash([encodedBytecode[i], bytecodeCommitment]);
-    }
-    return bytecodeCommitment;
+  // Encode the buffer into field elements (chunked into 31 bytes each)
+  const encodedBytecode: Fr[] = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+  // The first element is the length of the bytecode (in bytes)
+  const bytecodeLength = Math.ceil(encodedBytecode[0].toNumber() / (Fr.SIZE_IN_BYTES - 1));
+  assert(bytecodeLength < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, 'Bytecode exceeds maximum deployable size');
+
+  let bytecodeCommitment = new Fr(0);
+  for (let i = 0; i < bytecodeLength; i++) {
+    // We skip the first element, which is the length of the bytecode
+    bytecodeCommitment = poseidon2Hash([encodedBytecode[i + 1], bytecodeCommitment]);
+  }
+  return bytecodeCommitment;
 }

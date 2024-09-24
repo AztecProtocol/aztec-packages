@@ -7,14 +7,13 @@ import { getRegistererContract } from './protocol_contracts.js';
 
 /** Sets up a call to register a contract class given its artifact. */
 export async function registerContractClass(
-    wallet: Wallet,
-    artifact: ContractArtifact,
+  wallet: Wallet,
+  artifact: ContractArtifact,
 ): Promise<ContractFunctionInteraction> {
-    const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode } =
-        getContractClassFromArtifact(artifact);
-    const bytecodeLength = Math.ceil(packedBytecode.length / 31); // We pack them into chunks of 31 bytes
-    const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
-    const registerer = getRegistererContract(wallet);
-    await wallet.addCapsule(encodedBytecode);
-    return registerer.methods.register(artifactHash, privateFunctionsRoot, publicBytecodeCommitment, bytecodeLength);
+  const { artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode } =
+    getContractClassFromArtifact(artifact);
+  const encodedBytecode = bufferAsFields(packedBytecode, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+  const registerer = getRegistererContract(wallet);
+  await wallet.addCapsule(encodedBytecode);
+  return registerer.methods.register(artifactHash, privateFunctionsRoot, publicBytecodeCommitment);
 }

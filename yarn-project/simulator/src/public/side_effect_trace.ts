@@ -30,7 +30,6 @@ import {
   ReadRequest,
   TreeLeafReadRequest,
 } from '@aztec/circuits.js';
-import { bufferAsFields } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -211,10 +210,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     const basicLogHash = Fr.fromBuffer(ulog.hash());
     this.unencryptedLogs.push(ulog);
     this.allUnencryptedLogs.push(ulog);
-    // We want the length of the buffer output from function_l2_logs -> toBuffer to equal the stored log length in the kernels.
-    // The kernels store the length of the processed log as 4 bytes; thus for this length value to match the log length stored in the kernels,
-    // we need to add four to the length here.
-    // https://github.com/AztecProtocol/aztec-packages/issues/6578#issuecomment-2125003435
+    // This length is for charging DA and is checked on-chain - has to be length of log preimage + 4 bytes.
+    // The .length call also has a +4 but that is unrelated
     this.unencryptedLogsHashes.push(new LogHash(basicLogHash, this.sideEffectCounter, new Fr(ulog.length + 4)));
     this.logger.debug(`NEW_UNENCRYPTED_LOG cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
@@ -286,17 +283,13 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
 
     this.publicCallRequests.push(resultToPublicCallRequest(result));
 
-    // The number of 31 bytes chunks required to store the bytecode
-    const numFields = Math.ceil(bytecode.length / (Fr.SIZE_IN_BYTES - 1));
-    // TODO: Check this is packed in the same way as during deployment
-    const encodedBytecode: Fr[] = bufferAsFields(bytecode, numFields);
     this.avmCircuitHints.externalCalls.items.push(
       new AvmExternalCallHint(
         /*success=*/ new Fr(result.reverted ? 0 : 1),
         result.returnValues,
         gasUsed,
         result.endSideEffectCounter,
-        encodedBytecode,
+        bytecode,
       ),
     );
   }

@@ -1,4 +1,3 @@
-import { bufferAsFields } from '@aztec/foundation/abi';
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -62,7 +61,6 @@ import {
   MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_CALL,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
-  MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
@@ -1378,7 +1376,7 @@ export function makeAvmExternalCallHint(seed = 0): AvmExternalCallHint {
     makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
     new Gas(seed + 0x200, seed),
     new Fr(seed + 0x300),
-    makeArray((seed % 200) + 11, i => new Fr(i), seed + 0x1000),
+    makeBytes((seed % 100) + 10, seed + 0x400),
   );
 }
 

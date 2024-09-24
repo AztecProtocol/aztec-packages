@@ -34,6 +34,7 @@ contract ContractClassRegisterer {
 
     // docs:start:import_pop_capsule
     use crate::capsule::pop_capsule;
+
     // docs:end:import_pop_capsule
 
     #[private]
@@ -43,18 +44,25 @@ contract ContractClassRegisterer {
         public_bytecode_commitment: Field,
     ) {
         // TODO: Validate public_bytecode_commitment is the correct commitment of packed_public_bytecode
-        // TODO: Validate packed_public_bytecode is legit public bytecode
+        // TODO: We should be able to remove public_bytecode_commitment from the input if it's calculated in this function
         // docs:start:pop_capsule
         let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] =
             pop_capsule();
         // docs:end:pop_capsule
 
+        // First field element contains the length of the bytecode
+        let bytecode_length_in_bytes: u32 = packed_public_bytecode[0] as u32;
+        let bytecode_length_in_fields: u32 = (bytecode_length_in_bytes / 31) + (bytecode_length_in_bytes % 31 != 0) as u32;
+        assert(bytecode_length_in_fields < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
+
         let mut computed_public_bytecode_commitment = 0;
-        for i in 0..MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS {
+        // We can hash up to MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS - 1, since the first element is the length
+        for i in 0..(MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS - 1) {
             // While we are forced to run the hash MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS times in the circuit,
-            // for future reasons, we may want the computed_public_bytecode_commitment to be based on the real bytecode length
+            // we want the bytecode commitment to be based on the actual length
             if (i < bytecode_length_in_fields) {
-                computed_public_bytecode_commitment = std::hash::poseidon2::Poseidon2::hash([packed_public_bytecode[i],computed_public_bytecode_commitment],2);
+                // We skip the first element when hashing since it is the length
+                computed_public_bytecode_commitment = std::hash::poseidon2::Poseidon2::hash([packed_public_bytecode[i + 1],computed_public_bytecode_commitment],2);
             }
         }
         assert_eq(computed_public_bytecode_commitment, public_bytecode_commitment);
