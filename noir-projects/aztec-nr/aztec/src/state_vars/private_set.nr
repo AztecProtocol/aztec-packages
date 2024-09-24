@@ -10,7 +10,7 @@ use crate::note::{
 use crate::state_vars::storage::Storage;
 
 // docs:start:struct
-struct PrivateSet<Note, Context> {
+pub struct PrivateSet<Note, Context> {
     context: Context,
     storage_slot: Field,
 }

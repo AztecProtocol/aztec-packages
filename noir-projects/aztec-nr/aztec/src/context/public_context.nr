@@ -7,7 +7,7 @@ use crate::context::inputs::public_context_inputs::PublicContextInputs;
 use crate::context::gas::GasOpts;
 use crate::hash::ArgsHasher;
 
-struct PublicContext {
+pub struct PublicContext {
     inputs: PublicContextInputs,
     args_hash: Option<Field>
 }
@@ -418,7 +418,7 @@ unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
 #[oracle(avmOpcodeStorageWrite)]
 unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
 
-struct FunctionReturns<let N: u32> {
+pub struct FunctionReturns<let N: u32> {
     values: [Field; N]
 }
 

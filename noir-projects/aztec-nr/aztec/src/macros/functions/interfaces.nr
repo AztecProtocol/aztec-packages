@@ -36,7 +36,7 @@ pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
         $parameters
 
         #[abi(functions)]
-        struct $abi_struct_name {
+        pub struct $abi_struct_name {
             parameters: $parameters_struct_name,
             $return_type
         }

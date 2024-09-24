@@ -28,7 +28,7 @@ pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs:
     cheatcodes::add_note_hashes(contract_address, note_hashes);
 }
 
-struct Deployer<let N: u32, let M: u32> {
+pub struct Deployer<let N: u32, let M: u32> {
     path: str<N>,
     name: str<M>,
     public_keys_hash: Field
@@ -110,7 +110,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
 // Keys length + address
 global TEST_ACCOUNT_LENGTH = PUBLIC_KEYS_LENGTH + 1;
 
-struct TestAccount {
+pub struct TestAccount {
     address: AztecAddress,
     keys: PublicKeys
 }

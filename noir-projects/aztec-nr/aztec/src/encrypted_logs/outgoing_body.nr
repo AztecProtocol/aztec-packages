@@ -6,7 +6,7 @@ use std::aes128::aes128_encrypt;
 
 use crate::{keys::public_keys::IvpkM, utils::point::point_to_bytes};
 
-struct EncryptedLogOutgoingBody {
+pub struct EncryptedLogOutgoingBody {
     eph_sk: Scalar,
     recipient: AztecAddress,
     recipient_ivpk: IvpkM,

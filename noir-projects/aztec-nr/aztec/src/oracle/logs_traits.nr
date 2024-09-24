@@ -10,7 +10,7 @@ use dep::protocol_types::address::AztecAddress;
 // I could have omitted N from the trait, but wanted to keep it strictly for field arrs
 // TODO(1139): Once we enc inside the circuit, we will no longer need the oracle to return
 // anything, so we can remove this trait
-trait LensForEncryptedLog<let N: u32, let M: u32> {
+pub trait LensForEncryptedLog<let N: u32, let M: u32> {
     // N = note preimage input in fields
     // M = encryption output len in bytes (= 417 + N * 32)
     fn output_fields(self: [Field; N]) -> [Field; N];
@@ -114,7 +114,7 @@ impl LensForEncryptedLog<12, 801> for [Field; 12] {
     }
 }
 
-trait LensForEncryptedEvent<let N: u32, let M: u32> {
+pub trait LensForEncryptedEvent<let N: u32, let M: u32> {
     // N = event preimage input in bytes
     // M = encryption output len in bytes (= 416 + M)
     fn output(self: [u8; N]) -> [u8; M];
@@ -154,7 +154,7 @@ impl LensForEncryptedEvent<256, 608> for [u8; 256] {
 // This trait defines the length of the inputs in bytes to
 // the unencrypted log hash fn, where the log can be any type T
 // as long as the ACVM can convert to fields.
-trait ToBytesForUnencryptedLog<let N: u32, let M: u32> {
+pub trait ToBytesForUnencryptedLog<let N: u32, let M: u32> {
     // N = preimage input in bytes (32 * num fields or chars)
     // M = full log input in bytes ( = N + 40 = N + 32 for addr, + 4 for selector, + 4 for len)
     fn to_be_bytes_arr(self) -> [u8; N];

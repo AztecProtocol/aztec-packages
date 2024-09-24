@@ -1,6 +1,6 @@
 use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
 
-struct Asset {
+pub struct Asset {
     price: U128,
 }
 

@@ -5,7 +5,7 @@ use dep::aztec::protocol_types::{
 };
 
 // #[event]
-struct ContractClassRegistered {
+pub struct ContractClassRegistered {
     contract_class_id: ContractClassId,
     version: Field,
     artifact_hash: Field,
