@@ -7,11 +7,6 @@
 
 namespace acir_format {
 
-// This functions assumes that:
-// 1. none of the points are infinity
-// 2. the points are on the curve
-// 3a. the points have not the same abssissa, OR
-// 3b. the points are identical (same witness index or same value)
 template <typename Builder>
 void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_valid_witness_assignments)
 {
@@ -24,32 +19,7 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
         input.input2_x, input.input2_y, input.input2_infinite, has_valid_witness_assignments, builder);
 
     // Addition
-    // Check if operands are the same
-    bool x_match = false;
-    if (!input1_point.x.is_constant() && !input2_point.x.is_constant()) {
-        x_match = (input1_point.x.get_witness_index() == input2_point.x.get_witness_index());
-    } else {
-        if (input1_point.x.is_constant() && input2_point.x.is_constant()) {
-            x_match = (input1_point.x.get_value() == input2_point.x.get_value());
-        }
-    }
-    bool y_match = false;
-    if (!input1_point.y.is_constant() && !input2_point.y.is_constant()) {
-        y_match = (input1_point.y.get_witness_index() == input2_point.y.get_witness_index());
-    } else {
-        if (input1_point.y.is_constant() && input2_point.y.is_constant()) {
-            y_match = (input1_point.y.get_value() == input2_point.y.get_value());
-        }
-    }
-
-    cycle_group_ct result;
-    // If operands are the same, we double.
-    if (x_match && y_match) {
-        result = input1_point.dbl();
-    } else {
-        result = input1_point.unconditional_add(input2_point);
-    }
-
+    cycle_group_ct result = input1_point + input2_point;
     cycle_group_ct standard_result = result.get_standard_form();
     auto x_normalized = standard_result.x.normalize();
     auto y_normalized = standard_result.y.normalize();
@@ -65,8 +35,6 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     } else {
         builder.assert_equal(y_normalized.witness_index, input.result_y);
     }
-    // TODO: remove the infinite result, because the function should always return a non-zero point.
-    // But this requires an ACIR serialisation change and it will be done in a subsequent PR.
     if (infinite.is_constant()) {
         builder.fix_witness(input.result_infinite, infinite.get_value());
     } else {
