@@ -65,7 +65,7 @@ ProtogalaxyProver_<DeciderProvingKeys>::perturbator_round(
     const auto [subrelation_evaluations, perturbator] =
         accumulator->is_accumulator
             ? Fun::compute_perturbator(accumulator, deltas)
-            : std::make_pair(compute_first_round_relation_evaluations(), Polynomial<FF>(log_circuit_size + 1));
+            : std::make_pair(compute_first_round_relation_evaluations(), Polynomial<FF>(CONST_PG_LOG_N + 1));
     // Prover doesn't send the constant coefficient of F because this is supposed to be equal to the target sum of
     // the accumulator which the folding verifier has from the previous iteration.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1087): Verifier circuit for first IVC step is
