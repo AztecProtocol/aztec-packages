@@ -237,12 +237,15 @@ contract DEX {
         let token_in = Token::at(token_address_in);
 
         let reserve_in_with_amount_in = token_in.balance_of_public(context.this_address()).view(&mut context) as u64;
+        // TODO: If we want to support flashswaps we should move this check to the end of the function and accept
+        // calldata as an arg and perform the call defined by the calldata. Not doing this now as it's not essential
+        // for a minimal implementation.
         assert(reserve_in_with_amount_in >= reserve_in + amount_in, "TOKEN_IN_NOT_TRANSFERRED_TO_POOL");
 
         let amount_out = get_amount_out(amount_in, reserve_in, reserve_out);
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
-        // TODO: _swap(amounts, path, to);
+        // TODO: Implement UniswapV2Pair._swap(amounts, path, to) here. The code above is from router.
 
         _unlock(&mut context);
     }
