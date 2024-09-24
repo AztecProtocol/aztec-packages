@@ -2,6 +2,8 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import {SignatureLib} from "./SignatureLib.sol";
+
 /**
  * @title Data Structures Library
  * @author Aztec Labs
@@ -78,5 +80,21 @@ library DataStructures {
   struct ExecutionFlags {
     bool ignoreDA;
     bool ignoreSignatures;
+  }
+
+  struct EpochProofQuote {
+    SignatureLib.Signature signature;
+    uint256 epochToProve;
+    uint256 validUntilSlot;
+    uint256 bondAmount;
+    uint32 basisPointFee;
+  }
+
+  struct EpochProofClaim {
+    uint256 epochToProve; // the epoch that the bond provider is claiming to prove
+    uint256 basisPointFee; // the fee that the bond provider will receive as a percentage of the block rewards
+    uint256 bondAmount; // the amount of escrowed funds that the bond provider will stake. Must be at least PROOF_COMMITMENT_BOND_AMOUNT
+    address bondProvider; // the address that has deposited funds in the escrow contract
+    address proposerClaimant; // the address of the proposer that submitted the claim
   }
 }

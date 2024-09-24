@@ -1,6 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2024 Aztec Labs.
 pragma solidity ^0.8.13;
 
-import {Errors} from "../libraries/Errors.sol";
+import {Errors} from "./Errors.sol";
 
 library SignatureLib {
   struct Signature {
