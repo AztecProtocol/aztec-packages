@@ -184,7 +184,7 @@ fn test_schedule_change_to_longer_delay_after_change() {
 
 #[test]
 fn test_schedule_change_to_longer_delay_from_initial() {
-    let new = TEST_INITIAL_DELAY + 1;
+    let new: u32 = TEST_INITIAL_DELAY + 1;
     let current_block_number = 50;
 
     let mut delay_change = get_initial_delay_change();

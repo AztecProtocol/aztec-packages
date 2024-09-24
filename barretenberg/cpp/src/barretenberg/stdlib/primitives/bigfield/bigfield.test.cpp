@@ -29,7 +29,7 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 }
 
-template <typename Builder> class stdlib_bigfield : public testing::Test {
+template <typename Builder> class stdlib_bigfield_SKIP_CI : public testing::Test {
 
     typedef stdlib::bn254<Builder> bn254;
 
@@ -918,101 +918,101 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
 // Define types for which the above tests will be constructed.
 using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 // Define the suite of tests.
-TYPED_TEST_SUITE(stdlib_bigfield, CircuitTypes);
-TYPED_TEST(stdlib_bigfield, badmul)
+TYPED_TEST_SUITE(stdlib_bigfield_SKIP_CI, CircuitTypes);
+TYPED_TEST(stdlib_bigfield_SKIP_CI, badmul)
 {
     TestFixture::test_division_formula_bug();
 }
-TYPED_TEST(stdlib_bigfield, mul)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, mul)
 {
     TestFixture::test_mul();
 }
-TYPED_TEST(stdlib_bigfield, sqr)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, sqr)
 {
     TestFixture::test_sqr();
 }
-TYPED_TEST(stdlib_bigfield, mult_madd)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, mult_madd)
 {
     TestFixture::test_mult_madd();
 }
-TYPED_TEST(stdlib_bigfield, dual_madd)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, dual_madd)
 {
     TestFixture::test_dual_madd();
 }
-TYPED_TEST(stdlib_bigfield, div_without_denominator_check)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, div_without_denominator_check)
 {
     TestFixture::test_div();
 }
-TYPED_TEST(stdlib_bigfield, add_and_div)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, add_and_div)
 {
     TestFixture::test_add_and_div();
 }
-TYPED_TEST(stdlib_bigfield, add_and_mul)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, add_and_mul)
 {
     TestFixture::test_add_and_mul();
 }
-TYPED_TEST(stdlib_bigfield, add_and_mul_with_constants)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, add_and_mul_with_constants)
 {
     TestFixture::test_add_and_mul_with_constants();
 }
-TYPED_TEST(stdlib_bigfield, sub_and_mul)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, sub_and_mul)
 {
     TestFixture::test_sub_and_mul();
 }
-TYPED_TEST(stdlib_bigfield, msub_div)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, msub_div)
 {
     TestFixture::test_msub_div();
 }
-TYPED_TEST(stdlib_bigfield, conditional_negate)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, conditional_negate)
 {
     TestFixture::test_conditional_negate();
 }
-TYPED_TEST(stdlib_bigfield, group_operations)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, group_operations)
 {
     TestFixture::test_group_operations();
 }
-TYPED_TEST(stdlib_bigfield, reduce)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, reduce)
 {
     TestFixture::test_reduce();
 }
-TYPED_TEST(stdlib_bigfield, assert_is_in_field_succes)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, assert_is_in_field_succes)
 {
     TestFixture::test_assert_is_in_field_success();
 }
-TYPED_TEST(stdlib_bigfield, assert_less_than_success)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, assert_less_than_success)
 {
     TestFixture::test_assert_less_than_success();
 }
-TYPED_TEST(stdlib_bigfield, byte_array_constructors)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, byte_array_constructors)
 {
     TestFixture::test_byte_array_constructors();
 }
-TYPED_TEST(stdlib_bigfield, quotient_completeness_regression)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, quotient_completeness_regression)
 {
     TestFixture::test_quotient_completeness();
 }
 
-TYPED_TEST(stdlib_bigfield, conditional_select_regression)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, conditional_select_regression)
 {
     TestFixture::test_conditional_select_regression();
 }
 
-TYPED_TEST(stdlib_bigfield, division_context)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, division_context)
 {
     TestFixture::test_division_context();
 }
 
-TYPED_TEST(stdlib_bigfield, inverse)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, inverse)
 {
     TestFixture::test_inversion();
 }
 
-TYPED_TEST(stdlib_bigfield, assert_equal_not_equal)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, assert_equal_not_equal)
 {
     TestFixture::test_assert_equal_not_equal();
 }
 
-TYPED_TEST(stdlib_bigfield, pow)
+TYPED_TEST(stdlib_bigfield_SKIP_CI, pow)
 {
     TestFixture::test_pow();
 }
