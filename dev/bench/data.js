@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727172963774,
+  "lastUpdate": 1727177614381,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "11dc8ff185d74e6e5bc51e85d6bcd6577ac83161",
-          "message": "feat: Verification key stuff (#8431)\n\nThe previous\r\n[PR](https://github.com/AztecProtocol/aztec-packages/pull/8230) in this\r\nseries set up the basic infrastructure for completing kernel circuits\r\nfrom acir RecursionConstraints, including connecting the dummy proof in\r\nthe constraint to the genuine witnesses known internally in AztecIvc.\r\nThis PR completes this line work by using the (genuine) verification key\r\nwitnesses in the constraint to construct the stdlib verification keys\r\nfrom which the recursive verifiers are instantiated.\r\n\r\nDoing this properly involved correcting/implementing/testing various\r\nserialization/deserialization/construction methods for native and stdlib\r\nverification keys - this accounts for most of the changes in this PR.\r\nThe corrections mostly applied to Mega and were related to not\r\naccounting for `databus_propagation_data`. I also updated some of the\r\ncorresponding Ultra methods in an attempt to make them a bit more\r\nreadable and more easily maintainable.\r\n\r\ncloses https://github.com/AztecProtocol/barretenberg/issues/1090",
-          "timestamp": "2024-09-10T15:57:31-07:00",
-          "tree_id": "40b450407a63fd66bd0e89c98ceb713add3d33b6",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/11dc8ff185d74e6e5bc51e85d6bcd6577ac83161"
-        },
-        "date": 1726010422832,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13208.551596999996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9999.809599999999 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5081.5984319999925,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4687.6720669999995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39355.33390899999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39355334000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14570.068407,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14570069000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3624062111,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3624062111 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 145209696,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 145209696 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2975426016,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2975426016 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 120350600,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 120350600 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 128985101,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128985101 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47281315+guipublic@users.noreply.github.com",
+            "name": "guipublic",
+            "username": "guipublic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aabd2d85d4f3f35d67d53421b47214aa8904c505",
+          "message": "chore!: change ec_add to unsafe implementation (but much better perf) (#8374)\n\nUse `unconditional_add` for ec_add ACIR opcode.\r\nThis improves a lot the performance of the opcode, but also makes it\r\nunsafe.\r\n~~I keep the PR as draft until aztec packages are sync with Noir PR\r\nhttps://github.com/noir-lang/noir/pull/5858 which adds the checks in the\r\nstdlib function.~~\r\nThe unsafe version can then be used when we know the inputs are valid\r\n(for instance if they come from a previous add).\r\nn.b.: the real performance boost will happen when we will be able to use\r\nthe unsafe version.\r\n\r\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
+          "timestamp": "2024-09-24T12:13:40+01:00",
+          "tree_id": "dc62adfd4a2d1e35bf56eec16f05d9572fdaefc9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/aabd2d85d4f3f35d67d53421b47214aa8904c505"
+        },
+        "date": 1727177606332,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 35610.394039,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 33019.866771 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5094.009241000009,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4638.731148999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 100171.561547,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 100171562000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14652.519745000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14652520000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8508471892,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8508471892 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152141245,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152141245 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6909657651,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6909657651 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 128889651,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 128889651 ns\nthreads: 1"
           }
         ]
       }
