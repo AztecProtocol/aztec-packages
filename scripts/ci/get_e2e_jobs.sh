@@ -22,6 +22,7 @@ allow_list=(
   "e2e-nested-contract"
   "e2e-ordering"
   "e2e-static-calls"
+  "integration-l1-publisher"
 )
 
 # Add labels from input to the allow_list

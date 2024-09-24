@@ -13,6 +13,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
   type RecursiveProof,
   type RootRollupPublicInputs,
+  type VMCircuitPublicInputs,
   VerificationKeyData,
   makeEmptyProof,
   makeRecursiveProof,
@@ -24,6 +25,7 @@ import {
   makePublicKernelCircuitPublicInputs,
   makeRootParityInput,
   makeRootRollupPublicInputs,
+  makeVMCircuitPublicInputs,
 } from '@aztec/circuits.js/testing';
 
 export class MockProver implements ServerCircuitProver {
@@ -106,7 +108,17 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
-  getPublicKernelProof(): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
+  getPublicKernelInnerProof(): Promise<PublicInputsAndRecursiveProof<VMCircuitPublicInputs>> {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeVMCircuitPublicInputs(),
+        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+        VerificationKeyData.makeFake(),
+      ),
+    );
+  }
+
+  getPublicKernelMergeProof(): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makePublicKernelCircuitPublicInputs(),

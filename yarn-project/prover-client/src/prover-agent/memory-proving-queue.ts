@@ -6,8 +6,6 @@ import {
   type ProvingRequestResult,
   ProvingRequestType,
   type PublicInputsAndRecursiveProof,
-  type PublicKernelNonTailRequest,
-  type PublicKernelTailRequest,
   type ServerCircuitProver,
 } from '@aztec/circuit-types';
 import type {
@@ -22,7 +20,10 @@ import type {
   MergeRollupInputs,
   NESTED_RECURSIVE_PROOF_LENGTH,
   PrivateKernelEmptyInputData,
+  PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
+  PublicKernelInnerCircuitPrivateInputs,
+  PublicKernelTailCircuitPrivateInputs,
   RECURSIVE_PROOF_LENGTH,
   RecursiveProof,
   RootParityInput,
@@ -30,6 +31,7 @@ import type {
   RootRollupInputs,
   RootRollupPublicInputs,
   TubeInputs,
+  VMCircuitPublicInputs,
   VerificationKeyData,
 } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -374,19 +376,27 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
   }
 
   /**
-   * Create a public kernel proof.
+   * Create a public kernel inner proof.
    * @param kernelRequest - Object containing the details of the proof required
    */
-  getPublicKernelProof(
-    kernelRequest: PublicKernelNonTailRequest,
+  getPublicKernelInnerProof(
+    inputs: PublicKernelInnerCircuitPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<VMCircuitPublicInputs>> {
+    return this.enqueue({ type: ProvingRequestType.PUBLIC_KERNEL_INNER, inputs }, signal, epochNumber);
+  }
+
+  /**
+   * Create a public kernel merge proof.
+   * @param kernelRequest - Object containing the details of the proof required
+   */
+  getPublicKernelMergeProof(
+    inputs: PublicKernelCircuitPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<PublicKernelCircuitPublicInputs>> {
-    return this.enqueue(
-      { type: ProvingRequestType.PUBLIC_KERNEL_NON_TAIL, kernelType: kernelRequest.type, inputs: kernelRequest.inputs },
-      signal,
-      epochNumber,
-    );
+    return this.enqueue({ type: ProvingRequestType.PUBLIC_KERNEL_MERGE, inputs }, signal, epochNumber);
   }
 
   /**
@@ -394,15 +404,11 @@ export class MemoryProvingQueue implements ServerCircuitProver, ProvingJobSource
    * @param kernelRequest - Object containing the details of the proof required
    */
   getPublicTailProof(
-    kernelRequest: PublicKernelTailRequest,
+    inputs: PublicKernelTailCircuitPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs>> {
-    return this.enqueue(
-      { type: ProvingRequestType.PUBLIC_KERNEL_TAIL, kernelType: kernelRequest.type, inputs: kernelRequest.inputs },
-      signal,
-      epochNumber,
-    );
+    return this.enqueue({ type: ProvingRequestType.PUBLIC_KERNEL_TAIL, inputs }, signal, epochNumber);
   }
 
   /**

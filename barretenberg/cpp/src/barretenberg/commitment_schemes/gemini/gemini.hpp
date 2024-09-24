@@ -99,20 +99,22 @@ template <typename Curve> class GeminiProver_ {
     using Claim = ProverOpeningClaim<Curve>;
 
   public:
-    static std::vector<Polynomial> compute_fold_polynomials(std::span<const Fr> multilinear_evaluations,
+    static std::vector<Polynomial> compute_fold_polynomials(const size_t log_N,
+                                                            std::span<const Fr> multilinear_challenge,
                                                             Polynomial&& batched_unshifted,
                                                             Polynomial&& batched_to_be_shifted);
 
-    static std::vector<Claim> compute_fold_polynomial_evaluations(std::span<const Fr> multilinear_evaluations,
+    static std::vector<Claim> compute_fold_polynomial_evaluations(const size_t log_N,
                                                                   std::vector<Polynomial>&& fold_polynomials,
                                                                   const Fr& r_challenge);
 
-    static std::vector<Claim> prove(const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
-                                    std::span<Fr> multilinear_challenge,
-                                    std::span<Fr> multilinear_evaluations,
+    template <typename Transcript>
+    static std::vector<Claim> prove(const Fr circuit_size,
                                     RefSpan<Polynomial> f_polynomials,
                                     RefSpan<Polynomial> g_polynomials,
-                                    std::shared_ptr<NativeTranscript>& transcript);
+                                    std::span<Fr> multilinear_challenge,
+                                    const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                                    const std::shared_ptr<Transcript>& transcript);
 }; // namespace bb
 
 template <typename Curve> class GeminiVerifier_ {
@@ -134,7 +136,7 @@ template <typename Curve> class GeminiVerifier_ {
      * (Cⱼ, Aⱼ(-r^{2ʲ}), -r^{2}), j = [1, ..., m-1]
      */
     static std::vector<OpeningClaim<Curve>> reduce_verification(std::span<Fr> multilinear_challenge,
-                                                                std::span<Fr> multilinear_evaluations, /* u */
+                                                                std::span<Fr> multilinear_evaluations,
                                                                 RefSpan<GroupElement> unshifted_commitments,
                                                                 RefSpan<GroupElement> to_be_shifted_commitments,
                                                                 auto& transcript)
@@ -172,7 +174,7 @@ template <typename Curve> class GeminiVerifier_ {
         const std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
         // Compute evaluation A₀(r)
         auto a_0_pos = compute_gemini_batched_univariate_evaluation(
-            batched_evaluation, multilinear_challenge, r_squares, evaluations);
+            num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations);
 
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
@@ -210,7 +212,7 @@ template <typename Curve> class GeminiVerifier_ {
     {
         std::vector<Fr> gemini_evaluations;
         gemini_evaluations.reserve(log_circuit_size);
-        for (size_t i = 0; i < log_circuit_size; ++i) {
+        for (size_t i = 1; i <= log_circuit_size; ++i) {
             const Fr evaluation = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
             gemini_evaluations.emplace_back(evaluation);
         }
@@ -239,12 +241,13 @@ template <typename Curve> class GeminiVerifier_ {
      * @param fold_polynomial_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return Evaluation \f$ A_0(r) \f$.
      */
-    static Fr compute_gemini_batched_univariate_evaluation(Fr& batched_eval_accumulator,
+    static Fr compute_gemini_batched_univariate_evaluation(size_t evaluation_point_size,
+                                                           Fr& batched_eval_accumulator,
                                                            std::span<const Fr> evaluation_point,
                                                            std::span<const Fr> challenge_powers,
                                                            std::span<const Fr> fold_polynomial_evals)
     {
-        const size_t num_variables = evaluation_point.size();
+        const size_t num_variables = evaluation_point_size;
 
         const auto& evals = fold_polynomial_evals;
 
