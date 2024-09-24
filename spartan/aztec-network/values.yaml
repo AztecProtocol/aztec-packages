@@ -82,6 +82,30 @@ pxe:
     failureThreshold: 3
   resources: {}
 
+bot:
+  logLevel: "debug"
+  debug: "aztec:*"
+  replicas: 1
+  botPrivateKey: "0xcafe"
+  txIntervalSeconds: 5
+  privateTransfersPerTx: 1
+  publicTransfersPerTx: 0
+  noWaitForTransfers: true
+  botNoStart: false
+  pxeProverEnabled: false
+  proverRealProofs: false
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  resources: {}
+
 ethereum:
   replicas: 1
   chainId: 31337
