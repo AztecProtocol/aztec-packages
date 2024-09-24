@@ -1,5 +1,5 @@
 
-#include "shplemini_verifier.hpp"
+#include "shplemini.hpp"
 #include "../commitment_key.test.hpp"
 #include "../gemini/gemini.hpp"
 #include "../kzg/kzg.hpp"
@@ -101,7 +101,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
 
     ShpleminiVerifier::batch_multivariate_opening_claims(RefVector(unshifted_commitments),
                                                          RefVector(shifted_commitments),
-                                                         RefVector(multilinear_evaluations),
+                                                         RefArray{ eval1, eval2, eval3 },
+                                                         RefArray{ eval2_shift, eval3_shift },
                                                          rho,
                                                          unshifted_scalar,
                                                          shifted_scalar,
@@ -116,7 +117,6 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     EXPECT_EQ(batched_evaluation, verifier_batched_evaluation);
     EXPECT_EQ(-expected_result, shplemini_result);
 }
-
 TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 {
     using GeminiProver = GeminiProver_<TypeParam>;
@@ -165,7 +165,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto fold_polynomials = GeminiProver::compute_fold_polynomials(
-        mle_opening_point, std::move(batched_unshifted), std::move(batched_to_be_shifted));
+        log_n, mle_opening_point, std::move(batched_unshifted), std::move(batched_to_be_shifted));
 
     std::vector<Commitment> prover_commitments;
     for (size_t l = 0; l < log_n - 1; ++l) {
@@ -173,8 +173,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
         prover_commitments.emplace_back(commitment);
     }
 
-    const auto opening_claims = GeminiProver::compute_fold_polynomial_evaluations(
-        mle_opening_point, std::move(fold_polynomials), gemini_eval_challenge);
+    const auto opening_claims =
+        GeminiProver::compute_fold_polynomial_evaluations(log_n, std::move(fold_polynomials), gemini_eval_challenge);
 
     std::vector<Fr> prover_evaluations;
     for (size_t l = 0; l < log_n; ++l) {
