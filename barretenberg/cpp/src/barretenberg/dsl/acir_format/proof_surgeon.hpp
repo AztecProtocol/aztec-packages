@@ -11,6 +11,7 @@ namespace acir_format {
 
 // Where the public inputs start within a proof (after circuit_size, num_pub_inputs, pub_input_offset)
 static constexpr size_t HONK_RECURSION_PUBLIC_INPUT_OFFSET = 3;
+static constexpr size_t CONST_OINK_PROOF_SIZE = 115; // WORKTODO: where should this come from?
 
 class ProofSurgeon {
     using FF = bb::fr;
@@ -29,15 +30,19 @@ class ProofSurgeon {
      * @param verification_key
      * @param toml_path
      */
-    static std::string construct_recursion_inputs_toml_data(std::vector<FF>& proof, const auto& verification_key)
+    static std::string construct_recursion_inputs_toml_data(std::vector<FF>& proof,
+                                                            const auto& verification_key,
+                                                            std::vector<FF> public_inputs = {})
     {
         // Convert verification key to fields
         std::vector<FF> vkey_fields = verification_key.to_field_elements();
 
         // Get public inputs by cutting them out of the proof
         const size_t num_public_inputs_to_extract = verification_key.num_public_inputs - bb::AGGREGATION_OBJECT_SIZE;
-        std::vector<FF> public_inputs =
-            acir_format::ProofSurgeon::cut_public_inputs_from_proof(proof, num_public_inputs_to_extract);
+        if (public_inputs.empty()) {
+            public_inputs =
+                acir_format::ProofSurgeon::cut_public_inputs_from_proof(proof, num_public_inputs_to_extract);
+        }
 
         // Construct json-style output for each component
         std::string proof_json = to_json(proof);

@@ -566,4 +566,44 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
 }
 
+/**
+ * @brief Test recursive honk recursive verification
+ *
+ */
+TEST_F(AcirIntegrationTest, DISABLED_IvcOinkRecursion)
+{
+    using Builder = ClientIVC::ClientCircuit;
+
+    // WORKTODO: test exits with code (-1) if I leave this here...
+    // ClientIVC ivc;
+    // ivc.trace_structure = TraceStructure::SMALL_TEST;
+
+    // Note: this can only work with the specific program 'assert_statement_recursive' because the public inputs and
+    // vkey witnesses provided via the Prover.toml to verify_proof_ivc_oink are based on this circuit.
+    std::string mock_app_name = "assert_statement_recursive";
+    std::string mock_kernel_name = "verify_proof_ivc_oink";
+
+    auto app_program = get_program_data_from_test_file(mock_app_name,
+                                                       /*honk_recursion=*/false);
+
+    // Construct a bberg circuit from the acir representation
+    auto app_circuit = acir_format::create_circuit<Builder>(app_program.constraints, 0, app_program.witness);
+
+    EXPECT_TRUE(CircuitChecker::check(app_circuit));
+
+    ClientIVC ivc;
+    ivc.trace_structure = TraceStructure::SMALL_TEST;
+
+    // Accumulate the app into the IVC
+    ivc.accumulate(app_circuit);
+
+    // auto kernel_program = get_program_data_from_test_file(mock_app_name,
+    //                                                       /*honk_recursion=*/false);
+
+    // auto kernel_circuit = acir_format::create_kernel_circuit(kernel_program.constraints, ivc,
+    // kernel_program.witness);
+
+    // // EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
+}
+
 #endif

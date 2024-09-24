@@ -1,0 +1,6 @@
+[package]
+name = "verify_proof_ivc_oink"
+type = "bin"
+authors = [""]
+
+[dependencies]
