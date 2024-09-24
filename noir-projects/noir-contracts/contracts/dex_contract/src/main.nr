@@ -5,30 +5,27 @@ use dep::aztec::macros::aztec;
 // A Noir implementation of simplified Uniswap v2 pool.
 #[aztec]
 contract DEX {
-    use crate::lib::get_quote;
-
-    use dep::aztec::{
-        prelude::{NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, PublicImmutable, PrivateSet, AztecAddress, PublicContext},
-        encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note_with_keys},
-        hash::pedersen_hash, keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
-        protocol_types::traits::is_empty, utils::comparison::Comparator
-    };
-    use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
+    use crate::lib::{get_quote, get_amount_out};
+    use dep::aztec::prelude::{AztecAddress, PublicImmutable, PublicContext};
     use dep::token::Token;
 
-    // We store the tokens of the pool in a struct such that to load it from PublicImmutable asserts only a single
-    // merkle proof.
+    // We store the tokens of the pool and reserves in a struct such that to load it from PublicImmutable asserts only
+    // a single merkle proof.
     // (Once we actually do the optimization. WIP in https://github.com/AztecProtocol/aztec-packages/pull/8022).
+    // Note: We store the reserves instead of just doing `token{0,1}.balance_of_public(dex_address)` so that we can
+    // make the user send the `token_in` into the pool before the swap.
     #[derive(Serialize)]
-    struct Tokens {
+    struct State {
         token0: AztecAddress,
         token1: AztecAddress,
         liquidity_token: AztecAddress,
+        reserve0: u64,
+        reserve1: u64,
     }
 
     #[storage]
     struct Storage<Context> {
-        tokens: PublicImmutable<Tokens, Context>,
+        state: PublicImmutable<State, Context>,
     }
 
     global MINIMUM_LIQUIDITY: u64 = 1000;
@@ -44,8 +41,8 @@ contract DEX {
         // it was deployed correctly.
         let liquidity_token = AztecAddress::zero();
 
-        let tokens = Tokens { token0, token1, liquidity_token };
-        storage.tokens.initialize(tokens);
+        let state = State { token0, token1, liquidity_token, reserve0: 0, reserve1: 0 };
+        storage.state.initialize(state);
     }
 
     // Privately adds liquidity for `liquidity_provider` to the pool (identity of liquidity provider not revealed).
@@ -67,16 +64,14 @@ contract DEX {
 
         assert(amount0Desired > 0 & amount1Desired > 0, "INSUFFICIENT_INPUT_AMOUNTS");
 
-        let tokens = storage.tokens.read();
+        let state = storage.state.read();
 
-        let token0 = Token::at(tokens.token0);
-        let token1 = Token::at(tokens.token1);
+        let token0 = Token::at(state.token0);
+        let token1 = Token::at(state.token1);
+        let reserve0 = state.reserve0;
+        let reserve1 = state.reserve1;
 
-
-        let reserve0 = token0.balance_of_public(context.this_address()).view(&mut context) as u64; // TODO: Nuke the cast here.
-        let reserve1 = token1.balance_of_public(context.this_address()).view(&mut context) as u64; // TODO: Nuke the cast here.
-
-        let liquidity_token = Token::at(tokens.liquidity_token);
+        let liquidity_token = Token::at(state.liquidity_token);
 
         // Calculate the amounts to be added to the pool
         let mut amount0 = amount0Desired;
@@ -135,6 +130,12 @@ contract DEX {
         // TODO: Implement `prepare_mint_to_private` and `finalize_mint_to_private` in the Token contract.
         liquidity_token.finalize_mint_to_private(transfer_preparer_storage_slot_commitment, liquidity).call(&mut context);
 
+        // Update the reserves
+        // (Note that we should not pay for token0, token1 and liquidity_token writes because kernel should squash them
+        // (once the optimization is done)).
+        let updated_state = State { token0: state.token0, token1: state.token1, liquidity_token: state.liquidity_token, reserve0: reserve0 + amount0, reserve1: reserve1 + amount1 };
+        storage.state.write(updated_state);
+
         // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _unlock(&mut context);
     }
@@ -156,11 +157,11 @@ contract DEX {
         // Note: We don't use authwit here as the permission from a user is given by the fact that he prepared
         // the partial notes.
 
-        let tokens = storage.tokens.read();
+        let state = storage.state.read();
 
-        let token0 = Token::at(tokens.token0);
-        let token1 = Token::at(tokens.token1);
-        let liquidity_token = Token::at(tokens.liquidity_token);
+        let token0 = Token::at(state.token0);
+        let token1 = Token::at(state.token1);
+        let liquidity_token = Token::at(state.liquidity_token);
 
         // Calculate the amounts to be added to the pool
         let mut balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
@@ -184,8 +185,44 @@ contract DEX {
         token0.finalize_transfer_to_private(amount0, transfer_preparer_storage_slot_commitment).call(&mut context);
         token1.finalize_transfer_to_private(amount1, transfer_preparer_storage_slot_commitment).call(&mut context);
 
+        // We load the balances again directly from the tokens because Uni v2 does it like this. But why do they do
+        // this? It's not to protect against reentrancy attacks as there are locks. Is it to protect against some weird
+        // token accounting which could be affected by the transfer calls above?
+        balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
+        balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
+
+        // Update the reserves
+        let updated_state = State { token0: state.token0, token1: state.token1, liquidity_token: state.liquidity_token, reserve0: reserve0 + amount0, reserve1: reserve1 + amount1 };
+        storage.state.write(updated_state);
+
         // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _unlock(&mut context);
+    }
+
+    #[public]
+    fn swap_exact_tokens_for_tokens(
+        amount_in: u64,
+        amount_out_min: u64,
+        from_0_to_1: bool,
+    ) {
+        let state = storage.state.read();
+
+        let token0 = Token::at(state.token0);
+        let token1 = Token::at(state.token1);
+
+        let reserve0 = token0.balance_of_public(context.this_address()).view(&mut context) as u64; // TODO: Nuke the cast here.
+        let reserve1 = token1.balance_of_public(context.this_address()).view(&mut context) as u64; // TODO: Nuke the cast here.
+
+        let (reserve_in, reserve_out) = if from_0_to_1 { (reserve0, reserve1) } else { (reserve1, reserve0) };
+
+        let amount_out = get_amount_out(amount_in, reserve_in, reserve_out);
+        assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
+        // How do we transfer to the pool here? One way is to track the reserves and make the user transfer to the pool
+        // We could do public_transfer_from here but it would force user to unshield and we would have to pay
+        // for public authwit.
+
+        // TransferHelper.safeTransferFrom(path[0], msg.sender, UniswapV2Library.pairFor(factory, path[0], path[1]), amounts[0]);
+        // _swap(amounts, path, to);
     }
 
     // After locking and unlocking there will be 1 public data write because we always commit the last change and
