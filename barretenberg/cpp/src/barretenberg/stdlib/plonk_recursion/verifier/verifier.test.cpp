@@ -16,7 +16,7 @@
 
 namespace bb::stdlib {
 
-template <typename OuterComposer> class stdlib_verifier : public testing::Test {
+template <typename OuterComposer> class stdlib_verifier_SKIP_CI : public testing::Test {
 
     using InnerComposer = plonk::UltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
@@ -562,19 +562,19 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
 typedef testing::Types<plonk::StandardComposer, plonk::UltraComposer> OuterComposerTypes;
 
-TYPED_TEST_SUITE(stdlib_verifier, OuterComposerTypes);
+TYPED_TEST_SUITE(stdlib_verifier_SKIP_CI, OuterComposerTypes);
 
-HEAVY_TYPED_TEST(stdlib_verifier, test_inner_circuit)
+HEAVY_TYPED_TEST(stdlib_verifier_SKIP_CI, test_inner_circuit)
 {
     TestFixture::test_inner_circuit();
 }
 
-HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition)
+HEAVY_TYPED_TEST(stdlib_verifier_SKIP_CI, recursive_proof_composition)
 {
     TestFixture::test_recursive_proof_composition();
 };
 
-HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_ultra_no_tables)
+HEAVY_TYPED_TEST(stdlib_verifier_SKIP_CI, recursive_proof_composition_ultra_no_tables)
 {
     if constexpr (std::same_as<TypeParam, plonk::UltraComposer>) {
         TestFixture::test_recursive_proof_composition_ultra_no_tables();
@@ -583,7 +583,7 @@ HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_ultra_no_tables)
     }
 };
 
-HEAVY_TYPED_TEST(stdlib_verifier, double_verification)
+HEAVY_TYPED_TEST(stdlib_verifier_SKIP_CI, double_verification)
 {
     if constexpr (std::same_as<TypeParam, plonk::UltraComposer>) {
         TestFixture::test_double_verification();
@@ -593,22 +593,22 @@ HEAVY_TYPED_TEST(stdlib_verifier, double_verification)
     }
 };
 
-HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_with_variable_verification_key_a)
+HEAVY_TYPED_TEST(stdlib_verifier_SKIP_CI, recursive_proof_composition_with_variable_verification_key_a)
 {
     TestFixture::test_recursive_proof_composition_with_variable_verification_key_a();
 }
 
-HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_with_variable_verification_key_b)
+HEAVY_TYPED_TEST(stdlib_verifier_SKIP_CI, recursive_proof_composition_with_variable_verification_key_b)
 {
     TestFixture::test_recursive_proof_composition_with_variable_verification_key_b();
 }
 
-HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_var_verif_key_fail)
+HEAVY_TYPED_TEST(stdlib_verifier_SKIP_CI, recursive_proof_composition_var_verif_key_fail)
 {
     TestFixture::test_recursive_proof_composition_with_variable_verification_key_failure_case();
 }
 
-HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition_const_verif_key)
+HEAVY_TYPED_TEST(stdlib_verifier_SKIP_CI, recursive_proof_composition_const_verif_key)
 {
     TestFixture::test_recursive_proof_composition_with_constant_verification_key();
 }

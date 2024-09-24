@@ -451,7 +451,7 @@ describe('e2e_synching', () => {
       const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
       await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
-      const timeliness = await rollup.read.TIMELINESS_PROVING_IN_SLOTS();
+      const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
       const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
       const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
 
