@@ -582,7 +582,10 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   function _canPrune() internal view returns (bool) {
-    if (tips.pendingBlockNumber == tips.provenBlockNumber) {
+    if (
+      tips.pendingBlockNumber == tips.provenBlockNumber
+        || tips.pendingBlockNumber <= assumeProvenThroughBlockNumber
+    ) {
       return false;
     }
 

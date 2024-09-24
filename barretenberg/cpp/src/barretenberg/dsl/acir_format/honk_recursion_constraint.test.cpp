@@ -172,7 +172,7 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
 
         AcirFormat constraint_system{};
         constraint_system.varnum = static_cast<uint32_t>(witness.size());
-        constraint_system.recursive = false;
+        constraint_system.recursive = true;
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(honk_recursion_constraints.size());
         constraint_system.honk_recursion_constraints = honk_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
