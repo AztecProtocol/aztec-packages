@@ -32,7 +32,7 @@ template <typename _Curve, bool _use_bigfield = false> struct TestType {
         typename std::conditional<_use_bigfield, typename Curve::bigfr_ct, typename Curve::ScalarField>::type;
 };
 
-template <typename TestType> class stdlib_biggroup_SKIP_CI : public testing::Test {
+template <typename TestType> class stdlib_biggroup : public testing::Test {
     using Curve = typename TestType::Curve;
     using element_ct = typename TestType::element_ct;
     using scalar_ct = typename TestType::scalar_ct;
@@ -1192,35 +1192,35 @@ using TestTypes = testing::Types<TestType<stdlib::bn254<bb::StandardCircuitBuild
                                  TestType<stdlib::bn254<bb::MegaCircuitBuilder>, UseBigfield::No>,
                                  TestType<stdlib::bn254<bb::CircuitSimulatorBN254>, UseBigfield::No>>;
 
-TYPED_TEST_SUITE(stdlib_biggroup_SKIP_CI, TestTypes);
+TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
 
-TYPED_TEST(stdlib_biggroup_SKIP_CI, add)
+TYPED_TEST(stdlib_biggroup, add)
 {
 
     TestFixture::test_add();
 }
-TYPED_TEST(stdlib_biggroup_SKIP_CI, add_points_at_infinity)
+TYPED_TEST(stdlib_biggroup, add_points_at_infinity)
 {
     TestFixture::test_add_points_at_infinity();
 }
-TYPED_TEST(stdlib_biggroup_SKIP_CI, standard_form_of_point_at_infinity)
+TYPED_TEST(stdlib_biggroup, standard_form_of_point_at_infinity)
 {
     TestFixture::test_standard_form_of_point_at_infinity();
 }
-TYPED_TEST(stdlib_biggroup_SKIP_CI, sub)
+TYPED_TEST(stdlib_biggroup, sub)
 {
     TestFixture::test_sub();
 }
-TYPED_TEST(stdlib_biggroup_SKIP_CI, sub_points_at_infinity)
+TYPED_TEST(stdlib_biggroup, sub_points_at_infinity)
 {
 
     TestFixture::test_sub_points_at_infinity();
 }
-TYPED_TEST(stdlib_biggroup_SKIP_CI, dbl)
+TYPED_TEST(stdlib_biggroup, dbl)
 {
     TestFixture::test_dbl();
 }
-TYPED_TEST(stdlib_biggroup_SKIP_CI, montgomery_ladder)
+TYPED_TEST(stdlib_biggroup, montgomery_ladder)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
@@ -1228,11 +1228,11 @@ TYPED_TEST(stdlib_biggroup_SKIP_CI, montgomery_ladder)
         TestFixture::test_montgomery_ladder();
     };
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, mul)
+HEAVY_TYPED_TEST(stdlib_biggroup, mul)
 {
     TestFixture::test_mul();
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, twin_mul)
+HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
@@ -1240,7 +1240,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, twin_mul)
         TestFixture::test_twin_mul();
     };
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, triple_mul)
+HEAVY_TYPED_TEST(stdlib_biggroup, triple_mul)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
@@ -1248,7 +1248,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, triple_mul)
         TestFixture::test_triple_mul();
     };
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, quad_mul)
+HEAVY_TYPED_TEST(stdlib_biggroup, quad_mul)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
@@ -1256,16 +1256,16 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, quad_mul)
         TestFixture::test_quad_mul();
     };
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, one)
+HEAVY_TYPED_TEST(stdlib_biggroup, one)
 {
     TestFixture::test_one();
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, batch_mul)
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul)
 {
     TestFixture::test_batch_mul();
 }
 
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, batch_mul_edgecase_equivalence)
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edgecase_equivalence)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
         GTEST_SKIP();
@@ -1273,16 +1273,16 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, batch_mul_edgecase_equivalence)
         TestFixture::test_batch_mul_edgecase_equivalence();
     }
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, batch_mul_edge_case_set1)
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_case_set1)
 {
     TestFixture::test_batch_mul_edge_case_set1();
 }
 
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, batch_mul_edge_case_set2)
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_edge_case_set2)
 {
     TestFixture::test_batch_mul_edge_case_set2();
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, chain_add)
+HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
 {
 
     if constexpr (HasGoblinBuilder<TypeParam>) {
@@ -1291,7 +1291,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, chain_add)
         TestFixture::test_chain_add();
     };
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, multiple_montgomery_ladder)
+HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
 {
 
     if constexpr (HasGoblinBuilder<TypeParam>) {
@@ -1301,7 +1301,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, multiple_montgomery_ladder)
     };
 }
 
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, compute_naf)
+HEAVY_TYPED_TEST(stdlib_biggroup, compute_naf)
 {
     // ULTRATODO: make this work for secp curves
     if constexpr ((TypeParam::Curve::type == CurveType::BN254) && !HasGoblinBuilder<TypeParam>) {
@@ -1315,7 +1315,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, compute_naf)
 }
 
 /* These tests only work for Ultra Circuit Constructor */
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, wnaf_batch_mul)
+HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul)
 {
     if constexpr (HasPlookup<typename TypeParam::Curve::Builder>) {
         if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
@@ -1329,7 +1329,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, wnaf_batch_mul)
 }
 
 /* These tests only work for Ultra Circuit Constructor */
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, wnaf_batch_mul_edge_cases)
+HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_edge_cases)
 {
     if constexpr (HasPlookup<typename TypeParam::Curve::Builder>) {
         if constexpr (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>) {
@@ -1344,7 +1344,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, wnaf_batch_mul_edge_cases)
 
 /* the following test was only developed as a test of Ultra Circuit Constructor. It fails for Standard in the
    case where Fr is a bigfield. */
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, compute_wnaf)
+HEAVY_TYPED_TEST(stdlib_biggroup, compute_wnaf)
 {
     if constexpr ((!HasPlookup<typename TypeParam::Curve::Builder> && TypeParam::use_bigfield) ||
                   (TypeParam::Curve::type == CurveType::BN254 && HasGoblinBuilder<TypeParam>)) {
@@ -1356,7 +1356,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, compute_wnaf)
 
 /* batch_mul with specified value of max_num_bits does not work for a biggroup formed over a big scalar field.
    We skip such cases in the next group of tests. */
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, batch_mul_short_scalars)
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_short_scalars)
 {
     if constexpr (TypeParam::use_bigfield) {
         GTEST_SKIP();
@@ -1368,7 +1368,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, batch_mul_short_scalars)
         };
     }
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, wnaf_batch_mul_128_bit)
+HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul_128_bit)
 {
     if constexpr (TypeParam::use_bigfield) {
         GTEST_SKIP();
@@ -1380,7 +1380,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, wnaf_batch_mul_128_bit)
         };
     }
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, wnaf_batch_4)
+HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_4)
 {
     if constexpr (TypeParam::use_bigfield) {
         GTEST_SKIP();
@@ -1390,7 +1390,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, wnaf_batch_4)
 }
 
 /* The following tests are specific to BN254 and don't work when Fr is a bigfield */
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, bn254_endo_batch_mul)
+HEAVY_TYPED_TEST(stdlib_biggroup, bn254_endo_batch_mul)
 {
     if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {
         if constexpr (HasGoblinBuilder<TypeParam>) {
@@ -1402,7 +1402,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, bn254_endo_batch_mul)
         GTEST_SKIP();
     }
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, mixed_mul_bn254_endo)
+HEAVY_TYPED_TEST(stdlib_biggroup, mixed_mul_bn254_endo)
 {
     if constexpr (TypeParam::Curve::type == CurveType::BN254 && !TypeParam::use_bigfield) {
         if constexpr (HasGoblinBuilder<TypeParam>) {
@@ -1416,7 +1416,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, mixed_mul_bn254_endo)
 }
 
 /* The following tests are specific to SECP256k1 */
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, wnaf_secp256k1)
+HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_secp256k1)
 {
     if constexpr (TypeParam::Curve::type == CurveType::SECP256K1) {
         TestFixture::test_wnaf_secp256k1();
@@ -1424,7 +1424,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, wnaf_secp256k1)
         GTEST_SKIP();
     }
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, wnaf_8bit_secp256k1)
+HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_8bit_secp256k1)
 {
     if constexpr (TypeParam::Curve::type == CurveType::SECP256K1) {
         TestFixture::test_wnaf_8bit_secp256k1();
@@ -1432,7 +1432,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, wnaf_8bit_secp256k1)
         GTEST_SKIP();
     }
 }
-HEAVY_TYPED_TEST(stdlib_biggroup_SKIP_CI, ecdsa_mul_secp256k1)
+HEAVY_TYPED_TEST(stdlib_biggroup, ecdsa_mul_secp256k1)
 {
     if constexpr (TypeParam::Curve::type == CurveType::SECP256K1) {
         TestFixture::test_ecdsa_mul_secp256k1();
