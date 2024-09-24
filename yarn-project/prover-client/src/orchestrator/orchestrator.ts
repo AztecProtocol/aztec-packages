@@ -3,6 +3,7 @@ import {
   Body,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
+  type EpochProver,
   L2Block,
   MerkleTreeId,
   PROVING_STATUS,
@@ -20,11 +21,8 @@ import {
   makeEmptyProcessedTx,
   makePaddingProcessedTx,
   mapProvingRequestTypeToCircuitName,
-  toTxEffect
+  toTxEffect,
 } from '@aztec/circuit-types';
-import {
-  type EpochProver
-} from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   AvmCircuitInputs,
