@@ -13,6 +13,9 @@ jobs:
       actions: write  # Needed for 'gh run rerun'
     steps:
       - name: Wait for run to finish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_DEBUG: api
         run: |
           gh run watch ${{ inputs.run_id }} > /dev/null 2>&1
 
