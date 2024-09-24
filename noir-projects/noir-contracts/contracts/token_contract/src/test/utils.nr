@@ -71,7 +71,11 @@ unconstrained pub fn setup_and_mint(with_account_contracts: bool) -> (&mut TestE
 }
 
 // docs:start:txe_test_read_public
-unconstrained pub fn check_public_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: Field) {
+unconstrained pub fn check_public_balance(
+    token_contract_address: AztecAddress,
+    address: AztecAddress,
+    address_amount: Field
+) {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
     let block_number = get_block_number();
@@ -85,7 +89,11 @@ unconstrained pub fn check_public_balance(token_contract_address: AztecAddress, 
 // docs:end:txe_test_read_public
 
 // docs:start:txe_test_call_unconstrained
-unconstrained pub fn check_private_balance(token_contract_address: AztecAddress, address: AztecAddress, address_amount: Field) {
+unconstrained pub fn check_private_balance(
+    token_contract_address: AztecAddress,
+    address: AztecAddress,
+    address_amount: Field
+) {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
     // Direct call to unconstrained
