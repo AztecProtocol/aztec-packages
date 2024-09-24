@@ -57,12 +57,15 @@ class UltraFlavor {
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
 
+    // List of relations reflecting the Ultra arithmetisation. WARNING: As UltraKeccak flavor inherits from Ultra flavor
+    // any change of ordering in this tuple needs to be reflected in the smart contract, otherwise relation accumulation
+    // will not match.
     using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
+                                  bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
                                   bb::EllipticRelation<FF>,
                                   bb::AuxiliaryRelation<FF>,
-                                  bb::LogDerivLookupRelation<FF>,
                                   bb::Poseidon2ExternalRelation<FF>,
                                   bb::Poseidon2InternalRelation<FF>>;
 
