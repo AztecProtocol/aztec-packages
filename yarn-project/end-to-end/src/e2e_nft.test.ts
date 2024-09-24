@@ -88,9 +88,9 @@ describe('NFT', () => {
 
     // TODO(#8238): Since we don't yet have a partial note delivery we have to manually add it to PXE
     const nftNote = new Note([
-      new Fr(TOKEN_ID),
       user1Wallet.getCompleteAddress().publicKeys.masterNullifierPublicKey.hash(),
       noteRandomness,
+      new Fr(TOKEN_ID),
     ]);
 
     await user1Wallet.addNote(
