@@ -96,7 +96,6 @@ class AcirHonkRecursionConstraint : public ::testing::Test {
             .logic_constraints = { logic_constraint },
             .range_constraints = { range_a, range_b },
             .aes128_constraints = {},
-            .sha256_constraints = {},
             .sha256_compression = {},
             .schnorr_constraints = {},
             .ecdsa_k1_constraints = {},

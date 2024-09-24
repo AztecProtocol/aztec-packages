@@ -257,6 +257,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                                                                            rows[i].main_sel_op_get_contract_instance);
                 polys.main_sel_op_internal_call.set_if_valid_index(i, rows[i].main_sel_op_internal_call);
                 polys.main_sel_op_internal_return.set_if_valid_index(i, rows[i].main_sel_op_internal_return);
+                polys.main_sel_op_is_static_call.set_if_valid_index(i, rows[i].main_sel_op_is_static_call);
                 polys.main_sel_op_jump.set_if_valid_index(i, rows[i].main_sel_op_jump);
                 polys.main_sel_op_jumpi.set_if_valid_index(i, rows[i].main_sel_op_jumpi);
                 polys.main_sel_op_keccak.set_if_valid_index(i, rows[i].main_sel_op_keccak);
