@@ -16,9 +16,6 @@ source:
   COPY package.json yarn.lock mega_honk_circuits.json .
   COPY --dir aztec-nr noir-contracts noir-protocol-circuits mock-protocol-circuits scripts .
 
-  # WORKDIR /usr/src/noir-projects/noir-contracts
-  # COPY publicFunctionsSizeReport.js .
-
   # for debugging rebuilds
   RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
@@ -27,8 +24,6 @@ build-contracts:
 
   # Install transpiler
   COPY ../avm-transpiler/+build/avm-transpiler /usr/bin/avm-transpiler
-  # WORKDIR /usr/src/noir-projects/noir-contracts
-  # COPY publi
 
   RUN yarn
   RUN cd noir-contracts && NARGO=nargo TRANSPILER=avm-transpiler ./bootstrap.sh
@@ -135,8 +130,6 @@ public-functions-report:
   WORKDIR /usr/src/noir-projects
 
   RUN cd noir-contracts && node publicFunctionsSizeReport.js ./target/
-  # COPY ./target ./target
-  # COPY publicFunctionsSizeReport.js publicFunctionsSizeReport.js
 
   SAVE ARTIFACT ./noir-contracts/public_functions_report.json public_functions_report.json
 
