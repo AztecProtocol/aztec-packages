@@ -567,3 +567,15 @@ contract AvmTest {
         let _ = nested_static_call_to_add(inputs, 1, 2);
     }
 }
+
+mod tests {
+    use super::AvmTest;
+    use aztec::context::inputs::public_context_inputs::PublicContextInputs;
+
+    #[test]
+    fn contract_has_public_entrypoint() {
+        let selector = 0;
+        let inputs = PublicContextInputs::empty();
+        AvmTest::public_entrypoint(inputs, selector);
+    }
+}
