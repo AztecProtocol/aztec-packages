@@ -285,12 +285,16 @@ global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 // Lengths of the different types of proofs in fields
 global RECURSIVE_PROOF_LENGTH: u32 = 439;
 global NESTED_RECURSIVE_PROOF_LENGTH: u32 = 439;
-global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
+global TUBE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
-
-// The length is 2 + AvmFlavor::NUM_PRECOMPUTED_ENTITIES * 4
+global VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
+// VK is composed of
+// - circuit size encoded as a fr field element (32 bytes)
+// - num of inputs encoded as a fr field element (32 bytes)
+// - 16 affine elements (curve base field fq) encoded as fr elements takes (16 * 4 * 32 bytes)
+// 16 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
 global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
+
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
