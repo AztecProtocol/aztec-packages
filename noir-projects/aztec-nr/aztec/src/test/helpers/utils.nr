@@ -86,6 +86,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         cheatcodes::set_fn_selector(call_interface.get_selector());
         cheatcodes::set_contract_address(instance.to_address());
         cheatcodes::set_msg_sender(original_contract_address);
+        cheatcodes::set_is_static_call(call_interface.get_is_static());
         let mut inputs = cheatcodes::get_public_context_inputs();
         inputs.calldata_length = call_interface.get_args().len() as Field;
         inputs.is_static_call = call_interface.get_is_static();
@@ -97,6 +98,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);
         cheatcodes::set_calldata(calldata);
+        cheatcodes::set_is_static_call(call_interface.get_is_static());
         instance
     }
 

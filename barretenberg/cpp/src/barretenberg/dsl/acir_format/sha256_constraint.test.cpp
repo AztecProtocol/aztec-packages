@@ -43,7 +43,6 @@ TEST_F(Sha256Tests, TestSha256Compression)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = { sha256_compression },
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},

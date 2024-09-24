@@ -48,7 +48,6 @@ TEST_F(Poseidon2Tests, TestPoseidon2Permutation)
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
-        .sha256_constraints = {},
         .sha256_compression = {},
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},

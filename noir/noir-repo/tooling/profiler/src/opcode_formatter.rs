@@ -14,7 +14,6 @@ fn format_blackbox_function<F>(call: &BlackBoxFuncCall<F>) -> String {
         BlackBoxFuncCall::AND { .. } => "and".to_string(),
         BlackBoxFuncCall::XOR { .. } => "xor".to_string(),
         BlackBoxFuncCall::RANGE { .. } => "range".to_string(),
-        BlackBoxFuncCall::SHA256 { .. } => "sha256".to_string(),
         BlackBoxFuncCall::Blake2s { .. } => "blake2s".to_string(),
         BlackBoxFuncCall::Blake3 { .. } => "blake3".to_string(),
         BlackBoxFuncCall::PedersenCommitment { .. } => "pedersen_commitment".to_string(),
@@ -40,7 +39,6 @@ fn format_blackbox_function<F>(call: &BlackBoxFuncCall<F>) -> String {
 fn format_blackbox_op(call: &BlackBoxOp) -> String {
     match call {
         BlackBoxOp::AES128Encrypt { .. } => "aes128_encrypt".to_string(),
-        BlackBoxOp::Sha256 { .. } => "sha256".to_string(),
         BlackBoxOp::Blake2s { .. } => "blake2s".to_string(),
         BlackBoxOp::Blake3 { .. } => "blake3".to_string(),
         BlackBoxOp::PedersenCommitment { .. } => "pedersen_commitment".to_string(),

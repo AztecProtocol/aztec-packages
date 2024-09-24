@@ -74,13 +74,6 @@ void build_constraints(Builder& builder,
     }
 
     // Add sha256 constraints
-    for (size_t i = 0; i < constraint_system.sha256_constraints.size(); ++i) {
-        const auto& constraint = constraint_system.sha256_constraints.at(i);
-        create_sha256_constraints(builder, constraint);
-        gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                constraint_system.original_opcode_indices.sha256_constraints.at(i));
-    }
-
     for (size_t i = 0; i < constraint_system.sha256_compression.size(); ++i) {
         const auto& constraint = constraint_system.sha256_compression[i];
         create_sha256_compression_constraints(builder, constraint);
