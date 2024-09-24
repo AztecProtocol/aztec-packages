@@ -2,7 +2,7 @@ import {
   type BlockProver,
   type ProcessedTx,
   PublicDataWrite,
-  PublicKernelType,
+  PublicKernelPhase,
   SimulationError,
   type TreeInfo,
   type TxValidator,
@@ -84,7 +84,7 @@ describe('public_processor', () => {
 
     beforeEach(() => {
       publicKernel = mock<PublicKernelCircuitSimulator>();
-      processor = new PublicProcessor(
+      processor = PublicProcessor.create(
         db,
         publicExecutor,
         publicKernel,
@@ -182,7 +182,7 @@ describe('public_processor', () => {
       });
 
       publicKernel = new RealPublicKernelCircuitSimulator(new WASMSimulator());
-      processor = new PublicProcessor(
+      processor = PublicProcessor.create(
         db,
         publicExecutor,
         publicKernel,
@@ -364,9 +364,8 @@ describe('public_processor', () => {
         }
       });
 
-      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
-      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
-      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const innerSpy = jest.spyOn(publicKernel, 'publicKernelCircuitInner');
+      const mergeSpy = jest.spyOn(publicKernel, 'publicKernelCircuitMerge');
 
       const [processed, failed] = await processor.process([tx], 1, prover);
 
@@ -375,9 +374,8 @@ describe('public_processor', () => {
       expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
-      expect(setupSpy).toHaveBeenCalledTimes(1);
-      expect(appLogicSpy).toHaveBeenCalledTimes(2);
-      expect(teardownSpy).toHaveBeenCalledTimes(2);
+      expect(innerSpy).toHaveBeenCalledTimes(1 + 3 + 2);
+      expect(mergeSpy).toHaveBeenCalledTimes(3);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
       expect(worldStateDB.checkpoint).toHaveBeenCalledTimes(1);
       expect(worldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(1);
@@ -471,9 +469,8 @@ describe('public_processor', () => {
         }
       });
 
-      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
-      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
-      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const innerSpy = jest.spyOn(publicKernel, 'publicKernelCircuitInner');
+      const mergeSpy = jest.spyOn(publicKernel, 'publicKernelCircuitMerge');
 
       const [processed, failed] = await processor.process([tx], 1, prover);
 
@@ -481,9 +478,8 @@ describe('public_processor', () => {
       expect(failed).toHaveLength(1);
       expect(failed[0].tx.getTxHash()).toEqual(tx.getTxHash());
 
-      expect(setupSpy).toHaveBeenCalledTimes(1);
-      expect(appLogicSpy).toHaveBeenCalledTimes(0);
-      expect(teardownSpy).toHaveBeenCalledTimes(0);
+      expect(innerSpy).toHaveBeenCalledTimes(3);
+      expect(mergeSpy).toHaveBeenCalledTimes(0);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
 
       expect(worldStateDB.checkpoint).toHaveBeenCalledTimes(0);
@@ -568,9 +564,8 @@ describe('public_processor', () => {
         }
       });
 
-      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
-      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
-      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const innerSpy = jest.spyOn(publicKernel, 'publicKernelCircuitInner');
+      const mergeSpy = jest.spyOn(publicKernel, 'publicKernelCircuitMerge');
 
       const [processed, failed] = await processor.process([tx], 1, prover);
 
@@ -579,9 +574,8 @@ describe('public_processor', () => {
       expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
-      expect(setupSpy).toHaveBeenCalledTimes(2);
-      expect(appLogicSpy).toHaveBeenCalledTimes(1);
-      expect(teardownSpy).toHaveBeenCalledTimes(2);
+      expect(innerSpy).toHaveBeenCalledTimes(2 + 1 + 3);
+      expect(mergeSpy).toHaveBeenCalledTimes(3);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
       expect(worldStateDB.checkpoint).toHaveBeenCalledTimes(1);
       expect(worldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(1);
@@ -684,9 +678,8 @@ describe('public_processor', () => {
         }
       });
 
-      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
-      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
-      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const innerSpy = jest.spyOn(publicKernel, 'publicKernelCircuitInner');
+      const mergeSpy = jest.spyOn(publicKernel, 'publicKernelCircuitMerge');
 
       const [processed, failed] = await processor.process([tx], 1, prover);
 
@@ -695,9 +688,8 @@ describe('public_processor', () => {
       expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
-      expect(setupSpy).toHaveBeenCalledTimes(2);
-      expect(appLogicSpy).toHaveBeenCalledTimes(1);
-      expect(teardownSpy).toHaveBeenCalledTimes(2);
+      expect(innerSpy).toHaveBeenCalledTimes(2 + 1 + 3);
+      expect(mergeSpy).toHaveBeenCalledTimes(3);
       expect(publicExecutor.simulate).toHaveBeenCalledTimes(3);
       expect(worldStateDB.checkpoint).toHaveBeenCalledTimes(1);
       expect(worldStateDB.rollbackToCheckpoint).toHaveBeenCalledTimes(2);
@@ -725,7 +717,7 @@ describe('public_processor', () => {
       expect(prover.addNewTx).toHaveBeenCalledWith(processed[0]);
     });
 
-    it('runs a tx with setup and teardown phases', async function () {
+    it('runs a tx with all phases', async function () {
       const tx = mockTx(1, {
         numberOfNonRevertiblePublicCallRequests: 1,
         numberOfRevertiblePublicCallRequests: 1,
@@ -837,9 +829,8 @@ describe('public_processor', () => {
         }
       });
 
-      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
-      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
-      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const innerSpy = jest.spyOn(publicKernel, 'publicKernelCircuitInner');
+      const mergeSpy = jest.spyOn(publicKernel, 'publicKernelCircuitMerge');
       const tailSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTail');
 
       const [processed, failed] = await processor.process([tx], 1, prover);
@@ -849,9 +840,8 @@ describe('public_processor', () => {
       expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
-      expect(setupSpy).toHaveBeenCalledTimes(1);
-      expect(appLogicSpy).toHaveBeenCalledTimes(1);
-      expect(teardownSpy).toHaveBeenCalledTimes(3);
+      expect(innerSpy).toHaveBeenCalledTimes(1 + 1 + 3);
+      expect(mergeSpy).toHaveBeenCalledTimes(3);
       expect(tailSpy).toHaveBeenCalledTimes(1);
 
       const expectedSimulateCall = (availableGas: Partial<FieldsOf<Gas>>, txFee: number) => [
@@ -875,19 +865,17 @@ describe('public_processor', () => {
       expect(worldStateDB.rollbackToCommit).toHaveBeenCalledTimes(0);
 
       expect(processed[0].data.end.gasUsed).toEqual(Gas.from(expectedTotalGasUsed));
-      expect(processed[0].gasUsed[PublicKernelType.SETUP]).toEqual(setupGasUsed);
-      expect(processed[0].gasUsed[PublicKernelType.APP_LOGIC]).toEqual(appGasUsed);
-      expect(processed[0].gasUsed[PublicKernelType.TEARDOWN]).toEqual(teardownGasUsed);
-      expect(processed[0].gasUsed[PublicKernelType.TAIL]).toBeUndefined();
-      expect(processed[0].gasUsed[PublicKernelType.NON_PUBLIC]).toBeUndefined();
+      expect(processed[0].gasUsed[PublicKernelPhase.SETUP]).toEqual(setupGasUsed);
+      expect(processed[0].gasUsed[PublicKernelPhase.APP_LOGIC]).toEqual(appGasUsed);
+      expect(processed[0].gasUsed[PublicKernelPhase.TEARDOWN]).toEqual(teardownGasUsed);
 
       const txEffect = toTxEffect(processed[0], GasFees.default());
       const numPublicDataWrites = 3;
       expect(arrayNonEmptyLength(txEffect.publicDataWrites, PublicDataWrite.isEmpty)).toEqual(numPublicDataWrites);
       expect(txEffect.publicDataWrites.slice(0, numPublicDataWrites)).toEqual([
-        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x152)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotA), fr(0x103)),
         new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotC), fr(0x201)),
+        new PublicDataWrite(computePublicDataTreeLeafSlot(nestedContractAddress, contractSlotB), fr(0x152)),
       ]);
       expect(txEffect.encryptedLogs.getTotalLogCount()).toBe(0);
       expect(txEffect.unencryptedLogs.getTotalLogCount()).toBe(0);
@@ -950,9 +938,8 @@ describe('public_processor', () => {
         }
       });
 
-      const setupSpy = jest.spyOn(publicKernel, 'publicKernelCircuitSetup');
-      const appLogicSpy = jest.spyOn(publicKernel, 'publicKernelCircuitAppLogic');
-      const teardownSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTeardown');
+      const innerSpy = jest.spyOn(publicKernel, 'publicKernelCircuitInner');
+      const mergeSpy = jest.spyOn(publicKernel, 'publicKernelCircuitMerge');
       const tailSpy = jest.spyOn(publicKernel, 'publicKernelCircuitTail');
 
       const [processed, failed] = await processor.process([tx], 1, prover);
@@ -962,9 +949,8 @@ describe('public_processor', () => {
       expect(processed[0].clientIvcProof).toEqual(proof);
       expect(failed).toHaveLength(0);
 
-      expect(setupSpy).toHaveBeenCalledTimes(0);
-      expect(appLogicSpy).toHaveBeenCalledTimes(0);
-      expect(teardownSpy).toHaveBeenCalledTimes(1);
+      expect(innerSpy).toHaveBeenCalledTimes(1);
+      expect(mergeSpy).toHaveBeenCalledTimes(1);
       expect(tailSpy).toHaveBeenCalledTimes(1);
     });
 

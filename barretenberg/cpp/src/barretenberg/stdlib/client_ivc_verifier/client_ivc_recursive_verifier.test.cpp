@@ -42,7 +42,6 @@ class ClientIVCRecursionTests : public testing::Test {
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             Builder circuit{ ivc.goblin.op_queue };
             GoblinMockCircuits::construct_mock_function_circuit(circuit);
-            circuit.add_recursive_proof(stdlib::recursion::init_default_agg_obj_indices<Builder>(circuit));
             ivc.accumulate(circuit);
         }
 

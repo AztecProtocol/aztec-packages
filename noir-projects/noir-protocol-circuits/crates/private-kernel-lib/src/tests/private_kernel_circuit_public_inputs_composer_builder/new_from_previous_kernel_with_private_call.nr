@@ -280,8 +280,8 @@ fn new_from_previous_kernel_with_private_call_public_call_requests_succeeds() {
 fn new_from_previous_kernel_with_private_call_public_teardown_call_request_succeeds() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.private_call.append_public_teardown_call_request();
-    let request = builder.private_call.public_teardown_call_stack.storage[0];
+    builder.private_call.set_public_teardown_call_request();
+    let request = builder.private_call.public_teardown_call_request;
 
     let output = builder.compose_from_previous_kernel();
 
@@ -292,8 +292,8 @@ fn new_from_previous_kernel_with_private_call_public_teardown_call_request_succe
 fn new_from_previous_kernel_with_private_call_public_teardown_call_request_overwrite_fails() {
     let mut builder = PrivateKernelCircuitPublicInputsComposerBuilder::new();
 
-    builder.previous_kernel.append_public_teardown_call_request();
-    builder.private_call.append_public_teardown_call_request();
+    builder.previous_kernel.set_public_teardown_call_request();
+    builder.private_call.set_public_teardown_call_request();
 
     let _ = builder.compose_from_previous_kernel();
 }
