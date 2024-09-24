@@ -18,7 +18,8 @@ jobs:
 
       - name: Rerun failed jobs if the commit is the latest on the branch
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          GH_DEBUG: api
         run: |
           RUN_ID="${{ inputs.run_id }}"
           # Get the run details
