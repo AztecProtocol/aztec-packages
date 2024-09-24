@@ -1,30 +1,28 @@
 import {
+  BlockProofError,
+  type BlockProver,
   Body,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
   L2Block,
   MerkleTreeId,
+  PROVING_STATUS,
   type PaddingProcessedTx,
   type ProcessedTx,
-  PublicKernelType,
+  type ProvingBlockResult,
+  ProvingRequestType,
+  type ProvingResult,
+  type ProvingTicket,
+  type PublicInputsAndRecursiveProof,
+  type ServerCircuitProver,
   Tx,
   type TxEffect,
   UnencryptedTxL2Logs,
   makeEmptyProcessedTx,
   makePaddingProcessedTx,
-  mapPublicKernelToCircuitName,
+  mapProvingRequestTypeToCircuitName,
   toTxEffect,
 } from '@aztec/circuit-types';
-import {
-  BlockProofError,
-  type BlockProver,
-  PROVING_STATUS,
-  type ProvingBlockResult,
-  type ProvingResult,
-  type ProvingTicket,
-  type PublicInputsAndRecursiveProof,
-  type ServerCircuitProver,
-} from '@aztec/circuit-types/interfaces';
 import { type CircuitName } from '@aztec/circuit-types/stats';
 import {
   AvmCircuitInputs,
@@ -48,6 +46,7 @@ import {
   RootParityInputs,
   type TUBE_PROOF_LENGTH,
   TubeInputs,
+  type VMCircuitPublicInputs,
   type VerificationKeyAsFields,
   VerificationKeyData,
   makeEmptyProof,
@@ -773,14 +772,7 @@ export class ProvingOrchestrator implements BlockProver {
       result => {
         logger.debug(`Completed tube proof for tx index: ${txIndex}`);
         const nextKernelRequest = txProvingState.getNextPublicKernelFromTubeProof(result.tubeProof, result.tubeVK);
-        this.checkAndEnqueueNextTxCircuit(
-          provingState,
-          txIndex,
-          -1,
-          result.tubeProof,
-          result.tubeVK,
-          nextKernelRequest,
-        );
+        this.checkAndEnqueueNextTxCircuit(provingState, txIndex, result.tubeProof, result.tubeVK, nextKernelRequest);
       },
     );
   }
@@ -1010,8 +1002,6 @@ export class ProvingOrchestrator implements BlockProver {
         logger.debug(`Proven VM for function index ${functionIndex} of tx index ${txIndex}`);
         this.checkAndEnqueuePublicKernelFromVMProof(provingState, txIndex, functionIndex, proofAndVk.proof);
       });
-    } else {
-      this.checkAndEnqueuePublicKernelFromVMProof(provingState, txIndex, functionIndex, /*vmProof=*/ makeEmptyProof());
     }
   }
 
@@ -1039,7 +1029,6 @@ export class ProvingOrchestrator implements BlockProver {
   private checkAndEnqueueNextTxCircuit(
     provingState: ProvingState,
     txIndex: number,
-    completedFunctionIndex: number,
     proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH> | RecursiveProof<typeof TUBE_PROOF_LENGTH>,
     verificationKey: VerificationKeyData,
     nextKernelRequest: TxProvingInstruction,
@@ -1071,7 +1060,7 @@ export class ProvingOrchestrator implements BlockProver {
       throw new Error(`Error occurred, public function request undefined after kernel proof completed`);
     }
 
-    this.enqueuePublicKernel(provingState, txIndex, completedFunctionIndex + 1);
+    this.enqueuePublicKernel(provingState, txIndex, nextKernelRequest.functionIndex!);
   }
 
   /**
@@ -1094,20 +1083,28 @@ export class ProvingOrchestrator implements BlockProver {
       provingState,
       wrapCallbackInSpan(
         this.tracer,
-        request.type === PublicKernelType.TAIL
+        request.type === ProvingRequestType.PUBLIC_KERNEL_TAIL
           ? 'ProvingOrchestrator.prover.getPublicTailProof'
-          : 'ProvingOrchestrator.prover.getPublicKernelProof',
+          : request.type === ProvingRequestType.PUBLIC_KERNEL_MERGE
+          ? 'ProvingOrchestrator.prover.getPublicKernelMergeProof'
+          : 'ProvingOrchestrator.prover.getPublicKernelInnerProof',
         {
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: mapPublicKernelToCircuitName(request.type),
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: mapProvingRequestTypeToCircuitName(request.type),
         },
         (
           signal,
-        ): Promise<PublicInputsAndRecursiveProof<KernelCircuitPublicInputs | PublicKernelCircuitPublicInputs>> => {
-          if (request.type === PublicKernelType.TAIL) {
-            return this.prover.getPublicTailProof(request, signal, provingState.epochNumber);
+        ): Promise<
+          PublicInputsAndRecursiveProof<
+            KernelCircuitPublicInputs | PublicKernelCircuitPublicInputs | VMCircuitPublicInputs
+          >
+        > => {
+          if (request.type === ProvingRequestType.PUBLIC_KERNEL_TAIL) {
+            return this.prover.getPublicTailProof(request.inputs, signal, provingState.epochNumber);
+          } else if (request.type === ProvingRequestType.PUBLIC_KERNEL_MERGE) {
+            return this.prover.getPublicKernelMergeProof(request.inputs, signal, provingState.epochNumber);
           } else {
-            return this.prover.getPublicKernelProof(request, signal, provingState.epochNumber);
+            return this.prover.getPublicKernelInnerProof(request.inputs, signal, provingState.epochNumber);
           }
         },
       ),
@@ -1120,7 +1117,6 @@ export class ProvingOrchestrator implements BlockProver {
         this.checkAndEnqueueNextTxCircuit(
           provingState,
           txIndex,
-          functionIndex,
           result.proof,
           result.verificationKey,
           nextKernelRequest,
