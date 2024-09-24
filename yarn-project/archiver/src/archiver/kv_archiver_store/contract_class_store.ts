@@ -3,6 +3,7 @@ import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/s
 import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
 import {
   type ContractClassPublic,
+  type ContractClassPublicWithBlockNumber,
   type ExecutablePrivateFunctionWithMembershipProof,
   type UnconstrainedFunctionWithMembershipProof,
 } from '@aztec/types/contracts';
@@ -17,8 +18,18 @@ export class ContractClassStore {
     this.#contractClasses = db.openMap('archiver_contract_classes');
   }
 
-  addContractClass(contractClass: ContractClassPublic): Promise<void> {
-    return this.#contractClasses.set(contractClass.id.toString(), serializeContractClassPublic(contractClass));
+  async addContractClass(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
+    await this.#contractClasses.setIfNotExists(
+      contractClass.id.toString(),
+      serializeContractClassPublic({ ...contractClass, l2BlockNumber: blockNumber }),
+    );
+  }
+
+  async deleteContractClasses(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
+    const restoredContractClass = this.#contractClasses.get(contractClass.id.toString());
+    if (restoredContractClass && deserializeContractClassPublic(restoredContractClass).l2BlockNumber >= blockNumber) {
+      await this.#contractClasses.delete(contractClass.id.toString());
+    }
   }
 
   getContractClass(id: Fr): ContractClassPublic | undefined {
@@ -44,7 +55,7 @@ export class ContractClassStore {
       const existingClass = deserializeContractClassPublic(existingClassBuffer);
       const { privateFunctions: existingPrivateFns, unconstrainedFunctions: existingUnconstrainedFns } = existingClass;
 
-      const updatedClass: Omit<ContractClassPublic, 'id'> = {
+      const updatedClass: Omit<ContractClassPublicWithBlockNumber, 'id'> = {
         ...existingClass,
         privateFunctions: [
           ...existingPrivateFns,
@@ -63,8 +74,9 @@ export class ContractClassStore {
   }
 }
 
-function serializeContractClassPublic(contractClass: Omit<ContractClassPublic, 'id'>): Buffer {
+function serializeContractClassPublic(contractClass: Omit<ContractClassPublicWithBlockNumber, 'id'>): Buffer {
   return serializeToBuffer(
+    contractClass.l2BlockNumber,
     numToUInt8(contractClass.version),
     contractClass.artifactHash,
     contractClass.publicFunctions.length,
@@ -108,9 +120,10 @@ function serializeUnconstrainedFunction(fn: UnconstrainedFunctionWithMembershipP
   );
 }
 
-function deserializeContractClassPublic(buffer: Buffer): Omit<ContractClassPublic, 'id'> {
+function deserializeContractClassPublic(buffer: Buffer): Omit<ContractClassPublicWithBlockNumber, 'id'> {
   const reader = BufferReader.asReader(buffer);
   return {
+    l2BlockNumber: reader.readNumber(),
     version: reader.readUInt8() as 1,
     artifactHash: reader.readObject(Fr),
     publicFunctions: reader.readVector({

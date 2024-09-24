@@ -89,7 +89,7 @@ export class BlockStore {
       // We should only allow deleting the very last ye, otherwise we can really get some messy shit.
       const last = this.getSynchedL2BlockNumber();
       if (from != last) {
-        throw new Error(`Can only remove the tip`);
+        throw new Error(`Can only remove from the tip`);
       }
 
       for (let i = 0; i < blocksToUnwind; i++) {

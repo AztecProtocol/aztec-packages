@@ -74,8 +74,14 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve(this.#contractInstanceStore.getContractInstance(address));
   }
 
-  async addContractClasses(data: ContractClassPublic[], _blockNumber: number): Promise<boolean> {
-    return (await Promise.all(data.map(c => this.#contractClassStore.addContractClass(c)))).every(Boolean);
+  async addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
+    return (await Promise.all(data.map(c => this.#contractClassStore.addContractClass(c, blockNumber)))).every(Boolean);
+  }
+
+  async deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
+    return (await Promise.all(data.map(c => this.#contractClassStore.deleteContractClasses(c, blockNumber)))).every(
+      Boolean,
+    );
   }
 
   addFunctions(
@@ -88,6 +94,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   async addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
     return (await Promise.all(data.map(c => this.#contractInstanceStore.addContractInstance(c)))).every(Boolean);
+  }
+
+  async deleteContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
+    return (await Promise.all(data.map(c => this.#contractInstanceStore.deleteContractInstance(c)))).every(Boolean);
   }
 
   /**
@@ -151,6 +161,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
    */
   addLogs(blocks: L2Block[]): Promise<boolean> {
     return this.#logStore.addLogs(blocks);
+  }
+
+  deleteLogs(blocks: L2Block[]): Promise<boolean> {
+    return this.#logStore.deleteLogs(blocks);
   }
 
   /**

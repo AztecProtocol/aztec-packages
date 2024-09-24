@@ -52,6 +52,20 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
     });
 
+    describe('unwindBlocks', () => {
+      it('unwinding blocks will remove blocks from the chain', async () => {
+        await store.addBlocks(blocks);
+        const blockNumber = await store.getSynchedL2BlockNumber();
+
+        expect(await store.getBlocks(blockNumber, 1)).toEqual([blocks[blocks.length - 1]]);
+
+        await store.unwindBlocks(blockNumber, 1);
+
+        expect(await store.getSynchedL2BlockNumber()).toBe(blockNumber - 1);
+        expect(await store.getBlocks(blockNumber, 1)).toEqual([]);
+      });
+    });
+
     describe('getBlocks', () => {
       beforeEach(async () => {
         await store.addBlocks(blocks);
@@ -120,12 +134,32 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
     });
 
+    describe('deleteLogs', () => {
+      it('deletes encrypted & unencrypted logs', async () => {
+        const block = blocks[0].data;
+        await store.addBlocks([blocks[0]]);
+        await expect(store.addLogs([block])).resolves.toEqual(true);
+
+        expect((await store.getLogs(1, 1, LogType.NOTEENCRYPTED))[0]).toEqual(block.body.noteEncryptedLogs);
+        expect((await store.getLogs(1, 1, LogType.ENCRYPTED))[0]).toEqual(block.body.encryptedLogs);
+        expect((await store.getLogs(1, 1, LogType.UNENCRYPTED))[0]).toEqual(block.body.unencryptedLogs);
+
+        // This one is a pain for memory as we would never want to just delete memory in the middle.
+        await store.deleteLogs([block]);
+
+        expect((await store.getLogs(1, 1, LogType.NOTEENCRYPTED))[0]).toEqual(undefined);
+        expect((await store.getLogs(1, 1, LogType.ENCRYPTED))[0]).toEqual(undefined);
+        expect((await store.getLogs(1, 1, LogType.UNENCRYPTED))[0]).toEqual(undefined);
+      });
+    });
+
     describe.each([
       ['note_encrypted', LogType.NOTEENCRYPTED],
       ['encrypted', LogType.ENCRYPTED],
       ['unencrypted', LogType.UNENCRYPTED],
     ])('getLogs (%s)', (_, logType) => {
       beforeEach(async () => {
+        await store.addBlocks(blocks);
         await store.addLogs(blocks.map(b => b.data));
       });
 
@@ -162,6 +196,24 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         const expectedTx = getExpectedTx();
         const actualTx = await store.getTxEffect(expectedTx.txHash);
         expect(actualTx).toEqual(expectedTx);
+      });
+
+      it('returns undefined if tx is not found', async () => {
+        await expect(store.getTxEffect(new TxHash(Fr.random().toBuffer()))).resolves.toBeUndefined();
+      });
+
+      it.each([
+        () => blocks[0].data.body.txEffects[0],
+        () => blocks[9].data.body.txEffects[3],
+        () => blocks[3].data.body.txEffects[1],
+        () => blocks[5].data.body.txEffects[2],
+        () => blocks[1].data.body.txEffects[0],
+      ])('tries to retrieves a previously stored transaction after deleted', async getExpectedTx => {
+        await store.unwindBlocks(blocks.length, blocks.length);
+
+        const expectedTx = getExpectedTx();
+        const actualTx = await store.getTxEffect(expectedTx.txHash);
+        expect(actualTx).toEqual(undefined);
       });
 
       it('returns undefined if tx is not found', async () => {
@@ -237,6 +289,11 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       it('returns undefined if contract instance is not found', async () => {
         await expect(store.getContractInstance(AztecAddress.random())).resolves.toBeUndefined();
       });
+
+      it('returns undefined if previously stored contract instances was deleted', async () => {
+        await store.deleteContractInstances([contractInstance], blockNum);
+        await expect(store.getContractInstance(contractInstance.address)).resolves.toBeUndefined();
+      });
     });
 
     describe('contractClasses', () => {
@@ -249,6 +306,17 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       });
 
       it('returns previously stored contract class', async () => {
+        await expect(store.getContractClass(contractClass.id)).resolves.toMatchObject(contractClass);
+      });
+
+      it('returns undefined if the initial deployed contract class was deleted', async () => {
+        await store.deleteContractClasses([contractClass], blockNum);
+        await expect(store.getContractClass(contractClass.id)).resolves.toBeUndefined();
+      });
+
+      it('returns contract class if later "deployment" class was deleted', async () => {
+        await store.addContractClasses([contractClass], blockNum + 1);
+        await store.deleteContractClasses([contractClass], blockNum + 1);
         await expect(store.getContractClass(contractClass.id)).resolves.toMatchObject(contractClass);
       });
 
@@ -302,6 +370,24 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
         await store.addBlocks(blocks);
         await store.addLogs(blocks.map(b => b.data));
+      });
+
+      it('no logs returned if deleted ("txHash" filter param is respected variant)', async () => {
+        // get random tx
+        const targetBlockIndex = randomInt(numBlocks);
+        const targetTxIndex = randomInt(txsPerBlock);
+        const targetTxHash = blocks[targetBlockIndex].data.body.txEffects[targetTxIndex].txHash;
+
+        await Promise.all([
+          store.unwindBlocks(blocks.length, blocks.length),
+          store.deleteLogs(blocks.map(b => b.data)),
+        ]);
+
+        const response = await store.getUnencryptedLogs({ txHash: targetTxHash });
+        const logs = response.logs;
+
+        expect(response.maxLogsHit).toBeFalsy();
+        expect(logs.length).toEqual(0);
       });
 
       it('"txHash" filter param is respected', async () => {

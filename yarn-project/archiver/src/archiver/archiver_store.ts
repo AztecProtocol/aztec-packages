@@ -84,6 +84,7 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addLogs(blocks: L2Block[]): Promise<boolean>;
+  deleteLogs(blocks: L2Block[]): Promise<boolean>;
 
   /**
    * Append L1 to L2 messages to the store.
@@ -170,6 +171,8 @@ export interface ArchiverDataStore {
    */
   addContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
 
+  deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean>;
+
   /**
    * Returns a contract class given its id, or undefined if not exists.
    * @param id - Id of the contract class.
@@ -183,6 +186,7 @@ export interface ArchiverDataStore {
    * @returns True if the operation is successful.
    */
   addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
+  deleteContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean>;
 
   /**
    * Adds private functions to a contract class.

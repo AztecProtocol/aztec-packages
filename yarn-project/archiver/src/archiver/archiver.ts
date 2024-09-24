@@ -561,7 +561,17 @@ enum Operation {
  * store would need to include otherwise while exposing fewer functions and logic directly to the archiver.
  */
 class ArchiverStoreHelper
-  implements Omit<ArchiverDataStore, 'addLogs' | 'addContractClasses' | 'addContractInstances' | 'addFunctions'>
+  implements
+    Omit<
+      ArchiverDataStore,
+      | 'addLogs'
+      | 'deleteLogs'
+      | 'addContractClasses'
+      | 'deleteContractClasses'
+      | 'addContractInstances'
+      | 'deleteContractInstances'
+      | 'addFunctions'
+    >
 {
   #log = createDebugLogger('aztec:archiver:block-helper');
 
@@ -699,7 +709,8 @@ class ArchiverStoreHelper
           await this.#updateDeployedContractInstances(blockLogs, block.data.number, Operation.Delete);
         }),
       )),
-      await this.store.unwindBlocks(from, blocksToUnwind),
+      this.store.deleteLogs(blocks.map(b => b.data)),
+      this.store.unwindBlocks(from, blocksToUnwind),
     ].every(Boolean);
   }
 

@@ -76,6 +76,12 @@ enum TxComplexity {
   Spam,
 }
 
+type VariantDefinition = {
+  blockCount: number;
+  txCount: number;
+  txComplexity: TxComplexity;
+};
+
 /**
  * Helper class that wraps a certain variant of test, provides functionality for
  * setting up the test state (e.g., funding accounts etc) and to generate a list of transactions.
@@ -97,7 +103,15 @@ class TestVariant {
 
   private seed = 0n;
 
-  constructor(public blockCount: number, public txCount: number, public txComplexity: TxComplexity) {}
+  public blockCount: number;
+  public txCount: number;
+  public txComplexity: TxComplexity;
+
+  constructor(def: VariantDefinition) {
+    this.blockCount = def.blockCount;
+    this.txCount = def.txCount;
+    this.txComplexity = def.txComplexity;
+  }
 
   setPXE(pxe: PXEService) {
     this.pxe = pxe;
@@ -312,11 +326,11 @@ class TestVariant {
  *        because each transaction is LARGE, so the block size in kb is hit.
  *        I decided that 1/4 should be acceptable, and still small enough to work.
  */
-const variants: TestVariant[] = [
-  new TestVariant(10, 36, TxComplexity.Deployment),
-  new TestVariant(10, 36, TxComplexity.PrivateTransfer),
-  new TestVariant(10, 36, TxComplexity.PublicTransfer),
-  new TestVariant(10, 9, TxComplexity.Spam),
+const variants: VariantDefinition[] = [
+  { blockCount: 10, txCount: 36, txComplexity: TxComplexity.Deployment },
+  { blockCount: 10, txCount: 36, txComplexity: TxComplexity.PrivateTransfer },
+  { blockCount: 10, txCount: 36, txComplexity: TxComplexity.PublicTransfer },
+  { blockCount: 10, txCount: 9, txComplexity: TxComplexity.Spam },
 ];
 
 describe('e2e_synching', () => {
@@ -324,10 +338,11 @@ describe('e2e_synching', () => {
   //          of fixtures including multiple blocks with many transaction in.
   it.each(variants)(
     `Add blocks to the pending chain - %s`,
-    async (variant: TestVariant) => {
+    async (variantDef: VariantDefinition) => {
       if (!AZTEC_GENERATE_TEST_DATA) {
         return;
       }
+      const variant = new TestVariant(variantDef);
 
       // The setup is in here and not at the `before` since we are doing different setups depending on what mode we are running in.
       const { teardown, pxe, sequencer, aztecNode, wallet } = await setup(1, { salt: SALT, l1StartTime: START_TIME });
@@ -433,8 +448,8 @@ describe('e2e_synching', () => {
   };
 
   describe('replay history and then do a fresh sync', () => {
-    it.each(variants)('vanilla - %s', async (variant: TestVariant) => {
-      await testTheVariant(variant);
+    it.each(variants)('vanilla - %s', async (variantDef: VariantDefinition) => {
+      await testTheVariant(new TestVariant(variantDef));
     });
 
     describe('a wild prune appears', () => {
@@ -443,7 +458,7 @@ describe('e2e_synching', () => {
           return;
         }
 
-        const variant = variants[0];
+        const variant = new TestVariant(variants[0]);
 
         const beforeSync = async (opts: Partial<EndToEndContext>) => {
           const rollup = getContract({
@@ -480,7 +495,7 @@ describe('e2e_synching', () => {
           return;
         }
 
-        const variant = variants[0];
+        const variant = new TestVariant(variants[0]);
 
         const beforeSync = async (opts: Partial<EndToEndContext>) => {
           const rollup = getContract({
