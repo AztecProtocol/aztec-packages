@@ -1103,6 +1103,10 @@ export class ProvingOrchestrator implements EpochProver {
       currentIndex,
     );
     logger.debug(`Computed merge for ${currentLevel}.${currentIndex} as ${mergeLevel}.${indexWithinMergeLevel}`);
+    if (mergeLevel < 0n) {
+      throw new Error(`Invalid merge level ${mergeLevel}`);
+    }
+
     const mergeIndex = 2n ** mergeLevel - 1n + indexWithinMergeLevel;
     const ready = provingState.storeMergeInputs(mergeInputData, Number(indexWithinMerge), Number(mergeIndex));
     const nextMergeInputData = provingState.getMergeInputs(Number(mergeIndex));
