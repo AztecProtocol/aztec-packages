@@ -71,12 +71,8 @@ contract SchnorrAccount {
         }
 
         // Verify signature of the payload bytes
-        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint {x: public_key.x, y: public_key.y, is_infinite: false};
-        std::schnorr::verify_signature(
-            pub_key,
-            signature,
-            outer_hash.to_be_bytes::<32>()
-        )
+        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y, is_infinite: false };
+        std::schnorr::verify_signature(pub_key, signature, outer_hash.to_be_bytes::<32>())
         // docs:end:is_valid_impl
     }
 
