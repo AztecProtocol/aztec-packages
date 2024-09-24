@@ -21,6 +21,7 @@ export class NetCrs {
   }
 
   async downloadG1Data() {
+    // Skip the download if numPoints is 0 (would download the entire file due to bad range header otherwise)
     if (this.numPoints === 0) {
       return (this.data = new Uint8Array([]));
     }
