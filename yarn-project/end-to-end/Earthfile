@@ -234,22 +234,50 @@ guides-dapp-testing:
 
 bench-publish-rollup:
   LOCALLY
-  RUN DEBUG="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" PULL_REQUEST=$PULL_REQUEST BRANCH=$BRANCH COMMIT_HASH=$COMMIT_HASH ./scripts/e2e_compose_test.sh benchmarks/bench_publish_rollup.test.ts
+  ENV COMPOSE_FILE=scripts/docker-compose-no-sandbox.yml
+  ENV DEBUG="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
+  ENV HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-32}
+  # redundant, but just to be explicit:
+  ENV PULL_REQUEST=$PULL_REQUEST
+  ENV BRANCH=$BRANCH
+  ENV COMMIT_HASH=$COMMIT_HASH
+  RUN ./scripts/e2e_compose_test.sh benchmarks/bench_publish_rollup.test.ts
   DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 bench-process-history:
   LOCALLY
-  RUN DEBUG="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" PULL_REQUEST=$PULL_REQUEST BRANCH=$BRANCH COMMIT_HASH=$COMMIT_HASH ./scripts/e2e_compose_test.sh benchmarks/bench_process_history.test.ts
+  ENV COMPOSE_FILE=scripts/docker-compose-no-sandbox.yml
+  ENV DEBUG="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
+  ENV HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-32}
+  # redundant, but just to be explicit:
+  ENV PULL_REQUEST=$PULL_REQUEST
+  ENV BRANCH=$BRANCH
+  ENV COMMIT_HASH=$COMMIT_HASH
+  RUN ./scripts/e2e_compose_test.sh benchmarks/bench_process_history.test.ts
   DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 bench-tx-size:
   LOCALLY
-  RUN DEBUG="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" PULL_REQUEST=$PULL_REQUEST BRANCH=$BRANCH COMMIT_HASH=$COMMIT_HASH ENABLE_GAS=1 ./scripts/e2e_compose_test.sh benchmarks/bench_tx_size_fees.test.ts
+  ENV COMPOSE_FILE=scripts/docker-compose-no-sandbox.yml
+  ENV DEBUG="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
+  ENV HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-32}
+  # redundant, but just to be explicit:
+  ENV PULL_REQUEST=$PULL_REQUEST
+  ENV BRANCH=$BRANCH
+  ENV COMMIT_HASH=$COMMIT_HASH
+  RUN ./scripts/e2e_compose_test.sh benchmarks/bench_tx_size_fees.test.ts
   DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 bench-prover:
   LOCALLY
-  RUN DEBUG="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees" PULL_REQUEST=$PULL_REQUEST BRANCH=$BRANCH COMMIT_HASH=$COMMIT_HASH HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-32} ENABLE_GAS=1 ./scripts/e2e_compose_test.sh bench_prover
+  ENV COMPOSE_FILE=scripts/docker-compose-no-sandbox.yml
+  ENV DEBUG="aztec:benchmarks:*,aztec:sequencer,aztec:sequencer:*,aztec:world_state,aztec:merkle_trees"
+  ENV HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-32}
+  # redundant, but just to be explicit:
+  ENV PULL_REQUEST=$PULL_REQUEST
+  ENV BRANCH=$BRANCH
+  ENV COMMIT_HASH=$COMMIT_HASH
+  RUN ./scripts/e2e_compose_test.sh bench_prover
   DO ../../+UPLOAD_LOGS --PULL_REQUEST=$PULL_REQUEST --BRANCH=$BRANCH --COMMIT_HASH=$COMMIT_HASH
 
 e2e-devnet-smoke:
