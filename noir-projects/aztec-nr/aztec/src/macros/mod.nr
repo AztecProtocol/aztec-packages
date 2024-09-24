@@ -131,14 +131,12 @@ comptime fn generate_compute_note_hash_and_optionally_a_nullifier() -> Quoted {
             let note_header = aztec::prelude::NoteHeader::new(contract_address, nonce, storage_slot);
             $if_statements
             else {
-                assert(false, "Unknown note type ID");
-                [0, 0, 0, 0]
+                panic(f"Unknown note type ID")
             }
         }
     } else {
         quote {
-            assert(false, "No notes defined");
-            [0, 0, 0, 0]
+            panic(f"No notes defined")
         }
     };
 

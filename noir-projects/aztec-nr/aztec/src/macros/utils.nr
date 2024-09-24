@@ -6,8 +6,7 @@ pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
     } else if f.has_named_attribute("public") {
         quote { public }
     } else {
-        assert(false, "Function is neither private nor public");
-        std::mem::zeroed()
+        panic(f"Function is neither private nor public")
     }
 }
 
@@ -79,8 +78,7 @@ pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ:
             $slice_name = $slice_name.append($name.as_bytes().map(| byte: u8 | byte as Field).as_slice());
         }
     } else {
-        assert(false, f"Cannot add to slice: unsupported type {typ} variable {name}");
-        std::mem::zeroed()
+        panic(f"Cannot add to slice: unsupported type {typ} variable {name}")
     }
 }
 
@@ -104,8 +102,7 @@ pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Typ
             $hasher_name.add_multiple($name.as_bytes().map(| byte: u8 | byte as Field));
         }
     } else {
-        assert(false, f"Cannot add to hasher: unsupported type {typ} of variable {name}");
-        std::mem::zeroed()
+        panic(f"Cannot add to hasher: unsupported type {typ} of variable {name}")
     }
 }
 
@@ -148,8 +145,7 @@ comptime fn signature_of_type(typ: Type) -> Quoted {
         ).join(quote {,});
         f"({field_signatures})".quoted_contents()
     } else {
-        assert(false, f"Unsupported type {typ}");
-        std::mem::zeroed()
+        panic(f"Unsupported type {typ}")
     }
 }
 

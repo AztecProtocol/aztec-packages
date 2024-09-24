@@ -79,8 +79,7 @@ pub comptime fn pack_from_fields<N>(
             let bytes = byte_list.join(quote {,});
             result = quote { [ $bytes ].as_str_unchecked() };
         } else {
-            assert(false, f"Unsupported type for serialization of argument {name} and type {typ}");
-            std::mem::zeroed()
+            panic(f"Unsupported type for serialization of argument {name} and type {typ}")
         }
     } else {
         result = replacement;
@@ -130,8 +129,7 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
             }
             aux_vars = aux_vars.push_back(as_bytes);
         } else {
-            assert(false, f"Unsupported type for serialization of argument {name} and type {typ}");
-            std::mem::zeroed()
+            panic(f"Unsupported type for serialization of argument {name} and type {typ}")
         }
     }
     (fields, aux_vars)
