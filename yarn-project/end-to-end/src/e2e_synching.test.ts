@@ -40,6 +40,7 @@ import {
   type AccountWalletWithSecretKey,
   AnvilTestWatcher,
   BatchCall,
+  type Contract,
   type DebugLogger,
   Fr,
   GrumpkinScalar,
@@ -48,11 +49,11 @@ import {
   sleep,
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
-import { ExtendedNote, L2Block, Note, type TxHash } from '@aztec/circuit-types';
+import { ExtendedNote, L2Block, LogType, Note, type TxHash } from '@aztec/circuit-types';
 import { type AztecAddress, ETHEREUM_SLOT_DURATION } from '@aztec/circuits.js';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { SpamContract, TokenContract } from '@aztec/noir-contracts.js';
+import { SchnorrHardcodedAccountContract, SpamContract, TokenContract } from '@aztec/noir-contracts.js';
 import { type PXEService } from '@aztec/pxe';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
@@ -99,9 +100,11 @@ class TestVariant {
   private token!: TokenContract;
   private spam!: SpamContract;
 
-  private wallets!: AccountWalletWithSecretKey[];
+  public wallets!: AccountWalletWithSecretKey[];
 
   private seed = 0n;
+
+  private contractAddresses: AztecAddress[] = [];
 
   public blockCount: number;
   public txCount: number;
@@ -137,20 +140,12 @@ class TestVariant {
     return `${this.blockCount}_${this.txCount}_${this.txComplexity}`;
   }
 
-  async setup() {
-    if (this.pxe === undefined) {
-      throw new Error('Undefined PXE');
-    }
-
-    if (this.txComplexity == TxComplexity.Deployment) {
-      return;
-    }
-
+  async deployWallets(numberOfAccounts: number) {
     // Create accounts such that we can send from many to not have colliding nullifiers
-    const { accountKeys } = await addAccounts(this.txCount, this.logger, false)({ pxe: this.pxe });
+    const { accountKeys } = await addAccounts(numberOfAccounts, this.logger, false)({ pxe: this.pxe });
     const accountManagers = accountKeys.map(ak => getSchnorrAccount(this.pxe, ak[0], ak[1], 1));
 
-    this.wallets = await Promise.all(
+    return await Promise.all(
       accountManagers.map(async (a, i) => {
         const partialAddress = a.getCompleteAddress().partialAddress;
         await this.pxe.registerAccount(accountKeys[i][0], partialAddress);
@@ -159,6 +154,17 @@ class TestVariant {
         return wallet;
       }),
     );
+  }
+
+  async setup() {
+    if (this.pxe === undefined) {
+      throw new Error('Undefined PXE');
+    }
+
+    if (this.txComplexity == TxComplexity.Deployment) {
+      return;
+    }
+    this.wallets = await this.deployWallets(this.txCount);
 
     // Mint tokens publicly if needed
     if (this.txComplexity == TxComplexity.PublicTransfer) {
@@ -241,6 +247,7 @@ class TestVariant {
           skipPublicDeployment: true,
           universalDeploy: true,
         });
+        this.contractAddresses.push(accountManager.getAddress());
         txs.push(deployMethod.send());
       }
       return txs;
@@ -369,7 +376,7 @@ describe('e2e_synching', () => {
         }
       }
 
-      const blocks = await aztecNode.getBlocks(0, await aztecNode.getBlockNumber());
+      const blocks = await aztecNode.getBlocks(1, await aztecNode.getBlockNumber());
 
       await variant.writeBlocks(blocks);
       await teardown();
@@ -379,14 +386,13 @@ describe('e2e_synching', () => {
 
   const testTheVariant = async (
     variant: TestVariant,
-    beforeSync: (opts: Partial<EndToEndContext>) => Promise<void> = () => Promise.resolve(),
-    afterSync: (opts: Partial<EndToEndContext>) => Promise<void> = () => Promise.resolve(),
+    alternativeSync: (opts: Partial<EndToEndContext>, variant: TestVariant) => Promise<void>,
   ) => {
     if (AZTEC_GENERATE_TEST_DATA) {
       return;
     }
 
-    const { teardown, logger, deployL1ContractsValues, config, cheatCodes, aztecNode, sequencer, watcher } =
+    const { teardown, logger, deployL1ContractsValues, config, cheatCodes, aztecNode, sequencer, watcher, pxe } =
       await setup(0, {
         salt: SALT,
         l1StartTime: START_TIME,
@@ -423,54 +429,87 @@ describe('e2e_synching', () => {
       await publisher.proposeL2Block(block);
     }
 
-    await beforeSync({ deployL1ContractsValues, cheatCodes, config, logger });
-
-    // All the blocks have been "re-played" and we are now to simply get a new node up to speed
-    const timer = new Timer();
-    const freshNode = await AztecNodeService.createAndSync(
-      { ...config, disableSequencer: true, disableValidator: true },
-      new NoopTelemetryClient(),
-    );
-    const syncTime = timer.s();
-
-    const blockNumber = await freshNode.getBlockNumber();
-
-    logger.info(
-      `Stats: ${variant.description()}: ${JSON.stringify({
-        numberOfBlocks: blockNumber,
-        syncTime,
-      })}`,
-    );
-
-    await afterSync({ deployL1ContractsValues, cheatCodes, config, logger });
+    await alternativeSync({ deployL1ContractsValues, cheatCodes, config, logger, pxe }, variant);
 
     await teardown();
   };
 
   describe('replay history and then do a fresh sync', () => {
     it.each(variants)('vanilla - %s', async (variantDef: VariantDefinition) => {
-      await testTheVariant(new TestVariant(variantDef));
+      await testTheVariant(
+        new TestVariant(variantDef),
+        async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
+          // All the blocks have been "re-played" and we are now to simply get a new node up to speed
+          const timer = new Timer();
+          const freshNode = await AztecNodeService.createAndSync(
+            { ...opts.config!, disableSequencer: true, disableValidator: true },
+            new NoopTelemetryClient(),
+          );
+          const syncTime = timer.s();
+
+          const blockNumber = await freshNode.getBlockNumber();
+
+          opts.logger!.info(
+            `Stats: ${variant.description()}: ${JSON.stringify({
+              numberOfBlocks: blockNumber,
+              syncTime,
+            })}`,
+          );
+        },
+      );
     });
+  });
 
-    describe('a wild prune appears', () => {
-      it('archiver catches reorg as it occur and deletes blocks', async () => {
-        if (AZTEC_GENERATE_TEST_DATA) {
-          return;
-        }
+  describe('a wild prune appears', () => {
+    it('archiver following catches reorg as it occur and deletes blocks', async () => {
+      if (AZTEC_GENERATE_TEST_DATA) {
+        return;
+      }
 
-        const variant = new TestVariant(variants[0]);
-
-        const beforeSync = async (opts: Partial<EndToEndContext>) => {
+      await testTheVariant(
+        new TestVariant({ blockCount: 10, txCount: 36, txComplexity: TxComplexity.PrivateTransfer }),
+        async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
             abi: RollupAbi,
             client: opts.deployL1ContractsValues!.walletClient,
           });
 
-          const archiver = await createArchiver(opts.config!);
+          const contracts: Contract[] = [];
+          {
+            const watcher = new AnvilTestWatcher(
+              opts.cheatCodes!.eth,
+              opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+              opts.deployL1ContractsValues!.publicClient,
+            );
+            await watcher.start();
 
+            const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+            const sequencer = aztecNode.getSequencer();
+
+            const { pxe } = await setupPXEService(aztecNode!);
+
+            variant.setPXE(pxe);
+            const wallet = (await variant.deployWallets(1))[0];
+
+            contracts.push(
+              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed(),
+            );
+            contracts.push(await SchnorrHardcodedAccountContract.deploy(wallet).send().deployed());
+            contracts.push(
+              await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed(),
+            );
+
+            await watcher.stop();
+            await sequencer?.stop();
+            await aztecNode.stop();
+          }
+
+          const archiver = await createArchiver(opts.config!);
           const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
-          const assumeProvenThrough = pendingBlockNumber - BigInt(variant.blockCount) / 2n;
+
+          // We prune the last token and schnorr contract
+          const assumeProvenThrough = pendingBlockNumber - 2n;
           await rollup.write.setAssumeProvenThroughBlockNumber([assumeProvenThrough]);
 
           const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
@@ -480,24 +519,118 @@ describe('e2e_synching', () => {
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
           expect(await archiver.getBlockNumber()).toBeGreaterThan(Number(assumeProvenThrough));
+          const blockTip = (await archiver.getBlock(await archiver.getBlockNumber()))!;
+          const txHash = blockTip.body.txEffects[0].txHash;
+
+          const contractClassIds = await archiver.getContractClassIds();
+          contracts.forEach(async c => {
+            expect(contractClassIds.includes(c.instance.contractClassId)).toBeTrue;
+            expect(await archiver.getContract(c.address)).not.toBeUndefined;
+          });
+
+          expect(await archiver.getTxEffect(txHash)).not.toBeUndefined;
+          [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
+            expect(await archiver.getLogs(blockTip.number, 1, t)).not.toEqual([]);
+          });
 
           await rollup.write.prune();
 
           // We need to sleep a bit to make sure that we have caught the prune and deleted blocks.
           await sleep(3000);
           expect(await archiver.getBlockNumber()).toBe(Number(assumeProvenThrough));
-        };
-        await testTheVariant(variant, beforeSync);
-      });
 
-      it('fresh sync can extend chain', async () => {
-        if (AZTEC_GENERATE_TEST_DATA) {
-          return;
-        }
+          const contractClassIdsAfter = await archiver.getContractClassIds();
 
-        const variant = new TestVariant(variants[0]);
+          expect(contractClassIdsAfter.includes(contracts[0].instance.contractClassId)).toBeTrue;
+          expect(contractClassIdsAfter.includes(contracts[1].instance.contractClassId)).toBeFalse;
+          expect(await archiver.getContract(contracts[0].address)).not.toBeUndefined;
+          expect(await archiver.getContract(contracts[1].address)).toBeUndefined;
+          expect(await archiver.getContract(contracts[2].address)).toBeUndefined;
 
-        const beforeSync = async (opts: Partial<EndToEndContext>) => {
+          // Only the hardcoded schnorr is pruned since the contract class also existed before prune.
+          expect(contractClassIdsAfter).toEqual(
+            contractClassIds.filter(c => !c.equals(contracts[1].instance.contractClassId)),
+          );
+
+          expect(await archiver.getTxEffect(txHash)).toBeUndefined;
+          [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
+            expect(await archiver.getLogs(blockTip.number, 1, t)).toEqual([]);
+          });
+        },
+      );
+    });
+
+    it.skip('node following prunes and can extend chain', async () => {
+      // @todo This test is to be activated when we can unwind the world state
+      // It will currently stall forever as the state will never match.
+      if (AZTEC_GENERATE_TEST_DATA) {
+        return;
+      }
+
+      await testTheVariant(
+        new TestVariant({ blockCount: 10, txCount: 36, txComplexity: TxComplexity.Deployment }),
+        async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
+          const rollup = getContract({
+            address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
+            abi: RollupAbi,
+            client: opts.deployL1ContractsValues!.walletClient,
+          });
+
+          const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
+          await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
+
+          const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
+          const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
+          const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
+
+          await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
+
+          const watcher = new AnvilTestWatcher(
+            opts.cheatCodes!.eth,
+            opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+            opts.deployL1ContractsValues!.publicClient,
+          );
+          await watcher.start();
+
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!, new NoopTelemetryClient());
+          const sequencer = aztecNode.getSequencer();
+
+          const blockBeforePrune = await aztecNode.getBlockNumber();
+
+          await rollup.write.prune();
+
+          await sleep(5000);
+          expect(await aztecNode.getBlockNumber()).toBeLessThan(blockBeforePrune);
+
+          const { pxe } = await setupPXEService(aztecNode!);
+          variant.setPXE(pxe);
+
+          const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
+
+          sequencer?.updateSequencerConfig({ minTxsPerBlock: variant.txCount, maxTxsPerBlock: variant.txCount });
+          const txs = await variant.createAndSendTxs();
+          await Promise.all(txs.map(tx => tx.wait({ timeout: 1200 })));
+
+          const blockAfter = await aztecNode.getBlock(await aztecNode.getBlockNumber());
+
+          expect(blockAfter!.number).toEqual(blockBefore!.number + 1);
+          expect(blockAfter!.header.lastArchive).toEqual(blockBefore!.archive);
+
+          await sequencer?.stop();
+          await aztecNode.stop();
+          await watcher.stop();
+        },
+      );
+    });
+
+    it('fresh sync can extend chain', async () => {
+      if (AZTEC_GENERATE_TEST_DATA) {
+        return;
+      }
+
+      await testTheVariant(
+        new TestVariant({ blockCount: 10, txCount: 36, txComplexity: TxComplexity.Deployment }),
+        async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
           const rollup = getContract({
             address: opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
             abi: RollupAbi,
@@ -514,10 +647,7 @@ describe('e2e_synching', () => {
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo));
 
           await rollup.write.prune();
-        };
 
-        // After we have synched the chain, we will publish a block. Here we are VERY interested in seeing the block number.
-        const afterSync = async (opts: Partial<EndToEndContext>) => {
           const watcher = new AnvilTestWatcher(
             opts.cheatCodes!.eth,
             opts.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
@@ -543,10 +673,12 @@ describe('e2e_synching', () => {
 
           expect(blockAfter!.number).toEqual(blockBefore!.number + 1);
           expect(blockAfter!.header.lastArchive).toEqual(blockBefore!.archive);
-        };
 
-        await testTheVariant(variant, beforeSync, afterSync);
-      });
+          await sequencer?.stop();
+          await aztecNode.stop();
+          await watcher.stop();
+        },
+      );
     });
   });
 });

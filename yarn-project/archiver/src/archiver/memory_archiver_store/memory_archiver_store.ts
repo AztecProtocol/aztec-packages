@@ -332,11 +332,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     logType: TLogType,
   ): Promise<L2BlockL2Logs<FromLogType<TLogType>>[]> {
     if (from < INITIAL_L2_BLOCK_NUM || limit < 1) {
-      throw new Error(`Invalid limit: ${limit}`);
+      return Promise.resolve([]);
     }
 
     if (from > this.l2Blocks.length) {
-      throw new Error(`"from" cannot be in the future`);
+      return Promise.resolve([]);
     }
 
     const logMap = (() => {

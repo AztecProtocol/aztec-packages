@@ -86,7 +86,6 @@ export class BlockStore {
    */
   unwindBlocks(from: number, blocksToUnwind: number) {
     return this.db.transaction(() => {
-      // We should only allow deleting the very last ye, otherwise we can really get some messy shit.
       const last = this.getSynchedL2BlockNumber();
       if (from != last) {
         throw new Error(`Can only remove from the tip`);

@@ -349,6 +349,16 @@ describe('Archiver', () => {
     // Should also see the block number be reduced
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(numL2BlocksInTest - 1);
+
+    const txHash = blocks[1].body.txEffects[0].txHash;
+    expect(await archiver.getTxEffect(txHash)).resolves.toBeUndefined;
+    expect(await archiver.getBlock(2)).resolves.toBeUndefined;
+
+    [LogType.NOTEENCRYPTED, LogType.ENCRYPTED, LogType.UNENCRYPTED].forEach(async t => {
+      expect(await archiver.getLogs(2, 1, t)).toEqual([]);
+    });
+
+    // The random blocks don't include contract instances nor classes we we cannot look for those here.
   }, 10_000);
 
   // logs should be created in order of how archiver syncs.

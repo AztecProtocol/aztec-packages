@@ -290,6 +290,7 @@ export class Archiver implements ArchiveSource {
     };
 
     // This is an edge case that we only hit if there are no proposed blocks.
+    // If we have 0 blocks locally and there are no blocks onchain there is nothing to do.
     const noBlocks = localPendingBlockNumber === 0n && pendingBlockNumber === 0n;
     if (noBlocks) {
       await this.store.setBlockSynchedL1BlockNumber(currentL1BlockNumber);
@@ -358,6 +359,7 @@ export class Archiver implements ArchiveSource {
 
     if (retrievedBlocks.length === 0) {
       // We are not calling `setBlockSynchedL1BlockNumber` because it may cause sync issues if based off infura.
+      // See further details in earlier comments.
       this.log.verbose(`Retrieved no new blocks from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
       return;
     }
@@ -590,7 +592,7 @@ class ArchiverStoreHelper
       if (operation == Operation.Store) {
         return await this.store.addContractClasses(contractClasses, blockNum);
       } else if (operation == Operation.Delete) {
-        // return await this.store.deleteContractClasses(contractClasses, blockNum);
+        return await this.store.deleteContractClasses(contractClasses, blockNum);
       }
     }
     return true;
@@ -609,7 +611,7 @@ class ArchiverStoreHelper
       if (operation == Operation.Store) {
         return await this.store.addContractInstances(contractInstances, blockNum);
       } else if (operation == Operation.Delete) {
-        // return await this.store.deleteContractInstances(contractInstances, blockNum);
+        return await this.store.deleteContractInstances(contractInstances, blockNum);
       }
     }
     return true;
@@ -696,7 +698,8 @@ class ArchiverStoreHelper
       throw new Error(`Can only remove from the tip`);
     }
 
-    const blocks = await this.getBlocks(from - blocksToUnwind, blocksToUnwind);
+    // from - blocksToUnwind = the new head, so + 1 for what we need to remove
+    const blocks = await this.getBlocks(from - blocksToUnwind + 1, blocksToUnwind);
 
     return [
       // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
