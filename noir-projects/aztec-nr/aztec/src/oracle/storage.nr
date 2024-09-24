@@ -36,7 +36,7 @@ mod tests {
     global block_number = 17;
 
     #[test]
-    fn test_raw_storage_read() {
+    unconstrained fn test_raw_storage_read() {
         let written = MockStruct { a: 13, b: 42 };
 
         let _ = OracleMock::mock("storageRead").returns(written.serialize());
@@ -47,7 +47,7 @@ mod tests {
     }
 
     #[test]
-    fn test_storage_read() {
+    unconstrained fn test_storage_read() {
         let written = MockStruct { a: 13, b: 42 };
 
         let _ = OracleMock::mock("storageRead").returns(written.serialize());

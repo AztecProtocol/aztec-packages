@@ -65,7 +65,7 @@ impl<let N: u32, let M: u32> Deserialize<N> for CompressedString<N, M> {
 }
 
 #[test]
-fn test_short_string() {
+unconstrained fn test_short_string() {
     let i = "Hello world";
     let b = i.as_bytes();
     let name: CompressedString<1,11> = CompressedString::from_string(i);
@@ -74,7 +74,7 @@ fn test_short_string() {
 }
 
 #[test]
-fn test_long_string() {
+unconstrained fn test_long_string() {
     let i = "Hello world. I'm setting up a very long text of blibbablubb such that we can see if works as planned for longer names.";
     let b = i.as_bytes();
     let name: CompressedString<4,118> = CompressedString::from_string(i);
@@ -83,7 +83,7 @@ fn test_long_string() {
 }
 
 #[test]
-fn test_long_string_work_with_too_many_fields() {
+unconstrained fn test_long_string_work_with_too_many_fields() {
     let i = "Hello world. I'm setting up a very long text of blibbablubb such that we can see if works as planned for longer names.";
     let b = i.as_bytes();
     let name: CompressedString<5,118> = CompressedString::from_string(i);
@@ -92,7 +92,7 @@ fn test_long_string_work_with_too_many_fields() {
 }
 
 #[test]
-fn test_serde() {
+unconstrained fn test_serde() {
     let i = "Hello world. I'm setting up a very long text of blibbablubb such that we can see if works as planned for longer names.";
     let name: CompressedString<5,118> = CompressedString::from_string(i);
 
@@ -100,7 +100,7 @@ fn test_serde() {
 }
 
 #[test(should_fail)]
-fn test_long_string_fail_with_too_few_fields() {
+unconstrained fn test_long_string_fail_with_too_few_fields() {
     let i = "Hello world. I'm setting up a very long text of blibbablubb such that we can see if works as planned for longer names.";
     let b = i.as_bytes();
     let name: CompressedString<3,118> = CompressedString::from_string(i);

@@ -11,7 +11,7 @@ use crate::keys::public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys};
 
 use crate::oracle::{execution::{get_block_number, get_contract_address}};
 
-pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
+unconstrained pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
     let mut nullifiers = &[];
     for nullifier in public_inputs.nullifiers {
         if nullifier.value != 0 {
@@ -35,7 +35,7 @@ struct Deployer<let N: u32, let M: u32> {
 }
 
 impl<let N: u32, let M: u32> Deployer<N, M> {
-    pub fn with_private_initializer<C, let P: u32, Env>(
+    unconstrained pub fn with_private_initializer<C, let P: u32, Env>(
         self,
         call_interface: C
     ) -> ContractInstance where C: CallInterface<P, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
@@ -65,7 +65,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         instance
     }
 
-    pub fn with_public_initializer<C, let P: u32, T, Env>(
+    unconstrained pub fn with_public_initializer<C, let P: u32, T, Env>(
         self,
         call_interface: C
     ) -> ContractInstance where C: CallInterface<P, PublicContextInputs, T, Env> {
@@ -102,7 +102,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         instance
     }
 
-    pub fn without_initializer(self) -> ContractInstance {
+    unconstrained pub fn without_initializer(self) -> ContractInstance {
         cheatcodes::deploy(self.path, self.name, "", &[], self.public_keys_hash)
     }
 }

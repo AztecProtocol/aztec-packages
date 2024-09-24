@@ -133,7 +133,7 @@ mod test {
     }
 
     #[test]
-    fn test_encrypted_note_log_incoming_body_matches_typescript() {
+    unconstrained fn test_encrypted_note_log_incoming_body_matches_typescript() {
         // All the values in this test were copied over from `encrypted_note_log_incoming_body.test.ts`
         let note = AddressNote::new(
             AztecAddress::from_field(0x1),
@@ -249,7 +249,7 @@ mod test {
     }
 
     #[test]
-    fn test_encrypted_log_event_incoming_body() {
+    unconstrained fn test_encrypted_log_event_incoming_body() {
         let test_event = TestEvent { value0: 1, value1: 2, value2: 3 };
 
         let eph_sk = Scalar {

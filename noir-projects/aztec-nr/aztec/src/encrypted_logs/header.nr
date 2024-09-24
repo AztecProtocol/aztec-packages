@@ -29,7 +29,7 @@ impl EncryptedLogHeader {
 }
 
 #[test]
-fn test_encrypted_log_header_matches_noir() {
+unconstrained fn test_encrypted_log_header_matches_noir() {
     let address = AztecAddress::from_field(0xdeadbeef);
     let header = EncryptedLogHeader::new(address);
     let secret = Scalar {
