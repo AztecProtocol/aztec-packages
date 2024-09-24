@@ -1192,7 +1192,7 @@ using TestTypes = testing::Types<TestType<stdlib::bn254<bb::StandardCircuitBuild
                                  TestType<stdlib::bn254<bb::MegaCircuitBuilder>, UseBigfield::No>,
                                  TestType<stdlib::bn254<bb::CircuitSimulatorBN254>, UseBigfield::No>>;
 
-TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
+TYPED_TEST_SUITE(stdlib_biggroup_SKIP_CI, TestTypes);
 
 TYPED_TEST(stdlib_biggroup_SKIP_CI, add)
 {

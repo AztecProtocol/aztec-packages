@@ -562,7 +562,7 @@ template <typename OuterComposer> class stdlib_verifier_SKIP_CI : public testing
 
 typedef testing::Types<plonk::StandardComposer, plonk::UltraComposer> OuterComposerTypes;
 
-TYPED_TEST_SUITE(stdlib_verifier, OuterComposerTypes);
+TYPED_TEST_SUITE(stdlib_verifier_SKIP_CI, OuterComposerTypes);
 
 HEAVY_TYPED_TEST(stdlib_verifier_SKIP_CI, test_inner_circuit)
 {

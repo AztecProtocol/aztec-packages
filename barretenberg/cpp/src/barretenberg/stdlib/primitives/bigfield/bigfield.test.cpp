@@ -918,7 +918,7 @@ template <typename Builder> class stdlib_bigfield_SKIP_CI : public testing::Test
 // Define types for which the above tests will be constructed.
 using CircuitTypes = testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 // Define the suite of tests.
-TYPED_TEST_SUITE(stdlib_bigfield, CircuitTypes);
+TYPED_TEST_SUITE(stdlib_bigfield_SKIP_CI, CircuitTypes);
 TYPED_TEST(stdlib_bigfield_SKIP_CI, badmul)
 {
     TestFixture::test_division_formula_bug();
