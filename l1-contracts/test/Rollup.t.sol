@@ -455,15 +455,6 @@ contract RollupTest is DecoderBase {
     assertNotEq(minHeightEmpty, minHeightMixed, "Invalid min height");
   }
 
-  function testPruneDuringPropose() public setUpFor("mixed_block_1") {
-    _testBlock("mixed_block_1", false);
-    warpToL2Slot(Constants.AZTEC_EPOCH_DURATION * 2);
-    _testBlock("mixed_block_1", false, Constants.AZTEC_EPOCH_DURATION * 2);
-
-    assertEq(rollup.getPendingBlockNumber(), 1, "Invalid pending block number");
-    assertEq(rollup.getProvenBlockNumber(), 0, "Invalid proven block number");
-  }
-
   function testBlockFee() public setUpFor("mixed_block_1") {
     uint256 feeAmount = 2e18;
 

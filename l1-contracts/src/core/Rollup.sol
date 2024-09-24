@@ -229,9 +229,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body
   ) external override(IRollup) {
-    if (_canPrune()) {
-      _prune();
-    }
     bytes32 txsEffectsHash = TxsDecoder.decode(_body);
 
     // Decode and validate header
@@ -316,9 +313,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes calldata _aggregationObject,
     bytes calldata _proof
   ) external override(IRollup) {
-    if (_canPrune()) {
-      _prune();
-    }
     HeaderLib.Header memory header = HeaderLib.decode(_header);
 
     if (header.globalVariables.blockNumber > tips.pendingBlockNumber) {
