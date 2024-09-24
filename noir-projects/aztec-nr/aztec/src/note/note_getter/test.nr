@@ -94,6 +94,7 @@ fn collapses_notes_at_the_beginning_of_the_array() {
     assert_equivalent_vec_and_array(returned, expected);
 }
 
+#[test]
 fn can_return_zero_notes() {
     let mut env = setup();
     let mut context = env.private();
