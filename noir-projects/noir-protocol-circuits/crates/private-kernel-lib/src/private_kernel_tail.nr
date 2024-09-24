@@ -183,7 +183,7 @@ mod tests {
     #[test(should_fail_with="Public teardown call request must be empty when executing the tail circuit")]
     fn non_empty_public_teardown_call_request_should_fail() {
         let mut builder = PrivateKernelTailInputsBuilder::new();
-        builder.previous_kernel.append_public_teardown_call_request();
+        builder.previous_kernel.set_public_teardown_call_request();
         builder.failed();
     }
 
