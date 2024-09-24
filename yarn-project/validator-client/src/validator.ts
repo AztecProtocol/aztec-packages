@@ -1,20 +1,24 @@
-import { type BlockAttestation, type BlockProposal, type TxHash } from '@aztec/circuit-types';
+import { MerkleTreeId, Tx, type BlockAttestation, type BlockProposal, type TxHash } from '@aztec/circuit-types';
 import { type Header } from '@aztec/circuits.js';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type P2P } from '@aztec/p2p';
+import { DoubleSpendTxValidator, type P2P } from '@aztec/p2p';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import {
   AttestationTimeoutError,
+  FailedToReExecuteTransactionsError,
   InvalidValidatorPrivateKeyError,
+  PublicProcessorNotProvidedError,
   TransactionsNotAvailableError,
+  ReExStateMismatchError
 } from './errors/validator.error.js';
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
+import { LightPublicProcessor, LightPublicProcessorFactory } from '@aztec/simulator';
 
 export interface Validator {
   start(): Promise<void>;
@@ -28,6 +32,7 @@ export interface Validator {
   collectAttestations(proposal: BlockProposal, numberOfRequiredAttestations: number): Promise<BlockAttestation[]>;
 }
 
+
 /** Validator Client
  */
 export class ValidatorClient implements Validator {
@@ -37,17 +42,21 @@ export class ValidatorClient implements Validator {
     keyStore: ValidatorKeyStore,
     private p2pClient: P2P,
     private config: ValidatorClientConfig,
+    private lightPublicProcessorFactory?: LightPublicProcessorFactory | undefined,
     private log = createDebugLogger('aztec:validator'),
   ) {
-    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
-
     this.validationService = new ValidationService(keyStore);
     this.log.verbose('Initialized validator');
   }
 
-  static new(config: ValidatorClientConfig, p2pClient: P2P) {
+  static new(config: ValidatorClientConfig, p2pClient: P2P, publicProcessorFactory?: LightPublicProcessorFactory | undefined) {
     if (!config.validatorPrivateKey) {
       throw new InvalidValidatorPrivateKeyError();
+    }
+
+    //TODO: We need to setup and store all of the currently active validators https://github.com/AztecProtocol/aztec-packages/issues/7962
+    if (config.validatorReEx && publicProcessorFactory === undefined){
+      throw new PublicProcessorNotProvidedError();
     }
 
     const privateKey = validatePrivateKey(config.validatorPrivateKey);
@@ -57,6 +66,7 @@ export class ValidatorClient implements Validator {
       localKeyStore,
       p2pClient,
       config,
+      publicProcessorFactory,
     );
     validator.registerBlockProposalHandler();
     return validator;
@@ -83,8 +93,8 @@ export class ValidatorClient implements Validator {
       await this.ensureTransactionsAreAvailable(proposal);
 
       if (this.config.validatorReEx) {
-        this.log.debug(`Re-executing transactions in the proposal before attesting`);
-        // await this.reExecuteTransactions(proposal);
+        this.log.verbose(`Re-executing transactions in the proposal before attesting`);
+        await this.reExecuteTransactions(proposal);
       }
 
     } catch (error: any) {
@@ -99,6 +109,72 @@ export class ValidatorClient implements Validator {
 
     // If the above function does not throw an error, then we can attest to the proposal
     return this.validationService.attestToProposal(proposal);
+  }
+
+  async reExecuteTransactions(proposal: BlockProposal) {
+    // TODO(md): currently we are not running the rollups, so cannot calcualte the archive
+    // - use pallas new work to do this
+    const {header, txHashes} = proposal.payload;
+
+    const txs = await Promise.all(txHashes.map(tx => this.p2pClient.getTxByHash(tx)));
+    const filteredTransactions = txs.filter(tx => tx !== undefined);
+
+    // TODO: messy af - think about this more
+    if (filteredTransactions.length !== txHashes.length) {
+      this.log.error(`Failed to get transactions from the network: ${txHashes.join(', ')}`);
+      throw new TransactionsNotAvailableError(txHashes);
+    }
+
+      if (!this.lightPublicProcessorFactory) {
+        throw new PublicProcessorNotProvidedError();
+      }
+
+      // TODO(md): make the transaction validator here
+      // TODO(md): for now breaking the rules and makeing the world state sync public on the factory
+
+      const txValidator = new DoubleSpendTxValidator((this.lightPublicProcessorFactory as any).worldStateSynchronizer);
+      // We force the state to be synced here
+      const targetBlockNumber = header.globalVariables.blockNumber.toNumber() - 1;
+
+      this.log.verbose(`Re-ex: Syncing state to block number ${targetBlockNumber}`);
+      const lightProcessor = await this.lightPublicProcessorFactory.createWithSyncedState(targetBlockNumber, undefined, header.globalVariables, txValidator);
+
+      this.log.verbose(`Re-ex: Re-executing transactions`);
+      const txResults = await lightProcessor.process(filteredTransactions as Tx[]);
+      this.log.verbose(`Re-ex: Re-execution complete`);
+
+      // TODO: update this to check the archive matches
+      if (txResults === undefined) {
+        this.log.error(`Failed to re-execute transactions: ${txs.join(', ')}`);
+        throw new FailedToReExecuteTransactionsError(txHashes);
+      }
+
+      const [
+        newNullifierTree,
+        newNoteHashTree,
+        newPublicDataTree,
+        newL1ToL2MessageTree,
+      ] = await lightProcessor.getTreeSnapshots();
+
+      // Check the header has this information
+      // TODO: replace with archive check once we have it
+      if (header.state.l1ToL2MessageTree.root.toBuffer() !== (await newL1ToL2MessageTree).root) {
+        this.log.error(`Re-ex: l1ToL2MessageTree does not match`);
+        throw new ReExStateMismatchError();
+      }
+      if (header.state.partial.nullifierTree.root.toBuffer() !== (await newNullifierTree).root) {
+        this.log.error(`Re-ex: nullifierTree does not match`);
+        throw new ReExStateMismatchError();
+      }
+      if (header.state.partial.noteHashTree.root.toBuffer() !== (await newNoteHashTree).root) {
+        this.log.error(`Re-ex: noteHashTree does not match`);
+        throw new ReExStateMismatchError();
+      }
+      if (header.state.partial.publicDataTree.root.toBuffer() !== (await newPublicDataTree).root) {
+        this.log.error(`Re-ex: publicDataTree does not match`);
+        throw new ReExStateMismatchError();
+      }
+
   }
 
   /**

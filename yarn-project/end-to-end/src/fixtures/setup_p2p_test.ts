@@ -10,7 +10,9 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 import { generatePrivateKey } from 'viem/accounts';
 
+
 import { getPrivateKeyFromIndex } from './utils.js';
+
 
 export interface NodeContext {
   node: AztecNodeService;
@@ -27,6 +29,7 @@ export function generatePeerIdPrivateKeys(numberOfPeers: number): string[] {
   }
   return peerIdPrivateKeys;
 }
+
 
 export async function createNodes(
   config: AztecNodeConfig,

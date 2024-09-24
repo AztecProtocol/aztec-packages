@@ -230,6 +230,49 @@ describe('e2e_p2p_network', () => {
     await stopNodes(bootstrapNode, nodes);
   });
 
+  it.only('should rollup txs from all peers with re-execution', async () => {
+    // create the bootstrap node for the network
+    if (!bootstrapNodeEnr) {
+      throw new Error('Bootstrap node ENR is not available');
+    }
+
+    config.validatorReEx = true;
+
+    // create our network of nodes and submit txs into each of them
+    // the number of txs per node and the number of txs per rollup
+    // should be set so that the only way for rollups to be built
+    // is if the txs are successfully gossiped around the nodes.
+    const contexts: NodeContext[] = [];
+    const nodes: AztecNodeService[] = await createNodes(
+      config,
+      PEER_ID_PRIVATE_KEYS,
+      bootstrapNodeEnr,
+      NUM_NODES,
+      BOOT_NODE_UDP_PORT,
+    );
+
+    // wait a bit for peers to discover each other
+    await sleep(4000);
+
+    for (const node of nodes) {
+      const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
+      contexts.push(context);
+    }
+
+    // now ensure that all txs were successfully mined
+    await Promise.all(
+      contexts.flatMap((context, i) =>
+        context.txs.map(async (tx, j) => {
+          logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
+          return tx.wait();
+        }),
+      ),
+    );
+
+    // shutdown all nodes.
+    await stopNodes(bootstrapNode, nodes);
+  });
+
   it('should re-discover stored peers without bootstrap node', async () => {
     const contexts: NodeContext[] = [];
     const nodes: AztecNodeService[] = await createNodes(

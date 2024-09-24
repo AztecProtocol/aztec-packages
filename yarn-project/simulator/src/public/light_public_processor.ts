@@ -1,19 +1,55 @@
 // A minimal version of the public processor - that does not have the fluff
 
-import { Tx } from "@aztec/circuit-types";
+import { MerkleTreeId, Tx, TxValidator, WorldStateSynchronizer } from "@aztec/circuit-types";
 import { Gas, GlobalVariables, Header, Nullifier } from "@aztec/circuits.js";
-import { ContractDataSource } from "@aztec/types/contracts";
 import { MerkleTreeOperations } from "@aztec/world-state";
-import { WorldStateDB } from "../public/public_db_sources.js";
-import { PublicExecutor } from "../public/executor.js";
+import { WorldStateDB } from "./public_db_sources.js";
+import { PublicExecutor } from "./executor.js";
 import { TelemetryClient } from "@aztec/telemetry-client";
-import { PublicExecutionResult } from "../public/execution.js";
-import { ResetSimulatedArtifacts } from "@aztec/noir-protocol-circuits-types";
+import { PublicExecutionResult } from "./execution.js";
+import { ContractDataSource } from "@aztec/types/contracts";
+
+export class LightPublicProcessorFactory {
+    constructor(
+        private worldStateSynchronizer: WorldStateSynchronizer,
+        private contractDataSource: ContractDataSource,
+        private telemetryClient: TelemetryClient
+    ) {}
+
+    // TODO: using the same interface as the orther public processor factory
+    // But can probably do alot better here in debt cleanup
+    public async createWithSyncedState(
+        targetBlockNumber: number,
+        maybeHistoricalHeader: Header | undefined,
+        globalVariables: GlobalVariables,
+        txValidator: TxValidator
+    ) {
+        // TODO: should this be here?
+        // TODO: is this safe?
+        // Make sure the world state synchronizer is synced
+        await this.worldStateSynchronizer.syncImmediate(targetBlockNumber);
+
+        const merkleTrees = await this.worldStateSynchronizer.ephemeralFork();
+
+        // TODO(md): we need to first make sure that we are synced
+        const historicalHeader = maybeHistoricalHeader ?? merkleTrees.getInitialHeader();
+        const worldStateDB = new WorldStateDB(merkleTrees, this.contractDataSource);
+
+        return new LightPublicProcessor(merkleTrees, worldStateDB, globalVariables, historicalHeader, txValidator, this.telemetryClient);
+    }
+}
 
 
+export class InvalidTransactionsFound extends Error {
+    constructor() {
+        super("Double spend tx found");
+    }
+}
 
-
-export class PublicProcessor2 {
+/**
+ * A variant of the public processor that does not run the kernel circuits
+ */
+export class LightPublicProcessor {
 
     public publicExecutor: PublicExecutor;
 
@@ -28,6 +64,7 @@ export class PublicProcessor2 {
         private globalVariables: GlobalVariables,
         // TODO(md): check if thies can be inferred
         private historicalHeader: Header,
+        private txValidator: TxValidator,
         private telemetryClient: TelemetryClient
     ) {
         this.publicExecutor = new PublicExecutor(worldStateDB, historicalHeader, telemetryClient);
@@ -38,6 +75,15 @@ export class PublicProcessor2 {
 
     }
 
+    // NOTE: does not have the archive
+    public async getTreeSnapshots() {
+        return Promise.all([
+            this.merkleTrees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE),
+            this.merkleTrees.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE),
+            this.merkleTrees.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE),
+            this.merkleTrees.getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
+        ]);
+    }
 
     public async process(txs: Tx[]) {
         txs = txs.map(tx => Tx.clone(tx));
@@ -45,8 +91,16 @@ export class PublicProcessor2 {
         // TODO: maybe there is some extra validation to make sure that we do not overrun
         // the checks that the kernel should have been doing?
         // If not we add them to the vm execution
+        const [_, invalidTxs] = await this.txValidator.validateTxs(txs);
+
+        // If any of the transactions are invalid, we throw an error
+        if (invalidTxs.length > 0) {
+            throw new InvalidTransactionsFound();
+        }
 
         for (const tx of txs) {
+            // We have already validated the txs, so we can just apply the state updates
+
             // We always apply the private part of a transaction
             await this.applyPrivateStateUpdates(tx);
 
@@ -59,7 +113,20 @@ export class PublicProcessor2 {
     }
 
     public async applyPrivateStateUpdates(tx: Tx) {
+        // TODO(md): do the last block number check???
 
+        // TODO: read this from forPublic or forRollup???
+        if (tx.data.forRollup) {
+            // TODO: do we insert all or just non empty??
+            const {nullifiers, noteHashes} = tx.data.forRollup.end;
+            if (nullifiers) {
+                this.merkleTrees.appendLeaves(MerkleTreeId.NULLIFIER_TREE, nullifiers.map(n => n.toBuffer()));
+            }
+
+            if (noteHashes) {
+                this.merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes);
+            }
+        }
     }
 
     // NOTES:

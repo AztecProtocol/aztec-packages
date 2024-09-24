@@ -3,6 +3,7 @@ import {
   PublicExecutionRequest,
   SimulationError,
   type TreeInfo,
+  TxValidator,
   mockTx,
 } from '@aztec/circuit-types';
 import {
@@ -30,6 +31,7 @@ import { fr, makeSelector } from '@aztec/circuits.js/testing';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
+  LightPublicProcessor,
   type PublicExecutionResult,
   type PublicExecutor,
   WorldStateDB,
@@ -41,17 +43,17 @@ import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { PublicExecutionResultBuilder, makeFunctionCall } from '../mocks/fixtures.js';
-import { PublicProcessor2 } from '../public-2-electric-boogaloo/public_processor.js';
 import { Spied, SpyInstance } from 'jest-mock';
 
 describe('public_processor', () => {
   let db: MockProxy<MerkleTreeOperations>;
   let worldStateDB: MockProxy<WorldStateDB>;
+  let txValidator: MockProxy<TxValidator<any>>;
   let publicExecutorSpy: any;
 
   let root: Buffer;
 
-  let processor: PublicProcessor2;
+  let processor: LightPublicProcessor;
 
   beforeEach(() => {
     db = mock<MerkleTreeOperations>();
@@ -97,11 +99,14 @@ describe('public_processor', () => {
       db.getPreviousValueIndex.mockResolvedValue({ index: 0n, alreadyPresent: true });
       db.getLeafPreimage.mockResolvedValue(new PublicDataTreeLeafPreimage(new Fr(0), new Fr(0), new Fr(0), 0n));
 
-      processor = new PublicProcessor2(
+      txValidator = mock<TxValidator<any>>();
+
+      processor = new LightPublicProcessor(
         db,
         worldStateDB,
         GlobalVariables.from({ ...GlobalVariables.empty(), gasFees: GasFees.default() }),
         header,
+        txValidator,
         new NoopTelemetryClient(),
       );
 
