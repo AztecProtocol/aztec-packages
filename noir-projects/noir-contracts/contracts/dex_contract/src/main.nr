@@ -56,7 +56,6 @@ contract DEX {
     // where the token amount is not known in advance and we don't need to know the amounts for partial notes.
     #[public]
     fn add_liquidity(amount0Desired: u64, amount1Desired: u64, amount0Min: u64, amount1Min: u64, transfer_preparer_storage_slot_commitment: Field) {
-        // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _lock(&mut context);
 
         // Note: We don't use authwit here as the permission from a user is given by the fact that he prepared
@@ -136,7 +135,6 @@ contract DEX {
         let updated_state = State { token0: state.token0, token1: state.token1, liquidity_token: state.liquidity_token, reserve0: reserve0 + amount0, reserve1: reserve1 + amount1 };
         storage.state.write(updated_state);
 
-        // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _unlock(&mut context);
     }
 
@@ -151,7 +149,6 @@ contract DEX {
     // in this tx (token0 and token1 notes).
     #[public]
     fn remove_liquidity(amount0Min: u64, amount1Min: u64, transfer_preparer_storage_slot_commitment: Field) {
-        // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _lock(&mut context);
 
         // Note: We don't use authwit here as the permission from a user is given by the fact that he prepared
@@ -195,39 +192,45 @@ contract DEX {
         let updated_state = State { token0: state.token0, token1: state.token1, liquidity_token: state.liquidity_token, reserve0: reserve0 + amount0, reserve1: reserve1 + amount1 };
         storage.state.write(updated_state);
 
-        // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _unlock(&mut context);
     }
 
+    // Swaps `amount_in` of `token_in` for at least `amount_out_min` of `token_out`. The `from_0_to_1` flag indicates
+    // whether we are swapping `token0` for `token1` or vice versa. Similartly to `remove_liquidity` function it is
+    // expected that the user transfers the `token_in` to the pool in a `BatchCall` before calling this function.
     #[public]
     fn swap_exact_tokens_for_tokens(
         amount_in: u64,
         amount_out_min: u64,
         from_0_to_1: bool,
     ) {
+        _lock(&mut context);
+
         let state = storage.state.read();
 
-        let token0 = Token::at(state.token0);
-        let token1 = Token::at(state.token1);
+        let (token_address_in, token_address_out, reserve_in, reserve_out) = if from_0_to_1 {
+            (state.token0, state.token1, state.reserve0, state.reserve1)
+        } else {
+            (state.token1, state.token0, state.reserve1, state.reserve0)
+        };
+        let token_in = Token::at(token_address_in);
+        let token_out = Token::at(token_address_out);
 
-        let reserve0 = token0.balance_of_public(context.this_address()).view(&mut context) as u64; // TODO: Nuke the cast here.
-        let reserve1 = token1.balance_of_public(context.this_address()).view(&mut context) as u64; // TODO: Nuke the cast here.
-
-        let (reserve_in, reserve_out) = if from_0_to_1 { (reserve0, reserve1) } else { (reserve1, reserve0) };
+        let reserve_in_with_amount_in = token_in.balance_of_public(context.this_address()).view(&mut context) as u64;
+        assert(reserve_in_with_amount_in >= reserve_in + amount_in, "TOKEN_IN_NOT_TRANSFERRED_TO_POOL");
 
         let amount_out = get_amount_out(amount_in, reserve_in, reserve_out);
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
-        // How do we transfer to the pool here? One way is to track the reserves and make the user transfer to the pool
-        // We could do public_transfer_from here but it would force user to unshield and we would have to pay
-        // for public authwit.
 
-        // TransferHelper.safeTransferFrom(path[0], msg.sender, UniswapV2Library.pairFor(factory, path[0], path[1]), amounts[0]);
-        // _swap(amounts, path, to);
+        // TODO: _swap(amounts, path, to);
+
+        _unlock(&mut context);
     }
 
     // After locking and unlocking there will be 1 public data write because we always commit the last change and
     // "val1 --> val2 --> val1" does not result in 0 public data writes. TODO: Either optimize this or introduce
     // transient storage.
+    // TODO: It would be quite nice to have a reentrancy-guard macro as using locks will be quite common.
     #[contract_library_method]
     fn _lock(context: &mut PublicContext) {
         let already_locked: bool = context.storage_read(LOCK_STORAGE_SLOT);
