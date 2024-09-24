@@ -1,6 +1,6 @@
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import { Contract, createPXEClient, loadContractArtifact } from '@aztec/aztec.js';
-import TokenContractJson from '@aztec/noir-contracts.js/artifacts/token_contract-Token' assert { type: 'json' };
+import { Contract, createPXEClient, loadContractArtifact, waitForPXE } from '@aztec/aztec.js';
+import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js';
 
 import { writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -10,13 +10,12 @@ const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 async function main() {
   const pxe = createPXEClient(PXE_URL);
-  const [ownerWallet] = await getInitialTestAccountsWallets(pxe);
-  const ownerAddress = ownerWallet.getCompleteAddress();
+  await waitForPXE(pxe);
 
-  const TokenContractArtifact = loadContractArtifact(TokenContractJson);
-  const token = await Contract.deploy(ownerWallet, TokenContractArtifact, [ownerAddress, 'TokenName', 'TKN', 18])
-    .send()
-    .deployed();
+  const [ownerWallet] = await getInitialTestAccountsWallets(pxe);
+  const ownerAddress = ownerWallet.getAddress();
+
+  const token = await TokenContract.deploy(ownerWallet, ownerAddress, 'TokenName', 'TKN', 18).send().deployed();
 
   console.log(`Token deployed at ${token.address.toString()}`);
 
