@@ -52,7 +52,7 @@ export interface BlockSimulator extends ProcessedTxHandler {
   startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<ProvingTicket>;
 
   /** Cancels the block currently being processed. Processes already in progress built may continue but further proofs should not be started. */
-  cancel(): void;
+  cancelBlock(): void;
 
   /** Performs the final archive tree insertion for this block and returns the L2Block. */
   finaliseBlock(): Promise<SimulationBlockResult>;
@@ -71,8 +71,4 @@ export interface BlockProver extends BlockSimulator {
 
   /** Performs the final archive tree insertion for this block and returns the L2Block. */
   finaliseBlock(): Promise<ProvingBlockResult>;
-}
-
-export interface EpochProver extends BlockProver {
-  startNewEpoch(epochNumber: number, totalNumBlocks: number): ProvingTicket;
 }
