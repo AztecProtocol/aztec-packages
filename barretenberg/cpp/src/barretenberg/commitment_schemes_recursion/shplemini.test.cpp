@@ -85,14 +85,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 
     // Initialize an empty NativeTranscript
     auto prover_transcript = NativeTranscript::prover_init_empty();
-    auto prover_opening_claims = ShpleminiProver::prove(N,
-                                                        RefVector(f_polynomials),
-                                                        RefVector(g_polynomials),
-                                                        RefVector(v_evaluations),
-                                                        RefVector(w_evaluations),
-                                                        u_challenge,
-                                                        commitment_key,
-                                                        prover_transcript);
+    auto prover_opening_claims = ShpleminiProver::prove(
+        N, RefVector(f_polynomials), RefVector(g_polynomials), u_challenge, commitment_key, prover_transcript);
 
     Builder builder;
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, prover_transcript->proof_data);

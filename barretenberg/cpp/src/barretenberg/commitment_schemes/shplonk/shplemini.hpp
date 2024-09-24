@@ -291,11 +291,11 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
     }
     /**
-     * @brief Populates the 'commitments' and 'scalars' vectors with the commitments to Gemini fold polynomials \f$
-     * A_i \f$.
+     * @brief Populates the 'commitments' and 'scalars' vectors with the commitments to Gemini fold polynomials \f$ A_i
+     * \f$.
      *
-     * @details Once the commitments to Gemini "fold" polynomials \f$ A_i \f$ and their evaluations at \f$ -r^{2^i}
-     * \f$, where \f$ i = 1, \ldots, n-1 \f$, are received by the verifier, it performs the following operations:
+     * @details Once the commitments to Gemini "fold" polynomials \f$ A_i \f$ and their evaluations at \f$ -r^{2^i} \f$,
+     * where \f$ i = 1, \ldots, n-1 \f$, are received by the verifier, it performs the following operations:
      *
      * 1. Moves the vector
      * \f[
@@ -350,5 +350,4 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
     }
 };
-
 } // namespace bb
