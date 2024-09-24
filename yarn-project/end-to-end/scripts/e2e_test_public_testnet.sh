@@ -16,12 +16,6 @@ set -eu
 # Main positional parameter
 TEST="$1"
 
-# Check required environment variables
-if [ -z "$SEQ_PUBLISHER_PRIVATE_KEY" ] || [ -z "$PROVER_PUBLISHER_PRIVATE_KEY" ] || [ -z "$ETHEREUM_HOST" ]; then
-  echo "Environment variables SEQ_PUBLISHER_PRIVATE_KEY, PROVER_PUBLISHER_PRIVATE_KEY, and ETHEREUM_HOST are required."
-  exit 1
-fi
-
 # Variables with defaults
 HARDWARE_CONCURRENCY="${HARDWARE_CONCURRENCY:-}"
 ALLOW_FAIL="${ALLOW_FAIL:-false}"
@@ -38,8 +32,8 @@ fi
 # Run the test
 docker run \
   -e L1_CHAIN_ID="$L1_CHAIN_ID" \
-  -e ETHEREUM_HOST="$ETHEREUM_HOST" \
-  -e SEQ_PUBLISHER_PRIVATE_KEY="$SEQ_PUBLISHER_PRIVATE_KEY" \
-  -e PROVER_PUBLISHER_PRIVATE_KEY="$PROVER_PUBLISHER_PRIVATE_KEY" \
+  -e ETHEREUM_HOST="${ETHEREUM_HOST:-}" \
+  -e SEQ_PUBLISHER_PRIVATE_KEY="${SEQ_PUBLISHER_PRIVATE_KEY:-}" \
+  -e PROVER_PUBLISHER_PRIVATE_KEY="${PROVER_PUBLISHER_PRIVATE_KEY:-}" \
   -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \
   --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG "$TEST" || $allow_fail
