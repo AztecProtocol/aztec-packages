@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727186573320,
+  "lastUpdate": 1727192086163,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5a76ec61fb9dee976cdee8bba8198854d9249bf3",
-          "message": "refactor: Protogalaxy verifier matches prover 1 (#8414)\n\nThis is doing some renaming, making types explicit, and simplifying the\r\ninitialization used to produce an output accumulator.",
-          "timestamp": "2024-09-11T12:21:12-04:00",
-          "tree_id": "2df4f9ee7198b7a0670a5ee21ccfb4c3a5846957",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5a76ec61fb9dee976cdee8bba8198854d9249bf3"
-        },
-        "date": 1726072740097,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 13126.410951999986,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9954.003275000001 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5150.760734999992,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4755.643168 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 39464.853223000006,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 39464853000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14595.896837999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14595896000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3604309527,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3604309527 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 145238763,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 145238763 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2966150783,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2966150783 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 122920882,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 122920882 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,78 @@ window.BENCHMARK_DATA = {
             "value": 155233205,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 155233205 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47112877+dbanks12@users.noreply.github.com",
+            "name": "David Banks",
+            "username": "dbanks12"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d5f16cc41bc077f24947fc92af2767630e928ed8",
+          "message": "chore: gas premiums for AVM side effects, DA gas in AVM (#8632)",
+          "timestamp": "2024-09-24T15:14:29Z",
+          "tree_id": "20a996b2debcd38ec46edf11bbd83122fcbd3448",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d5f16cc41bc077f24947fc92af2767630e928ed8"
+        },
+        "date": 1727192078978,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 35576.865808999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 33394.66969 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5074.520644999992,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4697.325694 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 109804.60372300001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 109804605000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14673.233361999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14673233000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8633977977,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8633977977 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 159119559,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 159119559 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8475880655,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8475880655 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 149702573,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 149702573 ns\nthreads: 1"
           }
         ]
       }
