@@ -214,7 +214,6 @@ contract DEX {
             (state.token1, state.token0, state.reserve1, state.reserve0)
         };
         let token_in = Token::at(token_address_in);
-        let token_out = Token::at(token_address_out);
 
         let reserve_in_with_amount_in = token_in.balance_of_public(context.this_address()).view(&mut context) as u64;
         assert(reserve_in_with_amount_in >= reserve_in + amount_in, "TOKEN_IN_NOT_TRANSFERRED_TO_POOL");
@@ -223,6 +222,17 @@ contract DEX {
         assert(amount_out >= amount_out_min, "INSUFFICIENT_OUTPUT_AMOUNT");
 
         // TODO: _swap(amounts, path, to);
+
+        _unlock(&mut context);
+    }
+
+    // Swaps `amount_out` of `token_out` for at most `amount_in_max` of `token_in`. The `from_0_to_1` flag indicates
+    // whether we are swapping `token0` for `token1` or vice versa.
+    #[public]
+    fn swap_tokens_for_exact_tokens(amount_out: u64, amount_in_max: u64, from_0_to_1: bool) {
+        _lock(&mut context);
+
+        // TODO
 
         _unlock(&mut context);
     }
