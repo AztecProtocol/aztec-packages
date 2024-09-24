@@ -16,7 +16,7 @@ import {
     CONST_PROOF_SIZE_LOG_N
 } from "../HonkTypes.sol";
 
-import {ecMul, logFr, ecAdd, ecSub, negateInplace, convertProofPoint} from "../utils.sol";
+import {ecMul, ecAdd, ecSub, negateInplace, convertProofPoint} from "../utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
 import {MODULUS as P, MINUS_ONE, Fr, FrLib} from "../Fr.sol";
@@ -99,7 +99,6 @@ contract Add2HonkVerifier is IVerifier {
             if (!valid) revert SumcheckFailed();
 
             Fr roundChallenge = tp.sumCheckUChallenges[round];
-            logFr("round challenge: ", roundChallenge);
 
             // Update the round target for the next rounf
             roundTarget = computeNextTargetSum(roundUnivariate, roundChallenge);

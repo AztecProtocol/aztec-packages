@@ -1,10 +1,8 @@
 #pragma once
-#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/decider_verification_key.hpp"
 
 namespace bb {
