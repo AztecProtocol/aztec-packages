@@ -236,17 +236,20 @@ void build_constraints(Builder& builder,
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
         AggregationObjectIndices current_aggregation_object =
             stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
-        process_honk_recursion_constraints(
+        current_aggregation_object = process_honk_recursion_constraints(
             builder, constraint_system, has_valid_witness_assignments, gate_counter, current_aggregation_object);
 
 #ifndef DISABLE_AZTEC_VM
-        process_avm_recursion_constraints(
+        current_aggregation_object = process_avm_recursion_constraints(
             builder, constraint_system, has_valid_witness_assignments, gate_counter, current_aggregation_object);
 #endif
-
-        // If the circuit is going to be proven with honk and recursively verified, add the aggregation object. It will
-        // be default if the circuit has no honk or avm recursion constraints.
-        if (honk_recursion && builder.is_recursive_circuit) {
+        // If the circuit has either honk or avm recursion constraints, add the aggregation object. Otherwise, add a
+        // default one if the circuit is recursive and honk_recursion is true.
+        if (!constraint_system.honk_recursion_constraints.empty() ||
+            !constraint_system.avm_recursion_constraints.empty()) {
+            ASSERT(honk_recursion);
+            builder.add_recursive_proof(current_aggregation_object);
+        } else if (honk_recursion && builder.is_recursive_circuit) {
             // Make sure the verification key records the public input indices of the
             // final recursion output.
             builder.add_recursive_proof(current_aggregation_object);
@@ -342,11 +345,11 @@ void process_plonk_recursion_constraints(Builder& builder,
     }
 }
 
-void process_honk_recursion_constraints(Builder& builder,
-                                        AcirFormat& constraint_system,
-                                        bool has_valid_witness_assignments,
-                                        GateCounter<Builder>& gate_counter,
-                                        AggregationObjectIndices& current_aggregation_object)
+AggregationObjectIndices process_honk_recursion_constraints(Builder& builder,
+                                                            AcirFormat& constraint_system,
+                                                            bool has_valid_witness_assignments,
+                                                            GateCounter<Builder>& gate_counter,
+                                                            AggregationObjectIndices current_aggregation_object)
 {
     // Add recursion constraints
     size_t idx = 0;
@@ -357,16 +360,15 @@ void process_honk_recursion_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
+    return current_aggregation_object;
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1095): Probably makes sense to aggregate Honk and AVM
-// proofs together.
 #ifndef DISABLE_AZTEC_VM
-void process_avm_recursion_constraints(Builder& builder,
-                                       AcirFormat& constraint_system,
-                                       bool has_valid_witness_assignments,
-                                       GateCounter<Builder>& gate_counter,
-                                       AggregationObjectIndices& current_aggregation_object)
+AggregationObjectIndices process_avm_recursion_constraints(Builder& builder,
+                                                           AcirFormat& constraint_system,
+                                                           bool has_valid_witness_assignments,
+                                                           GateCounter<Builder>& gate_counter,
+                                                           AggregationObjectIndices current_aggregation_object)
 {
     // Add recursion constraints
     size_t idx = 0;
@@ -377,6 +379,7 @@ void process_avm_recursion_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.avm_recursion_constraints.at(idx++));
     }
+    return current_aggregation_object;
 }
 #endif // DISABLE_AZTEC_VM
 
