@@ -3,7 +3,6 @@
 # Usage: ./e2e_test.sh <test>
 # Optional environment variables:
 #   HARDWARE_CONCURRENCY (default: "")
-#   ALLOW_FAIL (default: false)
 
 set -eu
 
