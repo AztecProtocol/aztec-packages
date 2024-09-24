@@ -7,7 +7,6 @@ nargo-src:
     # Relevant source (TODO finer-grained 'tooling')
     COPY --dir \
       noir-repo/acvm-repo \
-      noir-repo/aztec_macros \
       noir-repo/compiler \
       noir-repo/noir_stdlib \
       noir-repo/tooling \
@@ -116,7 +115,6 @@ packages-deps:
     # Relevant source (TODO finer-grained)
     COPY --dir \
       noir-repo/acvm-repo \
-      noir-repo/aztec_macros \
       noir-repo/compiler \
       noir-repo/docs \
       noir-repo/noir_stdlib \
