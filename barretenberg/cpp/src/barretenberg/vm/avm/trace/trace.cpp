@@ -2923,12 +2923,12 @@ void AvmTraceBuilder::op_keccak(uint8_t indirect,
     auto [resolved_output_offset, resolved_input_offset, resolved_input_size_offset] =
         unpack_indirects<3>(indirect, { output_offset, input_offset, input_size_offset });
 
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::KECCAK);
-
     // Read the input length first
     auto input_length_read = constrained_read_from_memory(
         call_ptr, clk, resolved_input_size_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas(clk, OpCode::KECCAK, static_cast<uint32_t>(input_length_read.val));
 
     // Store the clock time that we will use to line up the gadget later
     auto keccak_op_clk = clk;
@@ -3123,7 +3123,8 @@ void AvmTraceBuilder::op_pedersen_hash(uint8_t indirect,
     auto gen_ctx_read = unconstrained_read_from_memory(resolved_gen_ctx_offset);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSEN);
+    // TODO(dbanks12): need tag check u32 here on input size
+    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSEN, static_cast<uint32_t>(input_size_read));
 
     // We read the input and output addresses in one row as they should contain FF elements
     main_trace.push_back(Row{
@@ -3141,8 +3142,8 @@ void AvmTraceBuilder::op_pedersen_hash(uint8_t indirect,
     });
 
     std::vector<FF> inputs;
-    read_slice_from_memory<FF>(resolved_input_offset, uint32_t(input_size_read), inputs);
-    FF output = pedersen_trace_builder.pedersen_hash(inputs, uint32_t(gen_ctx_read), clk);
+    read_slice_from_memory<FF>(resolved_input_offset, static_cast<uint32_t>(input_size_read), inputs);
+    FF output = pedersen_trace_builder.pedersen_hash(inputs, static_cast<uint32_t>(gen_ctx_read), clk);
     write_slice_to_memory(resolved_output_offset, AvmMemoryTag::FF, std::vector<FF>{ output });
 }
 
@@ -3285,7 +3286,9 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
         .main_tag_err = FF(0),
     });
 
-    gas_trace_builder.constrain_gas(clk, OpCode::MSM);
+    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
+    // run out of gas. Casting/truncating here is not secure.
+    gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
 
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     AddressWithMode output_offset_direct =
@@ -3323,7 +3326,9 @@ void AvmTraceBuilder::op_pedersen_commit(uint8_t indirect,
         .main_tag_err = FF(0),
     });
 
-    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSENCOMMITMENT);
+    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
+    // run out of gas. Casting/truncating here is not secure.
+    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSENCOMMITMENT, static_cast<uint32_t>(input_length_read));
 
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     AddressWithMode output_offset_direct =
