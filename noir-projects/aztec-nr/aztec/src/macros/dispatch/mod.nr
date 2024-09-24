@@ -2,8 +2,8 @@ use protocol_types::abis::function_selector::FunctionSelector;
 use crate::context::inputs::public_context_inputs::PublicContextInputs;
 use super::utils::compute_fn_selector;
 
-/// Returns an `fn public_entrypoint(...)` function for the given module that's assumed to be an Aztec contract.
-pub comptime fn generate_public_entrypoint(m: Module) -> Quoted {
+/// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
+pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
     let functions = m.functions();
     let functions = functions.filter(|function: FunctionDefinition| function.has_named_attribute("public"));
 
@@ -68,7 +68,7 @@ pub comptime fn generate_public_entrypoint(m: Module) -> Quoted {
     let dispatch = ifs.join(quote { else });
 
     let body = quote {
-        pub fn public_entrypoint(arg0: $public_context_inputs, selector: Field) {
+        pub fn public_dispatch(arg0: $public_context_inputs, selector: Field) {
             let mut offset = 0;
             $dispatch
         }

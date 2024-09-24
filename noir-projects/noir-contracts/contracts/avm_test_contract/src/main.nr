@@ -573,9 +573,9 @@ mod tests {
     use aztec::context::inputs::public_context_inputs::PublicContextInputs;
 
     #[test]
-    fn contract_has_public_entrypoint() {
+    fn contract_has_public_dispatch() {
         let selector = 0;
         let inputs = PublicContextInputs::empty();
-        AvmTest::public_entrypoint(inputs, selector);
+        AvmTest::public_dispatch(inputs, selector);
     }
 }

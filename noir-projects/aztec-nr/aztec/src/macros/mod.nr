@@ -1,4 +1,4 @@
-mod entrypoint;
+mod dispatch;
 mod functions;
 mod utils;
 mod notes;
@@ -11,7 +11,7 @@ use notes::{NOTES, generate_note_export};
 
 use functions::transform_unconstrained;
 use utils::module_has_storage;
-use entrypoint::generate_public_entrypoint;
+use dispatch::generate_public_dispatch;
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
 /// the `compute_note_hash_and_optionally_a_nullifier` function PXE requires in order to validate notes.
@@ -25,12 +25,12 @@ pub comptime fn aztec(m: Module) -> Quoted {
     }
     let compute_note_hash_and_optionally_a_nullifier = generate_compute_note_hash_and_optionally_a_nullifier();
     let note_exports = generate_note_exports();
-    let public_entrypoint = generate_public_entrypoint(m);
+    let public_dispatch = generate_public_dispatch(m);
     quote {
         $note_exports
         $interface
         $compute_note_hash_and_optionally_a_nullifier
-        $public_entrypoint
+        $public_dispatch
     }
 }
 
