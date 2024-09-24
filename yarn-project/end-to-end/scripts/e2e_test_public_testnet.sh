@@ -1,11 +1,10 @@
 #!/bin/bash
 
 # Usage: ./e2e_test_public_testnet.sh <test>
-# Required environment variables:
+# Optional environment variables:
 #   SEQ_PUBLISHER_PRIVATE_KEY
 #   PROVER_PUBLISHER_PRIVATE_KEY
 #   ETHEREUM_HOST
-# Optional environment variables:
 #   HARDWARE_CONCURRENCY (default: "")
 #   ALLOW_FAIL (default: false)
 #   L1_CHAIN_ID (default: "31337")
