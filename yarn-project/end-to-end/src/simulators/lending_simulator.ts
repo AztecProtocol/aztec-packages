@@ -5,7 +5,8 @@ import { pedersenHash } from '@aztec/foundation/crypto';
 import { type RollupAbi } from '@aztec/l1-artifacts';
 import { type LendingContract } from '@aztec/noir-contracts.js/Lending';
 
-import { type Chain, type GetContractReturnType, type HttpTransport, type PublicClient } from 'viem';
+import { type Account, type GetContractReturnType, type HttpTransport, type WalletClient } from 'viem';
+import type * as chains from 'viem/chains';
 
 import { type TokenSimulator } from './token_simulator.js';
 
@@ -81,7 +82,7 @@ export class LendingSimulator {
     private account: LendingAccount,
     private rate: bigint,
     /** the rollup contract */
-    public rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>,
+    public rollup: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, chains.Chain, Account>>,
     /** the lending contract */
     public lendingContract: LendingContract,
     /** the collateral asset used in the lending contract */
@@ -110,6 +111,8 @@ export class LendingSimulator {
 
     // Mine ethereum blocks such that the next block will be in a new slot
     await this.cc.eth.warp(this.time - ETHEREUM_SLOT_DURATION);
+
+    await this.rollup.write.setAssumeProvenThroughBlockNumber([(await this.rollup.read.getPendingBlockNumber()) + 1n]);
     this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(timeDiff)), BASE);
   }
 
