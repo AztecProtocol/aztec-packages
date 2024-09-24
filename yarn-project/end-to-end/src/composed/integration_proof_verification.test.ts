@@ -74,7 +74,10 @@ describe('proof_verification', () => {
     acvmTeardown = acvm!.cleanup;
     logger.info('bb, acvm done');
 
-    const content = await circuitVerifier.generateSolidityContract('BlockRootRollupArtifact', 'UltraHonkVerifier.sol');
+    const content = await circuitVerifier.generateSolidityContract(
+      'BlockRootRollupFinalArtifact',
+      'UltraHonkVerifier.sol',
+    );
     logger.info('generated contract');
 
     const input = {
@@ -137,7 +140,9 @@ describe('proof_verification', () => {
 
   describe('bb', () => {
     it('verifies proof', async () => {
-      await expect(circuitVerifier.verifyProofForCircuit('BlockRootRollupArtifact', proof)).resolves.toBeUndefined();
+      await expect(
+        circuitVerifier.verifyProofForCircuit('BlockRootRollupFinalArtifact', proof),
+      ).resolves.toBeUndefined();
     });
   });
 

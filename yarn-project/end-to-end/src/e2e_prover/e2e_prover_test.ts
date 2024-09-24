@@ -358,7 +358,7 @@ export class FullProverTest {
     const { walletClient, publicClient, l1ContractAddresses } = this.context.deployL1ContractsValues;
 
     const contract = await (this.circuitProofVerifier as BBCircuitVerifier).generateSolidityContract(
-      'BlockRootRollupArtifact',
+      'BlockRootRollupFinalArtifact',
       'UltraHonkVerifier.sol',
     );
 

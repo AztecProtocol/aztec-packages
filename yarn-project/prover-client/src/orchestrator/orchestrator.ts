@@ -868,6 +868,8 @@ export class ProvingOrchestrator implements EpochProver {
       proverId: this.proverId,
     });
 
+    const shouldProveEpoch = this.provingState!.totalNumBlocks > 1;
+
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
@@ -877,7 +879,10 @@ export class ProvingOrchestrator implements EpochProver {
           [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'block-root-rollup' satisfies CircuitName,
         },
-        signal => this.prover.getBlockRootRollupProof(inputs, signal, provingState.epochNumber),
+        signal =>
+          shouldProveEpoch
+            ? this.prover.getBlockRootRollupProof(inputs, signal, provingState.epochNumber)
+            : this.prover.getBlockRootRollupFinalProof(inputs, signal, provingState.epochNumber),
       ),
       result => {
         const header = this.extractBlockHeaderFromPublicInputs(provingState, result.inputs);
@@ -896,7 +901,7 @@ export class ProvingOrchestrator implements EpochProver {
         // validatePartialState(result.inputs.end, tx.treeSnapshots); // TODO(palla/prover)
 
         // TODO(palla/prover): Remove this once we've dropped the flow for proving single blocks
-        if (this.provingState?.totalNumBlocks === 1) {
+        if (!shouldProveEpoch) {
           logger.verbose(`Skipping epoch rollup, only one block in epoch`);
           return;
         }

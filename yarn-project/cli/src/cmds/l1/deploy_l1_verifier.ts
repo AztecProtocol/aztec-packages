@@ -27,7 +27,7 @@ export async function deployUltraHonkVerifier(
 
   const circuitVerifier = await BBCircuitVerifier.new({ bbBinaryPath, bbWorkingDirectory });
   const contractSrc = await circuitVerifier.generateSolidityContract(
-    'BlockRootRollupArtifact',
+    'BlockRootRollupFinalArtifact',
     'UltraHonkVerifier.sol',
   );
   log('Generated UltraHonkVerifier contract');
