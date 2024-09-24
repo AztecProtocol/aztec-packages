@@ -34,7 +34,7 @@ impl TailToPublicOutputComposer {
         let mut output = PublicKernelCircuitPublicInputs::empty();
         output.validation_requests = validation_requests;
         output.constants = source.constants;
-        output.public_teardown_call_stack[0] = source.public_teardown_call_request.expose_to_public();
+        output.public_teardown_call_request = source.public_teardown_call_request.expose_to_public();
         output.fee_payer = source.fee_payer;
 
         let mut (end_non_revertible, end) = split_to_public(source.end, source.min_revertible_side_effect_counter);
