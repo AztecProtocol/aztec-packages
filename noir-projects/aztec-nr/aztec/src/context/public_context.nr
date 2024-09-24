@@ -134,9 +134,7 @@ impl PublicContext {
     }
     fn get_args_hash(mut self) -> Field {
         if !self.args_hash.is_some() {
-            let compute_args_hash = self.compute_args_hash;
-
-            self.args_hash = Option::some(compute_args_hash());
+            self.args_hash = Option::some((self.compute_args_hash)());
         }
 
         self.args_hash.unwrap_unchecked()
