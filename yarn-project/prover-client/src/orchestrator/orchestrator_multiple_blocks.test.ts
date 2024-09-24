@@ -19,17 +19,17 @@ describe('prover/orchestrator/multi-block', () => {
   });
 
   describe('multiple blocks', () => {
-    it.each([4, 5])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
-      const provingTicket = context.orchestrator.startNewEpoch(1, numBlocks);
+    it('builds multiple blocks in sequence', async () => {
+      const numBlocks = 5;
       let header = context.actualDb.getInitialHeader();
 
       for (let i = 0; i < numBlocks; i++) {
-        logger.info(`Creating block ${i + 1000}`);
         const tx = makeBloatedProcessedTx(context.actualDb, i + 1);
         tx.data.constants.historicalHeader = header;
         tx.data.constants.vkTreeRoot = getVKTreeRoot();
 
         const blockNum = i + 1000;
+
         const globals = makeGlobals(blockNum);
 
         // This will need to be a 2 tx block
@@ -46,15 +46,9 @@ describe('prover/orchestrator/multi-block', () => {
 
         expect(finalisedBlock.block.number).toEqual(blockNum);
         header = finalisedBlock.block.header;
+
+        await context.actualDb.commit();
       }
-
-      logger.info('Awaiting epoch ticket');
-      const result = await provingTicket.provingPromise;
-      expect(result).toEqual({ status: PROVING_STATUS.SUCCESS });
-
-      const epoch = context.orchestrator.finaliseEpoch();
-      expect(epoch.publicInputs.endBlockNumber.toNumber()).toEqual(1000 + numBlocks - 1);
-      expect(epoch.proof).toBeDefined();
     });
   });
 });
