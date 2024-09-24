@@ -10,7 +10,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ### [Aztec.nr] Changes to `NullifiableNote`
 
-The `compute_nullifier_without_context` function is now `unconstrained`. It had always been meant to be called in unconstrained contexts (which is why it did not receive the `context` object), but now that Noir supports trait functions being `unconstrained` this canbe implemented properly. Users must add the `unconstrained` keyword to their implementations of the trait:
+The `compute_nullifier_without_context` function is now `unconstrained`. It had always been meant to be called in unconstrained contexts (which is why it did not receive the `context` object), but now that Noir supports trait functions being `unconstrained` this can be implemented properly. Users must add the `unconstrained` keyword to their implementations of the trait:
 
 ```diff
 impl NullifiableNote for MyCustomNote {
