@@ -26,8 +26,6 @@ contract Test {
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
     use dep::aztec::keys::getters::get_public_keys;
 
-    use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter};
-
     use dep::aztec::{
         context::inputs::private_context_inputs::PrivateContextInputs,
         hash::{pedersen_hash, compute_secret_hash, ArgsHasher}, keys::public_keys::IvpkM,
@@ -483,24 +481,6 @@ contract Test {
     unconstrained fn get_constant() -> pub Field {
         let constant = storage.example_constant.view_note();
         constant.value
-    }
-
-    // This function is used in the e2e_state_vars to test the SharedMutablePrivateGetter in isolation
-    #[private]
-    fn test_shared_mutable_private_getter(
-        contract_address_to_read: AztecAddress,
-        storage_slot_of_shared_mutable: Field
-    ) -> Field {
-        // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let test: SharedMutablePrivateGetter<AztecAddress, 5> = SharedMutablePrivateGetter::new(
-            &mut context,
-            contract_address_to_read,
-            storage_slot_of_shared_mutable
-        );
-
-        let ret = test.get_value_in_private(context.get_header());
-
-        ret.to_field()
     }
 
     #[private]

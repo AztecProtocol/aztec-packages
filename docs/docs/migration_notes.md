@@ -6,8 +6,13 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 0.56.0
+## TBD
 
+### [Aztec.nr] Removed `SharedMutablePrivateGetter`
+
+This state variable was deleted due to it being difficult to use safely.
+
+## 0.56.0
 
 ### [Aztec.nr] Changes to contract definition
 
