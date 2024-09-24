@@ -285,16 +285,21 @@ global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 // Lengths of the different types of proofs in fields
 global RECURSIVE_PROOF_LENGTH: u32 = 439;
 global NESTED_RECURSIVE_PROOF_LENGTH: u32 = 439;
-global TUBE_PROOF_LENGTH = RECURSIVE_PROOF_LENGTH; // in the future these can differ
+global TUBE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH; // in the future these can differ
 
-global VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
-
-// The length is 2 + AvmFlavor::NUM_PRECOMPUTED_ENTITIES * 4
+global VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 128;
+// VK is composed of
+// - circuit size encoded as a fr field element (32 bytes)
+// - num of inputs encoded as a fr field element (32 bytes)
+// - 16 affine elements (curve base field fq) encoded as fr elements takes (16 * 4 * 32 bytes)
+// 16 above refers to the constant AvmFlavor::NUM_PRECOMPUTED_ENTITIES
 global AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 16 * 4;
+
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3817;
+global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 3822;
+global AVM_PUBLIC_COLUMN_MAX_SIZE_LOG2 = 8;
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
  * We start from 1 to avoid the default generators. The generator indices are listed
@@ -378,6 +383,7 @@ global SENDER_SELECTOR: u32 = 0;
 global ADDRESS_SELECTOR: u32 = SENDER_SELECTOR + 1;
 global STORAGE_ADDRESS_SELECTOR: u32 = ADDRESS_SELECTOR;
 global FUNCTION_SELECTOR_SELECTOR: u32 = ADDRESS_SELECTOR + 1;
+global IS_STATIC_CALL_SELECTOR: u32 = FUNCTION_SELECTOR_SELECTOR + 2;
 // Global Variables
 global START_GLOBAL_VARIABLES: u32 = CALL_CONTEXT_LENGTH + HEADER_LENGTH;
 global CHAIN_ID_SELECTOR: u32 = START_GLOBAL_VARIABLES;
@@ -428,20 +434,8 @@ global AVM_NOT_BASE_L2_GAS: u16 = 270;
 global AVM_SHL_BASE_L2_GAS: u16 = 320;
 global AVM_SHR_BASE_L2_GAS: u16 = 320;
 global AVM_CAST_BASE_L2_GAS: u16 = 300;
-global AVM_ADDRESS_BASE_L2_GAS: u16 = 200;
-global AVM_STORAGEADDRESS_BASE_L2_GAS: u16 = 200;
-global AVM_SENDER_BASE_L2_GAS: u16 = 200;
-global AVM_FUNCTIONSELECTOR_BASE_L2_GAS: u16 = 200;
-global AVM_TRANSACTIONFEE_BASE_L2_GAS: u16 = 200;
-global AVM_CHAINID_BASE_L2_GAS: u16 = 200;
-global AVM_VERSION_BASE_L2_GAS: u16 = 200;
-global AVM_BLOCKNUMBER_BASE_L2_GAS: u16 = 200;
-global AVM_TIMESTAMP_BASE_L2_GAS: u16 = 200;
-global AVM_FEEPERL2GAS_BASE_L2_GAS: u16 = 200;
-global AVM_FEEPERDAGAS_BASE_L2_GAS: u16 = 200;
+global AVM_GETENVVAR_BASE_L2_GAS: u16 = 200;
 global AVM_CALLDATACOPY_BASE_L2_GAS: u16 = 290;
-global AVM_L2GASLEFT_BASE_L2_GAS: u16 = 180;
-global AVM_DAGASLEFT_BASE_L2_GAS: u16 = 180;
 global AVM_JUMP_BASE_L2_GAS: u16 = 120;
 global AVM_JUMPI_BASE_L2_GAS: u16 = 180;
 global AVM_INTERNALCALL_BASE_L2_GAS: u16 = 180;
@@ -491,20 +485,7 @@ global AVM_NOT_DYN_L2_GAS: u16 = 0;
 global AVM_SHL_DYN_L2_GAS: u16 = 0;
 global AVM_SHR_DYN_L2_GAS: u16 = 0;
 global AVM_CAST_DYN_L2_GAS: u16 = 0;
-global AVM_ADDRESS_DYN_L2_GAS: u16 = 0;
-global AVM_STORAGEADDRESS_DYN_L2_GAS: u16 = 0;
-global AVM_SENDER_DYN_L2_GAS: u16 = 0;
-global AVM_FUNCTIONSELECTOR_DYN_L2_GAS: u16 = 0;
-global AVM_TRANSACTIONFEE_DYN_L2_GAS: u16 = 0;
-global AVM_CHAINID_DYN_L2_GAS: u16 = 0;
-global AVM_VERSION_DYN_L2_GAS: u16 = 0;
-global AVM_BLOCKNUMBER_DYN_L2_GAS: u16 = 0;
-global AVM_TIMESTAMP_DYN_L2_GAS: u16 = 0;
-global AVM_FEEPERL2GAS_DYN_L2_GAS: u16 = 0;
-global AVM_FEEPERDAGAS_DYN_L2_GAS: u16 = 0;
 global AVM_CALLDATACOPY_DYN_L2_GAS: u16 = 50;
-global AVM_L2GASLEFT_DYN_L2_GAS: u16 = 0;
-global AVM_DAGASLEFT_DYN_L2_GAS: u16 = 0;
 global AVM_JUMP_DYN_L2_GAS: u16 = 0;
 global AVM_JUMPI_DYN_L2_GAS: u16 = 0;
 global AVM_INTERNALCALL_DYN_L2_GAS: u16 = 0;

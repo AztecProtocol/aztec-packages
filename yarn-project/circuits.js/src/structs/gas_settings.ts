@@ -1,3 +1,4 @@
+import { compact } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
@@ -66,13 +67,13 @@ export class GasSettings {
   }
 
   /** Default gas settings to use when user has not provided them. */
-  static default(overrides?: Partial<FieldsOf<GasSettings>>) {
+  static default(overrides: Partial<FieldsOf<GasSettings>> = {}) {
     return GasSettings.from({
       gasLimits: { l2Gas: DEFAULT_GAS_LIMIT, daGas: DEFAULT_GAS_LIMIT },
       teardownGasLimits: { l2Gas: DEFAULT_TEARDOWN_GAS_LIMIT, daGas: DEFAULT_TEARDOWN_GAS_LIMIT },
       maxFeesPerGas: { feePerL2Gas: new Fr(DEFAULT_MAX_FEE_PER_GAS), feePerDaGas: new Fr(DEFAULT_MAX_FEE_PER_GAS) },
       inclusionFee: new Fr(DEFAULT_INCLUSION_FEE),
-      ...overrides,
+      ...compact(overrides),
     });
   }
 

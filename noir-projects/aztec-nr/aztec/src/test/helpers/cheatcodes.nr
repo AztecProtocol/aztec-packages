@@ -111,6 +111,10 @@ unconstrained pub fn set_fn_selector(selector: FunctionSelector) {
     oracle_set_function_selector(selector)
 }
 
+unconstrained pub fn set_is_static_call(is_static: bool) {
+    oracle_set_is_static_call(is_static)
+}
+
 #[oracle(reset)]
 unconstrained fn oracle_reset() {}
 
@@ -156,6 +160,9 @@ unconstrained fn oracle_get_msg_sender() -> AztecAddress {}
 
 #[oracle(setMsgSender)]
 unconstrained fn oracle_set_msg_sender(msg_sender: AztecAddress) {}
+
+#[oracle(setIsStaticCall)]
+unconstrained fn oracle_set_is_static_call(is_static: bool) {}
 
 #[oracle(getSideEffectsCounter)]
 unconstrained fn oracle_get_side_effects_counter() -> u32 {}
