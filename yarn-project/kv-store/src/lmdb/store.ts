@@ -1,7 +1,7 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { mkdirSync } from 'fs';
-import { mkdtemp } from 'fs/promises';
+import { mkdtemp, rm } from 'fs/promises';
 import { type Database, type Key, type RootDatabase, open } from 'lmdb';
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
@@ -150,9 +150,13 @@ export class AztecLmdbStore implements AztecKVStore {
     await this.#rootDb.clearAsync();
   }
 
-  /** Deletes this store */
+  /** Deletes this store and removes the database files from disk */
   async delete() {
     await this.#rootDb.drop();
+    if (this.path) {
+      await rm(this.path, { recursive: true, force: true });
+      this.#log.verbose(`Deleted database files at ${this.path}`);
+    }
   }
 
   estimateSize(): { bytes: number } {

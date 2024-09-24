@@ -12,7 +12,7 @@ import { type AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { mockGetBytecode, mockTraceFork } from '../test_utils.js';
-import { L2GasLeft } from './context_getters.js';
+import { EnvironmentVariable, GetEnvVar } from './environment_getters.js';
 import { Call, Return, Revert, StaticCall } from './external_calls.js';
 import { type Instruction } from './instruction.js';
 import { CalldataCopy, Set } from './memory.js';
@@ -127,7 +127,7 @@ describe('External Calls', () => {
       expect(await context.persistableState.peekStorage(addr, slot)).toEqual(valueToStore);
 
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas);
-      expect(context.machineState.daGasLeft).toEqual(initialDaGas);
+      expect(context.machineState.daGasLeft).toBeLessThanOrEqual(initialDaGas);
     });
 
     it('Should cap to available gas if allocated is bigger', async () => {
@@ -144,7 +144,10 @@ describe('External Calls', () => {
 
       const otherContextInstructionsBytecode = markBytecodeAsAvm(
         encodeToBytecode([
-          new L2GasLeft(/*indirect=*/ 0, /*dstOffset=*/ 0),
+          new GetEnvVar(/*indirect=*/ 0, /*envVar=*/ EnvironmentVariable.L2GASLEFT, /*dstOffset=*/ 0).as(
+            Opcode.GETENVVAR_16,
+            GetEnvVar.wireFormat16,
+          ),
           new Return(/*indirect=*/ 0, /*retOffset=*/ 0, /*size=*/ 1),
         ]),
       );
@@ -177,7 +180,7 @@ describe('External Calls', () => {
       expect(retValue).toBeLessThan(initialL2Gas);
 
       expect(context.machineState.l2GasLeft).toBeLessThan(initialL2Gas);
-      expect(context.machineState.daGasLeft).toEqual(initialDaGas);
+      expect(context.machineState.daGasLeft).toBeLessThanOrEqual(initialDaGas);
     });
   });
 

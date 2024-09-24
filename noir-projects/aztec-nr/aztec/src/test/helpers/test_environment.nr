@@ -11,10 +11,10 @@ use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deplo
 use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
 use crate::hash::hash_args;
 
-use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
+use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};
 use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_created_note};
 
-struct TestEnvironment {}
+pub struct TestEnvironment {}
 
 impl TestEnvironment {
     fn new() -> Self {
@@ -153,6 +153,7 @@ impl TestEnvironment {
         cheatcodes::set_fn_selector(fn_selector);
         cheatcodes::set_contract_address(target_address);
         cheatcodes::set_msg_sender(original_contract_address);
+        cheatcodes::set_is_static_call(call_interface.get_is_static());
         let mut inputs = cheatcodes::get_public_context_inputs();
         inputs.calldata_length = call_interface.get_args().len() as Field;
         inputs.is_static_call = call_interface.get_is_static();
@@ -164,6 +165,7 @@ impl TestEnvironment {
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);
         cheatcodes::set_calldata(calldata);
+        cheatcodes::set_is_static_call(call_interface.get_is_static());
         result
     }
 
@@ -194,20 +196,19 @@ impl TestEnvironment {
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
     /// not having an encrypted log emitted. TXE alternative to `PXE.addNote(...)`.
-    pub fn add_note<Note, let N: u32, let M: u32>(
+    pub fn add_note<Note, let N: u32>(
         _self: Self,
         note: &mut Note,
         storage_slot: Field,
         contract_address: AztecAddress
-    ) where Note: NoteInterface<N, M> {
+    ) where Note: NoteInterface<N> + NullifiableNote {
         let original_contract_address = get_contract_address();
         cheatcodes::set_contract_address(contract_address);
         let note_hash_counter = cheatcodes::get_side_effects_counter();
 
         let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
         note.set_header(header);
-        // TODO(#7771): inject compute_note_hash(...) func to notes with macros.
-        let note_hash = note.compute_note_hiding_point().x;
+        let note_hash = note.compute_note_hash();
         let serialized_note = Note::serialize_content(*note);
         assert(
             notify_created_note(
