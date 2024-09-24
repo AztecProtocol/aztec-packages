@@ -2,7 +2,7 @@ use dep::protocol_types::{traits::{FromField, ToField}, address::AztecAddress, h
 
 use crate::{context::PrivateContext, state_vars::shared_mutable::shared_mutable::SharedMutable};
 
-struct SharedMutablePrivateGetter<T, let INITIAL_DELAY: u32> {
+pub struct SharedMutablePrivateGetter<T, let INITIAL_DELAY: u32> {
     context: &mut PrivateContext,
     // The contract address of the contract we want to read from
     other_contract_address: AztecAddress,

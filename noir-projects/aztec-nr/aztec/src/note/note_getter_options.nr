@@ -22,7 +22,7 @@ impl Select {
     }
 }
 
-struct SortOrderEnum {
+pub struct SortOrderEnum {
     DESC: u8,
     ASC: u8,
 }
@@ -43,7 +43,7 @@ impl Sort {
     }
 }
 
-struct NoteStatusEnum {
+pub struct NoteStatusEnum {
     ACTIVE: u8,
     ACTIVE_OR_NULLIFIED: u8,
 }

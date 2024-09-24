@@ -13,7 +13,7 @@ use dep::types::{
     traits::is_empty, utils::arrays::array_to_bounded_vec
 };
 
-struct PublicKernelOutputComposer {
+pub struct PublicKernelOutputComposer {
     output_builder: PublicKernelCircuitPublicInputsBuilder,
 }
 

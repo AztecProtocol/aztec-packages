@@ -12,7 +12,7 @@ use crate::{
     traits::{Serialize, Deserialize, Empty}, utils::reader::Reader
 };
 
-struct PublicValidationRequests {
+pub struct PublicValidationRequests {
     for_rollup: RollupValidationRequests,
     note_hash_read_requests: [TreeLeafReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     nullifier_read_requests: [ScopedReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_TX],

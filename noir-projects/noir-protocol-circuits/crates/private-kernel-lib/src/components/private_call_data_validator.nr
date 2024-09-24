@@ -83,7 +83,7 @@ fn validate_incrementing_counter_ranges_within_range<T, let N: u32>(counter_star
     );
 }
 
-struct PrivateCallDataValidator {
+pub struct PrivateCallDataValidator {
     data: PrivateCallData,
     array_lengths: PrivateCircuitPublicInputsArrayLengths,
 }

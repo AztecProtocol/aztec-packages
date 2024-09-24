@@ -4,7 +4,7 @@ use crate::{
     utils::reader::Reader
 };
 
-struct PublicCallRequest {
+pub struct PublicCallRequest {
     item: PublicCallStackItemCompressed,
     counter: u32,
 }

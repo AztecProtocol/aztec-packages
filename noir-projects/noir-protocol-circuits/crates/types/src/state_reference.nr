@@ -5,7 +5,7 @@ use crate::{
     utils::arr_copy_slice
 };
 
-struct StateReference {
+pub struct StateReference {
     l1_to_l2_message_tree: AppendOnlyTreeSnapshot,
     partial: PartialStateReference,
 }

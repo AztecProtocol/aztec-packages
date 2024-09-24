@@ -4,7 +4,7 @@ use dep::types::{
     data::OverridablePublicDataTreeLeaf, utils::arrays::find_index_hint
 };
 
-struct PublicDataReadRequestHints<let NUM_READS: u32> {
+pub struct PublicDataReadRequestHints<let NUM_READS: u32> {
     read_request_statuses: [ReadRequestStatus; NUM_READS],
     pending_read_hints: [ReadIndexHint; NUM_READS],
     leaf_data_read_hints: [ReadIndexHint; NUM_READS],

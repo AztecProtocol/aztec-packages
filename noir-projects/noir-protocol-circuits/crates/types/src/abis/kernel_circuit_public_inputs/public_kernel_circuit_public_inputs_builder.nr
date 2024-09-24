@@ -8,7 +8,7 @@ use crate::{
     utils::arrays::array_to_bounded_vec
 };
 
-struct PublicKernelCircuitPublicInputsBuilder {
+pub struct PublicKernelCircuitPublicInputsBuilder {
     validation_requests: PublicValidationRequestsBuilder,
     end_non_revertible: PublicAccumulatedDataBuilder,
     end: PublicAccumulatedDataBuilder,

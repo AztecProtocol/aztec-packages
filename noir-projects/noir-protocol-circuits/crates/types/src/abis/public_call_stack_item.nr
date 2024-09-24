@@ -4,7 +4,7 @@ use crate::abis::{
 };
 use crate::address::AztecAddress;
 
-struct PublicCallStackItem {
+pub struct PublicCallStackItem {
     contract_address: AztecAddress,
     public_inputs: PublicCircuitPublicInputs,
     function_data: FunctionData,

@@ -14,7 +14,7 @@ use dep::types::{
 };
 
 // Initialization struct for private inputs to the private kernel
-struct PrivateKernelInitCircuitPrivateInputs {
+pub struct PrivateKernelInitCircuitPrivateInputs {
     tx_request: TxRequest,
     vk_tree_root: Field,
     private_call: PrivateCallData,

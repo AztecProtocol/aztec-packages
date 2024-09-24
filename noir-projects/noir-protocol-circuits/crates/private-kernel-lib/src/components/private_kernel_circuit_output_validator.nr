@@ -102,7 +102,7 @@ fn validate_array_appended_reversed<T, let N: u32, let M: u32>(
     }
 }
 
-struct PrivateKernelCircuitOutputValidator {
+pub struct PrivateKernelCircuitOutputValidator {
     output: PrivateKernelCircuitPublicInputs,
 }
 

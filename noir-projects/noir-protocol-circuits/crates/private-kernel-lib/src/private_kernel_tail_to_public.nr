@@ -22,7 +22,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_RESET_TINY_INDEX,
 ];
 
-struct PrivateKernelTailToPublicCircuitPrivateInputs {
+pub struct PrivateKernelTailToPublicCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
 }
 

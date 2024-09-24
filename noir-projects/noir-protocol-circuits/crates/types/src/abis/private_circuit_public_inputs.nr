@@ -16,7 +16,7 @@ use crate::{
     utils::reader::Reader, transaction::tx_context::TxContext, utils::arrays::validate_array
 };
 
-struct PrivateCircuitPublicInputsArrayLengths {
+pub struct PrivateCircuitPublicInputsArrayLengths {
     note_hash_read_requests: u32,
     nullifier_read_requests: u32,
     key_validation_requests_and_generators: u32,

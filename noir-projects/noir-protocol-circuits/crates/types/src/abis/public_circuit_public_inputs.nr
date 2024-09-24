@@ -19,7 +19,7 @@ use crate::{
 };
 
 // Public inputs to public app circuit.
-struct PublicCircuitPublicInputs {
+pub struct PublicCircuitPublicInputs {
     call_context: CallContext,
 
     args_hash: Field,
