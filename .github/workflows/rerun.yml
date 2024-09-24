@@ -14,6 +14,7 @@ jobs:
     steps:
       - name: Wait for run to finish
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           GH_DEBUG: api
         run: |
@@ -21,6 +22,7 @@ jobs:
 
       - name: Rerun failed jobs if the commit is the latest on the branch
         env:
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           GH_DEBUG: api
         run: |
