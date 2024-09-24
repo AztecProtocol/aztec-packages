@@ -6,25 +6,8 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.56.0
 
-### Key rotation removed
-
-The ability to rotate incoming, outgoing, nullifying and tagging keys has been removed - this feature was easy to misuse and not worth the complexity and gate count cost. As part of this, the Key Registry contract has also been deleted. The API for fetching public keys has been adjusted accordingly:
-
-```diff
-- let keys = get_current_public_keys(&mut context, account);
-+ let keys = get_public_keys(account);
-```
-
-### [Aztec.nr] Rework `NoteGetterOptions::select`
-
-The `select` function in both `NoteGetterOptions` and `NoteViewerOptions` no longer takes an `Option` of a comparator, but instead requires an explicit comparator to be passed. Additionally, the order of the parameters has been changed so that they are `(lhs, operator, rhs)`. These two changes should make invocations of the function easier to read:
-
-```diff
-- options.select(ValueNote::properties().value, amount, Option::none())
-+ options.select(ValueNote::properties().value, Comparator.EQ, amount)
-```
 
 ### [Aztec.nr] Changes to contract definition
 
@@ -105,6 +88,24 @@ The `Contract::storage()` static method has been renamed to `Contract::storage_l
 -    let user_balances_slot = derive_storage_slot_in_map(Token::storage().balances.slot, user);
 +    let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, fee_payer);
 +    let user_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, user);
+```
+
+### Key rotation removed
+
+The ability to rotate incoming, outgoing, nullifying and tagging keys has been removed - this feature was easy to misuse and not worth the complexity and gate count cost. As part of this, the Key Registry contract has also been deleted. The API for fetching public keys has been adjusted accordingly:
+
+```diff
+- let keys = get_current_public_keys(&mut context, account);
++ let keys = get_public_keys(account);
+```
+
+### [Aztec.nr] Rework `NoteGetterOptions::select`
+
+The `select` function in both `NoteGetterOptions` and `NoteViewerOptions` no longer takes an `Option` of a comparator, but instead requires an explicit comparator to be passed. Additionally, the order of the parameters has been changed so that they are `(lhs, operator, rhs)`. These two changes should make invocations of the function easier to read:
+
+```diff
+- options.select(ValueNote::properties().value, amount, Option::none())
++ options.select(ValueNote::properties().value, Comparator.EQ, amount)
 ```
 
 ## 0.53.0
