@@ -62,6 +62,7 @@ TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
     auto circuit_builder = UltraCircuitBuilder();
 
     auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(circuit_builder);
+    info(proving_key->proving_key.num_public_inputs);
     typename TestFixture::Prover prover(proving_key);
     auto proof = prover.construct_proof();
     auto& polynomials = proving_key->proving_key.polynomials;
