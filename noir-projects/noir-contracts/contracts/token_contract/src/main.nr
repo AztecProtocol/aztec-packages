@@ -245,16 +245,10 @@ contract Token {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
+        let amount = U128::from_integer(amount);
+        let from_balance = storage.public_balances.at(from).read().sub(amount);
+        let amount = U128::from_integer(amount);
+        let from_balance = storage.public_balances.at(from).read().sub(amount);
         let amount = U128::from_integer(amount);
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
@@ -272,16 +266,10 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
         // docs:end:assert_current_call_valid_authwit_public
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
-        if (!from.eq(context.msg_sender())) {
-            assert_current_call_valid_authwit_public(&mut context, from);
-        } else {
-            assert(nonce == 0, "invalid nonce");
-        }
+        let amount = U128::from_integer(amount);
+        let from_balance = storage.public_balances.at(from).read().sub(amount);
+        let amount = U128::from_integer(amount);
+        let from_balance = storage.public_balances.at(from).read().sub(amount);
         let amount = U128::from_integer(amount);
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
