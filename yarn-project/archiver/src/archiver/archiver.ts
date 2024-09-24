@@ -783,4 +783,7 @@ class ArchiverStoreHelper
   getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
     return this.store.getContractArtifact(address);
   }
+  getTotalL1ToL2MessageCount(): Promise<bigint> {
+    return this.store.getTotalL1ToL2MessageCount();
+  }
 }
