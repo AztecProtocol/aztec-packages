@@ -183,7 +183,7 @@ e2e-public-testnet:
 
 flakey-e2e-tests:
   LOCALLY
-  RUN ALLOW_FAIL=true ./scripts/e2e_test.sh ./src/flakey
+  RUN ./scripts/e2e_test.sh ./src/flakey || true
 
 e2e-sandbox-example:
   LOCALLY
