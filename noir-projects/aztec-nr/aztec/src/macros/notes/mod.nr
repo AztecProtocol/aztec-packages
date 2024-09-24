@@ -376,9 +376,8 @@ pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     let serialized_len_type = fresh_type_variable();
     let note_interface_impl = s.as_type().get_trait_impl(quote { NoteInterface<$serialized_len_type> }.as_trait_constraint());
     let name = s.name();
-    assert(note_interface_impl.is_some(), f"Note {name} must implement NoteInterface trait");
 
-    let note_serialized_len = note_interface_impl.unwrap().trait_generic_args()[0].as_constant().unwrap();
+    let note_serialized_len = note_interface_impl.expect(f"Note {name} must implement NoteInterface trait").trait_generic_args()[0].as_constant().unwrap();
 
     register_note(s, note_serialized_len, note_type_id);
 
