@@ -32,9 +32,9 @@ function patchFn(
   tx.enqueuedPublicFunctionCalls[index] = fn;
 
   const request = tx.data.forPublic![where].publicCallStack[index];
-  request.item.contractAddress = fn.contractAddress;
-  request.item.callContext = fn.callContext;
-  request.item.argsHash = computeVarArgsHash(fn.args);
+  request.contractAddress = fn.contractAddress;
+  request.callContext = fn.callContext;
+  request.argsHash = computeVarArgsHash(fn.args);
   tx.data.forPublic![where].publicCallStack[index] = request;
 
   return {
