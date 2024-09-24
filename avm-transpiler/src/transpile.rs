@@ -732,6 +732,23 @@ fn handle_getter_instruction(
     destinations: &Vec<ValueOrArray>,
     inputs: &Vec<ValueOrArray>,
 ) {
+    enum EnvironmentVariable {
+        ADDRESS,
+        STORAGEADDRESS,
+        SENDER,
+        FUNCTIONSELECTOR,
+        TRANSACTIONFEE,
+        CHAINID,
+        VERSION,
+        BLOCKNUMBER,
+        TIMESTAMP,
+        FEEPERL2GAS,
+        FEEPERDAGAS,
+        ISSTATICCALL,
+        L2GASLEFT,
+        DAGASLEFT,
+    }
+
     // For the foreign calls we want to handle, we do not want inputs, as they are getters
     assert!(inputs.is_empty());
     assert!(destinations.len() == 1);
@@ -742,28 +759,31 @@ fn handle_getter_instruction(
         _ => panic!("ForeignCall address destination should be a single value"),
     };
 
-    let opcode = match function {
-        "avmOpcodeAddress" => AvmOpcode::ADDRESS,
-        "avmOpcodeStorageAddress" => AvmOpcode::STORAGEADDRESS,
-        "avmOpcodeSender" => AvmOpcode::SENDER,
-        "avmOpcodeFeePerL2Gas" => AvmOpcode::FEEPERL2GAS,
-        "avmOpcodeFeePerDaGas" => AvmOpcode::FEEPERDAGAS,
-        "avmOpcodeTransactionFee" => AvmOpcode::TRANSACTIONFEE,
-        "avmOpcodeChainId" => AvmOpcode::CHAINID,
-        "avmOpcodeVersion" => AvmOpcode::VERSION,
-        "avmOpcodeBlockNumber" => AvmOpcode::BLOCKNUMBER,
-        "avmOpcodeTimestamp" => AvmOpcode::TIMESTAMP,
-        "avmOpcodeL2GasLeft" => AvmOpcode::L2GASLEFT,
-        "avmOpcodeDaGasLeft" => AvmOpcode::DAGASLEFT,
-        "avmOpcodeFunctionSelector" => AvmOpcode::FUNCTIONSELECTOR,
-        // "callStackDepth" => AvmOpcode::CallStackDepth,
-        _ => panic!("Transpiler doesn't know how to process ForeignCall function {:?}", function),
+    let var_idx = match function {
+        "avmOpcodeAddress" => EnvironmentVariable::ADDRESS,
+        "avmOpcodeStorageAddress" => EnvironmentVariable::STORAGEADDRESS,
+        "avmOpcodeSender" => EnvironmentVariable::SENDER,
+        "avmOpcodeFeePerL2Gas" => EnvironmentVariable::FEEPERL2GAS,
+        "avmOpcodeFeePerDaGas" => EnvironmentVariable::FEEPERDAGAS,
+        "avmOpcodeTransactionFee" => EnvironmentVariable::TRANSACTIONFEE,
+        "avmOpcodeChainId" => EnvironmentVariable::CHAINID,
+        "avmOpcodeVersion" => EnvironmentVariable::VERSION,
+        "avmOpcodeBlockNumber" => EnvironmentVariable::BLOCKNUMBER,
+        "avmOpcodeTimestamp" => EnvironmentVariable::TIMESTAMP,
+        "avmOpcodeL2GasLeft" => EnvironmentVariable::L2GASLEFT,
+        "avmOpcodeDaGasLeft" => EnvironmentVariable::DAGASLEFT,
+        "avmOpcodeFunctionSelector" => EnvironmentVariable::FUNCTIONSELECTOR,
+        "avmOpcodeIsStaticCall" => EnvironmentVariable::ISSTATICCALL,
+        _ => panic!("Transpiler doesn't know how to process getter {:?}", function),
     };
 
     avm_instrs.push(AvmInstruction {
-        opcode,
+        opcode: AvmOpcode::GETENVVAR_16,
         indirect: Some(ALL_DIRECT),
-        operands: vec![AvmOperand::U32 { value: dest_offset as u32 }],
+        operands: vec![
+            AvmOperand::U8 { value: var_idx as u8 },
+            AvmOperand::U16 { value: dest_offset as u16 },
+        ],
         ..Default::default()
     });
 }

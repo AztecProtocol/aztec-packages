@@ -23,7 +23,7 @@ class ProofSurgeon {
 
   public:
     /**
-     * @brief Write a toml file containing the inputs to a noir verify_proof call
+     * @brief Constrcut a string containing the inputs to a noir verify_proof call (to be written to a .toml)
      *
      * @param proof A complete bberg style proof (i.e. contains the public inputs)
      * @param verification_key
@@ -40,13 +40,12 @@ class ProofSurgeon {
             acir_format::ProofSurgeon::cut_public_inputs_from_proof(proof, num_public_inputs_to_extract);
 
         // Construct json-style output for each component
-        // FF key_hash{ 0 }; // not used for Honk
         std::string proof_json = to_json(proof);
         std::string pub_inputs_json = to_json(public_inputs);
         std::string vk_json = to_json(vkey_fields);
 
         // Format with labels for noir recursion input
-        std::string toml_content = "key_hash = " + format("\"", FF(0), "\"") + "\n";
+        std::string toml_content = "key_hash = " + format("\"", FF(0), "\"") + "\n"; // not used by honk
         toml_content += "proof = " + proof_json + "\n";
         toml_content += "public_inputs = " + pub_inputs_json + "\n";
         toml_content += "verification_key = " + vk_json + "\n";
