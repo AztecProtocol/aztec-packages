@@ -36,6 +36,19 @@ export class EpochProofQuote extends Gossipable {
     return new EpochProofQuote(reader.readObject(EpochProofQuotePayload), reader.readObject(Signature));
   }
 
+  toJSON() {
+    return {
+      payload: this.payload.toBuffer().toString('hex'),
+      signature: this.signature.toBuffer().toString('hex'),
+    };
+  }
+
+  public static fromJSON(obj: any) {
+    const payload = EpochProofQuotePayload.fromBuffer(Buffer.from(obj.payload, 'hex'));
+    const signature = Signature.fromBuffer(Buffer.from(obj.signature, 'hex'));
+    return new EpochProofQuote(payload, signature);
+  }
+
   static new(payload: EpochProofQuotePayload, signer: Secp256k1Signer): EpochProofQuote {
     const digest = getHashedSignaturePayloadEthSignedMessage(payload);
     const signature = signer.sign(digest);
