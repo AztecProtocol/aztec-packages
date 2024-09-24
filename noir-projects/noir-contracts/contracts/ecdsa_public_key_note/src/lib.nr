@@ -93,13 +93,9 @@ impl NoteInterface<ECDSA_PUBLIC_KEY_NOTE_LEN> for EcdsaPublicKeyNote {
         comptime
         {
             let bytes = "EcdsaPublicKeyNote".as_bytes();
-            let hash = std::hash::keccak256(bytes, bytes.len() as u32);
-            let mut selector_be_bytes = [0; 4];
-            for i in 0..4 {
-                selector_be_bytes[i] = hash[i];
-            }
-
-            aztec::protocol_types::utils::field::field_from_bytes(selector_be_bytes, true)
+            let hash = aztec::protocol_types::hash::poseidon2_hash_bytes(bytes);
+            let hash_bytes = hash.to_be_bytes::<4>();
+            aztec::protocol_types::utils::field::field_from_bytes(hash_bytes, true)
         }
     }
 

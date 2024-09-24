@@ -30,8 +30,6 @@ contract Token {
         utils::comparison::Comparator, protocol_types::{point::Point, traits::Serialize}
     };
 
-    use std::embedded_curve_ops::EmbeddedCurvePoint;
-
     // docs:start:import_authwit
     use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
     // docs:end:import_authwit

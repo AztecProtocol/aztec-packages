@@ -7,7 +7,7 @@ use dep::aztec::{
 };
 use crate::types::token_note::OwnedNote;
 
-struct BalanceSet<T, Context> {
+pub struct BalanceSet<T, Context> {
     set: PrivateSet<T, Context>,
 }
 
