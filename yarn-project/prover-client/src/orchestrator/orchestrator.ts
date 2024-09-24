@@ -901,7 +901,14 @@ export class ProvingOrchestrator implements EpochProver {
         provingState.resolve({ status: PROVING_STATUS.SUCCESS });
 
         logger.debug(`Completed proof for block root rollup for ${provingState.block?.number}`);
-        // validatePartialState(result.inputs.end, tx.treeSnapshots); // TODO(palla)
+        // validatePartialState(result.inputs.end, tx.treeSnapshots); // TODO(palla/prover)
+
+        // TODO(palla/prover): Remove this once we've dropped the flow for proving single blocks
+        if (this.provingState?.totalNumBlocks === 1) {
+          logger.verbose(`Skipping epoch rollup, only one block in epoch`);
+          return;
+        }
+
         const currentLevel = this.provingState!.numMergeLevels + 1n;
         this.storeAndExecuteNextBlockMergeLevel(this.provingState!, currentLevel, BigInt(provingState.index), [
           result.inputs,
