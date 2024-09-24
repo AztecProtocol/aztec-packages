@@ -8,7 +8,6 @@ use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterfa
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer}};
-use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
 use crate::hash::hash_args;
 
 use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};

@@ -3,7 +3,7 @@ use std::{
     hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
 };
 use protocol_types::meta::{flatten_to_fields, pack_from_fields};
-use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector, note_interface::NoteInterface};
+use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector};
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 

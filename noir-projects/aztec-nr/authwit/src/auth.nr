@@ -6,7 +6,7 @@ use dep::aztec::protocol_types::{
 },
     hash::poseidon2_hash_with_separator
 };
-use dep::aztec::{prelude::Deserialize, context::{PrivateContext, PublicContext, gas::GasOpts}, hash::hash_args_array};
+use dep::aztec::{context::{PrivateContext, PublicContext, gas::GasOpts}, hash::hash_args_array};
 
 /**
  * Authenticaion witness helper library
