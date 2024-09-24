@@ -20,6 +20,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let selector: Field = compute_fn_selector(function);
 
         let mut parameter_index = 0;
+        let mut offset = initial_offset;
 
         let reads = parameters.map(|param: (Quoted, Type)| {
             // Skip the `PublicContextInputs` argument as we already have that
@@ -29,9 +30,9 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
                 let param_type = param.1;
                 let param_size = size_in_fields(param_type);
                 let param_name = f"arg{parameter_index}".quoted_contents();
-                let read = quote { let $param_name = dep::aztec::protocol_types::traits::Deserialize::deserialize(dep::aztec::context::public_context::calldata_copy(offset, $param_size)); };
-                let increment = quote { offset += $param_size; };
-                quote { $read $increment }
+                let read = quote { let $param_name = dep::aztec::protocol_types::traits::Deserialize::deserialize(dep::aztec::context::public_context::calldata_copy($offset, $param_size)); };
+                offset += param_size;
+                quote { $read }
             };
             parameter_index += 1;
             read
@@ -71,12 +72,11 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 
     let body = quote {
         pub fn public_dispatch(arg0: $public_context_inputs, selector: Field) {
-            let mut offset = $initial_offset;
             $dispatch
         }
     };
 
-    // println(body);
+    println(body);
 
     body
 }
