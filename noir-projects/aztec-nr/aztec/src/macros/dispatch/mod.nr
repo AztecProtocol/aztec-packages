@@ -22,14 +22,15 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let mut parameter_index = 0;
 
         let reads = parameters.map(|param: (Quoted, Type)| {
-            let param_type = param.1;
-            let param_size = size_in_fields(param_type);
-            let param_name = f"arg{parameter_index}".quoted_contents();
-            let read = quote { let $param_name = dep::aztec::protocol_types::traits::Deserialize::deserialize(dep::aztec::context::public_context::calldata_copy(offset, $param_size)); };
-            let increment = quote { offset += $param_size; };
+            // Skip the `PublicContextInputs` argument as we already have that
             let read = if parameter_index == 0 {
                 quote {}
             } else {
+                let param_type = param.1;
+                let param_size = size_in_fields(param_type);
+                let param_name = f"arg{parameter_index}".quoted_contents();
+                let read = quote { let $param_name = dep::aztec::protocol_types::traits::Deserialize::deserialize(dep::aztec::context::public_context::calldata_copy(offset, $param_size)); };
+                let increment = quote { offset += $param_size; };
                 quote { $read $increment }
             };
             parameter_index += 1;
