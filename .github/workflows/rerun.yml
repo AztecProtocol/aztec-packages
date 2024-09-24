@@ -12,7 +12,11 @@ jobs:
     permissions:
       actions: write  # Needed for 'gh run rerun'
     steps:
-      - name: Check if the commit is the latest on the branch
+      - name: Wait for run to finish
+        run: |
+          gh run watch ${{ inputs.run_id }} > /dev/null 2>&1
+
+      - name: Rerun failed jobs if the commit is the latest on the branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -36,12 +40,7 @@ jobs:
           # Compare the SHAs
           if [[ "$COMMIT_SHA" != "$LATEST_COMMIT_SHA" ]]; then
             echo "Commit $COMMIT_SHA is not the latest commit on branch $BRANCH_NAME (latest is $LATEST_COMMIT_SHA). Skipping rerun."
-            exit 0
           else
             echo "Commit $COMMIT_SHA is the latest on branch $BRANCH_NAME. Proceeding with rerun."
+            gh run rerun ${{ inputs.run_id }} --failed
           fi
-
-      - name: Rerun failed jobs
-        run: |
-          gh run watch ${{ inputs.run_id }} > /dev/null 2>&1
-          gh run rerun ${{ inputs.run_id }} --failed
