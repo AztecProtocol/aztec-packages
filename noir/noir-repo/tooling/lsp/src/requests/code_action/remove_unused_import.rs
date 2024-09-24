@@ -175,7 +175,7 @@ mod tests {
         mod moo {
             pub fn foo() {}
         }
-        
+
 
         fn main() {
         }
@@ -207,7 +207,7 @@ mod tests {
         }
 
         mod qux {
-          
+
         }
 
         fn main() {

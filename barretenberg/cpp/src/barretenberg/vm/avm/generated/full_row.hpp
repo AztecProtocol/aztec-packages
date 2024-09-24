@@ -75,6 +75,7 @@ template <typename FF> struct AvmFullRow {
     FF alu_sel_shift_which{};
     FF alu_u128_tag{};
     FF alu_u16_tag{};
+    FF alu_u1_tag{};
     FF alu_u32_tag{};
     FF alu_u64_tag{};
     FF alu_u8_tag{};
@@ -120,6 +121,7 @@ template <typename FF> struct AvmFullRow {
     FF conversion_clk{};
     FF conversion_input{};
     FF conversion_num_limbs{};
+    FF conversion_output_bits{};
     FF conversion_radix{};
     FF conversion_sel_to_radix_le{};
     FF keccakf1600_clk{};
@@ -212,6 +214,7 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_get_contract_instance{};
     FF main_sel_op_internal_call{};
     FF main_sel_op_internal_return{};
+    FF main_sel_op_is_static_call{};
     FF main_sel_op_jump{};
     FF main_sel_op_jumpi{};
     FF main_sel_op_keccak{};
@@ -237,6 +240,7 @@ template <typename FF> struct AvmFullRow {
     FF main_sel_op_shr{};
     FF main_sel_op_sload{};
     FF main_sel_op_sstore{};
+    FF main_sel_op_static_call{};
     FF main_sel_op_storage_address{};
     FF main_sel_op_sub{};
     FF main_sel_op_timestamp{};
@@ -709,7 +713,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-    static constexpr size_t SIZE = 695;
+    static constexpr size_t SIZE = 699;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

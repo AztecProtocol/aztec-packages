@@ -19,10 +19,9 @@ import {
   PRIVATE_KERNEL_RESET_TINY_INDEX,
   PRIVATE_KERNEL_TAIL_INDEX,
   PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
-  PUBLIC_KERNEL_APP_LOGIC_INDEX,
-  PUBLIC_KERNEL_SETUP_INDEX,
+  PUBLIC_KERNEL_INNER_INDEX,
+  PUBLIC_KERNEL_MERGE_INDEX,
   PUBLIC_KERNEL_TAIL_INDEX,
-  PUBLIC_KERNEL_TEARDOWN_INDEX,
   ROOT_PARITY_INDEX,
   ROOT_ROLLUP_INDEX,
   VERIFICATION_KEY_LENGTH_IN_FIELDS,
@@ -47,10 +46,9 @@ import PrivateKernelResetSmallVkJson from '../artifacts/keys/private_kernel_rese
 import PrivateKernelResetTinyVkJson from '../artifacts/keys/private_kernel_reset_tiny.vk.data.json' assert { type: 'json' };
 import PrivateKernelTailVkJson from '../artifacts/keys/private_kernel_tail.vk.data.json' assert { type: 'json' };
 import PrivateKernelTailToPublicVkJson from '../artifacts/keys/private_kernel_tail_to_public.vk.data.json' assert { type: 'json' };
-import PublicKernelAppLogicVkJson from '../artifacts/keys/public_kernel_app_logic.vk.data.json' assert { type: 'json' };
-import PublicKernelSetupVkJson from '../artifacts/keys/public_kernel_setup.vk.data.json' assert { type: 'json' };
+import PublicKernelInnerVkJson from '../artifacts/keys/public_kernel_inner.vk.data.json' assert { type: 'json' };
+import PublicKernelMergeVkJson from '../artifacts/keys/public_kernel_merge.vk.data.json' assert { type: 'json' };
 import PublicKernelTailVkJson from '../artifacts/keys/public_kernel_tail.vk.data.json' assert { type: 'json' };
-import PublicKernelTeardownVkJson from '../artifacts/keys/public_kernel_teardown.vk.data.json' assert { type: 'json' };
 import BaseRollupVkJson from '../artifacts/keys/rollup_base.vk.data.json' assert { type: 'json' };
 import BlockMergeRollupVkJson from '../artifacts/keys/rollup_block_merge.vk.data.json' assert { type: 'json' };
 import BlockRootRollupVkJson from '../artifacts/keys/rollup_block_root.vk.data.json' assert { type: 'json' };
@@ -81,9 +79,8 @@ function keyJsonToVKData(json: VkJson): VerificationKeyData {
 const ServerCircuitVks: Record<ServerProtocolArtifact, VerificationKeyData> = {
   EmptyNestedArtifact: keyJsonToVKData(EmptyNestedVkJson),
   PrivateKernelEmptyArtifact: keyJsonToVKData(PrivateKernelEmptyVkJson),
-  PublicKernelSetupArtifact: keyJsonToVKData(PublicKernelSetupVkJson),
-  PublicKernelAppLogicArtifact: keyJsonToVKData(PublicKernelAppLogicVkJson),
-  PublicKernelTeardownArtifact: keyJsonToVKData(PublicKernelTeardownVkJson),
+  PublicKernelInnerArtifact: keyJsonToVKData(PublicKernelInnerVkJson),
+  PublicKernelMergeArtifact: keyJsonToVKData(PublicKernelMergeVkJson),
   PublicKernelTailArtifact: keyJsonToVKData(PublicKernelTailVkJson),
   BaseParityArtifact: keyJsonToVKData(BaseParityVkJson),
   RootParityArtifact: keyJsonToVKData(RootParityVkJson),
@@ -125,9 +122,8 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolArtifact, number> = {
   PrivateKernelResetTinyArtifact: PRIVATE_KERNEL_RESET_TINY_INDEX,
   PrivateKernelTailArtifact: PRIVATE_KERNEL_TAIL_INDEX,
   PrivateKernelTailToPublicArtifact: PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX,
-  PublicKernelSetupArtifact: PUBLIC_KERNEL_SETUP_INDEX,
-  PublicKernelAppLogicArtifact: PUBLIC_KERNEL_APP_LOGIC_INDEX,
-  PublicKernelTeardownArtifact: PUBLIC_KERNEL_TEARDOWN_INDEX,
+  PublicKernelInnerArtifact: PUBLIC_KERNEL_INNER_INDEX,
+  PublicKernelMergeArtifact: PUBLIC_KERNEL_MERGE_INDEX,
   PublicKernelTailArtifact: PUBLIC_KERNEL_TAIL_INDEX,
   BaseParityArtifact: BASE_PARITY_INDEX,
   RootParityArtifact: ROOT_PARITY_INDEX,

@@ -2,6 +2,7 @@ import {
   BlockAttestation,
   BlockProposal,
   type BlockSimulator,
+  ConsensusPayload,
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
@@ -10,11 +11,12 @@ import {
   PROVING_STATUS,
   type ProvingSuccess,
   type ProvingTicket,
-  Signature,
   type Tx,
   TxHash,
   type UnencryptedL2Log,
   UnencryptedTxL2Logs,
+  WorldStateRunningState,
+  type WorldStateSynchronizer,
   makeProcessedTx,
   mockTxForRollup,
 } from '@aztec/circuit-types';
@@ -29,13 +31,13 @@ import {
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
-import { WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -75,14 +77,14 @@ describe('sequencer', () => {
   const committee = [EthAddress.random()];
   const getSignatures = () => [mockedSig];
   const getAttestations = () => {
-    const attestation = new BlockAttestation(block.header, archive, [], mockedSig);
+    const attestation = new BlockAttestation(new ConsensusPayload(block.header, archive, []), mockedSig);
     (attestation as any).sender = committee[0];
 
     return [attestation];
   };
 
   const createBlockProposal = () => {
-    return new BlockProposal(block.header, archive, [TxHash.random()], mockedSig);
+    return new BlockProposal(new ConsensusPayload(block.header, archive, [TxHash.random()]), mockedSig);
   };
 
   let block: L2Block;

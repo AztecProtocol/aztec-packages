@@ -3,9 +3,9 @@ use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, trait
 use crate::note::note_interface::NoteInterface;
 
 struct PropertySelector {
-    index: u8,
-    offset: u8,
-    length: u8,
+    index: u8, // index of the field in the serialized note array
+    offset: u8, // offset in the byte representation of the field (selected with index above) from which to reading
+    length: u8, // number of bytes to read after the offset
 }
 
 struct Select {
@@ -62,7 +62,7 @@ fn return_all_notes<Note>(
 }
 
 // docs:start:NoteGetterOptions
-struct NoteGetterOptions<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS> {
+struct NoteGetterOptions<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> {
     selects: BoundedVec<Option<Select>, N>,
     sorts: BoundedVec<Option<Sort>, N>,
     limit: u32,
@@ -83,7 +83,7 @@ struct NoteGetterOptions<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER
 // `selects` to specify fields, `sorts` to establish sorting criteria, `offset` to skip items, and `limit` to cap
 // the result size.
 // And finally, a custom preprocessor and filter to refine the outcome further.
-impl<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, FILTER_ARGS> {
+impl<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, FILTER_ARGS> {
     // This method adds a `Select` criterion to the options.
     // It takes a property_selector indicating which field to select,
     // a value representing the specific value to match in that field, and
@@ -129,7 +129,7 @@ impl<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS, FILTER_ARGS> NoteGetterOpt
     }
 }
 
-impl<Note, let N: u32, let M: u32> NoteGetterOptions<Note, N, M, Field, Field> where Note: NoteInterface<N, M> {
+impl<Note, let N: u32> NoteGetterOptions<Note, N, Field, Field> where Note: NoteInterface<N> {
     // This function initializes a NoteGetterOptions that simply returns the maximum number of notes allowed in a call.
     pub fn new() -> Self {
         Self {
@@ -146,7 +146,7 @@ impl<Note, let N: u32, let M: u32> NoteGetterOptions<Note, N, M, Field, Field> w
     }
 }
 
-impl<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS> NoteGetterOptions<Note, N, M, PREPROCESSOR_ARGS, Field> where Note: NoteInterface<N, M> {
+impl<Note, let N: u32, PREPROCESSOR_ARGS> NoteGetterOptions<Note, N, PREPROCESSOR_ARGS, Field> where Note: NoteInterface<N> {
     // This function initializes a NoteGetterOptions with a preprocessor, which takes the notes returned from
     // the database and preprocessor_args as its parameters.
     // `preprocessor_args` allows you to provide additional data or context to the custom preprocessor.
@@ -168,7 +168,7 @@ impl<Note, let N: u32, let M: u32, PREPROCESSOR_ARGS> NoteGetterOptions<Note, N,
     }
 }
 
-impl<Note, let N: u32, let M: u32, FILTER_ARGS> NoteGetterOptions<Note, N, M, Field, FILTER_ARGS> where Note: NoteInterface<N, M> {
+impl<Note, let N: u32, FILTER_ARGS> NoteGetterOptions<Note, N, Field, FILTER_ARGS> where Note: NoteInterface<N> {
     // This function initializes a NoteGetterOptions with a filter, which takes
     // the notes returned from the database and filter_args as its parameters.
     // `filter_args` allows you to provide additional data or context to the custom filter.

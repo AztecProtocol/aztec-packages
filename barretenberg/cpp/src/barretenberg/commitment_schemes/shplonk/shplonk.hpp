@@ -126,9 +126,10 @@ template <typename Curve> class ShplonkProver_ {
      * @param transcript
      * @return ProverOpeningClaim<Curve>
      */
+    template <typename Transcript>
     static ProverOpeningClaim<Curve> prove(const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
                                            std::span<ProverOpeningClaim<Curve>> opening_claims,
-                                           auto& transcript)
+                                           const std::shared_ptr<Transcript>& transcript)
     {
         const Fr nu = transcript->template get_challenge<Fr>("Shplonk:nu");
         auto batched_quotient = compute_batched_quotient(opening_claims, nu);
@@ -159,9 +160,10 @@ template <typename Curve> class ShplonkVerifier_ {
      * @param transcript
      * @return OpeningClaim
      */
+    template <typename Transcript>
     static OpeningClaim<Curve> reduce_verification(Commitment g1_identity,
                                                    std::span<const OpeningClaim<Curve>> claims,
-                                                   auto& transcript)
+                                                   std::shared_ptr<Transcript>& transcript)
     {
 
         const size_t num_claims = claims.size();

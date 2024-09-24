@@ -6,8 +6,7 @@ import {DecoderBase} from "../decoders/Base.sol";
 
 import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
 import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
-import {SignatureLib} from "../../src/core/sequencer_selection/SignatureLib.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+import {SignatureLib} from "../../src/core/libraries/SignatureLib.sol";
 
 import {Registry} from "../../src/core/messagebridge/Registry.sol";
 import {Inbox} from "../../src/core/messagebridge/Inbox.sol";
@@ -20,13 +19,22 @@ import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {PortalERC20} from "../portals/PortalERC20.sol";
 import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
+import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+
+// solhint-disable comprehensive-interface
+
 /**
  * We are using the same blocks as from Rollup.t.sol.
  * The tests in this file is testing the sequencer selection
  */
-
 contract SpartaTest is DecoderBase {
   using MessageHashUtils for bytes32;
+
+  struct StructToAvoidDeepStacks {
+    uint256 needed;
+    address proposer;
+    bool shouldRevert;
+  }
 
   Registry internal registry;
   Inbox internal inbox;
@@ -36,9 +44,10 @@ contract SpartaTest is DecoderBase {
   TxsDecoderHelper internal txsHelper;
   PortalERC20 internal portalERC20;
 
-  mapping(address validator => uint256 privateKey) internal privateKeys;
-
   SignatureLib.Signature internal emptySignature;
+  mapping(address validator => uint256 privateKey) internal privateKeys;
+  mapping(address => bool) internal _seenValidators;
+  mapping(address => bool) internal _seenCommittee;
 
   /**
    * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
@@ -78,9 +87,6 @@ contract SpartaTest is DecoderBase {
     _;
   }
 
-  mapping(address => bool) internal _seenValidators;
-  mapping(address => bool) internal _seenCommittee;
-
   function testInitialCommitteMatch() public setup(4) {
     address[] memory validators = rollup.getValidators();
     address[] memory committee = rollup.getCurrentEpochCommittee();
@@ -97,6 +103,9 @@ contract SpartaTest is DecoderBase {
       assertFalse(_seenCommittee[committee[i]]);
       _seenCommittee[committee[i]] = true;
     }
+
+    address proposer = rollup.getCurrentProposer();
+    assertTrue(_seenCommittee[proposer]);
   }
 
   function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
@@ -140,12 +149,6 @@ contract SpartaTest is DecoderBase {
 
   function testInsufficientSigs() public setup(4) {
     _testBlock("mixed_block_1", true, 2, false);
-  }
-
-  struct StructToAvoidDeepStacks {
-    uint256 needed;
-    address proposer;
-    bool shouldRevert;
   }
 
   function _testBlock(
@@ -256,7 +259,7 @@ contract SpartaTest is DecoderBase {
     (bytes32 root,) = outbox.getRootData(full.block.decodedHeader.globalVariables.blockNumber);
 
     // If we are trying to read a block beyond the proven chain, we should see "nothing".
-    if (rollup.provenBlockCount() > full.block.decodedHeader.globalVariables.blockNumber) {
+    if (rollup.getProvenBlockNumber() >= full.block.decodedHeader.globalVariables.blockNumber) {
       assertEq(l2ToL1MessageTreeRoot, root, "Invalid l2 to l1 message tree root");
     } else {
       assertEq(root, bytes32(0), "Invalid outbox root");
@@ -280,8 +283,9 @@ contract SpartaTest is DecoderBase {
     returns (SignatureLib.Signature memory)
   {
     uint256 privateKey = privateKeys[_signer];
-    bytes32 digestForSig = _digest.toEthSignedMessageHash();
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digestForSig);
+
+    bytes32 digest = _digest.toEthSignedMessageHash();
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
     return SignatureLib.Signature({isEmpty: false, v: v, r: r, s: s});
   }

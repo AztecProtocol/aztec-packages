@@ -1,6 +1,7 @@
 import { type ProvingJobSource } from '@aztec/circuit-types';
 import {
   AvmCircuitInputs,
+  AvmVerificationKeyData,
   AztecAddress,
   BaseOrMergeRollupPublicInputs,
   BaseParityInputs,
@@ -18,6 +19,7 @@ import {
   Proof,
   PublicKernelCircuitPrivateInputs,
   PublicKernelCircuitPublicInputs,
+  PublicKernelInnerCircuitPrivateInputs,
   PublicKernelTailCircuitPrivateInputs,
   RecursiveProof,
   RootParityInput,
@@ -25,6 +27,7 @@ import {
   RootRollupInputs,
   RootRollupPublicInputs,
   TubeInputs,
+  VMCircuitPublicInputs,
   VerificationKeyData,
 } from '@aztec/circuits.js';
 import { createJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
@@ -37,6 +40,7 @@ export function createProvingJobSourceServer(queue: ProvingJobSource): JsonRpcSe
   return new JsonRpcServer(
     queue,
     {
+      AvmVerificationKeyData,
       AvmCircuitInputs,
       BaseOrMergeRollupPublicInputs,
       BaseParityInputs,
@@ -49,6 +53,8 @@ export function createProvingJobSourceServer(queue: ProvingJobSource): JsonRpcSe
       Proof,
       ProvingError,
       PrivateKernelEmptyInputData,
+      VMCircuitPublicInputs,
+      PublicKernelInnerCircuitPrivateInputs,
       PublicKernelCircuitPrivateInputs,
       PublicKernelCircuitPublicInputs,
       PublicKernelTailCircuitPrivateInputs,
@@ -75,6 +81,7 @@ export function createProvingJobSourceClient(
   return createJsonRpcClient(
     url,
     {
+      AvmVerificationKeyData,
       AvmCircuitInputs,
       BaseOrMergeRollupPublicInputs,
       BaseParityInputs,
@@ -87,6 +94,8 @@ export function createProvingJobSourceClient(
       Proof,
       ProvingError,
       PrivateKernelEmptyInputData,
+      VMCircuitPublicInputs,
+      PublicKernelInnerCircuitPrivateInputs,
       PublicKernelCircuitPrivateInputs,
       PublicKernelCircuitPublicInputs,
       PublicKernelTailCircuitPrivateInputs,

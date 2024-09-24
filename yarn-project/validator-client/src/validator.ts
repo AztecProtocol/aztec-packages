@@ -1,5 +1,6 @@
 import { type BlockAttestation, type BlockProposal, type TxHash } from '@aztec/circuit-types';
 import { type Header } from '@aztec/circuits.js';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -7,7 +8,11 @@ import { type P2P } from '@aztec/p2p';
 
 import { type ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
-import { AttestationTimeoutError, TransactionsNotAvailableError } from './errors/validator.error.js';
+import {
+  AttestationTimeoutError,
+  InvalidValidatorPrivateKeyError,
+  TransactionsNotAvailableError,
+} from './errors/validator.error.js';
 import { type ValidatorKeyStore } from './key_store/interface.js';
 import { LocalKeyStore } from './key_store/local_key_store.js';
 
@@ -42,7 +47,12 @@ export class ValidatorClient implements Validator {
   }
 
   static new(config: ValidatorClientConfig, p2pClient: P2P) {
-    const localKeyStore = new LocalKeyStore(config.validatorPrivateKey);
+    if (!config.validatorPrivateKey) {
+      throw new InvalidValidatorPrivateKeyError();
+    }
+
+    const privateKey = validatePrivateKey(config.validatorPrivateKey);
+    const localKeyStore = new LocalKeyStore(privateKey);
 
     const validator = new ValidatorClient(
       localKeyStore,
@@ -79,7 +89,9 @@ export class ValidatorClient implements Validator {
       }
       return undefined;
     }
-    this.log.debug(`Transactions available, attesting to proposal with ${proposal.txs.length} transactions`);
+    this.log.debug(
+      `Transactions available, attesting to proposal with ${proposal.payload.txHashes.length} transactions`,
+    );
 
     // If the above function does not throw an error, then we can attest to the proposal
     return this.validationService.attestToProposal(proposal);
@@ -94,7 +106,7 @@ export class ValidatorClient implements Validator {
    * @param proposal - The proposal to attest to
    */
   async ensureTransactionsAreAvailable(proposal: BlockProposal) {
-    const txHashes: TxHash[] = proposal.txs;
+    const txHashes: TxHash[] = proposal.payload.txHashes;
     const transactionStatuses = await Promise.all(txHashes.map(txHash => this.p2pClient.getTxStatus(txHash)));
 
     const missingTxs = txHashes.filter((_, index) => !['pending', 'mined'].includes(transactionStatuses[index] ?? ''));
@@ -126,7 +138,7 @@ export class ValidatorClient implements Validator {
     numberOfRequiredAttestations: number,
   ): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClient's attestation pool for this block until we have enough attestations
-    const slot = proposal.header.globalVariables.slotNumber.toBigInt();
+    const slot = proposal.payload.header.globalVariables.slotNumber.toBigInt();
     this.log.info(`Waiting for ${numberOfRequiredAttestations} attestations for slot: ${slot}`);
 
     const myAttestation = await this.validationService.attestToProposal(proposal);
@@ -152,5 +164,13 @@ export class ValidatorClient implements Validator {
       );
       await sleep(this.attestationPoolingIntervalMs);
     }
+  }
+}
+
+function validatePrivateKey(privateKey: string): Buffer32 {
+  try {
+    return Buffer32.fromString(privateKey);
+  } catch (error) {
+    throw new InvalidValidatorPrivateKeyError();
   }
 }

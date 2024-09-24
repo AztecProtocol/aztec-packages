@@ -147,7 +147,7 @@ export const deployL1Contracts = async (
   args: {
     l2FeeJuiceAddress: AztecAddress;
     vkTreeRoot: Fr;
-    assumeProvenUntil?: number;
+    assumeProvenThrough?: number;
     salt: number | undefined;
     initialValidators?: EthAddress[];
   },
@@ -277,9 +277,9 @@ export const deployL1Contracts = async (
   }
 
   // Set initial blocks as proven if requested
-  if (args.assumeProvenUntil && args.assumeProvenUntil > 0) {
-    await rollup.write.setAssumeProvenUntilBlockNumber([BigInt(args.assumeProvenUntil)], { account });
-    logger.info(`Set Rollup assumedProvenUntil to ${args.assumeProvenUntil}`);
+  if (args.assumeProvenThrough && args.assumeProvenThrough > 0) {
+    await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(args.assumeProvenThrough)], { account });
+    logger.info(`Set Rollup assumedProvenUntil to ${args.assumeProvenThrough}`);
   }
 
   // Inbox and Outbox are immutable and are deployed from Rollup's constructor so we just fetch them from the contract.

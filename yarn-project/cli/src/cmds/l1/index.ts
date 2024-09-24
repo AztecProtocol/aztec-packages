@@ -246,7 +246,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     });
 
   program
-    .command('set-proven-until', { hidden: true })
+    .command('set-proven-through', { hidden: true })
     .description(
       'Instructs the L1 rollup contract to assume all blocks until the given number are automatically proven.',
     )
@@ -265,8 +265,8 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: DebugL
     .addOption(l1ChainIdOption)
     .option('--l1-private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
     .action(async (blockNumber, options) => {
-      const { assumeProvenUntil } = await import('./assume_proven_until.js');
-      await assumeProvenUntil(
+      const { assumeProvenThrough } = await import('./assume_proven_through.js');
+      await assumeProvenThrough(
         blockNumber,
         options.l1RpcUrl,
         options.rpcUrl,

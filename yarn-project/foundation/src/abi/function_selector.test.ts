@@ -23,7 +23,12 @@ describe('FunctionSelector', () => {
   });
 
   it('computes a function selector from signature', () => {
-    const res = FunctionSelector.fromSignature('transfer(address,uint256)');
-    expect(res).toMatchSnapshot();
+    const res = FunctionSelector.fromSignature('IS_VALID()');
+    expect(res.toBuffer().toString('hex')).toMatchSnapshot();
+  });
+
+  it('computes a function selector from a long string', () => {
+    const res = FunctionSelector.fromSignature('foo_and_bar_and_baz_and_foo_bar_baz_and_bar_foo');
+    expect(res.toBuffer().toString('hex')).toMatchSnapshot();
   });
 });
