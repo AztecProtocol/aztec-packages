@@ -47,7 +47,7 @@ export function computeNoteHash(storageSlot: Fr, noteContent: Fr[]): Fr {
   const noteHidingPointBeforeSlotting = noteContent
     .slice(1)
     .reduce(
-      (acc, item, i) => grumpkin.add(acc, grumpkin.mul(GENERATORS[i], new Fq(item.toBigInt()))),
+      (acc, item, i) => grumpkin.add(acc, grumpkin.mul(GENERATORS[i + 1], new Fq(item.toBigInt()))),
       grumpkin.mul(GENERATORS[0], new Fq(noteContent[0].toBigInt())),
     );
 
