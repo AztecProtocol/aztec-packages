@@ -312,9 +312,7 @@ fn create_static_check(fname: &str, is_private: bool) -> Statement {
             .iter()
             .fold(variable("context"), |acc, member| member_access(acc, member))
     } else {
-        ["inputs", "is_static_call"]
-            .iter()
-            .fold(variable("context"), |acc, member| member_access(acc, member))
+        method_call(variable("context"), "is_static_call", vec![])
     };
     make_statement(StatementKind::Constrain(ConstrainStatement {
         kind: ConstrainKind::Assert,

@@ -1,12 +1,40 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/commitment_schemes/gemini/gemini.hpp"
+#include "barretenberg/commitment_schemes/gemini/gemini_impl.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
+
+template <typename Curve> class ShpleminiProver_ {
+  public:
+    using FF = typename Curve::ScalarField;
+    using GroupElement = typename Curve::Element;
+    using Commitment = typename Curve::AffineElement;
+    using Polynomial = bb::Polynomial<FF>;
+    using OpeningClaim = ProverOpeningClaim<Curve>;
+
+    using VK = CommitmentKey<Curve>;
+    using ShplonkProver = ShplonkProver_<Curve>;
+    using GeminiProver = GeminiProver_<Curve>;
+
+    template <typename Transcript>
+    static OpeningClaim prove(const FF circuit_size,
+                              RefSpan<Polynomial> f_polynomials,
+                              RefSpan<Polynomial> g_polynomials,
+                              std::span<FF> multilinear_challenge,
+                              const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                              const std::shared_ptr<Transcript>& transcript)
+    {
+        std::vector<OpeningClaim> opening_claims = GeminiProver::prove(
+            circuit_size, f_polynomials, g_polynomials, multilinear_challenge, commitment_key, transcript);
+
+        OpeningClaim batched_claim = ShplonkProver::prove(commitment_key, opening_claims, transcript);
+        return batched_claim;
+    };
+};
 /**
  * \brief An efficient verifier for the evaluation proofs of multilinear polynomials and their shifts.
  *
@@ -71,20 +99,22 @@ template <typename Curve> class ShpleminiVerifier_ {
 
   public:
     template <typename Transcript>
-    static BatchOpeningClaim<Curve> compute_batch_opening_claim(const Fr log_N,
+    static BatchOpeningClaim<Curve> compute_batch_opening_claim(const Fr N,
                                                                 RefSpan<Commitment> unshifted_commitments,
                                                                 RefSpan<Commitment> shifted_commitments,
-                                                                RefSpan<Fr> claimed_evaluations,
+                                                                RefSpan<Fr> unshifted_evaluations,
+                                                                RefSpan<Fr> shifted_evaluations,
                                                                 const std::vector<Fr>& multivariate_challenge,
                                                                 const Commitment& g1_identity,
-                                                                std::shared_ptr<Transcript>& transcript)
+                                                                const std::shared_ptr<Transcript>& transcript)
     {
+
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
         if constexpr (Curve::is_stdlib_type) {
-            log_circuit_size = static_cast<uint32_t>(log_N.get_value());
+            log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N.get_value()));
         } else {
-            log_circuit_size = static_cast<uint32_t>(log_N);
+            log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N));
         }
 
         // Get the challenge ρ to batch commitments to multilinear polynomials and their shifts
@@ -135,12 +165,13 @@ template <typename Curve> class ShpleminiVerifier_ {
             gemini_evaluation_challenge.invert() *
             (inverse_vanishing_evals[0] - shplonk_batching_challenge * inverse_vanishing_evals[1]);
 
-        // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the batched
-        // multilinear polynomial. Populate the vector of scalars for the final batch mul
+        // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
+        // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
         Fr batched_evaluation{ 0 };
         batch_multivariate_opening_claims(unshifted_commitments,
                                           shifted_commitments,
-                                          claimed_evaluations,
+                                          unshifted_evaluations,
+                                          shifted_evaluations,
                                           multivariate_batching_challenge,
                                           unshifted_scalar,
                                           shifted_scalar,
@@ -161,8 +192,12 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
         // - Compute A₀(r)
-        const Fr a_0_pos = GeminiVerifier_<Curve>::compute_gemini_batched_univariate_evaluation(
-            batched_evaluation, multivariate_challenge, gemini_eval_challenge_powers, gemini_evaluations);
+        const Fr a_0_pos =
+            GeminiVerifier_<Curve>::compute_gemini_batched_univariate_evaluation(log_circuit_size,
+                                                                                 batched_evaluation,
+                                                                                 multivariate_challenge,
+                                                                                 gemini_eval_challenge_powers,
+                                                                                 gemini_evaluations);
         // - Add A₀(r)/(z−r) to the constant term accumulator
         constant_term_accumulator += a_0_pos * inverse_vanishing_evals[0];
         // Add A₀(−r)/(z+r) to the constant term accumulator
@@ -175,8 +210,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         return { commitments, scalars, shplonk_evaluation_challenge };
     };
     /**
-     * @brief Populates the vectors of commitments and scalars, and computes the evaluation of the batched multilinear
-     * polynomial at the sumcheck challenge.
+     * @brief Populates the vectors of commitments and scalars, and computes the evaluation of the batched
+     * multilinear polynomial at the sumcheck challenge.
      *
      * @details This function iterates over all commitments and the claimed evaluations of the corresponding
      * polynomials. The following notations are used:
@@ -223,7 +258,8 @@ template <typename Curve> class ShpleminiVerifier_ {
      */
     static void batch_multivariate_opening_claims(RefSpan<Commitment> unshifted_commitments,
                                                   RefSpan<Commitment> shifted_commitments,
-                                                  RefSpan<Fr> claimed_evaluations,
+                                                  RefSpan<Fr> unshifted_evaluations,
+                                                  RefSpan<Fr> shifted_evaluations,
                                                   const Fr& multivariate_batching_challenge,
                                                   const Fr& unshifted_scalar,
                                                   const Fr& shifted_scalar,
@@ -231,27 +267,25 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                   std::vector<Fr>& scalars,
                                                   Fr& batched_evaluation)
     {
-        size_t evaluation_idx = 0;
         Fr current_batching_challenge = Fr(1);
-        for (auto& unshifted_commitment : unshifted_commitments) {
+        for (auto [unshifted_commitment, unshifted_evaluation] :
+             zip_view(unshifted_commitments, unshifted_evaluations)) {
             // Move unshifted commitments to the 'commitments' vector
             commitments.emplace_back(std::move(unshifted_commitment));
             // Compute −ρⁱ ⋅ (1/(z−r) + ν/(z+r)) and place into 'scalars'
             scalars.emplace_back(-unshifted_scalar * current_batching_challenge);
             // Accumulate the evaluation of ∑ ρⁱ ⋅ fᵢ at the sumcheck challenge
-            batched_evaluation += claimed_evaluations[evaluation_idx] * current_batching_challenge;
-            evaluation_idx += 1;
+            batched_evaluation += unshifted_evaluation * current_batching_challenge;
             // Update the batching challenge
             current_batching_challenge *= multivariate_batching_challenge;
         }
-        for (auto& shifted_commitment : shifted_commitments) {
+        for (auto [shifted_commitment, shifted_evaluation] : zip_view(shifted_commitments, shifted_evaluations)) {
             // Move shifted commitments to the 'commitments' vector
             commitments.emplace_back(std::move(shifted_commitment));
             // Compute −ρ⁽ⁱ⁺ᵏ⁾ ⋅ r⁻¹ ⋅ (1/(z−r) − ν/(z+r)) and place into 'scalars'
             scalars.emplace_back(-shifted_scalar * current_batching_challenge);
             // Accumulate the evaluation of ∑ ρ⁽ⁱ⁺ᵏ⁾ ⋅ f_shift, i at the sumcheck challenge
-            batched_evaluation += claimed_evaluations[evaluation_idx] * current_batching_challenge;
-            evaluation_idx += 1;
+            batched_evaluation += shifted_evaluation * current_batching_challenge;
             // Update the batching challenge
             current_batching_challenge *= multivariate_batching_challenge;
         }
