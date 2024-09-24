@@ -198,17 +198,17 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     // We don't currently unstake,
     // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
     // Blocked on submitting epoch proofs to this contract.
-    address bondProvider = PROOF_COMMITMENT_ESCROW.stakeBond(_quote.signature, _quote.bondAmount);
+    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.bondAmount, _quote.prover);
 
     proofClaim = DataStructures.EpochProofClaim({
       epochToProve: epochToProve,
       basisPointFee: _quote.basisPointFee,
       bondAmount: _quote.bondAmount,
-      bondProvider: bondProvider,
+      bondProvider: _quote.prover,
       proposerClaimant: msg.sender
     });
 
-    emit ProofRightClaimed(epochToProve, bondProvider, msg.sender, _quote.bondAmount, currentSlot);
+    emit ProofRightClaimed(epochToProve, _quote.prover, msg.sender, _quote.bondAmount, currentSlot);
   }
 
   /**

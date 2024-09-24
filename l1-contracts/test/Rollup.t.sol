@@ -91,6 +91,7 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 1,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+      prover: address(this),
       basisPointFee: 0
     });
 
@@ -115,6 +116,7 @@ contract RollupTest is DecoderBase {
       epochToProve: 1,
       validUntilSlot: 1,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+      prover: address(this),
       basisPointFee: 0
     });
 
@@ -132,6 +134,7 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 1,
       bondAmount: 0,
+      prover: address(this),
       basisPointFee: 0
     });
 
@@ -153,6 +156,7 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 0,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+      prover: address(this),
       basisPointFee: 0
     });
 
@@ -172,6 +176,7 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 1,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+      prover: address(0),
       basisPointFee: 0
     });
 
@@ -207,6 +212,7 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 1,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+      prover: address(this),
       basisPointFee: 0
     });
 
@@ -242,6 +248,7 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 1,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+      prover: address(this),
       basisPointFee: 0
     });
 
@@ -265,6 +272,7 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 2 * Constants.AZTEC_EPOCH_DURATION,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+      prover: address(this),
       basisPointFee: 0
     });
 
@@ -286,6 +294,7 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 2 * Constants.AZTEC_EPOCH_DURATION,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+      prover: address(this),
       basisPointFee: 0
     });
 
@@ -313,6 +322,7 @@ contract RollupTest is DecoderBase {
       epochToProve: 0,
       validUntilSlot: 2 * Constants.AZTEC_EPOCH_DURATION,
       bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+      prover: address(this),
       basisPointFee: 0
     });
 
@@ -329,7 +339,7 @@ contract RollupTest is DecoderBase {
     vm.expectEmit(true, true, true, true);
     emit IRollup.ProofRightClaimed(
       quote.epochToProve,
-      address(0),
+      address(this),
       address(this),
       quote.bondAmount,
       Constants.AZTEC_EPOCH_DURATION * 2

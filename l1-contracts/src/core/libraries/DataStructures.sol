@@ -87,6 +87,7 @@ library DataStructures {
     uint256 epochToProve;
     uint256 validUntilSlot;
     uint256 bondAmount;
+    address prover;
     uint32 basisPointFee;
   }
 
