@@ -278,6 +278,7 @@ pub fn check_crate(
     crate_id: CrateId,
     options: &CompileOptions,
 ) -> CompilationResult<()> {
+    let options = CompileOptions { disable_macros: true, ..options.clone() };
     let macros: &[&dyn MacroProcessor] =
         if options.disable_macros { &[] } else { &[&aztec_macros::AztecMacro] };
 
