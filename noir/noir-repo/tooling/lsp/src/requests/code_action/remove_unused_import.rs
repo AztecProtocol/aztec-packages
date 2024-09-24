@@ -207,7 +207,7 @@ mod tests {
         }
 
         mod qux {
-
+            
         }
 
         fn main() {
