@@ -8,8 +8,7 @@ contract DEX {
     use crate::lib::{get_quote, get_amount_out};
     use dep::aztec::{
         macros::{storage::storage, events::event, functions::{private, public, view, internal, initializer}},
-        prelude::{AztecAddress, PublicImmutable, PublicContext},
-        protocol_types::traits::Serialize,
+        prelude::{AztecAddress, PublicImmutable, PublicContext}, protocol_types::traits::Serialize
     };
     use std::meta::derive;
     use dep::token::Token;
@@ -60,7 +59,13 @@ contract DEX {
     // Note: We needed to make the identity of liquidity provider private because we don't have a transfer_from flow
     // where the token amount is not known in advance and we don't need to know the amounts for partial notes.
     #[public]
-    fn add_liquidity(amount0Desired: u64, amount1Desired: u64, amount0Min: u64, amount1Min: u64, transfer_preparer_storage_slot_commitment: Field) {
+    fn add_liquidity(
+        amount0Desired: u64,
+        amount1Desired: u64,
+        amount0Min: u64,
+        amount1Min: u64,
+        transfer_preparer_storage_slot_commitment: Field
+    ) {
         _lock(&mut context);
 
         // Note: We don't use authwit here as the permission from a user is given by the fact that he prepared
@@ -137,7 +142,13 @@ contract DEX {
         // Update the reserves
         // (Note that we should not pay for token0, token1 and liquidity_token writes because kernel should squash them
         // (once the optimization is done)).
-        let updated_state = State { token0: state.token0, token1: state.token1, liquidity_token: state.liquidity_token, reserve0: reserve0 + amount0, reserve1: reserve1 + amount1 };
+        let updated_state = State {
+            token0: state.token0,
+            token1: state.token1,
+            liquidity_token: state.liquidity_token,
+            reserve0: reserve0 + amount0,
+            reserve1: reserve1 + amount1
+        };
         storage.state.write(updated_state);
 
         _unlock(&mut context);
@@ -153,7 +164,11 @@ contract DEX {
     // `transfer_preparer_storage_slot_commitment` is a storage slot commitment used for both partial notes finalized
     // in this tx (token0 and token1 notes).
     #[public]
-    fn remove_liquidity(amount0Min: u64, amount1Min: u64, transfer_preparer_storage_slot_commitment: Field) {
+    fn remove_liquidity(
+        amount0Min: u64,
+        amount1Min: u64,
+        transfer_preparer_storage_slot_commitment: Field
+    ) {
         _lock(&mut context);
 
         // Note: We don't use authwit here as the permission from a user is given by the fact that he prepared
@@ -168,7 +183,6 @@ contract DEX {
         // Calculate the amounts to be added to the pool
         let mut balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
         let mut balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
-
 
         let liquidity = liquidity_token.balance_of_public(context.this_address()).view(&mut context);
         let total_supply = liquidity_token.total_supply().view(&mut context);
@@ -194,7 +208,13 @@ contract DEX {
         balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
 
         // Update the reserves
-        let updated_state = State { token0: state.token0, token1: state.token1, liquidity_token: state.liquidity_token, reserve0: reserve0 + amount0, reserve1: reserve1 + amount1 };
+        let updated_state = State {
+            token0: state.token0,
+            token1: state.token1,
+            liquidity_token: state.liquidity_token,
+            reserve0: reserve0 + amount0,
+            reserve1: reserve1 + amount1
+        };
         storage.state.write(updated_state);
 
         _unlock(&mut context);
@@ -204,11 +224,7 @@ contract DEX {
     // whether we are swapping `token0` for `token1` or vice versa. Similartly to `remove_liquidity` function it is
     // expected that the user transfers the `token_in` to the pool in a `BatchCall` before calling this function.
     #[public]
-    fn swap_exact_tokens_for_tokens(
-        amount_in: u64,
-        amount_out_min: u64,
-        from_0_to_1: bool,
-    ) {
+    fn swap_exact_tokens_for_tokens(amount_in: u64, amount_out_min: u64, from_0_to_1: bool) {
         _lock(&mut context);
 
         let state = storage.state.read();
