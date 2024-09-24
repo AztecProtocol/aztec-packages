@@ -24,7 +24,7 @@ void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::Provin
 
     if constexpr (IsGoblinFlavor<Flavor>) {
         ZoneScopedN("add_ecc_op_wires_to_proving_key");
-        add_ecc_op_wires_to_proving_key(builder, proving_key);
+        add_ecc_op_wires_to_proving_key(builder, proving_key, is_structured);
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
@@ -73,12 +73,13 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/914): q_arith is currently used in aux block.
             if (&block == &builder.blocks.arithmetic) {
                 size_t arith_size = builder.blocks.aux.trace_offset - builder.blocks.arithmetic.trace_offset +
-                                    builder.blocks.aux.size();
+                                    builder.blocks.aux.get_fixed_size(is_structured);
                 info("arith_size: ", arith_size);
                 selector = Polynomial(arith_size, proving_key.circuit_size, builder.blocks.arithmetic.trace_offset);
             } else {
-                info("block.size(): ", block.size());
-                selector = Polynomial(block.size(), proving_key.circuit_size, block.trace_offset);
+                info("block.fixed_size: ", block.get_fixed_size(is_structured));
+                selector =
+                    Polynomial(block.get_fixed_size(is_structured), proving_key.circuit_size, block.trace_offset);
             }
         }
 
@@ -159,20 +160,22 @@ template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_blo
 
 template <class Flavor>
 void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
-                                                              typename Flavor::ProvingKey& proving_key)
+                                                              typename Flavor::ProvingKey& proving_key,
+                                                              bool is_structured)
     requires IsGoblinFlavor<Flavor>
 {
     auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
     // Allocate the ecc op wires and selector
-    const size_t num_ecc_ops = builder.blocks.ecc_op.size();
+    const size_t ecc_op_block_size = builder.blocks.ecc_op.get_fixed_size(is_structured);
     if constexpr (IsHonkFlavor<Flavor>) {
         for (auto& wire : proving_key.polynomials.get_ecc_op_wires()) {
-            wire = Polynomial(num_ecc_ops, proving_key.circuit_size, op_wire_offset);
+            wire = Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
         }
-        ecc_op_selector = Polynomial(num_ecc_ops, proving_key.circuit_size, op_wire_offset);
+        ecc_op_selector = Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
     }
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
+    const size_t num_ecc_ops = builder.blocks.ecc_op.size();
     for (auto [ecc_op_wire, wire] :
          zip_view(proving_key.polynomials.get_ecc_op_wires(), proving_key.polynomials.get_wires())) {
         for (size_t i = 0; i < num_ecc_ops; ++i) {

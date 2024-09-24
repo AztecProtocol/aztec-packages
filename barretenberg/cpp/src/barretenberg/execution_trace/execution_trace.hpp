@@ -119,7 +119,9 @@ template <class Flavor> class ExecutionTrace_ {
      * @param builder
      * @param proving_key
      */
-    static void add_ecc_op_wires_to_proving_key(Builder& builder, typename Flavor::ProvingKey& proving_key)
+    static void add_ecc_op_wires_to_proving_key(Builder& builder,
+                                                typename Flavor::ProvingKey& proving_key,
+                                                bool is_structured)
         requires IsGoblinFlavor<Flavor>;
 };
 
