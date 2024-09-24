@@ -24,7 +24,7 @@ impl NullifiableNote for MockNote {
         )
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
+    unconstrained fn compute_nullifier_without_context(self) -> Field {
         // We don't use any kind of secret here since this is only a mock note and having it here would make tests
         // more cumbersome
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);

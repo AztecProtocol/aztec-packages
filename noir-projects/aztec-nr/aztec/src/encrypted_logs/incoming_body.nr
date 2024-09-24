@@ -63,7 +63,7 @@ mod test {
             1
         }
 
-        fn compute_nullifier_without_context(_self: Self) -> Field {
+        unconstrained fn compute_nullifier_without_context(_self: Self) -> Field {
             1
         }
     }
