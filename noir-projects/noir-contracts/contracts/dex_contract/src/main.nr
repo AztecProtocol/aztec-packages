@@ -176,19 +176,13 @@ contract DEX {
         assert(amount0 as u64 >= amount0Min, "INSUFFICIENT_0_AMOUNT");
         assert(amount1 as u64 >= amount1Min, "INSUFFICIENT_1_AMOUNT");
 
-        liquidity_token.burn_public(context.this_address(), liquidity, nonce).call(&mut context);
+        liquidity_token.burn_public(context.this_address(), liquidity, 0).call(&mut context);
         // Note: Here we could also transfer to private if we prepared the partial notes. This might make sense to do
         // if the expectation is that users will mostly want to have private balances.
         // TODO: Implement `prepare_transfer_to_private` and `finalize_transfer_to_private` in the Token contract
         // (it's just on the NFT now).
         token0.finalize_transfer_to_private(amount0, transfer_preparer_storage_slot_commitment).call(&mut context);
         token1.finalize_transfer_to_private(amount1, transfer_preparer_storage_slot_commitment).call(&mut context);
-
-        // We load the balances again directly from the token because Uni v2 does it like this. But why do they do
-        // this? It's not to protect against reentrancy attacks as there are locks. Is it to protect against some weird
-        // token accounting which could be affected by the transfer calls above?
-        balance0 = token0.balance_of_public(context.this_address()).view(&mut context);
-        balance1 = token1.balance_of_public(context.this_address()).view(&mut context);
 
         // TODO: It would be quite nice to have a reentrancy-guard macro as this will be quite common.
         _unlock(&mut context);
