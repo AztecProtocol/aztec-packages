@@ -6,7 +6,12 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract DEX {
     use crate::lib::{get_quote, get_amount_out};
-    use dep::aztec::prelude::{AztecAddress, PublicImmutable, PublicContext};
+    use dep::aztec::{
+        macros::{storage::storage, events::event, functions::{private, public, view, internal, initializer}},
+        prelude::{AztecAddress, PublicImmutable, PublicContext},
+        protocol_types::traits::Serialize,
+    };
+    use std::meta::derive;
     use dep::token::Token;
 
     // We store the tokens of the pool and reserves in a struct such that to load it from PublicImmutable asserts only
