@@ -1,6 +1,6 @@
 use protocol_types::abis::function_selector::FunctionSelector;
-use std::meta::unquote;
 use crate::context::inputs::public_context_inputs::PublicContextInputs;
+use super::utils::compute_fn_selector;
 
 /// Returns an `fn public_entrypoint(...)` function for the given module that's assumed to be an Aztec contract.
 pub comptime fn generate_public_entrypoint(m: Module) -> Quoted {
@@ -16,8 +16,7 @@ pub comptime fn generate_public_entrypoint(m: Module) -> Quoted {
         let parameters = function.parameters();
         let return_type = function.return_type();
 
-        let signature = function_signature(name, parameters).as_quoted_str!();
-        let selector: FunctionSelector = unquote!(quote { FunctionSelector::from_signature($signature) });
+        let selector: Field = compute_fn_selector(function);
 
         let mut parameter_index = 0;
 
@@ -68,27 +67,16 @@ pub comptime fn generate_public_entrypoint(m: Module) -> Quoted {
     let ifs = ifs.push_back(quote { { panic(f"Unknown selector") } });
     let dispatch = ifs.join(quote { else });
 
-    let from_field_fn = FunctionSelector::from_field;
-
-    quote {
+    let body = quote {
         pub fn public_entrypoint(arg0: $public_context_inputs, selector: Field) {
-            let selector = $from_field_fn(selector);
             let mut offset = 0;
             $dispatch
         }
-    }
-}
+    };
 
-comptime fn function_signature(name: Quoted, parameters: [(Quoted, Type)]) -> CtString {
-    let types = parameters.map(
-        |param: (Quoted, Type)| {
-            let typ = param.1;
-            f"{typ}".as_ctstring()
-        }
-    );
-    let types = types.join(", ".as_ctstring());
+    // println(body);
 
-    f"{name}({types})".as_ctstring()
+    body
 }
 
 comptime fn size_in_fields(typ: Type) -> u32 {
