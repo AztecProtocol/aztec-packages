@@ -1,8 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { inspect } from 'util';
-
 import { STRING_ENCODING, type UInt32 } from '../shared.js';
 
 /**
@@ -65,11 +63,5 @@ export class AppendOnlyTreeSnapshot {
 
   isZero(): boolean {
     return this.root.isZero() && this.nextAvailableLeafIndex === 0;
-  }
-
-  [inspect.custom]() {
-    return `AppendOnlyTreeSnapshot { root: ${this.root.toString()}, nextAvailableLeafIndex: ${
-      this.nextAvailableLeafIndex
-    } }`;
   }
 }
