@@ -9,6 +9,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 
     let public_context_inputs = get_type::<PublicContextInputs>();
     let unit = get_type::<()>();
+    let initial_offset = size_in_fields(public_context_inputs) + 1; // +1 for the Field selector
 
     let ifs = functions.map(
         |function: FunctionDefinition| {
@@ -27,7 +28,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             let read = quote { let $param_name = dep::aztec::protocol_types::traits::Deserialize::deserialize(dep::aztec::context::public_context::calldata_copy(offset, $param_size)); };
             let increment = quote { offset += $param_size; };
             let read = if parameter_index == 0 {
-                quote { $increment }
+                quote {}
             } else {
                 quote { $read $increment }
             };
@@ -69,7 +70,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 
     let body = quote {
         pub fn public_dispatch(arg0: $public_context_inputs, selector: Field) {
-            let mut offset = 0;
+            let mut offset = $initial_offset;
             $dispatch
         }
     };
