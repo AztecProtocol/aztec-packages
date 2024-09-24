@@ -78,3 +78,99 @@ impl Deserialize<FIELD_SERIALIZED_LEN> for Field {
         fields[0]
     }
 }
+
+impl <let N: u32> Serialize<N> for [u8; N] {
+    fn serialize(self) -> [Field; N] {
+        self.map(|value| value as Field)
+    }
+}
+
+impl <let N: u32> Deserialize<N> for [u8; N] {
+    fn deserialize(fields: [Field; N]) -> Self {
+        fields.map(|value| value as u8)
+    }
+}
+
+impl <let N: u32> Serialize<N> for [u16; N] {
+    fn serialize(self) -> [Field; N] {
+        self.map(|value| value as Field)
+    }
+}
+
+impl <let N: u32> Deserialize<N> for [u16; N] {
+    fn deserialize(fields: [Field; N]) -> Self {
+        fields.map(|value| value as u16)
+    }
+}
+
+impl <let N: u32> Serialize<N> for [u32; N] {
+    fn serialize(self) -> [Field; N] {
+        self.map(|value| value as Field)
+    }
+}
+
+impl <let N: u32> Deserialize<N> for [u32; N] {
+    fn deserialize(fields: [Field; N]) -> Self {
+        fields.map(|value| value as u32)
+    }
+}
+
+impl <let N: u32> Serialize<N> for [u64; N] {
+    fn serialize(self) -> [Field; N] {
+        self.map(|value| value as Field)
+    }
+}
+
+impl <let N: u32> Deserialize<N> for [u64; N] {
+    fn deserialize(fields: [Field; N]) -> Self {
+        fields.map(|value| value as u64)
+    }
+}
+
+impl <let N: u32> Serialize<N> for [i8; N] {
+    fn serialize(self) -> [Field; N] {
+        self.map(|value| value as Field)
+    }
+}
+
+impl <let N: u32> Deserialize<N> for [i8; N] {
+    fn deserialize(fields: [Field; N]) -> Self {
+        fields.map(|value| value as i8)
+    }
+}
+
+impl <let N: u32> Serialize<N> for [i16; N] {
+    fn serialize(self) -> [Field; N] {
+        self.map(|value| value as Field)
+    }
+}
+
+impl <let N: u32> Deserialize<N> for [i16; N] {
+    fn deserialize(fields: [Field; N]) -> Self {
+        fields.map(|value| value as i16)
+    }
+}
+
+impl <let N: u32> Serialize<N> for [i32; N] {
+    fn serialize(self) -> [Field; N] {
+        self.map(|value| value as Field)
+    }
+}
+
+impl <let N: u32> Deserialize<N> for [i32; N] {
+    fn deserialize(fields: [Field; N]) -> Self {
+        fields.map(|value| value as i32)
+    }
+}
+
+impl <let N: u32> Serialize<N> for [i64; N] {
+    fn serialize(self) -> [Field; N] {
+        self.map(|value| value as Field)
+    }
+}
+
+impl <let N: u32> Deserialize<N> for [i64; N] {
+    fn deserialize(fields: [Field; N]) -> Self {
+        fields.map(|value| value as i64)
+    }
+}
