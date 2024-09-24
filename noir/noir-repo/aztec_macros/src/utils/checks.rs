@@ -18,5 +18,8 @@ pub fn check_for_aztec_dependency(
 }
 
 pub fn has_aztec_dependency(crate_id: &CrateId, context: &HirContext) -> bool {
-    context.crate_graph[crate_id].dependencies.iter().any(|dep| dep.as_name() == "aztec")
+    context.crate_graph[crate_id]
+        .dependencies
+        .iter()
+        .any(|dep| dep.as_name() == "aztec-prevent-macro-injection")
 }

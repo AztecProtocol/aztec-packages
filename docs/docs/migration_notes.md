@@ -6,7 +6,89 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.56.0
+
+
+### [Aztec.nr] Changes to contract definition
+
+We've migrated the Aztec macros to use the newly introduce meta programming Noir feature. Due to being Noir-based, the new macros are less obscure and can be more easily modified.
+
+As part of this transition, some changes need to be applied to Aztec contracts:
+
+- The top level `contract` block needs to have the `#[aztec]` macro applied to it.
+- All `#[aztec(name)]` macros are renamed to `#[name]`.
+- The storage struct (the one that gets the `#[storage]` macro applied) but be generic over a `Context` type, and all state variables receive this type as their last generic type parameter.
+
+```diff
++ use dep::aztec::macros::aztec;
+
+#[aztec]
+contract Token {
++    use dep::aztec::macros::{storage::storage, events::event, functions::{initializer, private, view, public}};
+
+-    #[aztec(storage)]
+-    struct Storage {
++    #[storage]
++    struct Storage<Context> {
+-        admin: PublicMutable<AztecAddress>,
++        admin: PublicMutable<AztecAddress, Context>,
+-        minters: Map<AztecAddress, PublicMutable<bool>>,
++        minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+    }
+
+-    #[aztec(public)]
+-    #[aztec(initializer)]
++    #[public]
++    #[initializer]
+    fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
+        ...
+    }
+
+-    #[aztec(public)]
+-    #[aztec(view)]
+-    fn public_get_name() -> FieldCompressedString {
++    #[public]
++    #[view]
+    fn public_get_name() -> FieldCompressedString {
+        ...
+    }
+```
+
+### [Aztec.nr] Changes to `NoteInterface`
+
+The new macro model prevents partial trait auto-implementation: they either implement the entire trait or none of it. This means users can no longer implement part of `NoteInterface` and have the rest be auto-implemented.
+
+For this reason we've separated the methods which are auto-implemented and those which needs to be implemented manually into two separate traits: the auto-implemented ones stay in the `NoteInterface` trace and the manually implemented ones were moved to `NullifiableNote` (name likely to change):
+
+```diff
+-#[aztec(note)]
++#[note]
+struct AddressNote {
+    ...
+}
+
+-impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
++impl NullifiableNote for AddressNote {
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+        ...
+    }
+
+    fn compute_nullifier_without_context(self) -> Field {
+        ...
+    }
+}
+```
+
+### [Aztec.nr] Changes to contract interface
+
+The `Contract::storage()` static method has been renamed to `Contract::storage_layout()`.
+
+```diff
+-    let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage().balances.slot, fee_payer);
+-    let user_balances_slot = derive_storage_slot_in_map(Token::storage().balances.slot, user);
++    let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, fee_payer);
++    let user_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, user);
+```
 
 ### Key rotation removed
 
