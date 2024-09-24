@@ -21,7 +21,7 @@ template <typename Curve> class ShpleminiProver_ {
     using GeminiProver = GeminiProver_<Curve>;
 
     template <typename Transcript>
-    static OpeningClaim prove(FF circuit_size,
+    static OpeningClaim prove(const FF circuit_size,
                               RefSpan<Polynomial> f_polynomials,
                               RefSpan<Polynomial> g_polynomials,
                               std::span<FF> multilinear_challenge,
@@ -106,7 +106,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                                 RefSpan<Fr> shifted_evaluations,
                                                                 const std::vector<Fr>& multivariate_challenge,
                                                                 const Commitment& g1_identity,
-                                                                std::shared_ptr<Transcript>& transcript)
+                                                                const std::shared_ptr<Transcript>& transcript)
     {
 
         // Extract log_circuit_size
