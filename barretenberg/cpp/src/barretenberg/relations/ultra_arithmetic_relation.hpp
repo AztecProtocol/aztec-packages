@@ -155,6 +155,8 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
   public:
     using FF = FF_;
 
+    static constexpr size_t HOMOGENEOUS_LENGTH{ 6 };
+
     /**
      * @brief Expression for the Ultra Arithmetic gate.
      * @details This relation encapsulates several idenitities, toggled by the value of q_arith in [0, 1, 2, 3, ...].
@@ -262,8 +264,9 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
             auto prod = q_arith * hom;
             auto term = tmp * (q_arith * q_arith - prod - prod - prod);
             tmp += tmp;
-            tmp *= hom * hom;
+            tmp *= hom.sqr();
             term += tmp;
+            term *= hom;
             term *= scaling_factor;
             std::get<1>(evals) += term;
         };
