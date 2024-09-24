@@ -18,7 +18,6 @@ TEST="$1"
 
 # Variables with defaults
 HARDWARE_CONCURRENCY="${HARDWARE_CONCURRENCY:-}"
-ALLOW_FAIL="${ALLOW_FAIL:-false}"
 L1_CHAIN_ID="${L1_CHAIN_ID:-31337}"
 AZTEC_DOCKER_TAG="${AZTEC_DOCKER_TAG:-$(git rev-parse HEAD)}"
 
@@ -36,4 +35,4 @@ docker run \
   -e SEQ_PUBLISHER_PRIVATE_KEY="${SEQ_PUBLISHER_PRIVATE_KEY:-}" \
   -e PROVER_PUBLISHER_PRIVATE_KEY="${PROVER_PUBLISHER_PRIVATE_KEY:-}" \
   -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \
-  --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG "$TEST" || $allow_fail
+  --rm aztecprotocol/end-to-end:$AZTEC_DOCKER_TAG "$TEST"
