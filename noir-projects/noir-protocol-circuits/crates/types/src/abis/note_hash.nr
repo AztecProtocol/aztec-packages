@@ -5,7 +5,7 @@ use crate::{
     utils::{arrays::array_concat, reader::Reader}
 };
 
-struct NoteHash {
+pub struct NoteHash {
     value: Field,
     counter: u32,
 }
@@ -46,7 +46,7 @@ impl NoteHash {
     }
 }
 
-struct ScopedNoteHash {
+pub struct ScopedNoteHash {
     note_hash: NoteHash,
     contract_address: AztecAddress,
 }

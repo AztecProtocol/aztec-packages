@@ -4,7 +4,7 @@ use crate::{
     traits::{Deserialize, Serialize, Empty}, utils::reader::Reader
 };
 
-struct PrivateCallStackItem {
+pub struct PrivateCallStackItem {
     // This is the _actual_ contract address relating to where this function's code resides in the
     // contract tree. Regardless of whether this is a call or delegatecall, this
     // `contract_address` _does not change_. Amongst other things, it's used as a lookup for

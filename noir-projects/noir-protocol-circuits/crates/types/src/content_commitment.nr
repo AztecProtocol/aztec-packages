@@ -1,6 +1,6 @@
 use crate::{constants::CONTENT_COMMITMENT_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
-struct ContentCommitment {
+pub struct ContentCommitment {
   num_txs: Field,
   txs_effects_hash: Field,
   in_hash: Field,

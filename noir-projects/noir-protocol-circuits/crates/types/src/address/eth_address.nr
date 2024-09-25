@@ -1,6 +1,6 @@
 use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Empty, ToField, Serialize, Deserialize}, utils};
 
-struct EthAddress{
+pub struct EthAddress{
     inner : Field
 }
 

@@ -11,7 +11,7 @@ use crate::context::{
 use crate::oracle::arguments::pack_arguments;
 use crate::hash::hash_args;
 
-trait CallInterface<let N: u32, T, P, Env> {
+pub trait CallInterface<let N: u32, T, P, Env> {
     fn get_original(self) -> fn[Env](T) -> P;
 
     fn get_args(self) -> [Field] {
@@ -41,7 +41,7 @@ impl<let N: u32, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircui
     }
 }
 
-struct PrivateCallInterface<let N: u32, T, Env> {
+pub struct PrivateCallInterface<let N: u32, T, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
@@ -84,7 +84,7 @@ impl<let N: u32, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircui
     }
 }
 
-struct PrivateVoidCallInterface<let N: u32, Env> {
+pub struct PrivateVoidCallInterface<let N: u32, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
@@ -123,7 +123,7 @@ impl<let N: u32, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircui
     }
 }
 
-struct PrivateStaticCallInterface<let N: u32, T, Env> {
+pub struct PrivateStaticCallInterface<let N: u32, T, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
@@ -147,7 +147,7 @@ impl<let N: u32, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircui
     }
 }
 
-struct PrivateStaticVoidCallInterface<let N: u32, Env> {
+pub struct PrivateStaticVoidCallInterface<let N: u32, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
@@ -170,7 +170,7 @@ impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, T, Env> for Pu
     }
 }
 
-struct PublicCallInterface<let N: u32, T, Env> {
+pub struct PublicCallInterface<let N: u32, T, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
@@ -244,7 +244,7 @@ impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, (), Env> for P
     }
 }
 
-struct PublicVoidCallInterface<let N: u32, Env> {
+pub struct PublicVoidCallInterface<let N: u32, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
@@ -318,7 +318,7 @@ impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, T, Env> for Pu
     }
 }
 
-struct PublicStaticCallInterface<let N: u32, T, Env> {
+pub struct PublicStaticCallInterface<let N: u32, T, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
@@ -359,7 +359,7 @@ impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, (), Env> for P
     }
 }
 
-struct PublicStaticVoidCallInterface<let N: u32, Env> {
+pub struct PublicStaticVoidCallInterface<let N: u32, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,

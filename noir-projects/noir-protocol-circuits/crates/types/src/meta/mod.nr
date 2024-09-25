@@ -172,19 +172,19 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
 }
 
 #[derive(Serialize, Deserialize, Eq)]
-struct Smol {
+pub struct Smol {
     a: Field,
     b: Field,
 }
 
 #[derive(Serialize, Deserialize, Eq)]
-struct HasArray {
+pub struct HasArray {
     a: [Field; 2],
     b: bool
 }
 
 #[derive(Serialize, Deserialize, Eq)]
-struct Fancier {
+pub struct Fancier {
     a: Smol,
     b: [Field; 2],
     c: [u8; 3],

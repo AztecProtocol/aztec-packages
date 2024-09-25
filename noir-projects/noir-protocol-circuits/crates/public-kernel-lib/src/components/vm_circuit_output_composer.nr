@@ -18,7 +18,7 @@ use dep::types::{
 };
 
 // TODO(#7124): To be deprecated.
-struct VMCircuitOutputComposer {
+pub struct VMCircuitOutputComposer {
     constants: CombinedConstantData,
     call_request: PublicCallRequest,
     public_call_stack: BoundedVec<PublicInnerCallRequest, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,

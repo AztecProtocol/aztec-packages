@@ -25,7 +25,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PUBLIC_KERNEL_MERGE_INDEX,
 ];
 
-struct PublicKernelTailCircuitPrivateInputs {
+pub struct PublicKernelTailCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     note_hash_read_request_hints: [TreeLeafReadRequestHint<NOTE_HASH_TREE_HEIGHT>; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     nullifier_read_request_hints: NullifierReadRequestHints<MAX_NULLIFIER_READ_REQUESTS_PER_TX, MAX_NULLIFIER_READ_REQUESTS_PER_TX>,

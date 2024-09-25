@@ -13,7 +13,7 @@ use dep::types::{
     traits::is_empty
 };
 
-struct PublicKernelOutputComposer {
+pub struct PublicKernelOutputComposer {
     output_builder: PublicKernelCircuitPublicInputsBuilder,
 }
 

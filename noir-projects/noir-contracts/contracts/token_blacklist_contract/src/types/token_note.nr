@@ -11,7 +11,7 @@ trait OwnedNote {
 }
 
 #[note]
-struct TokenNote {
+pub struct TokenNote {
     // The amount of tokens in the note
     amount: U128,
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.

@@ -6,7 +6,7 @@ use dep::aztec::{
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
-struct EasyPrivateUint<Context> {
+pub struct EasyPrivateUint<Context> {
     context: Context,
     set: PrivateSet<ValueNote, Context>,
     storage_slot: Field,

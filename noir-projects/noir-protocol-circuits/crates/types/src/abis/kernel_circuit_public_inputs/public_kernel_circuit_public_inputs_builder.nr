@@ -7,7 +7,7 @@ use crate::{
     address::AztecAddress, traits::Empty
 };
 
-struct PublicKernelCircuitPublicInputsBuilder {
+pub struct PublicKernelCircuitPublicInputsBuilder {
     constants: CombinedConstantData,
     validation_requests: PublicValidationRequestsBuilder,
     end_non_revertible: PublicAccumulatedDataBuilder,

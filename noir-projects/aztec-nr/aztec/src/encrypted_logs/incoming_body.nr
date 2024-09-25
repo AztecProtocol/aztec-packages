@@ -5,7 +5,7 @@ use dep::protocol_types::{scalar::Scalar};
 use std::aes128::aes128_encrypt;
 use crate::keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::IvpkM};
 
-struct EncryptedLogIncomingBody<let N: u32> {
+pub struct EncryptedLogIncomingBody<let N: u32> {
     plaintext: [u8; N * 32 + 64]
 }
 
@@ -121,7 +121,7 @@ mod test {
             buffer
         }
 
-        fn compute_note_hash(self) -> Field {
+        fn compute_note_hash(_self: Self) -> Field {
             crate::generators::Ga1.x
         }
     }
