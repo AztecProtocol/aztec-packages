@@ -1,5 +1,6 @@
-use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Empty, ToField, Serialize, Deserialize}, utils};
+use crate::{constants::ETH_ADDRESS_LENGTH, traits::{Empty, ToField, Serialize, Deserialize, FromCalldata}, utils};
 
+#[derive(FromCalldata)]
 pub struct EthAddress{
     inner : Field
 }

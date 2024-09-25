@@ -15,15 +15,32 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 
         let selector: Field = compute_fn_selector(function);
 
-        let mut parameter_index = 0;
-        let mut offset = 1; // 1 for the Field selector
+        let param_sizes = parameters.map(|param: (Quoted, Type)| {
+            size_in_fields(param.1)
+        });
 
-        let reads = parameters.map(|param: (Quoted, Type)| {
-            // Skip the `PublicContextInputs` argument as we already have that
-            let param_type = param.1;
-            let param_size = size_in_fields(param_type);
+        let mut parameters_size = 0;
+        for param_size in param_sizes {
+            parameters_size += param_size;
+        }
+
+        let initial_read = if parameters.len() == 0 {
+            quote {}
+        } else {
+            // The initial calldata_copy offset is 1 to skip the Field selector
+            quote {
+                let input_calldata = dep::aztec::context::public_context::calldata_copy(1, $parameters_size);
+            }
+        };
+
+        let mut parameter_index = 0;
+        let mut offset = 0;
+        let reads = parameters.map(|_: (Quoted, Type)| {
+            let param_size = param_sizes[parameter_index];
             let param_name = f"arg{parameter_index}".quoted_contents();
-            let read = quote { let $param_name = dep::aztec::protocol_types::traits::Deserialize::deserialize(dep::aztec::context::public_context::calldata_copy($offset, $param_size)); };
+            let read = quote { 
+                let ($param_name, _) = dep::aztec::protocol_types::traits::FromCalldata::from_calldata(input_calldata, $offset); 
+            };
             offset += param_size;
             parameter_index += 1;
             quote { $read }
@@ -50,6 +67,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
 
         let if_ = quote {
             if selector == $selector {
+                $initial_read
                 $read
                 $return_code
             }
@@ -65,11 +83,15 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let ifs = ifs.push_back(quote { { panic(f"Unknown selector") } });
         let dispatch = ifs.join(quote { else });
 
-        quote {
+        let body = quote {
             unconstrained pub fn public_dispatch(selector: Field) {
                 $dispatch
             }
-        }
+        };
+
+        println(body);
+
+        body
     }
 }
 

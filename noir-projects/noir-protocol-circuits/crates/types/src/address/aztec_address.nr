@@ -1,11 +1,12 @@
 use crate::{
     crate::address::{partial_address::PartialAddress, public_keys_hash::PublicKeysHash},
     constants::{AZTEC_ADDRESS_LENGTH, GENERATOR_INDEX__CONTRACT_ADDRESS_V1},
-    hash::poseidon2_hash_with_separator, traits::{Empty, FromField, ToField, Serialize, Deserialize},
-    utils
+    hash::poseidon2_hash_with_separator,
+    traits::{Empty, FromField, ToField, Serialize, Deserialize, FromCalldata}, utils
 };
 
 // Aztec address
+#[derive(FromCalldata)]
 pub struct AztecAddress {
     inner : Field
 }
