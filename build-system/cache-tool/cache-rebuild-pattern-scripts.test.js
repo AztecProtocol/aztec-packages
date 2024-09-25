@@ -237,9 +237,6 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
       delete process.env.S3_READ;
     }
 
-    // Write the rebuild patterns to a file
-    fs.writeFileSync(rebuildPatternsFile, rebuildPatterns.trim());
-
     // Compute the content hash
     const contentHash = await computeContentHash();
     const expectedTarFileName = `${PREFIX}-${contentHash}.tar.gz`;
@@ -275,24 +272,23 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
       });
 
       downloadProcess.on("close", (code) => {
-        if (code !== 0) {
-          console.error("Download script exited with code", code);
-          console.error("stdout:", stdout);
-          console.error("stderr:", stderr);
-          reject(new Error("Download script failed"));
-        } else {
-          // Verify that the files are extracted
-          try {
+        try {
+          if (code !== 0) {
+            throw new Error("Download script failed");
+          } else {
+            // Verify that the files are extracted
             filesToUpload.forEach((file) => {
-              const fileName = path.basename(file);
-              expect(fs.existsSync(fileName)).toBe(true);
-              const content = fs.readFileSync(fileName, "utf-8");
+              expect(fs.existsSync(file)).toBe(true);
+              const content = fs.readFileSync(file, "utf-8");
               expect(content).toBe("Dummy file content");
             });
             resolve();
-          } catch (err) {
-            reject(err);
           }
+        } catch (err) {
+          console.error("Download script exited with code", code);
+          console.error("stdout:", stdout);
+          console.error("stderr:", stderr);
+          reject(err);
         }
       });
     });
