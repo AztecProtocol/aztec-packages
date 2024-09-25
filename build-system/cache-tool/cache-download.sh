@@ -1,29 +1,19 @@
 #!/bin/bash
 set -eu
 
-if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <source_paths...> <cache_name>"
+if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 <tar.gz_file_to_download_and_extract>"
     exit 1
 fi
 
-# Extract the cache name (last argument)
-CACHE_NAME="${@: -1}"
-# Extract the source paths (all arguments except the last)
-SOURCE_PATHS=("${@:1:$#-1}")
-
-# Compute the source hash
-echo "Computing source hash for paths: ${SOURCE_PATHS[*]}"
-SOURCE_HASH=$(find "${SOURCE_PATHS[@]}" -type f -exec sha256sum {} \; | sort | sha256sum | awk '{print $1}')
-echo "Source hash: $SOURCE_HASH"
-
-# Define cache file name
-TAR_FILE="build-${CACHE_NAME}-${SOURCE_HASH}.tar.gz"
+# Get the tar.gz file name from the argument
+TAR_FILE="$1"
 
 function on_exit() {
   # Cleanup the temporary tar.gz file
   rm -f "$TAR_FILE"
 }
-# like a try-finally block for the script, run on any exit
+# Run on any exit
 trap on_exit EXIT
 
 # Set cache server details
