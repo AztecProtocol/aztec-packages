@@ -13,7 +13,7 @@ use crate::{
 };
 
 // docs:start:header
-struct Header {
+pub struct Header {
     last_archive: AppendOnlyTreeSnapshot,
     content_commitment: ContentCommitment,
     state: StateReference,

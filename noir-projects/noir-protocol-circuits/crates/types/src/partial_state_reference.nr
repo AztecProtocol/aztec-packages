@@ -3,7 +3,7 @@ use crate::{
     traits::{Deserialize, Empty, Serialize}
 };
 
-struct PartialStateReference {
+pub struct PartialStateReference {
     note_hash_tree: AppendOnlyTreeSnapshot,
     nullifier_tree: AppendOnlyTreeSnapshot,
     public_data_tree: AppendOnlyTreeSnapshot,

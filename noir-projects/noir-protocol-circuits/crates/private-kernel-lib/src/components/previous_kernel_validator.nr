@@ -6,7 +6,7 @@ use dep::types::{
     address::AztecAddress, traits::is_empty, utils::arrays::array_length
 };
 
-struct PreviousKernelValidator {
+pub struct PreviousKernelValidator {
     previous_kernel: PrivateKernelCircuitPublicInputs,
     hints: PreviousKernelValidatorHints,
 }

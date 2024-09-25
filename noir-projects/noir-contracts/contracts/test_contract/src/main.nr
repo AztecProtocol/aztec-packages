@@ -493,7 +493,7 @@ contract Test {
         kinda_seed * unsafe_rand()
     }
 
-    struct DummyNote {
+    pub struct DummyNote {
         amount: Field,
         secret_hash: Field
     }
@@ -514,7 +514,7 @@ contract Test {
         }
     }
 
-    struct DeepStruct {
+    pub struct DeepStruct {
         a_field: Field,
         a_bool: bool,
         a_note: DummyNote,

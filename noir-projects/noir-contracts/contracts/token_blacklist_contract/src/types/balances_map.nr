@@ -6,7 +6,7 @@ use dep::aztec::{
 };
 use crate::types::{token_note::OwnedNote};
 
-struct BalancesMap<T, Context> {
+pub struct BalancesMap<T, Context> {
     map: Map<AztecAddress, PrivateSet<T, Context>, Context>
 }
 

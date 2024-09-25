@@ -13,7 +13,7 @@ use dep::std::mem::zeroed;
 
 mod test;
 
-struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
+pub struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
     context: Context,
     storage_slot: Field,
 }

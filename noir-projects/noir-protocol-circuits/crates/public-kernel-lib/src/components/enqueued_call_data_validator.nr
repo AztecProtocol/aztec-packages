@@ -8,7 +8,7 @@ use dep::types::{
     utils::arrays::array_length
 };
 
-struct EnqueuedCallDataValidator {
+pub struct EnqueuedCallDataValidator {
     enqueued_call: EnqueuedCallData,
     phase: u8,
 }

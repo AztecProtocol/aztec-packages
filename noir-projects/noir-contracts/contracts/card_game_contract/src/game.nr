@@ -4,7 +4,7 @@ use crate::cards::Card;
 global NUMBER_OF_PLAYERS: u32 = 2;
 global NUMBER_OF_CARDS_DECK: u32 = 2;
 
-struct PlayerEntry {
+pub struct PlayerEntry {
     address: AztecAddress,
     deck_strength: u32,
     points: u64,
@@ -38,7 +38,7 @@ impl Eq for PlayerEntry {
 
 global PLAYABLE_CARDS: u32 = 4;
 
-struct Game {
+pub struct Game {
     players: [PlayerEntry; NUMBER_OF_PLAYERS],
     rounds_cards: [Card; PLAYABLE_CARDS],
     started: bool,

@@ -1,6 +1,6 @@
 use X as Y;
 
-struct X{
+pub struct X{
     x :u32
 }
 
@@ -8,7 +8,7 @@ fn main() {
     let z= Y{20};
 }
 
-error: cannot find `Y` in this scope 
+error: cannot find `Y` in this scope
   ┌─ main.nr:8:12
   │
 8 │     let z= Y{20};

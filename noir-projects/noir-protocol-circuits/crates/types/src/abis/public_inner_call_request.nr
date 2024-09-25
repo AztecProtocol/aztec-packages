@@ -5,7 +5,7 @@ use crate::{
 };
 
 // TODO(#7124): To be deprecated.
-struct PublicInnerCallRequest {
+pub struct PublicInnerCallRequest {
     item: PublicCallStackItemCompressed,
     counter: u32,
 }

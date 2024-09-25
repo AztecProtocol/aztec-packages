@@ -9,7 +9,7 @@ use dep::aztec::{
 // docs:start:address_note_struct
 // Stores an address
 #[note]
-struct AddressNote {
+pub struct AddressNote {
     address: AztecAddress,
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
     npk_m_hash: Field,
@@ -30,7 +30,7 @@ impl NullifiableNote for AddressNote {
         )
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
+    unconstrained fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(

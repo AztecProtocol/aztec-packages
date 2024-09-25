@@ -185,6 +185,10 @@ export class ProverAgent {
         return this.circuitProver.getBlockRootRollupProof(inputs);
       }
 
+      case ProvingRequestType.BLOCK_ROOT_ROLLUP_FINAL: {
+        return this.circuitProver.getBlockRootRollupFinalProof(inputs);
+      }
+
       case ProvingRequestType.BLOCK_MERGE_ROLLUP: {
         return this.circuitProver.getBlockMergeRollupProof(inputs);
       }

@@ -11,7 +11,7 @@ trait OwnedNote {
 }
 
 #[note]
-struct TokenNote {
+pub struct TokenNote {
     // The amount of tokens in the note
     amount: U128,
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
@@ -34,7 +34,7 @@ impl NullifiableNote for TokenNote {
     }
     // docs:end:nullifier
 
-    fn compute_nullifier_without_context(self) -> Field {
+    unconstrained fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(

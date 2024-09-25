@@ -5,7 +5,7 @@ use crate::{
     utils::{arrays::array_concat, reader::Reader}
 };
 
-struct Nullifier {
+pub struct Nullifier {
     value: Field,
     counter: u32,
     note_hash: Field,
@@ -70,7 +70,7 @@ impl Nullifier {
     }
 }
 
-struct ScopedNullifier {
+pub struct ScopedNullifier {
     nullifier: Nullifier,
     contract_address: AztecAddress,
 }

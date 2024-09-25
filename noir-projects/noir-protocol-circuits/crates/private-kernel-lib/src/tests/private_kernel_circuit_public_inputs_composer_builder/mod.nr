@@ -11,7 +11,7 @@ use dep::types::{
     tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest
 };
 
-struct PrivateKernelCircuitPublicInputsComposerBuilder {
+pub struct PrivateKernelCircuitPublicInputsComposerBuilder {
     tx_request: TxRequest,
     previous_kernel: FixtureBuilder,
     private_call: FixtureBuilder,
