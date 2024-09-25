@@ -5,7 +5,7 @@ use crate::ssa::ir::types::Type;
 use super::{
     basic_block::BasicBlockId,
     dfg::{CallStack, InsertInstructionResult},
-    function::{Function, RuntimeType},
+    function::Function,
     instruction::{Instruction, InstructionId},
     value::ValueId,
 };
