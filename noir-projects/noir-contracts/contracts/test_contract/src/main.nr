@@ -20,8 +20,8 @@ contract Test {
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
-    use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
     use dep::aztec::encrypted_logs::outgoing_body::EncryptedLogOutgoingBody;
+    use dep::aztec::encrypted_logs::payload::compute_incoming_body_ciphertext;
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
     use dep::aztec::keys::getters::get_public_keys;
@@ -420,7 +420,8 @@ contract Test {
         value: Field
     ) -> [u8; 112] {
         let note = TestNote::new(value);
-        EncryptedLogIncomingBody::from_note(note, storage_slot).compute_ciphertext(secret, ivpk).as_array()
+        let plaintext = note.to_be_bytes(storage_slot);
+        compute_incoming_body_ciphertext(plaintext, secret, ivpk).as_array()
     }
 
     #[private]

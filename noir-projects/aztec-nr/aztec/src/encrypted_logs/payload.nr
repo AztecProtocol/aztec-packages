@@ -10,13 +10,13 @@ use crate::{
     keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::{OvpkM, IvpkM}}
 };
 
-pub fn compute_encrypted_log<let N: u32, let M: u32>(
+pub fn compute_encrypted_log<let P: u32, let M: u32>(
     contract_address: AztecAddress,
     ovsk_app: Field,
     ovpk: OvpkM,
     ivpk: IvpkM,
     recipient: AztecAddress,
-    plaintext: [u8; N * 32 + 64]
+    plaintext: [u8; P]
 ) -> [u8; M] {
     let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
 
@@ -24,7 +24,7 @@ pub fn compute_encrypted_log<let N: u32, let M: u32>(
 
     let incoming_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ivpk);
     let outgoing_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ovpk);
-    let incoming_body_ciphertext = compute_ciphertext(plaintext, eph_sk, ivpk);
+    let incoming_body_ciphertext = compute_incoming_body_ciphertext(plaintext, eph_sk, ivpk);
     let outgoing_body_ciphertext: [u8; 144] = EncryptedLogOutgoingBody::new(eph_sk, recipient, ivpk).compute_ciphertext(fr_to_fq(ovsk_app), eph_pk);
 
     let mut encrypted_bytes: [u8; M] = [0; M];
@@ -56,7 +56,7 @@ pub fn compute_encrypted_log<let N: u32, let M: u32>(
     // outgoing_header (48 bytes)
     // outgoing_body (144 bytes)
     // incoming_body_fixed (64 bytes)
-    // incoming_body_variable (N * 32 bytes + 16 bytes padding)
+    // incoming_body_variable (P + 16 bytes padding)
     encrypted_bytes
 }
 
@@ -78,7 +78,11 @@ fn generate_ephemeral_key_pair() -> (Scalar, Point) {
     (eph_sk, eph_pk)
 }
 
-fn compute_ciphertext<let N: u32>(plaintext: [u8; N * 32 + 64], eph_sk: Scalar, ivpk: IvpkM) -> [u8] {
+pub fn compute_incoming_body_ciphertext<let P: u32>(
+    plaintext: [u8; P],
+    eph_sk: Scalar,
+    ivpk: IvpkM
+) -> [u8] {
     let full_key = point_to_symmetric_key(eph_sk, ivpk.to_point());
     let mut sym_key = [0; 16];
     let mut iv = [0; 16];
@@ -92,10 +96,10 @@ fn compute_ciphertext<let N: u32>(plaintext: [u8; N * 32 + 64], eph_sk: Scalar, 
 
 mod test {
     use crate::{
-        encrypted_logs::payload::compute_encrypted_log, keys::public_keys::{OvpkM, IvpkM},
-        test::mocks::mock_note::MockNoteBuilder
+        encrypted_logs::payload::{compute_encrypted_log, compute_incoming_body_ciphertext},
+        keys::public_keys::{OvpkM, IvpkM}, test::mocks::mock_note::MockNoteBuilder
     };
-    use dep::protocol_types::{address::AztecAddress, point::Point};
+    use dep::protocol_types::{address::AztecAddress, point::Point, scalar::Scalar};
     use std::test::OracleMock;
 
     #[test]
@@ -136,5 +140,46 @@ mod test {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 141, 70, 12, 14, 67, 77, 132, 110, 193, 234, 40, 110, 64, 144, 235, 86, 55, 111, 242, 123, 221, 193, 170, 202, 225, 216, 86, 84, 159, 112, 31, 167, 126, 79, 51, 186, 47, 71, 253, 172, 99, 112, 241, 59, 197, 241, 107, 186, 232, 87, 187, 230, 171, 62, 228, 234, 42, 51, 145, 146, 238, 242, 42, 71, 206, 13, 244, 66, 111, 195, 20, 203, 98, 148, 204, 242, 145, 183, 156, 29, 141, 54, 44, 220, 194, 35, 229, 16, 32, 204, 211, 49, 142, 112, 82, 202, 116, 241, 254, 146, 42, 217, 20, 189, 70, 228, 182, 171, 205, 104, 27, 99, 171, 28, 91, 244, 21, 30, 130, 240, 5, 72, 174, 124, 97, 197, 157, 248, 193, 23, 193, 76, 46, 141, 144, 70, 211, 45, 67, 167, 218, 129, 140, 104, 190, 41, 110, 249, 209, 68, 106, 135, 164, 80, 235, 63, 101, 80, 32, 13, 38, 99, 145, 91, 11, 173, 151, 231, 247, 65, 153, 117, 229, 167, 64, 239, 182, 126, 235, 83, 4, 169, 8, 8, 160, 4, 235, 252, 21, 96, 84, 161, 69, 145, 145, 215, 254, 161, 117, 246, 198, 65, 89, 179, 194, 90, 19, 121, 12, 202, 114, 80, 195, 14, 60, 128, 105, 142, 100, 86, 90, 108, 157, 219, 22, 172, 20, 121, 195, 25, 159, 236, 2, 70, 75, 42, 37, 34, 2, 17, 149, 20, 176, 32, 18, 204, 56, 117, 121, 34, 15, 3, 88, 123, 64, 68, 74, 233, 63, 59, 131, 222, 194, 192, 167, 110, 217, 10, 128, 73, 129, 172, 205, 103, 212, 60, 151, 141, 10, 151, 222, 151, 180, 43, 91, 148, 201, 110, 165, 10, 238, 32, 134, 235, 99, 216, 200, 182, 31, 22, 156, 18, 209, 222, 172, 239, 193, 212, 86, 99, 62, 70, 182, 45, 175, 241, 91, 202, 179, 225, 236, 95, 71, 66, 151, 225, 203, 53, 216, 85, 102, 130, 6, 8, 25, 180, 86, 58, 140, 198, 105, 102, 177, 42, 94, 115, 247, 145, 147, 24, 231, 39, 73, 27, 10, 219, 130, 115, 188, 74, 114, 5, 177, 199, 83, 183, 106, 87, 204, 238, 231, 72, 45, 240, 39, 174, 25, 98, 53, 187, 156, 159, 244, 38
         ];
         assert_eq(encrypted_note_log_from_typescript, log);
+    }
+
+    #[test]
+    fn test_encrypted_note_log_incoming_body_matches_typescript() {
+        // All the values in this test were copied over from `encrypted_note_log_incoming_body.test.ts`
+
+        let storage_slot = 2;
+        let note = MockNoteBuilder::new(1).storage_slot(storage_slot).build();
+
+        let eph_sk = Scalar {
+            lo: 0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd,
+            hi: 0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06
+        };
+        let ivpk = IvpkM {
+            inner: Point {
+                x: 0x2688431c705a5ff3e6c6f2573c9e3ba1c1026d2251d0dbbf2d810aa53fd1d186,
+                y: 0x1e96887b117afca01c00468264f4f80b5bb16d94c1808a448595f115556e5c8e,
+                is_infinite: false
+            }
+        };
+
+        // 1. `EncryptedLogIncomingBody::from_note` calls `note.to_be_bytes(storage_slot)` function which serializes
+        // the note to bytes - note that in the case of `AddressNote` the `to_be_bytes` function was automatically
+        // implemented by Aztec macros.
+        let plaintext = note.to_be_bytes(storage_slot);
+
+        // 2. `body.compute_ciphertext(...)` function then derives symmetric key from `eph_sk` and `ivpk` and encrypts
+        // the note plaintext using AES-128.
+        let ciphertext = compute_incoming_body_ciphertext(plaintext, eph_sk, ivpk);
+
+        // The following value was generated by `encrypted_note_log_incoming_body.test.ts`.
+        // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
+        let note_body_ciphertext_from_typescript = [
+            226, 240, 253, 6, 28, 52, 19, 131, 33, 132, 178, 212, 245, 62, 14, 190, 147, 228, 160, 190, 146, 61, 95, 203, 124, 153, 68, 168, 17, 150, 92, 0, 99, 214, 85, 64, 191, 78, 157, 131, 149, 96, 236, 253, 96, 172, 157, 30, 27, 176, 228, 74, 242, 190, 138, 48, 33, 93, 46, 37, 223, 130, 25, 245, 188, 163, 159, 223, 187, 24, 139, 206, 131, 154, 159, 130, 37, 17, 158, 114, 242, 141, 124, 193, 232, 54, 146, 96, 145, 100, 125, 234, 57, 43, 95, 115, 20, 85, 66, 36, 243, 47, 107, 225, 16, 216, 109, 156, 244, 175, 120, 167
+        ];
+
+        assert_eq(note_body_ciphertext_from_typescript.len(), ciphertext.len());
+
+        for i in 0..note_body_ciphertext_from_typescript.len() {
+            assert_eq(ciphertext[i], note_body_ciphertext_from_typescript[i]);
+        }
     }
 }

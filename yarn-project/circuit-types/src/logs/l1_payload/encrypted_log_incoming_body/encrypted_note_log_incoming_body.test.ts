@@ -40,7 +40,7 @@ describe('encrypt log incoming body', () => {
 
     const viewingPubKey = grumpkin.mul(Grumpkin.generator, viewingSecretKey);
 
-    const note = new Note([new Fr(1), new Fr(2), new Fr(3)]);
+    const note = new Note([new Fr(1)]);
     const noteTypeId = new NoteSelector(1);
     const storageSlot = new Fr(2);
 
@@ -55,7 +55,7 @@ describe('encrypt log incoming body', () => {
 
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     updateInlineTestData(
-      'noir-projects/aztec-nr/aztec/src/encrypted_logs/incoming_body.nr',
+      'noir-projects/aztec-nr/aztec/src/encrypted_logs/payload.nr',
       'note_body_ciphertext_from_typescript',
       byteArrayString,
     );
