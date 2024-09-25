@@ -1,5 +1,3 @@
-use protocol_types::abis::function_selector::FunctionSelector;
-use crate::context::inputs::public_context_inputs::PublicContextInputs;
 use super::utils::compute_fn_selector;
 
 /// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
@@ -7,9 +5,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
     let functions = m.functions();
     let functions = functions.filter(|function: FunctionDefinition| function.has_named_attribute("public"));
 
-    let public_context_inputs = get_type::<PublicContextInputs>();
     let unit = get_type::<()>();
-    let initial_offset = size_in_fields(public_context_inputs) + 1; // +1 for the Field selector
 
     let ifs = functions.map(
         |function: FunctionDefinition| {
@@ -20,22 +16,17 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let selector: Field = compute_fn_selector(function);
 
         let mut parameter_index = 0;
-        let mut offset = initial_offset;
+        let mut offset = 1; // 1 for the Field selector
 
         let reads = parameters.map(|param: (Quoted, Type)| {
             // Skip the `PublicContextInputs` argument as we already have that
-            let read = if parameter_index == 0 {
-                quote {}
-            } else {
-                let param_type = param.1;
-                let param_size = size_in_fields(param_type);
-                let param_name = f"arg{parameter_index}".quoted_contents();
-                let read = quote { let $param_name = dep::aztec::protocol_types::traits::Deserialize::deserialize(dep::aztec::context::public_context::calldata_copy($offset, $param_size)); };
-                offset += param_size;
-                quote { $read }
-            };
+            let param_type = param.1;
+            let param_size = size_in_fields(param_type);
+            let param_name = f"arg{parameter_index}".quoted_contents();
+            let read = quote { let $param_name = dep::aztec::protocol_types::traits::Deserialize::deserialize(dep::aztec::context::public_context::calldata_copy($offset, $param_size)); };
+            offset += param_size;
             parameter_index += 1;
-            read
+            quote { $read }
         });
         let read = reads.join(quote { });
 
@@ -67,18 +58,19 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
     }
     );
 
-    let ifs = ifs.push_back(quote { { panic(f"Unknown selector") } });
-    let dispatch = ifs.join(quote { else });
+    if ifs.len() == 0 {
+        // No dispatch function if there are no public functions
+        quote {}
+    } else {
+        let ifs = ifs.push_back(quote { { panic(f"Unknown selector") } });
+        let dispatch = ifs.join(quote { else });
 
-    let body = quote {
-        pub fn public_dispatch(arg0: $public_context_inputs, selector: Field) {
-            $dispatch
+        quote {
+            pub fn public_dispatch(selector: Field) {
+                $dispatch
+            }
         }
-    };
-
-    println(body);
-
-    body
+    }
 }
 
 comptime fn size_in_fields(typ: Type) -> u32 {
