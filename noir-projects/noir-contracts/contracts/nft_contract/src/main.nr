@@ -170,7 +170,11 @@ contract NFT {
             hacky_nft_note
         );
         let log_hash = dep::aztec::protocol_types::hash::sha256_to_field(encrypted_log);
-        let note_hash_counter = 0;
+
+        // Unfortunately we need to push a dummy note hash to the context here because a note log requires having
+        // a counter that corresponds to a note hash in the same call.
+        let note_hash_counter = context.side_effect_counter;
+        context.push_note_hash(5);
         context.emit_raw_note_log(note_hash_counter, encrypted_log, log_hash);
         // ####### END OF HACKY PARTIAL NOTE EMISSION CODE #######
 
