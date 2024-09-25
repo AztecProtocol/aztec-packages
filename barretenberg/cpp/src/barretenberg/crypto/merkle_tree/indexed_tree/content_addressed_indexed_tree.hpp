@@ -721,7 +721,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_hashes_for_appe
     std::shared_ptr<std::vector<IndexedLeafValueType>> leaves_to_hash, const HashGenerationCallback& completion)
 {
     execute_and_report<HashGenerationResponse>(
-        [=](TypedResponse<HashGenerationResponse>& response) {
+        [=, this](TypedResponse<HashGenerationResponse>& response) {
             response.inner.hashes = std::make_shared<std::vector<fr>>(leaves_to_hash->size(), 0);
             std::vector<IndexedLeafValueType>& leaves = *leaves_to_hash;
             for (uint32_t i = 0; i < leaves.size(); ++i) {
