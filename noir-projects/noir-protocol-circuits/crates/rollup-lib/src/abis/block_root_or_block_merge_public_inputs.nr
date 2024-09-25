@@ -49,6 +49,12 @@ pub struct BlockRootOrBlockMergePublicInputs {
   prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
 }
 
+impl BlockRootOrBlockMergePublicInputs {
+    fn is_padding(self) -> bool {
+        self.previous_archive == self.new_archive
+    }
+}
+
 impl Empty for BlockRootOrBlockMergePublicInputs {
     fn empty() -> Self {
         BlockRootOrBlockMergePublicInputs {

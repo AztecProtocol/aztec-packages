@@ -6,6 +6,7 @@ import {
   makeBaseRollupInputs,
   makeBlockMergeRollupInputs,
   makeBlockRootRollupInputs,
+  makeEmptyBlockRootRollupInputs,
   makeHeader,
   makeMergeRollupInputs,
   makePublicKernelCircuitPrivateInputs,
@@ -40,6 +41,7 @@ describe('Prover agent <-> queue integration', () => {
     getBaseRollupProof: makeBaseRollupInputs,
     getRootParityProof: makeRootParityInputs,
     getBlockMergeRollupProof: makeBlockMergeRollupInputs,
+    getEmptyBlockRootRollupProof: makeEmptyBlockRootRollupInputs,
     getBlockRootRollupProof: makeBlockRootRollupInputs,
     getBlockRootRollupFinalProof: makeBlockRootRollupInputs,
     getEmptyPrivateKernelProof: () =>
