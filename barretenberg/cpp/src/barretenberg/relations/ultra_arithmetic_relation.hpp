@@ -117,8 +117,6 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ false>
             auto q_4 = View(in.q_4);
             auto q_c = View(in.q_c);
             auto q_arith = View(in.q_arith);
-            // info("in.q_arith: ", in.q_arith);
-            // info("q_arith: ", q_arith);
 
             static const FF neg_half = FF(-2).invert();
 
@@ -158,54 +156,11 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
     static constexpr size_t HOMOGENEOUS_LENGTH{ 6 };
 
     /**
-     * @brief Expression for the Ultra Arithmetic gate.
-     * @details This relation encapsulates several idenitities, toggled by the value of q_arith in [0, 1, 2, 3, ...].
-     * The following description is reproduced from the Plonk analog 'plookup_arithmetic_widget':
-     * The whole formula is:
-     *
-     * q_arith * ( ( (-1/2) * (q_arith - 3) * q_m * w_l * w_r + q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c ) +
-     * (q_arith - 1)*( α * (q_arith - 2) * (w_l + w_4 - w_l_shift + q_m) + w_4_shift) ) = 0
-     *
-     * This formula results in several cases depending on q_arith:
-     * 1. q_arith == 0: Arithmetic gate is completely disabled
-     *
-     * 2. q_arith == 1: Everything in the minigate on the right is disabled. The equation is just a standard plonk
-     * equation with extra wires: q_m * w_l * w_r + q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c = 0
-     *
-     * 3. q_arith == 2: The (w_l + w_4 - ...) term is disabled. The equation is:
-     * 2 * ((1/2) * q_m * w_l * w_r + q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c + w_4_shift) = 0
-     * It allows defining w_4 at next index (w_4_shift) in terms of current wire values
-     *
-     * 4. q_arith == 3: The product of w_l and w_r is disabled, but a mini addition gate is enabled. α² allows us to
-     * split the equation into two:
-     *
-     * q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c + 2 * w_4_shift = 0
-     *
-     * w_l + w_4 - w_l_shift + q_m = 0  (we are reusing q_m here)
-     *
-     * 5. q_arith > 3: The product of w_l and w_r is scaled by (q_arith - 3), while the w_4_shift term is scaled by
-     * (q_arith
-     * - 1). The equation can be split into two:
-     *
-     * (q_arith - 3)* q_m * w_l * w_ 2 + q_l * w_l + q_r * w_r + q_o * w_o + q_4 * w_4 + q_c + (q_arith - 1) * w_4_shift
-     * = 0
-     *
-     * w_l + w_4 - w_l_shift + q_m = 0
-     *
-     * The problem that q_m is used both in both equations can be dealt with by appropriately changing selector values
-     * at the next gate. Then we can treat (q_arith - 1) as a simulated q_6 selector and scale q_m to handle (q_arith -
-     * 3) at product.
-     *
-     * The relation is
-     * defined as C(in(X)...) = q_arith * [ -1/2(q_arith - 3)(q_m * w_r * w_l) + (q_l * w_l) + (q_r * w_r) +
-     * (q_o * w_o) + (q_4 * w_4) + q_c + (q_arith - 1)w_4_shift ]
-     *
-     *    q_arith *
-     *      (q_arith - 2) * (q_arith - 1) * (w_l + w_4 - w_l_shift + q_m)
+     * @brief The polynomial relation that checks whether a prover has provided a valid arithmetic gate.
+     * @details This is the homogenization of the relation.
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
-     * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
@@ -214,6 +169,8 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
                                   const Parameters&,
                                   const FF& scaling_factor)
     {
+        // WORKTODO: There is now no reason not to fuse these. In fact it would save muls by the homogenizer.
+
         BB_OP_COUNT_TIME_NAME("Arithmetic::accumulate");
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -230,8 +187,6 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
             auto q_4 = View(in.q_4);
             auto q_c = View(in.q_c);
             auto q_arith = View(in.q_arith);
-            // info("in.q_arith: ", in.q_arith);
-            // info("q_arith: ", q_arith);
 
             static const FF neg_half = FF(-2).invert();
 
