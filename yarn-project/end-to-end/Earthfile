@@ -9,7 +9,8 @@ e2e-l1-with-wall-time:
   RUN ./scripts/e2e_test.sh ./src/e2e_l1_with_wall_time.test.ts
 
 e2e-synching:
-  DO +E2E_TEST --test=./src/e2e_synching.test.ts
+  LOCALLY
+  RUN ./scripts/e2e_test.sh ./src/e2e_synching.test.ts
 
 e2e-2-pxes:
   LOCALLY
