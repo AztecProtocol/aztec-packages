@@ -125,13 +125,13 @@
       "displayName": "Build for tracy time profiling",
       "description": "Build for tracy time profiling",
       "binaryDir": "build-tracy-time",
-      "inherits": "clang16",
-      "environment": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CFLAGS": "-g -fno-omit-frame-pointer",
-        "CXXFLAGS": "-g -fno-omit-frame-pointer",
-        "LDFLAGS": "-g -fno-omit-frame-pointer -rdynamic"
-      },
+      "inherits": "clang16-dbg",
+      // "environment": {
+      //   "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+      //   "CFLAGS": "-g -fno-omit-frame-pointer",
+      //   "CXXFLAGS": "-g -fno-omit-frame-pointer",
+      //   "LDFLAGS": "-g -fno-omit-frame-pointer -rdynamic"
+      // },
       "cacheVariables": {
         "ENABLE_TRACY": "ON"
       }
