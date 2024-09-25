@@ -140,26 +140,12 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         fn_return_type
     };
 
-    let parameter_names = if fn_parameters.len() > 0 {
-        let params = fn_parameters.map(|(name, _): (Quoted, _)| name).join(quote {,});
-        if is_fn_private(f) {
-            quote  { inputs, $params }
-        } else {
-            quote { $params }
-        }
-    } else if is_fn_private(f) {
-        quote { inputs }
+    let mut parameter_names_list = fn_parameters.map(|(name, _): (Quoted, _)| name);
+    let parameter_names = if is_fn_private(f) {
+        &[quote {inputs}].append(parameter_names_list).join(quote{,})
     } else {
-        quote {}
+        parameter_names_list.join(quote {,})
     };
-
-    // let parameter_names = if fn_parameters.len() > 0 {
-    //     let params = fn_parameters.map(|(name, _): (Quoted, _)| name).join(quote {,});
-    //     quote { inputs, $params }
-    // } else {
-    //     quote { inputs }
-    // };
-
     let original = quote {
         | inputs: $input_type  | -> $return_type_hint {
             $fn_name($parameter_names)
