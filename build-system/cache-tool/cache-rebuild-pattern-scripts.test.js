@@ -7,10 +7,14 @@ const app = require("./server.js"); // The cache server
 
 describe("Cache Rebuild Patterns Scripts Tests", () => {
   let server;
-  const HOST_IP = "localhost";
   const AZTEC_BUILD_TOOL_PORT = Math.floor(Math.random() * 1000 + 10000);
   const PREFIX = "barretenberg-build";
-  const rebuildPatternsFile = "rebuild-patterns.txt";
+  const testArtifactsDir = path.join(__dirname, "test-artifacts");
+  const rebuildPatternsFile = path.join(
+    testArtifactsDir,
+    "rebuild-patterns.txt"
+  );
+  // NOTE: must exist in git
   const rebuildPatterns = `
 ^build-system/cache-tool/cache-upload\\.sh$
 ^build-system/cache-tool/cache-download\\.sh$
@@ -26,11 +30,12 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
 
   beforeAll((done) => {
     // Ensure test-artifacts directory exists
-    const testArtifactsDir = path.join(__dirname, "test-artifacts");
     if (!fs.existsSync(testArtifactsDir)) {
       fs.mkdirSync(testArtifactsDir, { recursive: true });
     }
 
+    // Write the rebuild patterns to a file
+    fs.writeFileSync(rebuildPatternsFile, rebuildPatterns.trim());
     // Create a dummy file to upload
     filesToUpload.forEach((file) => {
       fs.writeFileSync(file, "Dummy file content");
@@ -65,39 +70,64 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
     });
   });
 
-  const runTest = async (s3Enabled) => {
+  const computeContentHash = () => {
+    return new Promise((resolve, reject) => {
+      let contentHash = "";
+      const computeProcess = spawn("./compute-content-hash.sh", [], {
+        env: {
+          AZTEC_CACHE_REBUILD_PATTERNS: rebuildPatternsFile,
+        },
+      });
+
+      computeProcess.stdout.on("data", (data) => {
+        contentHash += data.toString();
+      });
+
+      computeProcess.stderr.on("data", (data) => {
+        console.error("compute-content-hash.sh stderr:", data.toString());
+      });
+
+      computeProcess.on("error", (err) => {
+        reject(err);
+      });
+
+      computeProcess.on("close", (code) => {
+        if (code !== 0) {
+          console.error(contentHash); // actually an error log
+          reject(new Error("compute-content-hash.sh exited with code " + code));
+        } else {
+          contentHash = contentHash.trim();
+          console.log("Content hash:", contentHash);
+          resolve(contentHash);
+        }
+      });
+    });
+  };
+
+  const runUploadAndDownloadTest = async (s3Enabled) => {
     let stdout = "";
     let stderr = "";
-
-    // Write the rebuild patterns to a file
-    fs.writeFileSync(rebuildPatternsFile, rebuildPatterns.trim());
-
-    // Set the AZTEC_CACHE_REBUILD_PATTERNS environment variable
-    process.env.AZTEC_CACHE_REBUILD_PATTERNS = fs.readFileSync(
-      rebuildPatternsFile,
-      "utf-8"
-    );
-
-    // Prepare environment variables
+    const env = {
+      AZTEC_CACHE_REBUILD_PATTERNS: rebuildPatternsFile,
+    };
     if (s3Enabled) {
       process.env.S3_WRITE = "true";
-      process.env.S3_READ = "true";
     } else {
       delete process.env.S3_WRITE;
-      delete process.env.S3_READ;
     }
-    process.env.HOST_IP = HOST_IP;
-    process.env.AZTEC_BUILD_TOOL_PORT = AZTEC_BUILD_TOOL_PORT.toString();
 
     try {
+      // Compute the content hash
+      const contentHash = await computeContentHash();
+      uploadedTarFileName = `${PREFIX}-${contentHash}.tar.gz`;
+
       // Run the cache-upload-rebuild-patterns.sh script
-      const uploadArgs = [PREFIX, ...filesToUpload];
       await new Promise((resolve, reject) => {
         const uploadProcess = spawn(
           "./cache-upload-rebuild-patterns.sh",
-          uploadArgs,
+          [PREFIX, ...filesToUpload],
           {
-            env: { ...process.env },
+            env: env,
           }
         );
 
@@ -113,89 +143,56 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
           reject(err);
         });
 
-        uploadProcess.on("close", (code) => {
+        uploadProcess.on("close", async (code) => {
           if (code !== 0) {
             console.error("Upload script exited with code", code);
             console.error("stdout:", stdout);
             console.error("stderr:", stderr);
             reject(new Error("Upload script failed"));
           } else {
-            // Extract the tarball name from stdout or construct it from the script output
-            const match = stdout.match(/Content hash: (\w+)/);
-            if (match) {
-              const contentHash = match[1];
-              uploadedTarFileName = `${PREFIX}-${contentHash}.tar.gz`;
+            // Verify the tar file exists on the local server artifacts dir
+            const cacheFilePath = path.join(
+              __dirname,
+              "hosted-build-artifacts",
+              uploadedTarFileName
+            );
+            expect(fs.existsSync(cacheFilePath)).toBe(true);
+
+            // If S3 is enabled, verify the tar file exists on S3
+            if (s3Enabled) {
+              const s3Key = `${S3_PREFIX}/${uploadedTarFileName}`;
+              try {
+                const headResult = await s3.headObject({
+                  Bucket: BUCKET_NAME,
+                  Key: s3Key,
+                });
+                expect(headResult).toBeDefined();
+              } catch (err) {
+                reject(new Error(`Expected S3 object ${s3Key} to exist`));
+              }
             } else {
-              reject(
-                new Error(
-                  "Could not determine tarball name from upload script output."
-                )
-              );
+              // Verify the tar file does not exist on S3
+              const s3Key = `${S3_PREFIX}/${uploadedTarFileName}`;
+              try {
+                await s3.headObject({
+                  Bucket: BUCKET_NAME,
+                  Key: s3Key,
+                });
+                throw new Error(`Expected S3 object ${s3Key} NOT to exist`);
+              } catch (err) {
+                if (err.name === "NotFound" || err.Code === "NotFound") {
+                  // Expected behavior
+                } else {
+                  reject(err);
+                }
+              }
             }
             resolve();
           }
         });
       });
-
-      // Remove the uploaded files to simulate a fresh environment
-      filesToUpload.forEach((file) => {
-        if (fs.existsSync(file)) {
-          fs.unlinkSync(file);
-        }
-      });
-
-      // Run the cache-download-rebuild-patterns.sh script
-      await new Promise((resolve, reject) => {
-        stdout = "";
-        stderr = "";
-        const downloadArgs = [PREFIX];
-        const downloadProcess = spawn(
-          "./cache-download-rebuild-patterns.sh",
-          downloadArgs,
-          {
-            env: { ...process.env },
-          }
-        );
-
-        downloadProcess.stdout.on("data", (data) => {
-          stdout += data.toString();
-        });
-
-        downloadProcess.stderr.on("data", (data) => {
-          stderr += data.toString();
-        });
-
-        downloadProcess.on("error", (err) => {
-          reject(err);
-        });
-
-        downloadProcess.on("close", (code) => {
-          if (code !== 0) {
-            console.error("Download script exited with code", code);
-            console.error("stdout:", stdout);
-            console.error("stderr:", stderr);
-            reject(new Error("Download script failed"));
-          } else {
-            // Verify that the uploaded files are extracted
-            filesToUpload.forEach((file) => {
-              const fileName = path.basename(file);
-              expect(fs.existsSync(fileName)).toBe(true);
-              const content = fs.readFileSync(fileName, "utf-8");
-              expect(content).toBe("Dummy file content");
-            });
-            resolve();
-          }
-        });
-      });
+      await runDownloadTest(s3Enabled);
     } finally {
-      // Clean up extracted files
-      filesToUpload.forEach((file) => {
-        const fileName = path.basename(file);
-        if (fs.existsSync(fileName)) {
-          fs.unlinkSync(fileName);
-        }
-      });
-
       // Clean up S3 if enabled
       if (s3Enabled && uploadedTarFileName) {
         const s3Key = `${S3_PREFIX}/${uploadedTarFileName}`;
@@ -228,11 +225,84 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
     }
   };
 
-  test("Upload and download with rebuild patterns without S3", async () => {
-    await runTest(false);
+  const runDownloadTest = async (s3Enabled) => {
+    let stdout = "";
+    let stderr = "";
+    const env = {
+      AZTEC_CACHE_REBUILD_PATTERNS: rebuildPatternsFile,
+    };
+    if (s3Enabled) {
+      process.env.S3_READ = "true";
+    } else {
+      delete process.env.S3_READ;
+    }
+
+    // Write the rebuild patterns to a file
+    fs.writeFileSync(rebuildPatternsFile, rebuildPatterns.trim());
+
+    // Compute the content hash
+    const contentHash = await computeContentHash();
+    const expectedTarFileName = `${PREFIX}-${contentHash}.tar.gz`;
+    uploadedTarFileName = expectedTarFileName;
+
+    // Remove the files to simulate a fresh environment
+    filesToUpload.forEach((file) => {
+      if (fs.existsSync(file)) {
+        fs.unlinkSync(file);
+      }
+    });
+
+    // Run the cache-download-rebuild-patterns.sh script
+    await new Promise((resolve, reject) => {
+      const downloadProcess = spawn(
+        "./cache-download-rebuild-patterns.sh",
+        [PREFIX],
+        {
+          env: env,
+        }
+      );
+
+      downloadProcess.stdout.on("data", (data) => {
+        stdout += data.toString();
+      });
+
+      downloadProcess.stderr.on("data", (data) => {
+        stderr += data.toString();
+      });
+
+      downloadProcess.on("error", (err) => {
+        reject(err);
+      });
+
+      downloadProcess.on("close", (code) => {
+        if (code !== 0) {
+          console.error("Download script exited with code", code);
+          console.error("stdout:", stdout);
+          console.error("stderr:", stderr);
+          reject(new Error("Download script failed"));
+        } else {
+          // Verify that the files are extracted
+          try {
+            filesToUpload.forEach((file) => {
+              const fileName = path.basename(file);
+              expect(fs.existsSync(fileName)).toBe(true);
+              const content = fs.readFileSync(fileName, "utf-8");
+              expect(content).toBe("Dummy file content");
+            });
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        }
+      });
+    });
+  };
+
+  test("Upload/download with rebuild patterns without S3", async () => {
+    await runUploadAndDownloadTest(false);
   });
 
-  test("Upload and download with rebuild patterns with S3", async () => {
-    await runTest(true);
+  test("Upload/download with rebuild patterns with S3", async () => {
+    await runUploadAndDownloadTest(true);
   });
 });
