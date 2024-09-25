@@ -9,7 +9,7 @@ use crate::{
     traits::{Deserialize, Empty, Serialize}, utils::reader::Reader
 };
 
-struct VMCircuitPublicInputs {
+pub struct VMCircuitPublicInputs {
     constants: CombinedConstantData,
     call_request: PublicCallRequest,
 

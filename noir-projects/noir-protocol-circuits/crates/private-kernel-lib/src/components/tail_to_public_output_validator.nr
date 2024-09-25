@@ -17,7 +17,7 @@ use dep::types::{
 }
 };
 
-struct TailToPublicOutputValidator {
+pub struct TailToPublicOutputValidator {
     output: PublicKernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
     hints: TailToPublicOutputHints,

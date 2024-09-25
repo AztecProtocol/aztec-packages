@@ -5,7 +5,7 @@ use crate::{
     merkle_tree::leaf_preimage::{LeafPreimage, IndexedTreeLeafPreimage}, traits::{Empty, Hash}
 };
 
-struct NullifierLeafPreimage {
+pub struct NullifierLeafPreimage {
     nullifier : Field,
     next_nullifier :Field,
     next_index : u32,

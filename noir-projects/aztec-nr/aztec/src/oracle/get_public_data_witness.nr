@@ -3,7 +3,7 @@ use dep::protocol_types::{constants::PUBLIC_DATA_TREE_HEIGHT, data::PublicDataTr
 global LEAF_PREIMAGE_LENGTH: u32 = 4;
 global PUBLIC_DATA_WITNESS: u32 = 45;
 
-struct PublicDataWitness {
+pub struct PublicDataWitness {
     index: Field,
     leaf_preimage: PublicDataTreeLeafPreimage,
     path: [Field; PUBLIC_DATA_TREE_HEIGHT],

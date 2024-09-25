@@ -13,7 +13,7 @@ use dep::types::abis::{
     validation_requests::PublicValidationRequests
 };
 
-struct TailToPublicOutputComposer {
+pub struct TailToPublicOutputComposer {
     output_composer: PrivateKernelCircuitPublicInputsComposer,
 }
 

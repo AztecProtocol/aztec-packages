@@ -1,7 +1,7 @@
 use dep::protocol_types::traits::Empty;
 
 // These inputs will likely go away once the AVM processes 1 public kernel per enqueued call.
-struct PublicContextInputs {
+pub struct PublicContextInputs {
     // TODO: Remove this structure and get calldata size at compile time.
     calldata_length: Field,
     // This is currently unused but it's here to avoid changing serialization.

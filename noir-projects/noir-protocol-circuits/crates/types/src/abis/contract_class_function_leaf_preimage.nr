@@ -3,7 +3,7 @@ use crate::constants::GENERATOR_INDEX__FUNCTION_LEAF;
 use crate::traits::Hash;
 use crate::hash::poseidon2_hash_with_separator;
 
-struct ContractClassFunctionLeafPreimage {
+pub struct ContractClassFunctionLeafPreimage {
     selector : FunctionSelector,
     vk_hash : Field,
 }

@@ -8,18 +8,18 @@ use dep::aztec::{
 // serialized_note attack on it. This note has been developed purely for testing purposes so that it can easily be
 // manually added to PXE. Do not use for real applications.
 #[note]
-struct TestNote {
+pub struct TestNote {
     value: Field,
 }
 
 impl NullifiableNote for TestNote {
 
-    fn compute_nullifier(self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
-        // This note is expected to be shared between users and for this reason can't be nullified using a secret.
+    fn compute_nullifier(_self: Self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
+        // This note is expected to be shared between users and fstructor this reason can't be nullified using a secret.
         0
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
+    fn compute_nullifier_without_context(_self: Self) -> Field {
         // This note is expected to be shared between users and for this reason can't be nullified using a secret.
         0
     }
