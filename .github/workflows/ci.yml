@@ -734,8 +734,8 @@ jobs:
         with:
           header: brillig
           # delete the comment in case changes no longer impact circuit sizes
-          delete: ${{ !steps.gates_diff.outputs.markdown }}
-          message: ${{ steps.gates_diff.outputs.markdown }}
+          delete: ${{ !steps.public_functions_sizes_diff.outputs.markdown }}
+          message: ${{ steps.public_functions_sizes_diff.outputs.markdown }}
 
   merge-check:
     runs-on: ubuntu-20.04
