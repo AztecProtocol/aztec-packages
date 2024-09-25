@@ -62,7 +62,6 @@ async function main() {
   }
 
   const outPath = path.join("public_functions_report.json");
-  // console.log(outPath);
 
   console.log(`Writing to ${outPath}`);
   await fsp.writeFile(outPath, JSON.stringify(workspaceReport, null, 2));
