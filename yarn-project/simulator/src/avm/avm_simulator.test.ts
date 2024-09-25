@@ -106,7 +106,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   it('get_args_hash via dispatch', async () => {
-    const calldata = [new Fr(1), new Fr(2), new Fr(3)];
+    const calldata = [new Fr(8), new Fr(1), new Fr(2), new Fr(3)];
     const dispatchCalldata = [FunctionSelector.fromSignature('get_args_hash(u8,[Field;3])').toField(), ...calldata];
 
     const context = initContext({ env: initExecutionEnvironment({ calldata: dispatchCalldata }) });
