@@ -1949,7 +1949,7 @@ fn numeric_generics_type_kind_mismatch() {
     }
 
     global M: u16 = 3;
-
+    
     fn main() {
         let _ = bar::<M>();
     }
@@ -1973,7 +1973,7 @@ fn numeric_generics_value_kind_mismatch_u32_u64() {
     }
 
     impl<T, let MaxLen: u32> BoundedVec<T, MaxLen> {
-        pub fn extend_from_bounded_vec<let Len: u32>(&mut self, _vec: BoundedVec<T, Len>) {
+        pub fn extend_from_bounded_vec<let Len: u32>(&mut self, _vec: BoundedVec<T, Len>) { 
             // We do this to avoid an unused variable warning on `self`
             let _ = self.len;
             for _ in 0..Len { }
