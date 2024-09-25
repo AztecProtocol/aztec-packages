@@ -8,7 +8,6 @@ comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseido
 
 pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
-    // Remove first arg (inputs)
     let mut parameters = f.parameters().map(
         | (name, typ): (Quoted, Type) | {
         quote { $name: $typ }
@@ -36,7 +35,7 @@ pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
         $parameters
 
         #[abi(functions)]
-        struct $abi_struct_name {
+        pub struct $abi_struct_name {
             parameters: $parameters_struct_name,
             $return_type
         }
@@ -129,7 +128,11 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
-    let input_type = f"crate::context::inputs::{fn_visibility_capitalized}ContextInputs".quoted_contents().as_type();
+    let input_type = if is_fn_private(f) {
+        quote { crate::context::inputs::PrivateContextInputs }.as_type()
+    } else {
+        quote { () }.as_type()
+    };
 
     let return_type_hint = if is_fn_private(f) {
         quote { protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }.as_type()
@@ -137,16 +140,23 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         fn_return_type
     };
 
-    let parameter_names = if fn_parameters.len() > 0 {
-        let params = fn_parameters.map(|(name, _): (Quoted, _)| name).join(quote {,});
-        quote  { inputs, $params }
+    let mut parameter_names_list = fn_parameters.map(|(name, _): (Quoted, _)| name);
+    let parameter_names = if is_fn_private(f) {
+        &[quote {inputs}].append(parameter_names_list).join(quote{,})
     } else {
-        quote {inputs}
+        parameter_names_list.join(quote {,})
     };
-
-    let original = quote {
-        | inputs: $input_type  | -> $return_type_hint {
-            $fn_name($parameter_names)
+    let original = if is_fn_private(f) {
+        quote {
+            | inputs: $input_type  | -> $return_type_hint {
+                $fn_name($parameter_names)
+            }
+        }
+    } else {
+        quote {
+            | _: $input_type | -> $return_type_hint {
+                unsafe { $fn_name($parameter_names) }
+            }
         }
     };
 

@@ -6,8 +6,30 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 0.56.0
+## TBD
 
+### [Aztec.nr] Changes to `NullifiableNote`
+
+The `compute_nullifier_without_context` function is now `unconstrained`. It had always been meant to be called in unconstrained contexts (which is why it did not receive the `context` object), but now that Noir supports trait functions being `unconstrained` this can be implemented properly. Users must add the `unconstrained` keyword to their implementations of the trait:
+
+```diff
+impl NullifiableNote for MyCustomNote {
+-    fn compute_nullifier_without_context(self) -> Field {
++    unconstrained fn compute_nullifier_without_context(self) -> Field {
+```
+
+### [Aztec.nr] Make `TestEnvironment` unconstrained
+
+All of `TestEnvironment`'s functions are now `unconstrained`, preventing accidentally calling them in a constrained circuit, among other kinds of user error. Becuase they work with mutable references, and these are not allowed to cross the constrained/unconstrained barrier, tests that use `TestEnvironment` must also become `unconstrained`. The recommended practice is to make _all_ Noir tests and test helper functions be `unconstrained:
+
+```diff
+#[test]
+-fn test_my_function() {
++unconstrained fn test_my_function() {
+    let env = TestEnvironment::new();
+```
+
+## 0.56.0
 
 ### [Aztec.nr] Changes to contract definition
 

@@ -8,7 +8,7 @@ use dep::aztec::{
 // Stores a public key composed of two fields
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
 #[note]
-struct PublicKeyNote {
+pub struct PublicKeyNote {
     x: Field,
     y: Field,
     // We store the npk_m_hash only to get the secret key to compute the nullifier
@@ -27,7 +27,7 @@ impl NullifiableNote for PublicKeyNote {
         )
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
+    unconstrained fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(

@@ -329,10 +329,5 @@ function createPublicExecutionRequest(avmEnvironment: AvmExecutionEnvironment): 
     isDelegateCall: avmEnvironment.isDelegateCall,
     isStaticCall: avmEnvironment.isStaticCall,
   });
-  return new PublicExecutionRequest(
-    avmEnvironment.address,
-    callContext,
-    // execution request does not contain AvmContextInputs prefix
-    avmEnvironment.getCalldataWithoutPrefix(),
-  );
+  return new PublicExecutionRequest(avmEnvironment.address, callContext, avmEnvironment.calldata);
 }

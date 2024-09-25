@@ -3,7 +3,7 @@ use dep::protocol_types::traits::{Deserialize, Serialize};
 use crate::state_vars::storage::Storage;
 
 // docs:start:public_mutable_struct
-struct PublicMutable<T, Context> {
+pub struct PublicMutable<T, Context> {
     context: Context,
     storage_slot: Field,
 }

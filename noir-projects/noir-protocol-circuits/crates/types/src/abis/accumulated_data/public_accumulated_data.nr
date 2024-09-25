@@ -13,7 +13,7 @@ use crate::{
     traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_length, reader::Reader}
 };
 
-struct PublicAccumulatedData {
+pub struct PublicAccumulatedData {
     note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
     nullifiers: [Nullifier; MAX_NULLIFIERS_PER_TX],
     l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
@@ -148,7 +148,7 @@ impl Eq for PublicAccumulatedData {
     }
 }
 
-struct PublicAccumulatedDataArrayLengths {
+pub struct PublicAccumulatedDataArrayLengths {
     note_hashes: u32,
     nullifiers: u32,
     l2_to_l1_msgs: u32,

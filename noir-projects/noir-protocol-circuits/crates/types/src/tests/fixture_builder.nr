@@ -74,7 +74,7 @@ fn vec_reverse<T, let N: u32>(vec: BoundedVec<T, N>) -> BoundedVec<T, N> {
     reversed
 }
 
-struct FixtureBuilder {
+pub struct FixtureBuilder {
     contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
     msg_sender: AztecAddress,

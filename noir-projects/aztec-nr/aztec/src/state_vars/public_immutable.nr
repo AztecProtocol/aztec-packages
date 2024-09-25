@@ -3,7 +3,7 @@ use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Des
 
 // Just like SharedImmutable but without the ability to read from private functions.
 // docs:start:public_immutable_struct
-struct PublicImmutable<T, Context> {
+pub struct PublicImmutable<T, Context> {
     context: Context,
     storage_slot: Field,
 }

@@ -31,7 +31,7 @@ pub fn covered_by_collateral(
     debt_covered
 }
 
-struct DebtReturn {
+pub struct DebtReturn {
     debt_value: U128,
     static_debt: U128,
 }

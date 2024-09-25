@@ -3,18 +3,17 @@ use dep::protocol_types::address::{AztecAddress, EthAddress};
 use dep::protocol_types::constants::MAX_FIELD_VALUE;
 use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
-use crate::context::inputs::public_context_inputs::PublicContextInputs;
 use crate::context::gas::GasOpts;
 use crate::hash::ArgsHasher;
 
-struct PublicContext {
-    inputs: PublicContextInputs,
-    args_hash: Option<Field>
+pub struct PublicContext {
+    args_hash: Option<Field>,
+    compute_args_hash: fn () -> Field,
 }
 
 impl PublicContext {
-    pub fn new(inputs: PublicContextInputs) -> Self {
-        PublicContext { inputs, args_hash: Option::none() }
+    pub fn new(compute_args_hash: fn() -> Field) -> Self {
+        PublicContext { args_hash: Option::none(), compute_args_hash }
     }
 
     pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T) where T: Serialize<N> {
@@ -133,18 +132,10 @@ impl PublicContext {
     }
     fn get_args_hash(mut self) -> Field {
         if !self.args_hash.is_some() {
-            let mut hasher = ArgsHasher::new();
-
-            // TODO: this should be replaced with the compile-time calldata size.
-            for i in 0..self.inputs.calldata_length as u32 {
-                let argn: [Field; 1] = calldata_copy((2 + i) as u32, 1);
-                hasher.add(argn[0]);
-            }
-
-            self.args_hash = Option::some(hasher.hash());
+            self.args_hash = Option::some((self.compute_args_hash)());
         }
 
-        self.args_hash.unwrap()
+        self.args_hash.unwrap_unchecked()
     }
     fn transaction_fee(_self: Self) -> Field {
         transaction_fee()
@@ -297,7 +288,7 @@ unconstrained fn call_static<let RET_SIZE: u32>(
     call_static_opcode(gas, address, args, function_selector)
 }
 
-unconstrained fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
+unconstrained pub fn calldata_copy<let N: u32>(cdoffset: u32, copy_size: u32) -> [Field; N] {
     calldata_copy_opcode(cdoffset, copy_size)
 }
 
@@ -315,7 +306,7 @@ unconstrained fn storage_write(storage_slot: Field, value: Field) {
 
 impl Empty for PublicContext {
     fn empty() -> Self {
-        PublicContext::new(PublicContextInputs::empty())
+        PublicContext::new(|| 0)
     }
 }
 
@@ -418,7 +409,7 @@ unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
 #[oracle(avmOpcodeStorageWrite)]
 unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
 
-struct FunctionReturns<let N: u32> {
+pub struct FunctionReturns<let N: u32> {
     values: [Field; N]
 }
 
