@@ -13,3 +13,12 @@ SETUP_CACHE:
   FUNCTION
   BUILD +start-server
   COPY +setup-cache-helper/cache-download-direct.sh +setup-cache-helper/cache-upload-direct.sh +setup-cache-helper/cache-download.sh +setup-cache-helper/cache-upload.sh .
+
+test:
+  FROM ../../build-images/+from-registry
+  RUN apt update && apt install -y npm lsof
+  RUN git init
+  COPY *.sh *.json *.js *.lock tests/*.js build-system/cache-tool
+  WORKDIR build-system/cache-tool
+  RUN ./start_server.sh
+  RUN yarn test
