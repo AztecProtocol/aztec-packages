@@ -122,7 +122,7 @@ describe('sequencer', () => {
     });
 
     worldState = mock<WorldStateSynchronizer>({
-      getLatest: () => merkleTreeOps,
+      getLatest: () => Promise.resolve(merkleTreeOps),
       status: () => Promise.resolve({ state: WorldStateRunningState.IDLE, syncedToL2Block: lastBlockNumber }),
     });
 

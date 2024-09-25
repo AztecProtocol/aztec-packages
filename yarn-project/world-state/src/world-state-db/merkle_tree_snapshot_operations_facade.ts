@@ -11,17 +11,18 @@ import { AppendOnlyTreeSnapshot, Fr, type Header, PartialStateReference, StateRe
 import { type IndexedTreeLeafPreimage } from '@aztec/foundation/trees';
 import { type IndexedTreeSnapshot } from '@aztec/merkle-tree';
 
-import { type MerkleTreeDb, type TreeSnapshots } from './merkle_tree_db.js';
+import { type TreeSnapshots } from './merkle_tree_db.js';
+import { type MerkleTrees } from './merkle_trees.js';
 
 /**
  * Merkle tree operations on readonly tree snapshots.
  */
 export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations {
-  #treesDb: MerkleTreeDb;
+  #treesDb: MerkleTrees;
   #blockNumber: number;
   #treeSnapshots: TreeSnapshots = {} as any;
 
-  constructor(trees: MerkleTreeDb, blockNumber: number) {
+  constructor(trees: MerkleTrees, blockNumber: number) {
     this.#treesDb = trees;
     this.#blockNumber = blockNumber;
   }
@@ -31,7 +32,7 @@ export class MerkleTreeSnapshotOperationsFacade implements MerkleTreeOperations 
       return this.#treeSnapshots[treeId];
     }
 
-    this.#treeSnapshots = await this.#treesDb.getSnapshot(this.#blockNumber);
+    this.#treeSnapshots = await this.#treesDb.getTreeSnapshots(this.#blockNumber);
     return this.#treeSnapshots[treeId]!;
   }
 

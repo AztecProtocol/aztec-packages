@@ -284,7 +284,8 @@ export class Sequencer {
         await this.p2pClient.deleteTxs(txHashes);
       }
       this.log.error(`Rolling back world state DB due to error assembling block`, (err as any).stack);
-      await this.worldState.getLatest().rollback();
+      // TODO alexg: fix await await!!
+      await (await this.worldState.getLatest()).rollback();
     }
   }
 
@@ -423,7 +424,7 @@ export class Sequencer {
     const blockSize = Math.max(2, numRealTxs);
 
     const blockBuildingTimer = new Timer();
-    const blockBuilder = this.blockBuilderFactory.create(this.worldState.getLatest());
+    const blockBuilder = this.blockBuilderFactory.create(await this.worldState.getLatest());
     const blockTicket = await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
 
     const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>

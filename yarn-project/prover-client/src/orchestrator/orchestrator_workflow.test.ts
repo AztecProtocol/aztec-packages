@@ -24,7 +24,7 @@ describe('prover/orchestrator', () => {
     let actualDb: MerkleTreeOperations;
     beforeEach(async () => {
       const telemetryClient = new NoopTelemetryClient();
-      actualDb = await MerkleTrees.new(openTmpStore(), telemetryClient).then(t => t.asLatest());
+      actualDb = await MerkleTrees.new(openTmpStore(), telemetryClient).then(t => t.getLatest());
       mockProver = mock<ServerCircuitProver>();
       orchestrator = new ProvingOrchestrator(actualDb, mockProver, telemetryClient);
     });

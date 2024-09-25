@@ -87,7 +87,12 @@ describe('prover/orchestrator/failures', () => {
       const blockTicket = await orchestrator.startNewBlock(txs.length, context.globalVariables, []);
 
       for (const tx of txs) {
-        await orchestrator.addNewTx(tx);
+        try {
+          // this operation could fail if the target circuit fails before adding all txs
+          await orchestrator.addNewTx(tx);
+        } catch (err) {
+          // ignore
+        }
       }
       await expect(blockTicket.provingPromise).resolves.toEqual({ status: PROVING_STATUS.FAILURE, reason: message });
     });

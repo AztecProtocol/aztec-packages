@@ -158,7 +158,7 @@ describe('L1Publisher integration', () => {
     worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
     builder = await TxProver.new(config, new NoopTelemetryClient());
-    prover = builder.createBlockProver(builderDb.asLatest());
+    prover = builder.createBlockProver(await builderDb.getLatest());
 
     publisher = new L1Publisher(
       {

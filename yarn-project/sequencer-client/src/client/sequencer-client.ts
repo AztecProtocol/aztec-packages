@@ -45,7 +45,7 @@ export class SequencerClient {
   ) {
     const publisher = new L1Publisher(config, telemetryClient);
     const globalsBuilder = new GlobalVariableBuilder(config);
-    const merkleTreeDb = worldStateSynchronizer.getLatest();
+    const merkleTreeDb = await worldStateSynchronizer.getLatest();
 
     const publicProcessorFactory = new PublicProcessorFactory(
       merkleTreeDb,

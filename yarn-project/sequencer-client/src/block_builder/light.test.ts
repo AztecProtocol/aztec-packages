@@ -74,8 +74,8 @@ describe('LightBlockBuilder', () => {
   beforeEach(async () => {
     globals = makeGlobalVariables(1, { chainId: Fr.ZERO, version: Fr.ZERO });
     l1ToL2Messages = times(7, i => new Fr(i + 1));
-    db = await MerkleTrees.tmp().then(t => t.asLatest());
-    expectsDb = await MerkleTrees.tmp().then(t => t.asLatest());
+    db = await MerkleTrees.tmp().then(t => t.getLatest());
+    expectsDb = await MerkleTrees.tmp().then(t => t.getLatest());
     builder = new LightweightBlockBuilder(db, new NoopTelemetryClient());
   });
 

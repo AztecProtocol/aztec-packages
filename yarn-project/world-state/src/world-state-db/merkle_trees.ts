@@ -54,11 +54,13 @@ import { type Hasher } from '@aztec/types/interfaces';
 import {
   INITIAL_NULLIFIER_TREE_SIZE,
   INITIAL_PUBLIC_DATA_TREE_SIZE,
+  type MerkleTreeAdminDb,
   type MerkleTreeDb,
   type TreeSnapshots,
 } from './merkle_tree_db.js';
 import { type MerkleTreeMap } from './merkle_tree_map.js';
 import { MerkleTreeAdminOperationsFacade } from './merkle_tree_operations_facade.js';
+import { MerkleTreeSnapshotOperationsFacade } from './merkle_tree_snapshot_operations_facade.js';
 import { WorldStateMetrics } from './metrics.js';
 
 /**
@@ -98,7 +100,7 @@ class PublicDataTree extends StandardIndexedTree {
 /**
  * A convenience class for managing multiple merkle trees.
  */
-export class MerkleTrees implements MerkleTreeDb {
+export class MerkleTrees implements MerkleTreeDb, MerkleTreeAdminDb {
   // gets initialized in #init
   private trees: MerkleTreeMap = null as any;
   private jobQueue = new SerialQueue();
@@ -210,7 +212,7 @@ export class MerkleTrees implements MerkleTreeDb {
   // we should make sure it's not accidentally called elsewhere by splitting this class into one
   // that can work on a read-only store and one that actually writes to the store. This implies
   // having read-only versions of the kv-stores, all kv-containers, and all trees.
-  public async ephemeralFork(): Promise<MerkleTreeDb> {
+  public async ephemeralFork(): Promise<MerkleTreeAdminDb> {
     const forked = new MerkleTrees(
       this.store,
       this.telemetryClient,
@@ -239,16 +241,20 @@ export class MerkleTrees implements MerkleTreeDb {
    * Gets a view of this db that returns uncommitted data.
    * @returns - A facade for this instance.
    */
-  public asLatest(): MerkleTreeAdminOperations {
-    return new MerkleTreeAdminOperationsFacade(this, true);
+  public getLatest(): Promise<MerkleTreeAdminOperations> {
+    return Promise.resolve(new MerkleTreeAdminOperationsFacade(this, true));
   }
 
   /**
    * Gets a view of this db that returns committed data only.
    * @returns - A facade for this instance.
    */
-  public asCommitted(): MerkleTreeAdminOperations {
-    return new MerkleTreeAdminOperationsFacade(this, false);
+  public getCommitted(): Promise<MerkleTreeAdminOperations> {
+    return Promise.resolve(new MerkleTreeAdminOperationsFacade(this, false));
+  }
+
+  public getSnapshot(blockNumber: number): Promise<MerkleTreeAdminOperations> {
+    return Promise.resolve(new MerkleTreeSnapshotOperationsFacade(this, blockNumber));
   }
 
   /**
@@ -582,7 +588,7 @@ export class MerkleTrees implements MerkleTreeDb {
     }
   }
 
-  public async getSnapshot(blockNumber: number): Promise<TreeSnapshots> {
+  public async getTreeSnapshots(blockNumber: number): Promise<TreeSnapshots> {
     const snapshots = await Promise.all([
       this.trees[MerkleTreeId.NULLIFIER_TREE].getSnapshot(blockNumber),
       this.trees[MerkleTreeId.NOTE_HASH_TREE].getSnapshot(blockNumber),

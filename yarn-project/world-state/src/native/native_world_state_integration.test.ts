@@ -210,6 +210,7 @@ describe('NativeWorldState', () => {
       const [_nativeMs] = await elapsed(nativeWS.handleL2BlockAndMessages(block, messages));
       const [_legacyMs] = await elapsed(legacyWS.handleL2BlockAndMessages(block, messages));
 
+      // eslint-disable-next-line no-console
       console.log(`Native: ${_nativeMs} ms, Legacy: ${_legacyMs} ms. Generating mock block took ${_blockMS} ms`);
 
       await assertSameTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, true);

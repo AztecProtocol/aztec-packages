@@ -33,7 +33,7 @@ import bindings from 'bindings';
 import { Decoder, Encoder, addExtension } from 'msgpackr';
 import { isAnyArrayBuffer } from 'util/types';
 
-import { type MerkleTreeDb, type TreeSnapshots } from '../world-state-db/merkle_tree_db.js';
+import { type MerkleTreeAdminDb, type MerkleTreeDb } from '../world-state-db/merkle_tree_db.js';
 import { MerkleTreeAdminOperationsFacade } from '../world-state-db/merkle_tree_operations_facade.js';
 import {
   MessageHeader,
@@ -62,7 +62,7 @@ export interface NativeInstance {
   call(msg: Buffer | Uint8Array): Promise<any>;
 }
 
-export class NativeWorldStateService implements MerkleTreeDb {
+export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb {
   private nextMessageId = 1;
   private initialHeader: Header | undefined;
 
@@ -108,8 +108,18 @@ export class NativeWorldStateService implements MerkleTreeDb {
     }
   }
 
-  public asLatest(): MerkleTreeAdminOperations {
-    return new MerkleTreeAdminOperationsFacade(this, true);
+  public getLatest(): Promise<MerkleTreeAdminOperations> {
+    return Promise.resolve(new MerkleTreeAdminOperationsFacade(this, true));
+  }
+
+  public getCommitted(): Promise<MerkleTreeAdminOperations> {
+    return Promise.resolve(new MerkleTreeAdminOperationsFacade(this, false));
+  }
+
+  public async getSnapshot(blockNumber: number): Promise<MerkleTreeAdminOperations> {
+    const ws = new NativeWorldStateService(this.instance, this.queue, 0, blockNumber);
+    await ws.init();
+    return new MerkleTreeAdminOperationsFacade(ws, false);
   }
 
   async buildInitialHeader(): Promise<Header> {
@@ -254,10 +264,6 @@ export class NativeWorldStateService implements MerkleTreeDb {
     });
 
     return new SiblingPath(siblingPath.length, siblingPath);
-  }
-
-  getSnapshot(_block: number): Promise<TreeSnapshots> {
-    return Promise.reject(new Error('getSnapshot not implemented'));
   }
 
   async getStateReference(includeUncommitted: boolean): Promise<StateReference> {
@@ -419,7 +425,7 @@ export class NativeWorldStateService implements MerkleTreeDb {
     }
   }
 
-  public async fork(): Promise<MerkleTreeDb> {
+  public async fork(): Promise<MerkleTreeAdminDb> {
     const resp = await this.call(WorldStateMessageType.CREATE_FORK, { blockNumber: 0 });
     const ws = new NativeWorldStateService(this.instance, this.queue, resp.forkId, 0);
     await ws.init();

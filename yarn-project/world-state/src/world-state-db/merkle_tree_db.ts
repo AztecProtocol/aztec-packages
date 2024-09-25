@@ -50,11 +50,9 @@ export type MerkleTreeDb = {
     MerkleTreeOperations[Property]
   >;
 } & Pick<MerkleTreeOperations, MerkleTreeSetters> & {
-    /**
-     * Returns a snapshot of the current state of the trees.
-     * @param block - The block number to take the snapshot at.
-     */
-    getSnapshot(block: number): Promise<TreeSnapshots>;
+    getCommitted(): Promise<MerkleTreeOperations>;
+    getLatest(): Promise<MerkleTreeOperations>;
+    getSnapshot(blockNumber: number): Promise<MerkleTreeOperations>;
   };
 
 /** Extends operations on MerkleTreeDb to include modifying the underlying store */
@@ -64,16 +62,13 @@ export type MerkleTreeAdminDb = {
     MerkleTreeSetters | MerkleTreeAdmin
   >]: WithIncludeUncommitted<MerkleTreeAdminOperations[Property]>;
 } & Pick<MerkleTreeAdminOperations, MerkleTreeSetters | MerkleTreeAdmin> & {
-    /**
-     * Returns a snapshot of the current state of the trees.
-     * @param block - The block number to take the snapshot at.
-     */
-    getSnapshot(block: number): Promise<TreeSnapshots>;
-
+    getCommitted(): Promise<MerkleTreeAdminOperations>;
+    getLatest(): Promise<MerkleTreeAdminOperations>;
+    getSnapshot(blockNumber: number): Promise<MerkleTreeAdminOperations>;
     /**
      * Forks the database at its current state.
      */
-    fork(): Promise<MerkleTreeDb>;
+    fork(): Promise<MerkleTreeAdminDb>;
 
     /** Deletes this database. */
     delete(): Promise<void>;

@@ -1,5 +1,6 @@
 import { MerkleTreeId } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
+import { SerialQueue } from '@aztec/foundation/queue';
 
 import { jest } from '@jest/globals';
 import { decode, encode } from 'msgpackr';
@@ -71,7 +72,7 @@ describe('NativeWorldState', () => {
     expect(msg.header.messageId).toBeGreaterThan(0);
     expect(msg.value).toEqual({
       treeId: MerkleTreeId.NULLIFIER_TREE,
-      revision: worldStateRevision(includeUncommitted),
+      revision: worldStateRevision(includeUncommitted, undefined, undefined),
     });
   });
 
@@ -97,6 +98,6 @@ describe('NativeWorldState', () => {
 
 class WorldStateWithMockedInstance extends NativeWorldStateService {
   constructor(instance: NativeInstance) {
-    super(instance);
+    super(instance, new SerialQueue());
   }
 }

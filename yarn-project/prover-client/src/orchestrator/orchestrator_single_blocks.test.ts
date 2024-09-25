@@ -19,7 +19,7 @@ describe('prover/orchestrator/blocks', () => {
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
-    expectsDb = await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient()).then(t => t.asLatest());
+    expectsDb = await MerkleTrees.new(openTmpStore(), new NoopTelemetryClient()).then(t => t.getLatest());
   });
 
   afterEach(async () => {

@@ -23,7 +23,7 @@ import {
   type WorldStateDB,
 } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { MerkleTrees } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import * as fs from 'fs/promises';
@@ -59,7 +59,7 @@ export class TestContext {
 
   static async new(
     logger: DebugLogger,
-    worldState: 'native' | 'legacy' = 'legacy',
+    worldState: 'native' | 'legacy' = 'native',
     proverCount = 4,
     createProver: (bbConfig: BBProverConfig) => Promise<ServerCircuitProver> = _ =>
       Promise.resolve(new TestCircuitProver(new NoopTelemetryClient(), new WASMSimulator())),
@@ -79,10 +79,10 @@ export class TestContext {
       const dir = await fs.mkdtemp(join(tmpdir(), 'prover-client-world-state-'));
       directoriesToCleanup.push(dir);
       const ws = await NativeWorldStateService.create(dir);
-      actualDb = ws.asLatest();
+      actualDb = await ws.getLatest();
     } else {
       const ws = await MerkleTrees.new(openTmpStore(), telemetry);
-      actualDb = ws.asLatest();
+      actualDb = await ws.getLatest();
     }
 
     const processor = new PublicProcessor(
