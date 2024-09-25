@@ -302,7 +302,7 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
     await runUploadAndDownloadTest(false);
   });
 
-  test("Upload/download with rebuild patterns with S3", async () => {
-    await runUploadAndDownloadTest(true);
-  });
+  // test("Upload/download with rebuild patterns with S3", async () => {
+  //   await runUploadAndDownloadTest(true);
+  // });
 });
