@@ -2128,28 +2128,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(
             other.assert_equal(*this);
             return;
         } else {
-            if (is_constant() && other.is_constant()) {
-                std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?"
-                          << std::endl;
-                return;
-            } else if (other.is_constant()) {
-                // evaluate a strict equality - make sure *this is reduced first, or an honest prover
-                // might not be able to satisfy these constraints.
-                field_t<Builder> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
-                field_t<Builder> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
-                field_t<Builder> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
-                field_t<Builder> t3 = (binary_basis_limbs[3].element - other.binary_basis_limbs[3].element);
-                field_t<Builder> t4 = (prime_basis_limb - other.prime_basis_limb);
-                t0.assert_is_zero();
-                t1.assert_is_zero();
-                t2.assert_is_zero();
-                t3.assert_is_zero();
-                t4.assert_is_zero();
-                return;
-            } else if (is_constant()) {
-                other.assert_equal(*this);
-                return;
-            }
 
             bigfield diff = *this - other;
             const uint512_t diff_val = diff.get_value();
