@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { type AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint8, Uint16, Uint32, Uint64, Uint128 } from '../avm_memory_types.js';
-import { adjustCalldataIndex, initContext, initExecutionEnvironment } from '../fixtures/index.js';
+import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import { Addressing, AddressingMode } from './addressing_mode.js';
 import { CMov, CalldataCopy, Cast, Mov, Set } from './memory.js';
@@ -470,7 +470,7 @@ describe('Memory instructions', () => {
     it('Writes nothing if size is 0', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      context.machineState.memory.set(0, new Uint32(adjustCalldataIndex(0))); // cdoffset
+      context.machineState.memory.set(0, new Uint32(0)); // cdoffset
       context.machineState.memory.set(1, new Uint32(0)); // size
       context.machineState.memory.set(3, new Uint16(12)); // not overwritten
 
@@ -483,7 +483,7 @@ describe('Memory instructions', () => {
     it('Copies all calldata', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      context.machineState.memory.set(0, new Uint32(adjustCalldataIndex(0))); // cdoffset
+      context.machineState.memory.set(0, new Uint32(0)); // cdoffset
       context.machineState.memory.set(1, new Uint32(3)); // size
 
       await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);
@@ -495,7 +495,7 @@ describe('Memory instructions', () => {
     it('Copies slice of calldata', async () => {
       const calldata = [new Fr(1n), new Fr(2n), new Fr(3n)];
       context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      context.machineState.memory.set(0, new Uint32(adjustCalldataIndex(1))); // cdoffset
+      context.machineState.memory.set(0, new Uint32(1)); // cdoffset
       context.machineState.memory.set(1, new Uint32(2)); // size
 
       await new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0).execute(context);

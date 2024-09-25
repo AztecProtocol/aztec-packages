@@ -4,7 +4,7 @@ use dep::protocol_types::{
     contract_instance::ContractInstance
 };
 
-use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
+use crate::context::inputs::PrivateContextInputs;
 use crate::context::call_interfaces::CallInterface;
 use crate::test::helpers::cheatcodes;
 use crate::keys::public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys};
@@ -68,7 +68,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     unconstrained pub fn with_public_initializer<C, let P: u32, T, Env>(
         self,
         call_interface: C
-    ) -> ContractInstance where C: CallInterface<P, PublicContextInputs, T, Env> {
+    ) -> ContractInstance where C: CallInterface<P, (), T, Env> {
         let instance = cheatcodes::deploy(
             self.path,
             self.name,
@@ -87,12 +87,9 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         cheatcodes::set_contract_address(instance.to_address());
         cheatcodes::set_msg_sender(original_contract_address);
         cheatcodes::set_is_static_call(call_interface.get_is_static());
-        let mut inputs = cheatcodes::get_public_context_inputs();
-        inputs.calldata_length = call_interface.get_args().len() as Field;
-        inputs.is_static_call = call_interface.get_is_static();
         cheatcodes::set_calldata(calldata);
 
-        let _result: T = original_fn(inputs);
+        let _result: T = original_fn(());
 
         cheatcodes::set_fn_selector(original_fn_selector);
         cheatcodes::set_contract_address(original_contract_address);

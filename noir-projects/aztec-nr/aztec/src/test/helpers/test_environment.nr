@@ -3,7 +3,7 @@ use dep::protocol_types::{
     address::AztecAddress, traits::Deserialize
 };
 
-use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
+use crate::context::inputs::PrivateContextInputs;
 use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
@@ -43,8 +43,7 @@ impl TestEnvironment {
     }
 
     unconstrained fn public(_self: Self) -> PublicContext {
-        let mut inputs = cheatcodes::get_public_context_inputs();
-        PublicContext::new(inputs, || 0)
+        PublicContext::new(|| 0)
     }
 
     unconstrained fn private(&mut self) -> PrivateContext {
@@ -137,10 +136,7 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).assert_empty();
     }
 
-    unconstrained fn call_public<C, let M: u32, T, Env>(
-        _self: Self,
-        call_interface: C
-    ) -> T where C: CallInterface<M, PublicContextInputs, T, Env> {
+    unconstrained fn call_public<C, let M: u32, T, Env>(_self: Self, call_interface: C) -> T where C: CallInterface<M, (), T, Env> {
         let original_fn = call_interface.get_original();
         let original_msg_sender = cheatcodes::get_msg_sender();
         let original_contract_address = get_contract_address();
@@ -153,12 +149,9 @@ impl TestEnvironment {
         cheatcodes::set_contract_address(target_address);
         cheatcodes::set_msg_sender(original_contract_address);
         cheatcodes::set_is_static_call(call_interface.get_is_static());
-        let mut inputs = cheatcodes::get_public_context_inputs();
-        inputs.calldata_length = call_interface.get_args().len() as Field;
-        inputs.is_static_call = call_interface.get_is_static();
         cheatcodes::set_calldata(calldata);
 
-        let result = original_fn(inputs);
+        let result = original_fn(());
 
         cheatcodes::set_fn_selector(original_fn_selector);
         cheatcodes::set_contract_address(original_contract_address);
@@ -171,7 +164,7 @@ impl TestEnvironment {
     unconstrained fn assert_public_call_fails<C, let M: u32, T, Env>(
         _self: Self,
         call_interface: C
-    ) where C: CallInterface<M, PublicContextInputs, T, Env> {
+    ) where C: CallInterface<M, (), T, Env> {
         cheatcodes::assert_public_call_fails(
             call_interface.get_contract_address(),
             call_interface.get_selector(),

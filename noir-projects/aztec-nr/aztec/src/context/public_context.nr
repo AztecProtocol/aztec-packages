@@ -3,19 +3,17 @@ use dep::protocol_types::address::{AztecAddress, EthAddress};
 use dep::protocol_types::constants::MAX_FIELD_VALUE;
 use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
-use crate::context::inputs::public_context_inputs::PublicContextInputs;
 use crate::context::gas::GasOpts;
 use crate::hash::ArgsHasher;
 
 pub struct PublicContext {
-    inputs: PublicContextInputs,
     args_hash: Option<Field>,
     compute_args_hash: fn () -> Field,
 }
 
 impl PublicContext {
-    pub fn new(inputs: PublicContextInputs, compute_args_hash: fn() -> Field) -> Self {
-        PublicContext { inputs, args_hash: Option::none(), compute_args_hash }
+    pub fn new(compute_args_hash: fn() -> Field) -> Self {
+        PublicContext { args_hash: Option::none(), compute_args_hash }
     }
 
     pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T) where T: Serialize<N> {
@@ -308,7 +306,7 @@ unconstrained fn storage_write(storage_slot: Field, value: Field) {
 
 impl Empty for PublicContext {
     fn empty() -> Self {
-        PublicContext::new(PublicContextInputs::empty(), || 0)
+        PublicContext::new(|| 0)
     }
 }
 

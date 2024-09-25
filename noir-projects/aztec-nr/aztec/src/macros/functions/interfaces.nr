@@ -8,7 +8,6 @@ comptime mut global STUBS: UHashMap<Module, [Quoted], BuildHasherDefault<Poseido
 
 pub(crate) comptime fn create_fn_abi_export(f: FunctionDefinition) -> Quoted {
     let name = f.name();
-    // Remove first arg (inputs)
     let mut parameters = f.parameters().map(
         | (name, typ): (Quoted, Type) | {
         quote { $name: $typ }
@@ -129,7 +128,11 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         quote {}
     };
 
-    let input_type = f"crate::context::inputs::{fn_visibility_capitalized}ContextInputs".quoted_contents().as_type();
+    let input_type = if is_fn_private(f) {
+        quote { crate::context::inputs::PrivateContextInputs }.as_type()
+    } else {
+        quote { () }.as_type()
+    };
 
     let return_type_hint = if is_fn_private(f) {
         quote { protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs }.as_type()
@@ -139,10 +142,23 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
 
     let parameter_names = if fn_parameters.len() > 0 {
         let params = fn_parameters.map(|(name, _): (Quoted, _)| name).join(quote {,});
-        quote  { inputs, $params }
+        if is_fn_private(f) {
+            quote  { inputs, $params }
+        } else {
+            quote { $params }
+        }
+    } else if is_fn_private(f) {
+        quote { inputs }
     } else {
-        quote {inputs}
+        quote {}
     };
+
+    // let parameter_names = if fn_parameters.len() > 0 {
+    //     let params = fn_parameters.map(|(name, _): (Quoted, _)| name).join(quote {,});
+    //     quote { inputs, $params }
+    // } else {
+    //     quote { inputs }
+    // };
 
     let original = quote {
         | inputs: $input_type  | -> $return_type_hint {
