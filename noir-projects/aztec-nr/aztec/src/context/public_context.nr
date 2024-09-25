@@ -9,12 +9,13 @@ use crate::hash::ArgsHasher;
 
 pub struct PublicContext {
     inputs: PublicContextInputs,
-    args_hash: Option<Field>
+    args_hash: Option<Field>,
+    compute_args_hash: fn () -> Field,
 }
 
 impl PublicContext {
-    pub fn new(inputs: PublicContextInputs) -> Self {
-        PublicContext { inputs, args_hash: Option::none() }
+    pub fn new(inputs: PublicContextInputs, compute_args_hash: fn() -> Field) -> Self {
+        PublicContext { inputs, args_hash: Option::none(), compute_args_hash }
     }
 
     pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T) where T: Serialize<N> {
@@ -133,18 +134,10 @@ impl PublicContext {
     }
     fn get_args_hash(mut self) -> Field {
         if !self.args_hash.is_some() {
-            let mut hasher = ArgsHasher::new();
-
-            // TODO: this should be replaced with the compile-time calldata size.
-            for i in 0..self.inputs.calldata_length as u32 {
-                let argn: [Field; 1] = calldata_copy((2 + i) as u32, 1);
-                hasher.add(argn[0]);
-            }
-
-            self.args_hash = Option::some(hasher.hash());
+            self.args_hash = Option::some((self.compute_args_hash)());
         }
 
-        self.args_hash.unwrap()
+        self.args_hash.unwrap_unchecked()
     }
     fn transaction_fee(_self: Self) -> Field {
         transaction_fee()
@@ -315,7 +308,7 @@ unconstrained fn storage_write(storage_slot: Field, value: Field) {
 
 impl Empty for PublicContext {
     fn empty() -> Self {
-        PublicContext::new(PublicContextInputs::empty())
+        PublicContext::new(PublicContextInputs::empty(), || 0)
     }
 }
 

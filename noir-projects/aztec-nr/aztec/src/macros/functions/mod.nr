@@ -5,6 +5,7 @@ use super::utils::{
     modify_fn_body, is_fn_private, get_fn_visibility, is_fn_view, is_fn_initializer, is_fn_internal,
     fn_has_noinitcheck, add_to_hasher, module_has_storage, module_has_initializer
 };
+use protocol_types::meta::flatten_to_fields;
 
 use interfaces::{create_fn_abi_export, register_stub, stub_fn};
 
@@ -246,8 +247,13 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
     ].append(original_params)
     );
 
+    let args_len = original_params.map(|(name, typ): (Quoted, Type)| flatten_to_fields(name, typ, &[]).0.len()).fold(0, |acc: u32, val: u32| acc + val);
+
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
-    let context_creation = quote { let mut context = dep::aztec::context::public_context::PublicContext::new(inputs); };
+    let context_creation = quote { let mut context = dep::aztec::context::public_context::PublicContext::new(inputs, || {
+        let serialized_args : [Field; $args_len] = dep::aztec::context::public_context::calldata_copy(2, $args_len);
+        dep::aztec::hash::hash_args_array(serialized_args)
+     }); };
 
     // Modifications introduced by the different marker attributes.
 
