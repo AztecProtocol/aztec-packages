@@ -21,9 +21,9 @@ using TreeStateReference = std::pair<bb::fr, bb::crypto::merkle_tree::index_t>;
 using StateReference = std::unordered_map<MerkleTreeId, TreeStateReference>;
 
 struct WorldStateRevision {
-    uint64_t forkId;
-    uint64_t blockNumber;
-    bool includeUncommitted;
+    uint64_t forkId{ 0 };
+    uint64_t blockNumber{ 0 };
+    bool includeUncommitted{ false };
 
     MSGPACK_FIELDS(forkId, blockNumber, includeUncommitted)
 
