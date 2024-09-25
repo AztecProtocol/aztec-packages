@@ -171,11 +171,13 @@ unconstrained pub fn get_notes<Note, let N: u32, let M: u32, let S: u32, let NS:
     placeholder_opt_notes
 }
 
-// Only ever use this in private!
-#[oracle(checkNullifierExists)]
-unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
-
-// Only ever use this in private!
+/// Returns true if the nullifier exists. Note that a `true` value can be constrained by proving existence of the
+/// nullifier, but a `false` value should not be relied upon since other transactions may emit this nullifier before the
+/// current transaction is included in a block. While this might seem of little use at first, certain design patterns
+/// benefit from this abstraction (see e.g. `PrivateMutable`).
 unconstrained pub fn check_nullifier_exists(inner_nullifier: Field) -> bool {
     check_nullifier_exists_oracle(inner_nullifier) == 1
 }
+
+#[oracle(checkNullifierExists)]
+unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
