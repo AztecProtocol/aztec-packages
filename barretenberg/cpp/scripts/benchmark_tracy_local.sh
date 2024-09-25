@@ -15,7 +15,7 @@ BENCHMARK=${2:-protogalaxy_bench}
 COMMAND=${3:-./bin/$BENCHMARK --benchmark_filter=compute_row_evaluations/17}
 
 # Can also set PRESET=tracy-gates env variable
-PRESET=${PRESET:-tracy}
+PRESET=${PRESET:-tracy-time}
 
 cd ~/aztec-packages/barretenberg/cpp/
 cmake --preset $PRESET && cmake --build --preset $PRESET --target $BENCHMARK
