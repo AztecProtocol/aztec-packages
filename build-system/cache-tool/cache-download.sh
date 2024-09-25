@@ -6,6 +6,8 @@ if [ "$#" -ne 1 ]; then
   exit 1
 fi
 
+AZTEC_CACHE_TOOL_IP=${AZTEC_CACHE_TOOL_IP:-"localhost"}
+
 if ! nc -vz $AZTEC_CACHE_TOOL_IP $AZTEC_CACHE_TOOL_PORT ; then
   echo "Aztec cache tool not running or not reachable. Not using cache."
   exit 1

@@ -27,6 +27,13 @@ describe("Aztec Cache Tool Tests", () => {
 
   let app;
 
+  beforeAll(() => {
+    // Ensure test-artifacts directory exists
+    if (!fs.existsSync("test-artifacts")) {
+      fs.mkdirSync("test-artifacts", { recursive: true });
+    }
+  });
+
   afterEach(async () => {
     // Clean up local file
     if (fs.existsSync(localFilePath)) {

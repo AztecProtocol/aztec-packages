@@ -19,6 +19,11 @@ describe("Cache Upload Script Tests", () => {
   });
 
   beforeAll((done) => {
+    // Ensure test-artifacts directory exists
+    if (!fs.existsSync("test-artifacts")) {
+      fs.mkdirSync("test-artifacts", { recursive: true });
+    }
+
     // Ensure binary files exist
     binaryPaths.forEach((file) => {
       const dir = path.dirname(file);
@@ -213,6 +218,11 @@ describe("Cache Download Script Tests", () => {
   });
 
   beforeAll((done) => {
+    // Ensure test-artifacts directory exists
+    if (!fs.existsSync("test-artifacts")) {
+      fs.mkdirSync("test-artifacts", { recursive: true });
+    }
+
     // Start the cache server
     server = app.listen(AZTEC_CACHE_TOOL_PORT, "0.0.0.0", () => {
       console.log("LISTENING ON PORT", AZTEC_CACHE_TOOL_PORT);
