@@ -427,8 +427,6 @@ export async function processPublicDataUpdateRequests(tx: ProcessedTx, db: Merkl
     ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
   );
 
-                    console.log("number of public data writes", allPublicDataWrites.length);
-                    console.log("all public data writes", getNonEmptyItems(allPublicDataWrites));
   const { lowLeavesWitnessData, newSubtreeSiblingPath, sortedNewLeaves, sortedNewLeavesIndexes } = await db.batchInsert(
     MerkleTreeId.PUBLIC_DATA_TREE,
     allPublicDataWrites.map(x => x.toBuffer()),

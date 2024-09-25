@@ -186,18 +186,20 @@ describe('e2e_p2p_network', () => {
     const wallet = (await createAccounts(pxe, 2))[0];
 
     // add another account creation to pad the tx below - TODO(md): clean up
-    createAccounts(pxe,1);
-    token = await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed();
-    // spam = await SpamContract.deploy(wallet).send().deployed();
+    // token = await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed();
+    spam = await SpamContract.deploy(wallet).send().deployed();
+    await createAccounts(pxe,1);
 
+    const seed = 1234n
+    const spamCount = 15
     for (let i = 0; i < numTxs; i++) {
       const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
 
       // TODO: check out batch call for deployments
 
       // Send a public mint tx - this will be minted from the token contract to the pxe account
-      const tx = token.methods.mint_public(accountManager.getCompleteAddress().address, 1n).send()
-      // const tx = spam.methods.spam(420n, 15, true).send()
+      // const tx = token.methods.mint_public(accountManager.getCompleteAddress().address, 1n).send()
+      const tx = spam.methods.spam(seed + BigInt(i * spamCount), spamCount, true).send()
       const txHash = await tx.getTxHash();
 
       logger.info(`Tx sent with hash ${txHash}`);

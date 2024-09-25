@@ -1,7 +1,7 @@
 // A minimal version of the public processor - that does not have the fluff
 
 import { MerkleTreeId, PublicDataWrite, Tx, TxValidator, WorldStateSynchronizer } from "@aztec/circuit-types";
-import { AztecAddress, Gas, getNonEmptyItems, GlobalVariables, Header, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NoteHash, Nullifier, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT, PublicDataTreeLeaf, PublicDataUpdateRequest, ScopedNullifier } from "@aztec/circuits.js";
+import { AztecAddress, Gas, getNonEmptyItems, GlobalVariables, Header, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NoteHash, Nullifier, NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT, PublicDataTreeLeaf, PublicDataUpdateRequest, ScopedNoteHash, ScopedNullifier } from "@aztec/circuits.js";
 import { MerkleTreeOperations } from "@aztec/world-state";
 import { WorldStateDB } from "./public_db_sources.js";
 import { PublicExecutor } from "./executor.js";
@@ -123,13 +123,14 @@ export class LightPublicProcessor {
                     const {nullifiers: nonRevertibleNullifiers, noteHashes: nonRevertibleNoteHashes, publicDataUpdateRequests: nonRevertiblePublicDataUpdateRequests} = tx.data.forPublic!.endNonRevertibleData;
                     const {nullifiers: txNullifiers, noteHashes: txNoteHashes, publicDataUpdateRequests: txPublicDataUpdateRequests} = tx.data.forPublic!.end;
 
-                    const nonEmptyTxNullifiers = getNonEmptyItems(txNullifiers).map(n => n.value);
+                    // tODO: make sure not RE removing empty items
                     const nonEmptyNonRevertibleNullifiers = getNonEmptyItems(nonRevertibleNullifiers).map(n => n.value);
-                    const publicNullifiers = nullifiers.map(n => siloNullifier(n.contractAddress, n.value));
+                    const nonEmptyTxNullifiers = getNonEmptyItems(txNullifiers).map(n => n.value);
+                    const publicNullifiers = getNonEmptyItems(nullifiers);
 
-                    const nonEmptyTxNoteHashes = getNonEmptyItems(txNoteHashes).map(n => siloNoteHash(n.contractAddress, n.noteHash.value));
-                    const nonEmptyNonRevertibleNoteHashes = getNonEmptyItems(nonRevertibleNoteHashes).map(n => siloNoteHash(n.contractAddress, n.noteHash.value));
-                    const publicNoteHashes = newNoteHashes.map(n => n.value);
+                    const nonEmptyNonRevertibleNoteHashes = getNonEmptyItems(nonRevertibleNoteHashes).map(n => n.value);
+                    const nonEmptyTxNoteHashes = getNonEmptyItems(txNoteHashes).map(n => n.value);
+                    const publicNoteHashes = getNonEmptyItems(newNoteHashes);
 
                     const nonEmptyTxPublicDataUpdateRequests = txPublicDataUpdateRequests.filter(p => !p.isEmpty());
                     const nonEmptyNonRevertiblePublicDataUpdateRequests = nonRevertiblePublicDataUpdateRequests.filter(p => !p.isEmpty());
@@ -144,11 +145,10 @@ export class LightPublicProcessor {
                         ({ leafSlot, newValue }) => new PublicDataTreeLeaf(leafSlot, newValue),
                     );
 
-                    // TODO: i think im going to need to silo these
                     await this.merkleTrees.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, allNoteHashes);
                     await this.merkleTrees.batchInsert(MerkleTreeId.NULLIFIER_TREE, allNullifiers, NULLIFIER_SUBTREE_HEIGHT);
 
-                    console.log("number of public data writes", allPublicDataWrites.length);
+                    // console.log("number of public data writes", allPublicDataWrites.length);
                     console.log("all public data writes", getNonEmptyItems(allPublicDataWrites));
                     const beingWritten = allPublicDataWrites.map(x => x.toBuffer());
                     await this.merkleTrees.batchInsert(MerkleTreeId.PUBLIC_DATA_TREE, beingWritten, PUBLIC_DATA_SUBTREE_HEIGHT);
@@ -296,33 +296,69 @@ export class LightPublicProcessor {
     // This is just getting the private state updates after executing them
     // TODO(md): think about these
     aggregatePublicExecutionResults(results: PublicExecutionResult[]) {
-        let nullifiers: ScopedNullifier[] = [];
-        let newNoteHashes: NoteHash[] = [];
-        let publicDataWrites: PublicDataUpdateRequest[] = [];
+        let txCallNewNullifiers: ScopedNullifier[][] = [];
+        let txCallNewNoteHashes: ScopedNoteHash[][] = [];
+        let txCallPublicDataWrites: PublicDataUpdateRequest[][] = [];
 
+        let j = 0;
+        // TODO: sort these by side effect counter per request
+        // THE later ones then go first - which does not make sense to me here
         for (const res of results) {
+            let enqueuedCallNewNullifiers = [];
+            let enqueuedCallNewNoteHashes = [];
+            let enqueuedCallPublicDataWrites = [];
+
             // TODO: I assume that these will need to be ordered by their side effect counter
-            nullifiers.push(...getNonEmptyItems(res.nullifiers).map(n => n.scope(res.executionRequest.contractAddress)));
-            newNoteHashes.push(...getNonEmptyItems(res.noteHashes));
-            publicDataWrites.push(...getNonEmptyItems(res.contractStorageUpdateRequests).map(req => PublicDataUpdateRequest.fromContractStorageUpdateRequest(res.executionRequest.contractAddress, req)));
+            enqueuedCallNewNullifiers.push(...getNonEmptyItems(res.nullifiers).map(n => n.scope(res.executionRequest.contractAddress)));
+            enqueuedCallNewNoteHashes.push(...getNonEmptyItems(res.noteHashes).map(n => n.scope(res.executionRequest.contractAddress)));
+            const tempPub = getNonEmptyItems(res.contractStorageUpdateRequests).map(req => PublicDataUpdateRequest.fromContractStorageUpdateRequest(res.executionRequest.contractAddress, req));
+            enqueuedCallPublicDataWrites.push(...tempPub);
+
+            console.log("public data writes", tempPub);
 
             // TODO: do for the nested executions
-            // for (const nested of res.nestedExecutions) {
-            //     nullifiers.push(...getNonEmptyItems(nested.nullifiers).map(n => n.scope(nested.executionRequest.contractAddress)));
-            //     newNoteHashes.push(...getNonEmptyItems(nested.noteHashes));
-            // publicDataWrites.push(...getNonEmptyItems(nested.contractStorageUpdateRequests).map(req => PublicDataUpdateRequest.fromContractStorageUpdateRequest(nested.executionRequest.contractAddress, req)));
-            // }
+            let i = 0;
+            for (const nested of res.nestedExecutions) {
+                console.log("nested execution", i++);
+                console.log("first public data write", nested.contractStorageUpdateRequests[0]);
+
+                const newNullifiers = getNonEmptyItems(nested.nullifiers).map(n => n.scope(nested.executionRequest.contractAddress));
+                const newNoteHashes = getNonEmptyItems(nested.noteHashes).map(n => n.scope(nested.executionRequest.contractAddress));
+
+                enqueuedCallNewNullifiers.push(...newNullifiers);
+                enqueuedCallNewNoteHashes.push(...newNoteHashes);
+                enqueuedCallPublicDataWrites.push(...getNonEmptyItems(nested.contractStorageUpdateRequests).map(req => PublicDataUpdateRequest.fromContractStorageUpdateRequest(nested.executionRequest.contractAddress, req)));
+            }
+
+            enqueuedCallNewNullifiers = this.sortBySideEffectCounter(enqueuedCallNewNullifiers);
+            enqueuedCallNewNoteHashes = this.sortBySideEffectCounter(enqueuedCallNewNoteHashes);
+            enqueuedCallPublicDataWrites = this.sortBySideEffectCounter(enqueuedCallPublicDataWrites);
+
+            txCallNewNullifiers.push(enqueuedCallNewNullifiers);
+            txCallNewNoteHashes.push(enqueuedCallNewNoteHashes);
+            txCallPublicDataWrites.push(enqueuedCallPublicDataWrites);
         }
 
+        // Reverse
+        // TODO: WHY to we need to do this? yucky yucky, reversal doesnt feel quite right
+        const newNullifiers = txCallNewNullifiers.reverse().flat();
+        const newNoteHashes = txCallNewNoteHashes.reverse().flat();
+        const newPublicDataWrites = txCallPublicDataWrites.reverse().flat();
 
         const returning =  {
-            nullifiers,
-            newNoteHashes,
-            publicDataWrites
+            nullifiers: newNullifiers.map(n => siloNullifier(n.contractAddress, n.value)),
+            newNoteHashes: newNoteHashes.map(n => siloNoteHash(n.contractAddress, n.value)),
+            publicDataWrites: newPublicDataWrites
         };
-        console.log("after public execution new nullifiers", returning.nullifiers.filter(n => !n.isEmpty()).map(n => siloNullifier(n.contractAddress, n.value).toBuffer()));
-        console.log("after public execution new note hashes", returning.newNoteHashes.filter(n => !n.isEmpty()).map(n => n.toBuffer()));
+        console.log("after public execution new nullifiers", returning.nullifiers);
+        console.log("after public execution new note hashes", returning.newNoteHashes);
         return returning;
+    }
+
+    // Sort by side effect counter, where the lowest is first
+    // TODO: refactor
+    sortBySideEffectCounter<T extends {counter: number}>(items: T[]) {
+        return items.sort((a, b) => a.counter - b.counter);
     }
 
     addNullifiers(nullifiers: Nullifier[]) {
