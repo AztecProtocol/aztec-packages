@@ -1,6 +1,6 @@
 use crate::{
     context::PrivateContext, event::event_interface::EventInterface,
-    encrypted_logs::{payload::compute_encrypted_log, incoming_body::EncryptedLogIncomingBody},
+    encrypted_logs::payload::compute_encrypted_log,
     keys::{getters::get_public_keys, public_keys::{OvpkM, IvpkM}},
     oracle::logs_traits::LensForEncryptedEvent, oracle::unsafe_rand::unsafe_rand
 };
@@ -35,8 +35,8 @@ fn compute<Event, let N: u32, let OB: u32>(
     recipient: AztecAddress,
     event: Event
 ) -> ([u8; OB], Field) where Event: EventInterface<N>, [u8; N * 32 + 64]: LensForEncryptedEvent<N * 32 + 64, OB> {
-    let body = EncryptedLogIncomingBody::from_event(event, randomness);
-    let encrypted_log: [u8; OB] = compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, body);
+    let plaintext = event.private_to_be_bytes(randomness);
+    let encrypted_log: [u8; OB] = compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
     let log_hash = sha256_to_field(encrypted_log);
     (encrypted_log, log_hash)
 }
