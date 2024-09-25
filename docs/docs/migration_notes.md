@@ -10,7 +10,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ### [Aztec.nr] Make `TestEnvironment` unconstrained
 
-All of `TestEnvironment`'s functions are now `unconstrained`, preventing accidentally calling them in a constrained circuit, among other kinds of user error. Becuase they work with mutable references, and these are not allowed to cross the constrained <-> unconstrained barrier, tests that use `TestEnvironment` must also become `unconstrained`. The recommended practice is to make _all_ Noir tests and test helper functions be `unconstrained:
+All of `TestEnvironment`'s functions are now `unconstrained`, preventing accidentally calling them in a constrained circuit, among other kinds of user error. Becuase they work with mutable references, and these are not allowed to cross the constrained/unconstrained barrier, tests that use `TestEnvironment` must also become `unconstrained`. The recommended practice is to make _all_ Noir tests and test helper functions be `unconstrained:
 
 ```diff
 #[test]
