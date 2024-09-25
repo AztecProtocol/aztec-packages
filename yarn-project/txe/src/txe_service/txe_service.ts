@@ -750,4 +750,14 @@ export class TXEService {
     }
     return toForeignCallResult([toArray(witness)]);
   }
+
+  emitUnencryptedLog(_contractAddress: ForeignCallSingle, _message: ForeignCallArray, _counter: ForeignCallSingle) {
+    // Currently ignored
+    return toForeignCallResult([]);
+  }
+
+  avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
+    // Currently ignored
+    return toForeignCallResult([]);
+  }
 }
