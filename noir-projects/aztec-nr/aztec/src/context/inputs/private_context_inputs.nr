@@ -2,7 +2,7 @@ use dep::protocol_types::{transaction::tx_context::TxContext, abis::{call_contex
 
 // PrivateContextInputs are expected to be provided to each private function
 // docs:start:private-context-inputs
-struct PrivateContextInputs {
+pub struct PrivateContextInputs {
     call_context : CallContext,
     historical_header: Header,
     tx_context: TxContext,

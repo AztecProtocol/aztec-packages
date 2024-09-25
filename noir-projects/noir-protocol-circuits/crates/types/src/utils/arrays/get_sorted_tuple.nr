@@ -1,6 +1,6 @@
 use crate::utils::arrays::sort_by::sort_by;
 
-struct SortedTuple<T> {
+pub struct SortedTuple<T> {
     elem: T,
     original_index: u32,
 }

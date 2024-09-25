@@ -1,7 +1,7 @@
 use crate::public_kernel_phase::PublicKernelPhase;
 use dep::types::abis::public_kernel_data::PublicKernelData;
 
-struct PreviousKernelValidator {
+pub struct PreviousKernelValidator {
     previous_kernel: PublicKernelData,
 }
 

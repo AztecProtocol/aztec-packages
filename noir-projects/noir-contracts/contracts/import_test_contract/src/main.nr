@@ -59,4 +59,3 @@ contract ImportTest {
         Test::at(target).emit_nullifier_public(1).call(&mut context);
     }
 }
-

@@ -4,7 +4,7 @@ use dep::aztec::{
     keys::{PublicKeys, PUBLIC_KEYS_LENGTH}
 };
 
-struct AuthWitness {
+pub struct AuthWitness {
     keys: PublicKeys,
     signature: [u8; 64],
     partial_address: PartialAddress,

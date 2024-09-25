@@ -131,9 +131,7 @@ export class TXE implements TypedOracle {
   }
 
   getCalldata() {
-    // TODO: Remove this once PublicContextInputs are removed.
-    const inputs = this.getPublicContextInputs();
-    return [...inputs.toFields(), ...this.calldata];
+    return this.calldata;
   }
 
   setMsgSender(msgSender: Fr) {
@@ -211,17 +209,6 @@ export class TXE implements TypedOracle {
     inputs.callContext.isDelegateCall = isDelegateCall;
     inputs.startSideEffectCounter = sideEffectsCounter;
     inputs.callContext.functionSelector = this.functionSelector;
-    return inputs;
-  }
-
-  getPublicContextInputs() {
-    const inputs = {
-      calldataLength: new Fr(this.calldata.length),
-      isStaticCall: false,
-      toFields: function () {
-        return [this.calldataLength, new Fr(this.isStaticCall)];
-      },
-    };
     return inputs;
   }
 
