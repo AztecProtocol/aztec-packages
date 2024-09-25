@@ -33,8 +33,7 @@ class AvmTraceBuilder {
     AvmTraceBuilder(VmPublicInputs public_inputs = {},
                     ExecutionHints execution_hints = {},
                     uint32_t side_effect_counter = 0,
-                    std::vector<FF> calldata = {},
-                    const std::vector<std::vector<uint8_t>>& all_contract_bytecode = {});
+                    std::vector<FF> calldata = {});
 
     uint32_t getPc() const { return pc; }
 

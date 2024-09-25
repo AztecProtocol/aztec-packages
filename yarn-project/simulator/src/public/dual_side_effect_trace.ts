@@ -1,8 +1,9 @@
-import {
-  type CombinedConstantData,
-  type ContractInstanceWithAddress,
-  type Gas,
-  type VMCircuitPublicInputs,
+import type {
+  CombinedConstantData,
+  ContractClassIdPreimage,
+  ContractInstanceWithAddress,
+  Gas,
+  VMCircuitPublicInputs,
 } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 
@@ -30,6 +31,15 @@ export class DualSideEffectTrace implements PublicSideEffectTraceInterface {
   public getCounter() {
     assert(this.innerCallTrace.getCounter() == this.enqueuedCallTrace.getCounter());
     return this.innerCallTrace.getCounter();
+  }
+
+  public traceGetBytecode(
+    bytecode: Buffer,
+    contractInstance: TracedContractInstance,
+    contractClass: ContractClassIdPreimage,
+  ) {
+    this.innerCallTrace.traceGetBytecode(bytecode, contractInstance, contractClass);
+    this.enqueuedCallTrace.traceGetBytecode(bytecode, contractInstance, contractClass);
   }
 
   public tracePublicStorageRead(contractAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean) {

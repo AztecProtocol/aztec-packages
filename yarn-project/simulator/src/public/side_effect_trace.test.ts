@@ -243,7 +243,7 @@ describe('Side Effect Trace', () => {
       {
         // hint omits "version" and has "exists" as an Fr
         ...instanceWithoutVersion,
-        exists: new Fr(instance.exists),
+        exists: instance.exists,
       },
     ]);
   });

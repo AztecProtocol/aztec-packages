@@ -1,6 +1,14 @@
-import { AztecAddress, type FunctionSelector, type Gas, SerializableContractInstance } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  type FunctionSelector,
+  type Gas,
+  SerializableContractInstance,
+  computePublicBytecodeCommitment,
+} from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+
+import assert from 'assert';
 
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import { type WorldStateDB } from '../../public/public_db_sources.js';
@@ -237,10 +245,42 @@ export class AvmPersistableStateManager {
   }
 
   /**
-   * Get a contract's bytecode from the contracts DB
+   * Get a contract's bytecode from the contracts DB, also trace the contract class and instance
    */
   public async getBytecode(contractAddress: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
-    return await this.worldStateDB.getBytecode(contractAddress, selector);
+    let exists = true;
+    // If the bytecode is not found, we let the executor decide that to do
+    const bytecode = await this.worldStateDB.getBytecode(contractAddress, selector);
+    let contractInstance = await this.worldStateDB.getContractInstance(contractAddress);
+    // If the contract instance is not found, we assume it has not be deployed. We will also be unable to find the
+    // contract class as we will not have the id. While the class might exist, we hopefully won't need it to generate a proof (tbd).
+    if (contractInstance === undefined) {
+      exists = false;
+      contractInstance = SerializableContractInstance.default().withAddress(contractAddress);
+      this.trace.traceGetBytecode(
+        bytecode ?? Buffer.alloc(1),
+        { exists, ...contractInstance },
+        {
+          artifactHash: Fr.zero(),
+          privateFunctionsRoot: Fr.zero(),
+          publicBytecodeCommitment: Fr.zero(),
+        },
+      );
+      return bytecode;
+    }
+    const contractClass = await this.worldStateDB.getContractClass(contractInstance.contractClassId);
+    assert(
+      contractClass,
+      `Contract class not found in DB, but a contract instance was found with this class ID (${contractInstance.contractClassId}). This should not happen!`,
+    );
+    const contractClassPreimage = {
+      artifactHash: contractClass.artifactHash,
+      privateFunctionsRoot: contractClass.privateFunctionsRoot,
+      publicBytecodeCommitment: computePublicBytecodeCommitment(contractClass.packedBytecode),
+    };
+    this.trace.traceGetBytecode(bytecode!, { exists, ...contractInstance }, contractClassPreimage);
+
+    return bytecode;
   }
 
   /**
