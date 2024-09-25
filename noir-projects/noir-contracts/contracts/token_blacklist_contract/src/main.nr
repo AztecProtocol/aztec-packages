@@ -115,6 +115,9 @@ contract TokenBlacklist {
         let amount = U128::from_integer(amount);
         let from_balance = storage.public_balances.at(from).read().sub(amount);
 
+        let amount = U128::from_integer(amount);
+        let from_balance = storage.public_balances.at(from).read().sub(amount);
+
         let pending_shields = storage.pending_shields;
         let mut note = TransparentNote::new(amount.to_field(), secret_hash);
 
@@ -134,6 +137,9 @@ contract TokenBlacklist {
         } else {
             assert(nonce == 0, "invalid nonce");
         }
+
+        let amount = U128::from_integer(amount);
+        let from_balance = storage.public_balances.at(from).read().sub(amount);
 
         let amount = U128::from_integer(amount);
         let from_balance = storage.public_balances.at(from).read().sub(amount);
