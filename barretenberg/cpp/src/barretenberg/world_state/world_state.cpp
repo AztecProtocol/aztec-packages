@@ -291,14 +291,21 @@ bool WorldState::sync_block(StateReference& block_state_ref,
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     auto current_state = get_state_reference(WorldStateRevision::uncommitted());
     if (block_state_matches_world_state(block_state_ref, current_state)) {
-        append_leaves<fr>(MerkleTreeId::ARCHIVE, { block_hash });
+        // TODO (alexg) remove commit & rollback. All modifications should happen on forks
+        // Synching a block should always be done on top of a clean state
+        // so committing partial writes like we're doing here shouldn't be possible
+        //
+        // Disable updating the archive tree. Why? The only way to commit dirty state when synching a block is if the
+        // current node _built_ the block. If that's the case then the archive tree has already been updated by the
+        // node's orchestrator.
+        // append_leaves<fr>(MerkleTreeId::ARCHIVE, { block_hash });
+        // just commit the dirty state
         commit();
         return true;
     }
 
     rollback();
 
-    // the public data tree gets updated once per batch and every other gets one update
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     auto decr = [&signal](const auto&) { signal.signal_decrement(); };
 
@@ -310,16 +317,6 @@ bool WorldState::sync_block(StateReference& block_state_ref,
     {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::NOTE_HASH_TREE));
         wrapper.tree->add_values(notes, decr);
-    }
-
-    {
-        auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE));
-        wrapper.tree->add_values(l1_to_l2_messages, decr);
-    }
-
-    {
-        auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::ARCHIVE));
-        wrapper.tree->add_value(block_hash, decr);
     }
 
     {
@@ -336,6 +333,16 @@ bool WorldState::sync_block(StateReference& block_state_ref,
         }
 
         wrapper.tree->add_or_update_values(leaves, 0, decr);
+    }
+
+    {
+        auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE));
+        wrapper.tree->add_values(l1_to_l2_messages, decr);
+    }
+
+    {
+        auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::ARCHIVE));
+        wrapper.tree->add_value(block_hash, decr);
     }
 
     signal.wait_for_level();

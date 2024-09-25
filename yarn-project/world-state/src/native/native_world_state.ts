@@ -346,7 +346,7 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
     }
 
     return await this.call(WorldStateMessageType.SYNC_BLOCK, {
-      blockHash: l2Block.hash(),
+      blockHash: l2Block.header.hash(),
       paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
       paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
       paddedNullifiers: paddedNullifiers.map(serializeLeaf),
