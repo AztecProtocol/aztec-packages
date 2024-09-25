@@ -9,6 +9,7 @@ import {
 import {
   AppendOnlyTreeSnapshot,
   Fr,
+  Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -18,6 +19,7 @@ import {
   PUBLIC_DATA_SUBTREE_HEIGHT,
   PublicDataTreeLeaf,
 } from '@aztec/circuits.js';
+import { makeContentCommitment, makeGlobalVariables } from '@aztec/circuits.js/testing';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { elapsed } from '@aztec/foundation/timer';
 import { AztecLmdbStore } from '@aztec/kv-store/lmdb';
@@ -222,6 +224,40 @@ describe('NativeWorldState', () => {
     }, 150_000);
   });
 
+  describe('Forks', () => {
+    it('creates a fork', async () => {
+      const initialHeader = nativeWS.getInitialHeader();
+      const fork = await nativeWS.fork();
+      await assertSameState(false, fork, nativeWS);
+      await assertSameState(true, fork, nativeWS);
+
+      expect(fork.getInitialHeader()).toEqual(initialHeader);
+
+      const stateReference = await fork.getStateReference(true);
+      const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE, true);
+      const header = new Header(
+        new AppendOnlyTreeSnapshot(new Fr(archiveInfo.root), Number(archiveInfo.size)),
+        makeContentCommitment(),
+        stateReference,
+        makeGlobalVariables(),
+        Fr.ZERO,
+      );
+
+      // canonical state should match fork at this point
+      expect(await nativeWS.getTreeInfo(MerkleTreeId.ARCHIVE, true)).toEqual(archiveInfo);
+
+      await fork.updateArchive(header);
+
+      // canonical state should not change
+      expect(await nativeWS.getTreeInfo(MerkleTreeId.ARCHIVE, true)).toEqual(archiveInfo);
+
+      expect(await fork.getTreeInfo(MerkleTreeId.ARCHIVE, true)).not.toEqual(archiveInfo);
+
+      // initial header should still work as before
+      expect(fork.getInitialHeader()).toEqual(initialHeader);
+    });
+  });
+
   async function assertSameTree(treeId: MerkleTreeId, includeUncommitted = false) {
     const nativeInfo = await nativeWS.getTreeInfo(treeId, includeUncommitted);
     const jsInfo = await legacyWS.getTreeInfo(treeId, includeUncommitted);
@@ -231,10 +267,18 @@ describe('NativeWorldState', () => {
     expect(Fr.fromBuffer(nativeInfo.root)).toEqual(Fr.fromBuffer(jsInfo.root));
   }
 
-  async function assertSameState(includeUncommitted = false) {
-    const nativeStateRef = await nativeWS.getStateReference(includeUncommitted);
-    const legacyStateRef = await legacyWS.getStateReference(includeUncommitted);
+  async function assertSameState(
+    includeUncommitted = false,
+    _nativeWS: MerkleTreeDb = nativeWS,
+    _legacyWS: MerkleTreeDb = legacyWS,
+  ) {
+    const nativeStateRef = await _nativeWS.getStateReference(includeUncommitted);
+    const nativeArchive = await _nativeWS.getTreeInfo(MerkleTreeId.ARCHIVE, includeUncommitted);
+    const legacyStateRef = await _legacyWS.getStateReference(includeUncommitted);
+    const legacyArchive = await _legacyWS.getTreeInfo(MerkleTreeId.ARCHIVE, includeUncommitted);
+
     expect(nativeStateRef).toEqual(legacyStateRef);
+    expect(nativeArchive).toEqual(legacyArchive);
   }
 
   async function mockBlock(blockNum = 1, merkleTrees?: MerkleTreeDb) {
@@ -289,7 +333,7 @@ describe('NativeWorldState', () => {
     // await merkleTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
     const state = await merkleTrees.getStateReference(true);
     l2Block.header.state = state;
-    await merkleTrees.updateArchive(l2Block.header, true);
+    await merkleTrees.updateArchive(l2Block.header);
 
     const archiveState = await merkleTrees.getTreeInfo(MerkleTreeId.ARCHIVE, true);
 
