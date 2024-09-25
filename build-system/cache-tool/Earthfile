@@ -8,6 +8,7 @@ start-server:
 setup-cache-helper:
   FROM scratch
   COPY cache-download-direct.sh cache-upload-direct.sh cache-download.sh cache-upload.sh .
+  SAVE ARTIFACT ./*
 
 SETUP_CACHE:
   FUNCTION
@@ -37,4 +38,5 @@ test:
 test-earthly-connectivity:
   FROM ../../build-images/+from-registry
   DO +SETUP_CACHE
-  RUN ./
+  RUN --secret AZTEC_CACHE_TOOL_IP \
+     nc -vz $AZTEC_CACHE_TOOL_IP 8337
