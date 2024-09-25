@@ -42,7 +42,7 @@ nargo:
     SAVE IMAGE aztecprotocol/nargo
 
 test:
-  FROM +nargo
+  FROM +nargo-src
   COPY ./scripts/test_native.sh ./scripts/test_native.sh
   COPY noir-repo/.rustfmt.toml noir-repo/.rustfmt.toml
 
