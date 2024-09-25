@@ -3,6 +3,7 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include <filesystem>
 #include <gtest/gtest.h>
@@ -89,6 +90,30 @@ void assert_sibling_path(
     }
 
     EXPECT_EQ(hash, root);
+}
+
+void assert_fork_state_unchanged(const WorldState& ws,
+                                 Fork::Id forkId,
+                                 bool includeUncommitted,
+                                 const std::vector<MerkleTreeId>& trees = { MerkleTreeId::NULLIFIER_TREE,
+                                                                            MerkleTreeId::NOTE_HASH_TREE,
+                                                                            MerkleTreeId::PUBLIC_DATA_TREE,
+                                                                            MerkleTreeId::L1_TO_L2_MESSAGE_TREE,
+                                                                            MerkleTreeId::ARCHIVE })
+{
+
+    for (auto tree_id : trees) {
+        auto canonical_tree_info =
+            ws.get_tree_info(WorldStateRevision{ .includeUncommitted = includeUncommitted }, tree_id);
+        auto fork_tree_info = ws.get_tree_info(
+            WorldStateRevision{
+                .forkId = forkId,
+                .includeUncommitted = includeUncommitted,
+            },
+            tree_id);
+
+        EXPECT_EQ(canonical_tree_info.meta, fork_tree_info.meta);
+    }
 }
 
 TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
@@ -504,4 +529,97 @@ TEST_F(WorldStateTest, SyncCurrentBlock)
     for (const auto& [tree_id, snapshot] : block_state_ref) {
         EXPECT_EQ(state_ref.at(tree_id), snapshot);
     }
+}
+
+TEST_F(WorldStateTest, ForkingAtBlock0SameState)
+{
+    WorldState ws(1, _directory, 1024);
+    auto fork_id = ws.create_fork(0);
+
+    assert_fork_state_unchanged(ws, fork_id, false);
+    assert_fork_state_unchanged(ws, fork_id, true);
+}
+
+TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingFork)
+{
+    WorldState ws(1, _directory, 1024);
+    auto fork_id = ws.create_fork(0);
+
+    auto canonical_archive_state_before = ws.get_tree_info(WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE);
+    auto fork_archive_state_before = ws.get_tree_info(
+        WorldStateRevision{
+            .forkId = fork_id,
+            .includeUncommitted = true,
+        },
+        MerkleTreeId::ARCHIVE);
+
+    ws.append_leaves<bb::fr>(MerkleTreeId::ARCHIVE, { fr(1) }, fork_id);
+
+    auto canonical_archive_state_after = ws.get_tree_info(WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE);
+    auto fork_archive_state_after = ws.get_tree_info(
+        WorldStateRevision{
+            .forkId = fork_id,
+            .includeUncommitted = true,
+        },
+        MerkleTreeId::ARCHIVE);
+
+    EXPECT_EQ(canonical_archive_state_after.meta, canonical_archive_state_before.meta);
+    EXPECT_EQ(fork_archive_state_before.meta, canonical_archive_state_before.meta);
+    EXPECT_NE(fork_archive_state_after.meta, fork_archive_state_before.meta);
+}
+
+TEST_F(WorldStateTest, ForkingAtBlock0AndAdvancingCanonicalState)
+{
+    WorldState ws(1, _directory, 1024);
+    auto fork_id = ws.create_fork(0);
+
+    auto canonical_archive_state_before = ws.get_tree_info(WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE);
+    auto fork_archive_state_before_insert = ws.get_tree_info(
+        WorldStateRevision{
+            .forkId = fork_id,
+            .includeUncommitted = true,
+        },
+        MerkleTreeId::ARCHIVE);
+
+    // fork the state
+    ws.append_leaves<bb::fr>(MerkleTreeId::ARCHIVE, { fr(1) });
+    ws.append_leaves<bb::fr>(MerkleTreeId::ARCHIVE, { fr(2) }, fork_id);
+
+    auto canonical_archive_state_after_insert =
+        ws.get_tree_info(WorldStateRevision::uncommitted(), MerkleTreeId::ARCHIVE);
+    auto fork_archive_state_after_insert = ws.get_tree_info(
+        WorldStateRevision{
+            .forkId = fork_id,
+            .includeUncommitted = true,
+        },
+        MerkleTreeId::ARCHIVE);
+
+    EXPECT_EQ(fork_archive_state_before_insert.meta, canonical_archive_state_before.meta);
+
+    EXPECT_NE(canonical_archive_state_after_insert.meta, canonical_archive_state_before.meta);
+    EXPECT_NE(fork_archive_state_after_insert.meta, fork_archive_state_before_insert.meta);
+    EXPECT_NE(fork_archive_state_after_insert.meta, canonical_archive_state_after_insert.meta);
+
+    ws.commit();
+    auto canonical_archive_state_after_commit =
+        ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
+    auto fork_archive_state_after_commit = ws.get_tree_info(
+        WorldStateRevision{
+            .forkId = fork_id,
+            .includeUncommitted = false,
+        },
+        MerkleTreeId::ARCHIVE);
+
+    // committed fork state should match the state before fork had been modified
+    EXPECT_EQ(fork_archive_state_after_commit.meta, fork_archive_state_before_insert.meta);
+    // canonical state before commit should match state after commit
+    // EXPECT_EQ(canonical_archive_state_after_commit.meta, canonical_archive_state_after_insert.meta);
+    EXPECT_EQ(canonical_archive_state_after_commit.meta.root, canonical_archive_state_after_insert.meta.root);
+    EXPECT_EQ(canonical_archive_state_after_commit.meta.size, canonical_archive_state_after_insert.meta.size);
+
+    // canonical should have value 1 as the first leaf (committed state)
+    assert_leaf_value<bb::fr>(ws, WorldStateRevision{ .includeUncommitted = false }, MerkleTreeId::ARCHIVE, 0, 1);
+    // fork should still have value 2 as the first leaf (uncommitted)
+    assert_leaf_value<bb::fr>(
+        ws, WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true }, MerkleTreeId::ARCHIVE, 0, 2);
 }

@@ -341,19 +341,19 @@ bool WorldStateAddon::append_leaves(msgpack::object& obj, msgpack::sbuffer& buf)
     case MerkleTreeId::ARCHIVE: {
         TypedMessage<AppendLeavesRequest<bb::fr>> r1;
         obj.convert(r1);
-        _ws->append_leaves<bb::fr>(r1.value.treeId, r1.value.leaves);
+        _ws->append_leaves<bb::fr>(r1.value.treeId, r1.value.leaves, r1.value.forkId);
         break;
     }
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         TypedMessage<AppendLeavesRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
         obj.convert(r2);
-        _ws->append_leaves<crypto::merkle_tree::PublicDataLeafValue>(r2.value.treeId, r2.value.leaves);
+        _ws->append_leaves<crypto::merkle_tree::PublicDataLeafValue>(r2.value.treeId, r2.value.leaves, r2.value.forkId);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
         TypedMessage<AppendLeavesRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
         obj.convert(r3);
-        _ws->append_leaves<crypto::merkle_tree::NullifierLeafValue>(r3.value.treeId, r3.value.leaves);
+        _ws->append_leaves<crypto::merkle_tree::NullifierLeafValue>(r3.value.treeId, r3.value.leaves, r3.value.forkId);
         break;
     }
     }
@@ -375,7 +375,7 @@ bool WorldStateAddon::batch_insert(msgpack::object& obj, msgpack::sbuffer& buffe
         TypedMessage<BatchInsertRequest<PublicDataLeafValue>> r1;
         obj.convert(r1);
         auto result = _ws->batch_insert_indexed_leaves<crypto::merkle_tree::PublicDataLeafValue>(
-            request.value.treeId, r1.value.leaves, r1.value.subtreeDepth);
+            request.value.treeId, r1.value.leaves, r1.value.subtreeDepth, r1.value.forkId);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<BatchInsertionResult<PublicDataLeafValue>> resp_msg(
             WorldStateMessageType::BATCH_INSERT, header, result);
@@ -387,7 +387,7 @@ bool WorldStateAddon::batch_insert(msgpack::object& obj, msgpack::sbuffer& buffe
         TypedMessage<BatchInsertRequest<NullifierLeafValue>> r2;
         obj.convert(r2);
         auto result = _ws->batch_insert_indexed_leaves<crypto::merkle_tree::NullifierLeafValue>(
-            request.value.treeId, r2.value.leaves, r2.value.subtreeDepth);
+            request.value.treeId, r2.value.leaves, r2.value.subtreeDepth, r2.value.forkId);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<BatchInsertionResult<NullifierLeafValue>> resp_msg(
             WorldStateMessageType::BATCH_INSERT, header, result);
@@ -414,7 +414,7 @@ bool WorldStateAddon::update_archive(msgpack::object& obj, msgpack::sbuffer& buf
         block_state_ref[MerkleTreeId::NOTE_HASH_TREE] == world_state_ref[MerkleTreeId::NOTE_HASH_TREE] &&
         block_state_ref[MerkleTreeId::PUBLIC_DATA_TREE] == world_state_ref[MerkleTreeId::PUBLIC_DATA_TREE] &&
         block_state_ref[MerkleTreeId::L1_TO_L2_MESSAGE_TREE] == world_state_ref[MerkleTreeId::L1_TO_L2_MESSAGE_TREE]) {
-        _ws->append_leaves<bb::fr>(MerkleTreeId::ARCHIVE, { request.value.blockHash });
+        _ws->append_leaves<bb::fr>(MerkleTreeId::ARCHIVE, { request.value.blockHash }, request.value.forkId);
     } else {
         throw std::runtime_error("Block state reference does not match current state");
     }

@@ -149,7 +149,8 @@ class WorldState {
      * @param tree_id The ID of the Merkle Tree.
      * @param leaves The leaves to append.
      */
-    template <typename T> void append_leaves(MerkleTreeId tree_id, const std::vector<T>& leaves);
+    template <typename T>
+    void append_leaves(MerkleTreeId tree_id, const std::vector<T>& leaves, Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
      * @brief Batch inserts a set of leaves into an indexed Merkle Tree.
@@ -162,14 +163,16 @@ class WorldState {
     template <typename T>
     BatchInsertionResult<T> batch_insert_indexed_leaves(MerkleTreeId tree_id,
                                                         const std::vector<T>& leaves,
-                                                        uint32_t subtree_depth);
+                                                        uint32_t subtree_depth,
+                                                        Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
      * @brief Updates a leaf in an existing Merkle Tree.
      *
      * @param new_value The new value of the leaf.
      */
-    void update_public_data(const crypto::merkle_tree::PublicDataLeafValue& new_value);
+    void update_public_data(const crypto::merkle_tree::PublicDataLeafValue& new_value,
+                            Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
      * @brief Commits the current state of the world state.
@@ -333,11 +336,11 @@ std::optional<index_t> WorldState::find_leaf_index(const WorldStateRevision rev,
     return index;
 }
 
-template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std::vector<T>& leaves)
+template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std::vector<T>& leaves, Fork::Id fork_id)
 {
     using namespace crypto::merkle_tree;
 
-    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Fork::SharedPtr fork = retrieve_fork(fork_id);
 
     Signal signal;
 
@@ -367,13 +370,14 @@ template <typename T> void WorldState::append_leaves(MerkleTreeId id, const std:
 template <typename T>
 BatchInsertionResult<T> WorldState::batch_insert_indexed_leaves(MerkleTreeId id,
                                                                 const std::vector<T>& leaves,
-                                                                uint32_t subtree_depth)
+                                                                uint32_t subtree_depth,
+                                                                Fork::Id fork_id)
 {
     using namespace crypto::merkle_tree;
     using Store = ContentAddressedCachedTreeStore<T>;
     using Tree = ContentAddressedIndexedTree<Store, HashPolicy>;
 
-    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Fork::SharedPtr fork = retrieve_fork(fork_id);
 
     Signal signal;
     BatchInsertionResult<T> result;

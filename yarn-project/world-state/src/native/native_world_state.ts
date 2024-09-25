@@ -81,7 +81,7 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
   protected constructor(
     private instance: NativeInstance,
     private queue: SerialQueue,
-    private forkId?: number,
+    private forkId: number = 0,
     private blockNumber?: number,
   ) {}
 
@@ -134,6 +134,7 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
   async appendLeaves<ID extends MerkleTreeId>(treeId: ID, leaves: MerkleTreeLeafType<ID>[]): Promise<void> {
     await this.call(WorldStateMessageType.APPEND_LEAVES, {
       leaves: leaves.map(leaf => leaf as any),
+      forkId: this.forkId,
       treeId,
     });
   }
@@ -144,7 +145,12 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
     subtreeHeight: number,
   ): Promise<BatchInsertionResult<TreeHeight, SubtreeSiblingPathHeight>> {
     const leaves = rawLeaves.map((leaf: Buffer) => hydrateLeaf(treeId, leaf)).map(serializeLeaf);
-    const resp = await this.call(WorldStateMessageType.BATCH_INSERT, { leaves, treeId, subtreeDepth: subtreeHeight });
+    const resp = await this.call(WorldStateMessageType.BATCH_INSERT, {
+      leaves,
+      treeId,
+      forkId: this.forkId,
+      subtreeDepth: subtreeHeight,
+    });
 
     return {
       newSubtreeSiblingPath: new SiblingPath<SubtreeSiblingPathHeight>(
@@ -353,8 +359,9 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
     await this.call(WorldStateMessageType.ROLLBACK, void 0);
   }
 
-  async updateArchive(header: Header, _includeUncommitted: boolean): Promise<void> {
+  async updateArchive(header: Header): Promise<void> {
     await this.call(WorldStateMessageType.UPDATE_ARCHIVE, {
+      forkId: this.forkId,
       blockHash: header.hash().toBuffer(),
       blockStateRef: blockStateReference(header.state),
     });

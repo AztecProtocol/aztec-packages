@@ -76,6 +76,10 @@ interface WithTreeId {
   treeId: MerkleTreeId;
 }
 
+interface WithForkId {
+  forkId: number;
+}
+
 interface WithWorldStateRevision {
   revision: WorldStateRevision;
 }
@@ -138,9 +142,9 @@ interface FindLowLeafResponse {
   alreadyPresent: boolean;
 }
 
-interface AppendLeavesRequest extends WithTreeId, WithLeaves {}
+interface AppendLeavesRequest extends WithTreeId, WithForkId, WithLeaves {}
 
-interface BatchInsertRequest extends WithTreeId, WithLeaves {
+interface BatchInsertRequest extends WithTreeId, WithForkId, WithLeaves {
   subtreeDepth: number;
 }
 interface BatchInsertResponse {
@@ -153,7 +157,7 @@ interface BatchInsertResponse {
   subtree_path: Tuple<Buffer, number>;
 }
 
-interface UpdateArchiveRequest {
+interface UpdateArchiveRequest extends WithForkId {
   blockStateRef: BlockStateReference;
   blockHash: Buffer;
 }

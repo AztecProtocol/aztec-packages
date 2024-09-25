@@ -235,9 +235,9 @@ fr_sibling_path WorldState::get_sibling_path(WorldStateRevision revision,
         fork->_trees.at(tree_id));
 }
 
-void WorldState::update_public_data(const PublicDataLeafValue& new_value)
+void WorldState::update_public_data(const PublicDataLeafValue& new_value, Fork::Id fork_id)
 {
-    Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
+    Fork::SharedPtr fork = retrieve_fork(fork_id);
     if (const auto* wrapper =
             std::get_if<TreeWithStore<PublicDataTree>>(&fork->_trees.at(MerkleTreeId::PUBLIC_DATA_TREE))) {
         Signal signal;
@@ -401,7 +401,7 @@ bool WorldState::block_state_matches_world_state(const StateReference& block_sta
     };
 
     return std::all_of(
-        tree_ids.begin(), tree_ids.end(), [&](auto id) { return block_state_ref.at(id) == tree_state_ref.at(id); });
+        tree_ids.begin(), tree_ids.end(), [=](auto id) { return block_state_ref.at(id) == tree_state_ref.at(id); });
 }
 
 } // namespace bb::world_state

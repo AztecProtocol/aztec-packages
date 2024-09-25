@@ -142,20 +142,23 @@ struct FindLowLeafResponse {
 template <typename T> struct AppendLeavesRequest {
     MerkleTreeId treeId;
     std::vector<T> leaves;
-    MSGPACK_FIELDS(treeId, leaves);
+    Fork::Id forkId{ CANONICAL_FORK_ID };
+    MSGPACK_FIELDS(treeId, leaves, forkId);
 };
 
 template <typename T> struct BatchInsertRequest {
     MerkleTreeId treeId;
     std::vector<T> leaves;
     uint32_t subtreeDepth;
-    MSGPACK_FIELDS(treeId, leaves, subtreeDepth);
+    Fork::Id forkId{ CANONICAL_FORK_ID };
+    MSGPACK_FIELDS(treeId, leaves, subtreeDepth, forkId);
 };
 
 struct UpdateArchiveRequest {
     StateReference blockStateRef;
     bb::fr blockHash;
-    MSGPACK_FIELDS(blockStateRef, blockHash);
+    Fork::Id forkId{ CANONICAL_FORK_ID };
+    MSGPACK_FIELDS(blockStateRef, blockHash, forkId);
 };
 
 struct SyncBlockRequest {

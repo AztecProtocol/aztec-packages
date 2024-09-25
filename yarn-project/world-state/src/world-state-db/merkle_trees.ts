@@ -191,7 +191,7 @@ export class MerkleTrees implements MerkleTreeDb, MerkleTreeAdminDb {
       // and persist the initial header state reference so we can later load it when requested.
       const initialState = await this.getStateReference(true);
       await this.#saveInitialStateReference(initialState);
-      await this.#updateArchive(this.getInitialHeader(), true);
+      await this.#updateArchive(this.getInitialHeader());
 
       // And commit anything we did to initialize this set of trees
       await this.#commit();
@@ -262,8 +262,8 @@ export class MerkleTrees implements MerkleTreeDb, MerkleTreeAdminDb {
    * @param header - The header whose hash to insert into the archive.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
-  public async updateArchive(header: Header, includeUncommitted: boolean) {
-    await this.synchronize(() => this.#updateArchive(header, includeUncommitted));
+  public async updateArchive(header: Header) {
+    await this.synchronize(() => this.#updateArchive(header));
   }
 
   /**
@@ -507,8 +507,8 @@ export class MerkleTrees implements MerkleTreeDb, MerkleTreeAdminDb {
     return StateReference.fromBuffer(serialized);
   }
 
-  async #updateArchive(header: Header, includeUncommitted: boolean) {
-    const state = await this.getStateReference(includeUncommitted);
+  async #updateArchive(header: Header) {
+    const state = await this.getStateReference(true);
 
     // This method should be called only when the block builder already updated the state so we sanity check that it's
     // the case here.
@@ -686,7 +686,7 @@ export class MerkleTrees implements MerkleTreeDb, MerkleTreeAdminDb {
       }
 
       // The last thing remaining is to update the archive
-      await this.#updateArchive(l2Block.header, true);
+      await this.#updateArchive(l2Block.header);
 
       await this.#commit();
     }
