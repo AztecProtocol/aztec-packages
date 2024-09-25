@@ -196,6 +196,14 @@ contract NFT {
             [from.to_field(), transfer_preparer_storage_slot_commitment],
             TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
         );
+        let hiding_point_slot = pedersen_hash(
+            [from.to_field(), transfer_preparer_storage_slot_commitment],
+            TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+        );
+        let hiding_point_slot = pedersen_hash(
+            [from.to_field(), transfer_preparer_storage_slot_commitment],
+            TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+        );
 
         // Read the hiding point from "transient" storage and check it's not empty to ensure the transfer was prepared
         let mut hiding_point = NFTNote::hiding_point().from_point(context.storage_read(hiding_point_slot));
