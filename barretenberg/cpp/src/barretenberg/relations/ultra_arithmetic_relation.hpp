@@ -12,7 +12,7 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImplBase 
         5  // secondary arithmetic sub-relation
     };
 
-    static constexpr size_t HOMOGENIZED_LENGTH{ 19 };
+    static constexpr size_t HOMOGENIZED_LENGTH{ 7 };
 
     /**
      * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
