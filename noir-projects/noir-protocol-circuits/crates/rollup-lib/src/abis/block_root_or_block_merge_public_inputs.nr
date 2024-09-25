@@ -3,6 +3,7 @@ use dep::types::{
     constants::BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH, traits::{Empty, Serialize, Deserialize},
     utils::reader::Reader, address::EthAddress
 };
+use blob::blob_public_inputs::BlobPublicInputs;
 
 struct FeeRecipient {
   recipient: EthAddress,
@@ -12,7 +13,7 @@ struct FeeRecipient {
 // TODO(#7346): Should the default empty value be MAX_FIELD? The zero addr may be a valid recipient
 impl Empty for FeeRecipient {
   fn empty() -> Self {
-    FeeRecipient {
+    Self {
       recipient: EthAddress::zero(),
       value: 0,
     }
@@ -53,6 +54,7 @@ struct BlockRootOrBlockMergePublicInputs {
   fees: [FeeRecipient; 32], // Concatenation of all coinbase and fees for the block range
   vk_tree_root: Field, // Root of allowed vk tree
   prover_id: Field, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+  blob_public_inputs: BlobPublicInputs // z, y, and C s.t. p(z) = y and C commits to p, for blob verification
 }
 
 impl Empty for BlockRootOrBlockMergePublicInputs {
@@ -68,6 +70,7 @@ impl Empty for BlockRootOrBlockMergePublicInputs {
             fees: [FeeRecipient::empty(); 32],
             vk_tree_root: 0,
             prover_id: 0,
+            blob_public_inputs: BlobPublicInputs::empty(),
         }
     }
 }
@@ -83,7 +86,8 @@ impl Eq for BlockRootOrBlockMergePublicInputs {
     (self.out_hash == other.out_hash) &
     (self.fees.eq(other.fees)) &
     (self.vk_tree_root == other.vk_tree_root) &
-    (self.prover_id == other.prover_id)
+    (self.prover_id == other.prover_id) &
+    (self.blob_public_inputs.eq(other.blob_public_inputs))
   }
 }
 
@@ -103,6 +107,7 @@ impl Serialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOrBl
     }
     fields.push(self.vk_tree_root as Field);
     fields.push(self.prover_id as Field);
+    fields.extend_from_array(self.blob_public_inputs.serialize());
     assert_eq(fields.len(), BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH);
 
     fields.storage
@@ -123,6 +128,7 @@ impl Deserialize<BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH> for BlockRootOr
         fees: reader.read_struct_array(FeeRecipient::deserialize, [FeeRecipient::empty(); 32]),
         vk_tree_root: reader.read(),
         prover_id: reader.read(),
+        blob_public_inputs: reader.read_struct(BlobPublicInputs::deserialize),
     };
 
     reader.finish();

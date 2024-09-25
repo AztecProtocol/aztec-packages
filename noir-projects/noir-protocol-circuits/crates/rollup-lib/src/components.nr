@@ -11,12 +11,13 @@ use dep::types::{
     merkle_tree::VariableMerkleTree,
     constants::{
     MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
-    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX
+    MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, MAX_UNENCRYPTED_LOGS_PER_TX,
+    MAX_ENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX
 },
     utils::{arrays::{array_length, array_merge}},
     abis::{
     accumulated_data::CombinedAccumulatedData, public_data_update_request::PublicDataUpdateRequest,
-    log_hash::{LogHash, ScopedLogHash}
+    log_hash::{LogHash, ScopedLogHash}, sponge_blob::SpongeBlob
 }
 };
 
@@ -71,6 +72,9 @@ pub fn assert_prev_rollups_follow_on_from_each_other(
     );
     assert(
         left.end.public_data_tree.eq(right.start.public_data_tree), "input proofs have different public data tree snapshots"
+    );
+    assert(
+        left.end_sponge_blob.eq(right.start_sponge_blob), "input proofs have different blob data sponges"
     );
 }
 
@@ -154,14 +158,14 @@ pub fn compute_kernel_out_hash(l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX])
  * @param previous_rollup_data
  * @return The hash of the transaction effects stored in 2 fields
  */
-pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field {
-    accumulate_sha256(
-        [
-        previous_rollup_data[0].base_or_merge_rollup_public_inputs.txs_effects_hash,
-        previous_rollup_data[1].base_or_merge_rollup_public_inputs.txs_effects_hash
-    ]
-    )
-}
+// pub fn compute_txs_effects_hash(previous_rollup_data: [PreviousRollupData; 2]) -> Field {
+//     accumulate_sha256(
+//         [
+//         previous_rollup_data[0].base_or_merge_rollup_public_inputs.txs_effects_hash,
+//         previous_rollup_data[1].base_or_merge_rollup_public_inputs.txs_effects_hash
+//     ]
+//     )
+// }
 
 fn silo_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
     let siloed_logs = unencrypted_logs_hashes.map(
@@ -176,7 +180,7 @@ fn silo_and_hash_unencrypted_logs(unencrypted_logs_hashes: [ScopedLogHash; MAX_U
     compute_tx_logs_hash(siloed_logs)
 }
 
-fn silo_and_hash_encrypted_logs(encrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX]) -> Field {
+fn silo_and_hash_encrypted_logs(encrypted_logs_hashes: [ScopedLogHash; MAX_ENCRYPTED_LOGS_PER_TX]) -> Field {
     let siloed_encrypted_logs = encrypted_logs_hashes.map(
         |log: ScopedLogHash| {
         LogHash {
@@ -204,17 +208,21 @@ fn silo_and_hash_encrypted_logs(encrypted_logs_hashes: [ScopedLogHash; MAX_UNENC
 // 1 note encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   |
 // 1 encrypted logs hash --> 1 sha256 hash -> 31 bytes -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!        | -> 3 types of logs - 3 fields for its hashes
 // 1 unencrypted logs hash --> 1 sha256 hash -> 31 bytes  -> 1 fields | Beware when populating bytes that we fill (prepend) to 32!   __|
-global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NOTE_HASHES_PER_TX + MAX_NULLIFIERS_PER_TX + 1 + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + 3;
+// global TX_EFFECTS_HASH_INPUT_FIELDS = 1 + 1 + MAX_NOTE_HASHES_PER_TX + MAX_NULLIFIERS_PER_TX + 1 + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + 3;
 
-// Computes the tx effects hash for a base rollup (a single transaction)
-pub fn compute_tx_effects_hash(
+// TODO(Miranda): For now just absorbing effects to poseidon sponge in the same structure as the old tx_effects hash
+// Idea is to recreate all below effects in block_root, then add to a blob
+
+global TX_EFFECTS_BLOB_HASH_INPUT_FIELDS = 1 + 1 + MAX_NOTE_HASHES_PER_TX + MAX_NULLIFIERS_PER_TX + 1 + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + 3 + MAX_NOTE_ENCRYPTED_LOGS_PER_TX + MAX_ENCRYPTED_LOGS_PER_TX + MAX_UNENCRYPTED_LOGS_PER_TX;
+pub fn append_tx_effects_for_blob(
     combined: CombinedAccumulatedData,
     revert_code: u8,
     transaction_fee: Field,
     all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX],
-    out_hash: Field
-) -> Field {
-    let mut tx_effects_hash_input = [0; TX_EFFECTS_HASH_INPUT_FIELDS];
+    out_hash: Field,
+    mut start_sponge_blob: SpongeBlob
+) -> SpongeBlob {
+    let mut tx_effects_hash_input = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
 
     let note_hashes = combined.note_hashes;
     let nullifiers = combined.nullifiers;
@@ -225,9 +233,9 @@ pub fn compute_tx_effects_hash(
     let note_logs_length = combined.note_encrypted_log_preimages_length;
     let encrypted_logs_length = combined.encrypted_log_preimages_length;
     let unencrypted_logs_length = combined.unencrypted_log_preimages_length;
-    let note_encrypted_logs_hash = compute_tx_note_logs_hash(combined.note_encrypted_logs_hashes);
-    let encrypted_logs_hash = silo_and_hash_encrypted_logs(combined.encrypted_logs_hashes);
-    let unencrypted_logs_hash = silo_and_hash_unencrypted_logs(combined.unencrypted_logs_hashes);
+    let note_encrypted_logs = combined.note_encrypted_logs_hashes.map(|log: LogHash| log.value);
+    let encrypted_logs = combined.encrypted_logs_hashes.map(|log: ScopedLogHash| silo_encrypted_log_hash(log));
+    let unencrypted_logs = combined.unencrypted_logs_hashes.map(|log: ScopedLogHash| silo_unencrypted_log_hash(log));
 
     let mut offset = 0;
 
@@ -277,30 +285,28 @@ pub fn compute_tx_effects_hash(
     tx_effects_hash_input[offset] = unencrypted_logs_length;
     offset += 1;
 
-    // NOTE ENCRYPTED LOGS HASH
-    tx_effects_hash_input[offset] = note_encrypted_logs_hash;
-    offset += 1;
+    // NOTE ENCRYPTED LOGS
+    for j in 0..MAX_NOTE_ENCRYPTED_LOGS_PER_TX {
+        tx_effects_hash_input[offset + j] = note_encrypted_logs[j];
+    }
+    offset += MAX_NOTE_ENCRYPTED_LOGS_PER_TX;
 
-    // ENCRYPTED LOGS HASH
-    tx_effects_hash_input[offset] = encrypted_logs_hash;
-    offset += 1;
+    // ENCRYPTED LOGS
+    for j in 0..MAX_ENCRYPTED_LOGS_PER_TX {
+        tx_effects_hash_input[offset + j] = encrypted_logs[j];
+    }
+    offset += MAX_ENCRYPTED_LOGS_PER_TX;
 
     // UNENCRYPTED LOGS HASH
-    tx_effects_hash_input[offset] = unencrypted_logs_hash;
-    offset += 1;
-
-    assert_eq(offset, TX_EFFECTS_HASH_INPUT_FIELDS); // Sanity check
-
-    let mut hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
-    for offset in 0..TX_EFFECTS_HASH_INPUT_FIELDS {
-        let input_as_bytes: [u8; 32] = tx_effects_hash_input[offset].to_be_bytes();
-        for byte_index in 0..32 {
-            hash_input_flattened[offset * 32 + byte_index] = input_as_bytes[byte_index];
-        }
+    for j in 0..MAX_UNENCRYPTED_LOGS_PER_TX {
+        tx_effects_hash_input[offset + j] = unencrypted_logs[j];
     }
+    offset += MAX_UNENCRYPTED_LOGS_PER_TX;
 
-    let sha_digest = dep::types::hash::sha256_to_field(hash_input_flattened);
-    sha_digest
+    assert_eq(offset, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS); // Sanity check
+
+    start_sponge_blob.absorb(tx_effects_hash_input, TX_EFFECTS_BLOB_HASH_INPUT_FIELDS);
+    start_sponge_blob
 }
 
 fn get_all_update_requests_for_tx_effects(all_public_data_update_requests: [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) -> [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX] {
@@ -311,17 +317,4 @@ fn get_all_update_requests_for_tx_effects(all_public_data_update_requests: [Publ
         }
     }
     all_update_requests.storage
-}
-
-#[test]
-fn consistent_TX_EFFECTS_HASH_INPUT_FIELDS() {
-    let expected_size = 1 // revert code
-        + 1 // transaction fee
-        + MAX_NOTE_HASHES_PER_TX
-        + MAX_NULLIFIERS_PER_TX
-        + MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2
-        + 1 // out hash
-        + 3 // logs lengths
-        + 3; // logs hashes
-    assert(TX_EFFECTS_HASH_INPUT_FIELDS == expected_size, "tx effects hash input size is incorrect");
 }

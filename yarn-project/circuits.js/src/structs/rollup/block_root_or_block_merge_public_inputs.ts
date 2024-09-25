@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, type Tuple, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { BlobPublicInputs } from '../blob_public_inputs.js';
 import { GlobalVariables } from '../global_variables.js';
 import { EthAddress } from '../index.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
@@ -52,6 +53,10 @@ export class BlockRootOrBlockMergePublicInputs {
      * TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
      */
     public proverId: Fr,
+    /**
+     * Public inputs required to verify a blob (challenge point z, evaluation y = p(z), and the commitment to p())
+     */
+    public blobPublicInputs: BlobPublicInputs,
   ) {}
 
   /**
@@ -72,6 +77,7 @@ export class BlockRootOrBlockMergePublicInputs {
       reader.readArray(32, FeeRecipient),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
+      reader.readObject(BlobPublicInputs),
     );
   }
 
@@ -91,6 +97,7 @@ export class BlockRootOrBlockMergePublicInputs {
       this.fees,
       this.vkTreeRoot,
       this.proverId,
+      this.blobPublicInputs,
     );
   }
 

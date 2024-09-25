@@ -47,7 +47,7 @@ describe('prover/orchestrator', () => {
         }
       });
 
-      await orchestrator.startNewBlock(2, makeGlobalVariables(1), [message]);
+      await orchestrator.startNewBlock(2, 0, makeGlobalVariables(1), [message]);
 
       await sleep(10);
       expect(mockProver.getBaseParityProof).toHaveBeenCalledTimes(NUM_BASE_PARITY_PER_ROOT_PARITY);

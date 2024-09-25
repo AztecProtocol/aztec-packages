@@ -7,10 +7,13 @@ import {
 } from '@aztec/circuit-types';
 import {
   Fr,
+  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
+  MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_UNENCRYPTED_LOGS_PER_TX,
   RevertCode,
 } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
@@ -146,33 +149,10 @@ export class TxEffect {
    */
   hash() {
     const padBuffer = (buf: Buffer, length: number) => Buffer.concat([buf, Buffer.alloc(length - buf.length)]);
-    // Below follows computeTxOutHash in TxsDecoder.sol and new_sha in variable_merkle_tree.nr
-    // TODO(#7218): Revert to fixed height tree for outbox
-    const computeTxOutHash = (l2ToL1Msgs: Fr[]) => {
-      if (l2ToL1Msgs.length == 0) {
-        return Buffer.alloc(32);
-      }
-      const depth = l2ToL1Msgs.length == 1 ? 1 : Math.ceil(Math.log2(l2ToL1Msgs.length));
-      let thisLayer = padArrayEnd(
-        l2ToL1Msgs.map(msg => msg.toBuffer()),
-        Buffer.alloc(32),
-        2 ** depth,
-      );
-      let nextLayer = [];
-      for (let i = 0; i < depth; i++) {
-        for (let j = 0; j < thisLayer.length; j += 2) {
-          // Store the hash of each pair one layer up
-          nextLayer[j / 2] = sha256Trunc(Buffer.concat([thisLayer[j], thisLayer[j + 1]]));
-        }
-        thisLayer = nextLayer;
-        nextLayer = [];
-      }
-      return thisLayer[0];
-    };
 
     const noteHashesBuffer = padBuffer(serializeToBuffer(this.noteHashes), Fr.SIZE_IN_BYTES * MAX_NOTE_HASHES_PER_TX);
     const nullifiersBuffer = padBuffer(serializeToBuffer(this.nullifiers), Fr.SIZE_IN_BYTES * MAX_NULLIFIERS_PER_TX);
-    const outHashBuffer = computeTxOutHash(this.l2ToL1Msgs);
+    const outHashBuffer = this.txOutHash();
     const publicDataWritesBuffer = padBuffer(
       serializeToBuffer(this.publicDataWrites),
       PublicDataWrite.SIZE_IN_BYTES * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -198,6 +178,34 @@ export class TxEffect {
     ]);
 
     return sha256Trunc(inputValue);
+  }
+
+  /**
+   * Computes txOutHash of this tx effect.
+   * TODO(#7218): Revert to fixed height tree for outbox
+   * @dev Follows computeTxOutHash in TxsDecoder.sol and new_sha in variable_merkle_tree.nr
+   */
+  txOutHash() {
+    const { l2ToL1Msgs } = this;
+    if (l2ToL1Msgs.length == 0) {
+      return Buffer.alloc(32);
+    }
+    const depth = l2ToL1Msgs.length == 1 ? 1 : Math.ceil(Math.log2(l2ToL1Msgs.length));
+    let thisLayer = padArrayEnd(
+      l2ToL1Msgs.map(msg => msg.toBuffer()),
+      Buffer.alloc(32),
+      2 ** depth,
+    );
+    let nextLayer = [];
+    for (let i = 0; i < depth; i++) {
+      for (let j = 0; j < thisLayer.length; j += 2) {
+        // Store the hash of each pair one layer up
+        nextLayer[j / 2] = sha256Trunc(Buffer.concat([thisLayer[j], thisLayer[j + 1]]));
+      }
+      thisLayer = nextLayer;
+      nextLayer = [];
+    }
+    return thisLayer[0];
   }
 
   static random(
@@ -253,10 +261,53 @@ export class TxEffect {
     return this.toBuffer().toString('hex');
   }
 
+  /**
+   * Returns a flat array of fields of all tx effects.
+   * TODO(Miranda): Remove 0s and tightly pack to fill blobs.
+   */
+  toFields(): Fr[] {
+    const flattened: Fr[] = [];
+    flattened.push(this.revertCode.toField());
+    flattened.push(this.transactionFee);
+    flattened.push(...padArrayEnd(this.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX));
+    flattened.push(...padArrayEnd(this.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX));
+    flattened.push(Fr.fromBuffer(this.txOutHash()));
+    flattened.push(
+      ...padArrayEnd(this.publicDataWrites, PublicDataWrite.empty(), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
+        .map(w => [w.leafIndex, w.newValue])
+        .flat(),
+    );
+    flattened.push(this.noteEncryptedLogsLength);
+    flattened.push(this.encryptedLogsLength);
+    flattened.push(this.unencryptedLogsLength);
+    flattened.push(
+      ...padArrayEnd(
+        this.noteEncryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.hash())),
+        Fr.ZERO,
+        MAX_NOTE_ENCRYPTED_LOGS_PER_TX,
+      ),
+    );
+    flattened.push(
+      ...padArrayEnd(
+        this.encryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())),
+        Fr.ZERO,
+        MAX_ENCRYPTED_LOGS_PER_TX,
+      ),
+    );
+    flattened.push(
+      ...padArrayEnd(
+        this.unencryptedLogs.unrollLogs().map(log => Fr.fromBuffer(log.getSiloedHash())),
+        Fr.ZERO,
+        MAX_UNENCRYPTED_LOGS_PER_TX,
+      ),
+    );
+    return flattened;
+  }
+
   [inspect.custom]() {
     // print out the non-empty fields
 
-    return `TxEffect { 
+    return `TxEffect {
       revertCode: ${this.revertCode},
       transactionFee: ${this.transactionFee},
       note hashes: [${this.noteHashes.map(h => h.toString()).join(', ')}],

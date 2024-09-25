@@ -80,7 +80,8 @@ export class BlockProvingJob {
         });
 
         // When we move to proving epochs, this should change into a startNewEpoch and be lifted outside the loop.
-        const provingTicket = await this.prover.startNewBlock(txCount, globalVariables, l1ToL2Messages);
+        // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
+        const provingTicket = await this.prover.startNewBlock(txCount, 342 * txCount, globalVariables, l1ToL2Messages);
 
         const publicProcessor = this.publicProcessorFactory.create(historicalHeader, globalVariables);
 

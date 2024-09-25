@@ -276,6 +276,50 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(
     sponge.squeeze()
 }
 
+// Performs a fixed length hash with a subarray of the given input.
+// Useful for SpongeBlob in which we aborb M things and want to check it vs a hash of M elts of an N-len array.
+// Using stdlib poseidon, this will always absorb an extra 1 as a 'variable' hash, and not match spongeblob.squeeze()
+// or any ts implementation. Also checks that any remaining elts not hashed are empty.
+#[no_predicates]
+pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Field {
+    let two_pow_64 = 18446744073709551616;
+    let iv : Field = (in_len as Field) * two_pow_64;
+    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
+    let mut should_add = true;
+    for i in 0..input.len() {
+        should_add &= i != in_len;
+        if should_add {
+            sponge.absorb(input[i]);
+        } else {
+            assert(input[i] == 0, "Found non-zero field after breakpoint");
+        }
+    }
+    sponge.squeeze()
+}
+
+// NB the below is exactly the same as std::hash::poseidon2::Poseidon2::hash(), but replacing a range check with a bit check
+#[no_predicates]
+pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u32) -> Field {
+    let two_pow_64 = 18446744073709551616;
+    let iv : Field = (in_len as Field) * two_pow_64;
+    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
+    let mut should_add = true;
+    for i in 0..input.len() {
+        should_add &= i != in_len;
+        if should_add {
+            sponge.absorb(input[i]);
+        }
+    }
+
+    // In the case where the hash preimage is variable-length, we append `1` to the end of the input, to distinguish
+    // from fixed-length hashes. (the combination of this additional field element + the hash IV ensures
+    // fixed-length and variable-length hashes do not collide)
+    if in_len != N {
+        sponge.absorb(1);
+    }
+    sponge.squeeze()
+}
+
 #[test]
 fn smoke_sha256_to_field() {
     let full_buffer = [

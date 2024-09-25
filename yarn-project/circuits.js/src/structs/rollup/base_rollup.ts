@@ -15,6 +15,7 @@ import { MembershipWitness } from '../membership_witness.js';
 import { PartialStateReference } from '../partial_state_reference.js';
 import { PublicDataHint } from '../public_data_hint.js';
 import { type UInt32 } from '../shared.js';
+import { SpongeBlob } from '../sponge_blob.js';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/index.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { StateDiffHints } from './state_diff_hints.js';
@@ -72,6 +73,8 @@ export class BaseRollupInputs {
     public kernelData: KernelData,
     /** Partial state reference at the start of the rollup. */
     public start: PartialStateReference,
+    /** Sponge state to absorb blob inputs at the start of the rollup. */
+    public startSpongeBlob: SpongeBlob,
     /** Hints used while proving state diff validity. */
     public stateDiffHints: StateDiffHints,
     /** Public data read hint for accessing the balance of the fee payer. */
@@ -121,6 +124,7 @@ export class BaseRollupInputs {
     return [
       fields.kernelData,
       fields.start,
+      fields.startSpongeBlob,
       fields.stateDiffHints,
       fields.feePayerFeeJuiceBalanceReadHint,
       fields.sortedPublicDataWrites,
@@ -158,6 +162,7 @@ export class BaseRollupInputs {
     return new BaseRollupInputs(
       reader.readObject(KernelData),
       reader.readObject(PartialStateReference),
+      reader.readObject(SpongeBlob),
       reader.readObject(StateDiffHints),
       reader.readObject(PublicDataHint),
       reader.readArray(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataTreeLeaf),
@@ -184,6 +189,7 @@ export class BaseRollupInputs {
     return new BaseRollupInputs(
       KernelData.empty(),
       PartialStateReference.empty(),
+      SpongeBlob.empty(),
       StateDiffHints.empty(),
       PublicDataHint.empty(),
       makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataTreeLeaf.empty),

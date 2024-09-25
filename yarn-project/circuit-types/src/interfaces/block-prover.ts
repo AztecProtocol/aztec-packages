@@ -45,11 +45,17 @@ export interface ProcessedTxHandler {
 export interface BlockSimulator extends ProcessedTxHandler {
   /**
    * Prepares to build a new block.
-   * @param numTxs - The complete size of the block, must be a power of 2
+   * @param numTxs - The complete size of the block
+   * @param numTxsEffects - The total number of transaction effects in the block
    * @param globalVariables - The global variables for this block
    * @param l1ToL2Messages - The set of L1 to L2 messages to be included in this block
    */
-  startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<ProvingTicket>;
+  startNewBlock(
+    numTxs: number,
+    numTxsEffects: number,
+    globalVariables: GlobalVariables,
+    l1ToL2Messages: Fr[],
+  ): Promise<ProvingTicket>;
 
   /** Cancels the block currently being processed. Processes already in progress built may continue but further proofs should not be started. */
   cancelBlock(): void;

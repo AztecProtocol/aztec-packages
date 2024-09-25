@@ -38,7 +38,13 @@ describe('prover/orchestrator/public-functions', () => {
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
         }
 
-        const blockTicket = await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, []);
+        // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
+        const blockTicket = await context.orchestrator.startNewBlock(
+          numTransactions,
+          342 * numTransactions,
+          context.globalVariables,
+          [],
+        );
 
         const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.blockProver);
         expect(processed.length).toBe(numTransactions);

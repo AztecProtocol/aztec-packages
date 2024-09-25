@@ -201,6 +201,8 @@ describe('sequencer', () => {
 
     expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
       2,
+      // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
+      342,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -252,6 +254,7 @@ describe('sequencer', () => {
     await sequencer.work();
     expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
       2,
+      342,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -295,6 +298,7 @@ describe('sequencer', () => {
 
     expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
       2,
+      342 * validTxHashes.length,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -334,6 +338,7 @@ describe('sequencer', () => {
 
     expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
       2,
+      342 * validTxHashes.length,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -375,6 +380,7 @@ describe('sequencer', () => {
 
     expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
       2,
+      342 * validTxHashes.length,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -425,6 +431,7 @@ describe('sequencer', () => {
     await sequencer.work();
     expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
       4,
+      342 * 4,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -476,6 +483,7 @@ describe('sequencer', () => {
     expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
       2,
+      0,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -529,6 +537,7 @@ describe('sequencer', () => {
     expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(1);
     expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
       3,
+      342 * postFlushTxs.length,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );

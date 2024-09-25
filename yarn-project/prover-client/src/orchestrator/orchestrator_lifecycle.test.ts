@@ -1,4 +1,4 @@
-import { PROVING_STATUS, type ProvingFailure, type ServerCircuitProver } from '@aztec/circuit-types';
+import { PROVING_STATUS, type ProvingFailure, type ServerCircuitProver, toNumTxsEffects } from '@aztec/circuit-types';
 import {
   type GlobalVariables,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -42,7 +42,12 @@ describe('prover/orchestrator/lifecycle', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket1 = await context.orchestrator.startNewBlock(2, globals1, l1ToL2Messages);
+      const blockTicket1 = await context.orchestrator.startNewBlock(
+        2,
+        toNumTxsEffects(txs1, globals1.gasFees),
+        globals1,
+        l1ToL2Messages,
+      );
 
       await context.orchestrator.addNewTx(txs1[0]);
       await context.orchestrator.addNewTx(txs1[1]);
@@ -60,7 +65,12 @@ describe('prover/orchestrator/lifecycle', () => {
 
       await context.actualDb.rollback();
 
-      const blockTicket2 = await context.orchestrator.startNewBlock(2, globals2, l1ToL2Messages);
+      const blockTicket2 = await context.orchestrator.startNewBlock(
+        2,
+        toNumTxsEffects(txs2, globals2.gasFees),
+        globals2,
+        l1ToL2Messages,
+      );
 
       await context.orchestrator.addNewTx(txs2[0]);
       await context.orchestrator.addNewTx(txs2[1]);
@@ -81,13 +91,23 @@ describe('prover/orchestrator/lifecycle', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket1 = await context.orchestrator.startNewBlock(2, globals1, l1ToL2Messages);
+      const blockTicket1 = await context.orchestrator.startNewBlock(
+        2,
+        toNumTxsEffects(txs1, globals1.gasFees),
+        globals1,
+        l1ToL2Messages,
+      );
 
       await context.orchestrator.addNewTx(txs1[0]);
 
       await context.actualDb.rollback();
 
-      const blockTicket2 = await context.orchestrator.startNewBlock(2, globals2, l1ToL2Messages);
+      const blockTicket2 = await context.orchestrator.startNewBlock(
+        2,
+        toNumTxsEffects(txs2, globals2.gasFees),
+        globals2,
+        l1ToL2Messages,
+      );
 
       await context.orchestrator.addNewTx(txs2[0]);
       await context.orchestrator.addNewTx(txs2[1]);
@@ -114,7 +134,7 @@ describe('prover/orchestrator/lifecycle', () => {
         deferredPromises.push(deferred);
         return deferred.promise;
       });
-      await orchestrator.startNewBlock(2, makeGlobalVariables(1), []);
+      await orchestrator.startNewBlock(2, 20, makeGlobalVariables(1), []);
 
       await sleep(1);
 

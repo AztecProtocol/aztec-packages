@@ -13,20 +13,18 @@
 
 // BIG CONFIG *********************************************************************
 
-mod config;
-mod negative_roots;
-
 use crate::{
-    config::{
-    BigNum, F, FIELDS_PER_BLOB, LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
-    FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, D, D_INV, ROOTS
-},
-    negative_roots::NEGATIVE_ROOTS
+    config::{F, LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB, FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, D, D_INV, ROOTS},
+    negative_roots::NEGATIVE_ROOTS, blob_public_inputs::BlobPublicInputs
 };
 
 //*********************************************************************************
-
-use std::hash::poseidon2;
+use bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
+// Fixed hash method:
+use types::hash::poseidon2_hash_subarray;
+// Variable hash method:
+// use types::hash::poseidon2_cheaper_variable_hash;
+use types::{constants::FIELDS_PER_BLOB, abis::sponge_blob::SpongeBlob};
 
 global LIMB_MAX = 2.pow_32(120);
 
@@ -216,23 +214,54 @@ fn blob_to_fields__tightly_packed(blob: [F; FIELDS_PER_BLOB]) -> [Field; NOIR_FI
 
 // TODO: We'll want to hash this data
 // in an arrangement which makes sense to the aztec protocol. THink about this more.
-fn hash_blob(blob: [F; FIELDS_PER_BLOB]) -> Field {
-    // let mut blob_as_fields = unsafe_blob_to_fields(blob);
-    let mut blob_as_fields = blob_to_fields__tightly_packed(blob);
-    let hash = poseidon2::Poseidon2::hash(blob_as_fields, blob_as_fields.len());
-    hash
+// fn hash_blob(blob: [F; FIELDS_PER_BLOB]) -> Field {
+//     // let mut blob_as_fields = unsafe_blob_to_fields(blob);
+//     let mut blob_as_fields = blob_to_fields__tightly_packed(blob);
+//     let hash = poseidon2::Poseidon2::hash(blob_as_fields, blob_as_fields.len());
+//     hash
+// }
+
+// TODO(Miranda): Lazily not tightly packing fields as above on first run
+fn check_blob_sponge(
+    blob_as_fields: [Field; FIELDS_PER_BLOB],
+    mut sponge_blob: SpongeBlob
+) -> ([F; FIELDS_PER_BLOB], Field) {
+    // Check that we haven't overfilled the blob (checking here as we need to check once per blob)
+    // TODO(Miranda): account for packing into NOIR_FIELDS_PER_BLOB
+    assert(sponge_blob.expected_fields <= FIELDS_PER_BLOB, "Attempted to overfill blob");
+    // Check that the blob is full
+    assert(
+        sponge_blob.expected_fields == sponge_blob.fields, "Incorrect number of tx effects added to blob"
+    );
+    let txs_effects_hash = sponge_blob.squeeze();
+    let hash = poseidon2_hash_subarray(blob_as_fields, sponge_blob.fields);
+    // let hash = hash_blob(blob_as_fields, num_effects);
+    assert(hash == txs_effects_hash, "Mismatched hashed tx effects");
+    // TODO: check gates of below - unopt
+    // let mut should_check = false;
+    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+    for i in 0..FIELDS_PER_BLOB {
+        blob[i] = field_to_bignum(blob_as_fields[i]);
+        // In fixed hash method, below check happens in above subarray hash
+        // should_check |= i == sponge_blob.fields;
+        // // check that if we have not filled the blob, the remaining values are indeed 0
+        // // this ensures that we cannot add extra tx effects at the block-root stage from nowhere
+        // if should_check {
+        //     assert(blob_as_fields[i] == 0, "Found non-0 tx effect beyond claimed length");
+        // }
+    }
+    (blob, txs_effects_hash)
 }
 
-fn hash_kzg_commitment(kzg_commitment: [Field; 2]) -> Field {
-    let hash = poseidon2::Poseidon2::hash(kzg_commitment, kzg_commitment.len());
-    hash
-}
+// fn hash_kzg_commitment(kzg_commitment: [Field; 2]) -> Field {
+//     let hash = poseidon2::Poseidon2::hash(kzg_commitment, kzg_commitment.len());
+//     hash
+// }
 
-fn compute_challenge(blob: [F; FIELDS_PER_BLOB], kzg_commitment: [Field; 2]) -> Field {
-    let kzg_commitment_hash = hash_kzg_commitment(kzg_commitment);
-    let blob_hash = hash_blob(blob);
+fn compute_challenge(hashed_blob_fields: Field, kzg_commitment: [Field; 2]) -> Field {
+    let preimage = [hashed_blob_fields, kzg_commitment[0], kzg_commitment[1]];
     // let blob_hash = 1;
-    let challenge = poseidon2::Poseidon2::hash([blob_hash, kzg_commitment_hash], 2);
+    let challenge = std::hash::poseidon2::Poseidon2::hash(preimage, 3);
     challenge
 }
 
@@ -242,8 +271,14 @@ fn compute_challenge(blob: [F; FIELDS_PER_BLOB], kzg_commitment: [Field; 2]) -> 
 // we haven't implemented Fq; only Fr, and we don't actually need to operate on it;
 // we just need the bits of data. So we've simply encoded it as fitting inside a
 // [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
-fn main(blob: [F; FIELDS_PER_BLOB], kzg_commitment: [Field; 2]) -> pub (Field, F, [Field; 2]) {
-    let challenge_z: Field = compute_challenge(blob, kzg_commitment);
+// New:
+pub fn evaluate_blob(
+    blob_as_fields: [Field; FIELDS_PER_BLOB],
+    kzg_commitment: [Field; 2],
+    mut sponge_blob: SpongeBlob
+) -> BlobPublicInputs {
+    let (blob, txs_effects_hash) = check_blob_sponge(blob_as_fields, sponge_blob);
+    let challenge_z: Field = compute_challenge(txs_effects_hash, kzg_commitment);
     let challenge_z_as_bignum: F = field_to_bignum(challenge_z);
 
     let y: F = barycentric_evaluate_blob_at_z(challenge_z_as_bignum, blob);
@@ -253,9 +288,12 @@ fn main(blob: [F; FIELDS_PER_BLOB], kzg_commitment: [Field; 2]) -> pub (Field, F
     // let y_as_bytes: [u8] = bignum_to_bytes(y);
     // let kzg_commitment_as_bytes: [u8] = ()
 
+    // TODO(Miranda): Since we are verifying a block root proof currently, the below doesn't apply. We should be hashing ALL block root public inputs, including the blob ones.
+    // In future, when we do hash PIs, the below will apply.
     // TODO: this return data needs to be TIGHTLY PACKED into bytes.
-    // TODO: then those bytes need to be sha256-hashed, to produce a single value that can be sent to ethereum for cheap snark verification. On ethereum, the bytes will be sent along with the sha256-hash of the bytes. The bytes will be used in the point evaluation precompile. The sha256-hash will form a part of the public inputs of the zk-snark proof.
-    (challenge_z, y, kzg_commitment)
+    // TODO: then those bytes need to be sha256-hashed, to produce a single value that can be sent to ethereum for cheap snark verification.
+    // On ethereum, the bytes will be sent along with the sha256-hash of the bytes. The bytes will be used in the point evaluation precompile. The sha256-hash will form a part of the public inputs of the zk-snark proof.
+    BlobPublicInputs { z: challenge_z, y, kzg_commitment }
 }
 
 /**
@@ -480,14 +518,16 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
 
         //    sum_out <- sum + (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7])
         // => (lhs[0] * rhs[0] + ... + lhs[7] * rhs[7]) + sum - sum_out == 0
-        BigNum::evaluate_quadratic_expression(
-            [[lhs[0]], [lhs[1]], [lhs[2]], [lhs[3]], [lhs[4]], [lhs[5]], [lhs[6]], [lhs[7]]],
-            [[false], [false], [false], [false], [false], [false], [false], [false]],
-            [[rhs[0]], [rhs[1]], [rhs[2]], [rhs[3]], [rhs[4]], [rhs[5]], [rhs[6]], [rhs[7]]],
-            [[false], [false], [false], [false], [false], [false], [false], [false]],
-            [sum, sum_out],
-            [false, true]
-        );
+
+        // TODO(#8321): Reinstate below once fixed - NB means underconstrained calcs at the moment
+        // BigNum::evaluate_quadratic_expression(
+        //     [[lhs[0]], [lhs[1]], [lhs[2]], [lhs[3]], [lhs[4]], [lhs[5]], [lhs[6]], [lhs[7]]],
+        //     [[false], [false], [false], [false], [false], [false], [false], [false]],
+        //     [[rhs[0]], [rhs[1]], [rhs[2]], [rhs[3]], [rhs[4]], [rhs[5]], [rhs[6]], [rhs[7]]],
+        //     [[false], [false], [false], [false], [false], [false], [false], [false]],
+        //     [sum, sum_out],
+        //     [false, true]
+        // );
 
         sum = sum_out;
         std::as_witness(sum.limbs[0]);
@@ -503,42 +543,141 @@ fn barycentric_evaluate_blob_at_z(z: F, ys: [F; FIELDS_PER_BLOB]) -> F {
     // => factor * sum - y == 0
     BigNum::evaluate_quadratic_expression([[factor]], [[false]], [[sum]], [[false]], [y], [true]);
 
-    println(y);
-
     y
 }
 
-#[test]
-fn test_main() {
-    let mut blob: [F; FIELDS_PER_BLOB] = [BigNum::new(); FIELDS_PER_BLOB];
+use dep::types::tests::fixture_builder::FixtureBuilder;
 
-    blob[0] = BigNum { limbs: [0x1234, 0, 0] };
-    blob[1] = BigNum { limbs: [0xabcd, 0, 0] };
-    blob[2] = BigNum { limbs: [0x69, 0, 0] };
+// Helper to return (z^d - 1)/d (unsafe - test only)
+fn z_d_helper(challenge_z: F) -> F {
+    let mut t1 = challenge_z.__mul(challenge_z);
+    let mut t2: F = BigNum::new();
+    for _i in 0..LOG_FIELDS_PER_BLOB - 1 {
+        t2 = t1.__mul(t1);
+        t1 = t2;
+    }
+
+    let z_pow_d = t1;
+
+    let one: F = BigNum::one();
+
+    t1 = z_pow_d.__sub(one);
+    let factor = t1.__mul(D_INV);
+    factor
+}
+
+#[test]
+fn test_one_note() {
+    let mut tx_data = FixtureBuilder::new();
+    tx_data.add_new_note_hash(1);
+    let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+    let blob_fields = tx_data.to_combined_accumulated_data().serialize();
+    for i in 0..blob_fields.len() {
+        blob[i] = blob_fields[i];
+    }
+    let mut sponge_blob = SpongeBlob::new(blob_fields.len());
+    sponge_blob.absorb(blob_fields, blob_fields.len());
 
     let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
 
-    let (challenge_z, y, kzg_commitment) = main(blob, kzg_commitment_in);
+    let output = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
+    let challenge_z = field_to_bignum(output.z);
+    let y = output.y;
+    // Our blob is all 0s, apart from one commitment of value 1 at position 0
+    // It's in eval form => our barycentric formula to find p(z) becomes:
+    //
+    //*         z^d - 1                ω^0        z^d - 1            1
+    //* p(z) = --------- .   note . --------- =  --------- . 1 . ---------
+    //*            d                 z - ω^0         d              z - 1
+    //
+    //                               =>
+    // We check that:
+    //*                 z^d - 1
+    //* p(z).(z - 1) = ---------
+    //*                    d
+    //
 
-    println(challenge_z);
-    println(y);
-    println(kzg_commitment);
+    let rhs = z_d_helper(challenge_z);
+    let z_minus_1 = challenge_z.__sub(BigNum::one());
+    let lhs = y.__mul(z_minus_1);
+    assert_eq(lhs, rhs);
 }
 
 #[test]
-fn test_print() {
-    let x = 4;
-    println(f"x: {x}");
+fn test_base() {
+    let mut tx_data = FixtureBuilder::new();
+    // Add some random bits of state
+    tx_data.append_note_hashes_with_logs(50);
+    tx_data.set_first_nullifier();
+    tx_data.append_nullifiers(50);
+    tx_data.append_l2_to_l1_msgs(5);
+    tx_data.append_public_data_update_requests(5);
+    tx_data.append_unencrypted_log_hashes(5);
+    let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+    let blob_fields = tx_data.to_combined_accumulated_data().serialize();
+    for i in 0..blob_fields.len() {
+        blob[i] = blob_fields[i];
+    }
+    let mut sponge_blob = SpongeBlob::new(blob_fields.len());
+    sponge_blob.absorb(blob_fields, blob_fields.len());
+
+    let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
+
+    let output = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
+    let expected_z = std::hash::poseidon2::Poseidon2::hash(
+        [sponge_blob.squeeze(), kzg_commitment_in[0], kzg_commitment_in[1]],
+        3
+    );
+    assert(expected_z == output.z);
 }
 
+// TODO(Miranda): match this up with ts blob test
 #[test]
-fn test_bignum_conversions() {
-    let x = 1000;
-    let x_bignum = __field_to_bignum(x);
-    println(f"x_bignum: {x_bignum}");
+fn test_400() {
+    let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+    for i in 0..400 {
+        blob[i] = 3;
+    }
+    let mut sponge_blob = SpongeBlob::new(400);
+    sponge_blob.absorb(blob, 400);
+
+    let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
+
+    let _ = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
 }
 
-// nargo test --show-output test_barycentric
+#[test(should_fail_with="Found non-zero field after breakpoint")]
+fn test_no_extra_blob_fields() {
+    let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+    // Fill fields with 50 inputs...
+    for i in 0..50 {
+        blob[i] = 3;
+    }
+    // ...but the rollup's sponge is only expecting 45...
+    let mut sponge_blob = SpongeBlob::new(45);
+    sponge_blob.absorb(blob, 45);
+
+    let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
+    // ...so the below should fail as it detects we are adding effects which did not come from the rollup.
+    let _ = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
+}
+
+#[test(should_fail_with="Incorrect number of tx effects added to blob")]
+fn test_absorbed_too_few_blob_fields() {
+    let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+    // Fill fields with 50 inputs...
+    for i in 0..50 {
+        blob[i] = 3;
+    }
+    // ...but the rollup's sponge is expecting 100...
+    let mut sponge_blob = SpongeBlob::new(100);
+    sponge_blob.absorb(blob, 50);
+
+    let kzg_commitment_in = [1, 2]; // this is made-up nonsense.
+    // ...so the below should fail as it detects we have not added all the tx effects.
+    let _ = evaluate_blob(blob, kzg_commitment_in, sponge_blob);
+}
+
 #[test]
 fn test_barycentric() {
     let z: F = BigNum { limbs: [2, 0, 0] };
@@ -590,16 +729,15 @@ unconstrained fn compute_double_modulus() -> [Field; 3] {
     double_modulus
 }
 
-// nargo test --show-output test_compute_double_modulus
 #[test]
-fn test_compute_double_modulus() {
-    println(compute_double_modulus());
+unconstrained fn test_compute_double_modulus() {
+    let double_modulus = BLS12_381_Fr_Params::get_instance().double_modulus;
+    assert_eq(double_modulus, compute_double_modulus());
 }
 
-// nargo test --show-output test_compute_d_inv
 #[test]
-fn test_compute_d_inv() {
-    let D_INV = D.__invmod();
-    println(D_INV);
+unconstrained fn test_compute_d_inv() {
+    let d_inversed = D.__invmod();
+    assert_eq(d_inversed, D_INV);
 }
 

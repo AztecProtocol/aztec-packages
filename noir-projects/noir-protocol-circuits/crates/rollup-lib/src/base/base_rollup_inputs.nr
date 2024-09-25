@@ -4,7 +4,7 @@ use crate::{
     base_or_merge_rollup_public_inputs::{BaseOrMergeRollupPublicInputs, BASE_ROLLUP_TYPE}
 },
     base::state_diff_hints::StateDiffHints,
-    components::{compute_tx_effects_hash, compute_kernel_out_hash}
+    components::{append_tx_effects_for_blob, compute_kernel_out_hash}
 };
 use dep::types::{
     hash::silo_l2_to_l1_message,
@@ -15,7 +15,8 @@ use dep::types::{
     storage::map::derive_storage_slot_in_map, address::AztecAddress,
     abis::{
     append_only_tree_snapshot::AppendOnlyTreeSnapshot, nullifier_leaf_preimage::NullifierLeafPreimage,
-    public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData
+    public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData,
+    sponge_blob::SpongeBlob
 },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
     constants::{
@@ -43,6 +44,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
 struct BaseRollupInputs {
     kernel_data: KernelData,
     start: PartialStateReference,
+    start_sponge_blob: SpongeBlob,
 
     state_diff_hints: StateDiffHints,
     fee_payer_fee_juice_balance_read_hint: PublicDataHint,
@@ -129,12 +131,13 @@ impl BaseRollupInputs {
             |message: ScopedL2ToL1Message| silo_l2_to_l1_message(message, self.kernel_data.public_inputs.constants.tx_context.version, self.kernel_data.public_inputs.constants.tx_context.chain_id)
         );
         let out_hash = compute_kernel_out_hash(siloed_l2_to_l1_msgs);
-        let tx_effects_hash = compute_tx_effects_hash(
+        let end_sponge_blob = append_tx_effects_for_blob(
             self.kernel_data.public_inputs.end,
             self.kernel_data.public_inputs.revert_code,
             transaction_fee,
             all_public_data_update_requests,
-            out_hash
+            out_hash,
+            self.start_sponge_blob
         );
 
         // Perform membership checks that the notes provided exist within the historical trees data
@@ -150,7 +153,9 @@ impl BaseRollupInputs {
                 nullifier_tree: end_nullifier_tree_snapshot,
                 public_data_tree: end_public_data_tree_snapshot
             },
-            txs_effects_hash: tx_effects_hash,
+            start_sponge_blob: self.start_sponge_blob,
+            end_sponge_blob,
+            // txs_effects_hash: tx_effects_hash,
             out_hash,
             accumulated_fees: transaction_fee
         }
@@ -460,12 +465,12 @@ mod tests {
         state_diff_hints::StateDiffHints,
         base_rollup_inputs::{BaseRollupInputs, compute_fee_payer_fee_juice_balance_leaf_slot}
     },
-        components::TX_EFFECTS_HASH_INPUT_FIELDS
+        components::{TX_EFFECTS_BLOB_HASH_INPUT_FIELDS, append_tx_effects_for_blob}
     };
     use dep::types::{
         abis::{
-        append_only_tree_snapshot::AppendOnlyTreeSnapshot,
-        nullifier_leaf_preimage::NullifierLeafPreimage,
+        append_only_tree_snapshot::AppendOnlyTreeSnapshot, accumulated_data::CombinedAccumulatedData,
+        nullifier_leaf_preimage::NullifierLeafPreimage, sponge_blob::SpongeBlob,
         public_data_update_request::PublicDataUpdateRequest, kernel_data::KernelData
     },
         messaging::l2_to_l1_message::ScopedL2ToL1Message, merkle_tree::MembershipWitness,
@@ -486,8 +491,7 @@ mod tests {
         fixtures, fixture_builder::FixtureBuilder,
         merkle_tree_utils::{NonEmptyMerkleTree, compute_zero_hashes}
     },
-        utils::{arrays::get_sorted_tuple::get_sorted_tuple, field::{full_field_less_than, field_from_bytes_32_trunc}},
-        traits::Empty
+        utils::{arrays::get_sorted_tuple::get_sorted_tuple, field::full_field_less_than}, traits::Empty
     };
 
     struct NullifierInsertion {
@@ -645,6 +649,22 @@ mod tests {
                     }
                 }
             )
+        }
+
+        fn build_pre_existing_tx_effects(self) -> (CombinedAccumulatedData, [PublicDataUpdateRequest; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]) {
+            let mut res = CombinedAccumulatedData::empty();
+            res.note_hashes = self.pre_existing_notes;
+            res.nullifiers = self.pre_existing_nullifiers.map(|nullifier: NullifierLeafPreimage| nullifier.nullifier);
+            let all_public_data_update_requests = self.pre_existing_public_data.map(
+                |leaf_preimage: PublicDataTreeLeafPreimage|
+            PublicDataUpdateRequest {
+                leaf_slot: leaf_preimage.slot,
+                new_value:leaf_preimage.value,
+                counter: 0
+            }
+            );
+
+            (res, all_public_data_update_requests)
         }
 
         fn extract_subtree_sibling_path<let FULL_HEIGHT: u32, let SIBLING_PATH_LENGTH: u32>(
@@ -812,6 +832,17 @@ mod tests {
                 public_data_tree: start_public_data_tree_snapshot
             };
 
+            let (pre_existing_tx_effects, pre_existing_public_data_update_requests) = self.build_pre_existing_tx_effects();
+
+            let start_sponge_blob = append_tx_effects_for_blob(
+                pre_existing_tx_effects,
+                0,
+                0,
+                pre_existing_public_data_update_requests,
+                0,
+                SpongeBlob::new(TX_EFFECTS_BLOB_HASH_INPUT_FIELDS)
+            );
+
             let state_diff_hints = StateDiffHints {
                 nullifier_predecessor_preimages,
                 nullifier_predecessor_membership_witnesses,
@@ -825,6 +856,7 @@ mod tests {
             BaseRollupInputs {
                 kernel_data,
                 start,
+                start_sponge_blob,
                 state_diff_hints,
                 sorted_public_data_writes,
                 sorted_public_data_writes_indexes,
@@ -1067,13 +1099,28 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn empty_tx_effects_hash() {
+    unconstrained fn empty_tx_effects_sponge() {
         let outputs = BaseRollupInputsBuilder::new().execute();
+        let empty_tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
+        let mut expected_sponge = outputs.start_sponge_blob;
+        expected_sponge.absorb(empty_tx_effects, empty_tx_effects.len());
+        assert(outputs.end_sponge_blob.eq(expected_sponge));
+    }
 
-        let hash_input_flattened = [0; TX_EFFECTS_HASH_INPUT_FIELDS * 32];
-        let sha_digest = std::hash::sha256(hash_input_flattened);
-        let expected_tx_effects_hash = field_from_bytes_32_trunc(sha_digest);
-        assert_eq(outputs.txs_effects_hash, expected_tx_effects_hash);
+    #[test]
+    unconstrained fn non_empty_tx_effects_sponge() {
+        let mut builder = BaseRollupInputsBuilder::new();
+        builder.kernel_data.append_note_hashes(50);
+        let outputs = builder.execute();
+        let mut tx_effects = [0; TX_EFFECTS_BLOB_HASH_INPUT_FIELDS];
+        // Indices 0 and 1 are used by revert code and fee resp.
+        for i in 0..50 {
+            tx_effects[i+2] = builder.kernel_data.note_hashes.storage[i].value();
+        }
+        let mut expected_sponge = outputs.start_sponge_blob;
+
+        expected_sponge.absorb(tx_effects, tx_effects.len());
+        assert(outputs.end_sponge_blob.eq(expected_sponge));
     }
 
     #[test]

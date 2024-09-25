@@ -1,4 +1,4 @@
-import { PROVING_STATUS, mockTx } from '@aztec/circuit-types';
+import { PROVING_STATUS, mockTx, toNumTxsEffects } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 
@@ -40,7 +40,12 @@ describe('prover/orchestrator/public-functions', () => {
         const [processed, _] = await context.processPublicFunctions([tx], 1, undefined);
 
         // This will need to be a 2 tx block
-        const blockTicket = await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+        const blockTicket = await context.orchestrator.startNewBlock(
+          2,
+          toNumTxsEffects(processed, context.globalVariables.gasFees),
+          context.globalVariables,
+          [],
+        );
 
         for (const processedTx of processed) {
           await context.orchestrator.addNewTx(processedTx);

@@ -49,7 +49,13 @@ describe('prover/bb_prover/full-rollup', () => {
     );
 
     logger.info(`Starting new block`);
-    const provingTicket = await context.orchestrator.startNewBlock(totalTxs, context.globalVariables, l1ToL2Messages);
+    // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
+    const provingTicket = await context.orchestrator.startNewBlock(
+      totalTxs,
+      342 * totalTxs,
+      context.globalVariables,
+      l1ToL2Messages,
+    );
 
     logger.info(`Processing public functions`);
     const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs, context.blockProver);
@@ -87,8 +93,10 @@ describe('prover/bb_prover/full-rollup', () => {
       Fr.random,
     );
 
+    // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
     const provingTicket = await context.orchestrator.startNewBlock(
       numTransactions,
+      342 * numTransactions,
       context.globalVariables,
       l1ToL2Messages,
     );

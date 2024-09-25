@@ -651,6 +651,7 @@ __metadata:
     "@typescript-eslint/eslint-plugin": ^6.2.1
     "@typescript-eslint/parser": ^6.2.1
     bn.js: ^5.2.1
+    c-kzg: 4.0.0-alpha.1
     comlink: ^4.4.1
     debug: ^4.3.4
     detect-node: ^2.1.0
@@ -6289,6 +6290,17 @@ __metadata:
   version: 3.1.2
   resolution: "bytes@npm:3.1.2"
   checksum: e4bcd3948d289c5127591fbedf10c0b639ccbf00243504e4e127374a15c3bc8eed0d28d4aaab08ff6f1cf2abc0cce6ba3085ed32f4f90e82a5683ce0014e1b6e
+  languageName: node
+  linkType: hard
+
+"c-kzg@npm:4.0.0-alpha.1":
+  version: 4.0.0-alpha.1
+  resolution: "c-kzg@npm:4.0.0-alpha.1"
+  dependencies:
+    bindings: ^1.5.0
+    node-addon-api: ^5.0.0
+    node-gyp: latest
+  checksum: abb07eb3e253ea10aef4ce3a04090f9940de4f3ffa8ef19de9bff8cae1d6bc0aa80d716d998b72d46365f6565445d89592e303fd0951f8ebe8a4d233912dd66f
   languageName: node
   linkType: hard
 
@@ -12549,6 +12561,15 @@ __metadata:
   dependencies:
     lower-case: ^1.1.1
   checksum: 856487731936fef44377ca74fdc5076464aba2e0734b56a4aa2b2a23d5b154806b591b9b2465faa59bb982e2b5c9391e3685400957fb4eeb38f480525adcf3dd
+  languageName: node
+  linkType: hard
+
+"node-addon-api@npm:^5.0.0":
+  version: 5.1.0
+  resolution: "node-addon-api@npm:5.1.0"
+  dependencies:
+    node-gyp: latest
+  checksum: 2508bd2d2981945406243a7bd31362fc7af8b70b8b4d65f869c61731800058fb818cc2fd36c8eac714ddd0e568cc85becf5e165cebbdf7b5024d5151bbc75ea1
   languageName: node
   linkType: hard
 

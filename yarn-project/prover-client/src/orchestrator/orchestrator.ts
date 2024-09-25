@@ -32,6 +32,7 @@ import {
   BaseParityInputs,
   type BaseRollupInputs,
   ContentCommitment,
+  FIELDS_PER_BLOB,
   Fr,
   type GlobalVariables,
   Header,
@@ -48,6 +49,7 @@ import {
   type RecursiveProof,
   type RootParityInput,
   RootParityInputs,
+  SpongeBlob,
   StateReference,
   type TUBE_PROOF_LENGTH,
   TubeInputs,
@@ -68,8 +70,6 @@ import { elapsed } from '@aztec/foundation/timer';
 import { getVKIndex, getVKSiblingPath, getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { Attributes, type TelemetryClient, type Tracer, trackSpan, wrapCallbackInSpan } from '@aztec/telemetry-client';
 import { type MerkleTreeOperations } from '@aztec/world-state';
-
-import { inspect } from 'util';
 
 import {
   buildBaseRollupInput,
@@ -105,7 +105,7 @@ export class ProvingOrchestrator implements BlockProver {
   private provingState: ProvingState | undefined = undefined;
   private pendingProvingJobs: AbortController[] = [];
   private paddingTx: PaddingProcessedTx | undefined = undefined;
-
+  private spongeBlobState: SpongeBlob | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
 
   constructor(
@@ -134,18 +134,20 @@ export class ProvingOrchestrator implements BlockProver {
 
   /**
    * Starts off a new block
-   * @param numTxs - The total number of transactions in the block. Must be a power of 2
+   * @param numTxs - The total number of transactions in the block
+   * @param numTxsEffects - The total number of transaction effects in the block
    * @param globalVariables - The global variables for the block
    * @param l1ToL2Messages - The l1 to l2 messages for the block
    * @param verificationKeys - The private kernel verification keys
    * @returns A proving ticket, containing a promise notifying of proving completion
    */
-  @trackSpan('ProvingOrchestrator.startNewBlock', (numTxs, globalVariables) => ({
+  @trackSpan('ProvingOrchestrator.startNewBlock', (numTxs, _, globalVariables) => ({
     [Attributes.BLOCK_SIZE]: numTxs,
     [Attributes.BLOCK_NUMBER]: globalVariables.blockNumber.toNumber(),
   }))
   public async startNewBlock(
     numTxs: number,
+    numTxsEffects: number,
     globalVariables: GlobalVariables,
     l1ToL2Messages: Fr[],
   ): Promise<ProvingTicket> {
@@ -166,7 +168,7 @@ export class ProvingOrchestrator implements BlockProver {
     // Cancel any currently proving block before starting a new one
     this.cancelBlock();
     logger.info(
-      `Starting block ${globalVariables.blockNumber} for slot ${globalVariables.slotNumber} with ${numTxs} transactions`,
+      `Starting block ${globalVariables.blockNumber} for slot ${globalVariables.slotNumber} with ${numTxs} transactions and ${numTxsEffects} effects`,
     );
     // we start the block by enqueueing all of the base parity circuits
     let baseParityInputs: BaseParityInputs[] = [];
@@ -194,6 +196,13 @@ export class ProvingOrchestrator implements BlockProver {
         i < newL1ToL2MessageTreeRootSiblingPathArray.length ? newL1ToL2MessageTreeRootSiblingPathArray[i] : Fr.ZERO,
       0,
     );
+    // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
+    numTxsEffects = numTxs == 2 ? 684 : numTxsEffects;
+
+    // Initialise the sponge which will eventually absord all tx effects to be added to the blob.
+    // Like l1 to l2 messages, we need to know beforehand how many effects will be absorbed.
+    // TODO(Miranda): reset this when we cancel a block? (db does not seem to be reset)
+    this.spongeBlobState = SpongeBlob.init(numTxsEffects);
 
     // Update the local trees to include the new l1 to l2 messages
     await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
@@ -237,7 +246,7 @@ export class ProvingOrchestrator implements BlockProver {
     [Attributes.TX_HASH]: tx.hash.toString(),
   }))
   public async addNewTx(tx: ProcessedTx): Promise<void> {
-    if (!this.provingState) {
+    if (!this.provingState || !this.spongeBlobState) {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions`);
     }
 
@@ -418,9 +427,7 @@ export class ProvingOrchestrator implements BlockProver {
 
     const contentCommitment = new ContentCommitment(
       new Fr(previousMergeData[0].numTxs + previousMergeData[1].numTxs),
-      sha256Trunc(
-        Buffer.concat([previousMergeData[0].txsEffectsHash.toBuffer(), previousMergeData[1].txsEffectsHash.toBuffer()]),
-      ),
+      Buffer.alloc(32),
       this.provingState.finalRootParityInput.publicInputs.shaRoot.toBuffer(),
       sha256Trunc(Buffer.concat([previousMergeData[0].outHash.toBuffer(), previousMergeData[1].outHash.toBuffer()])),
     );
@@ -439,6 +446,23 @@ export class ProvingOrchestrator implements BlockProver {
       throw new Error(`Block header mismatch in finalise.`);
     }
     return header;
+  }
+
+  /**
+   * Collect all new nullifiers, commitments, and contracts from all txs in this block
+   * @returns The array of non empty tx effects.
+   */
+  private extractTxEffects() {
+    // Note: this check should ensure that we have all txs and their effects ready.
+    if (!this.provingState || !this.provingState.finalRootParityInput?.publicInputs.shaRoot) {
+      throw new Error(`Invalid proving state, a block must be ready to be proven before its effects can be extracted.`);
+    }
+    const gasFees = this.provingState.globalVariables.gasFees;
+    const nonEmptyTxEffects: TxEffect[] = this.provingState!.allTxs.map(txProvingState =>
+      toTxEffect(txProvingState.processedTx, gasFees),
+    ).filter(txEffect => !txEffect.isEmpty());
+
+    return nonEmptyTxEffects;
   }
 
   /**
@@ -469,11 +493,7 @@ export class ProvingOrchestrator implements BlockProver {
 
       await validateBlockRootOutput(rootRollupOutputs, header, this.db);
 
-      // Collect all new nullifiers, commitments, and contracts from all txs in this block
-      const gasFees = this.provingState.globalVariables.gasFees;
-      const nonEmptyTxEffects: TxEffect[] = this.provingState!.allTxs.map(txProvingState =>
-        toTxEffect(txProvingState.processedTx, gasFees),
-      ).filter(txEffect => !txEffect.isEmpty());
+      const nonEmptyTxEffects = this.extractTxEffects();
       const blockBody = new Body(nonEmptyTxEffects);
 
       const l2Block = L2Block.fromFields({
@@ -481,15 +501,15 @@ export class ProvingOrchestrator implements BlockProver {
         header: header,
         body: blockBody,
       });
-
-      if (!l2Block.body.getTxsEffectsHash().equals(header.contentCommitment.txsEffectsHash)) {
-        logger.debug(inspect(blockBody));
-        throw new Error(
-          `Txs effects hash mismatch, ${l2Block.body
-            .getTxsEffectsHash()
-            .toString('hex')} == ${header.contentCommitment.txsEffectsHash.toString('hex')} `,
-        );
-      }
+      // TODO(Miranda): cleanly remove txs effects hash
+      // if (!l2Block.body.getTxsEffectsHash().equals(header.contentCommitment.txsEffectsHash)) {
+      //   logger.debug(inspect(blockBody));
+      //   throw new Error(
+      //     `Txs effects hash mismatch, ${l2Block.body
+      //       .getTxsEffectsHash()
+      //       .toString('hex')} == ${header.contentCommitment.txsEffectsHash.toString('hex')} `,
+      //   );
+      // }
 
       logger.info(`Orchestrator finalised block ${l2Block.number}`);
 
@@ -620,7 +640,7 @@ export class ProvingOrchestrator implements BlockProver {
     provingState: ProvingState | undefined,
     tx: ProcessedTx,
   ): Promise<[BaseRollupInputs, TreeSnapshots] | undefined> {
-    if (!provingState?.verifyState()) {
+    if (!provingState?.verifyState() || !this.spongeBlobState) {
       logger.debug('Not preparing base rollup inputs, state invalid');
       return;
     }
@@ -633,6 +653,7 @@ export class ProvingOrchestrator implements BlockProver {
         makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH),
         provingState.globalVariables,
         this.db,
+        this.spongeBlobState,
         VerificationKeyData.makeFake(),
       ),
     );
@@ -760,7 +781,7 @@ export class ProvingOrchestrator implements BlockProver {
     );
   }
 
-  // Enqueues the tub circuit for a given transaction index
+  // Enqueues the tube circuit for a given transaction index
   // Once completed, will enqueue the next circuit, either a public kernel or the base rollup
   private enqueueTube(provingState: ProvingState, txIndex: number) {
     if (!provingState?.verifyState()) {
@@ -845,6 +866,15 @@ export class ProvingOrchestrator implements BlockProver {
     }
     const mergeInputData = provingState.getMergeInputs(0);
     const rootParityInput = provingState.finalRootParityInput!;
+    // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+    const txEffects = padArrayEnd(
+      this.extractTxEffects()
+        .map(tx => tx.toFields())
+        .flat(),
+      Fr.ZERO,
+      FIELDS_PER_BLOB,
+    );
+    // TODO(Miranda): Create little blob lib in foundation and add real commitment here
 
     const inputs = await getBlockRootRollupInput(
       mergeInputData.inputs[0]!,
@@ -859,6 +889,8 @@ export class ProvingOrchestrator implements BlockProver {
       provingState.messageTreeRootSiblingPath,
       this.db,
       this.proverId,
+      txEffects,
+      [Fr.ONE, Fr.ZERO],
     );
 
     this.deferredProving(

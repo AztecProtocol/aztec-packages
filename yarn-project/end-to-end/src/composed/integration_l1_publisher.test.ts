@@ -16,6 +16,7 @@ import {
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
+  toNumTxsEffects,
 } from '@aztec/circuit-types';
 import {
   ETHEREUM_SLOT_DURATION,
@@ -314,7 +315,12 @@ describe('L1Publisher integration', () => {
   };
 
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
-    const blockTicket = await prover.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
+    const blockTicket = await prover.startNewBlock(
+      txs.length,
+      toNumTxsEffects(txs, globalVariables.gasFees),
+      globalVariables,
+      l1ToL2Messages,
+    );
     for (const tx of txs) {
       await prover.addNewTx(tx);
     }

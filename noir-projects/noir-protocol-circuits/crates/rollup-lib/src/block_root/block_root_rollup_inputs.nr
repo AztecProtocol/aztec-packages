@@ -5,11 +5,12 @@ use crate::{
 },
     components
 };
+use blob::blob::evaluate_blob;
 use parity_lib::{root::root_rollup_parity_input::RootRollupParityInput};
 use types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot},
     constants::{
-    NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT,
+    NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, L1_TO_L2_MSG_SUBTREE_HEIGHT, FIELDS_PER_BLOB,
     L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, ARCHIVE_HEIGHT, BASE_ROLLUP_INDEX, MERGE_ROLLUP_INDEX
 },
     header::Header, content_commitment::ContentCommitment,
@@ -43,6 +44,11 @@ struct BlockRootRollupInputs {
     previous_block_hash: Field,
     // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
     prover_id: Field,
+    // Fields for blob verification - will likely change to be accumulated and sent up to the final root
+    // TODO(Miranda): Temporarily working with one blob to ensure things are working - will move to 3 before merging
+    tx_effects: [Field; FIELDS_PER_BLOB],
+    // see blob/src/main.nr -> main() - this is used for creating the challenge z
+    blob_commitment: [Field; 2],
 }
 
 impl BlockRootRollupInputs {
@@ -86,7 +92,7 @@ impl BlockRootRollupInputs {
 
         let content_commitment = ContentCommitment {
             num_txs: (left.num_txs + right.num_txs) as Field,
-            txs_effects_hash: components::compute_txs_effects_hash(self.previous_rollup_data),
+            txs_effects_hash: 0, //components::compute_txs_effects_hash(self.previous_rollup_data),
             in_hash: self.l1_to_l2_roots.public_inputs.sha_root,
             out_hash: components::compute_out_hash(self.previous_rollup_data)
         };
@@ -116,6 +122,9 @@ impl BlockRootRollupInputs {
         let mut fee_arr = [FeeRecipient::empty(); 32];
         fee_arr[0] = FeeRecipient { recipient: left.constants.global_variables.coinbase, value: total_fees };
 
+        // TODO(Miranda): assert left.start = spongeblob::new()?
+        let blob_public_inputs = evaluate_blob(self.tx_effects, self.blob_commitment, right.end_sponge_blob);
+
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.constants.last_archive, // archive before this block was added
             new_archive: archive, // archive once this block was added
@@ -126,7 +135,8 @@ impl BlockRootRollupInputs {
             out_hash: content_commitment.out_hash,
             fees: fee_arr,
             vk_tree_root: left.constants.vk_tree_root,
-            prover_id: self.prover_id
+            prover_id: self.prover_id,
+            blob_public_inputs
         }
     }
 }
@@ -143,6 +153,8 @@ impl Empty for BlockRootRollupInputs {
             new_archive_sibling_path: [0; ARCHIVE_HEIGHT],
             previous_block_hash: 0,
             prover_id: 0,
+            tx_effects: [0; FIELDS_PER_BLOB],
+            blob_commitment: [0; 2],
         }
     }
 }

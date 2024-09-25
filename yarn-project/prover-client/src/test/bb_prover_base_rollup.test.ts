@@ -1,8 +1,9 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { makePaddingProcessedTxFromTubeProof } from '@aztec/circuit-types';
+import { makePaddingProcessedTxFromTubeProof, toNumTxEffects } from '@aztec/circuit-types';
 import {
   NESTED_RECURSIVE_PROOF_LENGTH,
   PrivateKernelEmptyInputData,
+  SpongeBlob,
   makeEmptyRecursiveProof,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -39,6 +40,8 @@ describe('prover/bb_prover/base-rollup', () => {
     const inputs = new PrivateKernelEmptyInputData(header, chainId, version, vkTreeRoot);
     const paddingTxPublicInputsAndProof = await context.prover.getEmptyTubeProof(inputs);
     const tx = makePaddingProcessedTxFromTubeProof(paddingTxPublicInputsAndProof);
+    const numTxsEffects = toNumTxEffects(tx, paddingTxPublicInputsAndProof.inputs.constants.globalVariables.gasFees);
+    const startSpongeBlob = SpongeBlob.init(numTxsEffects);
 
     logger.verbose('Building base rollup inputs');
     const baseRollupInputProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
@@ -50,6 +53,7 @@ describe('prover/bb_prover/base-rollup', () => {
       baseRollupInputProof,
       context.globalVariables,
       context.actualDb,
+      startSpongeBlob,
       paddingTxPublicInputsAndProof.verificationKey,
     );
     logger.verbose('Proving base rollups');

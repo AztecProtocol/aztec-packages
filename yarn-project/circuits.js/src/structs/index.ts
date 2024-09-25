@@ -1,5 +1,6 @@
 export * from '@aztec/foundation/eth-address';
 export * from './avm/avm.js';
+export * from './blob_public_inputs.js';
 export * from './call_context.js';
 export * from './client_ivc_proof.js';
 export * from './complete_address.js';
@@ -81,6 +82,7 @@ export * from './rollup/root_rollup.js';
 export * from './rollup/state_diff_hints.js';
 export * from './rollup_validation_requests.js';
 export * from './scoped_key_validation_request_and_generator.js';
+export * from './sponge_blob.js';
 export * from './shared.js';
 export * from './side_effects.js';
 export * from './state_reference.js';

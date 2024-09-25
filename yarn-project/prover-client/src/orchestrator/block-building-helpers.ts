@@ -1,4 +1,4 @@
-import { MerkleTreeId, type ProcessedTx } from '@aztec/circuit-types';
+import { MerkleTreeId, type ProcessedTx, toTxEffect } from '@aztec/circuit-types';
 import {
   ARCHIVE_HEIGHT,
   AppendOnlyTreeSnapshot,
@@ -39,6 +39,7 @@ import {
   type RecursiveProof,
   type RootParityInput,
   RootRollupInputs,
+  type SpongeBlob,
   StateDiffHints,
   type StateReference,
   VK_TREE_HEIGHT,
@@ -67,6 +68,7 @@ export async function buildBaseRollupInput(
   proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>,
   globalVariables: GlobalVariables,
   db: MerkleTreeOperations,
+  startSpongeBlob: SpongeBlob,
   kernelVk: VerificationKeyData,
 ) {
   // Get trees info before any changes hit
@@ -162,18 +164,21 @@ export async function buildBaseRollupInput(
     db,
   );
 
+  // Append new data to startSpongeBlob
+  const inputSpongeBlob = startSpongeBlob.clone();
+  startSpongeBlob.absorb(toTxEffect(tx, globalVariables.gasFees).toFields());
+
   return BaseRollupInputs.from({
     kernelData: getKernelDataFor(tx, kernelVk, proof),
     start,
+    startSpongeBlob: inputSpongeBlob,
     stateDiffHints,
     feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
     sortedPublicDataWrites: txPublicDataUpdateRequestInfo.sortedPublicDataWrites,
     sortedPublicDataWritesIndexes: txPublicDataUpdateRequestInfo.sortedPublicDataWritesIndexes,
     lowPublicDataWritesPreimages: txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages,
     lowPublicDataWritesMembershipWitnesses: txPublicDataUpdateRequestInfo.lowPublicDataWritesMembershipWitnesses,
-
     archiveRootMembershipWitness,
-
     constants,
   });
 }
@@ -252,6 +257,8 @@ export async function getBlockRootRollupInput(
   messageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
   db: MerkleTreeOperations,
   proverId: Fr,
+  txEffects: Fr[],
+  blobCommitment: [Fr, Fr],
 ) {
   const previousRollupData: BlockRootRollupInputs['previousRollupData'] = [
     getPreviousRollupDataFromPublicInputs(rollupOutputLeft, rollupProofLeft, verificationKeyLeft),
@@ -273,7 +280,7 @@ export async function getBlockRootRollupInput(
     i => (i < newArchiveSiblingPathArray.length ? newArchiveSiblingPathArray[i] : Fr.ZERO),
     0,
   );
-
+  // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
   return BlockRootRollupInputs.from({
     previousRollupData,
     l1ToL2Roots,
@@ -285,6 +292,8 @@ export async function getBlockRootRollupInput(
     // TODO(#7346): Inject previous block hash (required when integrating batch rollup circuits)
     previousBlockHash: Fr.ZERO,
     proverId,
+    txEffects,
+    blobCommitment,
   });
 }
 

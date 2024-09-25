@@ -30,6 +30,7 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   EncryptedLogHash,
+  FIELDS_PER_BLOB,
   Fr,
   FunctionData,
   FunctionSelector,
@@ -147,10 +148,13 @@ import { GasSettings } from '../structs/gas_settings.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 import { Header } from '../structs/header.js';
 import {
+  BlobPublicInputs,
+  Poseidon2Sponge,
   PublicDataLeafHint,
   PublicValidationRequests,
   ScopedL2ToL1Message,
   ScopedNoteHash,
+  SpongeBlob,
   TreeLeafReadRequest,
   TreeLeafReadRequestHint,
 } from '../structs/index.js';
@@ -845,6 +849,26 @@ export function makeAppendOnlyTreeSnapshot(seed = 1): AppendOnlyTreeSnapshot {
 }
 
 /**
+ * Makes arbitrary poseidon sponge for blob inputs.
+ * Note: will not verify inside the circuit.
+ * @param seed - The seed to use for generating the sponge.
+ * @returns A sponge blob instance.
+ */
+export function makeSpongeBlob(seed = 1): SpongeBlob {
+  return new SpongeBlob(new Poseidon2Sponge(makeTuple(3, fr), makeTuple(4, fr), 1, false), seed, seed + 1);
+}
+
+/**
+ * Makes arbitrary blob public inputs.
+ * Note: will not verify inside the circuit.
+ * @param seed - The seed to use for generating the blob inputs.
+ * @returns A blob public inputs instance.
+ */
+export function makeBlobPublicInputs(seed = 1): BlobPublicInputs {
+  return new BlobPublicInputs(fr(seed), BigInt(seed + 1), makeTuple(2, fr));
+}
+
+/**
  * Makes arbitrary eth address.
  * @param seed - The seed to use for generating the eth address.
  * @returns An eth address.
@@ -897,9 +921,10 @@ export function makeBaseOrMergeRollupPublicInputs(
     makeConstantBaseRollupData(seed + 0x200, globalVariables),
     makePartialStateReference(seed + 0x300),
     makePartialStateReference(seed + 0x400),
+    makeSpongeBlob(seed + 0x500),
+    makeSpongeBlob(seed + 0x600),
     fr(seed + 0x901),
     fr(seed + 0x902),
-    fr(seed + 0x903),
   );
 }
 
@@ -924,6 +949,7 @@ export function makeBlockRootOrBlockMergeRollupPublicInputs(
     makeTuple(32, () => makeFeeRecipient(seed), 0x700),
     fr(seed + 0x800),
     fr(seed + 0x900),
+    makeBlobPublicInputs(seed + 0x100),
   );
 }
 
@@ -983,6 +1009,7 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
  * @returns A block root rollup inputs.
  */
 export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): BlockRootRollupInputs {
+  // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
   return new BlockRootRollupInputs(
     [makePreviousRollupData(seed, globalVariables), makePreviousRollupData(seed + 0x1000, globalVariables)],
     makeRootParityInput<typeof NESTED_RECURSIVE_PROOF_LENGTH>(NESTED_RECURSIVE_PROOF_LENGTH, seed + 0x2000),
@@ -993,6 +1020,9 @@ export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVari
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
     fr(seed + 0x2400),
     fr(seed + 0x2500),
+    // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+    makeTuple(FIELDS_PER_BLOB, fr, 0x2400),
+    makeTuple(2, fr, 0x2500),
   );
 }
 
@@ -1200,6 +1230,8 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
 
   const start = makePartialStateReference(seed + 0x100);
 
+  const startSpongeBlob = makeSpongeBlob(seed + 0x200);
+
   const stateDiffHints = makeStateDiffHints(seed + 0x600);
 
   const sortedPublicDataWrites = makeTuple(
@@ -1231,6 +1263,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   return BaseRollupInputs.from({
     kernelData,
     start,
+    startSpongeBlob,
     stateDiffHints,
     sortedPublicDataWrites,
     sortedPublicDataWritesIndexes,

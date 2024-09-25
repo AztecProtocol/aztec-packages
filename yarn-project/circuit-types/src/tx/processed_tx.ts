@@ -282,6 +282,16 @@ export function toTxEffect(tx: ProcessedTx, gasFees: GasFees): TxEffect {
   );
 }
 
+export function toNumTxEffects(tx: ProcessedTx, gasFees: GasFees): number {
+  return toTxEffect(tx, gasFees).toFields().length;
+}
+
+export function toNumTxsEffects(txs: ProcessedTx[], gasFees: GasFees): number {
+  return txs.reduce((acc, tx) => {
+    return acc + toNumTxEffects(tx, gasFees);
+  }, 0);
+}
+
 function validateProcessedTxLogs(tx: ProcessedTx): void {
   const noteEncryptedLogs = tx.noteEncryptedLogs || EncryptedNoteTxL2Logs.empty();
   let kernelHash = Fr.fromBuffer(

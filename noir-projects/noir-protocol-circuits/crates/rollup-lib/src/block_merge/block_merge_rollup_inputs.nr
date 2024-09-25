@@ -53,6 +53,11 @@ impl BlockMergeRollupInputs {
 
         let fees = components::accumulate_blocks_fees(left, right);
 
+        // TODO: The below is nonsense, just to get compiler working
+        // When we verify root proofs (TODO(#7346)), we need to accumulate blob info
+        // How we accumulate is being worked on by @Mike
+        let blob_public_inputs = left.blob_public_inputs.accumulate(right.blob_public_inputs);
+
         BlockRootOrBlockMergePublicInputs {
             previous_archive: left.previous_archive,
             new_archive: right.new_archive,
@@ -63,7 +68,8 @@ impl BlockMergeRollupInputs {
             out_hash,
             fees,
             vk_tree_root: left.vk_tree_root,
-            prover_id: left.prover_id // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+            prover_id: left.prover_id, // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1
+            blob_public_inputs
         }
     }
 }

@@ -4,6 +4,7 @@ use dep::types::constants::BASE_ROLLUP_INDEX;
 use dep::types::tests::fixtures;
 use dep::types::abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot;
 use dep::types::merkle_tree::MembershipWitness;
+use types::abis::sponge_blob::SpongeBlob;
 
 pub fn default_previous_rollup_data() -> [PreviousRollupData; 2] {
     let mut previous_rollup_data = [PreviousRollupData::empty(); 2];
@@ -67,7 +68,7 @@ pub fn default_previous_rollup_data() -> [PreviousRollupData; 2] {
         root: 0,
         next_available_leaf_index: 1
     };
-    previous_rollup_data[0].base_or_merge_rollup_public_inputs.end.public_data_tree =AppendOnlyTreeSnapshot {
+    previous_rollup_data[0].base_or_merge_rollup_public_inputs.end.public_data_tree = AppendOnlyTreeSnapshot {
         root: 1,
         next_available_leaf_index: 2
     };
@@ -86,8 +87,15 @@ pub fn default_previous_rollup_data() -> [PreviousRollupData; 2] {
     previous_rollup_data[0].base_or_merge_rollup_public_inputs.num_txs = 1;
     previous_rollup_data[1].base_or_merge_rollup_public_inputs.num_txs = 1;
 
-    previous_rollup_data[0].base_or_merge_rollup_public_inputs.txs_effects_hash = 1;
-    previous_rollup_data[1].base_or_merge_rollup_public_inputs.txs_effects_hash = 2;
+    let mut sponge_blob = SpongeBlob::new(2);
+    previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_sponge_blob = sponge_blob;
+
+    sponge_blob.absorb([1], 1);
+    previous_rollup_data[0].base_or_merge_rollup_public_inputs.end_sponge_blob = sponge_blob;
+    previous_rollup_data[1].base_or_merge_rollup_public_inputs.start_sponge_blob = sponge_blob;
+
+    sponge_blob.absorb([2], 1);
+    previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_sponge_blob = sponge_blob;
 
     previous_rollup_data[0].base_or_merge_rollup_public_inputs.out_hash = 1;
     previous_rollup_data[1].base_or_merge_rollup_public_inputs.out_hash = 2;

@@ -1,4 +1,4 @@
-import { PROVING_STATUS } from '@aztec/circuit-types';
+import { PROVING_STATUS, toNumTxsEffects } from '@aztec/circuit-types';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
@@ -28,7 +28,7 @@ describe('prover/orchestrator/blocks', () => {
 
   describe('blocks', () => {
     it('builds an empty L2 block', async () => {
-      const blockTicket = await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+      const blockTicket = await context.orchestrator.startNewBlock(2, 0, context.globalVariables, []);
 
       await context.orchestrator.setBlockCompleted();
 
@@ -45,7 +45,12 @@ describe('prover/orchestrator/blocks', () => {
       await updateExpectedTreesFromTxs(expectsDb, txs);
 
       // This will need to be a 2 tx block
-      const blockTicket = await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+      const blockTicket = await context.orchestrator.startNewBlock(
+        2,
+        toNumTxsEffects(txs, context.globalVariables.gasFees),
+        context.globalVariables,
+        [],
+      );
 
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);
@@ -71,7 +76,12 @@ describe('prover/orchestrator/blocks', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket = await context.orchestrator.startNewBlock(txs.length, context.globalVariables, l1ToL2Messages);
+      const blockTicket = await context.orchestrator.startNewBlock(
+        txs.length,
+        toNumTxsEffects(txs, context.globalVariables.gasFees),
+        context.globalVariables,
+        l1ToL2Messages,
+      );
 
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);

@@ -25,8 +25,13 @@ export class BlockBuilder implements BlockSimulator {
     this.orchestrator = new ProvingOrchestrator(db, testProver, telemetry);
   }
 
-  startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<ProvingTicket> {
-    return this.orchestrator.startNewBlock(numTxs, globalVariables, l1ToL2Messages);
+  startNewBlock(
+    numTxs: number,
+    numTxsEffects: number,
+    globalVariables: GlobalVariables,
+    l1ToL2Messages: Fr[],
+  ): Promise<ProvingTicket> {
+    return this.orchestrator.startNewBlock(numTxs, numTxsEffects, globalVariables, l1ToL2Messages);
   }
   cancelBlock(): void {
     this.orchestrator.cancelBlock();

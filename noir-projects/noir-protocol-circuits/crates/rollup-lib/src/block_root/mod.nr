@@ -7,6 +7,7 @@ pub use crate::abis::block_root_or_block_merge_public_inputs::BlockRootOrBlockMe
 mod tests {
     use crate::tests::block_root_rollup_inputs::default_block_root_rollup_inputs;
     use dep::types::hash::accumulate_sha256;
+    use std::hash::poseidon2::Poseidon2;
 
     #[test]
     fn check_block_hashes_empty_blocks() {
@@ -30,5 +31,26 @@ mod tests {
         assert(
             outputs.start_global_variables.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.constants.global_variables)
         );
+    }
+
+    #[test]
+    fn check_blob() {
+        let inputs = default_block_root_rollup_inputs();
+        let outputs = inputs.block_root_rollup_circuit();
+
+        let mut expected_sponge = inputs.previous_rollup_data[0].base_or_merge_rollup_public_inputs.start_sponge_blob;
+        expected_sponge.absorb(inputs.tx_effects, expected_sponge.expected_fields);
+
+        assert(
+            expected_sponge.eq(inputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_sponge_blob)
+        );
+
+        let hashed_tx_effects = expected_sponge.squeeze();
+        let expected_z = Poseidon2::hash(
+            [hashed_tx_effects, inputs.blob_commitment[0], inputs.blob_commitment[1]],
+            3
+        );
+
+        assert(outputs.blob_public_inputs.z == expected_z);
     }
 }

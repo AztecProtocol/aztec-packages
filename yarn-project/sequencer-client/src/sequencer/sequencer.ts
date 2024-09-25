@@ -423,7 +423,13 @@ export class Sequencer {
 
     const blockBuildingTimer = new Timer();
     const blockBuilder = this.blockBuilderFactory.create(this.worldState.getLatest());
-    const blockTicket = await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+    // TODO(Miranda): Find a nice way to extract num tx effects from non-processed transactions
+    const blockTicket = await blockBuilder.startNewBlock(
+      blockSize,
+      342 * numRealTxs,
+      newGlobalVariables,
+      l1ToL2Messages,
+    );
 
     const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
       processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs()),
