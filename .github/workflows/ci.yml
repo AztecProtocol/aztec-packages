@@ -732,7 +732,7 @@ jobs:
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          header: brillig
+          header: public_functions_size
           # delete the comment in case changes no longer impact circuit sizes
           delete: ${{ !steps.public_functions_sizes_diff.outputs.markdown }}
           message: ${{ steps.public_functions_sizes_diff.outputs.markdown }}
