@@ -4,7 +4,7 @@ use crate::keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::T
 
 use std::aes128::aes128_encrypt;
 
-struct EncryptedLogHeader {
+pub struct EncryptedLogHeader {
     address: AztecAddress,
 }
 

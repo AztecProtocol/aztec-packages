@@ -8,7 +8,7 @@ use dep::aztec::{
 };
 use dep::value_note::value_note::ValueNote;
 
-struct Card {
+pub struct Card {
     // We use u32s since u16s are unsupported
     strength: u32,
     points: u32,
@@ -44,7 +44,7 @@ fn test_to_from_field() {
 }
 // docs:end:pure_noir_testing
 
-struct CardNote {
+pub struct CardNote {
     card: Card,
     note: ValueNote,
 }
@@ -64,7 +64,7 @@ impl CardNote {
     }
 }
 
-struct Deck<Context> {
+pub struct Deck<Context> {
     set: PrivateSet<ValueNote, Context>,
 }
 

@@ -8,7 +8,7 @@ use dep::types::{
     traits::is_empty, utils::arrays::{array_length, assert_array_appended, assert_array_prepended}
 };
 
-struct PublicKernelOutputValidator {
+pub struct PublicKernelOutputValidator {
     output: PublicKernelCircuitPublicInputs,
     previous_kernel: PublicKernelCircuitPublicInputs,
     enqueued_call: VMCircuitPublicInputs,

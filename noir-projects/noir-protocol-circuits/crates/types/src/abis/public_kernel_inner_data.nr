@@ -3,7 +3,7 @@ use crate::{
     recursion::{proof::NestedRecursiveProof, verification_key::VerificationKey, traits::Verifiable}
 };
 
-struct PublicKernelInnerData {
+pub struct PublicKernelInnerData {
     public_inputs: VMCircuitPublicInputs,
     proof: NestedRecursiveProof,
     vk: VerificationKey,

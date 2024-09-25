@@ -55,8 +55,7 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
         }
     };
     let body_expr = body_quote.as_expr();
-    assert(body_expr.is_some(), f"Body is not an expression: {body_quote}");
-    body_expr.unwrap()
+    body_expr.expect(f"Body is not an expression: {body_quote}")
 }
 
 pub(crate) comptime fn add_to_field_slice(slice_name: Quoted, name: Quoted, typ: Type) -> Quoted {
@@ -229,11 +228,8 @@ pub(crate) comptime fn compute_event_selector(s: StructDefinition) -> Field {
 pub(crate) comptime fn get_serialized_size(typ: Type) -> u32 {
     let any = fresh_type_variable();
     let maybe_serialize_impl = typ.get_trait_impl(quote { protocol_types::traits::Serialize<$any> }.as_trait_constraint());
-    assert(
-        maybe_serialize_impl.is_some(), f"Attempted to fetch serialization length, but {typ} does not implement the Serialize trait"
-    );
-    let serialize_impl = maybe_serialize_impl.unwrap();
-    serialize_impl.trait_generic_args()[0].as_constant().unwrap()
+
+    maybe_serialize_impl.expect(f"Attempted to fetch serialization length, but {typ} does not implement the Serialize trait").trait_generic_args()[0].as_constant().unwrap()
 }
 
 pub(crate) comptime fn module_has_storage(m: Module) -> bool {

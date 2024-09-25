@@ -3,7 +3,7 @@ use crate::{
     utils::arrays::{array_length, sort_by_counter::compare_by_counter_empty_padded_asc, get_sorted_tuple::get_sorted_tuple}
 };
 
-struct CombinedOrderHint {
+pub(crate) struct CombinedOrderHint {
     counter: u32,
     original_index: u32,
 }
@@ -254,4 +254,3 @@ mod tests {
         asc_to_equal(array_lt, array_gte, expected_hints);
     }
 }
-

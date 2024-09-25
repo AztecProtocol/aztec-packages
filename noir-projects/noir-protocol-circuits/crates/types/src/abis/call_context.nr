@@ -4,7 +4,7 @@ use crate::{
 };
 
 // docs:start:call-context
-struct CallContext {
+pub struct CallContext {
     msg_sender: AztecAddress,
     storage_contract_address: AztecAddress,
     function_selector: FunctionSelector,

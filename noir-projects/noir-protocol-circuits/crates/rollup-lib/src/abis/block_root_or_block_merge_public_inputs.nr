@@ -4,7 +4,7 @@ use dep::types::{
     utils::reader::Reader, address::EthAddress
 };
 
-struct FeeRecipient {
+pub struct FeeRecipient {
   recipient: EthAddress,
   value: Field,
 }
@@ -36,7 +36,7 @@ impl Eq for FeeRecipient {
 
 // TODO: instead of archives + global vars, use ConstantRollupData x2? It also includes vk root
 // may be confusing as new_constant.last_archive would actually be the new_archive
-struct BlockRootOrBlockMergePublicInputs {
+pub struct BlockRootOrBlockMergePublicInputs {
   previous_archive: AppendOnlyTreeSnapshot, // Archive tree root immediately before this block range
   new_archive: AppendOnlyTreeSnapshot, // Archive tree root after adding this block range
   previous_block_hash: Field, // Identifier of the previous block before the range

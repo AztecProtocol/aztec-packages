@@ -1,6 +1,6 @@
 use dep::protocol_types::traits::{Serialize, Deserialize};
 
-struct MockStruct {
+pub(crate) struct MockStruct {
     a: Field,
     b: Field,
 }

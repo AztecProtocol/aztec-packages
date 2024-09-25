@@ -6,18 +6,18 @@ use dep::protocol_types::{
 
 global PUBLIC_KEYS_LENGTH: u32 = 12;
 
-struct PublicKeys {
+pub struct PublicKeys {
     npk_m: NpkM,
     ivpk_m: IvpkM,
     ovpk_m: OvpkM,
     tpk_m: TpkM,
 }
 
-trait ToPoint {
+pub trait ToPoint {
     fn to_point(self) -> Point;
 }
 
-struct NpkM {
+pub struct NpkM {
     inner: Point
 }
 
@@ -40,7 +40,7 @@ impl Hash for NpkM {
     }
 }
 
-struct IvpkM {
+pub struct IvpkM {
     inner: Point
 }
 
@@ -56,7 +56,7 @@ impl Serialize<POINT_LENGTH> for IvpkM {
     }
 }
 
-struct OvpkM {
+pub struct OvpkM {
     inner: Point
 }
 
@@ -78,7 +78,7 @@ impl Serialize<POINT_LENGTH> for OvpkM {
     }
 }
 
-struct TpkM {
+pub struct TpkM {
     inner: Point
 }
 

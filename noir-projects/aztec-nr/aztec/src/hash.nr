@@ -77,7 +77,7 @@ pub fn compute_message_nullifier(message_hash: Field, secret: Field, leaf_index:
     )
 }
 
-struct ArgsHasher {
+pub struct ArgsHasher {
     fields: [Field],
 }
 

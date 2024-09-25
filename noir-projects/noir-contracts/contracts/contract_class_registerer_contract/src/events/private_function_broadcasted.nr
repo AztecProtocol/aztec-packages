@@ -11,7 +11,7 @@ use dep::aztec::protocol_types::{
     traits::Serialize
 };
 
-struct InnerPrivateFunction {
+pub struct InnerPrivateFunction {
     selector: FunctionSelector,
     metadata_hash: Field,
     vk_hash: Field,
@@ -23,7 +23,7 @@ impl Serialize<3> for InnerPrivateFunction {
     }
 }
 
-struct PrivateFunction {
+pub struct PrivateFunction {
     selector: FunctionSelector,
     metadata_hash: Field,
     vk_hash: Field,
@@ -44,7 +44,7 @@ impl Serialize<MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS + 3> for 
 }
 
 // #[event]
-struct ClassPrivateFunctionBroadcasted {
+pub struct ClassPrivateFunctionBroadcasted {
     contract_class_id: ContractClassId,
     artifact_metadata_hash: Field,
     unconstrained_functions_artifact_tree_root: Field,

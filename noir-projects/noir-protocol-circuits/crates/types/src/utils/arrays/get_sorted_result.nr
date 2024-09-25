@@ -1,6 +1,6 @@
 use crate::{utils::arrays::{get_sorted_tuple::{get_sorted_tuple, SortedTuple}}};
 
-struct SortedResult<T, let N: u32> {
+pub struct SortedResult<T, let N: u32> {
     sorted_array: [T; N],
     sorted_index_hints: [u32; N],
     original_index_hints: [u32; N],
