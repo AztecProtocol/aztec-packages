@@ -365,10 +365,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     // new_archive.next_available_leaf_index: the new archive next available index
     publicInputs[3] = bytes32(header.globalVariables.blockNumber + 1);
 
-    // TODO(#7346): Currently previous block hash is unchecked, but will be checked in batch rollup (block merge -> root).
-    // block-building-helpers.ts is injecting as 0 for now, replicating here.
     // previous_block_hash: the block hash just preceding this block (will eventually become the end_block_hash of the prev batch)
-    publicInputs[4] = bytes32(0);
+    publicInputs[4] = blocks[header.globalVariables.blockNumber - 1].blockHash;
 
     // end_block_hash: the current block hash (will eventually become the hash of the final block proven in a batch)
     publicInputs[5] = blocks[header.globalVariables.blockNumber].blockHash;

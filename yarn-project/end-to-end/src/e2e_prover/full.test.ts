@@ -8,7 +8,8 @@ const TIMEOUT = 1_800_000;
 process.env.AVM_PROVING_STRICT = '1';
 
 describe('full_prover', () => {
-  const t = new FullProverTest('full_prover', 2);
+  const realProofs = !['true', '1'].includes(process.env.FAKE_PROOFS ?? '');
+  const t = new FullProverTest('full_prover', 2, realProofs);
   let { provenAssets, accounts, tokenSim, logger } = t;
 
   beforeAll(async () => {
@@ -83,6 +84,11 @@ describe('full_prover', () => {
   );
 
   it('rejects txs with invalid proofs', async () => {
+    if (!realProofs) {
+      t.logger.warn(`Skipping test with fake proofs`);
+      return;
+    }
+
     const privateInteraction = t.fakeProofsAsset.methods.transfer(accounts[1].address, 1);
     const publicInteraction = t.fakeProofsAsset.methods.transfer_public(accounts[0].address, accounts[1].address, 1, 0);
 
