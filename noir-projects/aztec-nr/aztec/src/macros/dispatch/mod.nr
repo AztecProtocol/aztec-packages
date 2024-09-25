@@ -66,6 +66,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let dispatch = ifs.join(quote { else });
 
         quote {
+            #[public]
             pub fn public_dispatch(selector: Field) {
                 $dispatch
             }
