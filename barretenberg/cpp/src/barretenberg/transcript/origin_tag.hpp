@@ -1,0 +1,121 @@
+#pragma once
+/**
+ * @file origin_tag.hpp
+ * @author Rumata888
+ * @brief This file contains part of the logic for the Origin Tag mechanism that tracks the use of in-circuit primitives
+ * through tainting them. It then allows us to detect dangerous behaviours in-circuit. The mechanism is only enabled in
+ * DEBUG builds
+ *
+ */
+#include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include <cstddef>
+#include <ostream>
+
+namespace bb {
+
+// The function that detects harmful behaviours
+void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b);
+
+#ifndef NDEBUG
+struct OriginTag {
+    static constexpr size_t CONSTANT = 0;
+    // Parent tag uses a concrete index, not bits for now, since we never expect the values to meet
+    size_t parent_tag;
+
+    // Child tag specifies which submitted values and challenges have been used to generate this element
+    // The lower 128 bits represent using a submitted value from a corresponding round (the shift represents the round)
+    // The higher 128 bits represent using a challenge value from an corresponding round (the shift represents the
+    // round)
+    numeric::uint256_t child_tag;
+
+    // Instant death is used for poisoning values we should never use in arithmetic
+    bool instant_death = false;
+    OriginTag() = default;
+    OriginTag(const OriginTag& other) = default;
+    OriginTag(OriginTag&& other) = default;
+    OriginTag& operator=(const OriginTag& other) = default;
+    OriginTag& operator=(OriginTag&& other) noexcept
+    {
+
+        parent_tag = other.parent_tag;
+        child_tag = other.child_tag;
+        instant_death = other.instant_death;
+        return *this;
+    }
+    OriginTag(size_t parent_index, size_t child_index, bool is_submitted = true)
+        : parent_tag(parent_index)
+        , child_tag((static_cast<uint256_t>(1) << (child_index + (is_submitted ? 0 : 128))))
+    {
+        ASSERT(child_index < 128);
+    }
+
+    OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
+    {
+        if (tag_a.instant_death || tag_b.instant_death) {
+            throw_or_abort("Touched an element that should not have been touched");
+        }
+        if (tag_a.parent_tag != tag_b.parent_tag && (tag_a.parent_tag != 0U) && (tag_b.parent_tag != 0U)) {
+            throw_or_abort("Tags from different transcripts were involved in the same computation");
+        }
+        check_child_tags(tag_a.child_tag, tag_b.child_tag);
+        parent_tag = tag_a.parent_tag;
+        child_tag = tag_a.child_tag | tag_b.child_tag;
+    }
+    template <class... T> OriginTag(const OriginTag& tag, const T&... rest)
+    {
+        parent_tag = tag.parent_tag;
+        child_tag = tag.child_tag;
+        if (tag.instant_death) {
+            throw_or_abort("Touched an element that should not have been touched");
+        }
+        for (const auto& next_tag : { rest... }) {
+            if (next_tag.instant_death) {
+                throw_or_abort("Touched an element that should not have been touched");
+            }
+            if (parent_tag != next_tag.parent_tag && (parent_tag != 0U) && (next_tag.parent_tag != 0U)) {
+                throw_or_abort("Tags from different transcripts were involved in the same computation");
+            }
+            check_child_tags(child_tag, next_tag.child_tag);
+            child_tag |= next_tag.child_tag;
+        }
+    }
+    ~OriginTag() = default;
+    bool operator==(const OriginTag& other) const;
+    void poison() { instant_death = true; }
+    void unpoison() { instant_death = false; }
+    bool is_poisoned() const { return instant_death; }
+    bool is_empty() const { return !instant_death && parent_tag == 0 && child_tag == uint256_t(0); };
+};
+inline std::ostream& operator<<(std::ostream& os, OriginTag const& v)
+{
+    return os << "{ p_t: " << v.parent_tag << ", ch_t" << v.child_tag << ", instadeath: " << v.instant_death << " }";
+}
+
+#else
+
+struct OriginTag {
+    OriginTag() = default;
+    OriginTag(const OriginTag& other) = default;
+    OriginTag(OriginTag&& other) = default;
+    OriginTag& operator=(const OriginTag& other) = default;
+    OriginTag& operator=(OriginTag&& other) = default;
+
+    OriginTag(size_t, size_t, bool is_submitted [[maybe_unused]] = true) {}
+
+    OriginTag(const OriginTag&, const OriginTag&) {}
+    template <class... T> OriginTag(const OriginTag&, const T&...) {}
+    bool operator==(const OriginTag& other) const;
+    void poison() {}
+    void unpoison() {}
+    bool is_poisoned() const { return false; }
+    bool is_empty() const { return true; };
+};
+inline std::ostream& operator<<(std::ostream& os, OriginTag const&)
+{
+    return os << "{ Origin Tag tracking is disabled in release builds }";
+}
+#endif
+} // namespace bb
+template <typename T>
+concept usesTag = requires(T x, const bb::OriginTag& tag) { x.set_origin_tag(tag); };
