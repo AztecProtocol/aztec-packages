@@ -65,7 +65,7 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.pxe.service.type }}
+  type: {{if .Values.network.public }}"LoadBalancer"{{ else }}"ClusterIP"{{ end }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: pxe

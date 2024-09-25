@@ -1,3 +1,10 @@
+test: "sample"
+scenario: "default"
+
+network:
+  public: false
+  enableBots: true
+
 images:
   test:
     image: aztecprotocol/end-to-end
@@ -89,7 +96,6 @@ pxe:
   debug: "aztec:*"
   replicas: 1
   service:
-    type: ClusterIP
     port: 8080
     targetPort: 8080
   readinessProbe:
@@ -165,8 +171,6 @@ ethereum:
       cpu: "1"
 
 metrics:
-  service:
-    type: ClusterIP
   ports:
     otlp: 4316
     metrics: 4315
@@ -179,6 +183,3 @@ metrics:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-
-test: "sample"
-scenario: "default"
