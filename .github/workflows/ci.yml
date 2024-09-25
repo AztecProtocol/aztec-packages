@@ -276,7 +276,6 @@ jobs:
           ref: "${{ github.event.pull_request.head.sha }}"
       - uses: ./.github/ci-setup-action
         with:
-          dockerhub_password: "${{ secrets.DOCKERHUB_PASSWORD }}"
           concurrency_key: build-x86
       - name: "Build and upload bench aggregate file"
         working-directory: ./yarn-project/scripts
