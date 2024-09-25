@@ -161,7 +161,7 @@ jobs:
           echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
 
   build-cache-tool-tests:
-    needs: [build, changes]
+    needs: [build-images, changes]
     if: needs.changes.outputs.build-system-cache-tool == 'true' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all')
     runs-on: ubuntu-20.04
     steps:
