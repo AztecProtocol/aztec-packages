@@ -420,7 +420,7 @@ bool WorldStateAddon::update_archive(msgpack::object& obj, msgpack::sbuffer& buf
     }
 
     MsgHeader header(request.header.messageId);
-    messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::APPEND_LEAVES, header, {});
+    messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::UPDATE_ARCHIVE, header, {});
     msgpack::pack(buf, resp_msg);
 
     return true;
