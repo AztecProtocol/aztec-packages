@@ -30,7 +30,7 @@ impl Deserialize<2> for MockStruct {
 }
 
 #[test]
-fn test_serde() {
+unconstrained fn test_serde() {
     let val = MockStruct::new(5, 6);
     assert_eq(val, MockStruct::deserialize(val.serialize()));
 }

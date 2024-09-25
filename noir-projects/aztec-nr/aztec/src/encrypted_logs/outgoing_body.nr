@@ -63,7 +63,7 @@ mod test {
     use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
     #[test]
-    fn test_encrypted_log_outgoing_body_matches_typescript() {
+    unconstrained fn test_encrypted_log_outgoing_body_matches_typescript() {
         let eph_sk = Scalar {
             lo: 0x00000000000000000000000000000000d0d302ee245dfaf2807e604eec4715fe,
             hi: 0x000000000000000000000000000000000f096b423017226a18461115fa8d34bb

@@ -8,7 +8,6 @@ use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterfa
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer}};
-use crate::keys::constants::{NULLIFIER_INDEX, INCOMING_INDEX, OUTGOING_INDEX, TAGGING_INDEX};
 use crate::hash::hash_args;
 
 use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};
@@ -17,47 +16,47 @@ use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::
 pub struct TestEnvironment {}
 
 impl TestEnvironment {
-    fn new() -> Self {
+    unconstrained fn new() -> Self {
         cheatcodes::reset();
         Self {}
     }
 
-    fn block_number(_self: Self) -> u32 {
+    unconstrained fn block_number(_self: Self) -> u32 {
         get_block_number()
     }
 
-    fn contract_address(_self: Self) -> AztecAddress {
+    unconstrained fn contract_address(_self: Self) -> AztecAddress {
         get_contract_address()
     }
 
-    fn impersonate(_self: Self, address: AztecAddress) {
+    unconstrained fn impersonate(_self: Self, address: AztecAddress) {
         cheatcodes::set_contract_address(address)
     }
 
-    fn advance_block_to(&mut self, block_number: u32) {
+    unconstrained fn advance_block_to(&mut self, block_number: u32) {
         let difference = block_number - get_block_number();
         self.advance_block_by(difference);
     }
 
-    fn advance_block_by(_self: &mut Self, blocks: u32) {
+    unconstrained fn advance_block_by(_self: &mut Self, blocks: u32) {
         cheatcodes::advance_blocks_by(blocks);
     }
 
-    fn public(_self: Self) -> PublicContext {
+    unconstrained fn public(_self: Self) -> PublicContext {
         let mut inputs = cheatcodes::get_public_context_inputs();
         PublicContext::new(inputs, || 0)
     }
 
-    fn private(&mut self) -> PrivateContext {
+    unconstrained fn private(&mut self) -> PrivateContext {
         self.private_at(get_block_number())
     }
 
     // unconstrained is a key word, so we mis-spell purposefully here, like we do with contrakt
-    fn unkonstrained(_self: Self) -> UnconstrainedContext {
+    unconstrained fn unkonstrained(_self: Self) -> UnconstrainedContext {
         UnconstrainedContext::new()
     }
 
-    fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
+    unconstrained fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
         if historical_block_number >= get_block_number() {
             self.advance_block_to(historical_block_number + 1);
         }
@@ -67,12 +66,12 @@ impl TestEnvironment {
         PrivateContext::new(inputs, 0)
     }
 
-    fn create_account(_self: Self) -> AztecAddress {
+    unconstrained fn create_account(_self: Self) -> AztecAddress {
         let test_account = cheatcodes::create_account();
         test_account.address
     }
 
-    fn create_account_contract(&mut self, secret: Field) -> AztecAddress {
+    unconstrained fn create_account_contract(&mut self, secret: Field) -> AztecAddress {
         let test_account = cheatcodes::add_account(secret);
         let address = test_account.address;
         cheatcodes::advance_blocks_by(1);
@@ -86,15 +85,15 @@ impl TestEnvironment {
         address
     }
 
-    fn deploy<let N: u32, let M: u32>(_self: Self, path: str<N>, name: str<M>) -> Deployer<N, M> {
+    unconstrained fn deploy<let N: u32, let M: u32>(_self: Self, path: str<N>, name: str<M>) -> Deployer<N, M> {
         Deployer { path, name, public_keys_hash: 0 }
     }
 
-    fn deploy_self<let M: u32>(_self: Self, name: str<M>) -> Deployer<0, M> {
+    unconstrained fn deploy_self<let M: u32>(_self: Self, name: str<M>) -> Deployer<0, M> {
         Deployer { path: "", name, public_keys_hash: 0 }
     }
 
-    fn call_private<C, let M: u32, T, Env, let N: u32>(
+    unconstrained fn call_private<C, let M: u32, T, Env, let N: u32>(
         _self: Self,
         call_interface: C
     ) -> T where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env>, T: Deserialize<N> {
@@ -116,7 +115,7 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).unpack_into()
     }
 
-    fn call_private_void<C, let M: u32, Env>(
+    unconstrained fn call_private_void<C, let M: u32, Env>(
         _self: Self,
         call_interface: C
     ) where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
@@ -138,7 +137,7 @@ impl TestEnvironment {
         PackedReturns::new(public_inputs.returns_hash).assert_empty();
     }
 
-    fn call_public<C, let M: u32, T, Env>(
+    unconstrained fn call_public<C, let M: u32, T, Env>(
         _self: Self,
         call_interface: C
     ) -> T where C: CallInterface<M, PublicContextInputs, T, Env> {
@@ -169,7 +168,7 @@ impl TestEnvironment {
         result
     }
 
-    fn assert_public_call_fails<C, let M: u32, T, Env>(
+    unconstrained fn assert_public_call_fails<C, let M: u32, T, Env>(
         _self: Self,
         call_interface: C
     ) where C: CallInterface<M, PublicContextInputs, T, Env> {
@@ -180,7 +179,7 @@ impl TestEnvironment {
         );
     }
 
-    fn assert_private_call_fails<C, let M: u32, T, Env>(
+    unconstrained fn assert_private_call_fails<C, let M: u32, T, Env>(
         _self: Self,
         call_interface: C
     ) where C: CallInterface<M, PrivateContextInputs, T, Env> {
@@ -196,7 +195,7 @@ impl TestEnvironment {
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
     /// not having an encrypted log emitted. TXE alternative to `PXE.addNote(...)`.
-    pub fn add_note<Note, let N: u32>(
+    unconstrained pub fn add_note<Note, let N: u32>(
         _self: Self,
         note: &mut Note,
         storage_slot: Field,
