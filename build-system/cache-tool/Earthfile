@@ -23,4 +23,7 @@ test:
   WORKDIR build-system/cache-tool
   RUN git config --global user.email "tech@aztecprotocol.com" && git config --global user.name "Aztec CI"
   RUN git add . && git commit -m "."
+  # configure AWS access
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY mkdir -p ~/.aws && \
+      bash -c 'echo -e "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY" > ~/.aws/credentials'
   RUN npm install && npm test

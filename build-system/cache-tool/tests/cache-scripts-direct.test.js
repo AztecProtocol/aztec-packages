@@ -73,7 +73,7 @@ describe("Cache Upload Script Tests", () => {
     const args = [...binaryPaths, cacheName];
     process.env.S3_WRITE = "true";
     const uploadProcess = spawn("./cache-upload-direct.sh", args, {
-      env: { ...process.env, HOST_IP, AZTEC_BUILD_TOOL_PORT },
+      env: { AZTEC_BUILD_TOOL_PORT },
     });
 
     uploadProcess.stdout.on("data", (data) => {
@@ -145,7 +145,7 @@ describe("Cache Upload Script Tests", () => {
     delete process.env.S3_WRITE;
 
     const uploadProcess = spawn("./cache-upload-direct.sh", args, {
-      env: { ...process.env, HOST_IP, AZTEC_BUILD_TOOL_PORT },
+      env: { AZTEC_BUILD_TOOL_PORT },
     });
 
     uploadProcess.stdout.on("data", (data) => {
@@ -200,7 +200,6 @@ describe("Cache Upload Script Tests", () => {
 
 describe("Cache Download Script Tests with S3", () => {
   let server;
-  const HOST_IP = "localhost";
   const AZTEC_BUILD_TOOL_PORT = Math.floor(Math.random() * 1000 + 10000);
   const tarFileName = "test-cache.tar.gz";
   const serverArtifactsDir = path.join(__dirname, "../hosted-build-artifacts");
@@ -298,7 +297,7 @@ describe("Cache Download Script Tests with S3", () => {
     }
 
     const downloadProcess = spawn("./cache-download-direct.sh", args, {
-      env: { ...process.env, HOST_IP, AZTEC_BUILD_TOOL_PORT },
+      env: { AZTEC_BUILD_TOOL_PORT },
     });
 
     downloadProcess.stdout.on("data", (data) => {
@@ -387,8 +386,7 @@ describe("Cache Download Script Tests with S3", () => {
         Body: fs.createReadStream(localTarFilePath),
       });
     } catch (err) {
-      done(new Error("Failed to upload test file to S3"));
-      return;
+      throw new Error("Failed to upload test file to S3");
     }
 
     // Ensure the tar.gz file is not in the server's artifacts directory
