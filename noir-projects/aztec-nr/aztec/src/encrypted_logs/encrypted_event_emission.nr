@@ -1,8 +1,7 @@
 use crate::{
     context::PrivateContext, event::event_interface::EventInterface,
     encrypted_logs::payload::compute_encrypted_log,
-    keys::{getters::get_public_keys, public_keys::{OvpkM, IvpkM}},
-    oracle::unsafe_rand::unsafe_rand
+    keys::{getters::get_public_keys, public_keys::{OvpkM, IvpkM}}, oracle::unsafe_rand::unsafe_rand
 };
 use dep::protocol_types::{address::AztecAddress, hash::sha256_to_field};
 
