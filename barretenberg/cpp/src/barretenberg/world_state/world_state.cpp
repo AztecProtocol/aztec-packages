@@ -90,12 +90,13 @@ Fork::SharedPtr WorldState::retrieve_fork(uint64_t forkId) const
     }
     return it->second;
 }
-void WorldState::add_fork(index_t blockNumber)
+uint64_t WorldState::create_fork(index_t blockNumber)
 {
     std::unique_lock lock(mtx);
     Fork::SharedPtr fork = create_new_fork(blockNumber);
     fork->_forkId = _forkId++;
     _forks[fork->_forkId] = fork;
+    return fork->_forkId;
 }
 
 Fork::SharedPtr WorldState::create_new_fork(index_t blockNumber)
@@ -196,9 +197,9 @@ StateReference WorldState::get_initial_state_reference() const
     for (const auto& [id, tree] : fork->_trees) {
         auto callback = [&signal, &state_reference, &state_ref_mutex, id](const TypedResponse<TreeMetaResponse>& meta) {
             std::lock_guard<std::mutex> lock(state_ref_mutex);
-                    state_reference.insert({ id, { meta.inner.meta.initialRoot, meta.inner.meta.initialSize } });
-                    signal.signal_decrement();
-                };
+            state_reference.insert({ id, { meta.inner.meta.initialRoot, meta.inner.meta.initialSize } });
+            signal.signal_decrement();
+        };
         std::visit([&callback](auto&& wrapper) { wrapper.tree->get_meta_data(false, callback); }, tree);
     }
 

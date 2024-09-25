@@ -94,6 +94,14 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     _dispatcher.registerTarget(
         WorldStateMessageType::SYNC_BLOCK,
         [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return sync_block(obj, buffer); });
+
+    _dispatcher.registerTarget(
+        WorldStateMessageType::CREATE_FORK,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return create_fork(obj, buffer); });
+
+    _dispatcher.registerTarget(
+        WorldStateMessageType::DELETE_FORK,
+        [this](msgpack::object& obj, msgpack::sbuffer& buffer) { return delete_fork(obj, buffer); });
 }
 
 Napi::Value WorldStateAddon::call(const Napi::CallbackInfo& info)
@@ -460,6 +468,34 @@ bool WorldStateAddon::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<SyncBlockResponse> resp_msg(WorldStateMessageType::SYNC_BLOCK, header, { is_block_ours });
+    msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateAddon::create_fork(msgpack::object& obj, msgpack::sbuffer& buf)
+{
+    TypedMessage<CreateForkRequest> request;
+    obj.convert(request);
+
+    uint64_t forkId = _ws->create_fork(request.value.blockNumber);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<CreateForkResponse> resp_msg(WorldStateMessageType::CREATE_FORK, header, { forkId });
+    msgpack::pack(buf, resp_msg);
+
+    return true;
+}
+
+bool WorldStateAddon::delete_fork(msgpack::object& obj, msgpack::sbuffer& buf)
+{
+    TypedMessage<DeleteForkRequest> request;
+    obj.convert(request);
+
+    _ws->delete_fork(request.value.forkId);
+
+    MsgHeader header(request.header.messageId);
+    messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::DELETE_FORK, header, {});
     msgpack::pack(buf, resp_msg);
 
     return true;

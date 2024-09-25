@@ -193,6 +193,9 @@ class WorldState {
                     const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
                     const std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>>& public_writes);
 
+    uint64_t create_fork(index_t blockNumber);
+    void delete_fork(uint64_t forkId);
+
   private:
     bb::ThreadPool _workers;
     WorldStateStores::Ptr _persistentStores;
@@ -204,8 +207,6 @@ class WorldState {
     void create_canonical_fork(const std::string& dataDir, uint64_t dbSize, uint64_t maxReaders);
 
     Fork::SharedPtr retrieve_fork(uint64_t forkId) const;
-    void add_fork(index_t blockNumber);
-    void delete_fork(uint64_t forkId);
     Fork::SharedPtr create_new_fork(index_t blockNumber);
 
     static bool include_uncommitted(WorldStateRevision rev);
