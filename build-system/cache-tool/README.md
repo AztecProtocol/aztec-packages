@@ -17,3 +17,6 @@ If we want to upload to the local or distributed cache (again depending if we st
 - AZTEC_CACHE_REBUILD_PATTERNS=barretenberg/cpp/.rebuild_patterns ./cache-download.sh barretenberg
 
 If we want to write to our cache uing the local server we can do:
+
+Testing:
+- You need S3 auth setup. Then you can do `npm install && npm start`. The server does not need to be running (it wont interfere if it is)
