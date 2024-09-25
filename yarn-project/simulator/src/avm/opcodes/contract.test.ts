@@ -4,11 +4,11 @@ import { SerializableContractInstance } from '@aztec/types/contracts';
 
 import { mock } from 'jest-mock-extended';
 
+import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { type AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
-import { initContext, initHostStorage, initPersistableStateManager } from '../fixtures/index.js';
-import { type HostStorage } from '../journal/host_storage.js';
+import { initContext, initPersistableStateManager } from '../fixtures/index.js';
 import { type AvmPersistableStateManager } from '../journal/journal.js';
 import { mockGetContractInstance } from '../test_utils.js';
 import { GetContractInstance } from './contract.js';
@@ -16,15 +16,15 @@ import { GetContractInstance } from './contract.js';
 describe('Contract opcodes', () => {
   const address = AztecAddress.random();
 
-  let hostStorage: HostStorage;
+  let worldStateDB: WorldStateDB;
   let trace: PublicSideEffectTraceInterface;
   let persistableState: AvmPersistableStateManager;
   let context: AvmContext;
 
   beforeEach(() => {
-    hostStorage = initHostStorage();
+    worldStateDB = mock<WorldStateDB>();
     trace = mock<PublicSideEffectTraceInterface>();
-    persistableState = initPersistableStateManager({ hostStorage, trace });
+    persistableState = initPersistableStateManager({ worldStateDB, trace });
     context = initContext({ persistableState });
   });
 
@@ -48,7 +48,7 @@ describe('Contract opcodes', () => {
 
     it('should copy contract instance to memory if found', async () => {
       const contractInstance = randomContractInstanceWithAddress(/*(base instance) opts=*/ {}, /*address=*/ address);
-      mockGetContractInstance(hostStorage, contractInstance);
+      mockGetContractInstance(worldStateDB, contractInstance);
 
       context.machineState.memory.set(0, new Field(address.toField()));
       await new GetContractInstance(/*indirect=*/ 0, /*addressOffset=*/ 0, /*dstOffset=*/ 1).execute(context);

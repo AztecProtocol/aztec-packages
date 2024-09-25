@@ -2,6 +2,7 @@ import {
   BlockAttestation,
   BlockProposal,
   type BlockSimulator,
+  ConsensusPayload,
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
@@ -10,11 +11,12 @@ import {
   PROVING_STATUS,
   type ProvingSuccess,
   type ProvingTicket,
-  Signature,
   type Tx,
   TxHash,
   type UnencryptedL2Log,
   UnencryptedTxL2Logs,
+  WorldStateRunningState,
+  type WorldStateSynchronizer,
   makeProcessedTx,
   mockTxForRollup,
 } from '@aztec/circuit-types';
@@ -29,13 +31,13 @@ import {
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { type Writeable } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { type ContractDataSource } from '@aztec/types/contracts';
 import { type ValidatorClient } from '@aztec/validator-client';
-import { WorldStateRunningState, type WorldStateSynchronizer } from '@aztec/world-state';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -75,14 +77,14 @@ describe('sequencer', () => {
   const committee = [EthAddress.random()];
   const getSignatures = () => [mockedSig];
   const getAttestations = () => {
-    const attestation = new BlockAttestation(block.header, archive, [], mockedSig);
+    const attestation = new BlockAttestation(new ConsensusPayload(block.header, archive, []), mockedSig);
     (attestation as any).sender = committee[0];
 
     return [attestation];
   };
 
   const createBlockProposal = () => {
-    return new BlockProposal(block.header, archive, [TxHash.random()], mockedSig);
+    return new BlockProposal(new ConsensusPayload(block.header, archive, [TxHash.random()]), mockedSig);
   };
 
   let block: L2Block;
@@ -207,7 +209,7 @@ describe('sequencer', () => {
     // Ok, we have an issue that we never actually call the process L2 block
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash]);
-    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block when it is their turn', async () => {
@@ -256,7 +258,7 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash]);
-    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
@@ -300,7 +302,7 @@ describe('sequencer', () => {
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
-    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs rejecting incorrect chain ids', async () => {
@@ -339,7 +341,7 @@ describe('sequencer', () => {
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
-    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs dropping the ones that go over max size', async () => {
@@ -379,7 +381,7 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes);
-    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
@@ -430,7 +432,7 @@ describe('sequencer', () => {
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), txHashes);
-    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block that contains zero real transactions once flushed', async () => {
@@ -481,7 +483,7 @@ describe('sequencer', () => {
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), []);
-    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
@@ -535,7 +537,7 @@ describe('sequencer', () => {
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
 
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), postFlushTxHashes);
-    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('aborts building a block if the chain moves underneath it', async () => {

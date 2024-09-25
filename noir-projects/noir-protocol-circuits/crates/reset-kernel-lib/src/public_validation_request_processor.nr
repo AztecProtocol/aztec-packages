@@ -25,7 +25,7 @@ use dep::types::{
     utils::arrays::{array_to_bounded_vec, assert_combined_array, assert_sorted_array, combine_arrays}
 };
 
-struct PublicValidationRequestProcessor<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> {
+pub struct PublicValidationRequestProcessor<let NUN_PUBLIC_DATA_WRITES: u32, let NUM_PUBLIC_DATA_LEAVES: u32> {
     validation_requests: PublicValidationRequests,
     note_hash_read_request_hints: [TreeLeafReadRequestHint<NOTE_HASH_TREE_HEIGHT>; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     note_hash_tree_root: Field,

@@ -29,5 +29,9 @@ mod recursion;
 mod data;
 mod storage;
 mod validate;
+mod meta;
 
-pub use abis::kernel_circuit_public_inputs::{KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs};
+pub use abis::kernel_circuit_public_inputs::{
+    KernelCircuitPublicInputs, PrivateKernelCircuitPublicInputs, PublicKernelCircuitPublicInputs,
+    VMCircuitPublicInputs
+};

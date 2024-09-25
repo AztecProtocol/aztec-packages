@@ -4,6 +4,7 @@ import {
   ExtendedUnencryptedL2Log,
   type FromLogType,
   type GetUnencryptedLogsResponse,
+  type L2Block,
   type L2BlockL2Logs,
   type LogFilter,
   LogId,
@@ -37,29 +38,24 @@ export class LogStore {
 
   /**
    * Append new logs to the store's list.
-   * @param encryptedLogs - The logs to be added to the store.
-   * @param unencryptedLogs - The type of the logs to be added to the store.
-   * @param blockNumber - The block for which to add the logs.
+   * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(
-    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs | undefined,
-    encryptedLogs: EncryptedL2BlockL2Logs | undefined,
-    unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
-    blockNumber: number,
-  ): Promise<boolean> {
+  addLogs(blocks: L2Block[]): Promise<boolean> {
     return this.db.transaction(() => {
-      if (noteEncryptedLogs) {
-        void this.#noteEncryptedLogs.set(blockNumber, noteEncryptedLogs.toBuffer());
-      }
+      blocks.forEach(block => {
+        if (block.body.noteEncryptedLogs) {
+          void this.#noteEncryptedLogs.set(block.number, block.body.noteEncryptedLogs.toBuffer());
+        }
 
-      if (encryptedLogs) {
-        void this.#encryptedLogs.set(blockNumber, encryptedLogs.toBuffer());
-      }
+        if (block.body.encryptedLogs) {
+          void this.#encryptedLogs.set(block.number, block.body.encryptedLogs.toBuffer());
+        }
 
-      if (unencryptedLogs) {
-        void this.#unencryptedLogs.set(blockNumber, unencryptedLogs.toBuffer());
-      }
+        if (block.body.unencryptedLogs) {
+          void this.#unencryptedLogs.set(block.number, block.body.unencryptedLogs.toBuffer());
+        }
+      });
 
       return true;
     });

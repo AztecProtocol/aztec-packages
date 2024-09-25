@@ -34,8 +34,7 @@ pub fn compare(lhs: Field, operation: u8, rhs: Field) -> bool {
     } else if (operation == Comparator.GTE) {
         !is_lt
     } else {
-        assert(false, "Invalid operation");
-        false // Noir would complain without boolean value here
+        panic(f"Invalid operation")
     }
 }
 
@@ -44,7 +43,7 @@ mod test {
     use super::Comparator;
 
     #[test]
-    fn test_compare() {
+    unconstrained fn test_compare() {
         let lhs = 10;
         let rhs = 10;
         assert(compare(lhs, Comparator.EQ, rhs), "Expected lhs to be equal to rhs");

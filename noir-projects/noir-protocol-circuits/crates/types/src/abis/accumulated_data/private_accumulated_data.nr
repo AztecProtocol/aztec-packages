@@ -13,7 +13,7 @@ use crate::constants::{
     MAX_UNENCRYPTED_LOGS_PER_TX, MAX_NOTE_ENCRYPTED_LOGS_PER_TX, PRIVATE_ACCUMULATED_DATA_LENGTH
 };
 
-struct PrivateAccumulatedData {
+pub struct PrivateAccumulatedData {
     note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
     nullifiers: [ScopedNullifier; MAX_NULLIFIERS_PER_TX],
     l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],

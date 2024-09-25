@@ -6,8 +6,8 @@ import {DataStructures} from "../libraries/DataStructures.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {SignatureLib} from "./SignatureLib.sol";
 import {SampleLib} from "./SampleLib.sol";
+import {SignatureLib} from "../libraries/SignatureLib.sol";
 import {Constants} from "../libraries/ConstantsGen.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 
@@ -128,28 +128,6 @@ contract Leonidas is Ownable, ILeonidas {
     return epochs[_epoch].committee;
   }
 
-  function getCommitteeAt(uint256 _ts) internal view returns (address[] memory) {
-    uint256 epochNumber = getEpochAt(_ts);
-    Epoch storage epoch = epochs[epochNumber];
-
-    if (epoch.sampleSeed != 0) {
-      uint256 committeeSize = epoch.committee.length;
-      if (committeeSize == 0) {
-        return new address[](0);
-      }
-      return epoch.committee;
-    }
-
-    // Allow anyone if there is no validator set
-    if (validatorSet.length() == 0) {
-      return new address[](0);
-    }
-
-    // Emulate a sampling of the validators
-    uint256 sampleSeed = _getSampleSeed(epochNumber);
-    return _sampleValidators(sampleSeed);
-  }
-
   /**
    * @notice  Get the validator set for the current epoch
    * @return The validator set for the current epoch
@@ -167,6 +145,28 @@ contract Leonidas is Ownable, ILeonidas {
    */
   function getValidators() external view override(ILeonidas) returns (address[] memory) {
     return validatorSet.values();
+  }
+
+  /**
+   * @notice  Performs a setup of an epoch if needed. The setup will
+   *          - Sample the validator set for the epoch
+   *          - Set the seed for the epoch
+   *          - Update the last seed
+   *
+   * @dev     Since this is a reference optimising for simplicity, we store the actual validator set in the epoch structure.
+   *          This is very heavy on gas, so start crying because the gas here will melt the poles
+   *          https://i.giphy.com/U1aN4HTfJ2SmgB2BBK.webp
+   */
+  function setupEpoch() public override(ILeonidas) {
+    uint256 epochNumber = getCurrentEpoch();
+    Epoch storage epoch = epochs[epochNumber];
+
+    if (epoch.sampleSeed == 0) {
+      epoch.sampleSeed = _getSampleSeed(epochNumber);
+      epoch.nextSeed = lastSeed = _computeNextSeed(epochNumber);
+
+      epoch.committee = _sampleValidators(epoch.sampleSeed);
+    }
   }
 
   /**
@@ -196,28 +196,6 @@ contract Leonidas is Ownable, ILeonidas {
    */
   function isValidator(address _validator) public view override(ILeonidas) returns (bool) {
     return validatorSet.contains(_validator);
-  }
-
-  /**
-   * @notice  Performs a setup of an epoch if needed. The setup will
-   *          - Sample the validator set for the epoch
-   *          - Set the seed for the epoch
-   *          - Update the last seed
-   *
-   * @dev     Since this is a reference optimising for simplicity, we store the actual validator set in the epoch structure.
-   *          This is very heavy on gas, so start crying because the gas here will melt the poles
-   *          https://i.giphy.com/U1aN4HTfJ2SmgB2BBK.webp
-   */
-  function setupEpoch() public override(ILeonidas) {
-    uint256 epochNumber = getCurrentEpoch();
-    Epoch storage epoch = epochs[epochNumber];
-
-    if (epoch.sampleSeed == 0) {
-      epoch.sampleSeed = _getSampleSeed(epochNumber);
-      epoch.nextSeed = lastSeed = _computeNextSeed(epochNumber);
-
-      epoch.committee = _sampleValidators(epoch.sampleSeed);
-    }
   }
 
   /**
@@ -289,9 +267,6 @@ contract Leonidas is Ownable, ILeonidas {
   function getProposerAt(uint256 _ts) public view override(ILeonidas) returns (address) {
     uint256 epochNumber = getEpochAt(_ts);
     uint256 slot = getSlotAt(_ts);
-    if (epochNumber == 0) {
-      return address(0);
-    }
 
     Epoch storage epoch = epochs[epochNumber];
 
@@ -318,11 +293,55 @@ contract Leonidas is Ownable, ILeonidas {
   }
 
   /**
+   * @notice  Computes the epoch at a specific time
+   *
+   * @param _ts - The timestamp to compute the epoch for
+   *
+   * @return The computed epoch
+   */
+  function getEpochAt(uint256 _ts) public view override(ILeonidas) returns (uint256) {
+    return _ts < GENESIS_TIME ? 0 : (_ts - GENESIS_TIME) / (EPOCH_DURATION * SLOT_DURATION);
+  }
+
+  /**
+   * @notice  Computes the slot at a specific time
+   *
+   * @param _ts - The timestamp to compute the slot for
+   *
+   * @return The computed slot
+   */
+  function getSlotAt(uint256 _ts) public view override(ILeonidas) returns (uint256) {
+    return _ts < GENESIS_TIME ? 0 : (_ts - GENESIS_TIME) / SLOT_DURATION;
+  }
+
+  /**
    * @notice  Adds a validator to the set WITHOUT setting up the epoch
    * @param _validator - The validator to add
    */
   function _addValidator(address _validator) internal {
     validatorSet.add(_validator);
+  }
+
+  function getCommitteeAt(uint256 _ts) internal view returns (address[] memory) {
+    uint256 epochNumber = getEpochAt(_ts);
+    Epoch storage epoch = epochs[epochNumber];
+
+    if (epoch.sampleSeed != 0) {
+      uint256 committeeSize = epoch.committee.length;
+      if (committeeSize == 0) {
+        return new address[](0);
+      }
+      return epoch.committee;
+    }
+
+    // Allow anyone if there is no validator set
+    if (validatorSet.length() == 0) {
+      return new address[](0);
+    }
+
+    // Emulate a sampling of the validators
+    uint256 sampleSeed = _getSampleSeed(epochNumber);
+    return _sampleValidators(sampleSeed);
   }
 
   /**
@@ -378,8 +397,7 @@ contract Leonidas is Ownable, ILeonidas {
     // Validate the attestations
     uint256 validAttestations = 0;
 
-    bytes32 ethSignedDigest = _digest.toEthSignedMessageHash();
-
+    bytes32 digest = _digest.toEthSignedMessageHash();
     for (uint256 i = 0; i < _signatures.length; i++) {
       SignatureLib.Signature memory signature = _signatures[i];
       if (signature.isEmpty) {
@@ -387,13 +405,27 @@ contract Leonidas is Ownable, ILeonidas {
       }
 
       // The verification will throw if invalid
-      signature.verify(committee[i], ethSignedDigest);
+      signature.verify(committee[i], digest);
       validAttestations++;
     }
 
     if (validAttestations < needed) {
       revert Errors.Leonidas__InsufficientAttestations(needed, validAttestations);
     }
+  }
+
+  /**
+   * @notice  Computes the nextSeed for an epoch
+   *
+   * @dev     We include the `_epoch` instead of using the randao directly to avoid issues with foundry testing
+   *          where randao == 0.
+   *
+   * @param _epoch - The epoch to compute the seed for
+   *
+   * @return The computed seed
+   */
+  function _computeNextSeed(uint256 _epoch) private view returns (uint256) {
+    return uint256(keccak256(abi.encode(_epoch, block.prevrandao)));
   }
 
   /**
@@ -454,42 +486,6 @@ contract Leonidas is Ownable, ILeonidas {
     }
 
     return lastSeed;
-  }
-
-  /**
-   * @notice  Computes the epoch at a specific time
-   *
-   * @param _ts - The timestamp to compute the epoch for
-   *
-   * @return The computed epoch
-   */
-  function getEpochAt(uint256 _ts) public view returns (uint256) {
-    return (_ts - GENESIS_TIME) / (EPOCH_DURATION * SLOT_DURATION);
-  }
-
-  /**
-   * @notice  Computes the slot at a specific time
-   *
-   * @param _ts - The timestamp to compute the slot for
-   *
-   * @return The computed slot
-   */
-  function getSlotAt(uint256 _ts) public view returns (uint256) {
-    return (_ts - GENESIS_TIME) / SLOT_DURATION;
-  }
-
-  /**
-   * @notice  Computes the nextSeed for an epoch
-   *
-   * @dev     We include the `_epoch` instead of using the randao directly to avoid issues with foundry testing
-   *          where randao == 0.
-   *
-   * @param _epoch - The epoch to compute the seed for
-   *
-   * @return The computed seed
-   */
-  function _computeNextSeed(uint256 _epoch) private view returns (uint256) {
-    return uint256(keccak256(abi.encode(_epoch, block.prevrandao)));
   }
 
   /**

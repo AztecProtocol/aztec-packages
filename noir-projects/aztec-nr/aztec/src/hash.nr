@@ -1,10 +1,8 @@
 use dep::protocol_types::{
     address::{AztecAddress, EthAddress},
-    constants::{
-    GENERATOR_INDEX__SECRET_HASH, GENERATOR_INDEX__MESSAGE_NULLIFIER, ARGS_HASH_CHUNK_COUNT,
-    GENERATOR_INDEX__FUNCTION_ARGS, ARGS_HASH_CHUNK_LENGTH, MAX_ARGS_LENGTH
-},
-    point::Point, traits::Hash, hash::{sha256_to_field, poseidon2_hash_with_separator}
+    constants::{GENERATOR_INDEX__SECRET_HASH, GENERATOR_INDEX__MESSAGE_NULLIFIER, GENERATOR_INDEX__FUNCTION_ARGS},
+    point::Point, traits::Hash,
+    hash::{sha256_to_field, poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice}
 };
 use crate::oracle::logs_traits::ToBytesForUnencryptedLog;
 
@@ -79,7 +77,7 @@ pub fn compute_message_nullifier(message_hash: Field, secret: Field, leaf_index:
     )
 }
 
-struct ArgsHasher {
+pub struct ArgsHasher {
     fields: [Field],
 }
 
@@ -106,48 +104,34 @@ impl ArgsHasher {
 }
 
 pub fn hash_args_array<let N: u32>(args: [Field; N]) -> Field {
-    hash_args(args.as_slice())
+    if args.len() == 0 {
+        0
+    } else {
+        poseidon2_hash_with_separator(args, GENERATOR_INDEX__FUNCTION_ARGS)
+    }
 }
 
 pub fn hash_args(args: [Field]) -> Field {
     if args.len() == 0 {
         0
     } else {
-        assert(args.len() <= MAX_ARGS_LENGTH, "Args length exceeds maximum");
-        let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
-        let mut current_chunk_values = [0; ARGS_HASH_CHUNK_LENGTH];
-
-        let mut current_chunk_index = 0;
-        let mut index_inside_current_chunk = 0;
-        for i in 0..args.len() {
-            current_chunk_values[index_inside_current_chunk] = args[i];
-            index_inside_current_chunk+=1;
-            if index_inside_current_chunk == ARGS_HASH_CHUNK_LENGTH {
-                chunks_hashes[current_chunk_index] = poseidon2_hash_with_separator(current_chunk_values, GENERATOR_INDEX__FUNCTION_ARGS);
-                current_chunk_values = [0; ARGS_HASH_CHUNK_LENGTH];
-                current_chunk_index+=1;
-                index_inside_current_chunk = 0;
-            }
-        }
-        if index_inside_current_chunk > 0 {
-            chunks_hashes[current_chunk_index] = poseidon2_hash_with_separator(current_chunk_values, GENERATOR_INDEX__FUNCTION_ARGS);
-        }
-        poseidon2_hash_with_separator(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)
+        poseidon2_hash_with_separator_slice(args, GENERATOR_INDEX__FUNCTION_ARGS)
     }
 }
 
 #[test]
-fn compute_var_args_hash() {
+unconstrained fn compute_var_args_hash() {
     let mut input = ArgsHasher::new();
-    for i in 0..MAX_ARGS_LENGTH {
+    for i in 0..100 {
         input.add(i as Field);
     }
     let hash = input.hash();
-    assert(hash == 0x1cce4dbf69f14c44865919991ee1057922e34d7310ba237d71759aa422621ca9);
+    dep::std::println(hash);
+    assert(hash == 0x19b0d74feb06ebde19edd85a28986c97063e84b3b351a8b666c7cac963ce655f);
 }
 
 #[test]
-fn compute_unenc_log_hash_array() {
+unconstrained fn compute_unenc_log_hash_array() {
     let contract_address = AztecAddress::from_field(0x233a3e0df23b2b15b324194cb4a151f26c0b7333250781d34cc269d85dc334c6);
     let log = [
         0x20660de09f35f876e3e69d227b2a35166ad05f09d82d06366ec9b6f65a51fec2,
@@ -161,7 +145,7 @@ fn compute_unenc_log_hash_array() {
 }
 
 #[test]
-fn compute_unenc_log_hash_addr() {
+unconstrained fn compute_unenc_log_hash_addr() {
     let contract_address = AztecAddress::from_field(0x233a3e0df23b2b15b324194cb4a151f26c0b7333250781d34cc269d85dc334c6);
     let log = AztecAddress::from_field(0x26aa302d4715fd8a687453cb26d616b0768027bd54bcae56b09d908ecd9f8303);
     let hash = compute_unencrypted_log_hash(contract_address, log);
@@ -169,7 +153,7 @@ fn compute_unenc_log_hash_addr() {
 }
 
 #[test]
-fn compute_unenc_log_hash_str() {
+unconstrained fn compute_unenc_log_hash_str() {
     let contract_address = AztecAddress::from_field(0x1b401e1146c5c507962287065c81f0ef7590adae3802c533d7549d6bf0a41bd8);
     let log = "dummy";
     let hash = compute_unencrypted_log_hash(contract_address, log);
@@ -177,7 +161,7 @@ fn compute_unenc_log_hash_str() {
 }
 
 #[test]
-fn compute_unenc_log_hash_longer_str() {
+unconstrained fn compute_unenc_log_hash_longer_str() {
     let contract_address = AztecAddress::from_field(0x1b401e1146c5c507962287065c81f0ef7590adae3802c533d7549d6bf0a41bd8);
     let log = "Hello this is a string";
     let hash = compute_unencrypted_log_hash(contract_address, log);

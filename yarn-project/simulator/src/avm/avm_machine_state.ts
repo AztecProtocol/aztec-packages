@@ -1,6 +1,6 @@
 import { type Fr } from '@aztec/circuits.js';
 
-import { type Gas, GasDimensions } from './avm_gas.js';
+import { GAS_DIMENSIONS, type Gas } from './avm_gas.js';
 import { TaggedMemory } from './avm_memory_types.js';
 import { OutOfGasError } from './errors.js';
 
@@ -67,7 +67,7 @@ export class AvmMachineState {
    */
   public consumeGas(gasCost: Partial<Gas>) {
     // Assert there is enough gas on every dimension.
-    const outOfGasDimensions = GasDimensions.filter(
+    const outOfGasDimensions = GAS_DIMENSIONS.filter(
       dimension => this[`${dimension}Left`] - (gasCost[dimension] ?? 0) < 0,
     );
     // If not, trigger an exceptional halt.
@@ -77,14 +77,14 @@ export class AvmMachineState {
       throw new OutOfGasError(outOfGasDimensions);
     }
     // Otherwise, charge the corresponding gas
-    for (const dimension of GasDimensions) {
+    for (const dimension of GAS_DIMENSIONS) {
       this[`${dimension}Left`] -= gasCost[dimension] ?? 0;
     }
   }
 
   /** Increases the gas left by the amounts specified. */
   public refundGas(gasRefund: Partial<Gas>) {
-    for (const dimension of GasDimensions) {
+    for (const dimension of GAS_DIMENSIONS) {
       this[`${dimension}Left`] += gasRefund[dimension] ?? 0;
     }
   }
@@ -133,7 +133,7 @@ export class AvmMachineState {
    * Flag an exceptional halt. Clears gas left and sets the reverted flag. No output data.
    */
   private exceptionalHalt() {
-    GasDimensions.forEach(dimension => (this[`${dimension}Left`] = 0));
+    GAS_DIMENSIONS.forEach(dimension => (this[`${dimension}Left`] = 0));
     this.reverted = true;
     this.halted = true;
   }

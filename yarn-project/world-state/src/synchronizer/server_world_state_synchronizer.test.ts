@@ -1,4 +1,11 @@
-import { type L1ToL2MessageSource, L2Block, type L2BlockSource, MerkleTreeId, SiblingPath } from '@aztec/circuit-types';
+import {
+  type L1ToL2MessageSource,
+  L2Block,
+  type L2BlockSource,
+  MerkleTreeId,
+  SiblingPath,
+  WorldStateRunningState,
+} from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/circuits.js/constants';
 import { randomInt } from '@aztec/foundation/crypto';
@@ -13,7 +20,6 @@ import { mock } from 'jest-mock-extended';
 
 import { type MerkleTreeAdminDb, type MerkleTrees, type WorldStateConfig } from '../index.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
-import { WorldStateRunningState } from './world_state_synchronizer.js';
 
 const LATEST_BLOCK_NUMBER = 5;
 const getLatestBlockNumber = () => Promise.resolve(LATEST_BLOCK_NUMBER);

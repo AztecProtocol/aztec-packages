@@ -83,9 +83,8 @@ library Constants {
   uint256 internal constant PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX = 11;
   uint256 internal constant EMPTY_NESTED_INDEX = 12;
   uint256 internal constant PRIVATE_KERNEL_EMPTY_INDEX = 13;
-  uint256 internal constant PUBLIC_KERNEL_SETUP_INDEX = 14;
-  uint256 internal constant PUBLIC_KERNEL_APP_LOGIC_INDEX = 15;
-  uint256 internal constant PUBLIC_KERNEL_TEARDOWN_INDEX = 16;
+  uint256 internal constant PUBLIC_KERNEL_INNER_INDEX = 15;
+  uint256 internal constant PUBLIC_KERNEL_MERGE_INDEX = 16;
   uint256 internal constant PUBLIC_KERNEL_TAIL_INDEX = 17;
   uint256 internal constant BASE_PARITY_INDEX = 18;
   uint256 internal constant ROOT_PARITY_INDEX = 19;
@@ -94,10 +93,8 @@ library Constants {
   uint256 internal constant BLOCK_ROOT_ROLLUP_INDEX = 22;
   uint256 internal constant BLOCK_MERGE_ROLLUP_INDEX = 23;
   uint256 internal constant ROOT_ROLLUP_INDEX = 24;
+  uint256 internal constant BLOCK_ROOT_ROLLUP_FINAL_INDEX = 25;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
-  uint256 internal constant ARGS_HASH_CHUNK_LENGTH = 16;
-  uint256 internal constant ARGS_HASH_CHUNK_COUNT = 16;
-  uint256 internal constant MAX_ARGS_LENGTH = 256;
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOB_SIZE_IN_BYTES = 126976;
@@ -130,21 +127,28 @@ library Constants {
   uint256 internal constant FIXED_DA_GAS = 512;
   uint256 internal constant FIXED_L2_GAS = 512;
   uint256 internal constant FIXED_AVM_STARTUP_L2_GAS = 1024;
+  uint256 internal constant L2_GAS_DISTRIBUTED_STORAGE_PREMIUM = 1024;
+  uint256 internal constant L2_GAS_PER_READ_MERKLE_HASH = 30;
+  uint256 internal constant L2_GAS_PER_WRITE_MERKLE_HASH = 40;
+  uint256 internal constant L2_GAS_PER_PUBLIC_DATA_UPDATE = 2624;
+  uint256 internal constant L2_GAS_PER_NOTE_HASH = 2304;
+  uint256 internal constant L2_GAS_PER_NULLIFIER = 2624;
+  uint256 internal constant L2_GAS_PER_PUBLIC_DATA_READ = 1200;
+  uint256 internal constant L2_GAS_PER_NOTE_HASH_READ_REQUEST = 960;
+  uint256 internal constant L2_GAS_PER_NULLIFIER_READ_REQUEST = 1200;
+  uint256 internal constant L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST = 480;
   uint256 internal constant L2_GAS_PER_LOG_BYTE = 4;
-  uint256 internal constant L2_GAS_PER_NOTE_HASH = 32;
-  uint256 internal constant L2_GAS_PER_NULLIFIER = 64;
-  uint256 internal constant CANONICAL_KEY_REGISTRY_ADDRESS =
-    9694109890306420370616891858093188542026876097103155811681068343994212062621;
+  uint256 internal constant L2_GAS_PER_L2_TO_L1_MSG = 200;
   uint256 internal constant CANONICAL_AUTH_REGISTRY_ADDRESS =
-    16522644890256297179255458951626875692461008240031142745359776058397274208468;
+    19361441716519463065948254497947932755739298943049449145365332870925554042208;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
-    19310994760783330368337163480198602393920956587162708699802190083077641908361;
+    17119407406465801909352274670277571579675739451008438338071219340964365249977;
   uint256 internal constant REGISTERER_CONTRACT_ADDRESS =
-    2631409926445785927331173506476539962589925110142857699603561302478860342858;
+    12405643717676802437578418009978929188439257864607100766293128479227092050857;
   uint256 internal constant FEE_JUICE_ADDRESS =
-    10248142274714515101077825679585135641434041564851038865006795089686437446849;
+    12096583827711775893711303288210371301779120762215263550909768879597884314839;
   uint256 internal constant ROUTER_ADDRESS =
-    7268799613082469933251235702514160327341161584122631177360064643484764773587;
+    13369993014609648298719593339393818582619449364029983937306132176549332172208;
   uint256 internal constant AZTEC_ADDRESS_LENGTH = 1;
   uint256 internal constant GAS_FEES_LENGTH = 2;
   uint256 internal constant GAS_LENGTH = 2;
@@ -180,29 +184,33 @@ library Constants {
   uint256 internal constant SCOPED_NULLIFIER_LENGTH = 4;
   uint256 internal constant PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH = 13;
   uint256 internal constant PRIVATE_CALL_REQUEST_LENGTH = 10;
-  uint256 internal constant PUBLIC_CALL_REQUEST_LENGTH = 14;
+  uint256 internal constant PUBLIC_CALL_REQUEST_LENGTH = 8;
+  uint256 internal constant PUBLIC_INNER_CALL_REQUEST_LENGTH = 14;
   uint256 internal constant ROLLUP_VALIDATION_REQUESTS_LENGTH = 2;
   uint256 internal constant STATE_REFERENCE_LENGTH = 8;
   uint256 internal constant TX_CONTEXT_LENGTH = 9;
   uint256 internal constant TX_REQUEST_LENGTH = 13;
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 24;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 646;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 544;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 691;
-  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 649;
+  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 547;
   uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 42;
   uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
-  uint256 internal constant PUBLIC_DATA_READ_LENGTH = 2;
+  uint256 internal constant PUBLIC_DATA_READ_LENGTH = 3;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
-  uint256 internal constant PUBLIC_VALIDATION_REQUESTS_LENGTH = 770;
+  uint256 internal constant NUM_PUBLIC_VALIDATION_REQUEST_ARRAYS = 5;
+  uint256 internal constant PUBLIC_VALIDATION_REQUESTS_LENGTH = 834;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 610;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 43;
-  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1336;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2167;
-  uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 1311;
-  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3885;
+  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1144;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1969;
+  uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 1119;
+  uint256 internal constant NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS = 8;
+  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3126;
+  uint256 internal constant VM_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2471;
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 663;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 12;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 29;
@@ -222,10 +230,18 @@ library Constants {
   uint256 internal constant NESTED_RECURSIVE_PROOF_LENGTH = 439;
   uint256 internal constant TUBE_PROOF_LENGTH = 439;
   uint256 internal constant VERIFICATION_KEY_LENGTH_IN_FIELDS = 128;
+  uint256 internal constant MEM_TAG_U1 = 1;
+  uint256 internal constant MEM_TAG_U8 = 2;
+  uint256 internal constant MEM_TAG_U16 = 3;
+  uint256 internal constant MEM_TAG_U32 = 4;
+  uint256 internal constant MEM_TAG_U64 = 5;
+  uint256 internal constant MEM_TAG_U128 = 6;
+  uint256 internal constant MEM_TAG_FF = 7;
   uint256 internal constant SENDER_SELECTOR = 0;
   uint256 internal constant ADDRESS_SELECTOR = 1;
   uint256 internal constant STORAGE_ADDRESS_SELECTOR = 1;
   uint256 internal constant FUNCTION_SELECTOR_SELECTOR = 2;
+  uint256 internal constant IS_STATIC_CALL_SELECTOR = 4;
   uint256 internal constant START_GLOBAL_VARIABLES = 29;
   uint256 internal constant CHAIN_ID_SELECTOR = 29;
   uint256 internal constant VERSION_SELECTOR = 30;
@@ -249,4 +265,9 @@ library Constants {
   uint256 internal constant START_EMIT_NULLIFIER_WRITE_OFFSET = 144;
   uint256 internal constant START_EMIT_L2_TO_L1_MSG_WRITE_OFFSET = 160;
   uint256 internal constant START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET = 162;
+  uint256 internal constant PROOF_TYPE_PLONK = 0;
+  uint256 internal constant PROOF_TYPE_HONK = 1;
+  uint256 internal constant PROOF_TYPE_OINK = 2;
+  uint256 internal constant PROOF_TYPE_PG = 3;
+  uint256 internal constant PROOF_TYPE_AVM = 4;
 }

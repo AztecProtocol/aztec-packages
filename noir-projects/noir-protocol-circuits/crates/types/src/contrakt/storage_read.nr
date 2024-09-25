@@ -1,6 +1,6 @@
 use crate::{constants::CONTRACT_STORAGE_READ_LENGTH, traits::{Deserialize, Empty, Serialize}};
 
-struct StorageRead {
+pub struct StorageRead {
     storage_slot: Field,
     current_value: Field,
     counter: u32,

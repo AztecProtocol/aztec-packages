@@ -2,7 +2,7 @@ use crate::abis::{function_data::FunctionData, function_selector::FunctionSelect
 use crate::merkle_tree::membership::MembershipWitness;
 use crate::constants::FUNCTION_TREE_HEIGHT;
 
-struct ContractFunction {
+pub struct ContractFunction {
     data: FunctionData,
     vk_hash: Field,
     acir_hash: Field,
@@ -47,4 +47,3 @@ global default_public_function = ContractFunction {
         ],
     },
 };
-

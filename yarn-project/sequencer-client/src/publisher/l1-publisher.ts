@@ -1,8 +1,8 @@
-import { type L2Block, type Signature, type TxHash } from '@aztec/circuit-types';
-import { getHashedSignaturePayload } from '@aztec/circuit-types';
+import { ConsensusPayload, type L2Block, type TxHash, getHashedSignaturePayload } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
 import { ETHEREUM_SLOT_DURATION, EthAddress, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
+import { type Signature } from '@aztec/foundation/eth-signature';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
@@ -236,7 +236,9 @@ export class L1Publisher {
       blockHash: block.hash().toString(),
     };
 
-    const digest = getHashedSignaturePayload(block.archive.root, txHashes ?? []);
+    const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
+
+    const digest = getHashedSignaturePayload(consensusPayload);
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
@@ -255,7 +257,7 @@ export class L1Publisher {
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
       await this.validateBlockForSubmission(block.header, {
-        digest,
+        digest: digest.toBuffer(),
         signatures: attestations ?? [],
       });
 
@@ -405,14 +407,12 @@ export class L1Publisher {
           }),
         });
 
-        const min = (a: bigint, b: bigint) => (a > b ? b : a);
-
         // @note  We perform this guesstimate instead of the usual `gasEstimate` since
         //        viem will use the current state to simulate against, which means that
         //        we will fail estimation in the case where we are simulating for the
         //        first ethereum block within our slot (as current time is not in the
         //        slot yet).
-        const gasGuesstimate = min(computeTxsEffectsHashGas + L1Publisher.PROPOSE_GAS_GUESS, 15_000_000n);
+        const gasGuesstimate = computeTxsEffectsHashGas + L1Publisher.PROPOSE_GAS_GUESS;
 
         const attestations = encodedData.attestations
           ? encodedData.attestations.map(attest => attest.toViemSignature())

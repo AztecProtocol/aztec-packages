@@ -61,9 +61,14 @@ describe('In-Memory P2P Client', () => {
     client = new P2PClient(kvStore, blockSource, txPool, attestationPool, p2pService, 0);
   });
 
-  const advanceToProvenBlock = async (provenBlockNum: number) => {
-    blockSource.setProvenBlockNumber(provenBlockNum);
-    await retryUntil(() => Promise.resolve(client.getSyncedProvenBlockNum() >= provenBlockNum), 'synced', 10, 0.1);
+  const advanceToProvenBlock = async (getProvenBlockNumber: number) => {
+    blockSource.setProvenBlockNumber(getProvenBlockNumber);
+    await retryUntil(
+      () => Promise.resolve(client.getSyncedProvenBlockNum() >= getProvenBlockNumber),
+      'synced',
+      10,
+      0.1,
+    );
   };
 
   it('can start & stop', async () => {

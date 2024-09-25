@@ -2,7 +2,7 @@ use dep::protocol_types::{
     abis::function_selector::FunctionSelector, address::AztecAddress,
     constants::CONTRACT_INSTANCE_LENGTH, contract_instance::ContractInstance
 };
-use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
+use crate::context::inputs::PrivateContextInputs;
 use crate::test::helpers::utils::TestAccount;
 use crate::keys::public_keys::PublicKeys;
 
@@ -20,10 +20,6 @@ unconstrained pub fn advance_blocks_by(blocks: u32) {
 
 unconstrained pub fn get_private_context_inputs(historical_block_number: u32) -> PrivateContextInputs {
     oracle_get_private_context_inputs(historical_block_number)
-}
-
-unconstrained pub fn get_public_context_inputs() -> PublicContextInputs {
-    oracle_get_public_context_inputs()
 }
 
 unconstrained pub fn deploy<let N: u32, let M: u32, let P: u32>(
@@ -111,6 +107,10 @@ unconstrained pub fn set_fn_selector(selector: FunctionSelector) {
     oracle_set_function_selector(selector)
 }
 
+unconstrained pub fn set_is_static_call(is_static: bool) {
+    oracle_set_is_static_call(is_static)
+}
+
 #[oracle(reset)]
 unconstrained fn oracle_reset() {}
 
@@ -122,9 +122,6 @@ unconstrained fn oracle_advance_blocks_by(blocks: u32) {}
 
 #[oracle(getPrivateContextInputs)]
 unconstrained fn oracle_get_private_context_inputs(historical_block_number: u32) -> PrivateContextInputs {}
-
-#[oracle(getPublicContextInputs)]
-unconstrained fn oracle_get_public_context_inputs() -> PublicContextInputs {}
 
 #[oracle(deploy)]
 unconstrained fn oracle_deploy<let N: u32, let M: u32, let P: u32>(
@@ -156,6 +153,9 @@ unconstrained fn oracle_get_msg_sender() -> AztecAddress {}
 
 #[oracle(setMsgSender)]
 unconstrained fn oracle_set_msg_sender(msg_sender: AztecAddress) {}
+
+#[oracle(setIsStaticCall)]
+unconstrained fn oracle_set_is_static_call(is_static: bool) {}
 
 #[oracle(getSideEffectsCounter)]
 unconstrained fn oracle_get_side_effects_counter() -> u32 {}

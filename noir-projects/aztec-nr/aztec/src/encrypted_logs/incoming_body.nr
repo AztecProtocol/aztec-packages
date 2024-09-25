@@ -5,20 +5,17 @@ use dep::protocol_types::{scalar::Scalar};
 use std::aes128::aes128_encrypt;
 use crate::keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::IvpkM};
 
-struct EncryptedLogIncomingBody<let M: u32> {
-    plaintext: [u8; M]
+pub struct EncryptedLogIncomingBody<let N: u32> {
+    plaintext: [u8; N * 32 + 64]
 }
 
-impl<let M: u32> EncryptedLogIncomingBody<M> {
-    pub fn from_note<T, let N: u32>(note: T, storage_slot: Field) -> Self where T: NoteInterface<N, M> {
+impl<let N: u32> EncryptedLogIncomingBody<N> {
+    pub fn from_note<T>(note: T, storage_slot: Field) -> Self where T: NoteInterface<N> {
         let mut plaintext = note.to_be_bytes(storage_slot);
         EncryptedLogIncomingBody { plaintext }
     }
 
-    pub fn from_event<T, let MR: u32>(
-        event: T,
-        randomness: Field
-    ) -> Self where T: EventInterface<M, MR> {
+    pub fn from_event<T>(event: T, randomness: Field) -> Self where T: EventInterface<N> {
         let mut plaintext = event.private_to_be_bytes(randomness);
         EncryptedLogIncomingBody { plaintext }
     }
@@ -43,7 +40,7 @@ mod test {
     };
 
     use crate::{
-        note::{note_header::NoteHeader, note_interface::NoteInterface},
+        note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}},
         encrypted_logs::incoming_body::EncryptedLogIncomingBody, event::event_interface::EventInterface,
         context::PrivateContext, keys::public_keys::IvpkM
     };
@@ -55,13 +52,27 @@ mod test {
         header: NoteHeader,
     }
 
-    global ADDRESS_NOTE_LEN: Field = 3;
-    global ADDRESS_NOTE_BYTES_LEN = 32 * 3 + 64;
+    global ADDRESS_NOTE_LEN: u32 = 3;
 
-    impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
-        fn compute_note_hiding_point(_self: Self) -> Point {
-            crate::generators::Ga1
+    impl NullifiableNote for AddressNote {
+        fn compute_nullifier(
+            _self: Self,
+            _context: &mut PrivateContext,
+            _note_hash_for_nullify: Field
+        ) -> Field {
+            1
         }
+
+        unconstrained fn compute_nullifier_without_context(_self: Self) -> Field {
+            1
+        }
+    }
+
+    struct AddressNoteHidingPoint {
+        inner: Point
+    }
+
+    impl NoteInterface<ADDRESS_NOTE_LEN> for AddressNote {
 
         fn get_note_type_id() -> Field {
             1
@@ -73,18 +84,6 @@ mod test {
 
         fn set_header(&mut self, header: NoteHeader) {
             self.header = header;
-        }
-
-        fn compute_nullifier(
-            _self: Self,
-            _context: &mut PrivateContext,
-            _note_hash_for_nullify: Field
-        ) -> Field {
-            1
-        }
-
-        fn compute_nullifier_without_context(_self: Self) -> Field {
-            1
         }
 
         fn serialize_content(self) -> [Field; ADDRESS_NOTE_LEN] {
@@ -100,10 +99,10 @@ mod test {
             }
         }
 
-        fn to_be_bytes(self, storage_slot: Field) -> [u8; ADDRESS_NOTE_BYTES_LEN] {
+        fn to_be_bytes(self, storage_slot: Field) -> [u8; ADDRESS_NOTE_LEN * 32 + 64] {
             let serialized_note = self.serialize_content();
 
-            let mut buffer: [u8; ADDRESS_NOTE_BYTES_LEN] = [0; ADDRESS_NOTE_BYTES_LEN];
+            let mut buffer: [u8; ADDRESS_NOTE_LEN * 32 + 64] = [0; ADDRESS_NOTE_LEN * 32 + 64];
 
             let storage_slot_bytes: [u8; 32] = storage_slot.to_be_bytes();
             let note_type_id_bytes: [u8; 32] = AddressNote::get_note_type_id().to_be_bytes();
@@ -121,6 +120,10 @@ mod test {
             }
             buffer
         }
+
+        fn compute_note_hash(_self: Self) -> Field {
+            crate::generators::Ga1.x
+        }
     }
 
     impl AddressNote {
@@ -130,7 +133,7 @@ mod test {
     }
 
     #[test]
-    fn test_encrypted_note_log_incoming_body_matches_typescript() {
+    unconstrained fn test_encrypted_note_log_incoming_body_matches_typescript() {
         // All the values in this test were copied over from `encrypted_note_log_incoming_body.test.ts`
         let note = AddressNote::new(
             AztecAddress::from_field(0x1),
@@ -186,11 +189,9 @@ mod test {
         }
     }
 
-    global TEST_EVENT_LEN: Field = 3;
-    global TEST_EVENT_BYTES_LEN = 32 * 3 + 64;
-    global TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS = 32 * 3 + 32;
+    global TEST_EVENT_LEN: u32 = 3;
 
-    impl EventInterface<TEST_EVENT_BYTES_LEN, TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS> for TestEvent {
+    impl EventInterface<TEST_EVENT_LEN> for TestEvent {
         fn get_event_type_id() -> EventSelector {
             comptime
             {
@@ -198,8 +199,8 @@ mod test {
             }
         }
 
-        fn private_to_be_bytes(self, randomness: Field) -> [u8; TEST_EVENT_BYTES_LEN] {
-            let mut buffer: [u8; TEST_EVENT_BYTES_LEN] = [0; TEST_EVENT_BYTES_LEN];
+        fn private_to_be_bytes(self, randomness: Field) -> [u8; TEST_EVENT_LEN * 32 + 64] {
+            let mut buffer: [u8; TEST_EVENT_LEN * 32 + 64] = [0; TEST_EVENT_LEN * 32 + 64];
 
             let randomness_bytes: [u8; 32] = randomness.to_be_bytes();
             let event_type_id_bytes: [u8; 32] = TestEvent::get_event_type_id().to_field().to_be_bytes();
@@ -221,8 +222,8 @@ mod test {
             buffer
         }
 
-        fn to_be_bytes(self) -> [u8; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS] {
-            let mut buffer: [u8; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS] = [0; TEST_EVENT_BYTES_LEN_WITHOUT_RANDOMNESS];
+        fn to_be_bytes(self) -> [u8; TEST_EVENT_LEN * 32 + 32] {
+            let mut buffer: [u8; TEST_EVENT_LEN * 32 + 32] = [0; TEST_EVENT_LEN * 32 + 32];
 
             let event_type_id_bytes: [u8; 32] = TestEvent::get_event_type_id().to_field().to_be_bytes();
 
@@ -248,7 +249,7 @@ mod test {
     }
 
     #[test]
-    fn test_encrypted_log_event_incoming_body() {
+    unconstrained fn test_encrypted_log_event_incoming_body() {
         let test_event = TestEvent { value0: 1, value1: 2, value2: 3 };
 
         let eph_sk = Scalar {
@@ -273,7 +274,7 @@ mod test {
         // The following value was generated by `encrypted_event_log_incoming_body.test.ts`
         // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
         let event_body_ciphertext_from_typescript = [
-            226, 240, 253, 6, 28, 52, 19, 131, 33, 132, 178, 212, 245, 62, 14, 190, 147, 228, 160, 190, 146, 61, 95, 203, 124, 153, 68, 168, 17, 150, 92, 0, 99, 214, 85, 64, 191, 78, 157, 131, 149, 96, 236, 253, 96, 172, 157, 30, 185, 29, 14, 152, 216, 130, 219, 151, 80, 185, 43, 223, 167, 8, 89, 189, 88, 188, 101, 137, 255, 136, 84, 252, 79, 18, 52, 3, 110, 54, 54, 206, 244, 209, 246, 226, 207, 247, 143, 253, 211, 75, 160, 224, 172, 41, 45, 7, 208, 137, 90, 56, 59, 4, 234, 48, 53, 23, 130, 230, 49, 249, 142, 243, 170, 72, 183, 242, 49, 124, 46, 52, 198, 75, 55, 102, 56, 89, 254, 67, 59, 157, 249, 120, 184, 67, 154, 16, 148, 227, 93, 37, 120, 199, 93, 166, 80, 127, 173, 52, 80, 135, 87, 1, 168, 164, 51, 48, 126, 120, 47, 102, 211, 227, 234, 170, 208, 99, 111, 198, 170, 226, 156, 244, 241, 174, 206, 30
+            226, 240, 253, 6, 28, 52, 19, 131, 33, 132, 178, 212, 245, 62, 14, 190, 147, 228, 160, 190, 146, 61, 95, 203, 124, 153, 68, 168, 17, 150, 92, 0, 99, 214, 85, 64, 191, 78, 157, 131, 149, 96, 236, 253, 96, 172, 157, 30, 201, 247, 40, 80, 60, 188, 158, 251, 242, 103, 197, 79, 165, 195, 10, 160, 255, 35, 167, 152, 25, 233, 77, 145, 214, 243, 210, 119, 0, 20, 29, 95, 15, 63, 33, 190, 184, 67, 254, 96, 128, 243, 220, 228, 201, 130, 86, 163, 52, 127, 111, 10, 212, 7, 160, 16, 87, 13, 39, 11, 5, 1, 164, 65, 8, 56, 82, 245, 13, 68, 176, 90, 100, 69, 243, 78, 117, 188, 221, 34, 178, 31, 155, 89, 143, 176, 129, 118, 36, 236, 64, 179, 52, 239, 184, 51, 51, 199, 221, 49, 81, 197, 17, 199, 192, 99, 49, 168, 157, 164, 190, 33, 240, 182, 214, 173, 7, 156, 102, 95, 65, 217, 225, 123, 42, 21, 124, 144
         ];
 
         assert_eq(event_body_ciphertext_from_typescript.len(), ciphertext.len());

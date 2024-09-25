@@ -8,6 +8,7 @@ on:
       - reopened
       - synchronize
       - ready_for_review
+      - labeled
     branches-ignore: [devnet]
   workflow_dispatch:
     inputs: {}
@@ -54,6 +55,7 @@ jobs:
       barretenberg-cpp: ${{ steps.filter.outputs.barretenberg-cpp }}
       noir: ${{ steps.filter.outputs.noir }}
       noir-projects: ${{ steps.filter.outputs.noir-projects }}
+      txe: ${{ steps.filter.outputs.txe }}
       l1-contracts: ${{ steps.filter.outputs.l1-contracts }}
       non-docs: ${{ steps.filter.outputs.non-docs }}
       non-misc-ci: ${{ steps.filter.outputs.non-misc-ci }}
@@ -79,13 +81,16 @@ jobs:
               - 'l1-contracts/**'
             noir-projects:
               - 'noir-projects/**'
+            txe:
+              - 'yarn-project/txe/**'
             non-barretenberg-cpp:
               - '!(barretenberg/cpp/**)'
               # don't consider AVM stuff 'core bb'
               - barretenberg/cpp/pil/**
               - barretenberg/cpp/src/barretenberg/vm/**
               - barretenberg/cpp/src/barretenberg/**/generated/*
-              - barretenberg/cpp/src/barretenberg/client_ivc.{hpp,cpp}
+              - barretenberg/cpp/src/barretenberg/client_ivc/client_ivc.{hpp,cpp}
+              - barretenberg/cpp/src/barretenberg/bb/main.cpp
             non-docs:
               - '!(docs/**)'
             non-misc-ci:
@@ -113,7 +118,7 @@ jobs:
 
   build:
     needs: [build-images, changes]
-    if: needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true'
+    if: (needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true' && needs.changes.outputs.non-barretenberg-cpp == 'true') || github.ref_name == 'master'
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
     outputs:
       e2e_list: ${{ steps.e2e_list.outputs.list }}
@@ -133,15 +138,29 @@ jobs:
       # (Note ARM uses just 2 tests as a smoketest)
       - name: Create list of non-bench end-to-end jobs
         id: e2e_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep -v '+base' | grep -v '+bench' | grep -v "+network" | grep -v 'devnet' | sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
+          else
+            LABELS=""
+          fi
+          echo Labels: $LABELS
+          echo "list=$(./scripts/ci/get_e2e_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
       - name: Create list of bench end-to-end jobs
         id: bench_list
-        run: echo "list=$(earthly ls ./yarn-project/end-to-end | grep '+bench' |  sed 's/+//' | jq -R . | jq -cs .)" >> $GITHUB_OUTPUT
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            LABELS=$(jq -r '.pull_request.labels | map(.name) | join(",")' "$GITHUB_EVENT_PATH")
+          else
+            LABELS=""
+          fi
+          echo Labels: $LABELS
+          echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:
     needs: [build, changes]
-    if: needs.changes.outputs.non-barretenberg-cpp == 'true'
+    if: needs.changes.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e')
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -171,7 +190,7 @@ jobs:
   # all the benchmarking end-to-end integration tests for aztec (not required to merge)
   bench-e2e:
     needs: [build, changes]
-    if: needs.changes.outputs.non-barretenberg-cpp == 'true'
+    if: needs.changes.outputs.non-barretenberg-cpp == 'true' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'bench')
     runs-on: ubuntu-20.04
     strategy:
       fail-fast: false
@@ -456,7 +475,7 @@ jobs:
   noir-projects:
     needs: [build-images, changes, build]
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
-    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true'
+    if: needs.changes.outputs.barretenberg == 'true' || needs.changes.outputs.noir == 'true' || needs.changes.outputs.noir-projects == 'true' || needs.changes.outputs.txe == 'true'
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.GIT_COMMIT }}" }
@@ -606,6 +625,7 @@ jobs:
   boxes:
     needs: build
     runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    if: github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'boxes') || contains(github.event.pull_request.labels.*.name, 'e2e-all')
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ github.event.pull_request.head.sha }}" }
@@ -675,6 +695,47 @@ jobs:
           # delete the comment in case changes no longer impact circuit sizes
           delete: ${{ !steps.gates_diff.outputs.markdown }}
           message: ${{ steps.gates_diff.outputs.markdown }}
+
+  public-functions-size-report:
+    needs: [build-images, changes]
+    if: needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true'
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      # Only allow one memory-hunger prover test to use this runner
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: public-functions-size-report-x86
+      - name: "Aztec Public Functions Bytecode Size Report"
+        working-directory: ./noir-projects/
+        timeout-minutes: 40
+        run: |
+          earthly-ci \
+          --artifact +public-functions-report/public_functions_report.json
+          mv public_functions_report.json ../public_functions_report.json
+
+      - name: Compare public functions bytecode size reports
+        id: public_functions_sizes_diff
+        uses: noir-lang/noir-gates-diff@ef8aaf48fb833f3b6e3f91665bb23afb7e68c6e3
+        with:
+          report: public_functions_report.json
+          header: |
+            # Changes to public function bytecode sizes
+          brillig_report: true
+          brillig_report_bytes: true
+          summaryQuantile: 0 # Display any diff in bytecode size count
+
+      - name: Add bytecode size diff to sticky comment
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: public_functions_size
+          # delete the comment in case changes no longer impact circuit sizes
+          delete: ${{ !steps.public_functions_sizes_diff.outputs.markdown }}
+          message: ${{ steps.public_functions_sizes_diff.outputs.markdown }}
 
   merge-check:
     runs-on: ubuntu-20.04

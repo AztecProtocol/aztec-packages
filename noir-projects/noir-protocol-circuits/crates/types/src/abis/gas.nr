@@ -4,7 +4,7 @@ use crate::{
 };
 use std::ops::{Add, Sub};
 
-struct Gas {
+pub struct Gas {
     da_gas: u32,
     l2_gas: u32,
 }
@@ -74,4 +74,3 @@ fn serialization_of_empty() {
     let deserialized = Gas::deserialize(serialized);
     assert(item.eq(deserialized));
 }
-

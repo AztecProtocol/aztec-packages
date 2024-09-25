@@ -5,7 +5,7 @@ use crate::{
     utils::arrays::find_index_hint
 };
 
-struct PublicKernelData {
+pub struct PublicKernelData {
     public_inputs: PublicKernelCircuitPublicInputs,
     proof: NestedRecursiveProof,
     vk: VerificationKey,
@@ -35,4 +35,3 @@ impl PublicKernelData {
         );
     }
 }
-

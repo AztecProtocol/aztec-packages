@@ -5,13 +5,13 @@ use dep::protocol_types::{
 
 use crate::context::{
     private_context::PrivateContext, public_context::PublicContext, gas::GasOpts,
-    inputs::{PrivateContextInputs, PublicContextInputs}
+    inputs::PrivateContextInputs
 };
 
 use crate::oracle::arguments::pack_arguments;
 use crate::hash::hash_args;
 
-trait CallInterface<let N: u32, T, P, Env> {
+pub trait CallInterface<let N: u32, T, P, Env> {
     fn get_original(self) -> fn[Env](T) -> P;
 
     fn get_args(self) -> [Field] {
@@ -41,7 +41,7 @@ impl<let N: u32, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircui
     }
 }
 
-struct PrivateCallInterface<let N: u32, T, Env> {
+pub struct PrivateCallInterface<let N: u32, T, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
@@ -53,7 +53,10 @@ struct PrivateCallInterface<let N: u32, T, Env> {
 
 impl<let N: u32, T, Env> PrivateCallInterface<N, T, Env> {
     pub fn call<let M: u32>(self, context: &mut PrivateContext) -> T where T: Deserialize<M> {
-        assert(self.args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(self.args_hash == packed_args_hash);
         let returns = context.call_private_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -66,13 +69,19 @@ impl<let N: u32, T, Env> PrivateCallInterface<N, T, Env> {
     }
 
     pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T where T: Deserialize<M> {
-        assert(self.args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(self.args_hash == packed_args_hash);
         let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
         returns.unpack_into()
     }
 
     pub fn delegate_call<let M: u32>(self, context: &mut PrivateContext) -> T where T: Deserialize<M> {
-        assert(self.args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(self.args_hash == packed_args_hash);
         let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true);
         returns.unpack_into()
     }
@@ -84,7 +93,7 @@ impl<let N: u32, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircui
     }
 }
 
-struct PrivateVoidCallInterface<let N: u32, Env> {
+pub struct PrivateVoidCallInterface<let N: u32, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
@@ -96,7 +105,10 @@ struct PrivateVoidCallInterface<let N: u32, Env> {
 
 impl<let N: u32, Env> PrivateVoidCallInterface<N, Env> {
     pub fn call(self, context: &mut PrivateContext) {
-        assert(self.args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(self.args_hash == packed_args_hash);
         context.call_private_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -107,12 +119,18 @@ impl<let N: u32, Env> PrivateVoidCallInterface<N, Env> {
     }
 
     pub fn view(self, context: &mut PrivateContext) {
-        assert(self.args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(self.args_hash == packed_args_hash);
         context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
     }
 
     pub fn delegate_call(self, context: &mut PrivateContext) {
-        assert(self.args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(self.args_hash == packed_args_hash);
         context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, false, true).assert_empty();
     }
 }
@@ -123,7 +141,7 @@ impl<let N: u32, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircui
     }
 }
 
-struct PrivateStaticCallInterface<let N: u32, T, Env> {
+pub struct PrivateStaticCallInterface<let N: u32, T, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
@@ -135,7 +153,10 @@ struct PrivateStaticCallInterface<let N: u32, T, Env> {
 
 impl<let N: u32, T, Env> PrivateStaticCallInterface<N, T, Env> {
     pub fn view<let M: u32>(self, context: &mut PrivateContext) -> T where T: Deserialize<M> {
-        assert(self.args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(self.args_hash == packed_args_hash);
         let returns = context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false);
         returns.unpack_into()
     }
@@ -147,7 +168,7 @@ impl<let N: u32, T, P, Env> CallInterface<N, PrivateContextInputs, PrivateCircui
     }
 }
 
-struct PrivateStaticVoidCallInterface<let N: u32, Env> {
+pub struct PrivateStaticVoidCallInterface<let N: u32, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
@@ -159,24 +180,27 @@ struct PrivateStaticVoidCallInterface<let N: u32, Env> {
 
 impl<let N: u32, Env> PrivateStaticVoidCallInterface<N, Env> {
     pub fn view(self, context: &mut PrivateContext) {
-        assert(self.args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(self.args_hash == packed_args_hash);
         context.call_private_function_with_packed_args(self.target_contract, self.selector, self.args_hash, true, false).assert_empty();
     }
 }
 
-impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, T, Env> for PublicCallInterface<N, T, Env> {
-    fn get_original(self) -> fn[Env](PublicContextInputs) -> T {
+impl<let N: u32, T, P, Env> CallInterface<N, (), T, Env> for PublicCallInterface<N, T, Env> {
+    fn get_original(self) -> fn[Env](()) -> T {
         self.original
     }
 }
 
-struct PublicCallInterface<let N: u32, T, Env> {
+pub struct PublicCallInterface<let N: u32, T, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
     args: [Field],
     gas_opts: GasOpts,
-    original: fn[Env](PublicContextInputs) -> T,
+    original: fn[Env](()) -> T,
     is_static: bool
 }
 
@@ -203,7 +227,10 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
 
     pub fn enqueue(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(args_hash == packed_args_hash);
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -215,7 +242,10 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(args_hash == packed_args_hash);
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -227,7 +257,10 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
 
     pub fn delegate_enqueue(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(args_hash == packed_args_hash);
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -238,18 +271,18 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
     }
 }
 
-impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, (), Env> for PublicVoidCallInterface<N, Env> {
-    fn get_original(self) -> fn[Env](PublicContextInputs) -> () {
+impl<let N: u32, T, P, Env> CallInterface<N, (), (), Env> for PublicVoidCallInterface<N, Env> {
+    fn get_original(self) -> fn[Env](()) -> () {
         self.original
     }
 }
 
-struct PublicVoidCallInterface<let N: u32, Env> {
+pub struct PublicVoidCallInterface<let N: u32, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
     args: [Field],
-    original: fn[Env](PublicContextInputs) -> (),
+    original: fn[Env](()) -> (),
     is_static: bool,
     gas_opts: GasOpts
 }
@@ -277,7 +310,10 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
 
     pub fn enqueue(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(args_hash == packed_args_hash);
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -289,7 +325,10 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(args_hash == packed_args_hash);
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -301,7 +340,10 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
 
     pub fn delegate_enqueue(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(args_hash == packed_args_hash);
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -312,18 +354,18 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
     }
 }
 
-impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, T, Env> for PublicStaticCallInterface<N, T, Env> {
-    fn get_original(self) -> fn[Env](PublicContextInputs) -> T {
+impl<let N: u32, T, P, Env> CallInterface<N, (), T, Env> for PublicStaticCallInterface<N, T, Env> {
+    fn get_original(self) -> fn[Env](()) -> T {
         self.original
     }
 }
 
-struct PublicStaticCallInterface<let N: u32, T, Env> {
+pub struct PublicStaticCallInterface<let N: u32, T, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
     args: [Field],
-    original: fn[Env](PublicContextInputs) -> T,
+    original: fn[Env](()) -> T,
     is_static: bool,
     gas_opts: GasOpts
 }
@@ -342,7 +384,10 @@ impl<let N: u32, T, Env> PublicStaticCallInterface<N, T, Env> {
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(args_hash == packed_args_hash);
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,
@@ -353,18 +398,18 @@ impl<let N: u32, T, Env> PublicStaticCallInterface<N, T, Env> {
     }
 }
 
-impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, (), Env> for PublicStaticVoidCallInterface<N, Env> {
-    fn get_original(self) -> fn[Env](PublicContextInputs) -> () {
+impl<let N: u32, T, P, Env> CallInterface<N, (), (), Env> for PublicStaticVoidCallInterface<N, Env> {
+    fn get_original(self) -> fn[Env](()) -> () {
         self.original
     }
 }
 
-struct PublicStaticVoidCallInterface<let N: u32, Env> {
+pub struct PublicStaticVoidCallInterface<let N: u32, Env> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<N>,
     args: [Field],
-    original: fn[Env](PublicContextInputs) -> (),
+    original: fn[Env](()) -> (),
     is_static: bool,
     gas_opts: GasOpts
 }
@@ -382,7 +427,10 @@ impl<let N: u32, Env> PublicStaticVoidCallInterface<N, Env> {
 
     pub fn enqueue_view(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
-        assert(args_hash == pack_arguments(self.args));
+        let packed_args_hash = unsafe {
+            pack_arguments(self.args)
+        };
+        assert(args_hash == packed_args_hash);
         context.call_public_function_with_packed_args(
             self.target_contract,
             self.selector,

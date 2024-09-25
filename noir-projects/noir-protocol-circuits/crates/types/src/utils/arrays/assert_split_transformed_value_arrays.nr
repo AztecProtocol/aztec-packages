@@ -69,7 +69,7 @@ mod tests {
         utils::arrays::assert_split_transformed_value_arrays::{assert_split_transformed_value_arrays, assert_split_transformed_value_arrays_with_hint}
     };
 
-    global NUM_TEST_ITEMS = 5;
+    global NUM_TEST_ITEMS: u32 = 5;
 
     fn is_transformed(from: TestValue, to: Field) -> bool {
         from.value == to

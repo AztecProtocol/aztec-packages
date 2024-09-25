@@ -2,9 +2,12 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/serialize/cbind.hpp"
@@ -14,8 +17,10 @@
 
 #include <cstddef>
 #ifndef DISABLE_AZTEC_VM
+#include "barretenberg/vm/avm/generated/flavor.hpp"
 #include "barretenberg/vm/avm/trace/common.hpp"
 #include "barretenberg/vm/avm/trace/execution.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm/stats.hpp"
 #endif
 #include "config.hpp"
@@ -129,6 +134,7 @@ std::string vk_to_json(std::vector<bb::fr> const& data)
     return format("[", join(map(rotated, [](auto fr) { return format("\"", fr, "\""); })), "]");
 }
 
+// WORKTODO: delete?
 std::string honk_vk_to_json(std::vector<bb::fr>& data)
 {
     return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
@@ -334,40 +340,39 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     using Program = acir_format::AcirProgram;
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
+    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
+
+    using namespace acir_format;
 
     init_bn254_crs(1 << 24);
     init_grumpkin_crs(1 << 15);
 
-    auto gzippedBincodes = unpack_from_file<std::vector<std::string>>(bytecodePath);
-    auto witnessMaps = unpack_from_file<std::vector<std::string>>(witnessPath);
+    auto gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecodePath);
+    auto witness_data = unpack_from_file<std::vector<std::string>>(witnessPath);
     std::vector<Program> folding_stack;
-    for (size_t i = 0; i < gzippedBincodes.size(); i++) {
+    for (auto [bincode, wit] : zip_view(gzipped_bincodes, witness_data)) {
         // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a buffer in
         // the future
-        std::vector<uint8_t> buffer =
-            decompressedBuffer(reinterpret_cast<uint8_t*>(&gzippedBincodes[i][0]), gzippedBincodes[i].size()); // NOLINT
+        std::vector<uint8_t> constraint_buf =
+            decompressedBuffer(reinterpret_cast<uint8_t*>(bincode.data()), bincode.size()); // NOLINT
+        std::vector<uint8_t> witness_buf =
+            decompressedBuffer(reinterpret_cast<uint8_t*>(wit.data()), wit.size()); // NOLINT
 
-        std::vector<acir_format::AcirFormat> constraint_systems = acir_format::program_buf_to_acir_format(
-            buffer,
-            false); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
-                    // this assumes that folding is never done with ultrahonk.
-        std::vector<uint8_t> witnessBuffer =
-            decompressedBuffer(reinterpret_cast<uint8_t*>(&witnessMaps[i][0]), witnessMaps[i].size()); // NOLINT
-        acir_format::WitnessVectorStack witness_stack = acir_format::witness_buf_to_witness_stack(witnessBuffer);
-        acir_format::AcirProgramStack program_stack{ constraint_systems, witness_stack };
-        folding_stack.push_back(program_stack.back());
+        AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/false);
+        WitnessVector witness = witness_buf_to_witness_data(witness_buf);
+
+        folding_stack.push_back(Program{ constraints, witness });
     }
     // TODO(#7371) dedupe this with the rest of the similar code
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     ClientIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     // Accumulate the entire program stack into the IVC
     for (Program& program : folding_stack) {
-        // auto& stack_item = program_stack.witness_stack[i];
-
-        // Construct a bberg circuit from the acir representation
-        auto circuit =
-            acir_format::create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
+        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
+        auto circuit = create_circuit<Builder>(program.constraints, 0, program.witness, false, ivc.goblin.op_queue);
         ivc.accumulate(circuit);
     }
 
@@ -383,12 +388,12 @@ void client_ivc_prove_output_all_msgpack(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_vk = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.decider_vk);
+    auto last_vk = std::make_shared<DeciderVerificationKey>(ivc.honk_vk);
     vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
-    write_file(vkPath, to_buffer(ivc.decider_vk));
+    write_file(vkPath, to_buffer(ivc.honk_vk));
     write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
     write_file(eccVkPath, to_buffer(eccvm_vk));
@@ -445,6 +450,7 @@ bool foldAndVerifyProgram(const std::string& bytecodePath, const std::string& wi
     init_grumpkin_crs(1 << 16);
 
     ClientIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::SMALL_TEST;
 
     auto program_stack = acir_format::get_acir_program_stack(
@@ -482,11 +488,14 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     using Builder = Flavor::CircuitBuilder;
     using ECCVMVK = ECCVMFlavor::VerificationKey;
     using TranslatorVK = TranslatorFlavor::VerificationKey;
+    using DeciderVK = ClientIVC::DeciderVerificationKey;
 
     init_bn254_crs(1 << 22);
     init_grumpkin_crs(1 << 16);
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1101): remove use of auto_verify_mode
     ClientIVC ivc;
+    ivc.auto_verify_mode = true;
     ivc.trace_structure = TraceStructure::E2E_FULL_TEST;
 
     auto program_stack = acir_format::get_acir_program_stack(
@@ -518,12 +527,12 @@ void client_ivc_prove_output_all(const std::string& bytecodePath,
     auto eccvm_vk = std::make_shared<ECCVMVK>(ivc.goblin.get_eccvm_proving_key());
     auto translator_vk = std::make_shared<TranslatorVK>(ivc.goblin.get_translator_proving_key());
 
-    auto last_vk = std::make_shared<ClientIVC::DeciderVerificationKey>(ivc.decider_vk);
+    auto last_vk = std::make_shared<DeciderVK>(ivc.honk_vk);
     vinfo("ensure valid proof: ", ivc.verify(proof, { ivc.verifier_accumulator, last_vk }));
 
     vinfo("write proof and vk data to files..");
     write_file(proofPath, to_buffer(proof));
-    write_file(vkPath, to_buffer(ivc.decider_vk)); // maybe dereference
+    write_file(vkPath, to_buffer(ivc.honk_vk)); // maybe dereference
     write_file(accPath, to_buffer(ivc.verifier_accumulator));
     write_file(translatorVkPath, to_buffer(translator_vk));
     write_file(eccVkPath, to_buffer(eccvm_vk));
@@ -580,10 +589,12 @@ void prove_tube(const std::string& output_path)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): INSECURE - make this tube proof actually use
     // these public inputs by turning proof into witnesses and call
     // set_public on each witness
-    auto num_public_inputs = static_cast<size_t>(static_cast<uint256_t>(proof.folding_proof[1]));
-    for (size_t i = 0; i < num_public_inputs - bb::AGGREGATION_OBJECT_SIZE; i++) {
-        // We offset 3
-        builder->add_public_variable(proof.folding_proof[i + 3]);
+    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(proof.folding_proof[1]));
+    num_public_inputs -= bb::AGGREGATION_OBJECT_SIZE; // don't add the agg object
+    num_public_inputs -= 2 * 8;                       // don't add the databus return data commitments (2x)
+    for (size_t i = 0; i < num_public_inputs; i++) {
+        auto offset = acir_format::HONK_RECURSION_PUBLIC_INPUT_OFFSET;
+        builder->add_public_variable(proof.folding_proof[i + offset]);
     }
     ClientIVC verifier{ builder, input };
 
@@ -959,8 +970,8 @@ void avm_prove(const std::filesystem::path& bytecode_path,
     std::vector<fr> vk_as_fields = verification_key.to_field_elements();
 
     vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("circuit size: ", vk_as_fields[0]);
-    vinfo("num of pub inputs: ", vk_as_fields[1]);
+    vinfo("circuit size: ", static_cast<uint64_t>(vk_as_fields[0]));
+    vinfo("num of pub inputs: ", static_cast<uint64_t>(vk_as_fields[1]));
 
     std::string vk_json = to_json(vk_as_fields);
     const auto proof_path = output_path / "proof";
@@ -1009,18 +1020,22 @@ bool avm_verify(const std::filesystem::path& proof_path, const std::filesystem::
     std::span vk_span(vk_as_fields);
 
     vinfo("vk fields size: ", vk_as_fields.size());
-    vinfo("circuit size: ", circuit_size);
+    vinfo("circuit size: ", circuit_size, " (next or eq power: 2^", numeric::round_up_power_2(circuit_size), ")");
     vinfo("num of pub inputs: ", num_public_inputs);
 
-    // Each commitment (precomputed entity) is represented as 2 Fq field elements.
-    // Each Fq element is split into two limbs of Fr elements.
-    // We therefore need 2 (circuit_size, num_public_inputs) + 4 * NUM_PRECOMPUTED_ENTITIES fr elements.
-    ASSERT(vk_as_fields.size() == 4 * AvmFlavor::NUM_PRECOMPUTED_ENTITIES + 2);
+    if (vk_as_fields.size() != AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS) {
+        info("The supplied avm vk has incorrect size. Number of fields: ",
+             vk_as_fields.size(),
+             " but expected: ",
+             AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS);
+        return false;
+    }
 
     std::array<Commitment, AvmFlavor::NUM_PRECOMPUTED_ENTITIES> precomputed_cmts;
     for (size_t i = 0; i < AvmFlavor::NUM_PRECOMPUTED_ENTITIES; i++) {
-        // Start at offset 2 and adds 4 fr elements per commitment. Therefore, index = 4 * i + 2.
-        precomputed_cmts[i] = field_conversion::convert_from_bn254_frs<Commitment>(vk_span.subspan(4 * i + 2, 4));
+        // Start at offset 2 and adds 4 (NUM_FRS_COM) fr elements per commitment. Therefore, index = 4 * i + 2.
+        precomputed_cmts[i] = field_conversion::convert_from_bn254_frs<Commitment>(
+            vk_span.subspan(AvmFlavor::NUM_FRS_COM * i + 2, AvmFlavor::NUM_FRS_COM));
     }
 
     auto vk = AvmFlavor::VerificationKey(circuit_size, num_public_inputs, precomputed_cmts);
@@ -1061,8 +1076,7 @@ UltraProver_<Flavor> compute_valid_prover(const std::string& bytecodePath, const
     size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
     init_bn254_crs(srs_size);
 
-    Prover prover{ builder };
-    return prover;
+    return Prover{ builder };
 }
 
 /**
@@ -1085,6 +1099,13 @@ void prove_honk(const std::string& bytecodePath, const std::string& witnessPath,
     // Construct Honk proof
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, witnessPath);
     auto proof = prover.construct_proof();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1093): As the Smart contract doesn't verify the PCS and
+    // Shplemini is not constant size, we slice the proof up to sumcheck so calculation of public inputs is correct.
+    // This hack will be subsequently removed.
+    if constexpr (std::same_as<Flavor, UltraKeccakFlavor>) {
+        auto num_public_inputs = static_cast<uint32_t>(prover.proving_key->proving_key.num_public_inputs);
+        proof.erase(proof.begin() + num_public_inputs + 303, proof.end());
+    }
     if (outputPath == "-") {
         writeRawBytesToStdout(to_buffer</*include_size=*/true>(proof));
         vinfo("proof written to stdout");
@@ -1141,13 +1162,11 @@ template <IsUltraFlavor Flavor> bool verify_honk(const std::string& proof_path, 
 template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePath, const std::string& outputPath)
 {
     using Prover = UltraProver_<Flavor>;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
 
+    // Construct a verification key from a partial form of the proving key which only has precomputed entities
     Prover prover = compute_valid_prover<Flavor>(bytecodePath, "");
-    DeciderProvingKey& prover_inst = *prover.proving_key;
-    VerificationKey vk(
-        prover_inst.proving_key); // uses a partial form of the proving key which only has precomputed entities
+    VerificationKey vk(prover.proving_key->proving_key);
 
     auto serialized_vk = to_buffer(vk);
     if (outputPath == "-") {
@@ -1157,6 +1176,46 @@ template <IsUltraFlavor Flavor> void write_vk_honk(const std::string& bytecodePa
         write_file(outputPath, serialized_vk);
         vinfo("vk written to: ", outputPath);
     }
+}
+
+/**
+ * @brief Write a toml file containing recursive verifier inputs for a given program + witness
+ *
+ * @tparam Flavor
+ * @param bytecodePath Path to the file containing the serialized circuit
+ * @param witnessPath Path to the file containing the serialized witness
+ * @param outputPath Path to write toml file
+ */
+template <IsUltraFlavor Flavor>
+void write_recursion_inputs_honk(const std::string& bytecodePath,
+                                 const std::string& witnessPath,
+                                 const std::string& outputPath)
+{
+    using Builder = Flavor::CircuitBuilder;
+    using Prover = UltraProver_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+    using FF = Flavor::FF;
+
+    bool honk_recursion = true;
+    auto constraints = get_constraint_system(bytecodePath, /*honk_recursion=*/true);
+    auto witness = get_witness(witnessPath);
+    auto builder = acir_format::create_circuit<Builder>(constraints, 0, witness, honk_recursion);
+
+    auto num_extra_gates = builder.get_num_gates_added_to_ensure_nonzero_polynomials();
+    size_t srs_size = builder.get_circuit_subgroup_size(builder.get_total_circuit_size() + num_extra_gates);
+    init_bn254_crs(srs_size);
+
+    // Construct Honk proof and verification key
+    Prover prover{ builder };
+    std::vector<FF> proof = prover.construct_proof();
+    VerificationKey verification_key(prover.proving_key->proving_key);
+
+    // Construct a string with the content of the toml file (vk hash, proof, public inputs, vk)
+    std::string toml_content = acir_format::ProofSurgeon::construct_recursion_inputs_toml_data(proof, verification_key);
+
+    // Write all components to the TOML file
+    std::string toml_path = outputPath + "/Prover.toml";
+    write_file(toml_path, { toml_content.begin(), toml_content.end() });
 }
 
 /**
@@ -1456,6 +1515,9 @@ int main(int argc, char* argv[])
         } else if (command == "vk_as_fields") {
             std::string output_path = get_option(args, "-o", vk_path + "_fields.json");
             vk_as_fields(vk_path, output_path);
+        } else if (command == "write_recursion_inputs_honk") {
+            std::string output_path = get_option(args, "-o", "./target");
+            write_recursion_inputs_honk<UltraFlavor>(bytecode_path, witness_path, output_path);
 #ifndef DISABLE_AZTEC_VM
         } else if (command == "avm_prove") {
             std::filesystem::path avm_bytecode_path = get_option(args, "--avm-bytecode", "./target/avm_bytecode.bin");

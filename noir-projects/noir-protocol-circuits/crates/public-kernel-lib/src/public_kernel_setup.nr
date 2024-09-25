@@ -19,7 +19,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PUBLIC_KERNEL_SETUP_INDEX,
 ];
 
-struct PublicKernelSetupCircuitPrivateInputs {
+pub struct PublicKernelSetupCircuitPrivateInputs {
     // Note: One might think that our previous_kernel ought to be
     // a PrivateKernelTailData. However, we instead supply a PublicKernelData.
     // This is because PrivateKernelTailData is a subset of PublicKernelData.
