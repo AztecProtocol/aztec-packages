@@ -90,6 +90,33 @@ describe('AVM simulator: injected bytecode', () => {
 });
 
 describe('AVM simulator: transpiled Noir contracts', () => {
+  it('addition via dispatch', async () => {
+    const calldata: Fr[] = [
+      FunctionSelector.fromSignature('add_args_return(Field,Field)').toField(),
+      new Fr(1),
+      new Fr(2),
+    ];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+    const bytecode = getAvmTestContractBytecode('public_dispatch');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    expect(results.output).toEqual([new Fr(3)]);
+  });
+
+  it('get_args_hash via dispatch', async () => {
+    const calldata = [new Fr(1), new Fr(2), new Fr(3)];
+    const dispatchCalldata = [FunctionSelector.fromSignature('get_args_hash(u8,[Field;3])').toField(), ...calldata];
+
+    const context = initContext({ env: initExecutionEnvironment({ calldata: dispatchCalldata }) });
+    const bytecode = getAvmTestContractBytecode('public_dispatch');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    expect(results.output).toEqual([computeVarArgsHash(calldata)]);
+  });
+
   it('addition', async () => {
     const calldata: Fr[] = [new Fr(1), new Fr(2)];
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
