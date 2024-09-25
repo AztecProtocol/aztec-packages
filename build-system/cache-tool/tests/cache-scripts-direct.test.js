@@ -50,7 +50,7 @@ describe("Cache Upload Script Tests", () => {
     // Remove cache files from server
     const cacheFilePath = path.join(
       __dirname,
-      "hosted-build-artifacts",
+      "../hosted-build-artifacts",
       TAR_FILE
     );
     if (fs.existsSync(cacheFilePath)) {
@@ -100,7 +100,7 @@ describe("Cache Upload Script Tests", () => {
         // Verify the cache file exists on the server
         const cacheFilePath = path.join(
           __dirname,
-          "hosted-build-artifacts",
+          "../hosted-build-artifacts",
           TAR_FILE
         );
         expect(fs.existsSync(cacheFilePath)).toBe(true);
@@ -172,7 +172,7 @@ describe("Cache Upload Script Tests", () => {
         // Verify the cache file exists on the server
         const cacheFilePath = path.join(
           __dirname,
-          "hosted-build-artifacts",
+          "../hosted-build-artifacts",
           TAR_FILE
         );
         expect(fs.existsSync(cacheFilePath)).toBe(true);
@@ -203,7 +203,7 @@ describe("Cache Download Script Tests with S3", () => {
   const HOST_IP = "localhost";
   const AZTEC_BUILD_TOOL_PORT = Math.floor(Math.random() * 1000 + 10000);
   const tarFileName = "test-cache.tar.gz";
-  const serverArtifactsDir = path.join(__dirname, "hosted-build-artifacts");
+  const serverArtifactsDir = path.join(__dirname, "../hosted-build-artifacts");
   const cacheFilePath = path.join(serverArtifactsDir, tarFileName);
   const extractDir = "extracted-files";
   const filesInTar = ["file1.txt", "file2.txt"];

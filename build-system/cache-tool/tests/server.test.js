@@ -20,7 +20,7 @@ describe("Aztec Cache Tool Tests", () => {
   const localFileName = "testfile.txt";
   const localFilePath = path.join(
     __dirname,
-    "hosted-build-artifacts",
+    "../hosted-build-artifacts",
     localFileName
   );
   const s3Key = `${PREFIX}/${localFileName}`;
@@ -48,7 +48,7 @@ describe("Aztec Cache Tool Tests", () => {
     delete process.env.S3_WRITE;
 
     // Clear require cache
-    clearModule("./server.js");
+    clearModule("../server.js");
   });
 
   test("Default mode: No S3 interaction", async () => {
@@ -57,7 +57,7 @@ describe("Aztec Cache Tool Tests", () => {
     delete process.env.S3_WRITE;
 
     // Require the server module after setting environment variables
-    app = require("./server.js");
+    app = require("../server.js");
 
     // Upload a file
     fs.writeFileSync(localFilePath, "Test content for upload.");
@@ -87,7 +87,7 @@ describe("Aztec Cache Tool Tests", () => {
     delete process.env.S3_WRITE;
 
     // Require the server module after setting environment variables
-    app = require("./server.js");
+    app = require("../server.js");
 
     // Ensure the file is in S3
     await s3.putObject({
@@ -115,7 +115,7 @@ describe("Aztec Cache Tool Tests", () => {
     delete process.env.S3_READ;
 
     // Require the server module after setting environment variables
-    app = require("./server.js");
+    app = require("../server.js");
 
     // Create a test file to upload
     fs.writeFileSync(localFilePath, "Test content for upload.");
@@ -140,7 +140,7 @@ describe("Aztec Cache Tool Tests", () => {
     process.env.S3_WRITE = "true";
 
     // Require the server module after setting environment variables
-    app = require("./server.js");
+    app = require("../server.js");
 
     // Create a test file to upload
     fs.writeFileSync(localFilePath, "Test content for upload.");

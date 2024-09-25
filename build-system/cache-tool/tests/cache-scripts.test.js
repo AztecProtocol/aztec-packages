@@ -153,7 +153,7 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
             // Verify the tar file exists on the local server artifacts dir
             const cacheFilePath = path.join(
               __dirname,
-              "hosted-build-artifacts",
+              "../hosted-build-artifacts",
               uploadedTarFileName
             );
             expect(fs.existsSync(cacheFilePath)).toBe(true);
@@ -210,7 +210,7 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
       if (uploadedTarFileName) {
         const cacheFilePath = path.join(
           __dirname,
-          "hosted-build-artifacts",
+          "../hosted-build-artifacts",
           uploadedTarFileName
         );
         if (fs.existsSync(cacheFilePath)) {
