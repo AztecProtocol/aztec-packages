@@ -3,7 +3,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 const { S3 } = require("@aws-sdk/client-s3");
 const { fromIni } = require("@aws-sdk/credential-providers");
-const app = require("./server.js"); // The cache server
+const app = require("../server.js"); // The cache server
 
 describe("Cache Rebuild Patterns Scripts Tests", () => {
   let server;
@@ -121,10 +121,10 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
       const contentHash = await computeContentHash();
       uploadedTarFileName = `${PREFIX}-${contentHash}.tar.gz`;
 
-      // Run the cache-upload-rebuild-patterns.sh script
+      // Run the cache-upload.sh script
       await new Promise((resolve, reject) => {
         const uploadProcess = spawn(
-          "./cache-upload-rebuild-patterns.sh",
+          "./cache-upload.sh",
           [PREFIX, ...filesToUpload],
           {
             env: env,
@@ -249,10 +249,10 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
       }
     });
 
-    // Run the cache-download-rebuild-patterns.sh script
+    // Run the cache-download.sh script
     await new Promise((resolve, reject) => {
       const downloadProcess = spawn(
-        "./cache-download-rebuild-patterns.sh",
+        "./cache-download.sh",
         [PREFIX],
         {
           env: env,

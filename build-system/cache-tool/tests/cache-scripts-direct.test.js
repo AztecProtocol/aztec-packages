@@ -3,7 +3,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 const { S3 } = require("@aws-sdk/client-s3");
 const { fromIni } = require("@aws-sdk/credential-providers");
-const app = require("./server.js"); // The cache server
+const app = require("../server.js"); // The cache server
 
 describe("Cache Upload Script Tests", () => {
   let server;
@@ -66,13 +66,13 @@ describe("Cache Upload Script Tests", () => {
     });
   });
 
-  test("cache-upload.sh uploads to S3 when S3_WRITE is enabled", (done) => {
+  test("cache-upload-direct.sh uploads to S3 when S3_WRITE is enabled", (done) => {
     let stdout = "";
     let stderr = "";
 
     const args = [...binaryPaths, cacheName];
     process.env.S3_WRITE = "true";
-    const uploadProcess = spawn("./cache-upload.sh", args, {
+    const uploadProcess = spawn("./cache-upload-direct.sh", args, {
       env: { ...process.env, HOST_IP, AZTEC_BUILD_TOOL_PORT },
     });
 
@@ -137,14 +137,14 @@ describe("Cache Upload Script Tests", () => {
     });
   });
 
-  test("cache-upload.sh does not upload to S3 when S3_WRITE is disabled", (done) => {
+  test("cache-upload-direct.sh does not upload to S3 when S3_WRITE is disabled", (done) => {
     let stdout = "";
     let stderr = "";
 
     const args = [...binaryPaths, cacheName];
     delete process.env.S3_WRITE;
 
-    const uploadProcess = spawn("./cache-upload.sh", args, {
+    const uploadProcess = spawn("./cache-upload-direct.sh", args, {
       env: { ...process.env, HOST_IP, AZTEC_BUILD_TOOL_PORT },
     });
 
@@ -297,7 +297,7 @@ describe("Cache Download Script Tests with S3", () => {
       delete process.env.S3_READ;
     }
 
-    const downloadProcess = spawn("./cache-download.sh", args, {
+    const downloadProcess = spawn("./cache-download-direct.sh", args, {
       env: { ...process.env, HOST_IP, AZTEC_BUILD_TOOL_PORT },
     });
 
@@ -343,7 +343,7 @@ describe("Cache Download Script Tests with S3", () => {
     });
   };
 
-  test("cache-download.sh downloads and extracts tar.gz file from cache server when S3_READ is disabled", async () => {
+  test("cache-download-direct.sh downloads and extracts tar.gz file from cache server when S3_READ is disabled", async () => {
     // Set up test files
     setupTestFiles();
 
@@ -370,7 +370,7 @@ describe("Cache Download Script Tests with S3", () => {
     });
   });
 
-  test("cache-download.sh downloads and extracts tar.gz file from S3 when S3_READ is enabled", async () => {
+  test("cache-download-direct.sh downloads and extracts tar.gz file from S3 when S3_READ is enabled", async () => {
     // Set up test files
     setupTestFiles();
 

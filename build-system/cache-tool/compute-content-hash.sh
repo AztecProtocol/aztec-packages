@@ -11,7 +11,7 @@ fi
 REBUILD_PATTERNS="$AZTEC_CACHE_REBUILD_PATTERNS"
 
 # Concatenate patterns with '|' and double escape backslashes for AWK
-AWK_PATTERN="^build-system/cache-tool/cache-upload.sh$|^build-system/cache-tool/cache-download.sh$" #$$(cat "$REBUILD_PATTERNS" | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
+AWK_PATTERN="^build-system/cache-tool/cache-upload-direct.sh$|^build-system/cache-tool/cache-download-direct.sh$" #$$(cat "$REBUILD_PATTERNS" | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
 
 # use git repo root because that is where our patterns are focused
 cd $(git rev-parse --show-toplevel)

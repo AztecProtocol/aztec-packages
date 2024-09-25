@@ -1,5 +1,5 @@
 hosted-build-artifacts
-test-artifacts
+tests/test-artifacts
 node_modules
 log.*
 build*
