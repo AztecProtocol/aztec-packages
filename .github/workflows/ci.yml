@@ -719,7 +719,7 @@ jobs:
 
       - name: Compare public functions bytecode size reports
         id: public_functions_sizes_diff
-        uses: noir-lang/noir-gates-diff@8da4b0f4d247cd205580430afdef156d63c6ecc3
+        uses: noir-lang/noir-gates-diff@ef8aaf48fb833f3b6e3f91665bb23afb7e68c6e3
         with:
           report: public_functions_report.json
           header: |
@@ -734,8 +734,8 @@ jobs:
         with:
           header: public_functions_size
           # delete the comment in case changes no longer impact circuit sizes
-          delete: ${{ !steps.gates_diff.outputs.markdown }}
-          message: ${{ steps.gates_diff.outputs.markdown }}
+          delete: ${{ !steps.public_functions_sizes_diff.outputs.markdown }}
+          message: ${{ steps.public_functions_sizes_diff.outputs.markdown }}
 
   merge-check:
     runs-on: ubuntu-20.04
