@@ -59,11 +59,6 @@ export class TXEService {
     return toForeignCallResult(inputs.toFields().map(toSingle));
   }
 
-  getPublicContextInputs() {
-    const inputs = (this.typedOracle as TXE).getPublicContextInputs();
-    return toForeignCallResult(inputs.toFields().map(toSingle));
-  }
-
   async advanceBlocksBy(blocks: ForeignCallSingle) {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.debug(`time traveling ${nBlocks} blocks`);

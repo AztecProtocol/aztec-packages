@@ -5,7 +5,7 @@ use dep::protocol_types::{
 
 use crate::context::{
     private_context::PrivateContext, public_context::PublicContext, gas::GasOpts,
-    inputs::{PrivateContextInputs, PublicContextInputs}
+    inputs::PrivateContextInputs
 };
 
 use crate::oracle::arguments::pack_arguments;
@@ -164,8 +164,8 @@ impl<let N: u32, Env> PrivateStaticVoidCallInterface<N, Env> {
     }
 }
 
-impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, T, Env> for PublicCallInterface<N, T, Env> {
-    fn get_original(self) -> fn[Env](PublicContextInputs) -> T {
+impl<let N: u32, T, P, Env> CallInterface<N, (), T, Env> for PublicCallInterface<N, T, Env> {
+    fn get_original(self) -> fn[Env](()) -> T {
         self.original
     }
 }
@@ -176,7 +176,7 @@ pub struct PublicCallInterface<let N: u32, T, Env> {
     name: str<N>,
     args: [Field],
     gas_opts: GasOpts,
-    original: fn[Env](PublicContextInputs) -> T,
+    original: fn[Env](()) -> T,
     is_static: bool
 }
 
@@ -238,8 +238,8 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
     }
 }
 
-impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, (), Env> for PublicVoidCallInterface<N, Env> {
-    fn get_original(self) -> fn[Env](PublicContextInputs) -> () {
+impl<let N: u32, T, P, Env> CallInterface<N, (), (), Env> for PublicVoidCallInterface<N, Env> {
+    fn get_original(self) -> fn[Env](()) -> () {
         self.original
     }
 }
@@ -249,7 +249,7 @@ pub struct PublicVoidCallInterface<let N: u32, Env> {
     selector: FunctionSelector,
     name: str<N>,
     args: [Field],
-    original: fn[Env](PublicContextInputs) -> (),
+    original: fn[Env](()) -> (),
     is_static: bool,
     gas_opts: GasOpts
 }
@@ -312,8 +312,8 @@ impl<let N: u32, Env> PublicVoidCallInterface<N, Env> {
     }
 }
 
-impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, T, Env> for PublicStaticCallInterface<N, T, Env> {
-    fn get_original(self) -> fn[Env](PublicContextInputs) -> T {
+impl<let N: u32, T, P, Env> CallInterface<N, (), T, Env> for PublicStaticCallInterface<N, T, Env> {
+    fn get_original(self) -> fn[Env](()) -> T {
         self.original
     }
 }
@@ -323,7 +323,7 @@ pub struct PublicStaticCallInterface<let N: u32, T, Env> {
     selector: FunctionSelector,
     name: str<N>,
     args: [Field],
-    original: fn[Env](PublicContextInputs) -> T,
+    original: fn[Env](()) -> T,
     is_static: bool,
     gas_opts: GasOpts
 }
@@ -353,8 +353,8 @@ impl<let N: u32, T, Env> PublicStaticCallInterface<N, T, Env> {
     }
 }
 
-impl<let N: u32, T, P, Env> CallInterface<N, PublicContextInputs, (), Env> for PublicStaticVoidCallInterface<N, Env> {
-    fn get_original(self) -> fn[Env](PublicContextInputs) -> () {
+impl<let N: u32, T, P, Env> CallInterface<N, (), (), Env> for PublicStaticVoidCallInterface<N, Env> {
+    fn get_original(self) -> fn[Env](()) -> () {
         self.original
     }
 }
@@ -364,7 +364,7 @@ pub struct PublicStaticVoidCallInterface<let N: u32, Env> {
     selector: FunctionSelector,
     name: str<N>,
     args: [Field],
-    original: fn[Env](PublicContextInputs) -> (),
+    original: fn[Env](()) -> (),
     is_static: bool,
     gas_opts: GasOpts
 }
