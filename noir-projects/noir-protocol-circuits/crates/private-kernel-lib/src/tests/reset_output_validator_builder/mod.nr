@@ -14,7 +14,7 @@ use dep::types::{
     tests::fixture_builder::FixtureBuilder
 };
 
-struct ResetOutputValidatorBuilder {
+pub struct ResetOutputValidatorBuilder {
     output: FixtureBuilder,
     previous_kernel: FixtureBuilder,
     note_hash_read_request_hints_builder: NoteHashReadRequestHintsBuilder<6, 3>,

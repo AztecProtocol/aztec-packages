@@ -1,7 +1,7 @@
 use crate::{hash::hash_args_array, oracle::returns::unpack_returns};
 use dep::protocol_types::traits::Deserialize;
 
-struct PackedReturns {
+pub struct PackedReturns {
   packed_returns: Field,
 }
 

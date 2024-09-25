@@ -64,7 +64,7 @@ describe('prover/orchestrator', () => {
       await sleep(10);
       expect(mockProver.getRootParityProof).toHaveBeenCalledTimes(1);
 
-      orchestrator.cancelBlock();
+      orchestrator.cancel();
     });
   });
 });

@@ -59,11 +59,6 @@ export class TXEService {
     return toForeignCallResult(inputs.toFields().map(toSingle));
   }
 
-  getPublicContextInputs() {
-    const inputs = (this.typedOracle as TXE).getPublicContextInputs();
-    return toForeignCallResult(inputs.toFields().map(toSingle));
-  }
-
   async advanceBlocksBy(blocks: ForeignCallSingle) {
     const nBlocks = fromSingle(blocks).toNumber();
     this.logger.debug(`time traveling ${nBlocks} blocks`);
@@ -311,6 +306,16 @@ export class TXEService {
   avmOpcodeFunctionSelector() {
     const functionSelector = (this.typedOracle as TXE).getFunctionSelector();
     return toForeignCallResult([toSingle(functionSelector.toField())]);
+  }
+
+  setIsStaticCall(isStaticCall: ForeignCallSingle) {
+    (this.typedOracle as TXE).setIsStaticCall(fromSingle(isStaticCall).toBool());
+    return toForeignCallResult([]);
+  }
+
+  avmOpcodeIsStaticCall() {
+    const isStaticCall = (this.typedOracle as TXE).getIsStaticCall();
+    return toForeignCallResult([toSingle(new Fr(isStaticCall ? 1 : 0))]);
   }
 
   async avmOpcodeChainId() {

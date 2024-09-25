@@ -135,9 +135,9 @@ export const makeGlobals = (blockNumber: number) => {
   return new GlobalVariables(
     Fr.ZERO,
     Fr.ZERO,
-    new Fr(blockNumber),
+    new Fr(blockNumber) /** block number */,
     new Fr(blockNumber) /** slot number */,
-    Fr.ZERO,
+    new Fr(blockNumber) /** timestamp */,
     EthAddress.ZERO,
     AztecAddress.ZERO,
     GasFees.empty(),

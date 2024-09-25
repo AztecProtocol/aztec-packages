@@ -6,7 +6,7 @@ use crate::{
 };
 
 // Aztec address
-struct AztecAddress {
+pub struct AztecAddress {
     inner : Field
 }
 

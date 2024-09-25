@@ -4,7 +4,7 @@ use crate::{
 };
 use dep::types::constants::MAX_NULLIFIER_READ_REQUESTS_PER_TX;
 
-struct NullifierReadRequestHintsBuilder<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
+pub struct NullifierReadRequestHintsBuilder<let NUM_PENDING_HINTS: u32, let NUM_SETTLED_HINTS: u32> {
     read_request_statuses: [ReadRequestStatus; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
     pending_read_hints: BoundedVec<PendingReadHint, NUM_PENDING_HINTS>,
     settled_read_hints: BoundedVec<NullifierSettledReadHint, NUM_SETTLED_HINTS>,

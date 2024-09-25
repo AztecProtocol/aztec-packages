@@ -80,6 +80,7 @@ export class TXE implements TypedOracle {
   private contractAddress: AztecAddress;
   private msgSender: AztecAddress;
   private functionSelector = FunctionSelector.fromField(new Fr(0));
+  private isStaticCall = false;
   // This will hold the _real_ calldata. That is, the one without the PublicContextInputs.
   // TODO: Remove this comment once PublicContextInputs are removed.
   private calldata: Fr[] = [];
@@ -130,9 +131,7 @@ export class TXE implements TypedOracle {
   }
 
   getCalldata() {
-    // TODO: Remove this once PublicContextInputs are removed.
-    const inputs = this.getPublicContextInputs();
-    return [...inputs.toFields(), ...this.calldata];
+    return this.calldata;
   }
 
   setMsgSender(msgSender: Fr) {
@@ -213,17 +212,6 @@ export class TXE implements TypedOracle {
     return inputs;
   }
 
-  getPublicContextInputs() {
-    const inputs = {
-      calldataLength: new Fr(this.calldata.length),
-      isStaticCall: false,
-      toFields: function () {
-        return [this.calldataLength, new Fr(this.isStaticCall)];
-      },
-    };
-    return inputs;
-  }
-
   async avmOpcodeNullifierExists(innerNullifier: Fr, targetAddress: AztecAddress): Promise<boolean> {
     const nullifier = siloNullifier(targetAddress, innerNullifier!);
     const db = await this.trees.getLatest();
@@ -279,6 +267,14 @@ export class TXE implements TypedOracle {
 
   getContractAddress() {
     return Promise.resolve(this.contractAddress);
+  }
+
+  setIsStaticCall(isStatic: boolean) {
+    this.isStaticCall = isStatic;
+  }
+
+  getIsStaticCall() {
+    return this.isStaticCall;
   }
 
   getRandomField() {

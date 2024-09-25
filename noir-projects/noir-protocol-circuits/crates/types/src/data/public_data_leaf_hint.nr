@@ -3,7 +3,7 @@ use crate::{
     merkle_tree::MembershipWitness, constants::PUBLIC_DATA_TREE_HEIGHT
 };
 
-struct PublicDataLeafHint {
+pub struct PublicDataLeafHint {
     preimage: PublicDataTreeLeafPreimage,
     membership_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
 }

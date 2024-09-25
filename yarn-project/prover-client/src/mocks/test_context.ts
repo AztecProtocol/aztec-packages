@@ -85,7 +85,7 @@ export class TestContext {
       actualDb = await ws.getLatest();
     }
 
-    const processor = new PublicProcessor(
+    const processor = PublicProcessor.create(
       actualDb,
       publicExecutor,
       publicKernel,

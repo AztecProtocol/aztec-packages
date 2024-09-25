@@ -4,7 +4,7 @@ use crate::keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::T
 
 use std::aes128::aes128_encrypt;
 
-struct EncryptedLogHeader {
+pub struct EncryptedLogHeader {
     address: AztecAddress,
 }
 
@@ -29,7 +29,7 @@ impl EncryptedLogHeader {
 }
 
 #[test]
-fn test_encrypted_log_header_matches_noir() {
+unconstrained fn test_encrypted_log_header_matches_noir() {
     let address = AztecAddress::from_field(0xdeadbeef);
     let header = EncryptedLogHeader::new(address);
     let secret = Scalar {

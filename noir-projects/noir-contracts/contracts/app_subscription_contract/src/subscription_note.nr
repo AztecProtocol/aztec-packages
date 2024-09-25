@@ -1,16 +1,12 @@
 use dep::aztec::{
     hash::poseidon2_hash_with_separator, note::utils::compute_note_hash_for_nullify,
     keys::getters::get_nsk_app, oracle::unsafe_rand::unsafe_rand,
-    prelude::{PrivateContext, NoteHeader, NoteInterface},
-    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER
+    prelude::{PrivateContext, NoteHeader, NullifiableNote},
+    protocol_types::constants::GENERATOR_INDEX__NOTE_NULLIFIER, macros::notes::note
 };
 
-global SUBSCRIPTION_NOTE_LEN: u32 = 4;
-// SUBSCRIPTION_NOTE_BYTES_LEN * 32 + 32(storage_slot as bytes) + 32(note_type_id as bytes)
-global SUBSCRIPTION_NOTE_BYTES_LEN: u32 = SUBSCRIPTION_NOTE_LEN * 32 + 64;
-
-#[aztec(note)]
-struct SubscriptionNote {
+#[note]
+pub struct SubscriptionNote {
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
     npk_m_hash: Field,
     expiry_block_number: Field,
@@ -19,7 +15,7 @@ struct SubscriptionNote {
     randomness: Field,
 }
 
-impl NoteInterface<SUBSCRIPTION_NOTE_LEN, SUBSCRIPTION_NOTE_BYTES_LEN> for SubscriptionNote {
+impl NullifiableNote for SubscriptionNote {
     fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         let secret = context.request_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(
@@ -31,7 +27,7 @@ impl NoteInterface<SUBSCRIPTION_NOTE_LEN, SUBSCRIPTION_NOTE_BYTES_LEN> for Subsc
         )
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
+    unconstrained fn compute_nullifier_without_context(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_nullify(self);
         let secret = get_nsk_app(self.npk_m_hash);
         poseidon2_hash_with_separator(

@@ -4,7 +4,7 @@ use dep::types::{
     utils::arrays::{get_split_order_hints_asc, get_split_order_hints_desc, SplitOrderHints}
 };
 
-struct TailToPublicOutputHints {
+pub struct TailToPublicOutputHints {
     // L2 to l1 msgs.
     sorted_l2_to_l1_msg_hints: SplitOrderHints<MAX_L2_TO_L1_MSGS_PER_TX>,
     // Unencrypted log hashes.

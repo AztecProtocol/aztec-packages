@@ -4,7 +4,7 @@ use crate::{
 };
 
 // docs:start:global-variables
-struct GlobalVariables {
+pub struct GlobalVariables {
     chain_id : Field,
     version : Field,
     block_number : Field,
