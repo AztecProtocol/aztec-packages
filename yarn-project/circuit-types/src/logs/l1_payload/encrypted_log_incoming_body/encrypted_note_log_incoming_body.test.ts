@@ -40,7 +40,7 @@ describe('encrypt log incoming body', () => {
 
     const viewingPubKey = grumpkin.mul(Grumpkin.generator, viewingSecretKey);
 
-    const note = new Note([new Fr(1)]);
+    const note = new Note([new Fr(1), new Fr(2), new Fr(3)]);
     const noteTypeId = new NoteSelector(1);
     const storageSlot = new Fr(2);
 
