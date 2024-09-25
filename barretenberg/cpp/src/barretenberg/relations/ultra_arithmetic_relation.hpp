@@ -12,6 +12,8 @@ template <typename FF_, bool HOMOGENIZED> class UltraArithmeticRelationImplBase 
         5  // secondary arithmetic sub-relation
     };
 
+    static constexpr size_t HOMOGENIZED_LENGTH{ 19 };
+
     /**
      * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
      * i.e. all selectors and public polynomials are treated as constants.
@@ -152,8 +154,9 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
     : public UltraArithmeticRelationImplBase<FF_, /* HOMOGENIZED */ true> {
   public:
     using FF = FF_;
+    using Base = UltraArithmeticRelationImplBase<FF_, /* HOMOGENIZED */ true>;
 
-    static constexpr size_t HOMOGENEOUS_LENGTH{ 6 };
+    static constexpr auto HOMOGENINZED_ADJUSTMENTS = compute_homogenized_subrelation_lengths<Base>();
 
     /**
      * @brief The polynomial relation that checks whether a prover has provided a valid arithmetic gate.
@@ -201,6 +204,10 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
             term += tmp * q_arith;
             term *= q_arith;
             // 13 muls
+            static constexpr size_t HOMOGENIZER_POWER = std::get<0>(HOMOGENINZED_ADJUSTMENTS);
+            if constexpr (HOMOGENIZER_POWER > 0) {
+                term *= hom.pow(HOMOGENIZER_POWER);
+            }
             term *= scaling_factor;
             std::get<0>(evals) += term;
         }
@@ -221,7 +228,10 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
             tmp += tmp;
             tmp *= hom.sqr();
             term += tmp;
-            term *= hom;
+            static constexpr size_t HOMOGENIZER_POWER = std::get<1>(HOMOGENINZED_ADJUSTMENTS);
+            if constexpr (HOMOGENIZER_POWER > 0) {
+                term *= hom.pow(HOMOGENIZER_POWER);
+            }
             term *= scaling_factor;
             std::get<1>(evals) += term;
         };

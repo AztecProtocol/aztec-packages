@@ -163,7 +163,7 @@ class UltraRelationConsistency : public testing::Test {
         Rel::accumulate(acc, in, params, separator); // f(in) = (f_i(in))_i   (i over subrelations of f)
         Rel::accumulate(acc_scaled_input, in_scaled, params_scaled, separator); // f_i(s*in) will be (s^d_i*f_i(in))_i
         for (auto& x : acc) {                                                   // compute (s^d_i*f_i(in))_i
-            x *= scalar.pow(Rel::HOMOGENEOUS_LENGTH - 1);
+            x *= scalar.pow(Rel::HOMOGENIZED_LENGTH - 1);
         }
 
         EXPECT_EQ(acc, acc_scaled_input);

@@ -30,6 +30,9 @@ concept HasSubrelationLinearlyIndependentMember = requires(T) {
 
 template <typename T>
 concept HasParameterLengthAdjustmentsMember = requires { T::TOTAL_LENGTH_ADJUSTMENTS; };
+
+template <typename T>
+concept HasHomogenizedLength = requires { T::HOMOGENIZED_LENGTH; };
 // The concept needed to adjust the sumcheck univariate lengths in the case of ZK Flavors and to avoid adding redundant
 // constants to the relations that are not used by ZK flavors
 template <typename T>
@@ -70,6 +73,23 @@ consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> c
         return RelationImpl::SUBRELATION_PARTIAL_LENGTHS;
     }
 };
+
+/**
+ * @brief Compute the total subrelation lengths, i.e., the lengths when regarding the challenges as
+ * variables.
+ */
+template <typename RelationImpl>
+    requires HasHomogenizedLength<RelationImpl>
+consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> compute_homogenized_subrelation_lengths()
+{
+    constexpr size_t NUM_SUBRELATIONS = RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size();
+    std::array<size_t, NUM_SUBRELATIONS> result;
+    for (size_t idx = 0; idx < NUM_SUBRELATIONS; idx++) {
+        result[idx] = RelationImpl::HOMOGENIZED_LENGTH - RelationImpl::SUBRELATION_PARTIAL_LENGTHS[idx];
+    }
+    return result;
+};
+
 /**
  * @brief This metod adjusts the subrelation partial lengths to ZK Flavors.
  *
