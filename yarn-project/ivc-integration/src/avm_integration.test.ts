@@ -9,6 +9,8 @@ import {
 import { AvmCircuitInputs, FunctionSelector, Gas, GlobalVariables } from '@aztec/circuits.js';
 import {
   AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_PUBLIC_COLUMN_MAX_SIZE,
+  AVM_PUBLIC_INPUTS_FLATTENED_SIZE,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
 } from '@aztec/circuits.js/constants';
@@ -82,11 +84,19 @@ describe('AVM Integration', () => {
     // Read the binary proof
     const avmProofBuffer = await fs.readFile(avmProofPath!);
     const reader = BufferReader.asReader(avmProofBuffer);
-    reader.readArray(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, Fr);
+    const kernel_public_inputs = reader.readArray(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH, Fr);
     const calldataSize = Fr.fromBuffer(reader).toNumber();
-    reader.readArray(calldataSize, Fr);
+    const calldata = reader.readArray(calldataSize, Fr);
     const returnDataSize = Fr.fromBuffer(reader).toNumber();
-    reader.readArray(returnDataSize, Fr);
+    const returnData = reader.readArray(returnDataSize, Fr);
+
+    const public_cols_flattened = kernel_public_inputs
+      .concat(calldata)
+      .concat(Array(AVM_PUBLIC_COLUMN_MAX_SIZE - calldata.length).fill(new Fr(0)))
+      .concat(returnData)
+      .concat(Array(AVM_PUBLIC_COLUMN_MAX_SIZE - returnData.length).fill(new Fr(0)));
+
+    expect(public_cols_flattened.length).toBe(AVM_PUBLIC_INPUTS_FLATTENED_SIZE);
 
     const proof: Fr[] = [];
     while (!reader.isEmpty()) {
@@ -106,6 +116,10 @@ describe('AVM Integration', () => {
         typeof AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS
       >,
       proof: proof.map(x => x.toString()) as FixedLengthArray<string, typeof AVM_PROOF_LENGTH_IN_FIELDS>,
+      pub_cols_flattened: public_cols_flattened.map(x => x.toString()) as FixedLengthArray<
+        string,
+        typeof AVM_PUBLIC_INPUTS_FLATTENED_SIZE
+      >,
     });
 
     await createHonkProof(witGenResult.witness, MockPublicKernelCircuit.bytecode);

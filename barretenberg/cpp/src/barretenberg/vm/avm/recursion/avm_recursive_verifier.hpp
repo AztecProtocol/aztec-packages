@@ -25,7 +25,9 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
     explicit AvmRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey);
 
     AggregationObject verify_proof(const HonkProof& proof, AggregationObject agg_obj);
-    AggregationObject verify_proof(const StdlibProof<Builder>& stdlib_proof, AggregationObject agg_obj);
+    AggregationObject verify_proof(const StdlibProof<Builder>& stdlib_proof,
+                                   const std::vector<std::vector<typename Flavor::FF>>& pub_inputs,
+                                   AggregationObject agg_obj);
 
     std::shared_ptr<VerificationKey> key;
     Builder* builder;

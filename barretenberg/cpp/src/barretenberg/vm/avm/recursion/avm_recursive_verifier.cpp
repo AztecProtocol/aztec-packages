@@ -1,6 +1,7 @@
 #include "barretenberg/vm/avm/recursion/avm_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
@@ -23,13 +24,15 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
                                                                                              AggregationObject agg_obj)
 {
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
-    return verify_proof(stdlib_proof, agg_obj);
+    return verify_proof(stdlib_proof, {}, agg_obj);
 }
 
 // TODO(#991): (see https://github.com/AztecProtocol/barretenberg/issues/991)
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
-    const StdlibProof<Builder>& stdlib_proof, AggregationObject agg_obj)
+    const StdlibProof<Builder>& stdlib_proof,
+    [[maybe_unused]] const std::vector<std::vector<typename Flavor::FF>>& pub_inputs,
+    AggregationObject agg_obj)
 {
     using Curve = typename Flavor::Curve;
     using Zeromorph = ZeroMorphVerifier_<Curve>;

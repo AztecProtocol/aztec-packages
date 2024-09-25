@@ -41,7 +41,7 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
     static InnerBuilder create_inner_circuit()
     {
-        VmPublicInputs public_inputs;
+        VmPublicInputs<FF> public_inputs;
         std::array<FF, KERNEL_INPUTS_LENGTH> kernel_inputs{};
         kernel_inputs.at(DA_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000000;
         kernel_inputs.at(L2_GAS_LEFT_CONTEXT_INPUTS_OFFSET) = 1000000;
