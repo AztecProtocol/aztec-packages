@@ -169,6 +169,7 @@ describe('Req Resp p2p client integration', () => {
     await sleep(1000);
   };
 
+  // TODO: re-enable all in file with https://github.com/AztecProtocol/aztec-packages/issues/8707 is fixed
   it.skip(
     'Returns undefined if unable to find a transaction from another peer',
     async () => {
