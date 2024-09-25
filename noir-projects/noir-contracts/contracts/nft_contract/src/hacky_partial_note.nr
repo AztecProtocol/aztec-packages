@@ -14,7 +14,7 @@ struct NFTNote {
 }
 
 impl NullifiableNote for NFTNote {
-    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+    fn compute_nullifier(self, _context: &mut PrivateContext, _note_hash_for_nullify: Field) -> Field {
         0
     }
 

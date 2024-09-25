@@ -1,4 +1,4 @@
-import { type L1NotePayload, type TxHash } from '@aztec/circuit-types';
+import { L1NotePayload, type TxHash, UnencryptedTxL2Logs } from '@aztec/circuit-types';
 import { Fr, type PublicKey } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type Logger } from '@aztec/foundation/log';
@@ -14,6 +14,7 @@ import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
  * Accepts a set of excluded indices, which are indices that have been assigned a note in the same tx.
  * Inserts the index of the note into the excludedIndices set if the note is successfully decoded.
  *
+ * @param simulator - An instance of AcirSimulator.
  * @param ivpkM - The public counterpart to the secret key to be used in the decryption of incoming note logs.
  * @param ovpkM - The public counterpart to the secret key to be used in the decryption of outgoing note logs.
  * @param payload - An instance of l1NotePayload.
@@ -21,7 +22,8 @@ import { OutgoingNoteDao } from '../database/outgoing_note_dao.js';
  * @param noteHashes - New note hashes in this transaction, one of which belongs to this note.
  * @param dataStartIndexForTx - The next available leaf index for the note hash tree for this transaction.
  * @param excludedIndices - Indices that have been assigned a note in the same tx. Notes in a tx can have the same l1NotePayload, we need to find a different index for each replicate.
- * @param simulator - An instance of AcirSimulator.
+ * @param logger - An instance of Logger.
+ * @param unencryptedLogs - Unencrypted logs for the transaction (used to complete partial notes).
  * @returns An object containing the incoming, outgoing, and deferred notes.
  */
 export async function produceNoteDaos(
@@ -33,7 +35,8 @@ export async function produceNoteDaos(
   noteHashes: Fr[],
   dataStartIndexForTx: number,
   excludedIndices: Set<number>,
-  log: Logger,
+  logger: Logger,
+  unencryptedLogs: UnencryptedTxL2Logs,
 ): Promise<{
   incomingNote: IncomingNoteDao | undefined;
   outgoingNote: OutgoingNoteDao | undefined;
@@ -77,7 +80,7 @@ export async function produceNoteDaos(
     }
   } catch (e) {
     if (e instanceof ContractNotFoundError) {
-      log.warn(e.message);
+      logger.warn(e.message);
 
       if (ivpkM) {
         incomingDeferredNote = new DeferredNoteDao(
@@ -89,10 +92,53 @@ export async function produceNoteDaos(
           txHash,
           noteHashes,
           dataStartIndexForTx,
+          unencryptedLogs,
         );
       }
+    } else if ((e as any).message.includes('failed to solve blackbox function: embedded_curve_add')) {
+      // TODO(#8769): This branch is a temporary partial notes delivery solution that should be eventually replaced.
+      // This error occurs when we are dealing with a partial note and is thrown when calling
+      // `note.compute_note_hash()` in `compute_note_hash_and_optionally_a_nullifier` function. It occurs with
+      // partial notes because in the partial flow we receive a note log of a note that is missing some fields
+      // here and then we try to compute the note hash with MSM while some of the fields are zeroed out.
+      for (const functionLogs of unencryptedLogs.functionLogs) {
+        for (const log of functionLogs.logs) {
+          const { data } = log;
+          // It is the expectation that partial notes will have the corresponding unencrypted log be multiple
+          // of Fr.SIZE_IN_BYTES as the partial fields should be simply concatenated.
+          if (data.length % Fr.SIZE_IN_BYTES === 0) {
+            const partialFields = [];
+            for (let i = 0; i < data.length; i += Fr.SIZE_IN_BYTES) {
+              const chunk = data.subarray(i, i + Fr.SIZE_IN_BYTES);
+              partialFields.push(Fr.fromBuffer(chunk));
+            }
+
+            // We concatenate the partial fields with the rest of the fields of the note and we try to produce
+            // the note dao again
+            const payloadWithPartialFields = L1NotePayload.fromBuffer(payload.toBuffer());
+            payloadWithPartialFields.note.items.push(...partialFields);
+
+            ({ incomingNote, incomingDeferredNote } = await produceNoteDaos(
+              simulator,
+              ivpkM,
+              undefined, // We only care about incoming notes in this case as that is where the partial flow got triggered.
+              payloadWithPartialFields,
+              txHash,
+              noteHashes,
+              dataStartIndexForTx,
+              excludedIndices,
+              logger,
+              UnencryptedTxL2Logs.empty(), // We set unencrypted logs to empty to prevent infinite recursion.
+            ));
+            if (incomingNote || incomingDeferredNote) {
+              // We managed to complete the partial note so we terminate the search.
+              break;
+            }
+          }
+        }
+      }
     } else {
-      log.error(`Could not process note because of "${e}". Discarding note...`);
+      logger.error(`Could not process note because of "${e}". Discarding note...`);
     }
   }
 
@@ -138,7 +184,7 @@ export async function produceNoteDaos(
     }
   } catch (e) {
     if (e instanceof ContractNotFoundError) {
-      log.warn(e.message);
+      logger.warn(e.message);
 
       if (ovpkM) {
         outgoingDeferredNote = new DeferredNoteDao(
@@ -150,10 +196,53 @@ export async function produceNoteDaos(
           txHash,
           noteHashes,
           dataStartIndexForTx,
+          unencryptedLogs,
         );
       }
+    } else if ((e as any).message.includes('failed to solve blackbox function: embedded_curve_add')) {
+      // TODO(#8769): This branch is a temporary partial notes delivery solution that should be eventually replaced.
+      // This error occurs when we are dealing with a partial note and is thrown when calling
+      // `note.compute_note_hash()` in `compute_note_hash_and_optionally_a_nullifier` function. It occurs with
+      // partial notes because in the partial flow we receive a note log of a note that is missing some fields
+      // here and then we try to compute the note hash with MSM while some of the fields are zeroed out.
+      for (const functionLogs of unencryptedLogs.functionLogs) {
+        for (const log of functionLogs.logs) {
+          const { data } = log;
+          // It is the expectation that partial notes will have the corresponding unencrypted log be multiple
+          // of Fr.SIZE_IN_BYTES as the partial fields should be simply concatenated.
+          if (data.length % Fr.SIZE_IN_BYTES === 0) {
+            const partialFields = [];
+            for (let i = 0; i < data.length; i += Fr.SIZE_IN_BYTES) {
+              const chunk = data.subarray(i, i + Fr.SIZE_IN_BYTES);
+              partialFields.push(Fr.fromBuffer(chunk));
+            }
+
+            // We concatenate the partial fields with the rest of the fields of the note and we try to produce
+            // the note dao again
+            const payloadWithPartialFields = L1NotePayload.fromBuffer(payload.toBuffer());
+            payloadWithPartialFields.note.items.push(...partialFields);
+
+            ({ outgoingNote, outgoingDeferredNote } = await produceNoteDaos(
+              simulator,
+              undefined, // We only care about outgoing notes in this case as that is where the partial flow got triggered.
+              ovpkM,
+              payloadWithPartialFields,
+              txHash,
+              noteHashes,
+              dataStartIndexForTx,
+              excludedIndices,
+              logger,
+              UnencryptedTxL2Logs.empty(), // We set unencrypted logs to empty to prevent infinite recursion.
+            ));
+            if (outgoingNote || outgoingDeferredNote) {
+              // We managed to complete the partial note so we terminate the search.
+              break;
+            }
+          }
+        }
+      }
     } else {
-      log.error(`Could not process note because of "${e}". Discarding note...`);
+      logger.error(`Could not process note because of "${e}". Discarding note...`);
     }
   }
 

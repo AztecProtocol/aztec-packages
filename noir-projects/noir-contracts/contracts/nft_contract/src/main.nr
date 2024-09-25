@@ -152,7 +152,8 @@ contract NFT {
         let to_note_slot = storage.private_nfts.at(to).storage_slot;
         let hiding_point = NFTNote::hiding_point().new(to_npk_m_hash, note_randomness, to_note_slot);
 
-        // ####### HACKY PARTIAL NOTE EMISSION CODE #######
+        // ####### HACKY PARTIAL NOTE EMISSION CODE (to be replaced in a followup PR with proper macro support) #######
+        // TODO(#8769): The following is a temporary partial notes delivery solution that should be eventually replaced.
         let to_public_keys = get_public_keys(to);
         let hacky_nft_note = crate::hacky_partial_note::NFTNote {
             npk_m_hash: to_npk_m_hash,

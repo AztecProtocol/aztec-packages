@@ -156,17 +156,18 @@ export class NoteProcessor {
 
               const payload = incomingNotePayload || outgoingNotePayload;
 
-              const txHash = block.body.txEffects[indexOfTxInABlock].txHash;
+              const txEffect = block.body.txEffects[indexOfTxInABlock];
               const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } = await produceNoteDaos(
                 this.simulator,
                 incomingNotePayload ? this.ivpkM : undefined,
                 outgoingNotePayload ? this.ovpkM : undefined,
                 payload!,
-                txHash,
+                txEffect.txHash,
                 noteHashes,
                 dataStartIndexForTx,
                 excludedIndices,
                 this.log,
+                txEffect.unencryptedLogs,
               );
 
               if (incomingNote) {
@@ -296,8 +297,17 @@ export class NoteProcessor {
     const outgoingNotes: OutgoingNoteDao[] = [];
 
     for (const deferredNote of deferredNoteDaos) {
-      const { publicKey, note, contractAddress, storageSlot, noteTypeId, txHash, noteHashes, dataStartIndexForTx } =
-        deferredNote;
+      const {
+        publicKey,
+        note,
+        contractAddress,
+        storageSlot,
+        noteTypeId,
+        txHash,
+        noteHashes,
+        dataStartIndexForTx,
+        unencryptedLogs,
+      } = deferredNote;
       const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
 
       const isIncoming = publicKey.equals(this.ivpkM);
@@ -318,6 +328,7 @@ export class NoteProcessor {
         dataStartIndexForTx,
         excludedIndices,
         this.log,
+        unencryptedLogs,
       );
 
       if (isIncoming) {
