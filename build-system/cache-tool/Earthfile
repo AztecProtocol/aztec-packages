@@ -1,0 +1,6 @@
+VERSION 0.8
+
+start-server:
+  LOCALLY
+  # TODO(AD): use secrets to decide whether to use s3 backing/storing
+  RUN ./start_server.sh
