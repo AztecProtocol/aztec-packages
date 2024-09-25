@@ -38,7 +38,13 @@ bootNode:
     disabled: true
   p2p:
     enabled: "true"
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "4Gi"
+      cpu: "4"
 
 validator:
   replicas: 0
@@ -54,7 +60,13 @@ validator:
     disabled: false
   p2p:
     enabled: "true"
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "28Gi"
+      cpu: "7"
 
 proverNode:
   replicas: 1
@@ -64,7 +76,13 @@ proverNode:
   debug: "aztec:*"
   realProofs: false
   proverAgentEnabled: true
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "120Gi"
+      cpu: "15"
 
 pxe:
   logLevel: "debug"
@@ -80,7 +98,13 @@ pxe:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "4Gi"
+      cpu: "1"
 
 bot:
   logLevel: "debug"
@@ -104,7 +128,13 @@ bot:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "4Gi"
+      cpu: "1"
 
 ethereum:
   replicas: 1
@@ -126,7 +156,13 @@ ethereum:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources: {}
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+    limits:
+      memory: "4Gi"
+      cpu: "1"
 
 metrics:
   service:
