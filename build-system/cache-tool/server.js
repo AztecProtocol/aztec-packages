@@ -33,7 +33,7 @@ const s3 = new S3({
   region: "us-east-2",
 });
 const BUCKET_NAME = "aztec-ci-artifacts";
-const PREFIX = "protocol";
+const PREFIX = "build-cache";
 
 // Set the port you want the server to run on
 const PORT = process.env.AZTEC_BUILD_TOOL_PORT || 8337;
@@ -74,6 +74,7 @@ app.post("/upload-local", upload.single("file"), async (req, res) => {
 app.post("/upload", upload.single("file"), async (req, res) => {
   // File has been saved locally at this point
   if (process.env.S3_WRITE) {
+    console.log("Uploading", req.file.originalname, "to S3.");
     try {
       const filePath = path.join(buildArtifactDirectory, req.file.originalname);
       const fileContent = fs.readFileSync(filePath);

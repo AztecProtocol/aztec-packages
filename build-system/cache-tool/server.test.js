@@ -11,7 +11,7 @@ function clearModule(moduleName) {
 
 describe("Aztec Cache Tool Tests", () => {
   const BUCKET_NAME = "aztec-ci-artifacts";
-  const PREFIX = "protocol";
+  const PREFIX = "build-cache";
   const s3 = new S3({
     credentials: fromIni({ profile: "default" }),
     region: "us-east-2",
