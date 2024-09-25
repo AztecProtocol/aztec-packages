@@ -9,7 +9,7 @@ use crate::note::note_interface::NullifiableNote;
 
 global MOCK_NOTE_LENGTH: u32 = 1;
 
-struct MockNote {
+pub(crate) struct MockNote {
   header: NoteHeader,
   value: Field,
 }
@@ -93,7 +93,7 @@ impl Eq for MockNote {
     }
 }
 
-struct MockNoteBuilder {
+pub struct MockNoteBuilder {
     value: Field,
     contract_address: Option<AztecAddress>,
     storage_slot: Option<Field>,

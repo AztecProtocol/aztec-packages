@@ -8,7 +8,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     MERGE_ROLLUP_INDEX,
 ];
 
-struct MergeRollupInputs {
+pub struct MergeRollupInputs {
     // TODO(Kev): Why is this 2?
     previous_rollup_data : [PreviousRollupData; 2]
 }

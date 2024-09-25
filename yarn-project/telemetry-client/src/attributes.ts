@@ -48,10 +48,6 @@ export const BLOCK_CANDIDATE_TXS_COUNT = 'aztec.block.candidate_txs_count';
 export const BLOCK_TXS_COUNT = 'aztec.block.txs_count';
 /** The block size (power of 2) */
 export const BLOCK_SIZE = 'aztec.block.size';
-/** How many blocks are included in this epoch */
-export const EPOCH_SIZE = 'aztec.epoch.size';
-/** The epoch number */
-export const EPOCH_NUMBER = 'aztec.epoch.number';
 /** The tx hash */
 export const TX_HASH = 'aztec.tx.hash';
 /** Generic attribute representing whether the action was successful or not */

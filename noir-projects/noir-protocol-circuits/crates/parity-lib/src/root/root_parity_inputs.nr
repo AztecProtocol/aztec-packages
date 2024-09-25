@@ -6,7 +6,7 @@ use crate::{
 
 global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
-struct RootParityInputs {
+pub struct RootParityInputs {
     children: [RootParityInput; NUM_BASE_PARITY_PER_ROOT_PARITY],
 }
 

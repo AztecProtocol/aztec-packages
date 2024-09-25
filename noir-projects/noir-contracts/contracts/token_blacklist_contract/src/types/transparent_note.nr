@@ -13,7 +13,7 @@ use dep::std::mem::zeroed;
 // Owner of the tokens provides a "secret_hash" as an argument to the public "shield" function and then the tokens
 // can be redeemed in private by presenting the preimage of the "secret_hash" (the secret).
 #[note]
-struct TransparentNote {
+pub struct TransparentNote {
     amount: Field,
     secret_hash: Field,
 }

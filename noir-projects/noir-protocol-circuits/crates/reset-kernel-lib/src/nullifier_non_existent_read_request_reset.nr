@@ -5,7 +5,7 @@ use dep::types::{
     constants::{MAX_NULLIFIERS_PER_TX, MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT}
 };
 
-struct NullifierNonMembershipHint {
+pub struct NullifierNonMembershipHint {
     low_leaf_preimage: NullifierLeafPreimage,
     membership_witness: MembershipWitness<NULLIFIER_TREE_HEIGHT>,
 }
@@ -20,7 +20,7 @@ impl NonMembershipHint<NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage> for Nullifi
     }
 }
 
-struct NullifierNonExistentReadRequestHints {
+pub struct NullifierNonExistentReadRequestHints {
     non_membership_hints: [NullifierNonMembershipHint; MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_TX],
     sorted_pending_values: [Nullifier; MAX_NULLIFIERS_PER_TX],
     sorted_pending_value_index_hints: [u32; MAX_NULLIFIERS_PER_TX],

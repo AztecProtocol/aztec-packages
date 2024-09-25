@@ -5,7 +5,7 @@ use dep::protocol_types::{scalar::Scalar};
 use std::aes128::aes128_encrypt;
 use crate::keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::IvpkM};
 
-struct EncryptedLogIncomingBody<let N: u32> {
+pub struct EncryptedLogIncomingBody<let N: u32> {
     plaintext: [u8; N * 32 + 64]
 }
 
@@ -40,7 +40,7 @@ mod test {
     };
 
     use crate::{
-        note::{note_header::NoteHeader, note_interface::{NoteInterface, PartialNote, NullifiableNote}},
+        note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}},
         encrypted_logs::incoming_body::EncryptedLogIncomingBody, event::event_interface::EventInterface,
         context::PrivateContext, keys::public_keys::IvpkM
     };
@@ -121,7 +121,7 @@ mod test {
             buffer
         }
 
-        fn compute_note_hash(self) -> Field {
+        fn compute_note_hash(_self: Self) -> Field {
             crate::generators::Ga1.x
         }
     }
@@ -133,7 +133,7 @@ mod test {
     }
 
     #[test]
-    fn test_encrypted_note_log_incoming_body_matches_typescript() {
+    unconstrained fn test_encrypted_note_log_incoming_body_matches_typescript() {
         // All the values in this test were copied over from `encrypted_note_log_incoming_body.test.ts`
         let note = AddressNote::new(
             AztecAddress::from_field(0x1),
@@ -249,7 +249,7 @@ mod test {
     }
 
     #[test]
-    fn test_encrypted_log_event_incoming_body() {
+    unconstrained fn test_encrypted_log_event_incoming_body() {
         let test_event = TestEvent { value0: 1, value1: 2, value2: 3 };
 
         let eph_sk = Scalar {

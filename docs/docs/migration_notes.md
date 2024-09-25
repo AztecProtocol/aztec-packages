@@ -18,6 +18,17 @@ impl NullifiableNote for MyCustomNote {
 +    unconstrained fn compute_nullifier_without_context(self) -> Field {
 ```
 
+### [Aztec.nr] Make `TestEnvironment` unconstrained
+
+All of `TestEnvironment`'s functions are now `unconstrained`, preventing accidentally calling them in a constrained circuit, among other kinds of user error. Becuase they work with mutable references, and these are not allowed to cross the constrained/unconstrained barrier, tests that use `TestEnvironment` must also become `unconstrained`. The recommended practice is to make _all_ Noir tests and test helper functions be `unconstrained:
+
+```diff
+#[test]
+-fn test_my_function() {
++unconstrained fn test_my_function() {
+    let env = TestEnvironment::new();
+```
+
 ## 0.56.0
 
 ### [Aztec.nr] Changes to contract definition

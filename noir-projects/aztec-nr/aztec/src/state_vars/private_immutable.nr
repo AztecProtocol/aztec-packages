@@ -10,7 +10,7 @@ use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
 
 // docs:start:struct
-struct PrivateImmutable<Note, Context> {
+pub struct PrivateImmutable<Note, Context> {
     context: Context,
     storage_slot: Field,
 }

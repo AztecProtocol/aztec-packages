@@ -4,8 +4,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
-import { inspect } from 'util';
-
 import { GLOBAL_VARIABLES_LENGTH } from '../constants.gen.js';
 import { GasFees } from './gas_fees.js';
 
@@ -151,11 +149,5 @@ export class GlobalVariables {
       this.feeRecipient.isZero() &&
       this.gasFees.isEmpty()
     );
-  }
-
-  [inspect.custom]() {
-    return `GlobalVariables { chainId: ${this.chainId.toString()}, version: ${this.version.toString()}, blockNumber: ${this.blockNumber.toString()}, slotNumber: ${this.slotNumber.toString()}, timestamp: ${this.timestamp.toString()}, coinbase: ${this.coinbase.toString()}, feeRecipient: ${this.feeRecipient.toString()}, gasFees: ${inspect(
-      this.gasFees,
-    )} }`;
   }
 }

@@ -2,7 +2,7 @@ use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Dese
 
 global SETTINGS_LENGTH: u32 = 2;
 
-struct Settings {
+pub struct Settings {
     other_asset: AztecAddress,
     admin: AztecAddress,
 }

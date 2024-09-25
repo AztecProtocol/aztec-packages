@@ -3,7 +3,7 @@ mod validate_no_transient_data;
 use crate::components::previous_kernel_validator::PreviousKernelValidator;
 use dep::types::tests::fixture_builder::FixtureBuilder;
 
-struct PreviousKernelValidatorBuilder {
+pub struct PreviousKernelValidatorBuilder {
     previous_kernel: FixtureBuilder
 }
 

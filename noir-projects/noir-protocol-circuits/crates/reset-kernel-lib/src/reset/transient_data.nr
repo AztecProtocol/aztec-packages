@@ -3,7 +3,7 @@ use dep::types::{
     traits::is_empty
 };
 
-struct TransientDataIndexHint {
+pub struct TransientDataIndexHint {
     nullifier_index: u32,
     note_hash_index: u32,
 }

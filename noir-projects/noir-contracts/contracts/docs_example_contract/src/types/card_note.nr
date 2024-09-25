@@ -9,7 +9,7 @@ use dep::aztec::{
 global CARD_NOTE_LEN: u32 = 3; // 3 plus a header.
 
 #[note]
-struct CardNote {
+pub struct CardNote {
     points: u8,
     randomness: Field,
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.

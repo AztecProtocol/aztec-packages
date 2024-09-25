@@ -40,7 +40,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PUBLIC_KERNEL_TAIL_INDEX,
 ];
 
-struct BaseRollupInputs {
+pub struct BaseRollupInputs {
     kernel_data: KernelData,
     start: PartialStateReference,
 

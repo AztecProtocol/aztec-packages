@@ -6,7 +6,7 @@ use std::aes128::aes128_encrypt;
 
 use crate::{keys::public_keys::IvpkM, utils::point::point_to_bytes};
 
-struct EncryptedLogOutgoingBody {
+pub struct EncryptedLogOutgoingBody {
     eph_sk: Scalar,
     recipient: AztecAddress,
     recipient_ivpk: IvpkM,
@@ -63,7 +63,7 @@ mod test {
     use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
     #[test]
-    fn test_encrypted_log_outgoing_body_matches_typescript() {
+    unconstrained fn test_encrypted_log_outgoing_body_matches_typescript() {
         let eph_sk = Scalar {
             lo: 0x00000000000000000000000000000000d0d302ee245dfaf2807e604eec4715fe,
             hi: 0x000000000000000000000000000000000f096b423017226a18461115fa8d34bb
