@@ -170,7 +170,10 @@ jobs:
       - uses: ./.github/ci-setup-action
         with:
           concurrency_key: build-cache-tool-tests
-      - name: "Build Cache Tool Tests"
+      - name: "Build Cache Tool Correctness Tests"
+        timeout-minutes: 5
+        run: earthly-ci --no-output ./build-system/cache-tool/+test
+      - name: "Build Cache Tool Connectivity Tests"
         timeout-minutes: 5
         run: earthly-ci --no-output ./build-system/cache-tool/+test
 
