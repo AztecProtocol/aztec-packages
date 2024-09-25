@@ -1,42 +1,5 @@
 use dep::protocol_types::address::AztecAddress;
 
-trait LensForEncryptedEvent<let N: u32, let M: u32> {
-    // N = event preimage input in bytes
-    // M = encryption output len in bytes (= 416 + M)
-    fn output(self: [u8; N]) -> [u8; M];
-}
-
-impl LensForEncryptedEvent<96, 448> for [u8; 96] {
-    fn output(self) -> [u8; 448] {
-        [self[0] as u8; 448]
-    }
-}
-impl LensForEncryptedEvent<128, 480> for [u8; 128] {
-    fn output(self) -> [u8; 480] {
-        [self[0] as u8; 480]
-    }
-}
-impl LensForEncryptedEvent<160, 512> for [u8; 160] {
-    fn output(self) -> [u8; 512] {
-        [self[0] as u8; 512]
-    }
-}
-impl LensForEncryptedEvent<192, 544> for [u8; 192] {
-    fn output(self) -> [u8; 544] {
-        [self[0] as u8; 544]
-    }
-}
-impl LensForEncryptedEvent<224, 576> for [u8; 224] {
-    fn output(self) -> [u8; 576] {
-        [self[0] as u8; 576]
-    }
-}
-impl LensForEncryptedEvent<256, 608> for [u8; 256] {
-    fn output(self) -> [u8; 608] {
-        [self[0] as u8; 608]
-    }
-}
-
 // This trait defines the length of the inputs in bytes to
 // the unencrypted log hash fn, where the log can be any type T
 // as long as the ACVM can convert to fields.
