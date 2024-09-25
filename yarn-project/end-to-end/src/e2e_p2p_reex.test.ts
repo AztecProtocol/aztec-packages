@@ -1,153 +1,216 @@
-// /**
-//  * A test where the validator nodes re-execute transactions from a block before attesting to it.
-//  */
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { type AztecNodeConfig, type AztecNodeService } from '@aztec/aztec-node';
+import {
+    AccountWalletWithSecretKey,
+  CompleteAddress,
+  type DebugLogger,
+  type DeployL1Contracts,
+  EthCheatCodes,
+  Fr,
+  GrumpkinScalar,
+  type SentTx,
+  TxStatus,
+  sleep,
+} from '@aztec/aztec.js';
+import { ETHEREUM_SLOT_DURATION, EthAddress } from '@aztec/circuits.js';
+import { RollupAbi } from '@aztec/l1-artifacts';
+import { type BootstrapNode } from '@aztec/p2p';
+import { type PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
 
-// import { privateKeyToAccount } from "viem/accounts";
-// import { getPrivateKeyFromIndex, setup } from "./fixtures/utils.js";
-// import { EthAddress, ETHEREUM_SLOT_DURATION } from "@aztec/circuits.js";
-// import { AztecNodeConfig, AztecNodeService } from "@aztec/aztec-node";
-// import { BootstrapNode } from "@aztec/p2p";
-// import {
-//   CompleteAddress,
-//   type DebugLogger,
-//   type DeployL1Contracts,
-//   EthCheatCodes,
-//   Fr,
-//   GrumpkinScalar,
-//   type SentTx,
-//   TxStatus,
-//   sleep,
-// } from '@aztec/aztec.js';
-// import { createBootstrapNode, createNodes, NodeContext } from "./fixtures/setup_p2p_test.js";
-// import { getContract } from "viem";
-// import { RollupAbi } from "@aztec/l1-artifacts";
+import { jest } from '@jest/globals';
+import fs from 'fs';
+import { getContract } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { SpamContract, TokenContract } from '@aztec/noir-contracts.js';
 
-// const NUM_NODES = 2;
-// const NUM_TX_PER_BLOCK = 4;
-// const NUM_TX_PER_NODE = 2;
-// const BOOT_NODE_UDP_PORT = 40400;
+import {
+  createBootstrapNode,
+  createNodes,
+  generatePeerIdPrivateKeys,
+} from './fixtures/setup_p2p_test.js';
+import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
+import { createAccounts } from '@aztec/accounts/testing';
 
-// const PEER_ID_PRIVATE_KEYS = generatePeerIdPrivateKeys(NUM_NODES);
+// Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
+const NUM_NODES = 2;
+const NUM_TXS_PER_BLOCK = 2;
+const NUM_TXS_PER_NODE = 2;
+const BOOT_NODE_UDP_PORT = 40400;
 
-// describe('e2e_p2p_reex', () => {
-//   let config: AztecNodeConfig;
-//   let logger: DebugLogger;
-//   let teardown: () => Promise<void>;
-//   let bootstrapNode: BootstrapNode;
-//   let bootstrapNodeEnr: string;
-//   let deployL1ContractsValues: DeployL1Contracts;
+const PEER_ID_PRIVATE_KEYS = generatePeerIdPrivateKeys(NUM_NODES);
 
+describe('e2e_p2p_network', () => {
+  let config: AztecNodeConfig;
+  let logger: DebugLogger;
+  let teardown: () => Promise<void>;
+  let bootstrapNode: BootstrapNode;
+  let bootstrapNodeEnr: string;
+  let deployL1ContractsValues: DeployL1Contracts;
 
+  let token: TokenContract;
+  let spam: SpamContract;
 
-//     beforeEach(async () => {
+  beforeEach(async () => {
+    // If we want to test with interval mining, we can use the local host and start `anvil --block-time 12`
+    const useLocalHost = false;
+    if (useLocalHost) {
+      jest.setTimeout(300_000);
+    }
+    const options = useLocalHost ? { l1RpcUrl: 'http://127.0.0.1:8545' } : {};
 
-//         const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
-//         const initialValidators = [EthAddress.fromString(account.address)];
+    // We need the very first node to be the sequencer for this is the one doing everything throughout the setup.
+    // Without it we will wait forever.
+    const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
 
-//         ({
-//             teardown,
-//             config,
-//             logger,
-//             deployL1ContractsValues
-//         } = await setup(0, {
-//             initialValidators,
-//             l1BlockTime: ETHEREUM_SLOT_DURATION,
-//             salt: 420,
-//         }));
+    const initialValidators = [EthAddress.fromString(account.address)];
 
+    ({ teardown, config, logger, deployL1ContractsValues} = await setup(0, {
+      initialValidators,
+      l1BlockTime: ETHEREUM_SLOT_DURATION,
+      salt: 420,
+      ...options,
+    }));
 
-//         bootstrapNode = await createBootstrapNode(BOOT_NODE_UDP_PORT);
-//         bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
+    bootstrapNode = await createBootstrapNode(BOOT_NODE_UDP_PORT);
+    bootstrapNodeEnr = bootstrapNode.getENR().encodeTxt();
 
-//         config.minTxsPerBlock = NUM_TX_PER_BLOCK;
-//         config.maxTxsPerBlock = NUM_TX_PER_BLOCK;
+    config.minTxsPerBlock = 1;
+    config.maxTxsPerBlock = NUM_TXS_PER_BLOCK; //
 
-//         const rollup = getContract({
-//             address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-//             abi: RollupAbi,
-//             client: deployL1ContractsValues.walletClient,
-//         });
+    const rollup = getContract({
+      address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: deployL1ContractsValues.walletClient,
+    });
 
-//         for (let i = 0; i < NUM_NODES; i++) {
-//             const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(i + 1)!.toString('hex')}`);
-//             await rollup.write.addValidator([account.address]);
-//             logger.debug(`Adding ${account.address} as validator`);
-//         }
+    for (let i = 0; i < NUM_NODES; i++) {
+      const account = privateKeyToAccount(`0x${getPrivateKeyFromIndex(i + 1)!.toString('hex')}`);
+      await rollup.write.addValidator([account.address]);
+      logger.debug(`Adding ${account.address} as validator`);
+    }
 
-//         // Remove the initial sequencer from the set! This was the sequencer we used for perform the setup.
-//         logger.debug(`Removing ${account.address} as validator`);
-//         const txHash = await rollup.write.removeValidator([account.address]);
+    // Remove the initial sequencer from the set! This was the sequencer we used for perform the setup.
+    logger.debug(`Removing ${account.address} as validator`);
+    const txHash = await rollup.write.removeValidator([account.address]);
 
-//         await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash });
+    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash });
 
-//         // TODO(md): fix this case
-//         //@note   Now we jump ahead to the next epoch such that the validator committee is picked
-//         //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
-//         //        Which means that the validator set will still be empty! So anyone can propose.
-//         const slotsInEpoch = await rollup.read.EPOCH_DURATION();
-//         const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
-//         const cheatCodes = new EthCheatCodes(config.l1RpcUrl);
+    //@note   Now we jump ahead to the next epoch such that the validator committee is picked
+    //        INTERVAL MINING: If we are using anvil interval mining this will NOT progress the time!
+    //        Which means that the validator set will still be empty! So anyone can propose.
+    const slotsInEpoch = await rollup.read.EPOCH_DURATION();
+    const timestamp = await rollup.read.getTimestampForSlot([slotsInEpoch]);
+    const cheatCodes = new EthCheatCodes(config.l1RpcUrl);
+    try {
+      await cheatCodes.warp(Number(timestamp));
+    } catch (err) {
+      logger.debug('Warp failed, time already satisfied');
+    }
 
-//         try {
-//             await cheatCodes.warp(Number(timestamp));
-//         } catch (err) {
-//             logger.debug('Warp failed, time already satisfied');
-//         }
+    // Send and await a tx to make sure we mine a block for the warp to correctly progress.
+    await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
+      hash: await deployL1ContractsValues.walletClient.sendTransaction({ to: account.address, value: 1n, account }),
+    });
+  });
 
-//         // Send and await a tx to make sure we mine a block for the warp to correctly progress.
-//         await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-//             hash: await deployL1ContractsValues.walletClient.sendTransaction({ to: account.address, value: 1n, account }),
-//         });
-//     });
+  const stopNodes = async (bootstrap: BootstrapNode, nodes: AztecNodeService[]) => {
+    for (const node of nodes) {
+      await node.stop();
+    }
+    await bootstrap.stop();
+  };
 
+  afterEach(() => teardown());
 
-//   it('should rollup txs from all peers', async () => {
-//     // create the bootstrap node for the network
-//     if (!bootstrapNodeEnr) {
-//       throw new Error('Bootstrap node ENR is not available');
-//     }
+  afterAll(() => {
+    for (let i = 0; i < NUM_NODES; i++) {
+      fs.rmSync(`./data-${i}`, { recursive: true, force: true });
+    }
+  });
 
-//     // Trigger re-execution
-//     config.validatorReEx = true;
+  it.only('should rollup txs from all peers with re-execution', async () => {
+    // create the bootstrap node for the network
+    if (!bootstrapNodeEnr) {
+      throw new Error('Bootstrap node ENR is not available');
+    }
 
-//     // create our network of nodes and submit txs into each of them
-//     // the number of txs per node and the number of txs per rollup
-//     // should be set so that the only way for rollups to be built
-//     // is if the txs are successfully gossiped around the nodes.
-//     const contexts: NodeContext[] = [];
-//     const nodes: AztecNodeService[] = await createNodes(
-//       config,
-//       PEER_ID_PRIVATE_KEYS,
-//       bootstrapNodeEnr,
-//       NUM_NODES,
-//       BOOT_NODE_UDP_PORT,
-//     );
+    config.validatorReEx = true;
 
-//     // wait a bit for peers to discover each other
-//     await sleep(4000);
+    // create our network of nodes and submit txs into each of them
+    // the number of txs per node and the number of txs per rollup
+    // should be set so that the only way for rollups to be built
+    // is if the txs are successfully gossiped around the nodes.
+    const nodes: AztecNodeService[] = await createNodes(
+      config,
+      PEER_ID_PRIVATE_KEYS,
+      bootstrapNodeEnr,
+      NUM_NODES,
+      BOOT_NODE_UDP_PORT,
+    );
 
-//     for (const node of nodes) {
-//       const context = await createPXEServiceAndSubmitTransactions(node, NUM_TXS_PER_NODE);
-//       contexts.push(context);
-//     }
+    // spam = await SpamContract.deploy(wallet).send().deployed();
 
-//     // now ensure that all txs were successfully mined
-//     await Promise.all(
-//       contexts.flatMap((context, i) =>
-//         context.txs.map(async (tx, j) => {
-//           logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-//           return tx.wait();
-//         }),
-//       ),
-//     );
+    // wait a bit for peers to discover each other
+    await sleep(4000);
 
-//     // shutdown all nodes.
-//     await stopNodes(bootstrapNode, nodes);
-//   });
+    // Just use the first node for the PXE
+    const pxeService = await createPXEService(nodes[0], getRpcConfig(), true);
 
+    // tODO: use a tx with nested calls
+    const txs = await submitTxsTo(pxeService, NUM_TXS_PER_BLOCK);
+    nodes.forEach(node => {
+      node.getSequencer()?.updateSequencerConfig( {
+        minTxsPerBlock: NUM_TXS_PER_BLOCK,
+        maxTxsPerBlock: NUM_TXS_PER_BLOCK,
+      });
+    });
 
+    // now ensure that all txs were successfully mined
+    await Promise.all(
+      txs.map(async (tx, i) => {
+          logger.info(`Waiting for tx ${i}: ${await tx.getTxHash()} to be mined`);
+          return tx.wait();
+        }),
+    );
 
+    // shutdown all nodes.
+    await stopNodes(bootstrapNode, nodes);
+  });
 
+  // submits a set of transactions to the provided Private eXecution Environment (PXE)
+  const submitTxsTo = async (pxe: PXEService, numTxs: number) => {
+    const txs: SentTx[] = [];
 
+    // TODO: set min tx to 1 and see the re-ex padding
 
-// });
+    const wallet = (await createAccounts(pxe, 2))[0];
+
+    // add another account creation to pad the tx below - TODO(md): clean up
+    createAccounts(pxe,1);
+    token = await TokenContract.deploy(wallet, wallet.getAddress(), 'TestToken', 'TST', 18n).send().deployed();
+    // spam = await SpamContract.deploy(wallet).send().deployed();
+
+    for (let i = 0; i < numTxs; i++) {
+      const accountManager = getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
+
+      // TODO: check out batch call for deployments
+
+      // Send a public mint tx - this will be minted from the token contract to the pxe account
+      const tx = token.methods.mint_public(accountManager.getCompleteAddress().address, 1n).send()
+      // const tx = spam.methods.spam(420n, 15, true).send()
+      const txHash = await tx.getTxHash();
+
+      logger.info(`Tx sent with hash ${txHash}`);
+      const receipt = await tx.getReceipt();
+      expect(receipt).toEqual(
+        expect.objectContaining({
+          status: TxStatus.PENDING,
+          error: '',
+        }),
+      );
+      logger.info(`Receipt received for ${txHash}`);
+      txs.push(tx);
+    }
+    return txs;
+  };
+});

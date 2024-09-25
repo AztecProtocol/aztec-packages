@@ -1,7 +1,11 @@
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
+import { GeneratorIndex } from '../constants.gen.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { ContractStorageUpdateRequest } from './contract_storage_update_request.js';
 
 /**
  * Write operations on the public data tree including the previous value.
@@ -72,6 +76,13 @@ export class PublicDataUpdateRequest {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new PublicDataUpdateRequest(Fr.fromBuffer(reader), Fr.fromBuffer(reader), reader.readNumber());
+  }
+
+  static fromContractStorageUpdateRequest(contractAddress: AztecAddress, updateRequest: ContractStorageUpdateRequest) {
+    const leafSlot = poseidon2HashWithSeparator([contractAddress, updateRequest.storageSlot], GeneratorIndex.PUBLIC_LEAF_INDEX);
+
+    return new PublicDataUpdateRequest(leafSlot, updateRequest.newValue, updateRequest.counter);
+
   }
 
   static empty() {

@@ -100,6 +100,9 @@ export class ValidatorClient implements Validator {
     } catch (error: any) {
       if (error instanceof TransactionsNotAvailableError) {
         this.log.error(`Transactions not available, skipping attestation ${error.message}`);
+      } else {
+        // TODO(md): this is a catch all error handler
+        this.log.error(`Failed to attest to proposal: ${error.message}`);
       }
       return undefined;
     }
@@ -111,6 +114,7 @@ export class ValidatorClient implements Validator {
     return this.validationService.attestToProposal(proposal);
   }
 
+  // We do not want to run the private state updates until we know if the public has failed or not
   async reExecuteTransactions(proposal: BlockProposal) {
     // TODO(md): currently we are not running the rollups, so cannot calcualte the archive
     // - use pallas new work to do this
@@ -140,41 +144,38 @@ export class ValidatorClient implements Validator {
       const lightProcessor = await this.lightPublicProcessorFactory.createWithSyncedState(targetBlockNumber, undefined, header.globalVariables, txValidator);
 
       this.log.verbose(`Re-ex: Re-executing transactions`);
-      const txResults = await lightProcessor.process(filteredTransactions as Tx[]);
+      await lightProcessor.process(filteredTransactions as Tx[]);
       this.log.verbose(`Re-ex: Re-execution complete`);
 
       // TODO: update this to check the archive matches
-      if (txResults === undefined) {
-        this.log.error(`Failed to re-execute transactions: ${txs.join(', ')}`);
-        throw new FailedToReExecuteTransactionsError(txHashes);
-      }
 
       const [
         newNullifierTree,
         newNoteHashTree,
         newPublicDataTree,
-        newL1ToL2MessageTree,
+        // newL1ToL2MessageTree,
       ] = await lightProcessor.getTreeSnapshots();
 
       // Check the header has this information
       // TODO: replace with archive check once we have it
-      if (header.state.l1ToL2MessageTree.root.toBuffer() !== (await newL1ToL2MessageTree).root) {
-        this.log.error(`Re-ex: l1ToL2MessageTree does not match`);
-        throw new ReExStateMismatchError();
-      }
-      if (header.state.partial.nullifierTree.root.toBuffer() !== (await newNullifierTree).root) {
-        this.log.error(`Re-ex: nullifierTree does not match`);
-        throw new ReExStateMismatchError();
-      }
-      if (header.state.partial.noteHashTree.root.toBuffer() !== (await newNoteHashTree).root) {
-        this.log.error(`Re-ex: noteHashTree does not match`);
-        throw new ReExStateMismatchError();
-      }
-      if (header.state.partial.publicDataTree.root.toBuffer() !== (await newPublicDataTree).root) {
-        this.log.error(`Re-ex: publicDataTree does not match`);
-        throw new ReExStateMismatchError();
-      }
 
+      // TODO: l1 to l2 messages need to be inserted separately at the start
+      // if (header.state.l1ToL2MessageTree.root.toBuffer() !== (await newL1ToL2MessageTree).root) {
+      //   this.log.error(`Re-ex: l1ToL2MessageTree does not match`);
+      //   throw new ReExStateMismatchError();
+      // }
+      if (!header.state.partial.nullifierTree.root.toBuffer().equals(newNullifierTree.root)) {
+        this.log.error(`Re-ex: nullifierTree does not match, ${header.state.partial.nullifierTree.root.toBuffer().toString('hex')} !== ${newNullifierTree.root.toString('hex')}`);
+        throw new ReExStateMismatchError();
+      }
+      if (!header.state.partial.noteHashTree.root.toBuffer().equals(newNoteHashTree.root)) {
+        this.log.error(`Re-ex: noteHashTree does not match, ${header.state.partial.noteHashTree.root.toBuffer().toString('hex')} !== ${newNoteHashTree.root.toString('hex')}`);
+        throw new ReExStateMismatchError();
+      }
+      if (!header.state.partial.publicDataTree.root.toBuffer().equals(newPublicDataTree.root)) {
+        this.log.error(`Re-ex: publicDataTree does not match, ${header.state.partial.publicDataTree.root.toBuffer().toString('hex')} !== ${newPublicDataTree.root.toString('hex')}`);
+        throw new ReExStateMismatchError();
+      }
   }
 
   /**
