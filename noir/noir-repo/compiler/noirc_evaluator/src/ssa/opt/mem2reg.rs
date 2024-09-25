@@ -616,7 +616,8 @@ impl<'f> PerFunctionContext<'f> {
     fn reduce_load_result_count(&mut self, value: ValueId) {
         if let Some(context) = self.load_results.get_mut(&value) {
             // TODO this was saturating https://github.com/noir-lang/noir/issues/6124
-            context.uses = context.uses.wrapping_sub(1);        }
+            context.uses = context.uses.wrapping_sub(1);
+        }
     }
 
     fn recursively_add_values(&self, value: ValueId, set: &mut HashSet<ValueId>) {
