@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727206729189,
+  "lastUpdate": 1727278630920,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "blorktronics@gmail.com",
-            "name": "Zachary James Williamson",
-            "username": "zac-williamson"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "12a093d25e0c32fed5eceee424b24111ad2f14a4",
-          "message": "feat: (bb) remove redundant constraints on field/group elements when using goblin plonk (#8409)\n\nThis PR adds distinct classes for goblin plonk group elements and\r\ncoordinate scalars in the stdlib so that we can refine the\r\nimplementation of these objects without proliferating edge cases in the\r\nrest of our codebase\r\n\r\nThis Pr reduces the cost of\r\n`ProtogalaxyRecursiveTests/0.RecursiveFoldingTest` from 24,630 gates to\r\n14,106 gates.\r\n\r\n`stdlib::element` is now a class alias that points to either the default\r\nelement class definition or the goblin plonk class definition depending\r\non whether goblin plonk is supported.\r\n\r\nThis allows us to apply the following improvements/useful restrictions:\r\n\r\n1. goblin plonk group elements no longer apply `on_curve` checks when\r\ncreated (performed in the eccvm)\r\n2. goblin plonk coordinate field elements no longer have range\r\nconstraints applied to them (performed in the translator circuit)\r\n3. goblin plonk coordinate field elements no longer generate constraints\r\nwhen `assert_is_in_field` is applied (performed in the translator\r\ncircuit)\r\n4. goblin plonk coordinate field elements do not have arithmetic\r\noperations exposed (manipulation of goblin plonk group elements should\r\nhappen exclusively through the eccvm)\r\n\r\nIn addition, this PR improve the handling of checking whether bn254\r\npoints are at infinity when consuming points from a transcript via\r\n`field_conversion`",
-          "timestamp": "2024-09-11T15:25:33-04:00",
-          "tree_id": "21d40e8f9ec33a56e8b80da1ba90d7659cf033bc",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/12a093d25e0c32fed5eceee424b24111ad2f14a4"
-        },
-        "date": 1726083699858,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 12945.184008000013,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9348.173422 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5186.116858999995,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4703.907881 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 38458.24129499999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 38458243000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14792.859840999998,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14792861000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3617915290,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3617915290 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 137814885,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 137814885 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2968578650,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2968578650 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 114061295,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 114061295 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3596,6 +3524,74 @@ window.BENCHMARK_DATA = {
             "value": 125271446,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125271446 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "committer": {
+            "name": "AztecProtocol",
+            "username": "AztecProtocol"
+          },
+          "id": "21277fe4c29ea1fa36a1f36d0bce2c93b5734e85",
+          "message": "chore(master): Release 0.56.0",
+          "timestamp": "2024-09-25T15:19:57Z",
+          "url": "https://github.com/AztecProtocol/aztec-packages/pull/8597/commits/21277fe4c29ea1fa36a1f36d0bce2c93b5734e85"
+        },
+        "date": 1727278623635,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 35567.05756899998,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 32960.62841700001 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5071.335064999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4682.359494000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 99952.717225,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 99952718000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14608.651055,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14608651000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8540171919,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8540171919 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 155569260,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 155569260 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6941929160,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6941929160 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126783596,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126783596 ns\nthreads: 1"
           }
         ]
       }
