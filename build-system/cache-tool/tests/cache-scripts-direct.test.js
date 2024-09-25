@@ -198,7 +198,7 @@ describe("Cache Upload Script Tests", () => {
   });
 });
 
-describe("Cache Download Script Tests with S3", () => {
+describe("Cache Download Script Tests", () => {
   let server;
   const AZTEC_BUILD_TOOL_PORT = Math.floor(Math.random() * 1000 + 10000);
   const tarFileName = "test-cache.tar.gz";
