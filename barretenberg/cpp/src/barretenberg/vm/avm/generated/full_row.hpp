@@ -744,46 +744,7 @@ template <typename FF> struct AvmFullRow {
     RefVector<const FF> as_vector() const;
 
     static std::vector<std::string> names();
-<<<<<<< HEAD
-<<<<<<< HEAD
-    static constexpr size_t SIZE = 726;
-=======
-=======
->>>>>>> cde9ea97c (trace changes)
-<<<<<<< HEAD
-    static constexpr size_t SIZE = 703;
-=======
-=======
->>>>>>> e9bde8b8a (trace changes)
-<<<<<<< HEAD
-    static constexpr size_t SIZE = 709;
-=======
-=======
->>>>>>> 08514e3af (trace changes)
-<<<<<<< HEAD
-    static constexpr size_t SIZE = 708;
-=======
-<<<<<<< HEAD
-    static constexpr size_t SIZE = 699;
-=======
-    static constexpr size_t SIZE = 702;
->>>>>>> 47c2f8135 (feat(avm): add pil + trace placeholders)
->>>>>>> dd7aaa51b (feat(avm): add pil + trace placeholders)
-<<<<<<< HEAD
->>>>>>> e3a99d4da (feat(avm): add pil + trace placeholders)
-<<<<<<< HEAD
->>>>>>> b132a4e42 (feat(avm): add pil + trace placeholders)
-<<<<<<< HEAD
->>>>>>> c59e02542 (feat(avm): add pil + trace placeholders)
-=======
-=======
-=======
-=======
-    static constexpr size_t SIZE = 703;
->>>>>>> 0df7dc0ca (trace changes)
->>>>>>> 08514e3af (trace changes)
->>>>>>> e9bde8b8a (trace changes)
->>>>>>> cde9ea97c (trace changes)
+    static constexpr size_t SIZE = 730;
 };
 
 template <typename FF> std::ostream& operator<<(std::ostream& os, AvmFullRow<FF> const& row);

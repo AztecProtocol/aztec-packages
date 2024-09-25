@@ -259,16 +259,16 @@ void AvmTraceBuilder::finalise_mem_trace_lookup_counts()
  *        underlying traces and initialize gas values.
  */
 AvmTraceBuilder::AvmTraceBuilder(VmPublicInputs public_inputs,
-                                 const ExecutionHints& execution_hints_,
+                                 ExecutionHints execution_hints_,
                                  uint32_t side_effect_counter,
                                  std::vector<FF> calldata,
-                                 const std::vector<uint8_t>& contract_bytecode)
+                                 const std::vector<std::vector<uint8_t>>& all_contract_bytecode)
     // NOTE: we initialise the environment builder here as it requires public inputs
     : calldata(std::move(calldata))
     , side_effect_counter(side_effect_counter)
     , execution_hints(std::move(execution_hints_))
     , kernel_trace_builder(side_effect_counter, public_inputs, execution_hints)
-    , bytecode_trace_builder(contract_bytecode, execution_hints)
+    , bytecode_trace_builder(all_contract_bytecode)
 {
     // TODO: think about cast
     gas_trace_builder.set_initial_gas(

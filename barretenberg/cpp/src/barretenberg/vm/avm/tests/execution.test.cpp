@@ -37,12 +37,12 @@ class AvmExecutionTests : public ::testing::Test {
                                                     ExecutionHints execution_hints,
                                                     uint32_t side_effect_counter,
                                                     std::vector<FF> calldata,
-                                                    std::vector<uint8_t> contract_bytecode) {
+                                                    const std::vector<std::vector<uint8_t>>& all_contracts_bytecode) {
             return AvmTraceBuilder(std::move(public_inputs),
                                    std::move(execution_hints),
                                    side_effect_counter,
                                    std::move(calldata),
-                                   contract_bytecode)
+                                   all_contracts_bytecode)
                 .set_full_precomputed_tables(false)
                 .set_range_check_required(false);
         });
@@ -1043,76 +1043,13 @@ TEST_F(AvmExecutionTests, keccakf1600OpCode)
     // Assign a vector that we will mutate internally in gen_trace to store the return values;
     std::vector<FF> calldata = std::vector<FF>();
     std::vector<FF> returndata = std::vector<FF>();
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints());
 
     EXPECT_EQ(returndata, expected_output);
 
     validate_trace(std::move(trace), public_inputs, calldata, returndata);
 }
 
-// Positive test with Pedersen.
-TEST_F(AvmExecutionTests, pedersenHashOpCode)
-{
-    // Test vectors from pedersen_hash in noir/noir-repo/acvm-repo/blackbox_solver/
-    // input = [1,1]
-    // output = 0x1c446df60816b897cda124524e6b03f36df0cec333fad87617aab70d7861daa6
-    // hash_index = 5;
-    FF expected_output = FF("0x1c446df60816b897cda124524e6b03f36df0cec333fad87617aab70d7861daa6");
-    std::string bytecode_hex = to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                    // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // val
-                               "00"                      // dst_offset
-                               + to_hex(OpCode::SET_8) + // opcode SET
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "02"                             // val
-                               "01"                             // dst_offset
-                               + to_hex(OpCode::CALLDATACOPY) + // Calldatacopy
-                               "00"                             // Indirect flag
-                               "0000"                           // cd_offset
-                               "0001"                           // copy_size
-                               "0000"                           // dst_offset
-                               + to_hex(OpCode::SET_8) +        // opcode SET for direct hash index offset
-                               "00"                             // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "05"                      // value 5
-                               "02"                      // input_offset 2
-                               + to_hex(OpCode::SET_8) + // opcode SET for indirect src
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "00"                      // value 0 (i.e. where the src will be read from)
-                               "04"                      // dst_offset 4
-                               + to_hex(OpCode::SET_8) + // opcode SET for direct src_length
-                               "00"                      // Indirect flag
-                               + to_hex(AvmMemoryTag::U32) +
-                               "02"                         // value 2
-                               "05"                         // dst_offset
-                               + to_hex(OpCode::PEDERSEN) + // opcode PEDERSEN
-                               "04"                         // Indirect flag (3rd operand indirect)
-                               "00000002"                   // hash_index offset (direct)
-                               "00000003"                   // dest offset (direct)
-                               "00000004"                   // input offset (indirect)
-                               "00000005"                   // length offset (direct)
-                               + to_hex(OpCode::RETURN) +   // opcode RETURN
-                               "00"                         // Indirect flag
-                               "0003"                       // ret offset 3
-                               "0001";                      // ret size 1
-
-    auto bytecode = hex_to_bytes(bytecode_hex);
-    auto instructions = Deserialization::parse(bytecode);
-
-    // Assign a vector that we will mutate internally in gen_trace to store the return values;
-    std::vector<FF> returndata = std::vector<FF>();
-    std::vector<FF> calldata = { FF(1), FF(1) };
-    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints());
-
-    EXPECT_EQ(returndata[0], expected_output);
-
-    validate_trace(std::move(trace), public_inputs, calldata, returndata);
-}
-//
->>>>>>> e9bde8b8a (trace changes)
 // Positive test with EmbeddedCurveAdd
 TEST_F(AvmExecutionTests, embeddedCurveAddOpCode)
 {
@@ -1622,9 +1559,9 @@ TEST_F(AvmExecutionTests, ExecutorThrowsWithTooMuchGasAllocated)
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    EXPECT_THROW_WITH_MESSAGE(
-        Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec),
-        "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for execution of an enqueued call");
+    EXPECT_THROW_WITH_MESSAGE(Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, ExecutionHints()),
+                              "Cannot allocate more than MAX_L2_GAS_PER_ENQUEUED_CALL to the AVM for "
+                              "execution of an enqueued call");
 }
 
 // Should throw whenever the wrong number of public inputs are provided
@@ -2179,7 +2116,7 @@ TEST_F(AvmExecutionTests, opGetContractInstanceOpcodes)
     auto execution_hints =
         ExecutionHints().with_contract_instance_hints({ { address, { address, 1, 2, 3, 4, 5, public_keys_hints } } });
 
-    auto trace = Execution::gen_trace(instructions, returndata, calldata, public_inputs_vec, execution_hints);
+    auto trace = Execution::gen_trace(bytecode, calldata, public_inputs_vec, returndata, execution_hints);
     EXPECT_EQ(returndata, std::vector<FF>({ 1, 2, 3, 4, 5, returned_point.x })); // The first one represents true
 
     validate_trace(std::move(trace), public_inputs, calldata, returndata);

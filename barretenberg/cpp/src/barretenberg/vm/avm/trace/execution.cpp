@@ -146,17 +146,18 @@ void show_trace_info(const auto& trace)
 } // namespace
 
 // Needed for dependency injection in tests.
-Execution::TraceBuilderConstructor Execution::trace_builder_constructor = [](VmPublicInputs public_inputs,
-                                                                             ExecutionHints execution_hints,
-                                                                             uint32_t side_effect_counter,
-                                                                             std::vector<FF> calldata,
-                                                                             std::vector<uint8_t> contract_bytecode) {
-    return AvmTraceBuilder(std::move(public_inputs),
-                           std::move(execution_hints),
-                           side_effect_counter,
-                           std::move(calldata),
-                           contract_bytecode);
-};
+Execution::TraceBuilderConstructor Execution::trace_builder_constructor =
+    [](VmPublicInputs public_inputs,
+       ExecutionHints execution_hints,
+       uint32_t side_effect_counter,
+       std::vector<FF> calldata,
+       std::vector<std::vector<uint8_t>> all_contract_bytecode) {
+        return AvmTraceBuilder(std::move(public_inputs),
+                               std::move(execution_hints),
+                               side_effect_counter,
+                               std::move(calldata),
+                               all_contract_bytecode);
+    };
 
 /**
  * @brief Temporary routine to generate default public inputs (gas values) until we get
@@ -253,7 +254,7 @@ bool Execution::verify(AvmFlavor::VerificationKey vk, HonkProof const& proof)
     std::copy(returndata_offset, raw_proof_offset, std::back_inserter(returndata));
     std::copy(raw_proof_offset, proof.end(), std::back_inserter(raw_proof));
 
-    VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
+    VmPublicInputs public_inputs = avm_trace::convert_public_inputs(public_inputs_vec);
     std::vector<std::vector<FF>> public_inputs_columns =
         copy_public_inputs_columns(public_inputs, calldata, returndata);
     return verifier.verify_proof(raw_proof, public_inputs_columns);
@@ -279,13 +280,19 @@ std::vector<Row> Execution::gen_trace(std::vector<uint8_t> const& bytecode,
     vinfo("------- GENERATING TRACE -------");
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6718): construction of the public input columns
     // should be done in the kernel - this is stubbed and underconstrained
-    VmPublicInputs public_inputs = convert_public_inputs(public_inputs_vec);
+    VmPublicInputs public_inputs = avm_trace::convert_public_inputs(public_inputs_vec);
     uint32_t start_side_effect_counter =
         !public_inputs_vec.empty() ? static_cast<uint32_t>(public_inputs_vec[START_SIDE_EFFECT_COUNTER_PCPI_OFFSET])
                                    : 0;
-
+    std::vector<std::vector<uint8_t>> all_contract_bytecode;
+    all_contract_bytecode.reserve(execution_hints.externalcall_hints.size() + 1);
+    // Start with the main, top-level contract bytecode
+    all_contract_bytecode.push_back(bytecode);
+    for (const auto& externalcall_hint : execution_hints.externalcall_hints) {
+        all_contract_bytecode.emplace_back(externalcall_hint.bytecode);
+    }
     AvmTraceBuilder trace_builder = Execution::trace_builder_constructor(
-        public_inputs, execution_hints, start_side_effect_counter, calldata, bytecode);
+        public_inputs, execution_hints, start_side_effect_counter, calldata, all_contract_bytecode);
 
     // Copied version of pc maintained in trace builder. The value of pc is evolving based
     // on opcode logic and therefore is not maintained here. However, the next opcode in the execution

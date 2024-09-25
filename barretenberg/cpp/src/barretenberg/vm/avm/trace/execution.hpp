@@ -15,11 +15,12 @@ namespace bb::avm_trace {
 class Execution {
   public:
     static constexpr size_t SRS_SIZE = 1 << 22;
-    using TraceBuilderConstructor = std::function<AvmTraceBuilder(VmPublicInputs public_inputs,
-                                                                  ExecutionHints execution_hints,
-                                                                  uint32_t side_effect_counter,
-                                                                  std::vector<FF> calldata,
-                                                                  std::vector<uint8_t> contract_bytecode)>;
+    using TraceBuilderConstructor =
+        std::function<AvmTraceBuilder(VmPublicInputs public_inputs,
+                                      ExecutionHints execution_hints,
+                                      uint32_t side_effect_counter,
+                                      std::vector<FF> calldata,
+                                      const std::vector<std::vector<uint8_t>>& all_contract_bytecode)>;
 
     Execution() = default;
 

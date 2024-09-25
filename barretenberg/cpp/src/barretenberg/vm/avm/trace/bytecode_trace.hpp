@@ -22,8 +22,9 @@ class AvmBytecodeTraceBuilder {
         // Derive the contract address
         FF contract_address{};
     };
+    AvmBytecodeTraceBuilder() = default;
     // These interfaces will change when we start feeding in more inputs and hints
-    AvmBytecodeTraceBuilder(const std::vector<uint8_t>& contract_bytecode, const ExecutionHints& hints);
+    AvmBytecodeTraceBuilder(const std::vector<std::vector<uint8_t>>& all_contracts_bytecode);
 
     size_t size() const { return bytecode_trace.size(); }
     void reset();
@@ -32,9 +33,12 @@ class AvmBytecodeTraceBuilder {
     void build_bytecode_columns();
 
   private:
+    // Converts the bytecode into field elements (chunks of 31 bytes)
+    static std::vector<FF> pack_bytecode(const std::vector<uint8_t>& contract_bytes);
+
     std::vector<BytecodeTraceEntry> bytecode_trace;
-    // This will contain the bytecode as field elements
-    std::vector<std::vector<FF>> all_contracts_bytecode;
+    // The first element is the main top-level contract, the rest are external calls
+    std::vector<std::vector<uint8_t>> all_contracts_bytecode;
     // TODO: Come back to this
     // VmPublicInputs public_inputs;
     // ExecutionHints hints;

@@ -49,10 +49,10 @@ contract ContractClassRegisterer {
         let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] =
             pop_capsule();
         // docs:end:pop_capsule
-
         // First field element contains the length of the bytecode
         let bytecode_length_in_bytes: u32 = packed_public_bytecode[0] as u32;
-        let bytecode_length_in_fields: u32 = (bytecode_length_in_bytes / 31) + (bytecode_length_in_bytes % 31 != 0) as u32;
+        let bytecode_length_in_fields: u32 =
+            (bytecode_length_in_bytes / 31) + (bytecode_length_in_bytes % 31 != 0) as u32;
         assert(bytecode_length_in_fields < MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS);
 
         let mut computed_public_bytecode_commitment = 0;
@@ -62,7 +62,13 @@ contract ContractClassRegisterer {
             // we want the bytecode commitment to be based on the actual length
             if (i < bytecode_length_in_fields) {
                 // We skip the first element when hashing since it is the length
-                computed_public_bytecode_commitment = std::hash::poseidon2::Poseidon2::hash([packed_public_bytecode[i + 1],computed_public_bytecode_commitment],2);
+                computed_public_bytecode_commitment = std::hash::poseidon2::Poseidon2::hash(
+                    [packed_public_bytecode[i + 1], computed_public_bytecode_commitment],
+                    2,
+                );
+            } else {
+                // Any bytes after the bytecode length must be 0
+                assert_eq(packed_public_bytecode[i + 1], 0);
             }
         }
         assert_eq(computed_public_bytecode_commitment, public_bytecode_commitment);
