@@ -1,5 +1,5 @@
-import { AztecAddress, BatchCall, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
-import { AuthContract, DocsExampleContract, TestContract } from '@aztec/noir-contracts.js';
+import { BatchCall, Fr, type PXE, type Wallet } from '@aztec/aztec.js';
+import { AuthContract, DocsExampleContract } from '@aztec/noir-contracts.js';
 
 import { jest } from '@jest/globals';
 
