@@ -10,17 +10,17 @@ contract NFT {
     use dep::compressed_string::FieldCompressedString;
     use dep::aztec::{
         prelude::{NoteGetterOptions, NoteViewerOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress},
-        encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note}, hash::pedersen_hash,
-        keys::getters::get_public_keys, note::constants::MAX_NOTES_PER_PAGE,
-        protocol_types::traits::is_empty, utils::comparison::Comparator,
-        protocol_types::{point::Point, traits::Serialize},
+        encrypted_logs::{encrypted_note_emission::encode_and_encrypt_note},
+        hash::poseidon2_hash_with_separator, keys::getters::get_public_keys,
+        note::constants::MAX_NOTES_PER_PAGE, protocol_types::traits::is_empty,
+        utils::comparison::Comparator, protocol_types::{point::Point, traits::Serialize},
         macros::{storage::storage, events::event, functions::{private, public, view, internal, initializer}}
     };
     use dep::authwit::auth::{assert_current_call_valid_authwit, assert_current_call_valid_authwit_public, compute_authwit_nullifier};
     use std::{embedded_curve_ops::EmbeddedCurvePoint, meta::derive};
     use crate::types::nft_note::NFTNote;
 
-    global TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX = 3;
+    global TRANSIENT_STORAGE_SLOT_POSEIDON_INDEX: Field = 3;
 
     // TODO(#8467): Rename this to Transfer - calling this NFTTransfer to avoid export conflict with the Transfer event
     // in the Token contract.
@@ -153,15 +153,15 @@ contract NFT {
 
         // We make the msg_sender/transfer_preparer part of the slot preimage to ensure he cannot interfere with
         // non-sender's slots
-        let transfer_preparer_storage_slot_commitment: Field = pedersen_hash(
+        let transfer_preparer_storage_slot_commitment: Field = poseidon2_hash_with_separator(
             [context.msg_sender().to_field(), transient_storage_slot_randomness],
-            TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+            TRANSIENT_STORAGE_SLOT_POSEIDON_INDEX
         );
         // Then we hash the transfer preparer storage slot commitment with `from` and use that as the final slot
         // --> by hashing it with a `from` we ensure that `from` cannot interfere with slots not assigned to him.
-        let slot: Field = pedersen_hash(
+        let slot: Field = poseidon2_hash_with_separator(
             [from.to_field(), transfer_preparer_storage_slot_commitment],
-            TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+            TRANSIENT_STORAGE_SLOT_POSEIDON_INDEX
         );
 
         NFT::at(context.this_address())._store_point_in_transient_storage(hiding_point.inner, slot).enqueue(&mut context);
@@ -192,9 +192,9 @@ contract NFT {
 
         // Derive the slot from the transfer preparer storage slot commitment and the `from` address (declared
         // as `from` in this function)
-        let hiding_point_slot = pedersen_hash(
+        let hiding_point_slot = poseidon2_hash_with_separator(
             [from.to_field(), transfer_preparer_storage_slot_commitment],
-            TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+            TRANSIENT_STORAGE_SLOT_POSEIDON_INDEX
         );
 
         // Read the hiding point from "transient" storage and check it's not empty to ensure the transfer was prepared

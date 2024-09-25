@@ -1,7 +1,7 @@
 // Convenience struct to hold an account's address and secret that can easily be passed around.
 import { type AztecAddress, type CheatCodes, Fr } from '@aztec/aztec.js';
 import { ETHEREUM_SLOT_DURATION } from '@aztec/circuits.js';
-import { pedersenHash } from '@aztec/foundation/crypto';
+import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { type RollupAbi } from '@aztec/l1-artifacts';
 import { type LendingContract } from '@aztec/noir-contracts.js/Lending';
 
@@ -29,7 +29,7 @@ export class LendingAccount {
    * @returns Key in public space
    */
   public key() {
-    return pedersenHash([this.address, this.secret]);
+    return poseidon2Hash([this.address, this.secret]);
   }
 }
 

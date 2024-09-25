@@ -1,4 +1,4 @@
-use dep::aztec::hash::pedersen_hash;
+use dep::aztec::hash::poseidon2_hash;
 
 // Utility used to easily get a "id" for a private user that sits in the same
 // "space" as the public users.
@@ -7,7 +7,7 @@ pub fn compute_identifier(secret: Field, on_behalf_of: Field, self: Field) -> Fi
     // EITHER secret OR on_behalf_of MUST be set. But not both
     assert(!((secret == 0) as bool & (on_behalf_of == 0) as bool));
     if (secret != 0) {
-        pedersen_hash([self, secret], 0)
+        poseidon2_hash([self, secret])
     } else {
         on_behalf_of
     }

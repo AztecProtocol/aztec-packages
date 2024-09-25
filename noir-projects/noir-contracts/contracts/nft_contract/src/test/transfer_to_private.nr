@@ -1,7 +1,8 @@
 use crate::test::utils;
 use dep::aztec::{
-    hash::pedersen_hash, keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader},
-    oracle::unsafe_rand::unsafe_rand, protocol_types::storage::map::derive_storage_slot_in_map
+    hash::poseidon2_hash_with_separator, keys::getters::get_public_keys,
+    prelude::{AztecAddress, NoteHeader}, oracle::unsafe_rand::unsafe_rand,
+    protocol_types::storage::map::derive_storage_slot_in_map
 };
 use crate::{types::nft_note::NFTNote, NFT};
 
@@ -28,9 +29,9 @@ unconstrained fn transfer_to_private_to_a_different_account() {
     let note_randomness = unsafe_rand();
     let transient_storage_slot_randomness = unsafe_rand();
     // Sender will be the msg_sender/transfer_preparer in prepare_transfer_to_private
-    let transfer_preparer_storage_slot_commitment = pedersen_hash(
+    let transfer_preparer_storage_slot_commitment = poseidon2_hash_with_separator(
         [sender.to_field(), transient_storage_slot_randomness],
-        NFT::TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+        NFT::TRANSIENT_STORAGE_SLOT_POSEIDON_INDEX
     );
 
     // We prepare the transfer
@@ -90,9 +91,9 @@ unconstrained fn transfer_to_private_finalizing_from_incorrect_sender() {
     let note_randomness = unsafe_rand();
     let transient_storage_slot_randomness = unsafe_rand();
     // Sender will be the msg_sender/transfer_preparer in prepare_transfer_to_private
-    let transfer_preparer_storage_slot_commitment = pedersen_hash(
+    let transfer_preparer_storage_slot_commitment = poseidon2_hash_with_separator(
         [correct_sender.to_field(), transient_storage_slot_randomness],
-        NFT::TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+        NFT::TRANSIENT_STORAGE_SLOT_POSEIDON_INDEX
     );
 
     // We prepare the transfer

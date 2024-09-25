@@ -1,6 +1,6 @@
 use dep::aztec::{
-    hash::pedersen_hash, keys::getters::get_public_keys, prelude::{AztecAddress, NoteHeader},
-    test::helpers::{cheatcodes, test_environment::TestEnvironment},
+    hash::poseidon2_hash_with_separator, keys::getters::get_public_keys,
+    prelude::{AztecAddress, NoteHeader}, test::helpers::{cheatcodes, test_environment::TestEnvironment},
     protocol_types::storage::map::derive_storage_slot_in_map,
     oracle::{execution::{get_block_number, get_contract_address}, unsafe_rand::unsafe_rand, storage::storage_read}
 };
@@ -52,9 +52,9 @@ unconstrained pub fn setup_mint_and_transfer_to_private(with_account_contracts: 
 
     let note_randomness = unsafe_rand();
     let transient_storage_slot_randomness = unsafe_rand();
-    let transfer_preparer_storage_slot_commitment = pedersen_hash(
+    let transfer_preparer_storage_slot_commitment = poseidon2_hash_with_separator(
         [owner.to_field(), transient_storage_slot_randomness],
-        NFT::TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX
+        NFT::TRANSIENT_STORAGE_SLOT_POSEIDON_INDEX
     );
 
     // We prepare the transfer with user being both the sender and the recipient (classical "shield" flow)
