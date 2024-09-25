@@ -3,7 +3,8 @@
 ///
 /// This is only used during private execution, since in public it is the VM itself that keeps track of arguments.
 pub fn pack_arguments(args: [Field]) {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call. When
+    // unpacking however the caller must check that the returned value is indeed the preimage.
     unsafe {
         pack_arguments_oracle_wrapper(args)
     };
@@ -11,7 +12,8 @@ pub fn pack_arguments(args: [Field]) {
 
 /// Same as `pack_arguments`, but using arrays instead of slices.
 pub fn pack_arguments_array<let N: u32>(args: [Field; N]) {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call. When
+    // unpacking however the caller must check that the returned value is indeed the preimage.
     unsafe {
         pack_arguments_array_oracle_wrapper(args)
     };
