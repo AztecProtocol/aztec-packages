@@ -2,6 +2,41 @@ use crate::note::{note_header::NoteHeader, note_interface::NoteInterface};
 
 use dep::protocol_types::{address::AztecAddress, utils::arr_copy_slice};
 
+/// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
+/// transaction. This note should only be added to the non-volatile database if found in an actual block.
+pub fn notify_created_note<let N: u32>(
+    storage_slot: Field,
+    note_type_id: Field,
+    serialized_note: [Field; N],
+    note_hash: Field,
+    counter: u32
+) {
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    unsafe {
+        notify_created_note_oracle_wrapper(storage_slot, note_type_id, serialized_note, note_hash, counter)
+    };
+}
+
+/// Notifies the simulator that a note has been nullified, so that it is no longer returned in future read requests in
+/// the same transaction. This note should only be removed to the non-volatile database if its nullifier is found in an
+/// actual block.
+pub fn notify_nullified_note(nullifier: Field, note_hash: Field, counter: u32) {
+    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
+    unsafe {
+        notify_nullified_note_oracle_wrapper(nullifier, note_hash, counter)
+    };
+}
+
+unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
+    storage_slot: Field,
+    note_type_id: Field,
+    serialized_note: [Field; N],
+    note_hash: Field,
+    counter: u32
+) {
+    let _ = notify_created_note_oracle(storage_slot, note_type_id, serialized_note, note_hash, counter);
+}
+
 #[oracle(notifyCreatedNote)]
 unconstrained fn notify_created_note_oracle<let N: u32>(
     _storage_slot: Field,
@@ -11,22 +46,16 @@ unconstrained fn notify_created_note_oracle<let N: u32>(
     _counter: u32
 ) -> Field {}
 
-unconstrained pub fn notify_created_note<let N: u32>(
-    storage_slot: Field,
-    note_type_id: Field,
-    serialized_note: [Field; N],
+unconstrained fn notify_nullified_note_oracle_wrapper(
+    nullifier: Field,
     note_hash: Field,
     counter: u32
-) -> Field {
-    notify_created_note_oracle(storage_slot, note_type_id, serialized_note, note_hash, counter)
+) {
+    let _ = notify_nullified_note_oracle(nullifier, note_hash, counter);
 }
 
 #[oracle(notifyNullifiedNote)]
 unconstrained fn notify_nullified_note_oracle(_nullifier: Field, _note_hash: Field, _counter: u32) -> Field {}
-
-unconstrained pub fn notify_nullified_note(nullifier: Field, note_hash: Field, counter: u32) -> Field {
-    notify_nullified_note_oracle(nullifier, note_hash, counter)
-}
 
 #[oracle(getNotes)]
 unconstrained fn get_notes_oracle<let N: u32, let S: u32>(
