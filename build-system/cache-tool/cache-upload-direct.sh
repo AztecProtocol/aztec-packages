@@ -27,17 +27,17 @@ echo "Creating tar.gz of the specified files..."
 tar -czf "$TAR_FILE" "${BIN_PATHS[@]}"
 
 # Set cache server details
-HOST_IP=${HOST_IP:-"localhost"}
-AZTEC_BUILD_TOOL_PORT=${AZTEC_BUILD_TOOL_PORT:-8337}
+AZTEC_CACHE_TOOL_IP=${AZTEC_CACHE_TOOL_IP:-"localhost"}
+AZTEC_CACHE_TOOL_PORT=${AZTEC_CACHE_TOOL_PORT:-8337}
 
 # Upload the tar.gz file to the cache server
-echo "Uploading cache file to cache server at ${HOST_IP}:${AZTEC_BUILD_TOOL_PORT}..."
-curl -X POST -F "file=@${TAR_FILE}" "http://${HOST_IP}:${AZTEC_BUILD_TOOL_PORT}/upload"
+echo "Uploading cache file to cache server at ${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}..."
+curl -X POST -F "file=@${TAR_FILE}" "http://${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}/upload"
 
 # If S3_WRITE is enabled, upload to S3
 if [[ "${S3_WRITE:-}" == "true" ]]; then
     echo "Uploading cache file to S3..."
-    curl -X POST -F "file=@${TAR_FILE}" "http://${HOST_IP}:${AZTEC_BUILD_TOOL_PORT}/upload-s3"
+    curl -X POST -F "file=@${TAR_FILE}" "http://${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}/upload-s3"
 fi
 
 echo "Cache upload complete."

@@ -36,7 +36,7 @@ const BUCKET_NAME = "aztec-ci-artifacts";
 const PREFIX = "build-cache";
 
 // Set the port you want the server to run on
-const PORT = process.env.AZTEC_BUILD_TOOL_PORT || 8337;
+const PORT = process.env.AZTEC_CACHE_TOOL_PORT || 8337;
 
 // Define the directory you want to serve files from and save uploads to
 const buildArtifactDirectory = path.join(__dirname, "hosted-build-artifacts");

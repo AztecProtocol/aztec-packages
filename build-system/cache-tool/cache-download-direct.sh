@@ -19,12 +19,12 @@ function on_exit() {
 trap on_exit EXIT
 
 # Set cache server details
-HOST_IP=${HOST_IP:-"localhost"}
-AZTEC_BUILD_TOOL_PORT=${AZTEC_BUILD_TOOL_PORT:-8337}
+AZTEC_CACHE_TOOL_IP=${AZTEC_CACHE_TOOL_IP:-"localhost"}
+AZTEC_CACHE_TOOL_PORT=${AZTEC_CACHE_TOOL_PORT:-8337}
 
 # Attempt to download the cache file
-echo "Attempting to download cache file from cache server at ${HOST_IP}:${AZTEC_BUILD_TOOL_PORT}..."
-curl -f -o "$TAR_FILE" "http://${HOST_IP}:${AZTEC_BUILD_TOOL_PORT}/${TAR_FILE}" || exit 1
+echo "Attempting to download cache file from cache server at ${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}..."
+curl -f -o "$TAR_FILE" "http://${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}/${TAR_FILE}" || exit 1
 
 # Extract the cache file
 echo "Cache file found. Extracting..."

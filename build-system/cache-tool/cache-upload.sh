@@ -2,8 +2,13 @@
 set -euo pipefail
 
 if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <prefix> <files_to_upload...>"
-    exit 1
+  echo "Usage: $0 <prefix> <files_to_upload...>"
+  exit 1
+fi
+
+if ! nc -vz $AZTEC_CACHE_TOOL_IP $AZTEC_CACHE_TOOL_PORT ; then
+  echo "Aztec cache tool not running or not reachable. Not using cache. NOT erroring."
+  exit 0
 fi
 
 PREFIX="$1"

@@ -7,7 +7,7 @@ const app = require("../server.js"); // The cache server
 
 describe("Cache Rebuild Patterns Scripts Tests", () => {
   let server;
-  let AZTEC_BUILD_TOOL_PORT;
+  let AZTEC_CACHE_TOOL_PORT;
   const PREFIX = "barretenberg-build";
   const testArtifactsDir = path.join(__dirname, "test-artifacts");
   const rebuildPatternsFile = path.join(
@@ -41,10 +41,10 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
       fs.writeFileSync(file, "Dummy file content");
     });
 
-    AZTEC_BUILD_TOOL_PORT = Math.floor(Math.random() * 1000 + 10000);
+    AZTEC_CACHE_TOOL_PORT = Math.floor(Math.random() * 1000 + 10000);
     // Start the cache server
-    server = app.listen(AZTEC_BUILD_TOOL_PORT, "0.0.0.0", () => {
-      console.log("Cache server started on port", AZTEC_BUILD_TOOL_PORT);
+    server = app.listen(AZTEC_CACHE_TOOL_PORT, "0.0.0.0", () => {
+      console.log("Cache server started on port", AZTEC_CACHE_TOOL_PORT);
       done();
     });
   });
@@ -110,7 +110,7 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
     let stderr = "";
     const env = {
       AZTEC_CACHE_REBUILD_PATTERNS: rebuildPatternsFile,
-      AZTEC_BUILD_TOOL_PORT,
+      AZTEC_CACHE_TOOL_PORT,
     };
     if (s3Enabled) {
       process.env.S3_WRITE = "true";
@@ -232,7 +232,7 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
     let stderr = "";
     const env = {
       AZTEC_CACHE_REBUILD_PATTERNS: rebuildPatternsFile,
-      AZTEC_BUILD_TOOL_PORT
+      AZTEC_CACHE_TOOL_PORT
     };
     if (s3Enabled) {
       process.env.S3_READ = "true";

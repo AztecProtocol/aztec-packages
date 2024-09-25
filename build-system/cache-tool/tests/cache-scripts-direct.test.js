@@ -7,8 +7,7 @@ const app = require("../server.js"); // The cache server
 
 describe("Cache Upload Script Tests", () => {
   let server;
-  const HOST_IP = "localhost";
-  const AZTEC_BUILD_TOOL_PORT = Math.floor(Math.random() * 1000 + 10000);
+  const AZTEC_CACHE_TOOL_PORT = Math.floor(Math.random() * 1000 + 10000);
   const cacheName = "barretenberg";
   const binaryPaths = ["test-artifacts/binary1", "test-artifacts/binary2"];
   let TAR_FILE;
@@ -33,8 +32,8 @@ describe("Cache Upload Script Tests", () => {
     TAR_FILE = `${cacheName}.tar.gz`;
 
     // Start the cache server
-    server = app.listen(AZTEC_BUILD_TOOL_PORT, "0.0.0.0", () => {
-      console.log("LISTENING ON PORT", AZTEC_BUILD_TOOL_PORT);
+    server = app.listen(AZTEC_CACHE_TOOL_PORT, "0.0.0.0", () => {
+      console.log("LISTENING ON PORT", AZTEC_CACHE_TOOL_PORT);
       done();
     });
   });
@@ -73,7 +72,7 @@ describe("Cache Upload Script Tests", () => {
     const args = [...binaryPaths, cacheName];
     process.env.S3_WRITE = "true";
     const uploadProcess = spawn("./cache-upload-direct.sh", args, {
-      env: { AZTEC_BUILD_TOOL_PORT },
+      env: { AZTEC_CACHE_TOOL_PORT },
     });
 
     uploadProcess.stdout.on("data", (data) => {
@@ -145,7 +144,7 @@ describe("Cache Upload Script Tests", () => {
     delete process.env.S3_WRITE;
 
     const uploadProcess = spawn("./cache-upload-direct.sh", args, {
-      env: { AZTEC_BUILD_TOOL_PORT },
+      env: { AZTEC_CACHE_TOOL_PORT },
     });
 
     uploadProcess.stdout.on("data", (data) => {
@@ -200,7 +199,7 @@ describe("Cache Upload Script Tests", () => {
 
 describe("Cache Download Script Tests", () => {
   let server;
-  const AZTEC_BUILD_TOOL_PORT = Math.floor(Math.random() * 1000 + 10000);
+  const AZTEC_CACHE_TOOL_PORT = Math.floor(Math.random() * 1000 + 10000);
   const tarFileName = "test-cache.tar.gz";
   const serverArtifactsDir = path.join(__dirname, "../hosted-build-artifacts");
   const cacheFilePath = path.join(serverArtifactsDir, tarFileName);
@@ -215,8 +214,8 @@ describe("Cache Download Script Tests", () => {
 
   beforeAll((done) => {
     // Start the cache server
-    server = app.listen(AZTEC_BUILD_TOOL_PORT, "0.0.0.0", () => {
-      console.log("LISTENING ON PORT", AZTEC_BUILD_TOOL_PORT);
+    server = app.listen(AZTEC_CACHE_TOOL_PORT, "0.0.0.0", () => {
+      console.log("LISTENING ON PORT", AZTEC_CACHE_TOOL_PORT);
       done();
     });
   });
@@ -297,7 +296,7 @@ describe("Cache Download Script Tests", () => {
     }
 
     const downloadProcess = spawn("./cache-download-direct.sh", args, {
-      env: { AZTEC_BUILD_TOOL_PORT },
+      env: { AZTEC_CACHE_TOOL_PORT },
     });
 
     downloadProcess.stdout.on("data", (data) => {

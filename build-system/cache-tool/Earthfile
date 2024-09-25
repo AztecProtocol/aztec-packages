@@ -11,8 +11,14 @@ setup-cache-helper:
 
 SETUP_CACHE:
   FUNCTION
-  BUILD +start-server
+  # make sure server is up locally
+  WAIT
+    BUILD +start-server
+  END
   COPY +setup-cache-helper/cache-download-direct.sh +setup-cache-helper/cache-upload-direct.sh +setup-cache-helper/cache-download.sh +setup-cache-helper/cache-upload.sh .
+  # configure AWS access (note these can be blank if server started without s3 backing)
+  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY mkdir -p ~/.aws && \
+      bash -c 'echo -e "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY" > ~/.aws/credentials'
 
 test:
   FROM ../../build-images/+from-registry
@@ -27,3 +33,8 @@ test:
   RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY mkdir -p ~/.aws && \
       bash -c 'echo -e "[default]\naws_access_key_id=$AWS_ACCESS_KEY_ID\naws_secret_access_key=$AWS_SECRET_ACCESS_KEY" > ~/.aws/credentials'
   RUN npm install && npm test
+
+test-earthly-connectivity:
+  FROM ../../build-images/+from-registry
+  DO +SETUP_CACHE
+  RUN ./

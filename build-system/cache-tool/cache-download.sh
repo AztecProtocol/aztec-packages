@@ -2,8 +2,13 @@
 set -euo pipefail
 
 if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <prefix>"
-    exit 1
+  echo "Usage: $0 <prefix>"
+  exit 1
+fi
+
+if ! nc -vz $AZTEC_CACHE_TOOL_IP $AZTEC_CACHE_TOOL_PORT ; then
+  echo "Aztec cache tool not running or not reachable. Not using cache."
+  exit 1
 fi
 
 PREFIX="$1"
