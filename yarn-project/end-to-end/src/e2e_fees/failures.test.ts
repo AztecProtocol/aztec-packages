@@ -31,6 +31,7 @@ describe('e2e_fees failures', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     ({ aliceWallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
+    await t.aztecNode.setConfig({ minTxsPerBlock: 1, maxTxsPerBlock: 1 });
   });
 
   afterAll(async () => {
