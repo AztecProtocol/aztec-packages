@@ -5,8 +5,7 @@ use std::{
 };
 
 use crate::{
-    event::event_interface::EventInterface, oracle::unsafe_rand::unsafe_rand,
-    utils::point::point_to_bytes, note::note_interface::NoteInterface,
+    oracle::unsafe_rand::unsafe_rand, utils::point::point_to_bytes,
     encrypted_logs::{
     header::EncryptedLogHeader, incoming_body::EncryptedLogIncomingBody,
     outgoing_body::EncryptedLogOutgoingBody
@@ -14,73 +13,21 @@ use crate::{
     keys::public_keys::{OvpkM, IvpkM}
 };
 
-pub fn compute_encrypted_event_log<Event, let N: u32, let OB: u32>(
+pub fn compute_encrypted_log<let N: u32, let M: u32>(
     contract_address: AztecAddress,
-    randomness: Field,
     ovsk_app: Field,
     ovpk: OvpkM,
     ivpk: IvpkM,
     recipient: AztecAddress,
-    event: Event
-) -> [u8; OB] where Event: EventInterface<N> {
+    body: EncryptedLogIncomingBody<N>
+) -> [u8; M] {
     let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
 
     let header = EncryptedLogHeader::new(contract_address);
 
     let incoming_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ivpk);
     let outgoing_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ovpk);
-    let incoming_body_ciphertext = EncryptedLogIncomingBody::from_event(event, randomness).compute_ciphertext(eph_sk, ivpk);
-    let outgoing_body_ciphertext: [u8; 144] = EncryptedLogOutgoingBody::new(eph_sk, recipient, ivpk).compute_ciphertext(fr_to_fq(ovsk_app), eph_pk);
-
-    let mut encrypted_bytes: [u8; OB] = [0; OB];
-    // @todo We ignore the tags for now
-
-    let eph_pk_bytes = point_to_bytes(eph_pk);
-    for i in 0..32 {
-        encrypted_bytes[64 + i] = eph_pk_bytes[i];
-    }
-    for i in 0..48 {
-        encrypted_bytes[96 + i] = incoming_header_ciphertext[i];
-        encrypted_bytes[144 + i] = outgoing_header_ciphertext[i];
-    }
-    for i in 0..144 {
-        encrypted_bytes[192 + i] = outgoing_body_ciphertext[i];
-    }
-    // Then we fill in the rest as the incoming body ciphertext
-    let size = OB - 336;
-    assert_eq(size, incoming_body_ciphertext.len(), "ciphertext length mismatch");
-    for i in 0..size {
-        encrypted_bytes[336 + i] = incoming_body_ciphertext[i];
-    }
-
-    // Current unoptimized size of the encrypted log
-    // incoming_tag (32 bytes)
-    // outgoing_tag (32 bytes)
-    // eph_pk (32 bytes)
-    // incoming_header (48 bytes)
-    // outgoing_header (48 bytes)
-    // outgoing_body (144 bytes)
-    // incoming_body_fixed (64 bytes)
-    // incoming_body_variable (N * 32 bytes + 16 bytes padding)
-    encrypted_bytes
-}
-
-pub fn compute_encrypted_note_log<Note, let N: u32, let M: u32>(
-    contract_address: AztecAddress,
-    storage_slot: Field,
-    ovsk_app: Field,
-    ovpk: OvpkM,
-    ivpk: IvpkM,
-    recipient: AztecAddress,
-    note: Note
-) -> [u8; M] where Note: NoteInterface<N> {
-    let (eph_sk, eph_pk) = generate_ephemeral_key_pair();
-
-    let header = EncryptedLogHeader::new(contract_address);
-
-    let incoming_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ivpk);
-    let outgoing_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ovpk);
-    let incoming_body_ciphertext = EncryptedLogIncomingBody::from_note(note, storage_slot).compute_ciphertext(eph_sk, ivpk);
+    let incoming_body_ciphertext = body.compute_ciphertext(eph_sk, ivpk);
     let outgoing_body_ciphertext: [u8; 144] = EncryptedLogOutgoingBody::new(eph_sk, recipient, ivpk).compute_ciphertext(fr_to_fq(ovsk_app), eph_pk);
 
     let mut encrypted_bytes: [u8; M] = [0; M];
@@ -136,8 +83,8 @@ fn generate_ephemeral_key_pair() -> (Scalar, Point) {
 
 mod test {
     use crate::{
-        encrypted_logs::payload::compute_encrypted_note_log, keys::public_keys::{OvpkM, IvpkM},
-        test::mocks::mock_note::MockNoteBuilder
+        encrypted_logs::{payload::compute_encrypted_log, incoming_body::EncryptedLogIncomingBody},
+        keys::public_keys::{OvpkM, IvpkM}, test::mocks::mock_note::MockNoteBuilder
     };
     use dep::protocol_types::{address::AztecAddress, point::Point};
     use std::test::OracleMock;
@@ -165,21 +112,14 @@ mod test {
 
         let note_value = 0x301640ceea758391b2e161c92c0513f129020f4125256afdae2646ce31099f5c;
         let note = MockNoteBuilder::new(note_value).contract_address(contract_address).storage_slot(storage_slot).build();
+        let body = EncryptedLogIncomingBody::from_note(note, storage_slot);
 
         let eph_sk = 0x1358d15019d4639393d62b97e1588c095957ce74a1c32d6ec7d62fe6705d9538;
         let _ = OracleMock::mock("getRandomField").returns(eph_sk);
 
         let recipient = AztecAddress::from_field(0x10ee41ee4b62703b16f61e03cb0d88c4b306a9eb4a6ceeb2aff13428541689a2);
 
-        let log: [u8; 448] = compute_encrypted_note_log(
-            contract_address,
-            storage_slot,
-            ovsk_app,
-            ovpk_m,
-            ivpk_m,
-            recipient,
-            note
-        );
+        let log: [u8; 448] = compute_encrypted_log(contract_address, ovsk_app, ovpk_m, ivpk_m, recipient, body);
 
         // The following value was generated by `tagged_log.test.ts`
         // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
