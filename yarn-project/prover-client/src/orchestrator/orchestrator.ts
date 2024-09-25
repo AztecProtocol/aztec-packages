@@ -134,19 +134,11 @@ export class ProvingOrchestrator implements EpochProver {
     this.paddingTx = undefined;
   }
 
-  @trackSpan('ProvingOrchestrator.startNewEpoch', (epochNumber, totalNumBlocks) => ({
-    [Attributes.EPOCH_SIZE]: totalNumBlocks,
-    [Attributes.EPOCH_NUMBER]: epochNumber,
-  }))
   public startNewEpoch(epochNumber: number, totalNumBlocks: number): ProvingTicket {
     const { promise: _promise, resolve, reject } = promiseWithResolvers<ProvingResult>();
-    const promise = _promise.catch(
-      (reason): ProvingResult => ({
-        status: PROVING_STATUS.FAILURE,
-        reason,
-      }),
-    );
+    const promise = _promise.catch((reason): ProvingResult => ({ status: PROVING_STATUS.FAILURE, reason }));
 
+    logger.info(`Starting epoch ${epochNumber} with ${totalNumBlocks} blocks`);
     this.provingState = new EpochProvingState(epochNumber, totalNumBlocks, resolve, reject);
     return { provingPromise: promise };
   }
@@ -1032,6 +1024,7 @@ export class ProvingOrchestrator implements EpochProver {
         signal => this.prover.getRootRollupProof(inputs, signal, provingState.epochNumber),
       ),
       result => {
+        logger.verbose(`Orchestrator completed root rollup for epoch ${provingState.epochNumber}`);
         provingState.rootRollupPublicInputs = result.inputs;
         provingState.finalProof = result.proof.binaryProof;
         provingState.resolve({ status: PROVING_STATUS.SUCCESS });

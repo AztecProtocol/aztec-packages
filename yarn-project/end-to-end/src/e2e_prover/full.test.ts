@@ -58,12 +58,14 @@ describe('full_prover', () => {
       logger.info(`Verifying private kernel tail proof`);
       await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
 
-      const sentPrivateTx = privateInteraction.send({ skipPublicSimulation: true });
-      const sentPublicTx = publicInteraction.send({ skipPublicSimulation: true });
-      await Promise.all([
-        sentPrivateTx.wait({ timeout: 60, interval: 10, proven: true, provenTimeout: 1200 }),
-        sentPublicTx.wait({ timeout: 60, interval: 10, proven: true, provenTimeout: 1200 }),
-      ]);
+      // WARN: The following depends on the epoch boundaries to work
+      logger.info(`Sending first tx and awaiting it to be mined`);
+      await privateInteraction.send({ skipPublicSimulation: true }).wait({ timeout: 60, interval: 10 });
+      logger.info(`Sending second tx and awaiting it to be proven`);
+      await publicInteraction
+        .send({ skipPublicSimulation: true })
+        .wait({ timeout: 60, interval: 10, proven: true, provenTimeout: 1200 });
+
       tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
       tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
 

@@ -7,6 +7,7 @@ import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
+import { makeGlobals } from '../mocks/fixtures.js';
 import { TestContext } from '../mocks/test_context.js';
 
 describe('prover/bb_prover/full-rollup', () => {
@@ -27,46 +28,44 @@ describe('prover/bb_prover/full-rollup', () => {
     await context.cleanup();
   });
 
-  it('proves a private-only rollup full of empty txs', async () => {
+  it('proves a private-only epoch full of empty txs', async () => {
+    const totalBlocks = 2;
     const totalTxs = 2;
     const nonEmptyTxs = 0;
 
-    logger.info(`Proving a private-only full rollup with ${nonEmptyTxs}/${totalTxs} non-empty transactions`);
+    logger.info(`Proving a full epoch with ${totalBlocks} blocks with ${nonEmptyTxs}/${totalTxs} non-empty txs each`);
+
     const initialHeader = context.actualDb.getInitialHeader();
-    const txs = times(nonEmptyTxs, (i: number) => {
-      const tx = mockTx(1000 * (i + 1), {
-        numberOfNonRevertiblePublicCallRequests: 0,
-        numberOfRevertiblePublicCallRequests: 0,
+    const provingTicket = context.orchestrator.startNewEpoch(1, totalBlocks);
+
+    for (let blockNum = 1; blockNum <= totalBlocks; blockNum++) {
+      const globals = makeGlobals(blockNum);
+      const l1ToL2Messages = makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
+      const txs = times(nonEmptyTxs, (i: number) => {
+        const txOpts = { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 };
+        const tx = mockTx(blockNum * 100_000 + 1000 * (i + 1), txOpts);
+        tx.data.constants.historicalHeader = initialHeader;
+        tx.data.constants.vkTreeRoot = getVKTreeRoot();
+        return tx;
       });
-      tx.data.constants.historicalHeader = initialHeader;
-      tx.data.constants.vkTreeRoot = getVKTreeRoot();
-      return tx;
-    });
 
-    const l1ToL2Messages = makeTuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>(
-      NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      Fr.random,
-    );
+      logger.info(`Starting new block #${blockNum}`);
+      await context.orchestrator.startNewBlock(totalTxs, globals, l1ToL2Messages);
+      logger.info(`Processing public functions`);
+      const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs, context.blockProver);
+      expect(processed.length).toBe(nonEmptyTxs);
+      expect(failed.length).toBe(0);
 
-    logger.info(`Starting new block`);
-    const provingTicket = await context.orchestrator.startNewBlock(totalTxs, context.globalVariables, l1ToL2Messages);
+      logger.info(`Setting block as completed`);
+      await context.orchestrator.setBlockCompleted();
+    }
 
-    logger.info(`Processing public functions`);
-    const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs, context.blockProver);
-    expect(processed.length).toBe(nonEmptyTxs);
-    expect(failed.length).toBe(0);
-
-    logger.info(`Setting block as completed`);
-    await context.orchestrator.setBlockCompleted();
-
+    logger.info(`Awaiting proofs`);
     const provingResult = await provingTicket.provingPromise;
-
     expect(provingResult.status).toBe(PROVING_STATUS.SUCCESS);
+    const epochResult = context.orchestrator.finaliseEpoch();
 
-    logger.info(`Finalising block`);
-    const blockResult = await context.orchestrator.finaliseBlock();
-
-    await expect(prover.verifyProof('BlockRootRollupFinalArtifact', blockResult.proof)).resolves.not.toThrow();
+    await expect(prover.verifyProof('RootRollupArtifact', epochResult.proof)).resolves.not.toThrow();
   });
 
   // TODO(@PhilWindle): Remove public functions and re-enable once we can handle empty tx slots

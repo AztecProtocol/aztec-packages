@@ -26,10 +26,11 @@ export type ProverNodeConfig = ArchiverConfig &
   TxProviderConfig & {
     proverNodeDisableAutomaticProving?: boolean;
     proverNodeMaxPendingJobs?: number;
+    proverNodeEpochSize?: number;
   };
 
 const specificProverNodeConfigMappings: ConfigMappingsType<
-  Pick<ProverNodeConfig, 'proverNodeDisableAutomaticProving' | 'proverNodeMaxPendingJobs'>
+  Pick<ProverNodeConfig, 'proverNodeDisableAutomaticProving' | 'proverNodeMaxPendingJobs' | 'proverNodeEpochSize'>
 > = {
   proverNodeDisableAutomaticProving: {
     env: 'PROVER_NODE_DISABLE_AUTOMATIC_PROVING',
@@ -40,6 +41,11 @@ const specificProverNodeConfigMappings: ConfigMappingsType<
     env: 'PROVER_NODE_MAX_PENDING_JOBS',
     description: 'The maximum number of pending jobs for the prover node',
     ...numberConfigHelper(100),
+  },
+  proverNodeEpochSize: {
+    env: 'PROVER_NODE_EPOCH_SIZE',
+    description: 'The number of blocks to prove in a single epoch',
+    ...numberConfigHelper(2),
   },
 };
 
