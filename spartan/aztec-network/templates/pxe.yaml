@@ -1,4 +1,4 @@
-{{ - if .Values.network.enableBots }}
+{{- if .Values.network.enableBots }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
