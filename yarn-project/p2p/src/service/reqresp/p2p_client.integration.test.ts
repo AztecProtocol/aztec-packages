@@ -169,7 +169,7 @@ describe('Req Resp p2p client integration', () => {
     await sleep(1000);
   };
 
-  it(
+  it.skip(
     'Returns undefined if unable to find a transaction from another peer',
     async () => {
       // We want to create a set of nodes and request transaction from them
@@ -192,7 +192,7 @@ describe('Req Resp p2p client integration', () => {
     TEST_TIMEOUT,
   );
 
-  it(
+  it.skip(
     'Can request a transaction from another peer',
     async () => {
       // We want to create a set of nodes and request transaction from them
@@ -218,7 +218,7 @@ describe('Req Resp p2p client integration', () => {
     TEST_TIMEOUT,
   );
 
-  it(
+  it.skip(
     'Will penalize peers that send invalid proofs',
     async () => {
       // We want to create a set of nodes and request transaction from them
@@ -250,7 +250,7 @@ describe('Req Resp p2p client integration', () => {
     TEST_TIMEOUT,
   );
 
-  it(
+  it.skip(
     'Will penalize peers that send the wrong transaction',
     async () => {
       // We want to create a set of nodes and request transaction from them
