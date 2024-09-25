@@ -15,11 +15,11 @@ global ARGS_LENGTH: u32 = 16;
  *
  * In the kernel circuits, we accumulate elements such as note hashes and the nullifiers from all functions calls in a
  * transaction. Therefore, we always must have:
- * MAX_XXX_PER_TX ≥ MAX_XXX_PER_CALL
+ * MAX_XXX_PER_TX >= MAX_XXX_PER_CALL
  *
  * For instance:
- * MAX_NOTE_HASHES_PER_TX ≥ MAX_NOTE_HASHES_PER_CALL
- * MAX_NULLIFIERS_PER_TX ≥ MAX_NULLIFIERS_PER_CALL
+ * MAX_NOTE_HASHES_PER_TX >= MAX_NOTE_HASHES_PER_CALL
+ * MAX_NULLIFIERS_PER_TX >= MAX_NULLIFIERS_PER_CALL
  *
  */
 
@@ -137,7 +137,7 @@ global AZTEC_TARGET_COMMITTEE_SIZE: u32 = 48;
 // The following is taken from building a block and looking at the `lastArchive` value in it.
 // You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
 global GENESIS_ARCHIVE_ROOT: Field = 0x1200a06aae1368abe36530b585bd7a4d2ba4de5037b82076412691a187d7621e;
-// The following and the value in `deploy_l1_contracts´ must match. We should not have the code both places, but
+// The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
 global FEE_JUICE_INITIAL_MINT: Field = 20000000000;
 
@@ -333,12 +333,12 @@ global AVM_PUBLIC_COLUMN_MAX_SIZE_LOG2 = 8;
  * +-----------+-------------------------------+----------------------+
  * | Hash size | Number of elements hashed (n) | Condition to use     |
  * |-----------+-------------------------------+----------------------|
- * | LOW       | n ≤ 8                         | 0 < hash_index ≤ 32  |
- * | MID       | 8 < n ≤ 16                    | 32 < hash_index ≤ 40 |
- * | HIGH      | 16 < n ≤ 48                   | 40 < hash_index ≤ 48 |
+ * | LOW       | n <= 8                         | 0 < hash_index <= 32  |
+ * | MID       | 8 < n <= 16                    | 32 < hash_index <= 40 |
+ * | HIGH      | 16 < n <= 48                   | 40 < hash_index <= 48 |
  * +-----------+-------------------------------+----------------------+
  */
-// Indices with size ≤ 8
+// Indices with size <= 8
 global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
 global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;
 global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 3;
@@ -371,10 +371,10 @@ global GENERATOR_INDEX__SIDE_EFFECT: u32 = 29;
 global GENERATOR_INDEX__FEE_PAYLOAD: u32 = 30;
 global GENERATOR_INDEX__COMBINED_PAYLOAD: u32 = 31;
 global GENERATOR_INDEX__TX_NULLIFIER: u32 = 32;
-// Indices with size ≤ 16
+// Indices with size <= 16
 global GENERATOR_INDEX__TX_REQUEST: u32 = 33;
 global GENERATOR_INDEX__SIGNATURE_PAYLOAD: u32 = 34;
-// Indices with size ≤ 44
+// Indices with size <= 44
 global GENERATOR_INDEX__VK: u32 = 41;
 global GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS: u32 = 42;
 global GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS: u32 = 43;
