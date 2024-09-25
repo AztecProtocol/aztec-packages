@@ -49,7 +49,8 @@ template <class Params_> struct alignas(32) field {
     //  field f{}; // zero-initialized
     //  std::array<field, N> arr; // not initialized, good for huge N
     //  std::array<field, N> arr {}; // zero-initialized, preferable for moderate N
-    field() = default;
+    // field() = default;
+    field() {}
 
     constexpr field(const numeric::uint256_t& input) noexcept
         : data{ input.data[0], input.data[1], input.data[2], input.data[3] }
