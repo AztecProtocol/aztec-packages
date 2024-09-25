@@ -191,17 +191,15 @@ StateReference WorldState::get_initial_state_reference() const
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     StateReference state_reference;
+    std::mutex state_ref_mutex;
 
     for (const auto& [id, tree] : fork->_trees) {
-        std::visit(
-            [&signal, &state_reference, id](auto&& wrapper) {
-                auto callback = [&signal, &state_reference, id](const TypedResponse<TreeMetaResponse>& meta) {
+        auto callback = [&signal, &state_reference, &state_ref_mutex, id](const TypedResponse<TreeMetaResponse>& meta) {
+            std::lock_guard<std::mutex> lock(state_ref_mutex);
                     state_reference.insert({ id, { meta.inner.meta.initialRoot, meta.inner.meta.initialSize } });
                     signal.signal_decrement();
                 };
-                wrapper.tree->get_meta_data(false, callback);
-            },
-            tree);
+        std::visit([&callback](auto&& wrapper) { wrapper.tree->get_meta_data(false, callback); }, tree);
     }
 
     signal.wait_for_level(0);
