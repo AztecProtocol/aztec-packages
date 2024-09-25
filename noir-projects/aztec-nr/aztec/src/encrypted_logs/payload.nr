@@ -188,12 +188,8 @@ mod test {
     }
 
     #[test]
-    fn test_encrypted_note_log_incoming_body_matches_typescript() {
+    fn test_incoming_body_ciphertext_matches_typescript() {
         // All the values in this test were copied over from `encrypted_note_log_incoming_body.test.ts`
-
-        let storage_slot = 2;
-        let note = MockNoteBuilder::new(1).storage_slot(storage_slot).build();
-
         let eph_sk = Scalar {
             lo: 0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd,
             hi: 0x0000000000000000000000000000000023b3127c127b1f29a7adff5cccf8fb06
@@ -205,13 +201,11 @@ mod test {
                 is_infinite: false
             }
         };
+        let plaintext = [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1
+        ];
 
-        // 1. `EncryptedLogIncomingBody::from_note` calls `note.to_be_bytes(storage_slot)` function which serializes
-        // the note to bytes - note that in the case of `AddressNote` the `to_be_bytes` function was automatically
-        // implemented by Aztec macros.
-        let plaintext = note.to_be_bytes(storage_slot);
-
-        // 2. `body.compute_ciphertext(...)` function then derives symmetric key from `eph_sk` and `ivpk` and encrypts
+        // `compute_incoming_body_ciphertext(...)` function then derives symmetric key from `eph_sk` and `ivpk` and encrypts
         // the note plaintext using AES-128.
         let ciphertext = compute_incoming_body_ciphertext(plaintext, eph_sk, ivpk);
 
