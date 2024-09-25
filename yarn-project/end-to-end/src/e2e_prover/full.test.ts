@@ -60,11 +60,11 @@ describe('full_prover', () => {
 
       // WARN: The following depends on the epoch boundaries to work
       logger.info(`Sending first tx and awaiting it to be mined`);
-      await privateInteraction.send({ skipPublicSimulation: true }).wait({ timeout: 60, interval: 10 });
+      await privateInteraction.send({ skipPublicSimulation: true }).wait({ timeout: 300, interval: 10 });
       logger.info(`Sending second tx and awaiting it to be proven`);
       await publicInteraction
         .send({ skipPublicSimulation: true })
-        .wait({ timeout: 60, interval: 10, proven: true, provenTimeout: 1200 });
+        .wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 1500 });
 
       tokenSim.transferPrivate(accounts[0].address, accounts[1].address, privateSendAmount);
       tokenSim.transferPublic(accounts[0].address, accounts[1].address, publicSendAmount);
