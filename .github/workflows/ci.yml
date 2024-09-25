@@ -719,7 +719,7 @@ jobs:
 
       - name: Compare public functions bytecode size reports
         id: public_functions_sizes_diff
-        uses: noir-lang/noir-gates-diff@ca7ea349b9ff46cb6212c60f8d49b11a38a9543c
+        uses: noir-lang/noir-gates-diff@d88f7523b013b9edd3f31c5cfddaef87a3fe1b48
         with:
           report: public_functions_report.json
           header: |
