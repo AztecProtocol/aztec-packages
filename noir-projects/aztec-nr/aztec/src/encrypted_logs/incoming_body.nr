@@ -40,7 +40,7 @@ mod test {
     };
 
     use crate::{
-        note::{note_header::NoteHeader, note_interface::{NoteInterface, PartialNote, NullifiableNote}},
+        note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}},
         encrypted_logs::incoming_body::EncryptedLogIncomingBody, event::event_interface::EventInterface,
         context::PrivateContext, keys::public_keys::IvpkM
     };

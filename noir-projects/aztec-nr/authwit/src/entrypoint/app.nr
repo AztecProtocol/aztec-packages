@@ -4,7 +4,7 @@ use dep::aztec::protocol_types::{
     traits::{Hash, Serialize}
 };
 
-use crate::entrypoint::function_call::{FunctionCall, FUNCTION_CALL_SIZE_IN_BYTES};
+use crate::entrypoint::function_call::FunctionCall;
 
 // FUNCTION_CALL_SIZE * ACCOUNT_MAX_CALLS + 1
 global APP_PAYLOAD_SIZE: u32 = 21;
