@@ -7,7 +7,7 @@ use crate::{
     traits::{Empty, Serialize, Deserialize}, utils::reader::Reader
 };
 
-struct PublicKernelCircuitPublicInputs {
+pub struct PublicKernelCircuitPublicInputs {
     constants: CombinedConstantData,
     validation_requests: PublicValidationRequests,
     end_non_revertible: PublicAccumulatedData,

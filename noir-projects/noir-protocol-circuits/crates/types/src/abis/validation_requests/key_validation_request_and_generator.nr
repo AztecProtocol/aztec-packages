@@ -8,7 +8,7 @@ use crate::{
     utils::{arrays::array_concat, reader::Reader}
 };
 
-struct KeyValidationRequestAndGenerator {
+pub struct KeyValidationRequestAndGenerator {
     request: KeyValidationRequest,
     sk_app_generator: Field,
 }

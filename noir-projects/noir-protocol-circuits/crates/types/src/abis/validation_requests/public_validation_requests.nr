@@ -13,7 +13,7 @@ use crate::{
     traits::{Serialize, Deserialize, Empty}, utils::{arrays::array_length, reader::Reader}
 };
 
-struct PublicValidationRequests {
+pub struct PublicValidationRequests {
     for_rollup: RollupValidationRequests,
     note_hash_read_requests: [TreeLeafReadRequest; MAX_NOTE_HASH_READ_REQUESTS_PER_TX],
     nullifier_read_requests: [ScopedReadRequest; MAX_NULLIFIER_READ_REQUESTS_PER_TX],
@@ -112,7 +112,7 @@ impl Eq for PublicValidationRequests {
     }
 }
 
-struct PublicValidationRequestArrayLengths {
+pub struct PublicValidationRequestArrayLengths {
     note_hash_read_requests: u32,
     nullifier_read_requests: u32,
     nullifier_non_existent_read_requests: u32,

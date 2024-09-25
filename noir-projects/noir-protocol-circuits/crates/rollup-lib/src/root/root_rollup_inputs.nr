@@ -9,7 +9,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     BLOCK_MERGE_ROLLUP_INDEX,
 ];
 
-struct RootRollupInputs {
+pub struct RootRollupInputs {
     previous_rollup_data: [PreviousRollupBlockData; 2],
     prover_id: Field,
 }

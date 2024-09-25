@@ -107,7 +107,7 @@ impl<let N: u32> ToField for str<N> {
     }
 }
 
-trait FromField {
+pub trait FromField {
     fn from_field(value: Field) -> Self;
 }
 

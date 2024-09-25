@@ -121,7 +121,12 @@ pub comptime fn flatten_to_fields(name: Quoted, typ: Type, omit: [Quoted]) -> ([
         } else if typ.as_str().is_some() {
             let length_type = typ.as_str().unwrap();
             let str_len = length_type.as_constant().unwrap();
-            let var_name = name.as_expr().unwrap().as_member_access().unwrap().1;
+            let as_member = name.as_expr().unwrap().as_member_access();
+            let var_name = if as_member.is_some() {
+                as_member.unwrap().1
+            } else {
+                name
+            };
             let as_bytes_name = f"{var_name}_as_bytes".quoted_contents();
             let as_bytes = quote { let $as_bytes_name = $name.as_bytes() };
             for i in 0..str_len {
@@ -172,19 +177,19 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
 }
 
 #[derive(Serialize, Deserialize, Eq)]
-struct Smol {
+pub struct Smol {
     a: Field,
     b: Field,
 }
 
 #[derive(Serialize, Deserialize, Eq)]
-struct HasArray {
+pub struct HasArray {
     a: [Field; 2],
     b: bool
 }
 
 #[derive(Serialize, Deserialize, Eq)]
-struct Fancier {
+pub struct Fancier {
     a: Smol,
     b: [Field; 2],
     c: [u8; 3],

@@ -7,7 +7,7 @@ use crate::{
 }
 };
 
-struct ScopedKeyValidationRequestAndGenerator {
+pub struct ScopedKeyValidationRequestAndGenerator {
     request: KeyValidationRequestAndGenerator,
     contract_address: AztecAddress,
 }

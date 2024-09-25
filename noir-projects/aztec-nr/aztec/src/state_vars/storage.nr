@@ -12,4 +12,3 @@ pub trait Storage<T> where T: Serialize<N> + Deserialize<N> {
 pub struct Storable {
     slot: Field,
 }
-

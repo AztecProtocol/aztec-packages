@@ -8,7 +8,7 @@ use dep::types::{
     tests::fixture_builder::FixtureBuilder
 };
 
-struct TailToPublicOutputComposerBuilder {
+pub struct TailToPublicOutputComposerBuilder {
     previous_kernel: FixtureBuilder,
 }
 

@@ -2,7 +2,7 @@ use crate::{context::{PrivateContext, PublicContext, UnconstrainedContext}, stat
 use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Deserialize, Serialize}};
 
 // Just like PublicImmutable but with the ability to read from private functions.
-struct SharedImmutable<T, Context>{
+pub struct SharedImmutable<T, Context>{
     context: Context,
     storage_slot: Field,
 }

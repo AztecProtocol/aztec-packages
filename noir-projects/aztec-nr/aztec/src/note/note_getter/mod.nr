@@ -185,7 +185,7 @@ unconstrained fn get_note_internal<Note, let N: u32>(storage_slot: Field) -> Not
         placeholder_note,
         placeholder_fields,
         placeholder_note_length
-    )[0].unwrap() // Notice: we don't allow dummies to be returned from get_note (singular).
+    )[0].expect(f"Failed to get a note") // Notice: we don't allow dummies to be returned from get_note (singular).
 }
 
 unconstrained fn get_notes_internal<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS>(

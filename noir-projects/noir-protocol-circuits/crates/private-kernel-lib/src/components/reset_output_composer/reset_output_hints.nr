@@ -18,7 +18,7 @@ use dep::types::{
     utils::arrays::{OrderHint, get_order_hints_asc}
 };
 
-struct ResetOutputHints {
+pub struct ResetOutputHints {
     // note_hashes
     kept_note_hashes: [ScopedNoteHash; MAX_NOTE_HASHES_PER_TX],
     sorted_note_hash_indexes: [u32; MAX_NOTE_HASHES_PER_TX],
