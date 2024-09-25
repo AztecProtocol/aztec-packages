@@ -175,6 +175,8 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     fr get_current_root(ReadTransaction& tx, bool includeUncommitted) const;
 
+    std::optional<index_t> get_fork_block() const;
+
   private:
     std::string name_;
     uint32_t depth_;
@@ -778,12 +780,27 @@ void ContentAddressedCachedTreeStore<LeafValueType>::initialise_from_block(const
             throw std::runtime_error("Unable to initialise from future block");
         }
         BlockPayload blockData;
-        if (get_block_data(blockNumber, blockData, *tx) == false) {
-            throw std::runtime_error("Failed to retrieve block data");
+        if (blockNumber == 0) {
+            blockData.blockNumber = 0;
+            blockData.root = meta_.root;
+            blockData.size = meta_.size;
+        } else if (get_block_data(blockNumber, blockData, *tx) == false) {
+            throw std::runtime_error(
+                (std::stringstream() << "Failed to retrieve block data: " << blockNumber << ". Tree name: " << name_)
+                    .str());
         }
         initialised_from_block_ = blockData;
         enrich_meta_from_block(meta_);
     }
+}
+
+template <typename LeafValueType>
+std::optional<index_t> ContentAddressedCachedTreeStore<LeafValueType>::get_fork_block() const
+{
+    if (initialised_from_block_.has_value()) {
+        return initialised_from_block_->blockNumber;
+    }
+    return std::nullopt;
 }
 
 } // namespace bb::crypto::merkle_tree

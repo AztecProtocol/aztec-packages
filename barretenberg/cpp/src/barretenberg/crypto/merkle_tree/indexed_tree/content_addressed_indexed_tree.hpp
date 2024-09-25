@@ -226,7 +226,7 @@ ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(S
         store_.get_meta(meta, *tx, false);
     }
 
-    if (meta.unfinalisedBlockHeight != 0) {
+    if (store.get_fork_block().has_value()) {
         return;
     }
 
