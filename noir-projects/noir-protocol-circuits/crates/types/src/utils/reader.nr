@@ -1,4 +1,4 @@
-struct Reader<let N: u32> {
+pub struct Reader<let N: u32> {
     data: [Field; N],
     offset: u32,
 }

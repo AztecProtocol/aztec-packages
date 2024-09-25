@@ -5,7 +5,7 @@ global FUNCTION_CALL_SIZE: u32 = 5;
 // 3 * 32 + 2
 global FUNCTION_CALL_SIZE_IN_BYTES: u32 = 98;
 
-struct FunctionCall {
+pub struct FunctionCall {
   args_hash: Field,
   function_selector: FunctionSelector,
   target_address: AztecAddress,

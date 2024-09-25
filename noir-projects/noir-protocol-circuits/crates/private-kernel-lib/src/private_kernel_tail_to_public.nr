@@ -22,7 +22,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PRIVATE_KERNEL_RESET_TINY_INDEX,
 ];
 
-struct PrivateKernelTailToPublicCircuitPrivateInputs {
+pub struct PrivateKernelTailToPublicCircuitPrivateInputs {
     previous_kernel: PrivateKernelData,
 }
 
@@ -163,7 +163,7 @@ mod tests {
     fn can_run_with_only_teardown() {
         let mut builder = PrivateKernelTailToPublicInputsBuilder::new();
         builder.previous_kernel.public_call_requests = BoundedVec::new();
-        builder.previous_kernel.append_public_teardown_call_request();
+        builder.previous_kernel.set_public_teardown_call_request();
 
         builder.succeeded();
     }

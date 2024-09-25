@@ -3,18 +3,17 @@ use dep::protocol_types::address::{AztecAddress, EthAddress};
 use dep::protocol_types::constants::MAX_FIELD_VALUE;
 use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
-use crate::context::inputs::public_context_inputs::PublicContextInputs;
 use crate::context::gas::GasOpts;
 use crate::hash::ArgsHasher;
 
-struct PublicContext {
-    inputs: PublicContextInputs,
-    args_hash: Option<Field>
+pub struct PublicContext {
+    args_hash: Option<Field>,
+    compute_args_hash: fn () -> Field,
 }
 
 impl PublicContext {
-    pub fn new(inputs: PublicContextInputs) -> Self {
-        PublicContext { inputs, args_hash: Option::none() }
+    pub fn new(compute_args_hash: fn() -> Field) -> Self {
+        PublicContext { args_hash: Option::none(), compute_args_hash }
     }
 
     pub fn emit_unencrypted_log<T, let N: u32>(_self: &mut Self, log: T) where T: Serialize<N> {
@@ -109,8 +108,7 @@ impl PublicContext {
         _function_selector: FunctionSelector,
         _args: [Field]
     ) -> FunctionReturns<RETURNS_COUNT> {
-        assert(false, "'delegate_call_public_function' not implemented!");
-        FunctionReturns::new([0; RETURNS_COUNT])
+        panic(f"'delegate_call_public_function' not implemented!")
     }
 
     fn push_note_hash(_self: &mut Self, note_hash: Field) {
@@ -134,18 +132,10 @@ impl PublicContext {
     }
     fn get_args_hash(mut self) -> Field {
         if !self.args_hash.is_some() {
-            let mut hasher = ArgsHasher::new();
-
-            // TODO: this should be replaced with the compile-time calldata size.
-            for i in 0..self.inputs.calldata_length as u32 {
-                let argn: [Field; 1] = calldata_copy((2 + i) as u32, 1);
-                hasher.add(argn[0]);
-            }
-
-            self.args_hash = Option::some(hasher.hash());
+            self.args_hash = Option::some((self.compute_args_hash)());
         }
 
-        self.args_hash.unwrap()
+        self.args_hash.unwrap_unchecked()
     }
     fn transaction_fee(_self: Self) -> Field {
         transaction_fee()
@@ -175,6 +165,9 @@ impl PublicContext {
     }
     fn da_gas_left(_self: Self) -> Field {
         da_gas_left()
+    }
+    fn is_static_call(_self: Self) -> bool {
+        is_static_call() == 1
     }
 
     fn raw_storage_read<let N: u32>(_self: Self, storage_slot: Field) -> [Field; N] {
@@ -254,6 +247,9 @@ unconstrained fn l2_gas_left() -> Field {
 unconstrained fn da_gas_left() -> Field {
     da_gas_left_opcode()
 }
+unconstrained fn is_static_call() -> Field {
+    is_static_call_opcode()
+}
 unconstrained fn note_hash_exists(note_hash: Field, leaf_index: Field) -> u8 {
     note_hash_exists_opcode(note_hash, leaf_index)
 }
@@ -310,7 +306,7 @@ unconstrained fn storage_write(storage_slot: Field, value: Field) {
 
 impl Empty for PublicContext {
     fn empty() -> Self {
-        PublicContext::new(PublicContextInputs::empty())
+        PublicContext::new(|| 0)
     }
 }
 
@@ -356,6 +352,9 @@ unconstrained fn l2_gas_left_opcode() -> Field {}
 
 #[oracle(avmOpcodeDaGasLeft)]
 unconstrained fn da_gas_left_opcode() -> Field {}
+
+#[oracle(avmOpcodeIsStaticCall)]
+unconstrained fn is_static_call_opcode() -> Field {}
 
 #[oracle(avmOpcodeNoteHashExists)]
 unconstrained fn note_hash_exists_opcode(note_hash: Field, leaf_index: Field) -> u8 {}
@@ -410,7 +409,7 @@ unconstrained fn storage_read_opcode(storage_slot: Field) -> Field {}
 #[oracle(avmOpcodeStorageWrite)]
 unconstrained fn storage_write_opcode(storage_slot: Field, value: Field) {}
 
-struct FunctionReturns<let N: u32> {
+pub struct FunctionReturns<let N: u32> {
     values: [Field; N]
 }
 

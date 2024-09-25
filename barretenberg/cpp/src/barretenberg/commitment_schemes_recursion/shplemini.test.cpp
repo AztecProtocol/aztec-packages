@@ -1,9 +1,9 @@
+#include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/commitment_schemes/shplonk/shplemini_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
@@ -33,8 +33,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using NativeCurve = typename Curve::NativeCurve;
     using NativePCS = std::conditional_t<std::same_as<NativeCurve, curve::BN254>, KZG<NativeCurve>, IPA<NativeCurve>>;
     using CommitmentKey = typename NativePCS::CK;
-    using GeminiProver = GeminiProver_<NativeCurve>;
-    using ShplonkProver = ShplonkProver_<NativeCurve>;
+    using ShpleminiProver = ShpleminiProver_<NativeCurve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using NativeFr = typename Curve::NativeCurve::ScalarField;
@@ -68,14 +67,10 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         for (size_t i = 0; i < NUM_SHIFTED; ++i) {
             g_polynomials.emplace_back(f_polynomials[i]);
             h_polynomials.emplace_back(g_polynomials[i].shifted());
-            w_evaluations.emplace_back(h_polynomials[i].evaluate_mle(u_challenge));
+            w_evaluations.emplace_back(f_polynomials[i].evaluate_mle(u_challenge, true));
         }
     }
 
-    std::vector<NativeFr> claimed_evaluations;
-    claimed_evaluations.reserve(v_evaluations.size() + w_evaluations.size());
-    claimed_evaluations.insert(claimed_evaluations.end(), v_evaluations.begin(), v_evaluations.end());
-    claimed_evaluations.insert(claimed_evaluations.end(), w_evaluations.begin(), w_evaluations.end());
     // Compute commitments [f_i]
     std::vector<NativeCommitment> f_commitments;
     auto commitment_key = std::make_shared<CommitmentKey>(4096);
@@ -90,17 +85,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 
     // Initialize an empty NativeTranscript
     auto prover_transcript = NativeTranscript::prover_init_empty();
-    auto prover_opening_claims = GeminiProver::prove(commitment_key,
-                                                     u_challenge,
-                                                     claimed_evaluations,
-                                                     RefVector(f_polynomials),
-                                                     RefVector(g_polynomials),
-                                                     prover_transcript);
-
-    // Shplonk prover output:
-    // - opening pair: (z_challenge, 0)
-    // - witness: polynomial Q - Q_z
-    ShplonkProver::prove(commitment_key, prover_opening_claims, prover_transcript);
+    auto prover_opening_claims = ShpleminiProver::prove(
+        N, RefVector(f_polynomials), RefVector(g_polynomials), u_challenge, commitment_key, prover_transcript);
 
     Builder builder;
     StdlibProof<Builder> stdlib_proof = bb::convert_proof_to_witness(&builder, prover_transcript->proof_data);
@@ -128,15 +114,17 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     };
     auto stdlib_f_commitments = commitments_to_witnesses(f_commitments);
     auto stdlib_g_commitments = commitments_to_witnesses(g_commitments);
-    auto stdlib_claimed_evaluations = elements_to_witness(claimed_evaluations);
+    auto stdlib_v_evaluations = elements_to_witness(v_evaluations);
+    auto stdlib_w_evaluations = elements_to_witness(w_evaluations);
 
     std::vector<Fr> u_challenge_in_circuit = elements_to_witness(u_challenge);
 
     [[maybe_unused]] auto opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, log_circuit_size),
+        ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, N),
                                                        RefVector(stdlib_f_commitments),
                                                        RefVector(stdlib_g_commitments),
-                                                       RefVector(stdlib_claimed_evaluations),
+                                                       RefVector(stdlib_v_evaluations),
+                                                       RefVector(stdlib_w_evaluations),
                                                        u_challenge_in_circuit,
                                                        Commitment::one(&builder),
                                                        stdlib_verifier_transcript);

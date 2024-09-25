@@ -78,15 +78,15 @@ export const mockTx = (
 
     const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
     const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
-    publicCallRequests.forEach((r, i) => (r.item.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
+    publicCallRequests.forEach((r, i) => (r.argsHash = computeVarArgsHash(publicFunctionArgs[i])));
 
     if (hasPublicTeardownCallRequest) {
       const request = publicCallRequests.shift()!;
       data.forPublic.publicTeardownCallRequest = request;
       const args = publicFunctionArgs.shift()!;
       publicTeardownFunctionCall = new PublicExecutionRequest(
-        request.item.contractAddress,
-        CallContext.fromFields(request.item.callContext.toFields()),
+        request.contractAddress,
+        CallContext.fromFields(request.callContext.toFields()),
         args,
       );
     }
@@ -94,8 +94,8 @@ export const mockTx = (
     enqueuedPublicFunctionCalls = publicCallRequests.map(
       (r, i) =>
         new PublicExecutionRequest(
-          r.item.contractAddress,
-          CallContext.fromFields(r.item.callContext.toFields()),
+          r.contractAddress,
+          CallContext.fromFields(r.callContext.toFields()),
           publicFunctionArgs[i],
         ),
     );

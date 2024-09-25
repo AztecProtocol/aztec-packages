@@ -9,7 +9,7 @@ use dep::types::{
     utils::arrays::{array_length, array_to_bounded_vec, sort_by_counter_asc, sort_by_counter_desc}
 };
 
-struct DataSource {
+pub struct DataSource {
     private_call_public_inputs: PrivateCircuitPublicInputs,
     contract_address: AztecAddress,
     storage_contract_address: AztecAddress,
@@ -19,7 +19,7 @@ pub fn create_first_nullifier(tx_request: TxRequest) -> ScopedNullifier {
     Nullifier { value: tx_request.hash(), note_hash: 0, counter: 0 }.scope(AztecAddress::zero())
 }
 
-struct PrivateKernelCircuitPublicInputsComposer {
+pub struct PrivateKernelCircuitPublicInputsComposer {
     public_inputs: PrivateKernelCircuitPublicInputsBuilder,
 }
 

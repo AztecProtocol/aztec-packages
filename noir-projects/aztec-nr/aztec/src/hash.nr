@@ -77,7 +77,7 @@ pub fn compute_message_nullifier(message_hash: Field, secret: Field, leaf_index:
     )
 }
 
-struct ArgsHasher {
+pub struct ArgsHasher {
     fields: [Field],
 }
 
@@ -120,7 +120,7 @@ pub fn hash_args(args: [Field]) -> Field {
 }
 
 #[test]
-fn compute_var_args_hash() {
+unconstrained fn compute_var_args_hash() {
     let mut input = ArgsHasher::new();
     for i in 0..100 {
         input.add(i as Field);
@@ -131,7 +131,7 @@ fn compute_var_args_hash() {
 }
 
 #[test]
-fn compute_unenc_log_hash_array() {
+unconstrained fn compute_unenc_log_hash_array() {
     let contract_address = AztecAddress::from_field(0x233a3e0df23b2b15b324194cb4a151f26c0b7333250781d34cc269d85dc334c6);
     let log = [
         0x20660de09f35f876e3e69d227b2a35166ad05f09d82d06366ec9b6f65a51fec2,
@@ -145,7 +145,7 @@ fn compute_unenc_log_hash_array() {
 }
 
 #[test]
-fn compute_unenc_log_hash_addr() {
+unconstrained fn compute_unenc_log_hash_addr() {
     let contract_address = AztecAddress::from_field(0x233a3e0df23b2b15b324194cb4a151f26c0b7333250781d34cc269d85dc334c6);
     let log = AztecAddress::from_field(0x26aa302d4715fd8a687453cb26d616b0768027bd54bcae56b09d908ecd9f8303);
     let hash = compute_unencrypted_log_hash(contract_address, log);
@@ -153,7 +153,7 @@ fn compute_unenc_log_hash_addr() {
 }
 
 #[test]
-fn compute_unenc_log_hash_str() {
+unconstrained fn compute_unenc_log_hash_str() {
     let contract_address = AztecAddress::from_field(0x1b401e1146c5c507962287065c81f0ef7590adae3802c533d7549d6bf0a41bd8);
     let log = "dummy";
     let hash = compute_unencrypted_log_hash(contract_address, log);
@@ -161,7 +161,7 @@ fn compute_unenc_log_hash_str() {
 }
 
 #[test]
-fn compute_unenc_log_hash_longer_str() {
+unconstrained fn compute_unenc_log_hash_longer_str() {
     let contract_address = AztecAddress::from_field(0x1b401e1146c5c507962287065c81f0ef7590adae3802c533d7549d6bf0a41bd8);
     let log = "Hello this is a string";
     let hash = compute_unencrypted_log_hash(contract_address, log);
