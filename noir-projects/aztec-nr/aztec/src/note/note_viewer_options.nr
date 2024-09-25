@@ -5,7 +5,7 @@ use crate::note::note_interface::NoteInterface;
 use crate::note::constants::MAX_NOTES_PER_PAGE;
 
 // docs:start:NoteViewerOptions
-struct NoteViewerOptions<Note, let N: u32> {
+pub struct NoteViewerOptions<Note, let N: u32> {
     selects: BoundedVec<Option<Select>, N>,
     sorts: BoundedVec<Option<Sort>, N>,
     limit: u32,

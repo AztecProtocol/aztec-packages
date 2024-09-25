@@ -43,7 +43,7 @@ mod test {
     use super::Comparator;
 
     #[test]
-    fn test_compare() {
+    unconstrained fn test_compare() {
         let lhs = 10;
         let rhs = 10;
         assert(compare(lhs, Comparator.EQ, rhs), "Expected lhs to be equal to rhs");

@@ -2,13 +2,13 @@ use std::option::Option;
 use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::ToField};
 use crate::note::note_interface::NoteInterface;
 
-struct PropertySelector {
+pub struct PropertySelector {
     index: u8, // index of the field in the serialized note array
     offset: u8, // offset in the byte representation of the field (selected with index above) from which to reading
     length: u8, // number of bytes to read after the offset
 }
 
-struct Select {
+pub struct Select {
     property_selector: PropertySelector,
     comparator: u8,
     value: Field,
@@ -22,7 +22,7 @@ impl Select {
     }
 }
 
-struct SortOrderEnum {
+pub struct SortOrderEnum {
     DESC: u8,
     ASC: u8,
 }
@@ -32,7 +32,7 @@ global SortOrder = SortOrderEnum {
     ASC: 2,
 };
 
-struct Sort {
+pub struct Sort {
     property_selector: PropertySelector,
     order: u8,
 }
@@ -43,7 +43,7 @@ impl Sort {
     }
 }
 
-struct NoteStatusEnum {
+pub struct NoteStatusEnum {
     ACTIVE: u8,
     ACTIVE_OR_NULLIFIED: u8,
 }
@@ -54,6 +54,7 @@ global NoteStatus = NoteStatusEnum {
     // TODO 4217: add 'NULLIFIED'
 };
 
+// This is the default filter and preprocessor, which does nothing
 fn return_all_notes<Note>(
     notes: [Option<Note>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     _p: Field
@@ -62,7 +63,7 @@ fn return_all_notes<Note>(
 }
 
 // docs:start:NoteGetterOptions
-struct NoteGetterOptions<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> {
+pub struct NoteGetterOptions<Note, let N: u32, PREPROCESSOR_ARGS, FILTER_ARGS> {
     selects: BoundedVec<Option<Select>, N>,
     sorts: BoundedVec<Option<Sort>, N>,
     limit: u32,

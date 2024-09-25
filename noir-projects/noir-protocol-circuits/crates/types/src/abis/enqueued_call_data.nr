@@ -1,9 +1,9 @@
 use crate::abis::{kernel_circuit_public_inputs::vm_circuit_public_inputs::VMCircuitPublicInputs};
 
 // Mocked here as the only remaining non-recursive proof
-struct Proof {}
+pub struct Proof {}
 
-struct EnqueuedCallData {
+pub struct EnqueuedCallData {
     data: VMCircuitPublicInputs,
     proof: Proof,
 }

@@ -20,7 +20,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PUBLIC_KERNEL_MERGE_INDEX,
 ];
 
-struct PublicKernelMergeCircuitPrivateInputs {
+pub struct PublicKernelMergeCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     enqueued_call: EnqueuedCallData,
 }

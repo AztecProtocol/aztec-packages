@@ -6,7 +6,7 @@ use crate::{
 };
 
 // Note: Not to be confused with L2ToL1Msg in Solidity
-struct L2ToL1Message {
+pub struct L2ToL1Message {
     recipient: EthAddress,
     content: Field,
     counter: u32,
@@ -50,7 +50,7 @@ impl L2ToL1Message {
     }
 }
 
-struct ScopedL2ToL1Message {
+pub struct ScopedL2ToL1Message {
     message: L2ToL1Message,
     contract_address: AztecAddress,
 }

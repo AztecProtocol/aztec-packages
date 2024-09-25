@@ -12,7 +12,7 @@ use dep::types::{
 }
 };
 
-struct PrivateKernelCircuitOutputValidator {
+pub struct PrivateKernelCircuitOutputValidator {
     output: PrivateKernelCircuitPublicInputs,
 }
 

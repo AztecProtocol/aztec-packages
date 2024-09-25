@@ -7,7 +7,7 @@ use dep::types::{
 };
 
 // TODO(#7124): To be deprecated.
-struct PublicKernelInnerCircuitPrivateInputs {
+pub struct PublicKernelInnerCircuitPrivateInputs {
     previous_kernel: PublicKernelInnerData,
     public_call: PublicCallData,
 }

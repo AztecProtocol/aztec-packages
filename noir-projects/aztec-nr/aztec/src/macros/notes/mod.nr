@@ -3,7 +3,7 @@ use std::{
     hash::{BuildHasherDefault, poseidon2::Poseidon2Hasher}
 };
 use protocol_types::meta::{flatten_to_fields, pack_from_fields};
-use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector, note_interface::NoteInterface};
+use crate::note::{note_header::NoteHeader, note_getter_options::PropertySelector};
 
 comptime global NOTE_HEADER_TYPE = type_of(NoteHeader::empty());
 
@@ -374,11 +374,10 @@ pub comptime fn note(s: StructDefinition) -> Quoted {
 pub comptime fn note_custom_interface(s: StructDefinition) -> Quoted {
     let (common, note_type_id) = common_note_annotation(s);
     let serialized_len_type = fresh_type_variable();
-    let note_interface_impl = s.as_type().get_trait_impl(quote { NoteInterface<$serialized_len_type> }.as_trait_constraint());
+    let note_interface_impl = s.as_type().get_trait_impl(quote { crate::note::note_interface::NoteInterface<$serialized_len_type> }.as_trait_constraint());
     let name = s.name();
-    assert(note_interface_impl.is_some(), f"Note {name} must implement NoteInterface trait");
 
-    let note_serialized_len = note_interface_impl.unwrap().trait_generic_args()[0].as_constant().unwrap();
+    let note_serialized_len = note_interface_impl.expect(f"Note {name} must implement NoteInterface trait").trait_generic_args()[0].as_constant().unwrap();
 
     register_note(s, note_serialized_len, note_type_id);
 

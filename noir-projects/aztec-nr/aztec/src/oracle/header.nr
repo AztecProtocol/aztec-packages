@@ -78,7 +78,7 @@ fn constrain_get_header_at_internal(
 }
 
 #[test(should_fail_with = "Block number provided is not the same as the block number from the header hint")]
-fn fetching_a_valid_but_different_header_should_fail() {
+unconstrained fn fetching_a_valid_but_different_header_should_fail() {
     let mut env = TestEnvironment::new();
 
     env.advance_block_to(3);

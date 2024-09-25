@@ -1,6 +1,6 @@
 use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
 
-struct Note {
+pub struct Note {
     a: Field,
     b: Field,
 }

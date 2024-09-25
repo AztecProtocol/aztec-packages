@@ -1,7 +1,7 @@
 use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Deserialize}};
 
 // Shows how to create a custom struct in Public
-struct Leader {
+pub struct Leader {
     account: AztecAddress,
     points: u8,
 }
@@ -19,4 +19,3 @@ impl Serialize<LEADER_SERIALIZED_LEN> for Leader {
         [self.account.to_field(), self.points as Field]
     }
 }
-

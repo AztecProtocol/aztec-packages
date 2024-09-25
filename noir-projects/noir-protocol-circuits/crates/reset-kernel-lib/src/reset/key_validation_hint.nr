@@ -4,7 +4,7 @@ use dep::types::{
 };
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
-struct KeyValidationHint {
+pub struct KeyValidationHint {
   sk_m: Scalar,
   request_index: u32,
 }
