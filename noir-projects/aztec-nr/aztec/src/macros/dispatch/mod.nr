@@ -42,13 +42,13 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let return_code = if return_type == unit {
             quote { $call }
         } else {
-            quote { 
+            quote {
                 let return_value = dep::aztec::protocol_types::traits::Serialize::serialize($call);
                 dep::aztec::context::public_context::avm_return(return_value);
             }
         };
 
-        let if_ = quote { 
+        let if_ = quote {
             if selector == $selector {
                 $read
                 $return_code
@@ -66,8 +66,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let dispatch = ifs.join(quote { else });
 
         quote {
-            #[public]
-            pub fn public_dispatch(selector: Field) {
+            unconstrained pub fn public_dispatch(selector: Field) {
                 $dispatch
             }
         }
