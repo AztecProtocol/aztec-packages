@@ -4,7 +4,7 @@ use crate::{
     utils::{arrays::array_concat, reader::Reader}
 };
 
-struct ReadRequest {
+pub struct ReadRequest {
     value: Field,
     counter: u32,
 }
@@ -45,7 +45,7 @@ impl ReadRequest {
     }
 }
 
-struct ScopedReadRequest {
+pub struct ScopedReadRequest {
     read_request: ReadRequest,
     contract_address: AztecAddress,
 }

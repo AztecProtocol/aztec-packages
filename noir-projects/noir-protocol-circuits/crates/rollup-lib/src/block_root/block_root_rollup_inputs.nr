@@ -22,7 +22,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     MERGE_ROLLUP_INDEX,
 ];
 
-struct BlockRootRollupInputs {
+pub struct BlockRootRollupInputs {
     // All below are shared between the base and merge rollups
     previous_rollup_data: [PreviousRollupData; 2],
 

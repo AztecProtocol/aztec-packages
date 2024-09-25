@@ -209,7 +209,7 @@ describe('sequencer', () => {
     // Ok, we have an issue that we never actually call the process L2 block
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash]);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block when it is their turn', async () => {
@@ -258,7 +258,7 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash]);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
@@ -302,7 +302,7 @@ describe('sequencer', () => {
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs rejecting incorrect chain ids', async () => {
@@ -341,7 +341,7 @@ describe('sequencer', () => {
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs dropping the ones that go over max size', async () => {
@@ -381,7 +381,7 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
@@ -432,7 +432,7 @@ describe('sequencer', () => {
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), txHashes);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block that contains zero real transactions once flushed', async () => {
@@ -483,7 +483,7 @@ describe('sequencer', () => {
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), []);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
@@ -537,7 +537,7 @@ describe('sequencer', () => {
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
 
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), postFlushTxHashes);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
+    expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
   it('aborts building a block if the chain moves underneath it', async () => {

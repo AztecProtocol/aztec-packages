@@ -17,7 +17,7 @@ use dep::types::{
 }
 };
 
-struct PublicKernelTeardownCircuitPrivateInputs {
+pub struct PublicKernelTeardownCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     public_call: PublicCallData,
 }

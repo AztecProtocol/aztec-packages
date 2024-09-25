@@ -10,10 +10,10 @@ fn main(){
     };
 }
 
-struct Foo<N> {
+pub struct Foo<N> {
     x : N,
 }
 
-struct Bar {
+pub struct Bar {
     x : FooField,
 }

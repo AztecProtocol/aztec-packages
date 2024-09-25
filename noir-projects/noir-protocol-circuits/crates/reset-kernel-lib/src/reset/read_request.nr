@@ -4,7 +4,7 @@ use dep::types::{
     merkle_tree::{assert_check_membership, LeafPreimage, MembershipWitness}, traits::Empty
 };
 
-struct ReadRequestStateEnum {
+pub struct ReadRequestStateEnum {
     NADA: u8,
     PENDING: u8,
     SETTLED: u8,
@@ -16,7 +16,7 @@ global ReadRequestState = ReadRequestStateEnum {
     SETTLED: 2,
 };
 
-struct ReadRequestStatus {
+pub struct ReadRequestStatus {
     state: u8,
     hint_index: u32,
 }
@@ -41,7 +41,7 @@ trait ReadValueHint {
     fn read_request_index(self) -> u32;
 }
 
-struct PendingReadHint {
+pub struct PendingReadHint {
     read_request_index: u32,
     pending_value_index: u32,
 }
@@ -566,4 +566,3 @@ mod tests {
         builder.verify();
     }
 }
-

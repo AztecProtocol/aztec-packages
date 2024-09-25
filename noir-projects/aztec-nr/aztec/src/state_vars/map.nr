@@ -2,7 +2,7 @@ use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToFi
 use crate::state_vars::storage::Storage;
 
 // docs:start:map
-struct Map<K, V, Context> {
+pub struct Map<K, V, Context> {
     context: Context,
     storage_slot: Field,
     state_var_constructor: fn(Context, Field) -> V,
@@ -33,4 +33,3 @@ impl<K, V, Context> Map<K, V, Context> {
     }
     // docs:end:at
 }
-

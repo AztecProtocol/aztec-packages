@@ -3,7 +3,7 @@ use dep::types::{
     data::OverridablePublicDataTreeLeaf, traits::Empty, utils::arrays::{array_length, find_index_hint}
 };
 
-struct LinkedIndexHint {
+pub struct LinkedIndexHint {
     is_first_write: bool,
     prev_index: u32,
 }

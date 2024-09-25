@@ -8,7 +8,7 @@ use crate::{
     utils::reader::Reader
 };
 
-struct KernelCircuitPublicInputs {
+pub struct KernelCircuitPublicInputs {
     rollup_validation_requests: RollupValidationRequests,
     end: CombinedAccumulatedData,
     constants: CombinedConstantData,

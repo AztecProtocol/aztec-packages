@@ -20,7 +20,7 @@ global ALLOWED_PREVIOUS_CIRCUITS = [
     PUBLIC_KERNEL_APP_LOGIC_INDEX,
 ];
 
-struct PublicKernelAppLogicCircuitPrivateInputs {
+pub struct PublicKernelAppLogicCircuitPrivateInputs {
     previous_kernel: PublicKernelData,
     public_call: PublicCallData,
 }

@@ -1,6 +1,6 @@
 use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
 
-struct Note {
+pub struct Note {
     a: Field,
     b: Field,
 }
@@ -221,7 +221,7 @@ contract AvmTest {
 
     #[public]
     fn assert_calldata_copy(args: [Field; 3]) {
-        let offset = 2; // Make this 0 when PublicContextInputs is removed.
+        let offset = 0;
         let cd: [Field; 3] = dep::aztec::context::public_context::calldata_copy(offset, 3);
         assert(cd == args, "Calldata copy failed");
     }
@@ -497,74 +497,72 @@ contract AvmTest {
      ************************************************************************/
     #[public]
     fn bulk_testing(args_field: [Field; 10], args_u8: [u8; 10]) {
-        // Using "inputs" here is a bit of a hack. It's the PublicContextInputs injected
-        // by the public macros. It's needed by the non-nested call to an entry point function.
-        set_storage_single(inputs, 30);
-
+        dep::aztec::oracle::debug_log::debug_log("set_storage_single");
+        set_storage_single(30);
         dep::aztec::oracle::debug_log::debug_log("set_storage_list");
-        set_storage_list(inputs, 40, 50);
+        set_storage_list(40, 50);
         dep::aztec::oracle::debug_log::debug_log("read_storage_list");
-        let _ = set_storage_map(inputs, context.this_address(), 60);
+        let _ = set_storage_map(context.this_address(), 60);
         dep::aztec::oracle::debug_log::debug_log("add_storage_map");
-        let _ = add_storage_map(inputs, context.this_address(), 10);
+        let _ = add_storage_map(context.this_address(), 10);
         dep::aztec::oracle::debug_log::debug_log("read_storage_map");
-        let _ = read_storage_map(inputs, context.this_address());
+        let _ = read_storage_map(context.this_address());
         dep::aztec::oracle::debug_log::debug_log("keccak_hash");
-        let _ = keccak_hash(inputs, args_u8);
+        let _ = keccak_hash(args_u8);
         dep::aztec::oracle::debug_log::debug_log("sha256_hash");
-        let _ = sha256_hash(inputs, args_u8);
+        let _ = sha256_hash(args_u8);
         dep::aztec::oracle::debug_log::debug_log("poseidon2_hash");
-        let _ = poseidon2_hash(inputs, args_field);
+        let _ = poseidon2_hash(args_field);
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash");
-        let _ = pedersen_hash(inputs, args_field);
+        let _ = pedersen_hash(args_field);
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
-        let _ = pedersen_hash_with_index(inputs, args_field);
+        let _ = pedersen_hash_with_index(args_field);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
-        test_get_contract_instance(inputs);
+        test_get_contract_instance();
         dep::aztec::oracle::debug_log::debug_log("get_address");
-        let _ = get_address(inputs);
+        let _ = get_address();
         dep::aztec::oracle::debug_log::debug_log("get_storage_address");
-        let _ = get_storage_address(inputs);
+        let _ = get_storage_address();
         dep::aztec::oracle::debug_log::debug_log("get_sender");
-        let _ = get_sender(inputs);
+        let _ = get_sender();
         dep::aztec::oracle::debug_log::debug_log("get_function_selector");
-        let _ = get_function_selector(inputs);
+        let _ = get_function_selector();
         dep::aztec::oracle::debug_log::debug_log("get_transaction_fee");
-        let _ = get_transaction_fee(inputs);
+        let _ = get_transaction_fee();
         dep::aztec::oracle::debug_log::debug_log("get_chain_id");
-        let _ = get_chain_id(inputs);
+        let _ = get_chain_id();
         dep::aztec::oracle::debug_log::debug_log("get_version");
-        let _ = get_version(inputs);
+        let _ = get_version();
         dep::aztec::oracle::debug_log::debug_log("get_block_number");
-        let _ = get_block_number(inputs);
+        let _ = get_block_number();
         dep::aztec::oracle::debug_log::debug_log("get_timestamp");
-        let _ = get_timestamp(inputs);
+        let _ = get_timestamp();
         dep::aztec::oracle::debug_log::debug_log("get_fee_per_l2_gas");
-        let _ = get_fee_per_l2_gas(inputs);
+        let _ = get_fee_per_l2_gas();
         dep::aztec::oracle::debug_log::debug_log("get_fee_per_da_gas");
-        let _ = get_fee_per_da_gas(inputs);
+        let _ = get_fee_per_da_gas();
         dep::aztec::oracle::debug_log::debug_log("get_l2_gas_left");
-        let _ = get_l2_gas_left(inputs);
+        let _ = get_l2_gas_left();
         dep::aztec::oracle::debug_log::debug_log("get_da_gas_left");
-        let _ = get_da_gas_left(inputs);
+        let _ = get_da_gas_left();
         dep::aztec::oracle::debug_log::debug_log("emit_unencrypted_log");
-        let _ = emit_unencrypted_log(inputs);
+        let _ = emit_unencrypted_log();
         dep::aztec::oracle::debug_log::debug_log("note_hash_exists");
-        let _ = note_hash_exists(inputs, 1, 2);
+        let _ = note_hash_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("new_note_hash");
-        let _ = new_note_hash(inputs, 1);
+        let _ = new_note_hash(1);
         dep::aztec::oracle::debug_log::debug_log("new_nullifier");
-        let _ = new_nullifier(inputs, 1);
+        let _ = new_nullifier(1);
         dep::aztec::oracle::debug_log::debug_log("nullifier_exists");
-        let _ = nullifier_exists(inputs, 1);
+        let _ = nullifier_exists(1);
         dep::aztec::oracle::debug_log::debug_log("l1_to_l2_msg_exists");
-        let _ = l1_to_l2_msg_exists(inputs, 1, 2);
+        let _ = l1_to_l2_msg_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
-        let _ = send_l2_to_l1_msg(inputs, EthAddress::from_field(0x2020), 1);
+        let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
         dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
-        let _ = nested_call_to_add(inputs, 1, 2);
+        let _ = nested_call_to_add(1, 2);
         dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
-        let _ = nested_static_call_to_add(inputs, 1, 2);
+        let _ = nested_static_call_to_add(1, 2);
     }
 }
 
