@@ -1,8 +1,11 @@
 #pragma once
 
+#include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/hash.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/content_addressed_indexed_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
-#include "barretenberg/world_state/world_state.hpp"
 #include <memory>
 #include <unordered_map>
 
@@ -22,8 +25,9 @@ using PublicDataTree = crypto::merkle_tree::ContentAddressedIndexedTree<PublicDa
 using Tree = std::variant<TreeWithStore<FrTree>, TreeWithStore<NullifierTree>, TreeWithStore<PublicDataTree>>;
 
 struct Fork {
+    using Id = uint64_t;
     using SharedPtr = std::shared_ptr<Fork>;
-    uint64_t _forkId;
+    Id _forkId;
     std::unordered_map<MerkleTreeId, Tree> _trees;
 };
 } // namespace bb::world_state
