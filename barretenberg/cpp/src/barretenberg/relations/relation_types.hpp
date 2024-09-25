@@ -85,13 +85,15 @@ consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> c
     constexpr size_t NUM_SUBRELATIONS = RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size();
     std::array<size_t, NUM_SUBRELATIONS> result;
     for (size_t idx = 0; idx < NUM_SUBRELATIONS; idx++) {
+        // WORKTODO: would be nice to be able to static assert this difference doesn't underflow but idx is not
+        // constexpr
         result[idx] = RelationImpl::HOMOGENIZED_LENGTH - RelationImpl::SUBRELATION_PARTIAL_LENGTHS[idx];
     }
     return result;
 };
 
 /**
- * @brief This metod adjusts the subrelation partial lengths to ZK Flavors.
+ * @brief This method adjusts the subrelation partial lengths to ZK Flavors.
  *
  * @tparam RelationImpl
  * @return consteval
