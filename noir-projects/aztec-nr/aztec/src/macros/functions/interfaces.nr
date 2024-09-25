@@ -154,7 +154,7 @@ pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
         }
     } else {
         quote {
-            | _inputs: $input_type | -> $return_type_hint {
+            | _: $input_type | -> $return_type_hint {
                 unsafe { $fn_name($parameter_names) }
             }
         }
