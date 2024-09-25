@@ -8,7 +8,7 @@ import {
   type Tx,
   type TxValidator,
 } from '@aztec/circuit-types';
-import { type Gas, GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
+import { type Gas, type GlobalVariables, Header, type Nullifier, type TxContext } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
 import { type DebugLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -89,7 +89,7 @@ export class TestContext {
       actualDb,
       publicExecutor,
       publicKernel,
-      GlobalVariables.empty(),
+      globalVariables,
       Header.empty(),
       worldStateDB,
       telemetry,

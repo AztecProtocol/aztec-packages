@@ -116,7 +116,7 @@ export class FullProverTest {
           FullProverTest.TOKEN_DECIMALS,
         )
           .send()
-          .deployed({ proven: true });
+          .deployed();
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
         return { tokenContractAddress: asset.address };
@@ -302,7 +302,7 @@ export class FullProverTest {
         const { fakeProofsAsset: asset, accounts } = this;
         const amount = 10000n;
 
-        const waitOpts = { proven: true };
+        const waitOpts = { proven: false };
 
         this.logger.verbose(`Minting ${amount} publicly...`);
         await asset.methods.mint_public(accounts[0].address, amount).send().wait(waitOpts);
@@ -314,7 +314,7 @@ export class FullProverTest {
 
         await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
         const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
-        await txClaim.wait({ debug: true, proven: true });
+        await txClaim.wait({ ...waitOpts, debug: true });
         this.logger.verbose(`Minting complete.`);
 
         return { amount };

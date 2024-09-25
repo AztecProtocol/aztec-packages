@@ -56,6 +56,7 @@ export async function createProverNode(
     {
       disableAutomaticProving: config.proverNodeDisableAutomaticProving,
       maxPendingJobs: config.proverNodeMaxPendingJobs,
+      epochSize: config.proverNodeEpochSize,
     },
   );
 }

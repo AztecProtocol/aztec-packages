@@ -100,7 +100,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     // Genesis block
     blocks[0] = BlockLog({
       archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-      blockHash: bytes32(0),
+      blockHash: bytes32(0), // TODO(palla/prover): The first block does not have hash zero
       slotNumber: Slot.wrap(0)
     });
     for (uint256 i = 0; i < _validators.length; i++) {
@@ -550,7 +550,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       }
 
       bytes32 expectedPreviousBlockHash = blocks[previousBlockNumber].blockHash;
-      if (expectedPreviousBlockHash != _args[2]) {
+      // TODO: Remove 0 check once we inject the proper genesis block hash
+      if (expectedPreviousBlockHash != 0 && expectedPreviousBlockHash != _args[2]) {
         revert Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, _args[2]);
       }
 
@@ -608,16 +609,16 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     // out_hash: root of this epoch's l2 to l1 message tree
     publicInputs[8] = _args[5];
 
-    // fees[9-40]: array of recipient-value pairs
+    // fees[9-72]: array of recipient-value pairs
     for (uint256 i = 0; i < 64; i++) {
       publicInputs[9 + i] = _fees[i];
     }
 
     // vk_tree_root
-    publicInputs[41] = vkTreeRoot;
+    publicInputs[73] = vkTreeRoot;
 
     // prover_id: id of current epoch's prover
-    publicInputs[42] = _args[6];
+    publicInputs[74] = _args[6];
 
     // the block proof is recursive, which means it comes with an aggregation object
     // this snippet copies it into the public inputs needed for verification
