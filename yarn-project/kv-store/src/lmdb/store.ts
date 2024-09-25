@@ -150,9 +150,18 @@ export class AztecLmdbStore implements AztecKVStore {
     await this.#rootDb.clearAsync();
   }
 
+  /**
+   * Close the database. Note, once this is closed we can no longer interact with the DB.
+   * Closing the root DB also closes child DBs.
+   */
+  async close() {
+    await this.#rootDb.close();
+  }
+
   /** Deletes this store and removes the database files from disk */
   async delete() {
     await this.#rootDb.drop();
+    await this.close();
     if (this.path) {
       await rm(this.path, { recursive: true, force: true });
       this.#log.verbose(`Deleted database files at ${this.path}`);
