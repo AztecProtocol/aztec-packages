@@ -20,8 +20,7 @@ contract Test {
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
-    use dep::aztec::encrypted_logs::outgoing_body::EncryptedLogOutgoingBody;
-    use dep::aztec::encrypted_logs::payload::compute_incoming_body_ciphertext;
+    use dep::aztec::encrypted_logs::payload::{compute_incoming_body_ciphertext, compute_outgoing_body_ciphertext};
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
     use dep::aztec::keys::getters::get_public_keys;
@@ -432,7 +431,7 @@ contract Test {
         ovsk_app: Scalar
     ) -> [u8; 144] {
         let eph_pk = derive_public_key(eph_sk);
-        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk).compute_ciphertext(ovsk_app, eph_pk)
+        compute_outgoing_body_ciphertext(recipient, recipient_ivpk, ovsk_app, eph_sk, eph_pk)
     }
 
     #[public]

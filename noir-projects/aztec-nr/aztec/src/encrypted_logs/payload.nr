@@ -1,4 +1,7 @@
-use dep::protocol_types::{address::AztecAddress, scalar::Scalar, point::Point};
+use dep::protocol_types::{
+    address::AztecAddress, scalar::Scalar, point::Point, constants::GENERATOR_INDEX__SYMMETRIC_KEY,
+    hash::poseidon2_hash_with_separator
+};
 use std::{
     aes128::aes128_encrypt, embedded_curve_ops::fixed_base_scalar_mul as derive_public_key,
     hash::from_field_unsafe as fr_to_fq_unsafe, field::bn254::decompose
@@ -6,7 +9,7 @@ use std::{
 
 use crate::{
     oracle::unsafe_rand::unsafe_rand, utils::point::point_to_bytes,
-    encrypted_logs::{header::EncryptedLogHeader, outgoing_body::EncryptedLogOutgoingBody},
+    encrypted_logs::{header::EncryptedLogHeader},
     keys::{point_to_symmetric_key::point_to_symmetric_key, public_keys::{OvpkM, IvpkM}}
 };
 
@@ -25,7 +28,7 @@ pub fn compute_encrypted_log<let P: u32, let M: u32>(
     let incoming_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ivpk);
     let outgoing_header_ciphertext: [u8; 48] = header.compute_ciphertext(eph_sk, ovpk);
     let incoming_body_ciphertext = compute_incoming_body_ciphertext(plaintext, eph_sk, ivpk);
-    let outgoing_body_ciphertext: [u8; 144] = EncryptedLogOutgoingBody::new(eph_sk, recipient, ivpk).compute_ciphertext(fr_to_fq(ovsk_app), eph_pk);
+    let outgoing_body_ciphertext: [u8; 144] = compute_outgoing_body_ciphertext(recipient, ivpk, fr_to_fq(ovsk_app), eph_sk, eph_pk);
 
     let mut encrypted_bytes: [u8; M] = [0; M];
     // @todo We ignore the tags for now
@@ -78,11 +81,7 @@ fn generate_ephemeral_key_pair() -> (Scalar, Point) {
     (eph_sk, eph_pk)
 }
 
-pub fn compute_incoming_body_ciphertext<let P: u32>(
-    plaintext: [u8; P],
-    eph_sk: Scalar,
-    ivpk: IvpkM
-) -> [u8] {
+pub fn compute_incoming_body_ciphertext<let P: u32>(plaintext: [u8; P], eph_sk: Scalar, ivpk: IvpkM) -> [u8] {
     let full_key = point_to_symmetric_key(eph_sk, ivpk.to_point());
     let mut sym_key = [0; 16];
     let mut iv = [0; 16];
@@ -94,11 +93,57 @@ pub fn compute_incoming_body_ciphertext<let P: u32>(
     aes128_encrypt(plaintext, iv, sym_key)
 }
 
+/// Encrypts ephemeral secret key and recipient's ivpk --> with this information the recipient of outgoing will
+/// be able to derive the key with which the incoming log can be decrypted.
+pub fn compute_outgoing_body_ciphertext(
+    recipient: AztecAddress,
+    recipient_ivpk: IvpkM,
+    ovsk_app: Scalar,
+    eph_sk: Scalar,
+    eph_pk: Point
+) -> [u8; 144] {
+    // Again, we could compute `eph_pk` here, but we keep the interface more similar
+    // and also make it easier to optimise it later as we just pass it along
+
+    let mut buffer = [0 as u8; 128];
+
+    let serialized_eph_sk_high: [u8; 32] = eph_sk.hi.to_be_bytes();
+    let serialized_eph_sk_low: [u8; 32] = eph_sk.lo.to_be_bytes();
+
+    let address_bytes: [u8; 32] = recipient.to_field().to_be_bytes();
+    let serialized_recipient_ivpk = point_to_bytes(recipient_ivpk.to_point());
+
+    for i in 0..32 {
+        buffer[i] = serialized_eph_sk_high[i];
+        buffer[i + 32] = serialized_eph_sk_low[i];
+        buffer[i + 64] = address_bytes[i];
+    }
+    for i in 0..32 {
+        buffer[i + 96] = serialized_recipient_ivpk[i];
+    }
+
+    // We compute the symmetric key using poseidon.
+    let full_key: [u8; 32] = poseidon2_hash_with_separator(
+        [ovsk_app.hi, ovsk_app.lo, eph_pk.x, eph_pk.y],
+        GENERATOR_INDEX__SYMMETRIC_KEY as Field
+    ).to_be_bytes();
+
+    let mut sym_key = [0; 16];
+    let mut iv = [0; 16];
+
+    for i in 0..16 {
+        sym_key[i] = full_key[i];
+        iv[i] = full_key[i + 16];
+    }
+    aes128_encrypt(buffer, iv, sym_key).as_array()
+}
+
 mod test {
     use crate::{
-        encrypted_logs::payload::{compute_encrypted_log, compute_incoming_body_ciphertext},
+        encrypted_logs::payload::{compute_encrypted_log, compute_incoming_body_ciphertext, compute_outgoing_body_ciphertext},
         keys::public_keys::{OvpkM, IvpkM}, test::mocks::mock_note::MockNoteBuilder
     };
+    use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
     use dep::protocol_types::{address::AztecAddress, point::Point, scalar::Scalar};
     use std::test::OracleMock;
 
@@ -181,5 +226,39 @@ mod test {
         for i in 0..note_body_ciphertext_from_typescript.len() {
             assert_eq(ciphertext[i], note_body_ciphertext_from_typescript[i]);
         }
+    }
+
+    #[test]
+    fn test_encrypted_log_outgoing_body_matches_typescript() {
+        let eph_sk = Scalar {
+            lo: 0x00000000000000000000000000000000d0d302ee245dfaf2807e604eec4715fe,
+            hi: 0x000000000000000000000000000000000f096b423017226a18461115fa8d34bb
+        };
+        let recipient_ivsk = Scalar {
+            lo: 0x000000000000000000000000000000004828f8f95676ebb481df163f87fd4022,
+            hi: 0x000000000000000000000000000000000f4d97c25d578f9348251a71ca17ae31
+        };
+        let sender_ovsk_app = Scalar {
+            lo: 0x0000000000000000000000000000000074d2e28c6bc5176ac02cf7c7d36a444e,
+            hi: 0x00000000000000000000000000000000089c6887cb1446d86c64e81afc78048b
+        };
+
+        let eph_pk = derive_public_key(eph_sk);
+        let recipient_ivpk = IvpkM { inner: derive_public_key(recipient_ivsk) };
+
+        let recipient = AztecAddress::from_field(0xdeadbeef);
+
+        let ciphertext = compute_outgoing_body_ciphertext(recipient, recipient_ivpk, sender_ovsk_app, eph_sk, eph_pk);
+
+        // The following value was generated by `encrypted_log_outgoing_body.test.ts`
+        // --> Run the test with AZTEC_GENERATE_TEST_DATA=1 flag to update test data.
+        let outgoing_body_ciphertext_from_typescript = [
+            127, 182, 227, 75, 192, 197, 54, 47, 168, 134, 233, 148, 251, 46, 86, 12, 73, 50, 238, 50, 31, 174, 27, 202, 110, 77, 161, 197, 244, 124, 17, 100, 143, 150, 232, 14, 156, 248, 43, 177, 16, 82, 244, 103, 88, 74, 84, 200, 15, 65, 187, 14, 163, 60, 91, 22, 104, 31, 211, 190, 124, 121, 79, 92, 239, 65, 185, 106, 51, 178, 168, 137, 84, 43, 79, 158, 151, 152, 83, 42, 170, 13, 106, 209, 254, 74, 39, 145, 73, 215, 17, 234, 196, 89, 30, 58, 120, 127, 88, 69, 121, 61, 18, 206, 89, 118, 243, 238, 177, 71, 73, 47, 147, 4, 155, 25, 173, 248, 206, 52, 17, 180, 122, 186, 106, 191, 252, 102, 197, 91, 16, 39, 94, 91, 224, 30, 168, 177, 26, 144, 5, 124, 128, 6
+        ];
+
+        for i in 0..outgoing_body_ciphertext_from_typescript.len() {
+            assert_eq(ciphertext[i], outgoing_body_ciphertext_from_typescript[i]);
+        }
+        assert_eq(outgoing_body_ciphertext_from_typescript.len(), ciphertext.len());
     }
 }
