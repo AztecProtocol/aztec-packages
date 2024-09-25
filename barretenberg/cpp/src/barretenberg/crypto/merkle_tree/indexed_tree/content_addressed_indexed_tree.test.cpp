@@ -535,7 +535,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_find_leaf_index)
 TEST_F(PersistedContentAddressedIndexedTreeTest, can_commit_and_restore)
 {
     NullifierMemoryTree<HashPolicy> memdb(10);
-    index_t current_size = 2;
+    index_t initial_size = 2;
+    index_t current_size = initial_size;
     ThreadPool workers(1);
     constexpr size_t depth = 10;
     std::string name = random_string();
@@ -543,7 +544,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_commit_and_restore)
     {
         LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
         Store store(name, depth, db);
-        auto tree = TreeType(store, workers, current_size);
+        auto tree = TreeType(store, workers, initial_size);
 
         check_size(tree, current_size);
         check_root(tree, memdb.root());
@@ -579,7 +580,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_commit_and_restore)
     {
         LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
         Store store(name, depth, db);
-        auto tree = TreeType(store, workers, current_size);
+        auto tree = TreeType(store, workers, initial_size);
 
         // check uncommitted state
         check_size(tree, current_size);

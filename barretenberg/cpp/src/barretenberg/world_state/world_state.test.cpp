@@ -498,6 +498,7 @@ TEST_F(WorldStateTest, SyncBlockFromDirtyState)
 TEST_F(WorldStateTest, SyncCurrentBlock)
 {
     WorldState ws(1, _directory, 1024);
+    bb::fr block_hash(1);
     StateReference block_state_ref = {
         { MerkleTreeId::NULLIFIER_TREE,
           { fr("0x0342578609a7358092788d0eed7d1ee0ec8e0c596c0b1e85ba980ddd5cc79d04"), 129 } },
@@ -513,6 +514,7 @@ TEST_F(WorldStateTest, SyncCurrentBlock)
     ws.append_leaves<fr>(MerkleTreeId::L1_TO_L2_MESSAGE_TREE, { 43 });
     ws.append_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { NullifierLeafValue(144) });
     ws.append_leaves<PublicDataLeafValue>(MerkleTreeId::PUBLIC_DATA_TREE, { PublicDataLeafValue(145, 1) });
+    ws.append_leaves<fr>(MerkleTreeId::ARCHIVE, { block_hash });
 
     auto uncommitted_state_ref = ws.get_state_reference(WorldStateRevision::uncommitted());
     for (const auto& [tree_id, snapshot] : block_state_ref) {
