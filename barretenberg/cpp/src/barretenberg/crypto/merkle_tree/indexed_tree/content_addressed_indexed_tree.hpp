@@ -666,7 +666,30 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
             void add_job(std::function<void()>& job) { operations.push_back(job); }
         };
 
-        std::shared_ptr<EnqueuedOps> enqueuedOperations = std::make_shared<EnqueuedOps>(insertions->size());
+        // MANUAL MEMORY MANAGEMENT!
+        //
+        // Right, so, this looks scary, doesn't it?
+        // If we use a shared_ptr here then we cause a memory leak since each job requires a reference to
+        // enqueuedOperations in order to enqueue the next job. I.e. each job holds a (strong) reference to:
+        // - low_leaf_witness_data (needed to its job)
+        // - enqueuedOperations (needed to pop the next job from the queue)
+        // But enqueuedOperations holds a reference to every job, creating a cycle and leaking memory
+
+        // Capturing enqueuedOperations through a weak_ptr would help but causes another issue: who keep
+        // enqueuedOperations alive when it goes out of scope? The code uses continuation-passing-style (callbacks) so
+        // this function will finish before the actuall operation has completed. Something needs to keep
+        // enqueuedOperations alive until then.
+
+        // We can't block either (e.g. enqueuing a top-level job that blocks until all insertions are done and reports
+        // the result) because what if the underlying ThreadPool uses a single thread? It would block on this one
+        // job forever.
+
+        // The only solution I could find that kept the current implementation was manual memory management.
+        // We should revisit this code and refactor such that it doesn't need to buffer jobs sent to the worker pool.
+        //
+        // This object gets manually deleted when the last job in the queue completes (about 20 lines of code below this
+        // point)
+        EnqueuedOps* enqueuedOperations = new EnqueuedOps(insertions->size());
 
         for (uint32_t i = 0; i < insertions->size(); ++i) {
             std::function<void()> op = [=, this]() {
@@ -696,6 +719,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
                 }
 
                 if (i == insertions->size() - 1) {
+                    // we're done with enqueuedOperations at this point
+                    // see the note about why this uses manual memory management where this variable is declared
+                    delete enqueuedOperations;
+
                     TypedResponse<InsertionCompletionResponse> response;
                     response.success = status->success;
                     response.message = status->message;
