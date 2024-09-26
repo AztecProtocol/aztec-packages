@@ -1,4 +1,4 @@
-use dep::protocol_types::{address::AztecAddress, traits::{Empty, Serialize}};
+use dep::protocol_types::{address::AztecAddress, traits::{Empty, Serialize, Deserialize}};
 
 global NOTE_HEADER_LENGTH: u32 = 4;
 
@@ -41,5 +41,19 @@ impl Serialize<NOTE_HEADER_LENGTH> for NoteHeader {
         [
             self.contract_address.to_field(), self.nonce, self.storage_slot, self.note_hash_counter as Field
         ]
+    }
+}
+
+impl Deserialize<NOTE_HEADER_LENGTH> for NoteHeader {
+    /// The following method is used by implementations of the Deserialize trait for notes
+    fn deserialize(fields: [Field; NOTE_HEADER_LENGTH]) -> NoteHeader {
+        // Note: If you change this function don't forget to update implementations of Deserialize trait for notes.
+        // (Deserialize trait needs to be implemented for a note when it's returned from a contract function (e.g. in the case of TXe tests)
+        NoteHeader {
+            contract_address: AztecAddress::from_field(fields[0]),
+            nonce: fields[1],
+            storage_slot: fields[2],
+            note_hash_counter: fields[3] as u32,
+        }
     }
 }

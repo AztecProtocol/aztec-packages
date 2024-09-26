@@ -1,3 +1,5 @@
+mod test;
+
 // docs:start:empty-contract
 use dep::aztec::macros::aztec;
 
@@ -60,7 +62,7 @@ contract Crowdfunding {
 
     // docs:start:donate
     #[private]
-    fn donate(amount: u64) {
+    fn donate(amount: u64) -> ValueNote {
         // 1) Check that the deadline has not passed --> we do that via the router contract to conceal which contract
         // is performing the check.
         // docs:start:call-check-deadline
@@ -81,6 +83,7 @@ contract Crowdfunding {
         let mut note = ValueNote::new(amount as Field, donor_keys.npk_m.hash());
         // docs:end:valuenote_new
         storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note_with_keys(&mut context, donor_keys.ovpk_m, donor_keys.ivpk_m, donor));
+        note
     }
     // docs:end:donate
 

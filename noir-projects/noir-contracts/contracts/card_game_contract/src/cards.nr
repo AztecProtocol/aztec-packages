@@ -14,6 +14,12 @@ pub struct Card {
     points: u32,
 }
 
+impl Eq for Card {
+    fn eq(self, other: Card) -> bool {
+        (self.strength == other.strength) & (self.points == other.points)
+    }
+}
+
 impl FromField for Card {
     fn from_field(field: Field) -> Card {
         let value_bytes: [u8; 32] = field.to_le_bytes();

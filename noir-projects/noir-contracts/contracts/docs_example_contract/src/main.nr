@@ -1,5 +1,6 @@
 mod options;
 mod types;
+mod test;
 
 // Following is a very simple game to show case use of PrivateMutable in as minimalistic way as possible
 // It also serves as an e2e test that you can read and then replace the PrivateMutable in the same call

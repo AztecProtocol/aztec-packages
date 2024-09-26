@@ -1,5 +1,5 @@
 use dep::aztec::{
-    protocol_types::{traits::Serialize, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
+    protocol_types::{traits::{Serialize, Deserialize}, constants::GENERATOR_INDEX__NOTE_NULLIFIER, hash::poseidon2_hash_with_separator},
     macros::notes::note,
     note::{note_header::NoteHeader, note_interface::NullifiableNote, utils::compute_note_hash_for_nullify},
     oracle::unsafe_rand::unsafe_rand, keys::getters::get_nsk_app, context::PrivateContext
@@ -54,6 +54,20 @@ impl ValueNote {
         let randomness = unsafe_rand();
         let header = NoteHeader::empty();
         ValueNote { value, npk_m_hash, randomness, header }
+    }
+}
+
+impl Deserialize<7> for ValueNote {
+    /// The following method needed to be implemented because the note is returned from a contract function in noir (e.g. in a TXe test)
+    fn deserialize(fields: [Field; 7]) -> Self {
+        let header = NoteHeader::deserialize([fields[3], fields[4], fields[5], fields[6]]);
+
+        ValueNote {
+            value: fields[0],
+            npk_m_hash: fields[1],
+            randomness: fields[2],
+            header,
+        }
     }
 }
 

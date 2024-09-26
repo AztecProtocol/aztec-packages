@@ -8,6 +8,13 @@ pub struct Leader {
 
 global LEADER_SERIALIZED_LEN: u32 = 2;
 
+impl Eq for Leader {
+    fn eq(self, other: Leader) -> bool {
+        (self.account == other.account) &
+        (self.points == other.points)
+    }
+}
+
 impl Deserialize<LEADER_SERIALIZED_LEN> for Leader {
     fn deserialize(fields: [Field; LEADER_SERIALIZED_LEN]) -> Self {
         Leader { account: AztecAddress::from_field(fields[0]), points: fields[1] as u8 }

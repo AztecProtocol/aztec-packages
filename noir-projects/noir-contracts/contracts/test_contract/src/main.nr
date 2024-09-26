@@ -1,4 +1,5 @@
 mod test_note;
+mod test;
 
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 use dep::aztec::macros::aztec;

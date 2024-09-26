@@ -1,4 +1,5 @@
 use dep::aztec::macros::aztec;
+mod test;
 
 #[aztec]
 contract EasyPrivateVoting {

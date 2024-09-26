@@ -6,7 +6,7 @@ use dep::protocol_types::{
 
 use crate::context::inputs::PrivateContextInputs;
 use crate::context::call_interfaces::CallInterface;
-use crate::test::helpers::cheatcodes;
+use crate::test::helpers::{cheatcodes, test_environment::TestEnvironment};
 use crate::keys::public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys};
 
 use crate::oracle::execution::{get_block_number, get_contract_address};
@@ -141,4 +141,52 @@ impl Deserialize<TEST_ACCOUNT_LENGTH> for TestAccount {
 
         Self { address, keys }
     }
+}
+
+unconstrained pub fn setup(
+    with_account_contracts: bool,
+    with_canonical_contracts: bool,
+) -> (
+  &mut TestEnvironment,
+  (AztecAddress, AztecAddress, AztecAddress, AztecAddress, AztecAddress)
+) {
+    let mut env = TestEnvironment::new();
+
+    let (account_1, account_2, account_3, account_4, account_5) = if (
+        with_account_contracts
+    ) {
+        (
+            env.create_account_contract(1),
+            env.create_account_contract(2),
+            env.create_account_contract(3),
+            env.create_account_contract(4),
+            env.create_account_contract(5)
+        )
+    } else {
+        (
+            env.create_account(),
+            env.create_account(),
+            env.create_account(),
+            env.create_account(),
+            env.create_account()
+        )
+    };
+
+    env.impersonate(account_1);
+
+    if (with_canonical_contracts) {
+        // Deploy canonical auth registry
+        let _auth_registry = env.deploy("./@auth_registry_contract", "AuthRegistry").without_initializer();
+        env.advance_block_by(1);
+
+        // Deploy canonical router
+        let _router_contract = env.deploy("./@router_contract", "Router").without_initializer();
+    }
+
+    env.advance_block_by(1);
+
+    (
+      &mut env,
+      (account_1, account_2, account_3, account_4, account_5)
+    )
 }
