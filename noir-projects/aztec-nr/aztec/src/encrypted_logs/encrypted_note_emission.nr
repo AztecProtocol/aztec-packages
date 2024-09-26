@@ -1,7 +1,7 @@
 use crate::{
     context::PrivateContext, note::{note_emission::NoteEmission, note_interface::NoteInterface},
     keys::{getters::{get_public_keys, get_ovsk_app}, public_keys::{OvpkM, IvpkM}},
-    encrypted_logs::payload::compute_encrypted_note_log, oracle::logs_traits::LensForEncryptedLog
+    encrypted_logs::payload::compute_encrypted_log, oracle::logs_traits::LensForEncryptedLog
 };
 use dep::protocol_types::{hash::sha256_to_field, address::AztecAddress, abis::note_hash::NoteHash};
 
@@ -23,15 +23,8 @@ fn compute_raw_note_log<Note, let N: u32, let M: u32>(
 
     let contract_address: AztecAddress = context.this_address();
 
-    let encrypted_log: [u8; M] = compute_encrypted_note_log(
-        contract_address,
-        storage_slot,
-        ovsk_app,
-        ovpk,
-        ivpk,
-        recipient,
-        note
-    );
+    let plaintext = note.to_be_bytes(storage_slot);
+    let encrypted_log: [u8; M] = compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
     let log_hash = sha256_to_field(encrypted_log);
 
     (note_hash_counter, encrypted_log, log_hash)
