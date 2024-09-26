@@ -284,7 +284,6 @@ template <typename Curve> class ShplonkVerifier_ {
     {
         std::vector<Fr> inverted_denominators;
         inverted_denominators.reserve(num_gemini_claims);
-        info(num_gemini_claims);
         inverted_denominators.emplace_back((shplonk_eval_challenge - gemini_eval_challenge_powers[0]).invert());
         size_t i = 0;
         for (const auto& gemini_eval_challenge_power : gemini_eval_challenge_powers) {
