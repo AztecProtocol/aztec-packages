@@ -175,8 +175,10 @@ StateReference WorldState::get_state_reference(WorldStateRevision revision) cons
 
     for (const auto& [id, tree] : fork->_trees) {
         auto callback = [&signal, &state_reference, &state_ref_mutex, id](const TypedResponse<TreeMetaResponse>& meta) {
-            std::lock_guard<std::mutex> lock(state_ref_mutex);
-            state_reference.insert({ id, { meta.inner.meta.root, meta.inner.meta.size } });
+            {
+                std::lock_guard<std::mutex> lock(state_ref_mutex);
+                state_reference.insert({ id, { meta.inner.meta.root, meta.inner.meta.size } });
+            }
             signal.signal_decrement();
         };
         std::visit([&callback, uncommitted](auto&& wrapper) { wrapper.tree->get_meta_data(uncommitted, callback); },
@@ -196,8 +198,10 @@ StateReference WorldState::get_initial_state_reference() const
 
     for (const auto& [id, tree] : fork->_trees) {
         auto callback = [&signal, &state_reference, &state_ref_mutex, id](const TypedResponse<TreeMetaResponse>& meta) {
-            std::lock_guard<std::mutex> lock(state_ref_mutex);
-            state_reference.insert({ id, { meta.inner.meta.initialRoot, meta.inner.meta.initialSize } });
+            {
+                std::lock_guard<std::mutex> lock(state_ref_mutex);
+                state_reference.insert({ id, { meta.inner.meta.initialRoot, meta.inner.meta.initialSize } });
+            }
             signal.signal_decrement();
         };
         std::visit([&callback](auto&& wrapper) { wrapper.tree->get_meta_data(false, callback); }, tree);
@@ -347,8 +351,8 @@ bool WorldState::sync_block(StateReference& block_state_ref,
 
     signal.wait_for_level();
 
-    current_state = get_state_reference(WorldStateRevision::uncommitted());
-    if (block_state_matches_world_state(block_state_ref, current_state)) {
+    auto state_after_inserts = get_state_reference(WorldStateRevision::uncommitted());
+    if (block_state_matches_world_state(block_state_ref, state_after_inserts)) {
         commit();
         return false;
     }
