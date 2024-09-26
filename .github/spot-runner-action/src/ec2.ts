@@ -198,10 +198,11 @@ export class Ec2Instance {
           {
             DeviceName: "/dev/sda1",
             Ebs: {
-              VolumeSize: 64,
-              VolumeType: 'gp3',
+              // Hack to have more space on the runners in case they are long-lived i.e. multiple PRs downloading to cache-tool directory
+              VolumeSize: this.config.githubActionRunnerConcurrency !== 0 ? 128 : 64,
+              VolumeType: "gp3",
               Throughput: 1000,
-              Iops: 5000
+              Iops: 5000,
             },
           },
         ],

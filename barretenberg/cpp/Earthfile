@@ -40,7 +40,6 @@ preset-release:
   RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb
   SAVE ARTIFACT build/bin
 
-#
 preset-release-world-state:
   FROM +source
   DO +CACHE_BUILD_BIN --prefix=preset-release-world-state \
