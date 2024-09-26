@@ -33,6 +33,10 @@ interface MockRollupContractRead {
   status: (args: readonly [bigint]) => Promise<[bigint, `0x${string}`, bigint, `0x${string}`, `0x${string}`]>;
 }
 
+interface MockInboxContractRead {
+  totalMessagesInserted: () => Promise<bigint>;
+}
+
 describe('Archiver', () => {
   const rollupAddress = EthAddress.ZERO;
   const inboxAddress = EthAddress.ZERO;
@@ -45,6 +49,7 @@ describe('Archiver', () => {
   let now: number;
 
   let rollupRead: MockProxy<MockRollupContractRead>;
+  let inboxRead: MockProxy<MockInboxContractRead>;
   let archiver: Archiver;
   let blocks: L2Block[];
 
@@ -79,6 +84,9 @@ describe('Archiver', () => {
     );
 
     ((archiver as any).rollup as any).read = rollupRead;
+
+    inboxRead = mock<MockInboxContractRead>();
+    ((archiver as any).inbox as any).read = inboxRead;
   });
 
   afterEach(async () => {
@@ -103,6 +111,8 @@ describe('Archiver', () => {
         blocks[2].archive.root.toString(),
         blocks[0].archive.root.toString(),
       ]);
+
+    inboxRead.totalMessagesInserted.mockResolvedValueOnce(2n).mockResolvedValueOnce(6n);
 
     mockGetLogs({
       messageSent: [makeMessageSentEvent(98n, 1n, 0n), makeMessageSentEvent(99n, 1n, 1n)],
@@ -209,6 +219,8 @@ describe('Archiver', () => {
 
     rollupRead.status.mockResolvedValue([0n, GENESIS_ROOT, 2n, blocks[1].archive.root.toString(), GENESIS_ROOT]);
 
+    inboxRead.totalMessagesInserted.mockResolvedValueOnce(2n).mockResolvedValueOnce(2n);
+
     mockGetLogs({
       messageSent: [makeMessageSentEvent(66n, 1n, 0n), makeMessageSentEvent(68n, 1n, 1n)],
       L2BlockProposed: [
@@ -232,7 +244,7 @@ describe('Archiver', () => {
     expect(loggerSpy).toHaveBeenCalledWith(errorMessage);
   }, 10_000);
 
-  it('skip event search if not blocks found', async () => {
+  it('skip event search if no changes found', async () => {
     const loggerSpy = jest.spyOn((archiver as any).log, 'verbose');
 
     let latestBlockNum = await archiver.getBlockNumber();
@@ -247,11 +259,8 @@ describe('Archiver', () => {
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 0n, GENESIS_ROOT, GENESIS_ROOT])
       .mockResolvedValueOnce([0n, GENESIS_ROOT, 2n, blocks[1].archive.root.toString(), GENESIS_ROOT]);
 
-    // This can look slightly odd, but we will need to do an empty request for the messages, and will entirely skip
-    // a call to the proposed blocks because of changes with status.
-    mockGetLogs({
-      messageSent: [],
-    });
+    inboxRead.totalMessagesInserted.mockResolvedValueOnce(0n).mockResolvedValueOnce(2n);
+
     mockGetLogs({
       messageSent: [makeMessageSentEvent(66n, 1n, 0n), makeMessageSentEvent(68n, 1n, 1n)],
       L2BlockProposed: [
@@ -303,23 +312,18 @@ describe('Archiver', () => {
       .mockResolvedValueOnce(blocks[1].archive.root.toString())
       .mockResolvedValueOnce(Fr.ZERO.toString());
 
-    // This can look slightly odd, but we will need to do an empty request for the messages, and will entirely skip
-    // a call to the proposed blocks because of changes with status.
-    mockGetLogs({
-      messageSent: [],
-    });
+    inboxRead.totalMessagesInserted
+      .mockResolvedValueOnce(0n)
+      .mockResolvedValueOnce(2n)
+      .mockResolvedValueOnce(2n)
+      .mockResolvedValueOnce(2n);
+
     mockGetLogs({
       messageSent: [makeMessageSentEvent(66n, 1n, 0n), makeMessageSentEvent(68n, 1n, 1n)],
       L2BlockProposed: [
         makeL2BlockProposedEvent(70n, 1n, blocks[0].archive.root.toString()),
         makeL2BlockProposedEvent(80n, 2n, blocks[1].archive.root.toString()),
       ],
-    });
-    mockGetLogs({
-      messageSent: [],
-    });
-    mockGetLogs({
-      messageSent: [],
     });
 
     rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));

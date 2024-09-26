@@ -109,6 +109,12 @@ export interface ArchiverDataStore {
   getL1ToL2MessageIndex(l1ToL2Message: Fr, startIndex: bigint): Promise<bigint | undefined>;
 
   /**
+   * Get the total number of L1 to L2 messages
+   * @returns The number of L1 to L2 messages in the store
+   */
+  getTotalL1ToL2MessageCount(): Promise<bigint>;
+
+  /**
    * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
    * @param limit - The number of logs to return.

@@ -219,6 +219,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve(true);
   }
 
+  getTotalL1ToL2MessageCount(): Promise<bigint> {
+    return Promise.resolve(this.l1ToL2Messages.getTotalL1ToL2MessageCount());
+  }
+
   /**
    * Append L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store and the last processed L1 block.
