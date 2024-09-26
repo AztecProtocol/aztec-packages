@@ -625,7 +625,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       assembly {
         part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
       }
-      publicInputs[i + 43] = part;
+      publicInputs[i + 75] = part;
     }
 
     return publicInputs;
