@@ -4,8 +4,8 @@ pragma solidity >=0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 
-import {FrontierMerkle} from "./../src/core/messagebridge/frontier_tree/Frontier.sol";
-import {Constants} from "../src/core/libraries/ConstantsGen.sol";
+import {FrontierMerkle} from "./harnesses/Frontier.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 
 contract ParityTest is Test {
   function setUp() public {}

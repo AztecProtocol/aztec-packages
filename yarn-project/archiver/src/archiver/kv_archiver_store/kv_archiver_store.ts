@@ -167,6 +167,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return this.#logStore.deleteLogs(blocks);
   }
 
+  getTotalL1ToL2MessageCount(): Promise<bigint> {
+    return Promise.resolve(this.#messageStore.getTotalL1ToL2MessageCount());
+  }
+
   /**
    * Append L1 to L2 messages to the store.
    * @param messages - The L1 to L2 messages to be added to the store and the last processed L1 block.

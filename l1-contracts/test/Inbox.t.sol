@@ -4,12 +4,12 @@ pragma solidity >=0.8.18;
 
 import {Test} from "forge-std/Test.sol";
 
-import {IInbox} from "../src/core/interfaces/messagebridge/IInbox.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {InboxHarness} from "./harnesses/InboxHarness.sol";
-import {Constants} from "../src/core/libraries/ConstantsGen.sol";
-import {Errors} from "../src/core/libraries/Errors.sol";
-import {Hash} from "../src/core/libraries/Hash.sol";
-import {DataStructures} from "../src/core/libraries/DataStructures.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 
 contract InboxTest is Test {
   using Hash for DataStructures.L1ToL2Msg;

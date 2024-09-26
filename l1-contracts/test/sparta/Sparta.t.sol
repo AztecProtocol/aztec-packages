@@ -4,21 +4,21 @@ pragma solidity >=0.8.18;
 
 import {DecoderBase} from "../decoders/Base.sol";
 
-import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
-import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
-import {SignatureLib} from "../../src/core/libraries/SignatureLib.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
-import {Registry} from "../../src/core/messagebridge/Registry.sol";
-import {Inbox} from "../../src/core/messagebridge/Inbox.sol";
-import {Outbox} from "../../src/core/messagebridge/Outbox.sol";
-import {Errors} from "../../src/core/libraries/Errors.sol";
-import {Rollup} from "../../src/core/Rollup.sol";
-import {Leonidas} from "../../src/core/sequencer_selection/Leonidas.sol";
+import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {PortalERC20} from "../portals/PortalERC20.sol";
 import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
-import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 
 // solhint-disable comprehensive-interface

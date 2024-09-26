@@ -2,11 +2,11 @@ pragma solidity >=0.8.18;
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
-import {IRegistry} from "../../src/core/interfaces/messagebridge/IRegistry.sol";
-import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
-import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
+import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
-import {Hash} from "../../src/core/libraries/Hash.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 // docs:start:setup
 import {TokenPortal} from "./TokenPortal.sol";

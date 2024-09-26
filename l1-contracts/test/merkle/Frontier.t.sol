@@ -5,7 +5,7 @@ pragma solidity >=0.8.18;
 import {Test} from "forge-std/Test.sol";
 
 import {NaiveMerkle} from "./Naive.sol";
-import {FrontierMerkle} from "./../../src/core/messagebridge/frontier_tree/Frontier.sol";
+import {FrontierMerkle} from "../harnesses/Frontier.sol";
 
 contract FrontierTest is Test {
   function setUp() public {}

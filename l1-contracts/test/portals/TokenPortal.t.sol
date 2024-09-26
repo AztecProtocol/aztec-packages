@@ -3,17 +3,17 @@ pragma solidity >=0.8.18;
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "../../src/core/Rollup.sol";
-import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
-import {Registry} from "../../src/core/messagebridge/Registry.sol";
-import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
-import {Hash} from "../../src/core/libraries/Hash.sol";
-import {Errors} from "../../src/core/libraries/Errors.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 // Interfaces
-import {IInbox} from "../../src/core/interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
-import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 
 // Portal tokens
 import {TokenPortal} from "./TokenPortal.sol";

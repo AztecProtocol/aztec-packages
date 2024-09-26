@@ -2,8 +2,8 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {TxsDecoder} from "../../../src/core/libraries/decoders/TxsDecoder.sol";
-import {MerkleLib} from "../../../src/core/libraries/MerkleLib.sol";
+import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
+import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 
 contract TxsDecoderHelper {
   // A wrapper used such that we get "calldata" and not memory

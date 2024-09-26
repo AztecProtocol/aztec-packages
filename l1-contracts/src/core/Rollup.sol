@@ -2,31 +2,28 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-// Interfaces
-import {IRollup, ITestRollup} from "./interfaces/IRollup.sol";
-import {IProofCommitmentEscrow} from "./interfaces/IProofCommitmentEscrow.sol";
-import {IInbox} from "./interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "./interfaces/messagebridge/IOutbox.sol";
-import {IRegistry} from "./interfaces/messagebridge/IRegistry.sol";
-import {IVerifier} from "./interfaces/IVerifier.sol";
-import {IFeeJuicePortal} from "./interfaces/IFeeJuicePortal.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {IRollup, ITestRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 
-// Libraries
-import {HeaderLib} from "./libraries/HeaderLib.sol";
-import {Errors} from "./libraries/Errors.sol";
-import {Constants} from "./libraries/ConstantsGen.sol";
-import {MerkleLib} from "./libraries/MerkleLib.sol";
-import {SignatureLib} from "./libraries/SignatureLib.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
+import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
+import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
+import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
-import {DataStructures} from "./libraries/DataStructures.sol";
-import {TxsDecoder} from "./libraries/decoders/TxsDecoder.sol";
 
-// Contracts
-import {MockVerifier} from "../mock/MockVerifier.sol";
-import {MockProofCommitmentEscrow} from "../mock/MockProofCommitmentEscrow.sol";
-import {Inbox} from "./messagebridge/Inbox.sol";
-import {Outbox} from "./messagebridge/Outbox.sol";
-import {Leonidas} from "./sequencer_selection/Leonidas.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {Leonidas} from "@aztec/core/Leonidas.sol";
+import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
+import {MockProofCommitmentEscrow} from "@aztec/mock/MockProofCommitmentEscrow.sol";
+import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 
 /**
  * @title Rollup
@@ -89,8 +86,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     REGISTRY = _registry;
     FEE_JUICE_PORTAL = _fpcJuicePortal;
     PROOF_COMMITMENT_ESCROW = new MockProofCommitmentEscrow();
-    INBOX = new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT);
-    OUTBOX = new Outbox(address(this));
+    INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
+    OUTBOX = IOutbox(address(new Outbox(address(this))));
     vkTreeRoot = _vkTreeRoot;
     VERSION = 1;
     L1_BLOCK_AT_GENESIS = block.number;
@@ -485,17 +482,19 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     // We don't currently unstake,
     // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
     // Blocked on submitting epoch proofs to this contract.
-    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.bondAmount, _quote.prover);
+    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.quote.bondAmount, _quote.quote.prover);
 
     proofClaim = DataStructures.EpochProofClaim({
       epochToProve: epochToProve,
-      basisPointFee: _quote.basisPointFee,
-      bondAmount: _quote.bondAmount,
-      bondProvider: _quote.prover,
+      basisPointFee: _quote.quote.basisPointFee,
+      bondAmount: _quote.quote.bondAmount,
+      bondProvider: _quote.quote.prover,
       proposerClaimant: msg.sender
     });
 
-    emit ProofRightClaimed(epochToProve, _quote.prover, msg.sender, _quote.bondAmount, currentSlot);
+    emit ProofRightClaimed(
+      epochToProve, _quote.quote.prover, msg.sender, _quote.quote.bondAmount, currentSlot
+    );
   }
 
   /**
@@ -710,8 +709,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Leonidas__InvalidProposer(currentProposer, msg.sender);
     }
 
-    if (_quote.epochToProve != epochToProve) {
-      revert Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.epochToProve);
+    if (_quote.quote.epochToProve != epochToProve) {
+      revert Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.quote.epochToProve);
     }
 
     if (currentSlot % Constants.AZTEC_EPOCH_DURATION >= CLAIM_DURATION_IN_L2_SLOTS) {
@@ -726,14 +725,14 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__ProofRightAlreadyClaimed();
     }
 
-    if (_quote.bondAmount < PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST) {
+    if (_quote.quote.bondAmount < PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST) {
       revert Errors.Rollup__InsufficientBondAmount(
-        PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.bondAmount
+        PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.quote.bondAmount
       );
     }
 
-    if (_quote.validUntilSlot < currentSlot) {
-      revert Errors.Rollup__QuoteExpired(currentSlot, _quote.validUntilSlot);
+    if (_quote.quote.validUntilSlot < currentSlot) {
+      revert Errors.Rollup__QuoteExpired(currentSlot, _quote.quote.validUntilSlot);
     }
   }
 
