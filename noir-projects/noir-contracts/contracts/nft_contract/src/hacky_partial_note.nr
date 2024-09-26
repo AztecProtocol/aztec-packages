@@ -1,5 +1,6 @@
 use dep::aztec::{prelude::{NullifiableNote, PrivateContext}, macros::notes::note};
 
+// This note has to have the same name as the standard `NFTNote` so that we get the same note type id.
 #[note]
 struct NFTNote {
     // The nullifying public key hash is used with the nsk_app to ensure that the note can be privately spent.
