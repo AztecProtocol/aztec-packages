@@ -81,10 +81,10 @@ describe('e2e_fees failures', () => {
 
     // if we skip simulation, it includes the failed TX
     const rebateSecret = Fr.random();
-    const currentSequencerL1Gas = await t.getCoinbaseBalance();
 
     // We wait until the proven chain is caught up so all previous fees are paid out.
     await t.catchUpProvenChain();
+    const currentSequencerL1Gas = await t.getCoinbaseBalance();
 
     const txReceipt = await bananaCoin.methods
       .transfer_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
