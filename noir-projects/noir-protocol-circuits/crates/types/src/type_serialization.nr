@@ -95,7 +95,7 @@ impl <T, let N: u32, let M: u32> Serialize<N * M> for [T; N] where T: Serialize<
     }
 }
 
-impl <T, let N: u32, let M: u32> Deserialize<N * M> for [T; N] where T: Deserialize<M>{
+impl <T, let N: u32, let M: u32> Deserialize<N * M> for [T; N] where T: Deserialize<M> {
     fn deserialize(fields: [Field; N * M]) -> Self {
         let mut reader = crate::utils::reader::Reader::new(fields);
         let mut result: [T; N] = std::mem::zeroed();

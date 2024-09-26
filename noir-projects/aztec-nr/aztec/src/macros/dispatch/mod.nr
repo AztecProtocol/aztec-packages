@@ -75,8 +75,8 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         // No dispatch function if there are no public functions
         quote {}
     } else {
-        let ifs = ifs.push_back(quote { { panic(f"Unknown selector") } });
-        let dispatch = ifs.join(quote { else });
+        let ifs = ifs.push_back(quote { panic(f"Unknown selector") });
+        let dispatch = ifs.join(quote {  });
 
         let body = quote {
             unconstrained pub fn public_dispatch(selector: Field) {
