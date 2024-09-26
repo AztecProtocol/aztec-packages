@@ -14,7 +14,7 @@ NAME="${@: -1}"
 # Extract the binary paths to tar.gz and upload
 BIN_PATHS=("${@:1:$#-1}")
 
-TAR_FILE="${NAME}.tar.gz"
+TAR_FILE="$(mktemp)/${NAME}.tar.gz"
 
 function on_exit() {
   # Cleanup the temporary tar.gz file
@@ -23,7 +23,6 @@ function on_exit() {
 trap on_exit EXIT
 
 # Create the tar.gz file
-echo "Creating tar.gz of the specified files..."
 tar -czf "$TAR_FILE" "${BIN_PATHS[@]}"
 
 # Set cache server details
