@@ -618,6 +618,7 @@ export class TXEService {
     _encryptedLog: ForeignCallSingle,
     _counter: ForeignCallSingle,
   ) {
+    // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
 
@@ -626,10 +627,12 @@ export class TXEService {
     _encryptedNote: ForeignCallArray,
     _counter: ForeignCallSingle,
   ) {
+    // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
 
   emitEncryptedEventLog(_contractAddress: AztecAddress, _randomness: Fr, _encryptedEvent: Buffer, _counter: number) {
+    // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
 
@@ -752,12 +755,12 @@ export class TXEService {
   }
 
   emitUnencryptedLog(_contractAddress: ForeignCallSingle, _message: ForeignCallArray, _counter: ForeignCallSingle) {
-    // Currently ignored
+    // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
 
   avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
-    // Currently ignored
+    // TODO(#8811): Implement
     return toForeignCallResult([]);
   }
 }
