@@ -1952,6 +1952,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check(
              limb_overflow_test_2 || limb_overflow_test_3));
 }
 
+// Underneath performs assert_less_than(modulus)
 // create a version with mod 2^t element part in [0,p-1]
 // After reducing to size 2^s, we check (p-1)-a is non-negative as integer.
 // We perform subtraction using carries on blocks of size 2^b. The operations inside the blocks are done mod r
@@ -1960,70 +1961,11 @@ template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check(
 // non-negative at the end of subtraction, we know the subtraction result is positive as integers and a<p
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_is_in_field() const
 {
-    // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
-    // constants are allowed via ASSERT
-    if (is_constant()) {
-        return;
-    }
-
-    self_reduce(); // this method in particular enforces limb vals are <2^b - needed for logic described above
-    uint256_t value = get_value().lo;
-    // TODO:make formal assert that modulus<=256 bits
-    constexpr uint256_t modulus_minus_one = modulus_u512.lo - 1;
-
-    constexpr uint256_t modulus_minus_one_0 = modulus_minus_one.slice(0, NUM_LIMB_BITS);
-    constexpr uint256_t modulus_minus_one_1 = modulus_minus_one.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2);
-    constexpr uint256_t modulus_minus_one_2 = modulus_minus_one.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3);
-    constexpr uint256_t modulus_minus_one_3 = modulus_minus_one.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4);
-
-    bool borrow_0_value = value.slice(0, NUM_LIMB_BITS) > modulus_minus_one_0;
-    bool borrow_1_value =
-        (value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2) + uint256_t(borrow_0_value)) > (modulus_minus_one_1);
-    bool borrow_2_value =
-        (value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3) + uint256_t(borrow_1_value)) > (modulus_minus_one_2);
-
-    field_t<Builder> modulus_0(context, modulus_minus_one_0);
-    field_t<Builder> modulus_1(context, modulus_minus_one_1);
-    field_t<Builder> modulus_2(context, modulus_minus_one_2);
-    field_t<Builder> modulus_3(context, modulus_minus_one_3);
-    bool_t<Builder> borrow_0(witness_t<Builder>(context, borrow_0_value));
-    bool_t<Builder> borrow_1(witness_t<Builder>(context, borrow_1_value));
-    bool_t<Builder> borrow_2(witness_t<Builder>(context, borrow_2_value));
-    // The way we use borrows here ensures that we are checking that modulus - binary_basis > 0.
-    // We check that the result in each limb is > 0.
-    // If the modulus part in this limb is smaller, we simply borrow the value from the higher limb.
-    // The prover can rearrange the borrows the way they like. The important thing is that the borrows are
-    // constrained.
-    field_t<Builder> r0 = modulus_0 - binary_basis_limbs[0].element + static_cast<field_t<Builder>>(borrow_0) * shift_1;
-    field_t<Builder> r1 = modulus_1 - binary_basis_limbs[1].element +
-                          static_cast<field_t<Builder>>(borrow_1) * shift_1 - static_cast<field_t<Builder>>(borrow_0);
-    field_t<Builder> r2 = modulus_2 - binary_basis_limbs[2].element +
-                          static_cast<field_t<Builder>>(borrow_2) * shift_1 - static_cast<field_t<Builder>>(borrow_1);
-    field_t<Builder> r3 = modulus_3 - binary_basis_limbs[3].element - static_cast<field_t<Builder>>(borrow_2);
-    r0 = r0.normalize();
-    r1 = r1.normalize();
-    r2 = r2.normalize();
-    r3 = r3.normalize();
-    if constexpr (HasPlookup<Builder>) {
-        context->decompose_into_default_range(r0.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
-        context->decompose_into_default_range(r1.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
-        context->decompose_into_default_range(r2.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
-        context->decompose_into_default_range(r3.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
-    } else {
-        context->decompose_into_base4_accumulators(
-            r0.witness_index, static_cast<size_t>(NUM_LIMB_BITS), "bigfield: assert_is_in_field range constraint 1.");
-        context->decompose_into_base4_accumulators(
-            r1.witness_index, static_cast<size_t>(NUM_LIMB_BITS), "bigfield: assert_is_in_field range constraint 2.");
-        context->decompose_into_base4_accumulators(
-            r2.witness_index, static_cast<size_t>(NUM_LIMB_BITS), "bigfield: assert_is_in_field range constraint 3.");
-        context->decompose_into_base4_accumulators(
-            r3.witness_index, static_cast<size_t>(NUM_LIMB_BITS), "bigfield: assert_is_in_field range constraint 4.");
-    }
+    assert_less_than(modulus);
 }
 
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_than(const uint256_t upper_limit) const
 {
-    // TODO(kesha): Merge this with assert_is_in_field
     // Warning: this assumes we have run circuit construction at least once in debug mode where large non reduced
     // constants are allowed via ASSERT
     if constexpr (IsSimulator<Builder>) {
@@ -2079,7 +2021,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     r1 = r1.normalize();
     r2 = r2.normalize();
     r3 = r3.normalize();
-    if constexpr (Builder::CIRCUIT_TYPE == CircuitType::ULTRA) {
+    if constexpr (HasPlookup<Builder>) {
         context->decompose_into_default_range(r0.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
         context->decompose_into_default_range(r1.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
         context->decompose_into_default_range(r2.get_normalized_witness_index(), static_cast<size_t>(NUM_LIMB_BITS));
