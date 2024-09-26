@@ -7,6 +7,7 @@ set -eu
 
 S3_BUILD_CACHE_UPLOAD=${S3_BUILD_CACHE_UPLOAD:-false}
 S3_BUILD_CACHE_DOWNLOAD=false
+S3_BUILD_CACHE_AWS_PARAMS=""
 
 if ! git diff-index --quiet HEAD --; then
   echo "Warning: You have unstaged changes. Disabling S3 caching for earthly (including mock S3 local caching)." >&2
@@ -19,12 +20,14 @@ elif [ ! -z "${MOCK_S3:-}" ] ; then
     quay.io/minio/minio server /data --console-address ":9001"
   S3_BUILD_CACHE_UPLOAD=true
   S3_BUILD_CACHE_DOWNLOAD=true
+  S3_BUILD_CACHE_AWS_PARAMS="--endpoint-url http://$(hostname -I | awk '{print $1}'):9000"
 elif [ ! -z "${AWS_ACCESS_KEY_ID:-}" ] ; then
   S3_BUILD_CACHE_DOWNLOAD=true
 fi
 
 earthly --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
         --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
+        --secret S3_BUILD_CACHE_AWS_PARAMS=$S3_BUILD_CACHE_PARAMS \
         --secret S3_BUILD_CACHE_UPLOAD=$S3_BUILD_CACHE_UPLOAD \
         --secret S3_BUILD_CACHE_DOWNLOAD=$S3_BUILD_CACHE_DOWNLOAD \
         --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} $@
