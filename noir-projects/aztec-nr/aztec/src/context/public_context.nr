@@ -4,7 +4,6 @@ use dep::protocol_types::constants::MAX_FIELD_VALUE;
 use dep::protocol_types::traits::{Serialize, Deserialize, Empty};
 use dep::protocol_types::abis::function_selector::FunctionSelector;
 use crate::context::gas::GasOpts;
-use crate::hash::ArgsHasher;
 
 pub struct PublicContext {
     args_hash: Option<Field>,
@@ -204,7 +203,6 @@ fn gas_for_call(user_gas: GasOpts) -> [Field; 2] {
 }
 
 // Unconstrained opcode wrappers (do not use directly).
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/6420): reconsider.
 unconstrained fn address() -> AztecAddress {
     address_opcode()
 }

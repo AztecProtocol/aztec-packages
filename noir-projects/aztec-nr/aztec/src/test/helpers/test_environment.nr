@@ -202,15 +202,12 @@ impl TestEnvironment {
         note.set_header(header);
         let note_hash = note.compute_note_hash();
         let serialized_note = Note::serialize_content(*note);
-        assert(
-            notify_created_note(
+        notify_created_note(
             storage_slot,
             Note::get_note_type_id(),
             serialized_note,
             note_hash,
             note_hash_counter
-        )
-            == 0
         );
         cheatcodes::set_contract_address(original_contract_address);
     }

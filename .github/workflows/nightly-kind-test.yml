@@ -1,4 +1,4 @@
-name: Run spartan network tests
+name: KIND network tests
 on:
   workflow_dispatch:
   schedule:

@@ -67,11 +67,7 @@ export class L1NotePayload extends L1Payload {
   }
 
   public encrypt(ephSk: GrumpkinScalar, recipient: AztecAddress, ivpk: PublicKey, ovKeys: KeyValidationRequest) {
-    // TODO(#8558): numPublicValues could occupy just a single bit if we store info about partial fields
-    // in the ABI
-    // We always set the value to 0 here as we don't need partial notes encryption support in TS
-    const numPublicValues = 0;
-    const encryptedPayload = super._encrypt(
+    return super._encrypt(
       this.contractAddress,
       ephSk,
       recipient,
@@ -79,38 +75,35 @@ export class L1NotePayload extends L1Payload {
       ovKeys,
       new EncryptedNoteLogIncomingBody(this.storageSlot, this.noteTypeId, this.note),
     );
-    return Buffer.concat([Buffer.alloc(1, numPublicValues), encryptedPayload]);
   }
 
   /**
-   * Extracts public values and decrypts a ciphertext as an incoming log.
+   * Decrypts a ciphertext as an incoming log.
    *
    * This is executable by the recipient of the note, and uses the ivsk to decrypt the payload.
    * The outgoing parts of the log are ignored entirely.
    *
    * Produces the same output as `decryptAsOutgoing`.
    *
-   * @param content - Content of the log. Contains ciphertext and public values.
+   * @param ciphertext - The ciphertext for the log
    * @param ivsk - The incoming viewing secret key, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsIncoming(content: Buffer | bigint[], ivsk: GrumpkinScalar) {
-    const [ciphertext, publicValues] = this.#getCiphertextAndPublicValues(content);
+  public static decryptAsIncoming(ciphertext: Buffer | bigint[], ivsk: GrumpkinScalar) {
+    const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
+    const reader = BufferReader.asReader(input);
 
     const [address, incomingBody] = super._decryptAsIncoming(
-      ciphertext,
+      reader.readToEnd(),
       ivsk,
       EncryptedNoteLogIncomingBody.fromCiphertext,
     );
 
-    // Partial fields are expected to be at the end of the note
-    const note = new Note([...incomingBody.note.items, ...publicValues]);
-
-    return new L1NotePayload(note, address, incomingBody.storageSlot, incomingBody.noteTypeId);
+    return new L1NotePayload(incomingBody.note, address, incomingBody.storageSlot, incomingBody.noteTypeId);
   }
 
   /**
-   * Extracts public values and decrypts a ciphertext as an outgoing log.
+   * Decrypts a ciphertext as an outgoing log.
    *
    * This is executable by the sender of the note, and uses the ovsk to decrypt the payload.
    * The outgoing parts are decrypted to retrieve information that allows the sender to
@@ -118,23 +111,21 @@ export class L1NotePayload extends L1Payload {
    *
    * Produces the same output as `decryptAsIncoming`.
    *
-   * @param content - Content of the log. Contains ciphertext and public values.
+   * @param ciphertext - The ciphertext for the log
    * @param ovsk - The outgoing viewing secret key, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsOutgoing(content: Buffer | bigint[], ovsk: GrumpkinScalar) {
-    const [ciphertext, publicValues] = this.#getCiphertextAndPublicValues(content);
+  public static decryptAsOutgoing(ciphertext: Buffer | bigint[], ovsk: GrumpkinScalar) {
+    const input = Buffer.isBuffer(ciphertext) ? ciphertext : Buffer.from(ciphertext.map((x: bigint) => Number(x)));
+    const reader = BufferReader.asReader(input);
 
     const [address, incomingBody] = super._decryptAsOutgoing(
-      ciphertext,
+      reader.readToEnd(),
       ovsk,
       EncryptedNoteLogIncomingBody.fromCiphertext,
     );
 
-    // Partial fields are expected to be at the end of the note
-    const note = new Note([...incomingBody.note.items, ...publicValues]);
-
-    return new L1NotePayload(note, address, incomingBody.storageSlot, incomingBody.noteTypeId);
+    return new L1NotePayload(incomingBody.note, address, incomingBody.storageSlot, incomingBody.noteTypeId);
   }
 
   public equals(other: L1NotePayload) {
@@ -144,35 +135,5 @@ export class L1NotePayload extends L1Payload {
       this.storageSlot.equals(other.storageSlot) &&
       this.noteTypeId.equals(other.noteTypeId)
     );
-  }
-
-  /**
-   * Extracts the ciphertext and the public values from the log content.
-   * Input byte layout:
-   * +-----------------------------------+
-   * | Byte | Description                |
-   * |------|----------------------------|
-   * |  0   | num_pub_vals               |
-   * |------|----------------------------|
-   * | 1 to | Ciphertext                 |
-   * |  N   | (N = total_length - 1      |
-   * |      |  - num_pub_vals * 32)      |
-   * |------|----------------------------|
-   * | N+1  | Public values              |
-   * |  to  | (num_pub_vals * 32 bytes)  |
-   * | end  |                            |
-   * +-----------------------------------+
-   */
-  static #getCiphertextAndPublicValues(content: Buffer | bigint[]): [Buffer, Fr[]] {
-    const input = Buffer.isBuffer(content) ? content : Buffer.from(content.map((x: bigint) => Number(x)));
-
-    const reader = BufferReader.asReader(input);
-    const numPublicValues = reader.readUInt8();
-    const ciphertextLength = reader.getLength() - numPublicValues * Fr.SIZE_IN_BYTES - 1;
-
-    const ciphertext = reader.readBytes(ciphertextLength);
-    const publicValues = reader.readArray(numPublicValues, Fr);
-
-    return [ciphertext, publicValues];
   }
 }
