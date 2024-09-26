@@ -46,10 +46,21 @@ export class L2Log {
     const incomingHeaderCiphertext = encrypt(this.contract.toBuffer(), ephSk, ivpk);
     const outgoingHeaderCiphertext = encrypt(this.contract.toBuffer(), ephSk, ovKeys.pkM);
 
+    if (incomingHeaderCiphertext.length !== HEADER_SIZE) {
+      throw new Error(`Invalid incoming header size: ${incomingHeaderCiphertext.length}`);
+    }
+    if (outgoingHeaderCiphertext.length !== HEADER_SIZE) {
+      throw new Error(`Invalid outgoing header size: ${outgoingHeaderCiphertext.length}`);
+    }
+
     const incomingBodyCiphertext = encrypt(this.incomingBodyPlaintext, ephSk, ivpk);
     // The serialization of Fq is [high, low] check `outgoing_body.nr`
     const outgoingBodyPlaintext = serializeToBuffer(ephSk.hi, ephSk.lo, recipient, ivpk.toCompressedBuffer());
     const outgoingBodyCiphertext = encrypt(outgoingBodyPlaintext, ephSk, ovKeys.pkM, derivePoseidonAESSecret);
+
+    if (outgoingBodyCiphertext.length !== OUTGOING_BODY_SIZE) {
+      throw new Error(`Invalid outgoing body size: ${outgoingBodyCiphertext.length}`);
+    }
 
     return serializeToBuffer(
       this.incomingTag,
@@ -57,8 +68,8 @@ export class L2Log {
       ephPk.toCompressedBuffer(),
       incomingHeaderCiphertext,
       outgoingHeaderCiphertext,
-      incomingBodyCiphertext,
       outgoingBodyCiphertext,
+      incomingBodyCiphertext,
     );
   }
 
