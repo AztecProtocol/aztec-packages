@@ -1,5 +1,7 @@
 VERSION 0.8
 
+# Note, this is only used on the main build path, caching test artifacts is less useful
+# As those only run if there are changes anyway
 CACHE_BUILD_BIN:
   FUNCTION
   ARG command
@@ -32,18 +34,20 @@ preset-darwin-arm64:
   LET OSX_SDK="MacOSX14.0.sdk"
   LET OSX_SDK_URL="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${OSX_SDK}.tar.xz"
   RUN curl -sSL "$OSX_SDK_URL" | tar -xJ -C /opt/osxcross/SDK && rm -rf /opt/osxcross/SDK/$OSX_SDK/System
-  RUN cmake --preset darwin-arm64 -Bbuild && cmake --build build --target bb
+  DO +CACHE_BUILD_BIN --prefix=preset-darwin-arm64 \
+    --command="cmake --preset darwin-arm64 -Bbuild && cmake --build build --target bb"
   SAVE ARTIFACT build/bin AS LOCAL build-darwin-arm64/bin
 
 preset-release:
   FROM +source
-  RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb
+  DO +CACHE_BUILD_BIN --prefix=preset-release \
+    --command="cmake --preset clang16 -Bbuild && cmake --build build --target bb"
   SAVE ARTIFACT build/bin
 
 preset-release-world-state:
   FROM +source
   DO +CACHE_BUILD_BIN --prefix=preset-release-world-state \
-    --command="cmake --preset clang16-pic -Bbuild && cmake --build build --target world_state_napi && mv ./build/lib/world_state_napi.node ./build/bin  "
+    --command="cmake --preset clang16-pic -Bbuild && cmake --build build --target world_state_napi && mv ./build/lib/world_state_napi.node ./build/bin"
   SAVE ARTIFACT build/bin
 
 preset-release-assert:
@@ -54,7 +58,8 @@ preset-release-assert:
 
 preset-debug:
   FROM +source
-  RUN cmake --preset clang16-dbg -Bbuild && cmake --build build --target bb
+  DO +CACHE_BUILD_BIN --prefix=preset-debug \
+    --command="cmake --preset clang16-dbg -Bbuild && cmake --build build --target bb"
   SAVE ARTIFACT build/bin
 
 preset-msan-check:
@@ -97,7 +102,8 @@ preset-wasm:
     FROM +preset-wasm-threads
     SAVE ARTIFACT build/bin
   ELSE
-    RUN cmake --preset wasm -Bbuild && cmake --build build --target barretenberg.wasm
+    DO +CACHE_BUILD_BIN --prefix=preset-wasm \
+      --command="cmake --preset wasm -Bbuild && cmake --build build --target barretenberg.wasm"
     RUN /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
     SAVE ARTIFACT build/bin
     SAVE IMAGE --cache-hint
@@ -105,12 +111,14 @@ preset-wasm:
 
 preset-sol:
   FROM +source
-  RUN cmake --preset clang16  && cmake --build --preset clang16 --target solidity_key_gen solidity_proof_gen
+  DO +CACHE_BUILD_BIN --prefix=preset-sol \
+    --command="cmake --preset clang16 && cmake --build --preset clang16 --target solidity_key_gen solidity_proof_gen"
   SAVE ARTIFACT build/bin
 
 preset-wasm-threads:
   FROM +source
-  RUN cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm
+  DO +CACHE_BUILD_BIN --prefix=preset-wasm-threads \
+    --command="cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm"
   # TODO(https://github.com/AztecProtocol/barretenberg/issues/941) We currently do not strip barretenberg threaded wasm, for stack traces.
   # RUN /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
   SAVE ARTIFACT build/bin
@@ -127,12 +135,14 @@ preset-fuzzing:
 
 preset-clang-assert:
   FROM +source
-  RUN cmake --preset clang16-assert -Bbuild && cmake --build build --target bb
+  DO +CACHE_BUILD_BIN --prefix=preset-clang-assert \
+    --command="cmake --preset clang16-assert -Bbuild && cmake --build build --target bb"
   SAVE ARTIFACT build/bin
 
 # benchmarking images
 # these are either fresh builds just for benching (op-count and op-count-time)
 # or build the binaries we need for benchmarking
+# note we do not cache these or test images as they are not on the main build path
 preset-op-count-bench:
   FROM +source
   RUN cmake --preset op-count -DCMAKE_BUILD_TYPE=RelWithAssert -Bbuild && cmake --build build --target ultra_honk_bench --target client_ivc_bench
