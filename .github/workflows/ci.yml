@@ -51,7 +51,6 @@ jobs:
     outputs:
       avm-transpiler: ${{ steps.filter.outputs.avm-transpiler }}
       build-images: ${{ steps.filter.outputs.build-images }}
-      build-system-cache-scripts: ${{ steps.filter.outputs.build-system-cache-scripts }}
       barretenberg: ${{ steps.filter.outputs.barretenberg }}
       barretenberg-cpp: ${{ steps.filter.outputs.barretenberg-cpp }}
       noir: ${{ steps.filter.outputs.noir }}
@@ -68,8 +67,6 @@ jobs:
         id: filter
         with:
           filters: |
-            build-system-cache-scripts:
-              - 'build-system/cache-scripts/**'
             barretenberg:
               - 'barretenberg/**'
             barretenberg-cpp:
@@ -159,21 +156,6 @@ jobs:
           fi
           echo Labels: $LABELS
           echo "list=$(./scripts/ci/get_bench_jobs.sh ${{github.ref_name}} "$LABELS")" >> $GITHUB_OUTPUT
-
-  build-cache-scripts-tests:
-    needs: [build-images, changes]
-    if: needs.changes.outputs.build-system-cache-scripts == 'true' || github.ref_name == 'master' || contains(github.event.pull_request.labels.*.name, 'e2e-all')
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v4
-        with: { ref: "${{ env.GIT_COMMIT }}" }
-      - uses: ./.github/ci-setup-action
-      - name: "Build Cache Tool Correctness Tests"
-        timeout-minutes: 5
-        run: earthly-ci --no-output ./build-system/cache-scripts/+test
-      - name: "Build Cache Tool Connectivity Tests"
-        timeout-minutes: 5
-        run: earthly-ci --no-output ./build-system/cache-scripts/+test
 
   # all the non-bench end-to-end integration tests for aztec
   e2e:
@@ -762,7 +744,6 @@ jobs:
       - changes
       - build
       - e2e
-      - build-cache-scripts-tests
       # - bench-e2e # non-blocking
       # - acir-bench # non-blocking
       # - bench-summary # non-blocking
@@ -818,7 +799,6 @@ jobs:
       - changes
       - build
       - e2e
-      - build-cache-scripts-tests
       # - bench-e2e # non-blocking
       # - acir-bench # non-blocking
       # - bench-summary # non-blocking

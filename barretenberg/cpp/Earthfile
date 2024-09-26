@@ -7,7 +7,7 @@ CACHE_BUILD_BIN:
   ARG command
   ARG build_artifacts
   ARG prefix
-  DO ../../build-system/cache-scripts/+WITH_CACHE \
+  DO ../../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="barretenberg-$prefix" \
     --command="$command && rm -rf build/{deps,lib,src}" \
     --rebuild_patterns=".rebuild_patterns" \

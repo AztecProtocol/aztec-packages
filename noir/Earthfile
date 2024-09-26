@@ -35,10 +35,10 @@ nargo:
     # we don't want Noir to rebuild everytime the parent repo changes
     # just only when it changes
     # the commit hash gets injected into version strings
-    DO ../build-system/cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
+    DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
     ENV COMMIT_HASH=$(cat .content-hash)
     # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
-    DO ../build-system/cache-scripts/+WITH_CACHE \
+    DO ../build-system/s3-cache-scripts/+WITH_CACHE \
       --prefix="noir-nargo" \
       --rebuild_patterns="$rebuild_patterns" \
       --command="./scripts/bootstrap_native.sh && rm -rf noir-repo/target/release/{build,deps}" \
@@ -144,14 +144,14 @@ packages-deps:
   # we don't want Noir to rebuild everytime the parent repo changes
   # just only when it changes
   # the commit hash gets injected into version strings
-  DO ../build-system/cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns="$REBUILD_PATTERNS"
+  DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns="$REBUILD_PATTERNS"
 
 packages:
   FROM +packages-deps
   COPY ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
   ENV COMMIT_HASH=$(cat .content-hash)
       # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
-  DO ../build-system/cache-scripts/+WITH_CACHE \
+  DO ../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="noir-packages" \
     --rebuild_patterns="$REBUILD_PATTERNS" \
     --command="./scripts/bootstrap_packages.sh" \

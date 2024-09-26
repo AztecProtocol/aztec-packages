@@ -14,7 +14,7 @@ build:
     # build avm transpiler, and make sure the big build and deps folders don't hit cache
     ENV COMMIT_HASH=$(cat /usr/src/noir/.content-hash)
 
-    DO ../build-system/cache-scripts/+WITH_CACHE \
+    DO ../build-system/s3-cache-scripts/+WITH_CACHE \
       --prefix="avm-transpiler" \
       --rebuild_patterns="../noir/.rebuild_patterns_native .rebuild_patterns" \
       --command="./scripts/bootstrap_native.sh && rm -rf target/release/{build,deps}" \

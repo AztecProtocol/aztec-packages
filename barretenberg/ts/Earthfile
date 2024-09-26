@@ -5,7 +5,7 @@ CACHE:
   ARG command
   ARG build_artifacts
   ARG prefix
-  DO ../../build-system/cache-scripts/+WITH_CACHE \
+  DO ../../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="bb.js-$prefix" \
     --command="$command" \
     --rebuild_patterns="../cpp/.rebuild_patterns .rebuild_patterns" \
