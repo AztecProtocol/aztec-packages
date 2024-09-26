@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727369658728,
+  "lastUpdate": 1727371330669,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "codygunton@gmail.com",
-            "name": "Cody Gunton",
-            "username": "codygunton"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d9e3f4d42118d16b343b818a0649e6cfbc14ea31",
-          "message": "feat: Checking finalized sizes + a test of two folding verifiers (#8503)\n\nOriginal goal: add a test so we can get the size of a circuit containing\r\ntwo folding verifiers.\r\n\r\nDetour: (Ultra and Mega flavors only) getting the size after adding\r\nnonzero gates and finalizing a circuit used to require adding a printout\r\nto the Honk proving key constructor, which would either be noise in many\r\ntests, or which would then have to be removed. Rearranging the\r\nensure_nonzero function, we can accommodate the use case in tests where\r\nwe want to print out the number of gates after finalization. To do this,\r\njust call finalize and and print the number of gates before passing the\r\ncircuit to the prover or proving key constructor. You get a warning, but\r\nthat's appropriate.\r\n\r\nCaution: I left in a code path that finalizes but does add extra gates\r\nbecause this was in use in many places. If those are all valid uses,\r\nthen we only really want the gate-adding version in one place, so I made\r\nthe default not add nonzero gates.\r\n\r\n```\r\nConsole is in 'commands' mode, prefix expressions with '?'.\r\nLaunching: /mnt/user-data/cody/aztec-packages/barretenberg/cpp/build-debug/bin/stdlib_protogalaxy_verifier_tests --gtest_color=no --gtest_filter=ProtogalaxyRecursiveTests/0.RecursiveFoldingTwiceTest --gtest_also_run_disabled_tests --gtest_break_on_failure\r\nLaunched process 2323108\r\nRunning main() from /mnt/user-data/cody/aztec-packages/barretenberg/cpp/build-debug/_deps/gtest-src/googletest/src/gtest_main.cc\r\nNote: Google Test filter = ProtogalaxyRecursiveTests/0.RecursiveFoldingTwiceTest\r\n[==========] Running 1 test from 1 test suite.\r\n[----------] Global test environment set-up.\r\n[----------] 1 test from ProtogalaxyRecursiveTests/0, where TypeParam = bb::MegaRecursiveFlavor_<bb::MegaCircuitBuilder_<bb::field<bb::Bn254FrParams> > >\r\n[ RUN      ] ProtogalaxyRecursiveTests/0.RecursiveFoldingTwiceTest\r\nFolding Recursive Verifier: num gates unfinalized = 18085\r\nFolding Recursive Verifier: num gates finalized = 20211\r\nWARNING: Redundant call to finalize_circuit(). Is this intentional?\r\nDyadic size of verifier circuit: 32768\r\n[       OK ] ProtogalaxyRecursiveTests/0.RecursiveFoldingTwiceTest (6768 ms)\r\n[----------] 1 test from ProtogalaxyRecursiveTests/0 (6768 ms total)\r\n\r\n[----------] Global test environment tear-down\r\n[==========] 1 test from 1 test suite ran. (6768 ms total)\r\n[  PASSED  ] 1 test.\r\nProcess exited with code 0.\r\n```\r\n```",
-          "timestamp": "2024-09-12T15:59:50-04:00",
-          "tree_id": "84a28c9d4d65e6a15c4a51ca336df9a6a3e225db",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d9e3f4d42118d16b343b818a0649e6cfbc14ea31"
-        },
-        "date": 1726171918422,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 12751.931225000022,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9122.387258 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5080.029400000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4632.325789 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 38649.88755399999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 38649888000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14701.212471,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14701213000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3604012484,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3604012484 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 135199538,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 135199538 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2970555677,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2970555677 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 113856109,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 113856109 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 128861311,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 128861311 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c8cbc3388c2bbe9a0ba8a95717e1b71c602d58e3",
+          "message": "feat: make shplemini proof constant (#8826)\n\nMake Shplemini proofs constant using the same approach as in other\r\nplaces, add relevant github issues for handling the dummy rounds\r\nproperly, make the shplemini recursion test do full verification and\r\nensure recursive shplemini verifiers actually stay constant.",
+          "timestamp": "2024-09-26T16:57:42Z",
+          "tree_id": "a3df21904c8e5c17ed0b60a2f55eeea9bb0987c6",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c8cbc3388c2bbe9a0ba8a95717e1b71c602d58e3"
+        },
+        "date": 1727371323146,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 35536.94134400001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 33244.83370999999 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 5060.799519,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4656.218495 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 100064.39638500001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 100064396000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14638.624699000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14638625000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8529050715,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8529050715 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152994515,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152994515 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 6939897215,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 6939897215 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 126063488,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 126063488 ns\nthreads: 1"
           }
         ]
       }
