@@ -260,19 +260,27 @@ template <typename Curve> class GeminiVerifier_ {
             // Get uₗ₋₁
             const Fr& u = evaluation_point[l - 1];
             const Fr& eval_neg = evals[l - 1];
+            // Fr batched_eval_round_acc = batched_eval_accumulator;
+            // Get A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾)
+            // Compute the numerator
+            Fr batched_eval_round_acc =
+                ((challenge_power * batched_eval_accumulator * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
+            // Divide by the denominator
+            batched_eval_round_acc *= (challenge_power * (Fr(1) - u) + u).invert();
+
             bool is_dummy_round = (l > num_variables);
-            if (is_dummy_round) {
-                if (Curve::is_stdlib_type) {
-                    // do dummy operations
-                }
+
+            if constexpr (Curve::is_stdlib_type) {
+                auto builder = evaluation_point[0].get_context();
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
+                stdlib::bool_t dummy_round = stdlib::bool_t(builder, is_dummy_round);
+                batched_eval_accumulator =
+                    Fr::conditional_assign(dummy_round, batched_eval_accumulator, batched_eval_round_acc);
 
             } else {
-                // Get A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾)
-                // Compute the numerator
-                batched_eval_accumulator =
-                    ((challenge_power * batched_eval_accumulator * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
-                // Divide by the denominator
-                batched_eval_accumulator *= (challenge_power * (Fr(1) - u) + u).invert();
+                if (!is_dummy_round) {
+                    batched_eval_accumulator = batched_eval_round_acc;
+                }
             }
         }
 

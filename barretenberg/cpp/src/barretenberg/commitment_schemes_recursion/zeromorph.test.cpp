@@ -17,7 +17,7 @@ template <class PCS> class ZeroMorphRecursionTest : public CommitmentTest<typena
 numeric::RNG& engine = numeric::get_debug_randomness();
 
 /**
- * @brief Test full Prover/Verifier protocol for proving single multilinear evaluation
+ * @brief Test full Prover/Verifier protocol for proving single multilinear evaluation.
  *
  */
 TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
@@ -38,8 +38,8 @@ TEST(ZeroMorphRecursionTest, ProveAndVerifySingle)
     using ZeroMorphVerifier = ZeroMorphVerifier_<Curve>;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
 
-    constexpr size_t N = 8;
-    constexpr size_t LOG_N = 3;
+    constexpr size_t N = 16;
+    constexpr size_t LOG_N = 4;
     constexpr size_t NUM_UNSHIFTED = 2;
     constexpr size_t NUM_SHIFTED = 1;
 
