@@ -19,7 +19,7 @@ describe('prover/orchestrator/multi-block', () => {
   });
 
   describe('multiple blocks', () => {
-    it.each([4, 5])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
+    it.each([1, 4, 5])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
       const provingTicket = context.orchestrator.startNewEpoch(1, numBlocks);
       let header = context.actualDb.getInitialHeader();
 
@@ -47,6 +47,9 @@ describe('prover/orchestrator/multi-block', () => {
         expect(finalisedBlock.block.number).toEqual(blockNum);
         header = finalisedBlock.block.header;
       }
+
+      logger.info('Setting epoch as completed');
+      context.orchestrator.setEpochCompleted();
 
       logger.info('Awaiting epoch ticket');
       const result = await provingTicket.provingPromise;
