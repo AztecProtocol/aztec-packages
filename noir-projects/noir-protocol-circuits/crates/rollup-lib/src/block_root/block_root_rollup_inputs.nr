@@ -16,6 +16,7 @@ use types::{
     merkle_tree::{append_only_tree, calculate_empty_tree_root}, state_reference::StateReference,
     traits::Empty
 };
+use types::debug_log::debug_log_format;
 
 global ALLOWED_PREVIOUS_CIRCUITS = [
     BASE_ROLLUP_INDEX,
@@ -35,6 +36,7 @@ pub struct BlockRootRollupInputs {
     start_l1_to_l2_message_tree_snapshot: AppendOnlyTreeSnapshot,
 
     // inputs required to add the block hash
+    // TODO: Remove in favor of left.constants.last_archive
     start_archive_snapshot: AppendOnlyTreeSnapshot,
     new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     // Added previous_block_hash to be passed through to the final root, where it will be either:
@@ -92,6 +94,24 @@ impl BlockRootRollupInputs {
         };
 
         let total_fees = components::accumulate_fees(left, right);
+
+        // unsafe {
+        //     debug_log_format("Assembling header in block root rollup", []);
+        //     debug_log_format(
+        //         "header.last_archive={}",
+        //         left.constants.last_archive.serialize()
+        //     );
+        //     debug_log_format(
+        //         "header.content_commitment={}",
+        //         content_commitment.serialize()
+        //     );
+        //     debug_log_format("header.state={}", state.serialize());
+        //     debug_log_format(
+        //         "header.global_variables={}",
+        //         left.constants.global_variables.serialize()
+        //     );
+        //     debug_log_format("header.total_fees={0}", [total_fees]);
+        // }
 
         let header = Header {
             last_archive: left.constants.last_archive,
