@@ -1,0 +1,188 @@
+import {
+  AztecAddress,
+  Fr,
+  GrumpkinScalar,
+  type KeyValidationRequest,
+  Point,
+  type PublicKey,
+  computeOvskApp,
+  derivePublicKeyFromSecretKey,
+} from '@aztec/circuits.js';
+import { Aes128 } from '@aztec/circuits.js/barretenberg';
+import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import { deriveAESSecret, derivePoseidonAESSecret } from './l1_payload/encryption_utils.js';
+
+// Both the incoming and the outgoing header are 48 bytes.
+// 32 bytes for the address, and 16 bytes padding to follow PKCS#7
+const HEADER_SIZE = 48;
+
+// The outgoing body is constant size of 144 bytes.
+// 128 bytes for the secret key, address and public key, and 16 bytes padding to follow PKCS#7
+const OUTGOING_BODY_SIZE = 144;
+
+/**
+ * Encrypted log payload with a tag used for retrieval by clients.
+ */
+export class L2Log {
+  constructor(
+    public readonly incomingTag: Fr,
+    public readonly outgoingTag: Fr,
+    public readonly contract: AztecAddress,
+    public readonly incomingBodyPlaintext: Buffer,
+  ) {}
+
+  public encrypt(
+    ephSk: GrumpkinScalar,
+    recipient: AztecAddress,
+    ivpk: PublicKey,
+    ovKeys: KeyValidationRequest,
+  ): Buffer {
+    if (ivpk.isZero()) {
+      throw new Error(`Attempting to encrypt an event log with a zero ivpk.`);
+    }
+
+    const ephPk = derivePublicKeyFromSecretKey(ephSk);
+    const incomingHeaderCiphertext = encrypt(this.contract.toBuffer(), ephSk, ivpk);
+    const outgoingHeaderCiphertext = encrypt(this.contract.toBuffer(), ephSk, ovKeys.pkM);
+
+    const incomingBodyCiphertext = encrypt(this.incomingBodyPlaintext, ephSk, ivpk);
+    // The serialization of Fq is [high, low] check `outgoing_body.nr`
+    const outgoingBodyPlaintext = serializeToBuffer(ephSk.hi, ephSk.lo, recipient, ivpk.toCompressedBuffer());
+    const outgoingBodyCiphertext = encrypt(outgoingBodyPlaintext, ephSk, ovKeys.pkM, derivePoseidonAESSecret);
+
+    return serializeToBuffer(
+      this.incomingTag,
+      this.outgoingTag,
+      ephPk.toCompressedBuffer(),
+      incomingHeaderCiphertext,
+      outgoingHeaderCiphertext,
+      incomingBodyCiphertext,
+      outgoingBodyCiphertext,
+    );
+  }
+
+  /**
+   * Decrypts a ciphertext as an incoming log.
+   *
+   * This is executable by the recipient of the note, and uses the ivsk to decrypt the payload.
+   * The outgoing parts of the log are ignored entirely.
+   *
+   * Produces the same output as `decryptAsOutgoing`.
+   *
+   * @param ciphertext - The ciphertext for the log
+   * @param ivsk - The incoming viewing secret key, used to decrypt the logs
+   * @returns The decrypted log payload
+   */
+  public static decryptAsIncoming(ciphertext: Buffer | BufferReader, ivsk: GrumpkinScalar) {
+    const reader = BufferReader.asReader(ciphertext);
+
+    const incomingTag = reader.readObject(Fr);
+    const outgoingTag = reader.readObject(Fr);
+
+    const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+
+    const incomingHeader = decrypt(reader.readBytes(HEADER_SIZE), ivsk, ephPk);
+
+    // Skipping the outgoing header and body
+    reader.readBytes(HEADER_SIZE);
+    reader.readBytes(OUTGOING_BODY_SIZE);
+
+    // The incoming can be of variable size, so we read until the end
+    const incomingBody = decrypt(reader.readToEnd(), ivsk, ephPk);
+
+    return new L2Log(incomingTag, outgoingTag, AztecAddress.fromBuffer(incomingHeader), incomingBody);
+  }
+
+  /**
+   * Decrypts a ciphertext as an outgoing log.
+   *
+   * This is executable by the sender of the event, and uses the ovsk to decrypt the payload.
+   * The outgoing parts are decrypted to retrieve information that allows the sender to
+   * decrypt the incoming log, and learn about the event contents.
+   *
+   * Produces the same output as `decryptAsIncoming`.
+   *
+   * @param ciphertext - The ciphertext for the log
+   * @param ovsk - The outgoing viewing secret key, used to decrypt the logs
+   * @returns The decrypted log payload
+   */
+  public static decryptAsOutgoing(ciphertext: Buffer | BufferReader, ovsk: GrumpkinScalar) {
+    const reader = BufferReader.asReader(ciphertext);
+
+    const incomingTag = reader.readObject(Fr);
+    const outgoingTag = reader.readObject(Fr);
+
+    const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+
+    // We skip the incoming header
+    reader.readBytes(HEADER_SIZE);
+
+    const outgoingHeader = decrypt(reader.readBytes(HEADER_SIZE), ovsk, ephPk);
+    const contractAddress = AztecAddress.fromBuffer(outgoingHeader);
+
+    const ovskApp = computeOvskApp(ovsk, contractAddress);
+
+    let ephSk: GrumpkinScalar;
+    let recipientIvpk: PublicKey;
+    {
+      const outgoingBody = decrypt(reader.readBytes(OUTGOING_BODY_SIZE), ovskApp, ephPk, derivePoseidonAESSecret);
+      const obReader = BufferReader.asReader(outgoingBody);
+
+      // From outgoing body we extract ephSk, recipient and recipientIvpk
+      ephSk = GrumpkinScalar.fromHighLow(obReader.readObject(Fr), obReader.readObject(Fr));
+      const _recipient = obReader.readObject(AztecAddress);
+      recipientIvpk = Point.fromCompressedBuffer(obReader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+    }
+
+    // Now we decrypt the incoming body using the ephSk and recipientIvpk
+    const incomingBody = decrypt(reader.readToEnd(), ephSk, recipientIvpk);
+
+    return new L2Log(incomingTag, outgoingTag, contractAddress, incomingBody);
+  }
+}
+
+/**
+ * Encrypts the plaintext using the secret key and public key
+ *
+ * @param plaintext - The plaintext buffer
+ * @param secret - The secret key used to derive the AES secret
+ * @param publicKey - Public key used to derived the AES secret
+ * @param deriveSecret - Function to derive the AES secret from the ephemeral secret key and public key
+ * @returns The ciphertext
+ */
+function encrypt(
+  plaintext: Buffer,
+  secret: GrumpkinScalar,
+  publicKey: PublicKey,
+  deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Buffer = deriveAESSecret,
+): Buffer {
+  const aesSecret = deriveSecret(secret, publicKey);
+  const key = aesSecret.subarray(0, 16);
+  const iv = aesSecret.subarray(16, 32);
+
+  const aes128 = new Aes128();
+  return aes128.encryptBufferCBC(plaintext, iv, key);
+}
+
+/**
+ * Decrypts the ciphertext using the secret key and public key
+ * @param ciphertext - The ciphertext buffer
+ * @param secret - The secret key used to derive the AES secret
+ * @param publicKey - The public key used to derive the AES secret
+ * @param deriveSecret - Function to derive the AES secret from the ephemeral secret key and public key
+ * @returns
+ */
+function decrypt(
+  ciphertext: Buffer,
+  secret: GrumpkinScalar,
+  publicKey: PublicKey,
+  deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Buffer = deriveAESSecret,
+): Buffer {
+  const aesSecret = deriveSecret(secret, publicKey);
+  const key = aesSecret.subarray(0, 16);
+  const iv = aesSecret.subarray(16, 32);
+
+  const aes128 = new Aes128();
+  return aes128.decryptBufferCBC(ciphertext, iv, key);
+}
