@@ -20,6 +20,7 @@ SETUP_CACHE:
   END
   COPY +setup-cache-helper/* /usr/src/build-system/cache-tool/
 
+# needed intermediary to call out to LOCALLY and go back to normal context
 compute-content-hash:
   ARG local_directory_equivalent
   ARG rebuild_patterns
@@ -29,6 +30,12 @@ compute-content-hash:
   FROM ubuntu:noble
   RUN echo "$content_hash" > .content-hash
   SAVE ARTIFACT .content-hash
+
+WRITE_CONTENT_HASH:
+  FUNCTION
+  ARG rebuild_patterns
+  LET local_dir=$(pwd | sed 's|^/usr/src/||')
+  COPY (+compute-content-hash/.content-hash --local_directory_equivalent="$local_dir" --rebuild_patterns="$rebuild_patterns") .
 
 # 1) starts our cache server if not up
 # 2) copies necessary context
@@ -44,8 +51,7 @@ WITH_CACHE:
   ARG rebuild_patterns
   ARG build_artifacts
   DO +SETUP_CACHE
-  LET local_dir=$(pwd | sed 's|^/usr/src/||')
-  COPY (+compute-content-hash/.content-hash --local_directory_equivalent="$local_dir" --rebuild_patterns=$rebuild_patterns) .
+  DO +WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
   # print a clean version as the one below will be obfuscated
   RUN echo $command
   # configure AWS access (note these can be blank if server started without s3 backing)
