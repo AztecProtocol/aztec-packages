@@ -4,6 +4,7 @@ use dep::protocol_types::{
     point::Point, traits::Hash,
     hash::{sha256_to_field, poseidon2_hash_with_separator, poseidon2_hash_with_separator_slice}
 };
+use crate::utils::to_bytes::{arr_to_be_bytes_arr, str_to_be_bytes_arr};
 
 pub use dep::protocol_types::hash::{compute_siloed_nullifier, pedersen_hash};
 
@@ -133,7 +134,8 @@ unconstrained fn compute_unenc_log_hash_array() {
         0x25d0f689c4a4178a29d59306f2675824d19be6d25e44fa03b03f49c263053dd2,
         0x2d513a722d6f352dc0961f156afdc5e31495b9f0e35cb069261a8e55e2df67fd
     ];
-    let hash = compute_unencrypted_log_hash(contract_address, log);
+    let serialized_log = arr_to_be_bytes_arr(log);
+    let hash = compute_unencrypted_log_hash(contract_address, serialized_log);
     assert(hash == 0x0095b2d17ab72f4b27a341f7ac63e49ec73935ae8c9181a0ac02023eb12f3284);
 }
 
@@ -141,7 +143,8 @@ unconstrained fn compute_unenc_log_hash_array() {
 unconstrained fn compute_unenc_log_hash_addr() {
     let contract_address = AztecAddress::from_field(0x233a3e0df23b2b15b324194cb4a151f26c0b7333250781d34cc269d85dc334c6);
     let log = AztecAddress::from_field(0x26aa302d4715fd8a687453cb26d616b0768027bd54bcae56b09d908ecd9f8303);
-    let hash = compute_unencrypted_log_hash(contract_address, log.to_field().to_be_bytes());
+    let serialized_log: [u8; 32] = log.to_field().to_be_bytes();
+    let hash = compute_unencrypted_log_hash(contract_address, serialized_log);
     assert(hash == 0x0083ab647dfb26e7ddee90a0f4209d049d4660cab42000c544b986aaa84c55a3);
 }
 
@@ -149,7 +152,8 @@ unconstrained fn compute_unenc_log_hash_addr() {
 unconstrained fn compute_unenc_log_hash_str() {
     let contract_address = AztecAddress::from_field(0x1b401e1146c5c507962287065c81f0ef7590adae3802c533d7549d6bf0a41bd8);
     let log = "dummy";
-    let hash = compute_unencrypted_log_hash(contract_address, log.to_field().to_be_bytes());
+    let serialized_log = str_to_be_bytes_arr(log);
+    let hash = compute_unencrypted_log_hash(contract_address, serialized_log);
     assert(hash == 0x00629e88ebd6374f44aa6cfe07e251ecf07213ebc7267e8f6b578ae57ffd6c20);
 }
 
@@ -157,6 +161,7 @@ unconstrained fn compute_unenc_log_hash_str() {
 unconstrained fn compute_unenc_log_hash_longer_str() {
     let contract_address = AztecAddress::from_field(0x1b401e1146c5c507962287065c81f0ef7590adae3802c533d7549d6bf0a41bd8);
     let log = "Hello this is a string";
-    let hash = compute_unencrypted_log_hash(contract_address, log.to_field().to_be_bytes());
+    let serialized_log = str_to_be_bytes_arr(log);
+    let hash = compute_unencrypted_log_hash(contract_address, serialized_log);
     assert(hash == 0x0098637962f7d34fa202b7ffad8a07a238c5d1fd897b82a108f7f467fa73b841);
 }
