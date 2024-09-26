@@ -30,4 +30,6 @@ interface ILeonidas {
 
   function getEpochAt(uint256 _ts) external view returns (uint256);
   function getSlotAt(uint256 _ts) external view returns (uint256);
+
+  function getEpochAtSlot(uint256 _slotNumber) external view returns (uint256);
 }

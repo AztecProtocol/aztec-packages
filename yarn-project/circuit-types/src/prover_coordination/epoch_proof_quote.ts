@@ -52,4 +52,15 @@ export class EpochProofQuote extends Gossipable {
 
     return this.sender;
   }
+
+  toViemArgs() {
+    return {
+      epochToProve: this.payload.epochToProve,
+      validUntilSlot: this.payload.validUntilSlot,
+      bondAmount: this.payload.bondAmount,
+      rollupAddress: this.payload.rollupAddress,
+      basisPointFee: this.payload.basisPointFee,
+      signature: this.signature.toViemSignature(),
+    };
+  }
 }

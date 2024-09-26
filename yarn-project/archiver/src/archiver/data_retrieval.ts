@@ -134,7 +134,9 @@ async function getBlockFromRollupTx(
     data,
   });
 
-  if (!(functionName === 'propose')) {
+  const allowedMethods = ['propose', 'proposeAndClaim'];
+
+  if (!allowedMethods.includes(functionName)) {
     throw new Error(`Unexpected method called ${functionName}`);
   }
   const [headerHex, archiveRootHex, , , , bodyHex] = args! as readonly [Hex, Hex, Hex, Hex[], ViemSignature[], Hex];
