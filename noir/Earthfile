@@ -54,7 +54,7 @@ test:
 
   # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
   ENV NEXTEST_RETRIES=2
-
+  ENV COMMIT_HASH=test
   RUN ./scripts/test_native.sh
 
 examples:
@@ -142,20 +142,21 @@ packages-deps:
 
 packages:
   FROM +packages-deps
-    COPY ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
-    # NOTE: we use a fake commit hash here
-    # we don't want Noir to rebuild everytime the parent repo changes
-    # just only when it changes
-    # the commit hash gets injected into version strings
-    DO ../build-system/cache-tool/+WRITE_CONTENT_HASH --rebuild_patterns="../barretenberg/cpp/.rebuild_patterns .rebuild_patterns_packages"
-    ENV COMMIT_HASH=$(cat .content-hash)
-        # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
-    DO ../build-system/cache-tool/+WITH_CACHE \
-      --prefix="noir-nargo" \
-      --rebuild_patterns="$rebuild_patterns" \
-      --command="./scripts/bootstrap_packages.sh" \
-      --build_artifacts="packages"
-    SAVE ARTIFACT packages
+  COPY ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
+  LET rebuild_patterns="../barretenberg/cpp/.rebuild_patterns .rebuild_patterns_packages"
+  # NOTE: we use a fake commit hash here
+  # we don't want Noir to rebuild everytime the parent repo changes
+  # just only when it changes
+  # the commit hash gets injected into version strings
+  DO ../build-system/cache-tool/+WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
+  ENV COMMIT_HASH=$(cat .content-hash)
+      # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
+  DO ../build-system/cache-tool/+WITH_CACHE \
+    --prefix="noir-nargo" \
+    --rebuild_patterns="$rebuild_patterns" \
+    --command="./scripts/bootstrap_packages.sh" \
+    --build_artifacts="packages"
+  SAVE ARTIFACT packages
 
 packages-test-build:
     FROM +packages-deps
