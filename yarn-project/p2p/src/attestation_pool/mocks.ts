@@ -1,8 +1,7 @@
-import { BlockAttestation, TxHash } from '@aztec/circuit-types';
+import { BlockAttestation, ConsensusPayload, TxHash } from '@aztec/circuit-types';
 import { makeHeader } from '@aztec/circuits.js/testing';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { type PrivateKeyAccount } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
@@ -29,9 +28,11 @@ export const mockAttestation = async (signer: PrivateKeyAccount, slot: number = 
   const archive = Fr.random();
   const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
 
-  const message: `0x${string}` = `0x${serializeToBuffer([archive, txs]).toString('hex')}`;
+  const payload = new ConsensusPayload(header, archive, txs);
+
+  const message: `0x${string}` = `0x${payload.getPayloadToSign().toString('hex')}`;
   const sigString = await signer.signMessage({ message });
 
   const signature = Signature.from0xString(sigString);
-  return new BlockAttestation(header, archive, txs, signature);
+  return new BlockAttestation(payload, signature);
 };

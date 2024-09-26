@@ -425,7 +425,7 @@ TEST_F(AvmMemOpcodeTests, allDirectCMovA)
     compute_cmov_indices(0);
     common_cmov_trace_validate(
         false, 1979, 1980, 987162, 10, 11, 12, 20, AvmMemoryTag::U16, AvmMemoryTag::U128, AvmMemoryTag::U64);
-    validate_trace_check_circuit(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmMemOpcodeTests, allDirectCMovB)
@@ -442,7 +442,7 @@ TEST_F(AvmMemOpcodeTests, allDirectCMovB)
     compute_cmov_indices(0);
     common_cmov_trace_validate(
         false, 1979, 1980, 0, 10, 11, 12, 20, AvmMemoryTag::U8, AvmMemoryTag::U8, AvmMemoryTag::U64);
-    validate_trace_check_circuit(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmMemOpcodeTests, allDirectCMovConditionUninitialized)
@@ -459,7 +459,7 @@ TEST_F(AvmMemOpcodeTests, allDirectCMovConditionUninitialized)
     compute_cmov_indices(0);
     common_cmov_trace_validate(
         false, 1979, 1980, 0, 10, 11, 12, 20, AvmMemoryTag::U8, AvmMemoryTag::U8, AvmMemoryTag::U0);
-    validate_trace_check_circuit(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmMemOpcodeTests, allDirectCMovOverwriteA)
@@ -475,7 +475,7 @@ TEST_F(AvmMemOpcodeTests, allDirectCMovOverwriteA)
     compute_cmov_indices(0);
     common_cmov_trace_validate(
         false, 1979, 1980, 0, 10, 11, 10, 20, AvmMemoryTag::U8, AvmMemoryTag::U8, AvmMemoryTag::U64);
-    validate_trace_check_circuit(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmMemOpcodeTests, allIndirectCMovA)
@@ -502,7 +502,7 @@ TEST_F(AvmMemOpcodeTests, allIndirectCMovA)
     compute_cmov_indices(15);
     common_cmov_trace_validate(
         true, 1979, 1980, 987162, 10, 11, 12, 20, AvmMemoryTag::U16, AvmMemoryTag::U128, AvmMemoryTag::U64);
-    validate_trace_check_circuit(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 TEST_F(AvmMemOpcodeTests, allIndirectCMovAllUnitialized)
@@ -513,7 +513,7 @@ TEST_F(AvmMemOpcodeTests, allIndirectCMovAllUnitialized)
 
     compute_cmov_indices(15);
     common_cmov_trace_validate(true, 0, 0, 0, 0, 0, 0, 0, AvmMemoryTag::U0, AvmMemoryTag::U0, AvmMemoryTag::U0);
-    validate_trace_check_circuit(std::move(trace));
+    validate_trace(std::move(trace), public_inputs);
 }
 
 /******************************************************************************

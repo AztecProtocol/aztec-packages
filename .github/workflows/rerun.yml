@@ -1,20 +1,52 @@
-# from https://github.com/orgs/community/discussions/67654
+# adapted from https://github.com/orgs/community/discussions/67654
+# altered to not rerun if we are not the newest commit in the run's branch
 on:
   workflow_dispatch:
     inputs:
       run_id:
         required: true
+
 jobs:
   rerun:
     runs-on: ubuntu-latest
     permissions:
-      actions: write
+      actions: write  # Needed for 'gh run rerun'
     steps:
-      - name: rerun ${{ inputs.run_id }}
+      - name: Wait for run to finish
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           GH_DEBUG: api
         run: |
           gh run watch ${{ inputs.run_id }} > /dev/null 2>&1
-          gh run rerun ${{ inputs.run_id }} --failed
+
+      - name: Rerun failed jobs if the commit is the latest on the branch
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          GH_DEBUG: api
+        run: |
+          RUN_ID="${{ inputs.run_id }}"
+          # Get the run details
+          RUN_INFO=$(gh run view $RUN_ID --json headSha,headBranch,event)
+          # Extract the commit SHA, branch name, and event type
+          COMMIT_SHA=$(echo "$RUN_INFO" | jq -r '.headSha')
+          BRANCH_NAME=$(echo "$RUN_INFO" | jq -r '.headBranch')
+          EVENT_TYPE=$(echo "$RUN_INFO" | jq -r '.event')
+
+          # Only proceed if the event is a pull_request
+          if [[ "$EVENT_TYPE" != "pull_request" ]]; then
+            echo "Event type is $EVENT_TYPE. Skipping rerun."
+            exit 0
+          fi
+
+          # Get the latest commit SHA on the branch
+          LATEST_COMMIT_SHA=$(gh api repos/${{ github.repository }}/commits/$BRANCH_NAME --jq .sha)
+
+          # Compare the SHAs
+          if [[ "$COMMIT_SHA" != "$LATEST_COMMIT_SHA" ]]; then
+            echo "Commit $COMMIT_SHA is not the latest commit on branch $BRANCH_NAME (latest is $LATEST_COMMIT_SHA). Skipping rerun."
+          else
+            echo "Commit $COMMIT_SHA is the latest on branch $BRANCH_NAME. Proceeding with rerun."
+            gh run rerun ${{ inputs.run_id }} --failed
+          fi

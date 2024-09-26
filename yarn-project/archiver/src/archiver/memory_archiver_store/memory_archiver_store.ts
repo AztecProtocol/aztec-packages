@@ -162,28 +162,23 @@ export class MemoryArchiverStore implements ArchiverDataStore {
 
   /**
    * Append new logs to the store's list.
-   * @param encryptedLogs - The encrypted logs to be added to the store.
-   * @param unencryptedLogs - The unencrypted logs to be added to the store.
-   * @param blockNumber - The block for which to add the logs.
+   * @param block - The block for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(
-    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs,
-    encryptedLogs: EncryptedL2BlockL2Logs,
-    unencryptedLogs: UnencryptedL2BlockL2Logs,
-    blockNumber: number,
-  ): Promise<boolean> {
-    if (noteEncryptedLogs) {
-      this.noteEncryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = noteEncryptedLogs;
-    }
+  addLogs(blocks: L2Block[]): Promise<boolean> {
+    blocks.forEach(block => {
+      if (block.body.noteEncryptedLogs) {
+        this.noteEncryptedLogsPerBlock[block.number - INITIAL_L2_BLOCK_NUM] = block.body.noteEncryptedLogs;
+      }
 
-    if (encryptedLogs) {
-      this.encryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = encryptedLogs;
-    }
+      if (block.body.encryptedLogs) {
+        this.encryptedLogsPerBlock[block.number - INITIAL_L2_BLOCK_NUM] = block.body.encryptedLogs;
+      }
 
-    if (unencryptedLogs) {
-      this.unencryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = unencryptedLogs;
-    }
+      if (block.body.unencryptedLogs) {
+        this.unencryptedLogsPerBlock[block.number - INITIAL_L2_BLOCK_NUM] = block.body.unencryptedLogs;
+      }
+    });
 
     return Promise.resolve(true);
   }
@@ -417,6 +412,16 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public setProvenL2BlockNumber(l2BlockNumber: SingletonDataRetrieval<number>): Promise<void> {
     this.lastProvenL2BlockNumber = l2BlockNumber.retrievedData;
     this.lastL1BlockNewProvenLogs = l2BlockNumber.lastProcessedL1BlockNumber;
+    return Promise.resolve();
+  }
+
+  setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    this.lastL1BlockNewBlocks = l1BlockNumber;
+    return Promise.resolve();
+  }
+
+  setMessageSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    this.lastL1BlockNewMessages = l1BlockNumber;
     return Promise.resolve();
   }
 

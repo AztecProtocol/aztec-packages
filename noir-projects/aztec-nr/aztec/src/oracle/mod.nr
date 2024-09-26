@@ -20,7 +20,6 @@ mod header;
 mod notes;
 mod storage;
 mod logs;
-mod logs_traits;
 mod returns;
 
 // debug_log oracle is used by both noir-protocol-circuits and this crate and for this reason we just re-export it

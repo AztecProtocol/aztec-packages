@@ -4,7 +4,7 @@ use crate::{
     utils::arrays::find_index_hint
 };
 
-struct PrivateKernelData {
+pub struct PrivateKernelData {
     public_inputs: PrivateKernelCircuitPublicInputs,
 
     vk: VerificationKey,

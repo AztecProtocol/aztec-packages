@@ -8,7 +8,7 @@ mod test;
 // of change after some minimum delay measured in blocks has elapsed. This means that at any given block number we know
 // both the current value and the smallest block number at which the value might change - this is called the
 // 'block horizon'.
-struct ScheduledValueChange<T> {
+pub struct ScheduledValueChange<T> {
     pre: T,
     post: T,
     // Block at which `post` value is used instead of `pre`

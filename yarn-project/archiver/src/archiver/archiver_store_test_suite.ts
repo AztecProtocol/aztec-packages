@@ -128,14 +128,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
     describe('addLogs', () => {
       it('adds encrypted & unencrypted logs', async () => {
         const block = blocks[0].data;
-        await expect(
-          store.addLogs(
-            block.body.noteEncryptedLogs,
-            block.body.encryptedLogs,
-            block.body.unencryptedLogs,
-            block.number,
-          ),
-        ).resolves.toEqual(true);
+        await expect(store.addLogs([block])).resolves.toEqual(true);
       });
     });
 
@@ -145,16 +138,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
       ['unencrypted', LogType.UNENCRYPTED],
     ])('getLogs (%s)', (_, logType) => {
       beforeEach(async () => {
-        await Promise.all(
-          blocks.map(block =>
-            store.addLogs(
-              block.data.body.noteEncryptedLogs,
-              block.data.body.encryptedLogs,
-              block.data.body.unencryptedLogs,
-              block.data.number,
-            ),
-          ),
-        );
+        await store.addLogs(blocks.map(b => b.data));
       });
 
       it.each(blockTests)('retrieves previously stored logs', async (from, limit, getExpectedBlocks) => {
@@ -176,16 +160,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
 
     describe('getTxEffect', () => {
       beforeEach(async () => {
-        await Promise.all(
-          blocks.map(block =>
-            store.addLogs(
-              block.data.body.noteEncryptedLogs,
-              block.data.body.encryptedLogs,
-              block.data.body.unencryptedLogs,
-              block.data.number,
-            ),
-          ),
-        );
+        await store.addLogs(blocks.map(b => b.data));
         await store.addBlocks(blocks);
       });
 
@@ -338,17 +313,7 @@ export function describeArchiverDataStore(testName: string, getStore: () => Arch
         }));
 
         await store.addBlocks(blocks);
-
-        await Promise.all(
-          blocks.map(block =>
-            store.addLogs(
-              block.data.body.noteEncryptedLogs,
-              block.data.body.encryptedLogs,
-              block.data.body.unencryptedLogs,
-              block.data.number,
-            ),
-          ),
-        );
+        await store.addLogs(blocks.map(b => b.data));
       });
 
       it('"txHash" filter param is respected', async () => {

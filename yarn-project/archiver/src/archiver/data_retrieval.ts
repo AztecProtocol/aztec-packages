@@ -83,14 +83,14 @@ export async function processL2BlockProposedLogs(
 ): Promise<L1Published<L2Block>[]> {
   const retrievedBlocks: L1Published<L2Block>[] = [];
   for (const log of logs) {
-    const blockNum = log.args.blockNumber!;
+    const l2BlockNumber = log.args.blockNumber!;
     const archive = log.args.archive!;
-    const archiveFromChain = await rollup.read.archiveAt([blockNum]);
+    const archiveFromChain = await rollup.read.archiveAt([l2BlockNumber]);
 
     // The value from the event and contract will match only if the block is in the chain.
     if (archive === archiveFromChain) {
       // TODO: Fetch blocks from calldata in parallel
-      const block = await getBlockFromRollupTx(publicClient, log.transactionHash!, blockNum);
+      const block = await getBlockFromRollupTx(publicClient, log.transactionHash!, l2BlockNumber);
 
       const l1: L1PublishedData = {
         blockNumber: log.blockNumber,
@@ -101,7 +101,7 @@ export async function processL2BlockProposedLogs(
       retrievedBlocks.push({ data: block, l1 });
     } else {
       logger.warn(
-        `Archive mismatch matching, ignoring block ${blockNum} with archive: ${archive}, expected ${archiveFromChain}`,
+        `Archive mismatch matching, ignoring block ${l2BlockNumber} with archive: ${archive}, expected ${archiveFromChain}`,
       );
     }
   }
@@ -237,7 +237,7 @@ export async function retrieveL2ProofsFromRollup(
   const lastProcessedL1BlockNumber = logs.length > 0 ? logs.at(-1)!.l1BlockNumber : searchStartBlock - 1n;
 
   for (const { txHash, proverId, l2BlockNumber } of logs) {
-    const proofData = await getBlockProofFromSubmitProofTx(publicClient, txHash, l2BlockNumber, proverId);
+    const proofData = await getProofFromSubmitProofTx(publicClient, txHash, l2BlockNumber, proverId);
     retrievedData.push({ proof: proofData.proof, proverId: proofData.proverId, l2BlockNumber, txHash });
   }
   return {
@@ -247,7 +247,6 @@ export async function retrieveL2ProofsFromRollup(
 }
 
 export type SubmitBlockProof = {
-  header: Header;
   archiveRoot: Fr;
   proverId: Fr;
   aggregationObject: Buffer;
@@ -263,39 +262,51 @@ export type SubmitBlockProof = {
  * @param l2BlockNum - L2 block number.
  * @returns L2 block metadata (header and archive) from the calldata, deserialized
  */
-export async function getBlockProofFromSubmitProofTx(
+export async function getProofFromSubmitProofTx(
   publicClient: PublicClient,
   txHash: `0x${string}`,
   l2BlockNum: bigint,
   expectedProverId: Fr,
 ): Promise<SubmitBlockProof> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
-  const { functionName, args } = decodeFunctionData({
-    abi: RollupAbi,
-    data,
-  });
+  const { functionName, args } = decodeFunctionData({ abi: RollupAbi, data });
 
-  if (!(functionName === 'submitBlockRootProof')) {
-    throw new Error(`Unexpected method called ${functionName}`);
+  let proverId: Fr;
+  let blockNumber: bigint;
+  let archiveRoot: Fr;
+  let aggregationObject: Buffer;
+  let proof: Proof;
+
+  if (functionName === 'submitBlockRootProof') {
+    const [headerHex, archiveHex, proverIdHex, aggregationObjectHex, proofHex] = args!;
+    const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
+    aggregationObject = Buffer.from(hexToBytes(aggregationObjectHex));
+    proverId = Fr.fromString(proverIdHex);
+    proof = Proof.fromBuffer(Buffer.from(hexToBytes(proofHex)));
+    archiveRoot = Fr.fromString(archiveHex);
+
+    blockNumber = header.globalVariables.blockNumber.toBigInt();
+    if (blockNumber !== l2BlockNum) {
+      throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${blockNumber}`);
+    }
+  } else if (functionName === 'submitEpochRootProof') {
+    const [_epochSize, nestedArgs, _fees, aggregationObjectHex, proofHex] = args!;
+    aggregationObject = Buffer.from(hexToBytes(aggregationObjectHex));
+    proverId = Fr.fromString(nestedArgs[6]);
+    archiveRoot = Fr.fromString(nestedArgs[1]);
+    proof = Proof.fromBuffer(Buffer.from(hexToBytes(proofHex)));
+  } else {
+    throw new Error(`Unexpected proof method called ${functionName}`);
   }
-  const [headerHex, archiveHex, proverIdHex, aggregationObjectHex, proofHex] = args!;
 
-  const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
-  const proverId = Fr.fromString(proverIdHex);
-
-  const blockNumberFromHeader = header.globalVariables.blockNumber.toBigInt();
-  if (blockNumberFromHeader !== l2BlockNum) {
-    throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${blockNumberFromHeader}`);
-  }
   if (!proverId.equals(expectedProverId)) {
     throw new Error(`Prover ID mismatch: expected ${expectedProverId} but got ${proverId}`);
   }
 
   return {
-    header,
     proverId,
-    aggregationObject: Buffer.from(hexToBytes(aggregationObjectHex)),
-    archiveRoot: Fr.fromString(archiveHex),
-    proof: Proof.fromBuffer(Buffer.from(hexToBytes(proofHex))),
+    aggregationObject,
+    archiveRoot,
+    proof,
   };
 }

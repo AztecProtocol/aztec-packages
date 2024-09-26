@@ -17,7 +17,7 @@ unconstrained fn shielding_on_behalf_of_self() {
     // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
     env.add_note(
         &mut TransparentNote::new(shield_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 
@@ -50,7 +50,7 @@ unconstrained fn shielding_on_behalf_of_other() {
     // We need to manually add the note to TXE because `TransparentNote` does not support automatic note log delivery.
     env.add_note(
         &mut TransparentNote::new(shield_amount, secret_hash),
-        Token::storage().pending_shields.slot,
+        Token::storage_layout().pending_shields.slot,
         token_contract_address
     );
 

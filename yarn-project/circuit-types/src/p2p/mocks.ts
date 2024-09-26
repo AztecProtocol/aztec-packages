@@ -1,39 +1,33 @@
 import { makeHeader } from '@aztec/circuits.js/testing';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import { TxHash } from '../tx/tx_hash.js';
 import { BlockAttestation } from './block_attestation.js';
 import { BlockProposal } from './block_proposal.js';
-import { getHashedSignaturePayloadEthSignedMessage } from './block_utils.js';
+import { ConsensusPayload } from './consensus_payload.js';
+import { getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
 
-export const makeBlockProposal = (signer?: Secp256k1Signer): BlockProposal => {
-  signer = signer || randomSigner();
+const makeAndSignConsensusPayload = (signer = Secp256k1Signer.random()) => {
+  const payload = ConsensusPayload.fromFields({
+    header: makeHeader(1),
+    archive: Fr.random(),
+    txHashes: [0, 1, 2, 3, 4, 5].map(() => TxHash.random()),
+  });
 
-  const blockHeader = makeHeader(1);
-  const archive = Fr.random();
-  const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
-  const hash = getHashedSignaturePayloadEthSignedMessage(archive, txs);
+  const hash = getHashedSignaturePayloadEthSignedMessage(payload);
   const signature = signer.sign(hash);
 
-  return new BlockProposal(blockHeader, archive, txs, signature);
+  return { payload, signature };
+};
+
+export const makeBlockProposal = (signer = Secp256k1Signer.random()): BlockProposal => {
+  const { payload, signature } = makeAndSignConsensusPayload(signer);
+  return new BlockProposal(payload, signature);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
 export const makeBlockAttestation = (signer?: Secp256k1Signer): BlockAttestation => {
-  signer = signer || randomSigner();
-
-  const blockHeader = makeHeader(1);
-  const archive = Fr.random();
-  const txs = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
-  const hash = getHashedSignaturePayloadEthSignedMessage(archive, txs);
-  const signature = signer.sign(hash);
-
-  return new BlockAttestation(blockHeader, archive, txs, signature);
-};
-
-export const randomSigner = (): Secp256k1Signer => {
-  const privateKey = Buffer32.random();
-  return new Secp256k1Signer(privateKey);
+  const { payload, signature } = makeAndSignConsensusPayload(signer);
+  return new BlockAttestation(payload, signature);
 };

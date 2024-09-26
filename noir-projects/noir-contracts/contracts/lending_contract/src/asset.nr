@@ -6,7 +6,7 @@ use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
 // and last time it was updated.
 // In practice, it should also point to an oracle and have more fields related to
 // loan to value ratios and other things, but we did not have enough reads/writes for this.
-struct Asset {
+pub struct Asset {
     interest_accumulator: U128,
     last_updated_ts: u64,
     loan_to_value: U128,

@@ -3,7 +3,7 @@ use dep::types::{
     recursion::{verification_key::VerificationKey, proof::RecursiveProof, traits::Verifiable}
 };
 
-struct EmptyNestedCircuitPublicInputs {
+pub struct EmptyNestedCircuitPublicInputs {
     proof: RecursiveProof,
     vk: VerificationKey,
 }
@@ -20,7 +20,7 @@ impl Empty for EmptyNestedCircuitPublicInputs {
     }
 }
 
-struct PrivateKernelEmptyPrivateInputs {
+pub struct PrivateKernelEmptyPrivateInputs {
     empty_nested: EmptyNestedCircuitPublicInputs,
     historical_header: Header,
     chain_id: Field,

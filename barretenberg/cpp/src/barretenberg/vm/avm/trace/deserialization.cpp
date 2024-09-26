@@ -23,11 +23,6 @@ const std::vector<OperandType> three_operand_format16 = {
 };
 const std::vector<OperandType> kernel_input_operand_format = { OperandType::INDIRECT, OperandType::UINT32 };
 
-const std::vector<OperandType> getter_format = {
-    OperandType::INDIRECT,
-    OperandType::UINT32,
-};
-
 const std::vector<OperandType> external_call_format = { OperandType::INDIRECT,
                                                         /*gasOffset=*/OperandType::UINT32,
                                                         /*addrOffset=*/OperandType::UINT32,
@@ -78,26 +73,15 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     { OpCode::CAST_16, { OperandType::INDIRECT, OperandType::TAG, OperandType::UINT16, OperandType::UINT16 } },
 
     // Execution Environment - Globals
-    { OpCode::ADDRESS, getter_format },
-    { OpCode::STORAGEADDRESS, getter_format },
-    { OpCode::SENDER, getter_format },
-    { OpCode::FUNCTIONSELECTOR, getter_format },
-    { OpCode::TRANSACTIONFEE, getter_format },
-    // Execution Environment - Globals
-    { OpCode::CHAINID, getter_format },
-    { OpCode::VERSION, getter_format },
-    { OpCode::BLOCKNUMBER, getter_format },
-    { OpCode::TIMESTAMP, getter_format },
-    // Execution Environment - Globals - Gas
-    { OpCode::FEEPERL2GAS, getter_format },
-    { OpCode::FEEPERDAGAS, getter_format },
+    { OpCode::GETENVVAR_16,
+      {
+          OperandType::INDIRECT,
+          OperandType::UINT8, // var idx
+          OperandType::UINT16,
+      } },
 
     // Execution Environment - Calldata
     { OpCode::CALLDATACOPY, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
-
-    // Machine State - Gas
-    { OpCode::L2GASLEFT, getter_format },
-    { OpCode::DAGASLEFT, getter_format },
 
     // Machine State - Internal Control Flow
     { OpCode::JUMP_16, { OperandType::UINT16 } },
@@ -159,7 +143,7 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
 
     // Control Flow - Contract Calls
     { OpCode::CALL, external_call_format },
-    // STATICCALL,
+    { OpCode::STATICCALL, external_call_format },
     // DELEGATECALL, -- not in simulator
     { OpCode::RETURN, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
     // REVERT,
@@ -174,7 +158,14 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
     // Gadgets - Hashing
     { OpCode::KECCAK, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::POSEIDON2, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32 } },
-    { OpCode::SHA256, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
+    { OpCode::SHA256COMPRESSION,
+      { OperandType::INDIRECT,
+        OperandType::UINT32,
+        OperandType::UINT32,
+        OperandType::UINT32,
+        OperandType::UINT32,
+        OperandType::UINT32 } },
+    { OpCode::KECCAKF1600, { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     { OpCode::PEDERSEN,
       { OperandType::INDIRECT, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32, OperandType::UINT32 } },
     // TEMP ECADD without relative memory
