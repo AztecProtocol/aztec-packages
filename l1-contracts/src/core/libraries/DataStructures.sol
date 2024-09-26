@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+
+import {Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 /**
  * @title Data Structures Library
@@ -96,8 +98,8 @@ library DataStructures {
    * @param basisPointFee - The fee measured in basis points
    */
   struct EpochProofQuote {
-    uint256 epochToProve;
-    uint256 validUntilSlot;
+    Epoch epochToProve;
+    Slot validUntilSlot;
     uint256 bondAmount;
     address prover;
     uint32 basisPointFee;
@@ -122,7 +124,7 @@ library DataStructures {
    * @param proposerClaimant - the address of the proposer that submitted the claim
    */
   struct EpochProofClaim {
-    uint256 epochToProve;
+    Epoch epochToProve;
     uint256 basisPointFee;
     uint256 bondAmount;
     address bondProvider;
