@@ -576,14 +576,6 @@ export class ProvingOrchestrator implements EpochProver {
         block: block.block!,
       };
 
-      pushTestData('blockResults', {
-        proverId: this.proverId.toString(),
-        vkTreeRoot: getVKTreeRoot().toString(),
-        block: blockResult.block.toString(),
-        proof: blockResult.proof.toString(),
-        aggregationObject: blockResult.aggregationObject.map(x => x.toString()),
-      });
-
       return Promise.resolve(blockResult);
     } catch (err) {
       throw new BlockProofError(
@@ -603,6 +595,11 @@ export class ProvingOrchestrator implements EpochProver {
     if (!this.provingState || !this.provingState.rootRollupPublicInputs || !this.provingState.finalProof) {
       throw new Error(`Invalid proving state, an epoch must be proven before it can be finalised`);
     }
+
+    pushTestData('epochProofResult', {
+      proof: this.provingState.finalProof.toString(),
+      publicInputs: this.provingState.rootRollupPublicInputs.toString(),
+    });
 
     return { proof: this.provingState.finalProof, publicInputs: this.provingState.rootRollupPublicInputs };
   }

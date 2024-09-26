@@ -4,6 +4,7 @@ import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { getTestData, isGenerateTestDataEnabled, writeTestData } from '@aztec/foundation/testing';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
@@ -71,6 +72,15 @@ describe('prover/bb_prover/full-rollup', () => {
       const epochResult = context.orchestrator.finaliseEpoch();
 
       await expect(prover.verifyProof('RootRollupArtifact', epochResult.proof)).resolves.not.toThrow();
+
+      // Generate test data for the 2/2 blocks epoch scenario
+      if (blockCount === 2 && totalBlocks === 2 && isGenerateTestDataEnabled()) {
+        const epochProof = getTestData('epochProofResult').at(-1);
+        writeTestData(
+          'yarn-project/end-to-end/src/fixtures/dumps/epoch_proof_result.json',
+          JSON.stringify(epochProof!),
+        );
+      }
     },
   );
 
