@@ -106,7 +106,7 @@ contract RollupTest is DecoderBase {
 
     // sanity check that proven/pending tip are at genesis
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
 
     warpToL2Slot(1);
     assertEq(rollup.getCurrentSlot(), 1, "warp to slot 1 failed");
@@ -114,7 +114,7 @@ contract RollupTest is DecoderBase {
 
     // empty slots do not move pending chain
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
   }
 
   function testClaimWithWrongEpoch() public setUpFor("mixed_block_1") {
@@ -127,7 +127,7 @@ contract RollupTest is DecoderBase {
         Errors.Rollup__NotClaimingCorrectEpoch.selector, 0, quote.quote.epochToProve
       )
     );
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
   }
 
   function testClaimWithInsufficientBond() public setUpFor("mixed_block_1") {
@@ -142,7 +142,7 @@ contract RollupTest is DecoderBase {
         quote.quote.bondAmount
       )
     );
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
   }
 
   function testClaimPastValidUntil() public setUpFor("mixed_block_1") {
@@ -153,7 +153,7 @@ contract RollupTest is DecoderBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__QuoteExpired.selector, 1, quote.quote.validUntilSlot)
     );
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
   }
 
   function testClaimSimple() public setUpFor("mixed_block_1") {
@@ -163,7 +163,7 @@ contract RollupTest is DecoderBase {
     emit IRollup.ProofRightClaimed(
       quote.quote.epochToProve, address(0), address(this), quote.quote.bondAmount, Slot.wrap(1)
     );
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
 
     (
       Epoch epochToProve,
@@ -184,14 +184,14 @@ contract RollupTest is DecoderBase {
   function testClaimTwice() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 1);
 
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
 
     warpToL2Slot(2);
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
 
     // warp to epoch 1
     warpToL2Slot(Constants.AZTEC_EPOCH_DURATION);
@@ -199,7 +199,7 @@ contract RollupTest is DecoderBase {
 
     // We should still be trying to prove epoch 0 in epoch 1
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
 
     // still nothing to prune
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NothingToPrune.selector));
@@ -218,7 +218,7 @@ contract RollupTest is DecoderBase {
         rollup.CLAIM_DURATION_IN_L2_SLOTS()
       )
     );
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
   }
 
   function testNoPruneWhenClaimExists() public setUpFor("mixed_block_1") {
@@ -228,7 +228,7 @@ contract RollupTest is DecoderBase {
 
     warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
 
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
 
     warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS());
 
@@ -243,18 +243,18 @@ contract RollupTest is DecoderBase {
 
     warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
 
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
 
     warpToL2Slot(Constants.AZTEC_EPOCH_DURATION * 2);
 
     // We should still be trying to prove epoch 0 in epoch 2
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__ProofRightAlreadyClaimed.selector));
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
 
     rollup.prune();
 
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
   }
 
   function testClaimAfterPrune() public setUpFor("mixed_block_1") {
@@ -265,7 +265,7 @@ contract RollupTest is DecoderBase {
 
     warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
 
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
 
     warpToL2Slot(Constants.AZTEC_EPOCH_DURATION * 3);
 
@@ -282,7 +282,7 @@ contract RollupTest is DecoderBase {
       quote.quote.bondAmount,
       Epoch.wrap(3).toSlots()
     );
-    rollup.claimEpochProofRight(quote.quote);
+    rollup.claimEpochProofRight(quote);
   }
 
   function testPruneWhenNoProofClaim() public setUpFor("mixed_block_1") {

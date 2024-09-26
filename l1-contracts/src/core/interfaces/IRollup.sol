@@ -30,7 +30,7 @@ interface IRollup {
 
   function prune() external;
 
-  function claimEpochProofRight(DataStructures.EpochProofQuote calldata _quote) external;
+  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote) external;
 
   function propose(
     bytes calldata _header,
@@ -48,7 +48,7 @@ interface IRollup {
     bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
-    DataStructures.EpochProofQuote calldata _quote
+    DataStructures.SignedEpochProofQuote calldata _quote
   ) external;
 
   function submitBlockRootProof(
@@ -116,8 +116,14 @@ interface IRollup {
   function getPendingBlockNumber() external view returns (uint256);
   function getEpochToProve() external view returns (Epoch);
   function nextEpochToClaim() external view returns (Epoch);
-  function validateEpochProofRightClaim(DataStructures.EpochProofQuote calldata _quote)
+  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote)
     external
     view;
+  function getEpochProofPublicInputs(
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[64] calldata _fees,
+    bytes calldata _aggregationObject
+  ) external view returns (bytes32[] memory);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }

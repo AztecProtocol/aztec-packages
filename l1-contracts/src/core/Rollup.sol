@@ -176,7 +176,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
-    DataStructures.EpochProofQuote calldata _quote
+    DataStructures.SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
     propose(_header, _archive, _blockHash, _txHashes, _signatures, _body);
     claimEpochProofRight(_quote);
@@ -716,8 +716,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Leonidas__InvalidProposer(currentProposer, msg.sender);
     }
 
-    if (_quote.epochToProve != epochToProve) {
-      revert Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.epochToProve);
+    if (_quote.quote.epochToProve != epochToProve) {
+      revert Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.quote.epochToProve);
     }
 
     if (currentSlot % Constants.AZTEC_EPOCH_DURATION >= CLAIM_DURATION_IN_L2_SLOTS) {
@@ -732,14 +732,14 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__ProofRightAlreadyClaimed();
     }
 
-    if (_quote.bondAmount < PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST) {
+    if (_quote.quote.bondAmount < PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST) {
       revert Errors.Rollup__InsufficientBondAmount(
-        PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.bondAmount
+        PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.quote.bondAmount
       );
     }
 
-    if (_quote.validUntilSlot < currentSlot) {
-      revert Errors.Rollup__QuoteExpired(currentSlot, _quote.validUntilSlot);
+    if (_quote.quote.validUntilSlot < currentSlot) {
+      revert Errors.Rollup__QuoteExpired(currentSlot, _quote.quote.validUntilSlot);
     }
   }
 

@@ -660,9 +660,7 @@ describe('sequencer', () => {
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
       // The previous epoch can be claimed
-      publisher.canClaimEpoch.mockImplementation((epochNumber: bigint) =>
-        Promise.resolve(epochNumber === currentEpoch - 1n),
-      );
+      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.initialSync();
       await sequencer.work();
@@ -686,9 +684,7 @@ describe('sequencer', () => {
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
       // The previous epoch can be claimed
-      publisher.canClaimEpoch.mockImplementation((epochNumber: bigint) =>
-        Promise.resolve(epochNumber === currentEpoch - 1n),
-      );
+      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.initialSync();
       await sequencer.work();
@@ -713,9 +709,7 @@ describe('sequencer', () => {
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
       // The previous epoch can be claimed
-      publisher.canClaimEpoch.mockImplementation((epochNumber: bigint) =>
-        Promise.resolve(epochNumber === currentEpoch - 1n),
-      );
+      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.initialSync();
       await sequencer.work();
@@ -739,7 +733,7 @@ describe('sequencer', () => {
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
       // The previous epoch can be claimed
-      publisher.canClaimEpoch.mockResolvedValue(false);
+      publisher.nextEpochToClaim.mockResolvedValue(currentEpoch);
 
       await sequencer.initialSync();
       await sequencer.work();
@@ -765,9 +759,7 @@ describe('sequencer', () => {
       publisher.validateProofQuote.mockImplementation(_ => Promise.resolve(undefined));
 
       // The previous epoch can be claimed
-      publisher.canClaimEpoch.mockImplementation((epochNumber: bigint) =>
-        Promise.resolve(epochNumber === currentEpoch - 1n),
-      );
+      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.initialSync();
       await sequencer.work();
@@ -823,9 +815,7 @@ describe('sequencer', () => {
       );
 
       // The previous epoch can be claimed
-      publisher.canClaimEpoch.mockImplementation((epochNumber: bigint) =>
-        Promise.resolve(epochNumber === currentEpoch - 1n),
-      );
+      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.initialSync();
       await sequencer.work();
@@ -885,9 +875,7 @@ describe('sequencer', () => {
       );
 
       // The previous epoch can be claimed
-      publisher.canClaimEpoch.mockImplementation((epochNumber: bigint) =>
-        Promise.resolve(epochNumber === currentEpoch - 1n),
-      );
+      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
 
       await sequencer.initialSync();
       await sequencer.work();

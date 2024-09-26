@@ -558,8 +558,8 @@ export class Sequencer {
       return undefined;
     }
     const epochToProve = epochForBlock - 1n;
-    const canClaim = await this.publisher.canClaimEpoch(epochToProve);
-    if (!canClaim) {
+    const canClaim = await this.publisher.nextEpochToClaim();
+    if (canClaim != epochToProve) {
       this.log.verbose(`Unable to claim previous epoch (${epochToProve})`);
       return undefined;
     }
