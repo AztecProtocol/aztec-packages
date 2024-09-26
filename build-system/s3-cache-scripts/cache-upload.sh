@@ -13,14 +13,14 @@ if [ "${S3_BUILD_CACHE_UPLOAD:-true}" = "false" ] || [ "${AWS_ACCESS_KEY_ID}" ==
   exit
 fi
 
+# Extract the name without tar.gz extension
+NAME="${@: -1}"
+
 # check for the pattern emitted by compute-content-hash-if-git-clean.sh
-if [ "$TAR_FILE" = *uncommitted-changes* ] ; then
+if [ "$NAME" = *uncommitted-changes* ] ; then
   # Silently do nothing
   exit
 fi
-
-# Extract the name without tar.gz extension
-NAME="${@: -1}"
 
 # Extract the binary paths to tar.gz and upload
 BIN_PATHS=("${@:1:$#-1}")
@@ -40,4 +40,4 @@ tar -czf "$TAR_FILE" "${BIN_PATHS[@]}"
 # flag to disable uploads
 S3_BUILD_CACHE_UPLOAD=${S3_BUILD_CACHE_UPLOAD:-false}
 
-echo aws s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$TAR_FILE"
+echo UPLOAD! aws s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$TAR_FILE" --quiet
