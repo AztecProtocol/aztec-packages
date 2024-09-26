@@ -11,7 +11,7 @@ contract Test {
         PrivateImmutable, PrivateSet
     };
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
-    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_keys_with_randomness;
+    use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
 
     use dep::aztec::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize, point::Point, scalar::Scalar};
 
@@ -280,7 +280,7 @@ contract Test {
         let event = ExampleEvent { value0: fields[0], value1: fields[1], value2: fields[2], value3: fields[3], value4: fields[4] };
 
         event.emit(
-            encode_and_encrypt_event_with_keys_with_randomness(
+            encode_and_encrypt_event_with_randomness(
                 &mut context,
                 // testing only - a secret random value is passed in here to salt / mask the address
                 5,
@@ -298,9 +298,9 @@ contract Test {
             let otherEvent = ExampleEvent { value0: 1, value1: 2, value2: 3, value3: 4, value4: 5 };
 
             otherEvent.emit(
-                encode_and_encrypt_event_with_keys_with_randomness(
+                encode_and_encrypt_event_with_randomness(
                     &mut context,
-                    // testing only - a randomness of 0 signals the kerels to not mask the address
+                    // testing only - a randomness of 0 signals the kernels to not mask the address
                     0,
                     outgoing_viewer_ovpk_m,
                     owner_ivpk_m,
