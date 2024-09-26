@@ -481,6 +481,18 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         return result;
     }
 
+    template <size_t INITIAL_LENGTH> void self_extend_from()
+    {
+        if constexpr (INITIAL_LENGTH == 2) {
+            const Fr delta = value_at(1) - value_at(0);
+            Fr next = value_at(1);
+            for (size_t idx = 2; idx < LENGTH; idx++) {
+                next += delta;
+                value_at(idx) = next;
+            }
+        }
+    }
+
     /**
      * @brief Evaluate a univariate at a point u not known at compile time
      * and assumed not to be in the domain (else we divide by zero).

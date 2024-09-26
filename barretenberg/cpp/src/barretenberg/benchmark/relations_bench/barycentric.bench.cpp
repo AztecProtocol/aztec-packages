@@ -44,8 +44,20 @@ void fake_extend_2_to_11(State& state) noexcept
     }
 }
 
+// 93.9s goes down to 62.7
+// Theoretical min: 1 sub, 9 additions at about 3.8ns each, 38ns
+void self_extend_2_to_11(State& state) noexcept
+{
+    auto univariate = Univariate<FF, 11>::get_random();
+
+    for (auto _ : state) {
+        univariate.self_extend_from<2>();
+    }
+}
+
 BENCHMARK(extend_2_to_11);
 BENCHMARK(fake_extend_2_to_11);
+BENCHMARK(self_extend_2_to_11);
 
 } // namespace bb::benchmark
 
