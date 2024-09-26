@@ -8,7 +8,6 @@ import {
   PublicFeePaymentMethod,
   TxStatus,
   computeSecretHash,
-  sleep,
 } from '@aztec/aztec.js';
 import { Gas, GasSettings } from '@aztec/circuits.js';
 import { FunctionType } from '@aztec/foundation/abi';
@@ -31,7 +30,6 @@ describe('e2e_fees failures', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     ({ aliceWallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
-    await t.aztecNode.setConfig({ minTxsPerBlock: 1, maxTxsPerBlock: 1 });
   });
 
   afterAll(async () => {
@@ -84,6 +82,10 @@ describe('e2e_fees failures', () => {
     // if we skip simulation, it includes the failed TX
     const rebateSecret = Fr.random();
     const currentSequencerL1Gas = await t.getCoinbaseBalance();
+
+    // We wait until the proven chain is caught up so all previous fees are paid out.
+    await t.catchUpProvenChain();
+
     const txReceipt = await bananaCoin.methods
       .transfer_public(aliceAddress, sequencerAddress, OutrageousPublicAmountAliceDoesNotHave, 0)
       .send({
@@ -98,10 +100,7 @@ describe('e2e_fees failures', () => {
     expect(txReceipt.status).toBe(TxStatus.APP_LOGIC_REVERTED);
 
     // We wait until the block is proven since that is when the payout happens.
-    const bn = await t.aztecNode.getBlockNumber();
-    while ((await t.aztecNode.getProvenBlockNumber()) < bn) {
-      await sleep(1000);
-    }
+    await t.catchUpProvenChain();
 
     const feeAmount = txReceipt.transactionFee!;
     const newSequencerL1FeeAssetBalance = await t.getCoinbaseBalance();
