@@ -3,7 +3,7 @@ VERSION 0.8
 nargo-src:
     FROM ../build-images/+from-registry
     WORKDIR /usr/src/noir
-    COPY noir-repo/.github/scripts/wasm-bindgen-install.sh noir-repo/.github/scripts/wasm-bindgen-install.sh
+    COPY noir-repo/.github/scripts/*.sh noir-repo/.github/scripts/
     # First install wasm bindgen
     RUN ./noir-repo/.github/scripts/wasm-bindgen-install.sh
     # Relevant source
@@ -29,7 +29,8 @@ nargo-src:
 nargo:
     FROM +nargo-src
     COPY ./scripts/bootstrap_native.sh ./scripts/bootstrap_native.sh
-    LET rebuild_patterns="../barretenberg/cpp/.rebuild_patterns .rebuild_patterns_native"
+    # Note: build is decoupled from barretenberg
+    LET rebuild_patterns=".rebuild_patterns_native"
     # NOTE: we use a fake commit hash here
     # we don't want Noir to rebuild everytime the parent repo changes
     # just only when it changes
@@ -40,11 +41,11 @@ nargo:
     DO ../build-system/cache-tool/+WITH_CACHE \
       --prefix="noir-nargo" \
       --rebuild_patterns="$rebuild_patterns" \
-      --command="./scripts/bootstrap_native.sh && rm -rf /usr/src/noir/noir-repo/target/release/{build,deps}" \
-      --build_artifacts="/usr/src/noir/noir-repo/target/release/nargo /usr/src/noir/noir-repo/target/release/acvm"
+      --command="./scripts/bootstrap_native.sh && rm -rf noir-repo/target/release/{build,deps}" \
+      --build_artifacts="noir-repo/target/release/nargo noir-repo/target/release/acvm"
 
-    SAVE ARTIFACT /usr/src/noir/noir-repo/target/release/nargo nargo
-    SAVE ARTIFACT /usr/src/noir/noir-repo/target/release/acvm acvm
+    SAVE ARTIFACT noir-repo/target/release/nargo nargo
+    SAVE ARTIFACT noir-repo/target/release/acvm acvm
 
 test:
   FROM +nargo-src
@@ -58,7 +59,7 @@ test:
 
 examples:
   FROM +nargo
-  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
+  ENV PATH="noir-repo/target/release:${PATH}"
 
   COPY --dir noir-repo/examples noir-repo
   COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
@@ -159,8 +160,8 @@ packages:
 packages-test-build:
     FROM +packages-deps
 
-    COPY +nargo/nargo /usr/src/noir/noir-repo/target/release/nargo
-    COPY +nargo/acvm /usr/src/noir/noir-repo/target/release/acvm
+    COPY +nargo/nargo noir-repo/target/release/nargo
+    COPY +nargo/acvm noir-repo/target/release/acvm
 
     ENV NARGO_BACKEND_PATH=/usr/src/barretenberg/ts/dest/node/main.js
     ENV PATH=$PATH:/usr/src/noir/noir-repo/target/release
@@ -169,8 +170,6 @@ packages-test-build:
     RUN yarn --immutable
 
     WORKDIR /usr/src/noir/noir-repo
-    COPY --dir noir-repo/.github/scripts/wasm-bindgen-install.sh ./.github/scripts/wasm-bindgen-install.sh
-    RUN ./.github/scripts/wasm-bindgen-install.sh
 
     ENV SOURCE_DATE_EPOCH=$(date +%s)
     ENV GIT_DIRTY=false
