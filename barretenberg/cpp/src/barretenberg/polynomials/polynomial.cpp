@@ -354,9 +354,12 @@ Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 {
+    Polynomial result = *this;
     // Make 0..virtual_size usable
-    return expand(0, virtual_size());
+    result.coefficients_ = _clone(coefficients_, virtual_size() - end_index(), start_index());
+    return result;
 }
+
 template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &
 {
     // Compute the subset that is defined in both polynomials
