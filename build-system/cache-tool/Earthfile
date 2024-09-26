@@ -26,7 +26,7 @@ compute-content-hash:
   ARG rebuild_patterns
   LOCALLY
   RUN [ ! -z "$rebuild_patterns" ] || (echo 'Did not pass rebuild patterns to cache command!' && exit 1)
-  LET content_hash_script="$(pwd)/compute-content-hash.sh"
+  LET content_hash_script="$(pwd)/compute-content-hash-if-git-clean.sh"
   LET content_hash=$(cd "../../$local_directory_equivalent" && AZTEC_CACHE_REBUILD_PATTERNS="$rebuild_patterns" "$content_hash_script")
   FROM ubuntu:noble
   RUN echo "$content_hash" > .content-hash
@@ -54,7 +54,7 @@ WITH_CACHE:
   RUN echo "--> RUN WITH CACHE $command (start)"
   DO +SETUP_CACHE
   DO +WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
-  IF [$(cat .content-hash) == "uncommitted-changes"]
+  IF [ "$(cat .content-hash)" = "uncommitted-changes" ]
     RUN $command
   ELSE
     # print a clean version as the one below will be obfuscated
