@@ -22,17 +22,9 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
     //  |          table     randomness
     //  ignored, as used for regular constraints and padding to the next power of 2.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-    size_t offset = 0;
-    if constexpr (IsPlonkFlavor<Flavor>) {
-        const size_t tables_size = circuit.get_tables_size();
-        ASSERT(dyadic_circuit_size > tables_size + additional_offset);
-        offset = dyadic_circuit_size - tables_size - additional_offset;
-    } else {
-        const size_t max_tables_size =
-            std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - additional_offset);
-        ASSERT(dyadic_circuit_size > max_tables_size + additional_offset);
-        offset = dyadic_circuit_size - max_tables_size - additional_offset;
-    }
+    const size_t tables_size = circuit.get_tables_size();
+    ASSERT(dyadic_circuit_size > tables_size + additional_offset);
+    size_t offset = dyadic_circuit_size - tables_size - additional_offset;
 
     for (const auto& table : circuit.lookup_tables) {
         const fr table_index(table.table_index);
@@ -60,9 +52,9 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::CircuitBuilder& circuit,
                                   const size_t dyadic_circuit_size)
 {
-    const size_t max_tables_size = std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size);
+    const size_t tables_size = circuit.get_tables_size();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-    size_t table_offset = dyadic_circuit_size - max_tables_size;
+    size_t table_offset = dyadic_circuit_size - tables_size;
 
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
     for (auto& table : circuit.lookup_tables) {

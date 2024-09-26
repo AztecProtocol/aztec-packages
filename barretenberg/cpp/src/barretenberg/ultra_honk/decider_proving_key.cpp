@@ -5,7 +5,7 @@
 
 namespace bb {
 
-template <class Flavor> void DeciderProvingKey_<Flavor>::populate_public_inputs_block(Circuit& circuit)
+template <IsHonkFlavor Flavor> void DeciderProvingKey_<Flavor>::populate_public_inputs_block(Circuit& circuit)
 {
     ZoneScopedN("populate_public_inputs_block");
     // Update the public inputs block
@@ -29,7 +29,7 @@ template <class Flavor> void DeciderProvingKey_<Flavor>::populate_public_inputs_
  * @tparam Flavor
  * @param circuit
  */
-template <class Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(Circuit& circuit)
+template <IsHonkFlavor Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
     // for the lookup argument the circuit size must be at least as large as the sum of all tables used
     const size_t min_size_due_to_lookups = circuit.get_tables_size();
@@ -55,7 +55,7 @@ template <class Flavor> size_t DeciderProvingKey_<Flavor>::compute_dyadic_size(C
  * @tparam Flavor
  * @param circuit
  */
-template <class Flavor>
+template <IsHonkFlavor Flavor>
 void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires IsGoblinFlavor<Flavor>
 {

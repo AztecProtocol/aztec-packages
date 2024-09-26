@@ -20,7 +20,7 @@ namespace bb {
  * @details This is the equivalent of ω in the paper.
  */
 
-template <class Flavor> class DeciderProvingKey_ {
+template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -150,7 +150,7 @@ template <class Flavor> class DeciderProvingKey_ {
                     proving_key.polynomials.databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
                 }
                 const size_t max_tables_size =
-                    std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size);
+                    std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - 1);
                 size_t table_offset = dyadic_circuit_size - max_tables_size;
                 {
                     ZoneScopedN("allocating table polynomials");
@@ -186,11 +186,14 @@ template <class Flavor> class DeciderProvingKey_ {
                     const size_t lookup_offset = static_cast<size_t>(circuit.blocks.lookup.trace_offset);
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts
                     // at top of trace
-                    const size_t table_offset = dyadic_circuit_size - MAX_LOOKUP_TABLES_SIZE; // WORKTODO fix this
+                    const size_t table_offset =
+                        dyadic_circuit_size -
+                        std::min(dyadic_circuit_size - 1, static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE));
                     const size_t lookup_inverses_start = std::min(lookup_offset, table_offset);
                     const size_t lookup_inverses_end =
-                        std::max(lookup_offset + circuit.blocks.lookup.get_fixed_size(is_structured),
-                                 table_offset + MAX_LOOKUP_TABLES_SIZE);
+                        std::min(dyadic_circuit_size,
+                                 std::max(lookup_offset + circuit.blocks.lookup.get_fixed_size(is_structured),
+                                          table_offset + MAX_LOOKUP_TABLES_SIZE));
                     info("lookup_inverses size: ", lookup_inverses_end - lookup_inverses_start);
                     proving_key.polynomials.lookup_inverses = Polynomial(
                         lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
