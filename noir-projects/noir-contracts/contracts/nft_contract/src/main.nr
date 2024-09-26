@@ -160,7 +160,8 @@ contract NFT {
             randomness: note_randomness,
             header: dep::aztec::prelude::NoteHeader::empty()
         };
-        // `from` cannot receive any logs here! so we encrypt outgoing to `to`
+        // `from` cannot receive any logs here as that would leak information of who is the note recipient. For this
+        // reason we encrypt outgoing to `to`.
         let encrypted_log: [u8; 480] = dep::aztec::encrypted_logs::payload::compute_encrypted_note_log(
             context.this_address(),
             to_note_slot,
