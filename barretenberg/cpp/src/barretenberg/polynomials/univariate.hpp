@@ -384,8 +384,8 @@ template <class Fr, size_t domain_end, size_t domain_start = 0, size_t skip_coun
         if constexpr (LENGTH == 2) {
             Fr delta = value_at(1) - value_at(0);
             static_assert(EXTENDED_LENGTH != 0);
-            for (size_t idx = domain_end; idx < EXTENDED_DOMAIN_END; idx++) {
-                result.value_at(idx + 2) = result.value_at(idx + 1) + delta;
+            for (size_t idx = domain_end - 1; idx < EXTENDED_DOMAIN_END - 1; idx++) {
+                result.value_at(idx + 1) = result.value_at(idx) + delta;
             }
         } else if constexpr (LENGTH == 3) {
             // Based off https://hackmd.io/@aztec-network/SyR45cmOq?type=view
