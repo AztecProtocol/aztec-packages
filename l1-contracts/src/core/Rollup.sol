@@ -448,6 +448,189 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   }
 
   /**
+   * @notice  Submit a proof for an epoch in the pending chain
+   *
+   * @dev     Will emit `L2ProofVerified` if the proof is valid
+   *
+   * @dev     Will throw if:
+   *          - The block number is past the pending chain
+   *          - The last archive root of the header does not match the archive root of parent block
+   *          - The archive root of the header does not match the archive root of the proposed block
+   *          - The proof is invalid
+   *
+   * @dev     We provide the `_archive` and `_blockHash` even if it could be read from storage itself because it allow for
+   *          better error messages. Without passing it, we would just have a proof verification failure.
+   *
+   * @param  _epochSize - The size of the epoch (to be promoted to a constant)
+   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
+   * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
+   * @param  _aggregationObject - The aggregation object for the proof
+   * @param  _proof - The proof to verify
+   */
+  function submitEpochRootProof(
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[64] calldata _fees,
+    bytes calldata _aggregationObject,
+    bytes calldata _proof
+  ) external override(IRollup) {
+    uint256 previousBlockNumber = tips.provenBlockNumber;
+    uint256 endBlockNumber = previousBlockNumber + _epochSize;
+
+    bytes32[] memory publicInputs =
+      getEpochProofPublicInputs(_epochSize, _args, _fees, _aggregationObject);
+
+    if (!verifier.verify(_proof, publicInputs)) {
+      revert Errors.Rollup__InvalidProof();
+    }
+
+    tips.provenBlockNumber = endBlockNumber;
+
+    for (uint256 i = 0; i < 32; i++) {
+      address coinbase = address(uint160(uint256(publicInputs[9 + i * 2])));
+      uint256 fees = uint256(publicInputs[10 + i * 2]);
+
+      if (coinbase != address(0) && fees > 0) {
+        // @note  This will currently fail if there are insufficient funds in the bridge
+        //        which WILL happen for the old version after an upgrade where the bridge follow.
+        //        Consider allowing a failure. See #7938.
+        FEE_JUICE_PORTAL.distributeFees(coinbase, fees);
+      }
+    }
+
+    emit L2ProofVerified(endBlockNumber, _args[6]);
+  }
+
+  /**
+   * @notice Returns the computed public inputs for the given epoch proof.
+   *
+   * @dev Useful for debugging and testing. Allows submitter to compare their
+   * own public inputs used for generating the proof vs the ones assembled
+   * by this contract when verifying it.
+   *
+   * @param  _epochSize - The size of the epoch (to be promoted to a constant)
+   * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
+   * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
+   * @param  _aggregationObject - The aggregation object for the proof
+   */
+  function getEpochProofPublicInputs(
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[64] calldata _fees,
+    bytes calldata _aggregationObject
+  ) public view returns (bytes32[] memory) {
+    uint256 previousBlockNumber = tips.provenBlockNumber;
+    uint256 endBlockNumber = previousBlockNumber + _epochSize;
+
+    // Args are defined as an array because Solidity complains with "stack too deep" otherwise
+    // 0 bytes32 _previousArchive,
+    // 1 bytes32 _endArchive,
+    // 2 bytes32 _previousBlockHash,
+    // 3 bytes32 _endBlockHash,
+    // 4 bytes32 _endTimestamp,
+    // 5 bytes32 _outHash,
+    // 6 bytes32 _proverId,
+
+    // TODO(#7373): Public inputs are not fully verified
+
+    {
+      // We do it this way to provide better error messages than passing along the storage values
+      bytes32 expectedPreviousArchive = blocks[previousBlockNumber].archive;
+      if (expectedPreviousArchive != _args[0]) {
+        revert Errors.Rollup__InvalidPreviousArchive(expectedPreviousArchive, _args[0]);
+      }
+
+      bytes32 expectedEndArchive = blocks[endBlockNumber].archive;
+      if (expectedEndArchive != _args[1]) {
+        revert Errors.Rollup__InvalidArchive(expectedEndArchive, _args[1]);
+      }
+
+      bytes32 expectedPreviousBlockHash = blocks[previousBlockNumber].blockHash;
+      if (expectedPreviousBlockHash != _args[2]) {
+        revert Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, _args[2]);
+      }
+
+      bytes32 expectedEndBlockHash = blocks[endBlockNumber].blockHash;
+      if (expectedEndBlockHash != _args[3]) {
+        revert Errors.Rollup__InvalidBlockHash(expectedEndBlockHash, _args[3]);
+      }
+    }
+
+    bytes32[] memory publicInputs = new bytes32[](
+      Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH
+    );
+
+    // Structure of the root rollup public inputs we need to reassemble:
+    //
+    // struct RootRollupPublicInputs {
+    //   previous_archive: AppendOnlyTreeSnapshot,
+    //   end_archive: AppendOnlyTreeSnapshot,
+    //   previous_block_hash: Field,
+    //   end_block_hash: Field,
+    //   end_timestamp: u64,
+    //   end_block_number: Field,
+    //   out_hash: Field,
+    //   fees: [FeeRecipient; 32],
+    //   vk_tree_root: Field,
+    //   prover_id: Field
+    // }
+
+    // previous_archive.root: the previous archive tree root
+    publicInputs[0] = _args[0];
+
+    // previous_archive.next_available_leaf_index: the previous archive next available index
+    // normally this should be equal to the block number (since leaves are 0-indexed and blocks 1-indexed)
+    // but in yarn-project/merkle-tree/src/new_tree.ts we prefill the tree so that block N is in leaf N
+    publicInputs[1] = bytes32(previousBlockNumber + 1);
+
+    // end_archive.root: the new archive tree root
+    publicInputs[2] = _args[1];
+
+    // end_archive.next_available_leaf_index: the new archive next available index
+    publicInputs[3] = bytes32(endBlockNumber + 1);
+
+    // previous_block_hash: the block hash just preceding this epoch
+    publicInputs[4] = _args[2];
+
+    // end_block_hash: the last block hash in the epoch
+    publicInputs[5] = _args[3];
+
+    // end_timestamp: the timestamp of the last block in the epoch
+    publicInputs[6] = _args[4];
+
+    // end_block_number: last block number in the epoch
+    publicInputs[7] = bytes32(endBlockNumber);
+
+    // out_hash: root of this epoch's l2 to l1 message tree
+    publicInputs[8] = _args[5];
+
+    // fees[9-40]: array of recipient-value pairs
+    for (uint256 i = 0; i < 64; i++) {
+      publicInputs[9 + i] = _fees[i];
+    }
+
+    // vk_tree_root
+    publicInputs[41] = vkTreeRoot;
+
+    // prover_id: id of current epoch's prover
+    publicInputs[42] = _args[6];
+
+    // the block proof is recursive, which means it comes with an aggregation object
+    // this snippet copies it into the public inputs needed for verification
+    // it also guards against empty _aggregationObject used with mocked proofs
+    uint256 aggregationLength = _aggregationObject.length / 32;
+    for (uint256 i = 0; i < Constants.AGGREGATION_OBJECT_LENGTH && i < aggregationLength; i++) {
+      bytes32 part;
+      assembly {
+        part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
+      }
+      publicInputs[i + 43] = part;
+    }
+
+    return publicInputs;
+  }
+
+  /**
    * @notice  Check if msg.sender can propose at a given time
    *
    * @param _ts - The timestamp to check

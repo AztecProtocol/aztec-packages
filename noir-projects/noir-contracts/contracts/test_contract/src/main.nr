@@ -20,13 +20,10 @@ contract Test {
     };
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
-    use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
-    use dep::aztec::encrypted_logs::outgoing_body::EncryptedLogOutgoingBody;
+    use dep::aztec::encrypted_logs::payload::{compute_incoming_body_ciphertext, compute_outgoing_body_ciphertext};
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
     use dep::aztec::keys::getters::get_public_keys;
-
-    use dep::aztec::state_vars::{shared_mutable::SharedMutablePrivateGetter};
 
     use dep::aztec::{
         context::inputs::private_context_inputs::PrivateContextInputs,
@@ -422,7 +419,8 @@ contract Test {
         value: Field
     ) -> [u8; 112] {
         let note = TestNote::new(value);
-        EncryptedLogIncomingBody::from_note(note, storage_slot).compute_ciphertext(secret, ivpk).as_array()
+        let plaintext = note.to_be_bytes(storage_slot);
+        compute_incoming_body_ciphertext(plaintext, secret, ivpk).as_array()
     }
 
     #[private]
@@ -433,7 +431,7 @@ contract Test {
         ovsk_app: Scalar
     ) -> [u8; 144] {
         let eph_pk = derive_public_key(eph_sk);
-        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk).compute_ciphertext(ovsk_app, eph_pk)
+        compute_outgoing_body_ciphertext(recipient, recipient_ivpk, ovsk_app, eph_sk, eph_pk)
     }
 
     #[public]
@@ -483,24 +481,6 @@ contract Test {
     unconstrained fn get_constant() -> pub Field {
         let constant = storage.example_constant.view_note();
         constant.value
-    }
-
-    // This function is used in the e2e_state_vars to test the SharedMutablePrivateGetter in isolation
-    #[private]
-    fn test_shared_mutable_private_getter(
-        contract_address_to_read: AztecAddress,
-        storage_slot_of_shared_mutable: Field
-    ) -> Field {
-        // It's a bit wonky because we need to know the delay for get_current_value_in_private to work correctly
-        let test: SharedMutablePrivateGetter<AztecAddress, 5> = SharedMutablePrivateGetter::new(
-            &mut context,
-            contract_address_to_read,
-            storage_slot_of_shared_mutable
-        );
-
-        let ret = test.get_value_in_private(context.get_header());
-
-        ret.to_field()
     }
 
     #[private]
