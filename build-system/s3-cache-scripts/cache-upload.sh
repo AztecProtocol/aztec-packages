@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -eux
 
 # used by cache-update.sh, directly downloads a named tar file and extracts it
 
@@ -13,14 +13,14 @@ if [ "${S3_BUILD_CACHE_UPLOAD:-true}" = "false" ] || [ "${AWS_ACCESS_KEY_ID}" ==
   exit
 fi
 
-# Extract the name without tar.gz extension
-NAME="${@: -1}"
+# Name, intended to have .tar.gz ending
+NAME="$1"
 
 # Extract the binary paths to tar.gz and upload
 BIN_PATHS=("${@:1:$#-1}")
 
 TAR_DIR=$(mktemp -d)
-TAR_FILE="$TAR_DIR/${NAME}.tar.gz"
+TAR_FILE="$TAR_DIR/${NAME}"
 
 function on_exit() {
   # Cleanup the temporary folder
@@ -30,8 +30,5 @@ trap on_exit EXIT
 
 # Create the tar.gz file
 tar -czf "$TAR_FILE" "${BIN_PATHS[@]}"
-
-# flag to disable uploads
-S3_BUILD_CACHE_UPLOAD=${S3_BUILD_CACHE_UPLOAD:-false}
 
 aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$NAME.tar.gz" --quiet

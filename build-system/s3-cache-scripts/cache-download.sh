@@ -1,15 +1,11 @@
 #!/bin/bash
-set -eu
+set -eux
 
 # used by cache-download-, directhloads a named tar file and extracts it
 
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <tar.gz_file_to_download_and_extract>"
     exit 1
-fi
-
-if [ "${S3_BUILD_CACHE_DOWNLOAD:-true}" = "false" ] || [ "${AWS_ACCESS_KEY_ID}" == "" ] ; then
-  exit 1 # require a rebuild
 fi
 
 # Get the tar.gz file name from the argument

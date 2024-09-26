@@ -50,7 +50,7 @@ WITH_CACHE:
       --secret AWS_SECRET_ACCESS_KEY \
       --secret S3_BUILD_CACHE_UPLOAD \
       --secret S3_BUILD_CACHE_DOWNLOAD \
-      --secret S3_BUILD_CACHE_AWS_PARAMS \
-      /usr/src/build-system/s3-cache-scripts/cache-download.sh "$prefix-$(cat .content-hash).tar.gz" || \
-      (eval "$command" && /usr/src/build-system/s3-cache-scripts/cache-upload.sh $build_artifacts "$prefix-$(cat .content-hash)")
+      --secret S3_BUILD_CACHE_MINIO_PORT \
+      # Note, this should be edited in tandem with the ARGs above, but for clean logs we wrap this in a script
+      /usr/src/build-system/s3-cache-scripts/earthly-s3-cache.sh
   RUN echo "--> RUN WITH CACHE $command (end)"
