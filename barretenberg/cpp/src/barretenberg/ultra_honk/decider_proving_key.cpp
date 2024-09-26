@@ -54,9 +54,6 @@ void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     auto calldata = circuit.get_calldata();
     auto secondary_calldata = circuit.get_secondary_calldata();
     auto return_data = circuit.get_return_data();
-    info("calldata.size(): ", calldata.size());
-    info("secondary_calldata.size(): ", secondary_calldata.size());
-    info("return_data.size(): ", return_data.size());
 
     // Note: We do not utilize a zero row for databus columns
     for (size_t idx = 0; idx < calldata.size(); ++idx) {

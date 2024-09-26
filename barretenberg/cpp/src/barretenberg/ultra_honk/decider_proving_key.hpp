@@ -98,11 +98,9 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                             size_t arith_size = circuit.blocks.aux.trace_offset -
                                                 circuit.blocks.arithmetic.trace_offset +
                                                 circuit.blocks.aux.get_fixed_size(is_structured);
-                            info("arith_size: ", arith_size);
                             selector = Polynomial(
                                 arith_size, proving_key.circuit_size, circuit.blocks.arithmetic.trace_offset);
                         } else {
-                            info("block.fixed_size: ", block.get_fixed_size(is_structured));
                             selector = Polynomial(
                                 block.get_fixed_size(is_structured), proving_key.circuit_size, block.trace_offset);
                         }
@@ -194,7 +192,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
                         std::min(dyadic_circuit_size,
                                  std::max(lookup_offset + circuit.blocks.lookup.get_fixed_size(is_structured),
                                           table_offset + MAX_LOOKUP_TABLES_SIZE));
-                    info("lookup_inverses size: ", lookup_inverses_end - lookup_inverses_start);
                     proving_key.polynomials.lookup_inverses = Polynomial(
                         lookup_inverses_end - lookup_inverses_start, dyadic_circuit_size, lookup_inverses_start);
                     if constexpr (HasDataBus<Flavor>) {

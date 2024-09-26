@@ -166,7 +166,7 @@ TEST(Polynomial, Full)
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1113): Optimizing based on actual sizes would involve using
 // expand, but it is currently unused.
-TEST(Polynomial, DISABLED_Expand)
+TEST(Polynomial, Expand)
 {
     // Suppress warnings about fork(), we're OK with the edge cases.
     GTEST_FLAG_SET(death_test_style, "threadsafe");
