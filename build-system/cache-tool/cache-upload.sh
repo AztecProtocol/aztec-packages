@@ -29,6 +29,11 @@ tar -czf "$TAR_FILE" "${BIN_PATHS[@]}"
 # Set cache server details
 AZTEC_CACHE_TOOL_IP=${AZTEC_CACHE_TOOL_IP:-"localhost"}
 AZTEC_CACHE_TOOL_PORT=${AZTEC_CACHE_TOOL_PORT:-8337}
+AZTEC_CACHE_NO_S3_UPLOAD=${AZTEC_CACHE_NO_S3_UPLOAD:-false}
 
 # Upload the tar.gz file to the cache server
-curl -sS --output /dev/null -X POST -F "file=@${TAR_FILE}" "http://${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}/upload" || true
+if [ "$AZTEC_CACHE_NO_S3_UPLOAD = "false" ] ; then
+  curl -sS --output /dev/null -X POST -F "file=@${TAR_FILE}" "http://${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}/upload" || true
+else
+  curl -sS --output /dev/null -X POST -F "file=@${TAR_FILE}" "http://${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}/upload-local" || true
+fi
