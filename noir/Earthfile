@@ -141,7 +141,7 @@ packages-deps:
       noir-repo
 
 packages:
-    FROM +packages-deps
+  FROM +packages-deps
     COPY ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
     # NOTE: we use a fake commit hash here
     # we don't want Noir to rebuild everytime the parent repo changes
