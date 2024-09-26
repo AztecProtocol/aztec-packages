@@ -24,6 +24,11 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             quote {}
         } else {
             // The initial calldata_copy offset is 1 to skip the Field selector
+            // The expected calldata is the serialization of
+            // - FunctionSelector: the selector of the function intended to dispatch
+            // - Parameters: the parameters of the function intended to dispatch
+            // That is, exactly what is expected for a call to the target function,
+            // but with a selector added at the beginning.
             quote {
                 let input_calldata: [Field; $parameters_size] = dep::aztec::context::public_context::calldata_copy(1, $parameters_size);
                 let mut reader = dep::aztec::protocol_types::utils::reader::Reader::new(input_calldata);
@@ -102,36 +107,36 @@ comptime fn size_in_fields(typ: Type) -> u32 {
 comptime fn array_size_in_fields(typ: Type) -> Option<u32> {
     typ.as_array().and_then(
         |typ: (Type, Type)| {
-        let (typ, element_size) = typ;
-        element_size.as_constant().map(|x: u32| {
-            x * size_in_fields(typ)
-        })
-    }
+            let (typ, element_size) = typ;
+            element_size.as_constant().map(|x: u32| {
+                x * size_in_fields(typ)
+            })
+        }
     )
 }
 
 comptime fn struct_size_in_fields(typ: Type) -> Option<u32> {
     typ.as_struct().map(
         |typ: (StructDefinition, [Type])| {
-        let struct_type = typ.0;
-        let mut size = 0;
-        for field in struct_type.fields() {
-            size += size_in_fields(field.1);
+            let struct_type = typ.0;
+            let mut size = 0;
+            for field in struct_type.fields() {
+                size += size_in_fields(field.1);
+            }
+            size
         }
-        size
-    }
     )
 }
 
 comptime fn tuple_size_in_fields(typ: Type) -> Option<u32> {
     typ.as_tuple().map(
         |types: [Type]| {
-        let mut size = 0;
-        for typ in types {
-            size += size_in_fields(typ);
+            let mut size = 0;
+            for typ in types {
+                size += size_in_fields(typ);
+            }
+            size
         }
-        size
-    }
     )
 }
 

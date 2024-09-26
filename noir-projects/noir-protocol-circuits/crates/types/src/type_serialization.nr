@@ -83,12 +83,10 @@ impl <T, let N: u32, let M: u32> Serialize<N * M> for [T; N] where T: Serialize<
     fn serialize(self) -> [Field; N * M] {
         let mut result: [Field; N * M] = std::mem::zeroed();
         let mut serialized: [Field; M] = std::mem::zeroed();
-        let mut offset = 0;
         for i in 0..N {
             serialized = self[i].serialize();
             for j in 0..M {
-                result[offset] = serialized[j];
-                offset += 1;
+                result[i * M + j] = serialized[j];
             }
         }
         result
