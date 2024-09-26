@@ -23,7 +23,7 @@ function on_exit() {
 trap on_exit EXIT
 
 # Attempt to download the cache file
-aws "${S3_BUILD_CACHE_AWS_PARAMS:-}" s3 cp "s3://aztec-ci-artifacts/build-cache/$TAR_FILE" "$TAR_FILE" --quiet
+aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "s3://aztec-ci-artifacts/build-cache/$TAR_FILE" "$TAR_FILE" --quiet
 
 # Extract the cache file
 tar -xzf "$TAR_FILE"

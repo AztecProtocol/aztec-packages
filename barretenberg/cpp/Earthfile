@@ -26,8 +26,6 @@ source:
   COPY --dir src/barretenberg src/CMakeLists.txt src
   # cmake source
   COPY --dir cmake CMakeLists.txt CMakePresets.json .rebuild_patterns .
-  # for debugging rebuilds
-  RUN echo CONTENT HASH $(find . -type f -exec sha256sum {} ';' | sort | sha256sum | awk '{print $1}') | tee .content-hash
 
 preset-darwin-arm64:
   FROM +source
@@ -44,10 +42,15 @@ preset-release:
     --command="cmake --preset clang16 -Bbuild && cmake --build build --target bb"
   SAVE ARTIFACT build/bin
 
+test-no-cache:
+  FROM +source
+  RUN mkdir -p build/bin && echo hi > build/bin/cache
+  SAVE ARTIFACT build/bin
+
 test-cache:
   FROM +source
   DO +CACHE_BUILD_BIN --prefix=preset-release-world-state \
-    --command="cmake --preset clang16-pic -Bbuild && cmake --build build --target world_state_napi && mv ./build/lib/world_state_napi.node ./build/bin"
+    --command="mkdir -p build/bin && echo hi > build/bin/cache  "
   SAVE ARTIFACT build/bin
 
 preset-release-world-state:
