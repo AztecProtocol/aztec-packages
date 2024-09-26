@@ -59,6 +59,7 @@ import {
   convertBlockRootRollupInputsToWitnessMap,
   convertBlockRootRollupOutputsFromWitnessMap,
   convertEmptyBlockRootRollupInputsToWitnessMap,
+  convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
   convertPrivateKernelEmptyInputsToWitnessMap,
@@ -395,12 +396,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'EmptyBlockRootRollupArtifact',
       RECURSIVE_PROOF_LENGTH,
       convertEmptyBlockRootRollupInputsToWitnessMap,
-      convertBlockRootRollupOutputsFromWitnessMap,
+      convertEmptyBlockRootRollupOutputsFromWitnessMap,
     );
 
-    const verificationKey = await this.getVerificationKeyDataForCircuit('BlockRootRollupArtifact');
+    const verificationKey = await this.getVerificationKeyDataForCircuit('EmptyBlockRootRollupArtifact');
 
-    await this.verifyProof('BlockRootRollupArtifact', proof.binaryProof);
+    await this.verifyProof('EmptyBlockRootRollupArtifact', proof.binaryProof);
 
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }

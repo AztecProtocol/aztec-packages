@@ -1077,7 +1077,6 @@ export function makeEmptyBlockRootRollupInputs(
     globalVariables ?? makeGlobalVariables(seed + 0x200),
     fr(seed + 0x300),
     fr(seed + 0x400),
-    fr(seed + 0x500),
   );
 }
 

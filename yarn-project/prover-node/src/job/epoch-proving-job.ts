@@ -108,6 +108,9 @@ export class EpochProvingJob {
         previousHeader = block.header;
       }
 
+      // Pad epoch with empty block proofs if needed
+      this.prover.setEpochCompleted();
+
       this.state = 'awaiting-prover';
       const result = await provingTicket.provingPromise;
       if (result.status === PROVING_STATUS.FAILURE) {

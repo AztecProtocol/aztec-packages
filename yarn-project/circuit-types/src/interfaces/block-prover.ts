@@ -78,5 +78,7 @@ export interface BlockProver extends BlockSimulator {
 export interface EpochProver extends BlockProver {
   startNewEpoch(epochNumber: number, totalNumBlocks: number): ProvingTicket;
 
+  setEpochCompleted(): void;
+
   finaliseEpoch(): ProvingEpochResult;
 }

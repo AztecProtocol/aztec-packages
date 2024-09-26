@@ -31,6 +31,7 @@ import {
   type BaseRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
   Fr,
   type GlobalVariables,
   type KernelCircuitPublicInputs,
@@ -134,12 +135,14 @@ export class ProvingOrchestrator implements EpochProver {
     this.paddingTx = undefined;
   }
 
-  public startNewEpoch(epochNumber: number, totalNumBlocks: number): ProvingTicket {
+  public startNewEpoch(epochNumber: number, totalNumBlocks: number, proveEpoch = true): ProvingTicket {
     const { promise: _promise, resolve, reject } = promiseWithResolvers<ProvingResult>();
     const promise = _promise.catch((reason): ProvingResult => ({ status: PROVING_STATUS.FAILURE, reason }));
-
+    if (totalNumBlocks <= 0) {
+      throw new Error(`Invalid number of blocks for epoch: ${totalNumBlocks}`);
+    }
     logger.info(`Starting epoch ${epochNumber} with ${totalNumBlocks} blocks`);
-    this.provingState = new EpochProvingState(epochNumber, totalNumBlocks, resolve, reject);
+    this.provingState = new EpochProvingState(epochNumber, totalNumBlocks, resolve, reject, proveEpoch);
     return { provingPromise: promise };
   }
 
@@ -161,8 +164,9 @@ export class ProvingOrchestrator implements EpochProver {
     l1ToL2Messages: Fr[],
   ): Promise<ProvingTicket> {
     // If no proving state, assume we only care about proving this block and initialize a 1-block epoch
+    // TODO(palla/prover): Remove this flow once we drop block-only proving
     if (!this.provingState) {
-      this.startNewEpoch(globalVariables.blockNumber.toNumber(), 1);
+      this.startNewEpoch(globalVariables.blockNumber.toNumber(), 1, false);
     }
 
     if (!this.provingState?.isAcceptingBlocks()) {
@@ -347,6 +351,69 @@ export class ProvingOrchestrator implements EpochProver {
     // And build the block header
     logger.verbose(`Block ${provingState.globalVariables.blockNumber} padded with empty tx(s). Assembling header.`);
     await this.buildBlockHeader(provingState);
+  }
+
+  @trackSpan('ProvingOrchestrator.setEpochCompleted', function () {
+    if (!this.provingState) {
+      return {};
+    }
+    return {
+      [Attributes.EPOCH_NUMBER]: this.provingState.epochNumber,
+      [Attributes.EPOCH_SIZE]: this.provingState.totalNumBlocks,
+    };
+  })
+  public setEpochCompleted() {
+    const provingState = this.provingState;
+    if (!provingState) {
+      throw new Error(`Invalid proving state, call startNewEpoch first`);
+    }
+
+    const lastBlock = provingState.currentBlock?.block;
+    if (!lastBlock) {
+      throw new Error(`Epoch needs at least one completed block in order to be marked as completed`);
+    }
+
+    const paddingBlockCount = Math.max(2, provingState.totalNumBlocks) - provingState.blocks.length;
+    if (paddingBlockCount === 0) {
+      return;
+    }
+
+    logger.debug(`Padding epoch proof with ${paddingBlockCount} empty block proofs`);
+
+    const inputs = EmptyBlockRootRollupInputs.from({
+      archive: lastBlock.archive,
+      blockHash: lastBlock.header.hash(),
+      globalVariables: lastBlock.header.globalVariables,
+      vkTreeRoot: getVKTreeRoot(),
+      proverId: this.proverId,
+    });
+
+    logger.debug(`Enqueuing deferred proving for padding block to enqueue ${paddingBlockCount} paddings`);
+    this.deferredProving(
+      provingState,
+      wrapCallbackInSpan(
+        this.tracer,
+        'ProvingOrchestrator.prover.getEmptyBlockRootRollupProof',
+        {
+          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'empty-block-root-rollup' satisfies CircuitName,
+        },
+        signal => this.prover.getEmptyBlockRootRollupProof(inputs, signal, provingState.epochNumber),
+      ),
+      result => {
+        logger.debug(`Completed proof for padding block`);
+        const currentLevel = provingState.numMergeLevels + 1n;
+        for (let i = 0; i < paddingBlockCount; i++) {
+          logger.debug(`Enqueuing padding block with index ${provingState.blocks.length + i}`);
+          const index = BigInt(provingState.blocks.length + i);
+          this.storeAndExecuteNextBlockMergeLevel(provingState, currentLevel, index, [
+            result.inputs,
+            result.proof,
+            result.verificationKey.keyAsFields,
+          ]);
+        }
+      },
+    );
   }
 
   private async buildBlockHeader(provingState: BlockProvingState) {
@@ -860,7 +927,7 @@ export class ProvingOrchestrator implements EpochProver {
       proverId: this.proverId,
     });
 
-    const shouldProveEpoch = this.provingState!.totalNumBlocks > 1;
+    const shouldProveEpoch = this.provingState!.proveEpoch;
 
     this.deferredProving(
       provingState,

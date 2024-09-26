@@ -54,6 +54,7 @@ import {
   convertBlockRootRollupInputsToWitnessMap,
   convertBlockRootRollupOutputsFromWitnessMap,
   convertEmptyBlockRootRollupInputsToWitnessMap,
+  convertEmptyBlockRootRollupOutputsFromWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
   convertPrivateKernelEmptyInputsToWitnessMap,
@@ -367,7 +368,7 @@ export class TestCircuitProver implements ServerCircuitProver {
       SimulatedServerCircuitArtifacts.EmptyBlockRootRollupArtifact,
     );
 
-    const result = convertBlockRootRollupOutputsFromWitnessMap(witness);
+    const result = convertEmptyBlockRootRollupOutputsFromWitnessMap(witness);
 
     this.instrumentation.recordDuration('simulationDuration', 'empty-block-root-rollup', timer);
     emitCircuitSimulationStats(
