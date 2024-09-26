@@ -33,8 +33,9 @@ export class DebugLog extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    const [messageOffset, fieldsOffset, fieldsSizeOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset],
+    const operands = [this.messageOffset, this.fieldsOffset, this.fieldsSizeOffset];
+    const [messageOffset, fieldsOffset, fieldsSizeOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(
+      operands,
       memory,
     );
 

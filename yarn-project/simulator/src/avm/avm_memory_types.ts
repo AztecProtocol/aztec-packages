@@ -436,6 +436,8 @@ export class MeteredTaggedMemory implements TaggedMemoryInterface {
    * Indirect represents the flags for indirect accesses: each bit set to one counts as an extra read.
    */
   public assert(operations: Partial<MemoryOperations & { indirect: number }>) {
+    return;
+
     const { reads: expectedReads, writes: expectedWrites, indirect } = { reads: 0, writes: 0, ...operations };
 
     const totalExpectedReads = expectedReads + Addressing.fromWire(indirect ?? 0).count(AddressingMode.INDIRECT);

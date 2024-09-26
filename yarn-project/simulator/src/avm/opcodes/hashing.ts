@@ -37,10 +37,8 @@ export class Poseidon2 extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
-    const [inputOffset, outputOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.inputStateOffset, this.outputStateOffset],
-      memory,
-    );
+    const operands = [this.inputStateOffset, this.outputStateOffset];
+    const [inputOffset, outputOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
     memory.checkTagsRange(TypeTag.FIELD, inputOffset, Poseidon2.stateSize);
 
     const inputState = memory.getSlice(inputOffset, Poseidon2.stateSize);
@@ -80,8 +78,9 @@ export class Keccak extends Instruction {
   // pub fn keccak256(input: [u8], message_size: u32) -> [u8; 32]
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    const [dstOffset, messageOffset, messageSizeOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.dstOffset, this.messageOffset, this.messageSizeOffset],
+    const operands = [this.dstOffset, this.messageOffset, this.messageSizeOffset];
+    const [dstOffset, messageOffset, messageSizeOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(
+      operands,
       memory,
     );
     memory.checkTag(TypeTag.UINT32, messageSizeOffset);
@@ -129,8 +128,9 @@ export class KeccakF1600 extends Instruction {
   // pub fn keccakf1600(input: [u64; 25]) -> [u64; 25]
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    const [dstOffset, stateOffset, stateSizeOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.dstOffset, this.stateOffset, this.stateSizeOffset],
+    const operands = [this.dstOffset, this.stateOffset, this.stateSizeOffset];
+    const [dstOffset, stateOffset, stateSizeOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(
+      operands,
       memory,
     );
     memory.checkTag(TypeTag.UINT32, stateSizeOffset);
@@ -183,12 +183,17 @@ export class Sha256Compression extends Instruction {
     const INPUTS_SIZE = 16;
 
     const memory = context.machineState.memory.track(this.type);
+    const operands = [
+      this.outputOffset,
+      this.stateOffset,
+      this.stateSizeOffset,
+      this.inputsOffset,
+      this.inputsSizeOffset,
+    ];
     const [outputOffset, stateOffset, stateSizeOffset, inputsOffset, inputsSizeOffset] = Addressing.fromWire(
       this.indirect,
-    ).resolve(
-      [this.outputOffset, this.stateOffset, this.stateSizeOffset, this.inputsOffset, this.inputsSizeOffset],
-      memory,
-    );
+      operands.length,
+    ).resolve(operands, memory);
     const stateSize = memory.get(stateSizeOffset).toNumber();
     const inputsSize = memory.get(inputsSizeOffset).toNumber();
     if (stateSize !== STATE_SIZE) {
@@ -243,10 +248,11 @@ export class Pedersen extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    const [genIndexOffset, dstOffset, messageOffset, messageSizeOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.genIndexOffset, this.dstOffset, this.messageOffset, this.messageSizeOffset],
-      memory,
-    );
+    const operands = [this.genIndexOffset, this.dstOffset, this.messageOffset, this.messageSizeOffset];
+    const [genIndexOffset, dstOffset, messageOffset, messageSizeOffset] = Addressing.fromWire(
+      this.indirect,
+      operands.length,
+    ).resolve(operands, memory);
 
     // We hash a set of field elements
     const genIndex = Number(memory.get(genIndexOffset).toBigInt());

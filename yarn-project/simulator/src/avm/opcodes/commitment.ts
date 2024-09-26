@@ -32,10 +32,12 @@ export class PedersenCommitment extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    const [inputOffset, outputOffset, inputSizeOffset, genIndexOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.inputOffset, this.outputOffset, this.inputSizeOffset, this.genIndexOffset],
-      memory,
-    );
+
+    const operands = [this.inputOffset, this.outputOffset, this.inputSizeOffset, this.genIndexOffset];
+    const [inputOffset, outputOffset, inputSizeOffset, genIndexOffset] = Addressing.fromWire(
+      this.indirect,
+      operands.length,
+    ).resolve(operands, memory);
 
     const inputSize = memory.get(inputSizeOffset).toNumber();
     memory.checkTag(TypeTag.UINT32, inputSizeOffset);

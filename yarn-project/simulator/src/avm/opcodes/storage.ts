@@ -36,7 +36,8 @@ export class SStore extends BaseStorageInstruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
-    const [srcOffset, slotOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset, this.bOffset], memory);
+    const operands = [this.aOffset, this.bOffset];
+    const [srcOffset, slotOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, slotOffset);
     memory.checkTag(TypeTag.FIELD, srcOffset);
 
@@ -62,7 +63,8 @@ export class SLoad extends BaseStorageInstruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
-    const [slotOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.aOffset, this.bOffset], memory);
+    const operands = [this.aOffset, this.bOffset];
+    const [slotOffset, dstOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, slotOffset);
 
     const slot = memory.get(slotOffset).toFr();

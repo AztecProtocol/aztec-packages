@@ -66,7 +66,8 @@ export class Set extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
-    const [dstOffset] = Addressing.fromWire(this.indirect).resolve([this.dstOffset], memory);
+    const operands = [this.dstOffset];
+    const [dstOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
     const res = TaggedMemory.buildFromTagTruncating(this.value, this.inTag);
     memory.set(dstOffset, res);
 
@@ -103,8 +104,9 @@ export class CMov extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
-    const [aOffset, bOffset, condOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.aOffset, this.bOffset, this.condOffset, this.dstOffset],
+    const operands = [this.aOffset, this.bOffset, this.condOffset, this.dstOffset];
+    const [aOffset, bOffset, condOffset, dstOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(
+      operands,
       memory,
     );
 
@@ -148,7 +150,8 @@ export class Cast extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
-    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.dstOffset], memory);
+    const operands = [this.srcOffset, this.dstOffset];
+    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
 
     const a = memory.get(srcOffset);
     const casted = TaggedMemory.buildFromTagTruncating(a.toBigInt(), this.dstTag);
@@ -187,7 +190,8 @@ export class Mov extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
-    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.dstOffset], memory);
+    const operands = [this.srcOffset, this.dstOffset];
+    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
 
     const a = memory.get(srcOffset);
 
@@ -222,8 +226,9 @@ export class CalldataCopy extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
     // We don't need to check tags here because: (1) the calldata is NOT in memory, and (2) we are the ones writing to destination.
-    const [cdStartOffset, copySizeOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.cdStartOffset, this.copySizeOffset, this.dstOffset],
+    const operands = [this.cdStartOffset, this.copySizeOffset, this.dstOffset];
+    const [cdStartOffset, copySizeOffset, dstOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(
+      operands,
       memory,
     );
 

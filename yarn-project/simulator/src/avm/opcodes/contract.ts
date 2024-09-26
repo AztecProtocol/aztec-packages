@@ -26,10 +26,8 @@ export class GetContractInstance extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost());
 
-    const [addressOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.addressOffset, this.dstOffset],
-      memory,
-    );
+    const operands = [this.addressOffset, this.dstOffset];
+    const [addressOffset, dstOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, addressOffset);
 
     const address = memory.get(addressOffset).toFr();
