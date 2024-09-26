@@ -78,7 +78,7 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.metrics.service.type }}
+  type: {{if .Values.network.public }}"LoadBalancer"{{ else }}"ClusterIP"{{ end }}
   ports:
     - port: {{ .Values.metrics.ports.otlp }}
       targetPort: otlp
