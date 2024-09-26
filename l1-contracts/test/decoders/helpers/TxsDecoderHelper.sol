@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {TxsDecoder} from "@aztec/core/libraries/TxsDecoder.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
