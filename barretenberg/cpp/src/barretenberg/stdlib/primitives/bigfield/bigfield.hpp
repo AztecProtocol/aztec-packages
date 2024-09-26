@@ -357,6 +357,7 @@ template <typename Builder, typename T> class bigfield {
                                  bool check_for_zero);
 
     static bigfield div_without_denominator_check(const std::vector<bigfield>& numerators, const bigfield& denominator);
+    bigfield div_without_denominator_check(const bigfield& denominator);
     static bigfield div_check_denominator_nonzero(const std::vector<bigfield>& numerators, const bigfield& denominator);
 
     bigfield conditional_negate(const bool_t<Builder>& predicate) const;

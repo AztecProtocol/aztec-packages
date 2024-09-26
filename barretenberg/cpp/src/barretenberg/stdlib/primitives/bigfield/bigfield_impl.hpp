@@ -776,8 +776,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator*(const bigfield& other) cons
 }
 
 /**
- * Division operator. Doesn't create constraints for b!=0, which can lead to vulnerabilities. If you need a safer
- *variant use div_check_denominator_nonzero.
+ * Division operator. Create constraints for b!=0 by default. If you need a variant
+ *without the zero check,  use div_without_denominator_check.
  *
  * To evaluate (a / b = c mod p), we instead evaluate (c * b = a mod p).
  **/
@@ -785,7 +785,7 @@ template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::operator/(const bigfield& other) const
 {
 
-    return internal_div({ *this }, other, false);
+    return internal_div({ *this }, other, true);
 }
 /**
  * @brief Create constraints for summing these terms
@@ -909,6 +909,12 @@ bigfield<Builder, T> bigfield<Builder, T>::div_without_denominator_check(const s
                                                                          const bigfield& denominator)
 {
     return internal_div(numerators, denominator, false);
+}
+
+template <typename Builder, typename T>
+bigfield<Builder, T> bigfield<Builder, T>::div_without_denominator_check(const bigfield& denominator)
+{
+    return internal_div({ *this }, denominator, false);
 }
 
 /**
