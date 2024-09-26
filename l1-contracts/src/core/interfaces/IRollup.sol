@@ -30,7 +30,7 @@ interface IRollup {
 
   function prune() external;
 
-  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote) external;
+  function claimEpochProofRight(DataStructures.EpochProofQuote calldata _quote) external;
 
   function propose(
     bytes calldata _header,
