@@ -1,7 +1,7 @@
 use dep::types::{
     abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, global_variables::GlobalVariables},
-    constants::BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH, traits::{Empty, Serialize, Deserialize},
-    utils::reader::Reader, address::EthAddress
+    constants::{BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH, FEE_RECIPIENT_LENGTH},
+    traits::{Empty, Serialize, Deserialize}, utils::reader::Reader, address::EthAddress
 };
 
 pub struct FeeRecipient {
@@ -16,14 +16,14 @@ impl Empty for FeeRecipient {
     }
 }
 
-impl Serialize<2> for FeeRecipient {
-    fn serialize(self) -> [Field; 2] {
+impl Serialize<FEE_RECIPIENT_LENGTH> for FeeRecipient {
+    fn serialize(self) -> [Field; FEE_RECIPIENT_LENGTH] {
         [self.recipient.to_field(), self.value]
     }
 }
 
-impl Deserialize<2> for FeeRecipient {
-    fn deserialize(values: [Field; 2]) -> Self {
+impl Deserialize<FEE_RECIPIENT_LENGTH> for FeeRecipient {
+    fn deserialize(values: [Field; FEE_RECIPIENT_LENGTH]) -> Self {
         Self { recipient: EthAddress::from_field(values[0]), value: values[1] }
     }
 }

@@ -47,7 +47,16 @@ interface IRollup {
     bytes calldata _proof
   ) external;
 
+  function submitEpochRootProof(
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[64] calldata _fees,
+    bytes calldata _aggregationObject,
+    bytes calldata _proof
+  ) external;
+
   function canProposeAtTime(uint256 _ts, bytes32 _archive) external view returns (uint256, uint256);
+
   function validateHeader(
     bytes calldata _header,
     SignatureLib.Signature[] memory _signatures,
