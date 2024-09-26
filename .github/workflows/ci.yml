@@ -696,6 +696,47 @@ jobs:
           delete: ${{ !steps.gates_diff.outputs.markdown }}
           message: ${{ steps.gates_diff.outputs.markdown }}
 
+  public-functions-size-report:
+    needs: [build-images, changes]
+    if: needs.changes.outputs.non-docs == 'true' && needs.changes.outputs.non-misc-ci == 'true'
+    runs-on: ${{ github.event.pull_request.user.login || github.actor }}-x86
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.GIT_COMMIT }}" }
+      # Only allow one memory-hunger prover test to use this runner
+      - uses: ./.github/ci-setup-action
+        with:
+          concurrency_key: public-functions-size-report-x86
+      - name: "Aztec Public Functions Bytecode Size Report"
+        working-directory: ./noir-projects/
+        timeout-minutes: 40
+        run: |
+          earthly-ci \
+          --artifact +public-functions-report/public_functions_report.json
+          mv public_functions_report.json ../public_functions_report.json
+
+      - name: Compare public functions bytecode size reports
+        id: public_functions_sizes_diff
+        uses: noir-lang/noir-gates-diff@d88f7523b013b9edd3f31c5cfddaef87a3fe1b48
+        with:
+          report: public_functions_report.json
+          header: |
+            # Changes to public function bytecode sizes
+          brillig_report: true
+          brillig_report_bytes: true
+          summaryQuantile: 0 # Display any diff in bytecode size count
+
+      - name: Add bytecode size diff to sticky comment
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: public_functions_size
+          # delete the comment in case changes no longer impact circuit sizes
+          delete: ${{ !steps.public_functions_sizes_diff.outputs.markdown }}
+          message: ${{ steps.public_functions_sizes_diff.outputs.markdown }}
+
   merge-check:
     runs-on: ubuntu-20.04
     needs:

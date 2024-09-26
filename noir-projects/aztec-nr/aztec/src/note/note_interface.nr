@@ -19,7 +19,7 @@ pub trait NullifiableNote {
 
     // Unlike compute_nullifier, this function does not take a note hash since it'll only be invoked in unconstrained
     // contexts, where there is no gate count.
-    fn compute_nullifier_without_context(self) -> Field;
+    unconstrained fn compute_nullifier_without_context(self) -> Field;
 }
 
 // docs:start:note_interface
@@ -48,4 +48,3 @@ pub trait NoteInterface<let N: u32> {
     fn compute_note_hash(self) -> Field;
 }
 // docs:end:note_interface
-

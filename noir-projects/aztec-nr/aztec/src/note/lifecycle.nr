@@ -19,15 +19,12 @@ pub fn create_note<Note, let N: u32>(
     let note_hash = note.compute_note_hash();
 
     let serialized_note = Note::serialize_content(*note);
-    assert(
-        notify_created_note(
+    notify_created_note(
         storage_slot,
         Note::get_note_type_id(),
         serialized_note,
         note_hash,
         note_hash_counter
-    )
-        == 0
     );
 
     context.push_note_hash(note_hash);
@@ -81,8 +78,7 @@ pub fn destroy_note_unsafe<Note, let N: u32>(
     };
 
     let nullifier_counter = context.side_effect_counter;
-    assert(notify_nullified_note(nullifier, notification_note_hash, nullifier_counter) == 0);
+    notify_nullified_note(nullifier, notification_note_hash, nullifier_counter);
 
     context.push_nullifier_for_note_hash(nullifier, notification_note_hash)
 }
-

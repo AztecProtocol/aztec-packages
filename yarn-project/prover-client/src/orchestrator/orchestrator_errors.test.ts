@@ -46,6 +46,16 @@ describe('prover/orchestrator/errors', () => {
       expect(finalisedBlock.block.number).toEqual(context.blockNumber);
     });
 
+    it('throws if adding too many blocks', async () => {
+      context.orchestrator.startNewEpoch(1, 1);
+      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+      await context.orchestrator.setBlockCompleted();
+
+      await expect(
+        async () => await context.orchestrator.startNewBlock(2, context.globalVariables, []),
+      ).rejects.toThrow('Epoch not accepting further blocks');
+    });
+
     it('throws if adding a transaction before start', async () => {
       await expect(
         async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx(context.actualDb)),
@@ -71,27 +81,10 @@ describe('prover/orchestrator/errors', () => {
       );
     });
 
-    it('throws if finalising an already finalised block', async () => {
-      const txs = await Promise.all([
-        makeEmptyProcessedTestTx(context.actualDb),
-        makeEmptyProcessedTestTx(context.actualDb),
-      ]);
-
-      const blockTicket = await context.orchestrator.startNewBlock(txs.length, context.globalVariables, []);
-
-      await context.orchestrator.setBlockCompleted();
-
-      const result = await blockTicket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const finalisedBlock = await context.orchestrator.finaliseBlock();
-      expect(finalisedBlock.block.number).toEqual(context.blockNumber);
-      await expect(async () => await context.orchestrator.finaliseBlock()).rejects.toThrow('Block already finalised');
-    });
-
     it('throws if adding to a cancelled block', async () => {
       await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
-      context.orchestrator.cancelBlock();
+      context.orchestrator.cancel();
 
       await expect(
         async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx(context.actualDb)),
