@@ -29,20 +29,20 @@ export function deriveAESSecret(secretKey: GrumpkinScalar, publicKey: PublicKey)
   return hash;
 }
 
-  /**
-   * Derives an AES symmetric key from the app siloed outgoing viewing secret key
-   * and the ephemeral public key using poseidon.
-   *
-   * @param ovskApp - The app siloed outgoing viewing secret key
-   * @param ephPk - The ephemeral public key
-   * @returns The derived AES symmetric key
-   */
+/**
+ * Derives an AES symmetric key from the app siloed outgoing viewing secret key
+ * and the ephemeral public key using poseidon.
+ *
+ * @param ovskApp - The app siloed outgoing viewing secret key
+ * @param ephPk - The ephemeral public key
+ * @returns The derived AES symmetric key
+ */
 export function derivePoseidonAESSecret(ovskApp: GrumpkinScalar, ephPk: PublicKey) {
-    // For performance reasons, we do NOT use the usual `deriveAESSecret` function here and instead we compute it using
-    // poseidon. Note that we can afford to use poseidon here instead of deriving shared secret using Diffie-Hellman
-    // because for outgoing we are encrypting for ourselves and hence we don't need to perform a key exchange.
-    return poseidon2HashWithSeparator(
-      [ovskApp.hi, ovskApp.lo, ephPk.x, ephPk.y],
-      GeneratorIndex.SYMMETRIC_KEY,
-    ).toBuffer();
-  }
+  // For performance reasons, we do NOT use the usual `deriveAESSecret` function here and instead we compute it using
+  // poseidon. Note that we can afford to use poseidon here instead of deriving shared secret using Diffie-Hellman
+  // because for outgoing we are encrypting for ourselves and hence we don't need to perform a key exchange.
+  return poseidon2HashWithSeparator(
+    [ovskApp.hi, ovskApp.lo, ephPk.x, ephPk.y],
+    GeneratorIndex.SYMMETRIC_KEY,
+  ).toBuffer();
+}

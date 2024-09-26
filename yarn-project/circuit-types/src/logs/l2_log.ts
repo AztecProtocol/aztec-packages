@@ -140,6 +140,10 @@ export class L2Log {
 
     return new L2Log(incomingTag, outgoingTag, contractAddress, incomingBody);
   }
+
+  public toBuffer() {
+    return serializeToBuffer(this.incomingTag, this.outgoingTag, this.contract.toBuffer(), this.incomingBodyPlaintext);
+  }
 }
 
 /**
