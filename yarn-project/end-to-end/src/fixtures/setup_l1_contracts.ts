@@ -1,4 +1,5 @@
 import { type DebugLogger, type L1ContractArtifactsForDeployment, deployL1Contracts } from '@aztec/aztec.js';
+import { type DeployL1ContractsArgs } from '@aztec/ethereum';
 import {
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
@@ -25,6 +26,7 @@ export const setupL1Contracts = async (
   l1RpcUrl: string,
   account: HDAccount | PrivateKeyAccount,
   logger: DebugLogger,
+  args: Pick<DeployL1ContractsArgs, 'assumeProvenThrough' | 'initialValidators'>,
 ) => {
   const l1Artifacts: L1ContractArtifactsForDeployment = {
     registry: {
@@ -57,6 +59,7 @@ export const setupL1Contracts = async (
     l2FeeJuiceAddress: FeeJuiceAddress,
     vkTreeRoot: getVKTreeRoot(),
     salt: undefined,
+    ...args,
   });
 
   return l1Data;

@@ -91,6 +91,29 @@ export interface L1ContractArtifactsForDeployment {
   feeJuicePortal: ContractArtifacts;
 }
 
+export interface DeployL1ContractsArgs {
+  /**
+   * The address of the L2 Fee Juice contract.
+   */
+  l2FeeJuiceAddress: AztecAddress;
+  /**
+   * The vk tree root.
+   */
+  vkTreeRoot: Fr;
+  /**
+   * The block number to assume proven through.
+   */
+  assumeProvenThrough?: number;
+  /**
+   * The salt for CREATE2 deployment.
+   */
+  salt: number | undefined;
+  /**
+   * The initial validators for the rollup contract.
+   */
+  initialValidators?: EthAddress[];
+}
+
 export type L1Clients = {
   publicClient: PublicClient<HttpTransport, Chain>;
   walletClient: WalletClient<HttpTransport, Chain, Account>;
@@ -144,13 +167,7 @@ export const deployL1Contracts = async (
   chain: Chain,
   logger: DebugLogger,
   contractsToDeploy: L1ContractArtifactsForDeployment,
-  args: {
-    l2FeeJuiceAddress: AztecAddress;
-    vkTreeRoot: Fr;
-    assumeProvenThrough?: number;
-    salt: number | undefined;
-    initialValidators?: EthAddress[];
-  },
+  args: DeployL1ContractsArgs,
 ): Promise<DeployL1Contracts> => {
   // We are assuming that you are running this on a local anvil node which have 1s block times
   // To align better with actual deployment, we update the block interval to 12s

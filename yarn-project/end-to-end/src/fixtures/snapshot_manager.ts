@@ -18,7 +18,7 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { createL1Clients } from '@aztec/ethereum';
+import { type DeployL1ContractsArgs, createL1Clients } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
@@ -269,6 +269,9 @@ async function setupFromFresh(
   statePath: string | undefined,
   logger: Logger,
   config: Partial<AztecNodeConfig> = {},
+  deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
+    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+  },
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
 
@@ -303,7 +306,12 @@ async function setupFromFresh(
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
 
-  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger);
+  const deployL1ContractsValues = await setupL1Contracts(
+    aztecNodeConfig.l1RpcUrl,
+    hdAccount,
+    logger,
+    deployL1ContractsArgs,
+  );
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
