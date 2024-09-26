@@ -40,7 +40,9 @@ pub fn encode_and_encrypt_event<Event, let N: u32>(
     recipient: AztecAddress
 ) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
     | e: Event | {
-        let randomness = unsafe_rand();
+        let randomness =  unsafe {
+            unsafe_rand()
+        };
         let ovsk_app: Field = context.request_ovsk_app(ovpk.hash());
         let (encrypted_log, log_hash) = compute_raw_event_log(*context, e, randomness, ovsk_app, ovpk, ivpk, recipient);
         context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
@@ -54,8 +56,12 @@ pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
     recipient: AztecAddress
 ) -> fn[(&mut PrivateContext, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
     | e: Event | {
-        let randomness = unsafe_rand();
-        let (encrypted_log, log_hash) = compute_raw_event_log_unconstrained(*context, e, randomness, ovpk, ivpk, recipient);
+        let randomness =  unsafe {
+            unsafe_rand()
+        };
+        let (encrypted_log, log_hash) =  unsafe {
+            compute_raw_event_log_unconstrained(*context, e, randomness, ovpk, ivpk, recipient)
+        };
         context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
     }
 }
@@ -82,7 +88,23 @@ pub fn encode_and_encrypt_event_with_randomness_unconstrained<Event, let N: u32>
     recipient: AztecAddress
 ) -> fn[(&mut PrivateContext, Field, OvpkM, IvpkM, AztecAddress)](Event) -> () where Event: EventInterface<N> {
     | e: Event | {
-        let (encrypted_log, log_hash) = compute_raw_event_log_unconstrained(*context, e, randomness, ovpk, ivpk, recipient);
+        //   Having the log hash be unconstrained here is fine because the way this works is we send the log hash
+        // to the kernel, and it gets included as part of its public inputs. Then we send the tx to the sequencer,
+        // which includes the kernel proof and the log preimages. The sequencer computes the hashes of the logs
+        // and checks that they are the ones in the public inputs of the kernel, and drops the tx otherwise (proposing
+        // the block on L1 would later fail if it didn't because of txs effects hash mismatch).
+        //   So if we don't constrain the log hash, then a malicious sender can compute the correct log, submit a bad
+        // log hash to the kernel, and then submit the bad log preimage to the sequencer. All checks will pass, but
+        // the submitted log will not be the one that was computed by the app.
+        //   In the unconstrained case, we don't care about the log at all because we don't do anything with it,
+        // and because it's unconstrained: it could be anything. So if a sender chooses to broadcast the tx with a log
+        // that is different from the one that was used in the circuit, then they'll be able to, but they were already
+        // able to change the log before anyway, so the end result is the same. It's important here that we do not
+        // return the log from this function to the app, otherwise it could try to do stuff with it and then that might
+        // be wrong.
+        let (encrypted_log, log_hash) = unsafe {
+            compute_raw_event_log_unconstrained(*context, e, randomness, ovpk, ivpk, recipient)
+        };
         context.emit_raw_event_log_with_masked_address(randomness, encrypted_log, log_hash);
     }
 }
