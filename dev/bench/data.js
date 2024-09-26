@@ -1,80 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727378937320,
+  "lastUpdate": 1727391459994,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ceda3612f0d12d43bffde9c9b992a432d1a13d75",
-          "message": "feat!: Add Not instruction in brillig (#8488)\n\nThe AVM supports Not. We add it in brillig to avoid having to codegen it\r\nwith two operations.\r\n\r\n<details>\r\n\r\n<summary>Brillig opcode count changes</summary>\r\n\r\n```\r\ncontracts: Transpiling  AppSubscription::constructor with size 1969 => 1964\r\ncontracts: Transpiling  Auth::constructor with size 1557 => 1552\r\ncontracts: Transpiling  Auth::get_authorized with size 128 => 127\r\ncontracts: Transpiling  Auth::get_authorized_delay with size 175 => 174\r\ncontracts: Transpiling  Auth::get_scheduled_authorized with size 107 => 106\r\ncontracts: Transpiling  Auth::set_authorized with size 857 => 856\r\ncontracts: Transpiling  Auth::set_authorized_delay with size 826 => 825\r\ncontracts: Transpiling  AuthRegistry::_set_authorized with size 86 => 86\r\ncontracts: Transpiling  AuthRegistry::consume with size 522 => 521\r\ncontracts: Transpiling  AuthRegistry::is_consumable with size 123 => 122\r\ncontracts: Transpiling  AuthRegistry::is_reject_all with size 106 => 105\r\ncontracts: Transpiling  AuthRegistry::set_authorized with size 81 => 81\r\ncontracts: Transpiling  AuthRegistry::set_reject_all with size 64 => 64\r\ncontracts: Transpiling  AuthWitTest::consume_public with size 77 => 77\r\ncontracts: Transpiling  AvmInitializerTest::constructor with size 1553 => 1548\r\ncontracts: Transpiling  AvmInitializerTest::read_storage_immutable with size 89 => 88\r\ncontracts: Transpiling  AvmTest::add_args_return with size 17 => 17\r\ncontracts: Transpiling  AvmTest::add_storage_map with size 182 => 181\r\ncontracts: Transpiling  AvmTest::add_u128 with size 34 => 34\r\ncontracts: Transpiling  AvmTest::assert_nullifier_exists with size 18 => 18\r\ncontracts: Transpiling  AvmTest::assert_same with size 20 => 20\r\ncontracts: Transpiling  AvmTest::assert_timestamp with size 17 => 17\r\ncontracts: Transpiling  AvmTest::assertion_failure with size 16 => 16\r\ncontracts: Transpiling  AvmTest::check_selector with size 16 => 16\r\ncontracts: Transpiling  AvmTest::create_different_nullifier_in_nested_call with size 121 => 120\r\ncontracts: Transpiling  AvmTest::create_same_nullifier_in_nested_call with size 119 => 118\r\ncontracts: Transpiling  AvmTest::debug_logging with size 282 => 282\r\ncontracts: Transpiling  AvmTest::elliptic_curve_add_and_double with size 23 => 23\r\ncontracts: Transpiling  AvmTest::emit_nullifier_and_check with size 19 => 19\r\ncontracts: Transpiling  AvmTest::emit_unencrypted_log with size 524 => 520\r\ncontracts: Transpiling  AvmTest::get_address with size 15 => 15\r\ncontracts: Transpiling  AvmTest::get_args_hash with size 1046 => 1041\r\ncontracts: Transpiling  AvmTest::get_block_number with size 15 => 15\r\ncontracts: Transpiling  AvmTest::get_chain_id with size 15 => 15\r\ncontracts: Transpiling  AvmTest::get_da_gas_left with size 15 => 15\r\ncontracts: Transpiling  AvmTest::get_fee_per_da_gas with size 15 => 15\r\ncontracts: Transpiling  AvmTest::get_fee_per_l2_gas with size 15 => 15\r\ncontracts: Transpiling  AvmTest::get_function_selector with size 15 => 15\r\ncontracts: Transpiling  AvmTest::get_l2_gas_left with size 15 => 15\r\ncontracts: Transpiling  AvmTest::get_sender with size 15 => 15\r\ncontracts: Transpiling  AvmTest::get_storage_address with size 15 => 15\r\ncontracts: Transpiling  AvmTest::get_timestamp with size 15 => 15\r\ncontracts: Transpiling  AvmTest::get_transaction_fee with size 15 => 15\r\ncontracts: Transpiling  AvmTest::get_version with size 15 => 15\r\ncontracts: Transpiling  AvmTest::keccak_f1600 with size 77 => 76\r\ncontracts: Transpiling  AvmTest::keccak_hash with size 708 => 703\r\ncontracts: Transpiling  AvmTest::l1_to_l2_msg_exists with size 19 => 19\r\ncontracts: Transpiling  AvmTest::modulo2 with size 18 => 18\r\ncontracts: Transpiling  AvmTest::nested_call_to_add with size 196 => 195\r\ncontracts: Transpiling  AvmTest::nested_call_to_add_with_gas with size 204 => 203\r\ncontracts: Transpiling  AvmTest::nested_static_call_to_add with size 196 => 195\r\ncontracts: Transpiling  AvmTest::nested_static_call_to_set_storage with size 118 => 117\r\ncontracts: Transpiling  AvmTest::new_note_hash with size 13 => 13\r\ncontracts: Transpiling  AvmTest::new_nullifier with size 13 => 13\r\ncontracts: Transpiling  AvmTest::note_hash_exists with size 19 => 19\r\ncontracts: Transpiling  AvmTest::nullifier_collision with size 14 => 14\r\ncontracts: Transpiling  AvmTest::nullifier_exists with size 19 => 19\r\ncontracts: Transpiling  AvmTest::pedersen_commit with size 73 => 73\r\ncontracts: Transpiling  AvmTest::pedersen_hash with size 42 => 41\r\ncontracts: Transpiling  AvmTest::pedersen_hash_with_index with size 42 => 41\r\ncontracts: Transpiling  AvmTest::poseidon2_hash with size 306 => 304\r\ncontracts: Transpiling  AvmTest::read_storage_list with size 115 => 113\r\ncontracts: Transpiling  AvmTest::read_storage_map with size 103 => 102\r\ncontracts: Transpiling  AvmTest::read_storage_single with size 82 => 81\r\ncontracts: Transpiling  AvmTest::send_l2_to_l1_msg with size 14 => 14\r\ncontracts: Transpiling  AvmTest::set_opcode_big_field with size 15 => 15\r\ncontracts: Transpiling  AvmTest::set_opcode_really_big_field with size 15 => 15\r\ncontracts: Transpiling  AvmTest::set_opcode_small_field with size 15 => 15\r\ncontracts: Transpiling  AvmTest::set_opcode_u32 with size 15 => 15\r\ncontracts: Transpiling  AvmTest::set_opcode_u64 with size 15 => 15\r\ncontracts: Transpiling  AvmTest::set_opcode_u8 with size 15 => 15\r\ncontracts: Transpiling  AvmTest::set_read_storage_single with size 128 => 127\r\ncontracts: Transpiling  AvmTest::set_storage_list with size 47 => 47\r\ncontracts: Transpiling  AvmTest::set_storage_map with size 79 => 79\r\ncontracts: Transpiling  AvmTest::set_storage_single with size 43 => 43\r\ncontracts: Transpiling  AvmTest::sha256_hash with size 62 => 61\r\ncontracts: Transpiling  AvmTest::test_get_contract_instance with size 178 => 177\r\ncontracts: Transpiling  AvmTest::test_get_contract_instance_raw with size 69 => 69\r\ncontracts: Transpiling  AvmTest::to_radix_le with size 40 => 39\r\ncontracts: Transpiling  AvmTest::u128_addition_overflow with size 275 => 271\r\ncontracts: Transpiling  AvmTest::u128_from_integer_overflow with size 140 => 140\r\ncontracts: Transpiling  AvmTest::variable_base_msm with size 84 => 84\r\ncontracts: Transpiling  Benchmarking::broadcast with size 113 => 112\r\ncontracts: Transpiling  Benchmarking::increment_balance with size 263 => 261\r\ncontracts: Transpiling  CardGame::on_card_played with size 882 => 880\r\ncontracts: Transpiling  CardGame::on_cards_claimed with size 745 => 743\r\ncontracts: Transpiling  CardGame::on_game_joined with size 676 => 672\r\ncontracts: Transpiling  CardGame::start_game with size 1150 => 1148\r\ncontracts: Transpiling  Child::pub_get_value with size 24 => 24\r\ncontracts: Transpiling  Child::pub_inc_value with size 145 => 144\r\ncontracts: Transpiling  Child::pub_inc_value_internal with size 150 => 149\r\ncontracts: Transpiling  Child::pub_set_value with size 62 => 62\r\ncontracts: Transpiling  Child::set_value_twice_with_nested_first with size 182 => 181\r\ncontracts: Transpiling  Child::set_value_twice_with_nested_last with size 182 => 181\r\ncontracts: Transpiling  Child::set_value_with_two_nested_calls with size 129 => 129\r\ncontracts: Transpiling  Claim::constructor with size 1657 => 1652\r\ncontracts: Transpiling  Crowdfunding::_publish_donation_receipts with size 153 => 151\r\ncontracts: Transpiling  Crowdfunding::init with size 1763 => 1758\r\ncontracts: Transpiling  DelegatedOn::public_set_value with size 46 => 46\r\ncontracts: Transpiling  Delegator::public_delegate_set_value with size 94 => 93\r\ncontracts: Transpiling  DocsExample::get_shared_immutable_constrained_public with size 97 => 96\r\ncontracts: Transpiling  DocsExample::get_shared_immutable_constrained_public_indirect with size 86 => 86\r\ncontracts: Transpiling  DocsExample::get_shared_immutable_constrained_public_multiple with size 134 => 132\r\ncontracts: Transpiling  DocsExample::initialize_public_immutable with size 164 => 163\r\ncontracts: Transpiling  DocsExample::initialize_shared_immutable with size 164 => 163\r\ncontracts: Transpiling  DocsExample::spend_public_authwit with size 16 => 16\r\ncontracts: Transpiling  DocsExample::update_leader with size 54 => 54\r\ncontracts: Transpiling  EasyPrivateVoting::add_to_tally_public with size 220 => 219\r\ncontracts: Transpiling  EasyPrivateVoting::constructor with size 1614 => 1609\r\ncontracts: Transpiling  EasyPrivateVoting::end_vote with size 136 => 135\r\ncontracts: Transpiling  FeeJuice::_increase_public_balance with size 196 => 195\r\ncontracts: Transpiling  FeeJuice::balance_of_public with size 115 => 114\r\ncontracts: Transpiling  FeeJuice::check_balance with size 168 => 167\r\ncontracts: Transpiling  FeeJuice::set_portal with size 208 => 207\r\ncontracts: Transpiling  FPC::constructor with size 1553 => 1548\r\ncontracts: Transpiling  FPC::pay_refund with size 387 => 384\r\ncontracts: Transpiling  FPC::pay_refund_with_shielded_rebate with size 387 => 384\r\ncontracts: Transpiling  FPC::prepare_fee with size 291 => 290\r\ncontracts: Transpiling  ImportTest::pub_call_public_fn with size 118 => 117\r\ncontracts: Transpiling  InclusionProofs::constructor with size 1479 => 1474\r\ncontracts: Transpiling  InclusionProofs::push_nullifier_public with size 20 => 20\r\ncontracts: Transpiling  InclusionProofs::test_nullifier_inclusion_from_public with size 24 => 24\r\ncontracts: Transpiling  KeyRegistry::register_initial_keys with size 1066 => 1056\r\ncontracts: Transpiling  KeyRegistry::rotate_npk_m with size 1954 => 1941\r\ncontracts: Transpiling  Lending::_borrow with size 2276 => 2273\r\ncontracts: Transpiling  Lending::_deposit with size 221 => 220\r\ncontracts: Transpiling  Lending::_repay with size 1358 => 1356\r\ncontracts: Transpiling  Lending::_withdraw with size 2299 => 2296\r\ncontracts: Transpiling  Lending::borrow_public with size 232 => 231\r\ncontracts: Transpiling  Lending::deposit_public with size 501 => 500\r\ncontracts: Transpiling  Lending::get_asset with size 158 => 157\r\ncontracts: Transpiling  Lending::get_assets with size 179 => 177\r\ncontracts: Transpiling  Lending::get_position with size 848 => 846\r\ncontracts: Transpiling  Lending::init with size 300 => 299\r\ncontracts: Transpiling  Lending::repay_public with size 447 => 446\r\ncontracts: Transpiling  Lending::update_accumulator with size 2423 => 2419\r\ncontracts: Transpiling  Lending::withdraw_public with size 232 => 231\r\ncontracts: Transpiling  Parent::pub_entry_point with size 75 => 75\r\ncontracts: Transpiling  Parent::pub_entry_point_twice with size 127 => 127\r\ncontracts: Transpiling  Parent::public_nested_static_call with size 969 => 964\r\ncontracts: Transpiling  Parent::public_static_call with size 102 => 101\r\ncontracts: Transpiling  PriceFeed::get_price with size 112 => 111\r\ncontracts: Transpiling  PriceFeed::set_price with size 75 => 75\r\ncontracts: Transpiling  PrivateFPC::constructor with size 1556 => 1551\r\ncontracts: Transpiling  Router::_check_block_number with size 163 => 157\r\ncontracts: Transpiling  Router::_check_timestamp with size 166 => 160\r\ncontracts: Transpiling  StatefulTest::get_public_value with size 103 => 102\r\ncontracts: Transpiling  StatefulTest::increment_public_value with size 134 => 133\r\ncontracts: Transpiling  StatefulTest::increment_public_value_no_init_check with size 127 => 126\r\ncontracts: Transpiling  StatefulTest::public_constructor with size 1597 => 1592\r\ncontracts: Transpiling  StaticChild::pub_get_value with size 27 => 27\r\ncontracts: Transpiling  StaticChild::pub_illegal_inc_value with size 148 => 147\r\ncontracts: Transpiling  StaticChild::pub_inc_value with size 145 => 144\r\ncontracts: Transpiling  StaticChild::pub_set_value with size 62 => 62\r\ncontracts: Transpiling  StaticParent::public_call with size 75 => 75\r\ncontracts: Transpiling  StaticParent::public_get_value_from_child with size 142 => 141\r\ncontracts: Transpiling  StaticParent::public_nested_static_call with size 266 => 265\r\ncontracts: Transpiling  StaticParent::public_static_call with size 102 => 101\r\ncontracts: Transpiling  Test::assert_public_global_vars with size 42 => 42\r\ncontracts: Transpiling  Test::consume_message_from_arbitrary_sender_public with size 923 => 920\r\ncontracts: Transpiling  Test::consume_mint_public_message with size 1145 => 1141\r\ncontracts: Transpiling  Test::create_l2_to_l1_message_arbitrary_recipient_public with size 14 => 14\r\ncontracts: Transpiling  Test::create_l2_to_l1_message_public with size 28 => 28\r\ncontracts: Transpiling  Test::dummy_public_call with size 16 => 16\r\ncontracts: Transpiling  Test::emit_nullifier_public with size 13 => 13\r\ncontracts: Transpiling  Test::emit_unencrypted with size 255 => 252\r\ncontracts: Transpiling  Test::is_time_equal with size 20 => 20\r\ncontracts: Transpiling  TestLog::emit_unencrypted_events with size 251 => 249\r\ncontracts: Transpiling  Token::_increase_public_balance with size 187 => 186\r\ncontracts: Transpiling  Token::_reduce_total_supply with size 171 => 170\r\ncontracts: Transpiling  Token::admin with size 92 => 91\r\ncontracts: Transpiling  Token::assert_minter_and_mint with size 236 => 235\r\ncontracts: Transpiling  Token::balance_of_public with size 122 => 121\r\ncontracts: Transpiling  Token::burn_public with size 1618 => 1612\r\ncontracts: Transpiling  Token::complete_refund with size 440 => 440\r\ncontracts: Transpiling  Token::constructor with size 2016 => 2011\r\ncontracts: Transpiling  Token::is_minter with size 113 => 112\r\ncontracts: Transpiling  Token::mint_private with size 509 => 508\r\ncontracts: Transpiling  Token::mint_public with size 358 => 357\r\ncontracts: Transpiling  Token::public_get_decimals with size 95 => 94\r\ncontracts: Transpiling  Token::public_get_name with size 92 => 91\r\ncontracts: Transpiling  Token::public_get_symbol with size 92 => 91\r\ncontracts: Transpiling  Token::set_admin with size 136 => 135\r\ncontracts: Transpiling  Token::set_minter with size 156 => 155\r\ncontracts: Transpiling  Token::shield with size 1800 => 1794\r\ncontracts: Transpiling  Token::total_supply with size 104 => 103\r\ncontracts: Transpiling  Token::transfer_public with size 1633 => 1627\r\ncontracts: Transpiling  TokenBlacklist::_increase_public_balance with size 187 => 186\r\ncontracts: Transpiling  TokenBlacklist::_reduce_total_supply with size 171 => 170\r\ncontracts: Transpiling  TokenBlacklist::balance_of_public with size 122 => 121\r\ncontracts: Transpiling  TokenBlacklist::burn_public with size 1754 => 1747\r\ncontracts: Transpiling  TokenBlacklist::constructor with size 2308 => 2303\r\ncontracts: Transpiling  TokenBlacklist::get_roles with size 179 => 178\r\ncontracts: Transpiling  TokenBlacklist::mint_private with size 568 => 567\r\ncontracts: Transpiling  TokenBlacklist::mint_public with size 537 => 536\r\ncontracts: Transpiling  TokenBlacklist::shield with size 1936 => 1929\r\ncontracts: Transpiling  TokenBlacklist::total_supply with size 104 => 103\r\ncontracts: Transpiling  TokenBlacklist::transfer_public with size 1904 => 1897\r\ncontracts: Transpiling  TokenBlacklist::update_roles with size 1074 => 1073\r\ncontracts: Transpiling  TokenBridge::_assert_token_is_same with size 95 => 94\r\ncontracts: Transpiling  TokenBridge::_call_mint_on_token with size 248 => 246\r\ncontracts: Transpiling  TokenBridge::claim_public with size 1397 => 1392\r\ncontracts: Transpiling  TokenBridge::constructor with size 1583 => 1578\r\ncontracts: Transpiling  TokenBridge::exit_to_l1_public with size 810 => 807\r\ncontracts: Transpiling  TokenBridge::get_portal_address_public with size 94 => 93\r\ncontracts: Transpiling  TokenBridge::get_token with size 92 => 91\r\ncontracts: Transpiling  Uniswap::_approve_bridge_and_exit_input_asset_to_L1 with size 2612 => 2604\r\ncontracts: Transpiling  Uniswap::_assert_token_is_same with size 87 => 87\r\ncontracts: Transpiling  Uniswap::constructor with size 1553 => 1548\r\ncontracts: Transpiling  Uniswap::swap_public with size 3005 => 2998\r\ncontracts: Transpiling contracts...\r\n```\r\n\r\n</details>\r\n\r\n---------\r\n\r\nCo-authored-by: fcarreiro <facundo@aztecprotocol.com>",
-          "timestamp": "2024-09-13T10:15:19+01:00",
-          "tree_id": "d821c91a9511016bc0f9665968fa81df9f627a77",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ceda3612f0d12d43bffde9c9b992a432d1a13d75"
-        },
-        "date": 1726219683309,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 12847.47385,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 9330.475976 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 5091.26728599999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 4633.977906 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 38314.435849,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 38314436000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 14670.527130000002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14670528000 ms\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 3592544066,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 3592544066 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 135433034,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 135433034 ns\nthreads: 1"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2944257279,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 2944257279 ns\nthreads: 1"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 113378157,
-            "unit": "ns/iter",
-            "extra": "iterations: 1\ncpu: 113378157 ns\nthreads: 1"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3592,6 +3520,78 @@ window.BENCHMARK_DATA = {
             "value": 125647041,
             "unit": "ns/iter",
             "extra": "iterations: 1\ncpu: 125647041 ns\nthreads: 1"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "59e3dd93a70398e828269dbf13d8c4b9b38227ea",
+          "message": "feat: Use structured polys to reduce prover memory (#8587)\n\nWe use the new structured polynomial class to reduce the amount of\r\nmemory used by the Prover. For ClientIVCBench, this results in a\r\nreduction of 36.5%, going from 2377.99MiB to 1511.34MiB.\r\n\r\nThis is due to a restricting polynomials down to smaller sizes. For\r\nlagrange_first and last, we only allocate 1 element. For the gate\r\nselectors, we only allocate the fixed block size for each one, cutting\r\nthe 8 gate selectors into almost 1 selector (caveat is that the\r\narithmetic selector spans the aux block for now). For the 5 ecc_op\r\npolynomials, we restrict them to just the ecc_op block. For 9 of the 10\r\ndatabus polynomials, we restrict them to MAX_DATABUS_SIZE. For the 4\r\ntable polynomials and the lookup read counts and read tag polynomials,\r\nwe restrict them to MAX_LOOKUP_TABLES_SIZE. We also restrict the inverse\r\npolynomials, but this is complicated to explain.\r\n\r\nOverall, this essentially allows us to cut down on 28 of the 54 total\r\npolynomials, which leads to the drop of 867MiB.\r\n\r\nThere's more juice to be squeezed here, but this is a massive reduction\r\nthat should basically get us there.\r\n\r\nBefore:\r\n<img width=\"1331\" alt=\"Screenshot 2024-09-20 at 5 00 27 PM\"\r\nsrc=\"https://github.com/user-attachments/assets/7572a5d2-4fa9-4b4f-af1d-7885260d6756\">\r\nAfter:\r\n<img width=\"1363\" alt=\"Screenshot 2024-09-26 at 10 03 54 AM\"\r\nsrc=\"https://github.com/user-attachments/assets/aed64b1d-862c-4a21-9e32-160993d1f5c3\">\r\n\r\nFor one instance, we cut down memory by 97MiB. \r\n\r\nAnd timing benchmark:\r\n```\r\n--------------------------------------------------------------------------------\r\nBenchmark                      Time             CPU   Iterations UserCounters...\r\n--------------------------------------------------------------------------------\r\nClientIVCBench/Full/6      33216 ms        30637 ms            1 Arithmetic::accumulate=3.89126M Arithmetic::accumulate(t)=7.32768G Auxiliary::accumulate=1.98134M Auxiliary::accumulate(t)=13.4156G COMMIT::databus=108 COMMIT::databus(t)=8.50634M COMMIT::databus_inverses=36 COMMIT::databus_inverses(t)=11.8267M COMMIT::ecc_op_wires=48 COMMIT::ecc_op_wires(t)=38.2178M COMMIT::lookup_counts_tags=12 COMMIT::lookup_counts_tags(t)=107.571M COMMIT::lookup_inverses=12 COMMIT::lookup_inverses(t)=257.772M COMMIT::wires=24 COMMIT::wires(t)=2.23405G COMMIT::z_perm=12 COMMIT::z_perm(t)=2.31578G DatabusRead::accumulate=447 DatabusRead::accumulate(t)=1.72333M Decider::construct_proof=1 Decider::construct_proof(t)=1.57152G DeciderProvingKey(Circuit&)=12 DeciderProvingKey(Circuit&)(t)=2.63528G DeltaRange::accumulate=1.87876M DeltaRange::accumulate(t)=4.27884G ECCVMProver(CircuitBuilder&)=1 ECCVMProver(CircuitBuilder&)(t)=228.84M ECCVMProver::construct_proof=1 ECCVMProver::construct_proof(t)=2.59672G Elliptic::accumulate=183.692k Elliptic::accumulate(t)=451.988M Goblin::merge=23 Goblin::merge(t)=116.924M Lookup::accumulate=1.66363M Lookup::accumulate(t)=3.74588G MegaFlavor::get_row=6.18564M MegaFlavor::get_row(t)=4.44329G OinkProver::execute_grand_product_computation_round=12 OinkProver::execute_grand_product_computation_round(t)=3.59852G OinkProver::execute_log_derivative_inverse_round=12 OinkProver::execute_log_derivative_inverse_round(t)=2.4985G OinkProver::execute_preamble_round=12 OinkProver::execute_preamble_round(t)=178.858k OinkProver::execute_sorted_list_accumulator_round=12 OinkProver::execute_sorted_list_accumulator_round(t)=683.402M OinkProver::execute_wire_commitments_round=12 OinkProver::execute_wire_commitments_round(t)=1.71268G OinkProver::generate_alphas_round=12 OinkProver::generate_alphas_round(t)=3.50247M Permutation::accumulate=10.6427M Permutation::accumulate(t)=40.1379G PoseidonExt::accumulate=30.452k PoseidonExt::accumulate(t)=76.6116M PoseidonInt::accumulate=210.454k PoseidonInt::accumulate(t)=365.722M ProtogalaxyProver::prove=11 ProtogalaxyProver::prove(t)=19.9675G ProtogalaxyProver_::combiner_quotient_round=11 ProtogalaxyProver_::combiner_quotient_round(t)=8.76403G ProtogalaxyProver_::compute_row_evaluations=11 ProtogalaxyProver_::compute_row_evaluations(t)=1.9728G ProtogalaxyProver_::perturbator_round=11 ProtogalaxyProver_::perturbator_round(t)=2.86884G ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key=11 ProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)=7.66211G ProtogalaxyProver_::update_target_sum_and_fold=11 ProtogalaxyProver_::update_target_sum_and_fold(t)=672.424M TranslatorCircuitBuilder::constructor=1 TranslatorCircuitBuilder::constructor(t)=32.9044M TranslatorProver=1 TranslatorProver(t)=43.1984M TranslatorProver::construct_proof=1 TranslatorProver::construct_proof(t)=832.913M batch_mul_with_endomorphism=16 batch_mul_with_endomorphism(t)=408.881M commit=543 commit(t)=6.5699G commit_sparse=36 commit_sparse(t)=11.813M compute_combiner=11 compute_combiner(t)=8.32169G compute_perturbator=11 compute_perturbator(t)=2.86857G compute_univariate=51 compute_univariate(t)=2.20204G construct_circuits=12 construct_circuits(t)=4.30706G pippenger=215 pippenger(t)=102.025M pippenger_unsafe_optimized_for_non_dyadic_polys=543 pippenger_unsafe_optimized_for_non_dyadic_polys(t)=6.56543G\r\nBenchmarking lock deleted.\r\nclient_ivc_bench.json                                                                                                                                                                                                                  100% 6930   190.2KB/s   00:00    \r\nfunction                                  ms     % sum\r\nconstruct_circuits(t)                   4307    13.35%\r\nDeciderProvingKey(Circuit&)(t)          2635     8.17%\r\nProtogalaxyProver::prove(t)            19967    61.90%\r\nDecider::construct_proof(t)             1572     4.87%\r\nECCVMProver(CircuitBuilder&)(t)          229     0.71%\r\nECCVMProver::construct_proof(t)         2597     8.05%\r\nTranslatorProver::construct_proof(t)     833     2.58%\r\nGoblin::merge(t)                         117     0.36%\r\n\r\nTotal time accounted for: 32257ms/33216ms = 97.11%\r\n\r\nMajor contributors:\r\nfunction                                  ms    % sum\r\ncommit(t)                               6570   20.37%\r\ncompute_combiner(t)                     8322   25.80%\r\ncompute_perturbator(t)                  2869    8.89%\r\ncompute_univariate(t)                   2202    6.83%\r\n\r\nBreakdown of ProtogalaxyProver::prove:\r\nProtogalaxyProver_::run_oink_prover_on_each_incomplete_key(t)    7662    38.37%\r\nProtogalaxyProver_::perturbator_round(t)                         2869    14.37%\r\nProtogalaxyProver_::combiner_quotient_round(t)                   8764    43.89%\r\nProtogalaxyProver_::update_target_sum_and_fold(t)                 672     3.37%\r\n\r\nRelation contributions (times to be interpreted relatively):\r\nTotal time accounted for (ms):    69802\r\noperation                       ms     % sum\r\nArithmetic::accumulate(t)     7328    10.50%\r\nPermutation::accumulate(t)   40138    57.50%\r\nLookup::accumulate(t)         3746     5.37%\r\nDeltaRange::accumulate(t)     4279     6.13%\r\nElliptic::accumulate(t)        452     0.65%\r\nAuxiliary::accumulate(t)     13416    19.22%\r\nEccOp::accumulate(t)             0     0.00%\r\nDatabusRead::accumulate(t)       2     0.00%\r\nPoseidonExt::accumulate(t)      77     0.11%\r\nPoseidonInt::accumulate(t)     366     0.52%\r\n\r\nCommitment contributions:\r\nTotal time accounted for (ms):     4974\r\noperation                          ms     % sum\r\nCOMMIT::wires(t)                 2234    44.92%\r\nCOMMIT::z_perm(t)                2316    46.56%\r\nCOMMIT::databus(t)                  9     0.17%\r\nCOMMIT::ecc_op_wires(t)            38     0.77%\r\nCOMMIT::lookup_inverses(t)        258     5.18%\r\nCOMMIT::databus_inverses(t)        12     0.24%\r\nCOMMIT::lookup_counts_tags(t)     108     2.16%\r\n```\r\n\r\nCompared to master, the notable differences are:\r\n`DeciderProvingKey(Circuit&)` was at 8043ms and now is 2635ms. \r\n`ProtogalaxyProver::prove` was 20953ms and now is 19967ms. Unclear if\r\nthis is expected or not.\r\n`commit` was 7033ms and is now 6570ms.",
+          "timestamp": "2024-09-26T22:41:27Z",
+          "tree_id": "f518bc5ff49fe54b3fddf811b27cac106ad7a30b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/59e3dd93a70398e828269dbf13d8c4b9b38227ea"
+        },
+        "date": 1727391452432,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 31207.888286000012,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 29021.836501999995 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4981.507071999999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 4614.328141999999 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 91602.233407,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 91602234000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 14359.246843,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 14359247000 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 8071548889,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 8071548889 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 152176551,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 152176551 ns\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 7000035319,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 7000035319 ns\nthreads: 1"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 130370977,
+            "unit": "ns/iter",
+            "extra": "iterations: 1\ncpu: 130370977 ns\nthreads: 1"
           }
         ]
       }
