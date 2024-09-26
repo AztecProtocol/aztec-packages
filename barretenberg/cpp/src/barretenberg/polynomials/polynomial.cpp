@@ -160,10 +160,8 @@ template <typename Fr> bool Polynomial<Fr>::operator==(Polynomial const& rhs) co
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan<const Fr> other)
 {
-    // Compute the subset that is defined in both polynomials
-    if (other.start_index < start_index() || other.end_index() > end_index()) {
-        *this = expand(std::min(start_index(), other.start_index), std::max(end_index(), other.end_index()));
-    }
+    ASSERT(start_index() <= other.start_index);
+    ASSERT(end_index() >= other.end_index());
     size_t num_threads = calculate_num_threads(other.size());
     size_t range_per_thread = other.size() / num_threads;
     size_t leftovers = other.size() - (range_per_thread * num_threads);
@@ -302,10 +300,8 @@ Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationD
 
 template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator-=(PolynomialSpan<const Fr> other)
 {
-    // Compute the subset that is defined in both polynomials
-    if (other.start_index < start_index() || other.end_index() > end_index()) {
-        *this = expand(std::min(start_index(), other.start_index), std::max(end_index(), other.end_index()));
-    }
+    ASSERT(start_index() <= other.start_index);
+    ASSERT(end_index() >= other.end_index());
     const size_t num_threads = calculate_num_threads(other.size());
     const size_t range_per_thread = other.size() / num_threads;
     const size_t leftovers = other.size() - (range_per_thread * num_threads);
@@ -335,6 +331,8 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr scali
     return *this;
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1113): Optimizing based on actual sizes would involve using
+// expand, but it is currently unused.
 template <typename Fr>
 Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t new_end_index) const
 {
@@ -362,10 +360,8 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 
 template <typename Fr> void Polynomial<Fr>::add_scaled(PolynomialSpan<const Fr> other, Fr scaling_factor) &
 {
-    // Compute the subset that is defined in both polynomials
-    if (other.start_index < start_index() || other.end_index() > end_index()) {
-        *this = expand(std::min(start_index(), other.start_index), std::max(end_index(), other.end_index()));
-    }
+    ASSERT(start_index() <= other.start_index);
+    ASSERT(end_index() >= other.end_index());
     const size_t num_threads = calculate_num_threads(other.size());
     const size_t range_per_thread = other.size() / num_threads;
     const size_t leftovers = other.size() - (range_per_thread * num_threads);

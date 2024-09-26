@@ -164,6 +164,8 @@ TEST(Polynomial, Full)
     ASSERT_DEATH(no_full_bad(), ".*start_index.*other.start_index.*");
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1113): Optimizing based on actual sizes would involve using
+// expand, but it is currently unused.
 TEST(Polynomial, DISABLED_Expand)
 {
     // Suppress warnings about fork(), we're OK with the edge cases.
