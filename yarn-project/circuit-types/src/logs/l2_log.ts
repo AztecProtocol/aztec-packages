@@ -56,7 +56,12 @@ export class L2Log {
     const incomingBodyCiphertext = encrypt(this.incomingBodyPlaintext, ephSk, ivpk);
     // The serialization of Fq is [high, low] check `outgoing_body.nr`
     const outgoingBodyPlaintext = serializeToBuffer(ephSk.hi, ephSk.lo, recipient, ivpk.toCompressedBuffer());
-    const outgoingBodyCiphertext = encrypt(outgoingBodyPlaintext, ephSk, ovKeys.pkM, derivePoseidonAESSecret);
+    const outgoingBodyCiphertext = encrypt(
+      outgoingBodyPlaintext,
+      ovKeys.skAppAsGrumpkinScalar,
+      ephPk,
+      derivePoseidonAESSecret,
+    );
 
     if (outgoingBodyCiphertext.length !== OUTGOING_BODY_SIZE) {
       throw new Error(`Invalid outgoing body size: ${outgoingBodyCiphertext.length}`);
