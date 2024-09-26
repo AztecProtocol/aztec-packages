@@ -2,18 +2,18 @@ use dep::bigint::{BigNum, fields::bls12_381Fr::BLS12_381_Fr_Params};
 
 type F = BigNum<3, BLS12_381_Fr_Params>;
 
-global FIELDS_PER_BLOB: u64 = 8; // actually 4096
-global LOG_FIELDS_PER_BLOB: u64 = 3; // actually 12
+global FIELDS_PER_BLOB: u32 = 8; // actually 4096
+global LOG_FIELDS_PER_BLOB: u32 = 3; // actually 12
 
 // The following three fields are more meaningful computation in the proper config.nr:
-global EXTRA_FIELDS_PER_BLOB: u64 = 0; // 0 = floor(8 FIELDS_PER_BLOB / 254 noir_field_bits). 
+global EXTRA_FIELDS_PER_BLOB: u32 = 0; // 0 = floor(8 FIELDS_PER_BLOB / 254 noir_field_bits).
 global NOIR_FIELDS_PER_BLOB = FIELDS_PER_BLOB + EXTRA_FIELDS_PER_BLOB; // It's a more meaningful computation in the proper config.nr.
-global FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB: u64 = 0; // EXTRA_FIELDS_PER_BLOB * 254 = 0. It's a more meaningful computation in the proper config.nr.
+global FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB: u32 = 0; // EXTRA_FIELDS_PER_BLOB * 254 = 0. It's a more meaningful computation in the proper config.nr.
 
 global D: F = BigNum { limbs: [8, 0, 0] };
 global D_INV = BigNum { limbs: [0x45ef829ffe907f1fffffff20000001, 0xf268c469cd9f2cd29d07086d9d04a9, 0x656f] };
 
-global ROOTS: [F; FIELDS_PER_BLOB] = [ 
+global ROOTS: [F; FIELDS_PER_BLOB] = [
     BigNum { limbs: [ 0x000000000000000000000000000001, 0x000000000000000000000000000000, 0x000000 ] } ,
     BigNum { limbs: [ 0xbda402fffe5bfeffffffff00000000, 0xa753299d7d483339d80809a1d80553, 0x0073ed ] } ,
     BigNum { limbs: [ 0x030002760300000001000000000000, 0x0000000000008d51ccce760304d0ec, 0x000000 ] } ,

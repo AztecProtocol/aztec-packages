@@ -17,7 +17,7 @@ use super::opcode_formatter::format_opcode;
 
 #[derive(Debug)]
 pub(crate) struct Sample<F: AcirField> {
-    pub(crate) opcode: AcirOrBrilligOpcode<F>,
+    pub(crate) opcode: Option<AcirOrBrilligOpcode<F>>,
     pub(crate) call_stack: Vec<OpcodeLocation>,
     pub(crate) count: usize,
     pub(crate) brillig_function_id: Option<BrilligFunctionId>,
@@ -115,7 +115,9 @@ fn generate_folded_sorted_lines<'files, F: AcirField>(
         if location_names.is_empty() {
             location_names.push("unknown".to_string());
         }
-        location_names.push(format_opcode(&sample.opcode));
+        if let Some(opcode) = &sample.opcode {
+            location_names.push(format_opcode(opcode));
+        }
 
         add_locations_to_folded_stack_items(&mut folded_stack_items, location_names, sample.count);
     });
@@ -300,23 +302,27 @@ mod tests {
 
         let samples: Vec<Sample<FieldElement>> = vec![
             Sample {
-                opcode: AcirOrBrilligOpcode::Acir(AcirOpcode::AssertZero(Expression::default())),
+                opcode: Some(AcirOrBrilligOpcode::Acir(AcirOpcode::AssertZero(
+                    Expression::default(),
+                ))),
                 call_stack: vec![OpcodeLocation::Acir(0)],
                 count: 10,
                 brillig_function_id: None,
             },
             Sample {
-                opcode: AcirOrBrilligOpcode::Acir(AcirOpcode::AssertZero(Expression::default())),
+                opcode: Some(AcirOrBrilligOpcode::Acir(AcirOpcode::AssertZero(
+                    Expression::default(),
+                ))),
                 call_stack: vec![OpcodeLocation::Acir(1)],
                 count: 20,
                 brillig_function_id: None,
             },
             Sample {
-                opcode: AcirOrBrilligOpcode::Acir(AcirOpcode::MemoryInit {
+                opcode: Some(AcirOrBrilligOpcode::Acir(AcirOpcode::MemoryInit {
                     block_id: BlockId(0),
                     init: vec![],
                     block_type: acir::circuit::opcodes::BlockType::Memory,
-                }),
+                })),
                 call_stack: vec![OpcodeLocation::Acir(2)],
                 count: 30,
                 brillig_function_id: None,

@@ -19,7 +19,18 @@ use super::{
 /// Helper function for Function's Display impl to pretty-print the function with the given formatter.
 pub(crate) fn display_function(function: &Function, f: &mut Formatter) -> Result {
     writeln!(f, "{} fn {} {} {{", function.runtime(), function.name(), function.id())?;
+    for calldata in function.dfg.data_bus.call_data.iter() {
+        writeln!(f, "  calldata: {}", value(function, calldata.array_id))?;
+    }
+
     display_block_with_successors(function, function.entry_block(), &mut HashSet::new(), f)?;
+    if function.dfg.data_bus.return_data.is_some() {
+        writeln!(
+            f,
+            "  returndata: {}",
+            value(function, function.dfg.data_bus.return_data.unwrap())
+        )?;
+    }
     write!(f, "}}")
 }
 
@@ -66,13 +77,13 @@ fn value(function: &Function, id: ValueId) -> String {
     let id = function.dfg.resolve(id);
     match &function.dfg[id] {
         Value::NumericConstant { constant, typ } => {
-            format!("{typ} {constant}")
+            format!("{id}={typ}: {constant}")
         }
         Value::Function(id) => id.to_string(),
         Value::Intrinsic(intrinsic) => intrinsic.to_string(),
         Value::Array { array, .. } => {
             let elements = vecmap(array, |element| value(function, *element));
-            format!("[{}]", elements.join(", "))
+            format!("{id}=[{}]", elements.join(", "))
         }
         Value::Param { .. } | Value::Instruction { .. } | Value::ForeignFunction(_) => {
             id.to_string()
@@ -133,7 +144,7 @@ pub(crate) fn display_instruction(
     f: &mut Formatter,
 ) -> Result {
     // instructions are always indented within a function
-    write!(f, "    ")?;
+    write!(f, "    {} => ", instruction)?;
 
     let results = function.dfg.instruction_results(instruction);
     if !results.is_empty() {

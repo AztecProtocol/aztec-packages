@@ -198,13 +198,23 @@ impl<F: AcirField> DefaultForeignCallExecutor<F> {
     }
 
     fn execute_print(foreign_call_inputs: &[ForeignCallParam<F>]) -> Result<(), ForeignCallError> {
-        let skip_newline = foreign_call_inputs[0].unwrap_field().is_zero();
+        if foreign_call_inputs.len() == 1 {
+            let values = foreign_call_inputs[0].fields();
+            let bytes = values.iter().map(|v| v.try_into_u128().unwrap() as u8).collect::<Vec<_>>();
+            let display_string = String::from_utf8_lossy(&bytes).to_string();
+            print!("{}", display_string);
+        } else {
+            let skip_newline = foreign_call_inputs[0].unwrap_field().is_zero();
 
-        let foreign_call_inputs =
-            foreign_call_inputs.split_first().ok_or(ForeignCallError::MissingForeignCallInputs)?.1;
-        let display_string = Self::format_printable_value(foreign_call_inputs, skip_newline)?;
+            let foreign_call_inputs = foreign_call_inputs
+                .split_first()
+                .ok_or(ForeignCallError::MissingForeignCallInputs)?
+                .1;
 
-        print!("{display_string}");
+            let display_string = Self::format_printable_value(foreign_call_inputs, skip_newline)?;
+
+            print!("{display_string}");
+        }
 
         Ok(())
     }

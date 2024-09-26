@@ -53,7 +53,7 @@ fn bls12_381_circuit() {
     assert_eq!(solver_status, ACVMStatus::Solved, "should be fully solved");
 
     // ACVM should be able to be finalized in `Solved` state.
-    let witness_stack = acvm.finalize();
+    let witness_stack = acvm.finalize().0;
 
     assert_eq!(witness_stack.get(&Witness(3)).unwrap(), &Bls12FieldElement::from(5u128));
 }
@@ -785,7 +785,7 @@ fn memory_operations() {
         ACVM::new(&StubbedBlackBoxSolver, &opcodes, initial_witness, &unconstrained_functions, &[]);
     let solver_status = acvm.solve();
     assert_eq!(solver_status, ACVMStatus::Solved);
-    let witness_map = acvm.finalize();
+    let witness_map = acvm.finalize().0;
 
     assert_eq!(witness_map[&Witness(8)], FieldElement::from(6u128));
 }

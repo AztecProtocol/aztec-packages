@@ -2,27 +2,27 @@
 
 // SMALL CONFIG *********************************************************************************
 
-// mod smaller_config;
+mod smaller_config;
 
-// use crate::smaller_config::{
-//     BigNum, BLS12_381_Fr_Params, F, FIELDS_PER_BLOB, LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
-//     FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, D, D_INV, ROOTS, NEGATIVE_ROOTS
-// };
+use crate::smaller_config::{
+    BigNum, BLS12_381_Fr_Params, F, FIELDS_PER_BLOB, LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
+    FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, D, D_INV, ROOTS, NEGATIVE_ROOTS
+};
 
 //*********************************************************************************
 
 // BIG CONFIG *********************************************************************
 
-mod config;
-mod negative_roots;
+// mod config;
+// mod negative_roots;
 
-use crate::{
-    config::{
-    BigNum, F, FIELDS_PER_BLOB, LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
-    FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, D, D_INV, ROOTS
-},
-    negative_roots::NEGATIVE_ROOTS
-};
+// use crate::{
+//     config::{
+//     BigNum, F, FIELDS_PER_BLOB, LOG_FIELDS_PER_BLOB, NOIR_FIELDS_PER_BLOB,
+//     FIELDS_CARRYING_AN_EXTRA_BIT_PER_BLOB, D, D_INV, ROOTS
+// },
+//     negative_roots::NEGATIVE_ROOTS
+// };
 
 //*********************************************************************************
 

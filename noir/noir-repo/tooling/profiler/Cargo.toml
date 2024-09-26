@@ -18,6 +18,7 @@ name = "noir-profiler"
 path = "src/main.rs"
 
 [dependencies]
+bn254_blackbox_solver.workspace = true
 color-eyre.workspace = true
 clap.workspace = true
 noirc_artifacts.workspace = true
@@ -28,8 +29,9 @@ fm.workspace = true
 inferno = "0.11.19"
 im.workspace = true
 acir.workspace = true
+nargo.workspace = true
 noirc_errors.workspace = true
-
+noirc_abi.workspace = true
 # Logs
 tracing-subscriber.workspace = true
 tracing-appender = "0.2.3"
