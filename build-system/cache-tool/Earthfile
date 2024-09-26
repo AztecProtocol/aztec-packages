@@ -65,7 +65,7 @@ test:
   FROM ../../build-images/+from-registry
   RUN apt update && apt install -y npm lsof
   RUN git init
-  COPY *.sh *.json *.js *.lock build-system/cache-tool/
+  COPY *.sh *.json *.js build-system/cache-tool/
   COPY tests/*.js build-system/cache-tool/tests/
   WORKDIR build-system/cache-tool
   RUN git config --global user.email "tech@aztecprotocol.com" && git config --global user.name "Aztec CI"
