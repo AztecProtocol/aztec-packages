@@ -69,35 +69,33 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                                       multivariate_challenge,
                                                                       key->pcs_verification_key->get_g1_identity(),
                                                                       transcript);
-
     // Execute transcript consistency univariate opening round
-    auto hack_commitment = transcript->template receive_from_prover<Commitment>("Translation:hack_commitment");
 
-    FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+    const FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
 
     // Construct arrays of commitments and evaluations to be batched, the evaluations being received from the prover
-    const size_t NUM_UNIVARIATES = 6;
-    std::array<Commitment, NUM_UNIVARIATES> transcript_commitments = {
-        commitments.transcript_op, commitments.transcript_Px, commitments.transcript_Py,
-        commitments.transcript_z1, commitments.transcript_z2, hack_commitment
-    };
+    const size_t NUM_UNIVARIATES = 5;
+    std::array<Commitment, NUM_UNIVARIATES> transcript_commitments = { commitments.transcript_op,
+                                                                       commitments.transcript_Px,
+                                                                       commitments.transcript_Py,
+                                                                       commitments.transcript_z1,
+                                                                       commitments.transcript_z2 };
     std::array<FF, NUM_UNIVARIATES> transcript_evaluations = {
         transcript->template receive_from_prover<FF>("Translation:op"),
         transcript->template receive_from_prover<FF>("Translation:Px"),
         transcript->template receive_from_prover<FF>("Translation:Py"),
         transcript->template receive_from_prover<FF>("Translation:z1"),
-        transcript->template receive_from_prover<FF>("Translation:z2"),
-        transcript->template receive_from_prover<FF>("Translation:hack_evaluation")
+        transcript->template receive_from_prover<FF>("Translation:z2")
     };
 
     // Get the batching challenge for commitments and evaluations
-    FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
+    const FF ipa_batching_challenge = transcript->template get_challenge<FF>("Translation:ipa_batching_challenge");
 
     // Compute the batched commitment and batched evaluation for the univariate opening claim
-    auto batched_commitment = transcript_commitments[0];
-    auto batched_transcript_eval = transcript_evaluations[0];
-    auto batching_scalar = ipa_batching_challenge;
-    for (size_t idx = 1; idx < transcript_commitments.size(); ++idx) {
+    Commitment batched_commitment = transcript_commitments[0];
+    FF batched_transcript_eval = transcript_evaluations[0];
+    FF batching_scalar = ipa_batching_challenge;
+    for (size_t idx = 1; idx < NUM_UNIVARIATES; ++idx) {
         batched_commitment = batched_commitment + transcript_commitments[idx] * batching_scalar;
         batched_transcript_eval += batching_scalar * transcript_evaluations[idx];
         batching_scalar *= ipa_batching_challenge;

@@ -1,5 +1,4 @@
 import {
-  type Body,
   type EncryptedL2BlockL2Logs,
   type EncryptedNoteL2BlockL2Logs,
   ExtendedUnencryptedL2Log,
@@ -41,11 +40,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private l2Blocks: L1Published<L2Block>[] = [];
 
   /**
-   * A mapping of body hash to body
-   */
-  private l2BlockBodies: Map<string, Body> = new Map();
-
-  /**
    * An array containing all the tx effects in the L2 blocks that have been fetched so far.
    */
   private txEffects: TxEffect[] = [];
@@ -84,7 +78,6 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
 
   private lastL1BlockNewBlocks: bigint | undefined = undefined;
-  private lastL1BlockNewBlockBodies: bigint | undefined = undefined;
   private lastL1BlockNewMessages: bigint | undefined = undefined;
   private lastL1BlockNewProvenLogs: bigint | undefined = undefined;
 
@@ -163,58 +156,29 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     this.lastL1BlockNewBlocks = blocks[blocks.length - 1].l1.blockNumber;
     this.l2Blocks.push(...blocks);
     this.txEffects.push(...blocks.flatMap(b => b.data.body.txEffects));
-    return Promise.resolve(true);
-  }
 
-  /**
-   * Append new block bodies to the store's list.
-   * @param blockBodies - The L2 block bodies to be added to the store.
-   * @returns True if the operation is successful.
-   */
-  addBlockBodies(blockBodies: DataRetrieval<Body>): Promise<boolean> {
-    for (const body of blockBodies.retrievedData) {
-      void this.l2BlockBodies.set(body.getTxsEffectsHash().toString('hex'), body);
-    }
-    this.lastL1BlockNewBlockBodies = blockBodies.lastProcessedL1BlockNumber;
     return Promise.resolve(true);
-  }
-
-  /**
-   * Gets block bodies that have the same txHashes as we supply.
-   *
-   * @param txsEffectsHashes - A list of txsEffectsHashes (body hashes).
-   * @returns The requested L2 block bodies
-   */
-  getBlockBodies(txsEffectsHashes: Buffer[]): Promise<(Body | undefined)[]> {
-    return Promise.resolve(
-      txsEffectsHashes.map(txsEffectsHash => this.l2BlockBodies.get(txsEffectsHash.toString('hex'))),
-    );
   }
 
   /**
    * Append new logs to the store's list.
-   * @param encryptedLogs - The encrypted logs to be added to the store.
-   * @param unencryptedLogs - The unencrypted logs to be added to the store.
-   * @param blockNumber - The block for which to add the logs.
+   * @param block - The block for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(
-    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs,
-    encryptedLogs: EncryptedL2BlockL2Logs,
-    unencryptedLogs: UnencryptedL2BlockL2Logs,
-    blockNumber: number,
-  ): Promise<boolean> {
-    if (noteEncryptedLogs) {
-      this.noteEncryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = noteEncryptedLogs;
-    }
+  addLogs(blocks: L2Block[]): Promise<boolean> {
+    blocks.forEach(block => {
+      if (block.body.noteEncryptedLogs) {
+        this.noteEncryptedLogsPerBlock[block.number - INITIAL_L2_BLOCK_NUM] = block.body.noteEncryptedLogs;
+      }
 
-    if (encryptedLogs) {
-      this.encryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = encryptedLogs;
-    }
+      if (block.body.encryptedLogs) {
+        this.encryptedLogsPerBlock[block.number - INITIAL_L2_BLOCK_NUM] = block.body.encryptedLogs;
+      }
 
-    if (unencryptedLogs) {
-      this.unencryptedLogsPerBlock[blockNumber - INITIAL_L2_BLOCK_NUM] = unencryptedLogs;
-    }
+      if (block.body.unencryptedLogs) {
+        this.unencryptedLogsPerBlock[block.number - INITIAL_L2_BLOCK_NUM] = block.body.unencryptedLogs;
+      }
+    });
 
     return Promise.resolve(true);
   }
@@ -451,11 +415,20 @@ export class MemoryArchiverStore implements ArchiverDataStore {
     return Promise.resolve();
   }
 
+  setBlockSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    this.lastL1BlockNewBlocks = l1BlockNumber;
+    return Promise.resolve();
+  }
+
+  setMessageSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    this.lastL1BlockNewMessages = l1BlockNumber;
+    return Promise.resolve();
+  }
+
   public getSynchPoint(): Promise<ArchiverL1SynchPoint> {
     return Promise.resolve({
       blocksSynchedTo: this.lastL1BlockNewBlocks,
       messagesSynchedTo: this.lastL1BlockNewMessages,
-      blockBodiesSynchedTo: this.lastL1BlockNewBlockBodies,
       provenLogsSynchedTo: this.lastL1BlockNewProvenLogs,
     });
   }

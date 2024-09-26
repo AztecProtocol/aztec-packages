@@ -13,7 +13,7 @@ use dep::std::mem::zeroed;
 
 mod test;
 
-struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
+pub struct SharedMutable<T, let INITIAL_DELAY: u32, Context> {
     context: Context,
     storage_slot: Field,
 }
@@ -80,46 +80,6 @@ impl<T, let INITIAL_DELAY: u32, Context> SharedMutable<T, INITIAL_DELAY, Context
 
     fn get_hash_storage_slot(self) -> Field {
         pedersen_hash([self.storage_slot], HASH_SEPARATOR)
-    }
-
-    // It may seem odd that we take a header and address instead of reading from e.g. a PrivateContext, but this lets us
-    // reuse this function in SharedMutablePrivateGetter.
-    fn historical_read_from_public_storage(
-        self,
-        header: Header,
-        address: AztecAddress
-    ) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) {
-        let historical_block_number = header.global_variables.block_number as u32;
-
-        // We could simply produce historical inclusion proofs for both the ScheduledValueChange and
-        // ScheduledDelayChange, but that'd require one full sibling path per storage slot (since due to kernel siloing
-        // the storage is not contiguous), and in the best case in which T is a single field that'd be 4 slots.
-        // Instead, we get an oracle to provide us the correct values for both the value and delay changes, and instead
-        // prove inclusion of their hash, which is both a much smaller proof (a single slot), and also independent of
-        // the size of T.
-        let (value_change_hint, delay_change_hint) = unsafe {
-            get_public_storage_hints(address, self.storage_slot, historical_block_number)
-        };
-
-        // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
-        let hash = header.public_storage_historical_read(self.get_hash_storage_slot(), address);
-
-        if hash != 0 {
-            assert_eq(
-                hash, SharedMutable::hash_scheduled_data(value_change_hint, delay_change_hint), "Hint values do not match hash"
-            );
-        } else {
-            // The hash slot can only hold a zero if it is uninitialized, meaning no value or delay change was ever
-            // scheduled. Therefore, the hints must then correspond to uninitialized scheduled changes.
-            assert_eq(
-                value_change_hint, ScheduledValueChange::deserialize(zeroed()), "Non-zero value change for zero hash"
-            );
-            assert_eq(
-                delay_change_hint, ScheduledDelayChange::deserialize(zeroed()), "Non-zero delay change for zero hash"
-            );
-        };
-
-        (value_change_hint, delay_change_hint, historical_block_number)
     }
 }
 
@@ -203,7 +163,7 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateCont
         // will only be valid for however many blocks we can ensure the value will not change, which will depend on the
         // current delay and any scheduled delay changes.
 
-        let (value_change, delay_change, historical_block_number) = self.historical_read_from_public_storage(self.context.get_header(), self.context.this_address());
+        let (value_change, delay_change, historical_block_number) = self.historical_read_from_public_storage();
 
         // We use the effective minimum delay as opposed to the current delay at the historical block as this one also
         // takes into consideration any scheduled delay changes.
@@ -219,6 +179,43 @@ impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, &mut PrivateCont
         // historical public value matches the current one, since it can only change after the horizon.
         self.context.set_tx_max_block_number(block_horizon);
         value_change.get_current_at(historical_block_number)
+    }
+
+    fn historical_read_from_public_storage(self) -> (ScheduledValueChange<T>, ScheduledDelayChange<INITIAL_DELAY>, u32) {
+        let header = self.context.get_header();
+        let address = self.context.this_address();
+
+        let historical_block_number = header.global_variables.block_number as u32;
+
+        // We could simply produce historical inclusion proofs for both the ScheduledValueChange and
+        // ScheduledDelayChange, but that'd require one full sibling path per storage slot (since due to kernel siloing
+        // the storage is not contiguous), and in the best case in which T is a single field that'd be 4 slots.
+        // Instead, we get an oracle to provide us the correct values for both the value and delay changes, and instead
+        // prove inclusion of their hash, which is both a much smaller proof (a single slot), and also independent of
+        // the size of T.
+        let (value_change_hint, delay_change_hint) = unsafe {
+            get_public_storage_hints(address, self.storage_slot, historical_block_number)
+        };
+
+        // Ideally the following would be simply public_storage::read_historical, but we can't implement that yet.
+        let hash = header.public_storage_historical_read(self.get_hash_storage_slot(), address);
+
+        if hash != 0 {
+            assert_eq(
+                hash, SharedMutable::hash_scheduled_data(value_change_hint, delay_change_hint), "Hint values do not match hash"
+            );
+        } else {
+            // The hash slot can only hold a zero if it is uninitialized, meaning no value or delay change was ever
+            // scheduled. Therefore, the hints must then correspond to uninitialized scheduled changes.
+            assert_eq(
+                value_change_hint, ScheduledValueChange::deserialize(zeroed()), "Non-zero value change for zero hash"
+            );
+            assert_eq(
+                delay_change_hint, ScheduledDelayChange::deserialize(zeroed()), "Non-zero delay change for zero hash"
+            );
+        };
+
+        (value_change_hint, delay_change_hint, historical_block_number)
     }
 
     fn hash_scheduled_data(

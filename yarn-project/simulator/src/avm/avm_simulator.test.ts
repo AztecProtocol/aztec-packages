@@ -10,6 +10,7 @@ import { type Fieldable } from '@aztec/foundation/serialize';
 import { randomInt } from 'crypto';
 import { mock } from 'jest-mock-extended';
 
+import { type WorldStateDB } from '../public/public_db_sources.js';
 import { type PublicSideEffectTraceInterface } from '../public/side_effect_trace_interface.js';
 import { type AvmContext } from './avm_context.js';
 import { type AvmExecutionEnvironment } from './avm_execution_environment.js';
@@ -17,12 +18,10 @@ import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory
 import { AvmSimulator } from './avm_simulator.js';
 import { isAvmBytecode, markBytecodeAsAvm } from './bytecode_utils.js';
 import {
-  adjustCalldataIndex,
   getAvmTestContractBytecode,
   initContext,
   initExecutionEnvironment,
   initGlobalVariables,
-  initHostStorage,
   initMachineState,
   initPersistableStateManager,
   randomMemoryBytes,
@@ -30,7 +29,6 @@ import {
   randomMemoryUint64s,
   resolveAvmTestContractAssertionMessage,
 } from './fixtures/index.js';
-import { type HostStorage } from './journal/host_storage.js';
 import { type AvmPersistableStateManager } from './journal/journal.js';
 import { Add, CalldataCopy, Return, Set } from './opcodes/index.js';
 import { encodeToBytecode } from './serialization/bytecode_serialization.js';
@@ -53,10 +51,7 @@ describe('AVM simulator: injected bytecode', () => {
   beforeAll(() => {
     calldata = [new Fr(1), new Fr(2)];
     bytecode = encodeToBytecode([
-      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ adjustCalldataIndex(0), /*dstOffset*/ 0).as(
-        Opcode.SET_8,
-        Set.wireFormat8,
-      ),
+      new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 0, /*dstOffset*/ 0).as(Opcode.SET_8, Set.wireFormat8),
       new Set(/*indirect*/ 0, TypeTag.UINT32, /*value*/ 2, /*dstOffset*/ 1).as(Opcode.SET_8, Set.wireFormat8),
       new CalldataCopy(/*indirect=*/ 0, /*cdOffset=*/ 0, /*copySize=*/ 1, /*dstOffset=*/ 0),
       new Add(/*indirect=*/ 0, TypeTag.FIELD, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(
@@ -67,8 +62,8 @@ describe('AVM simulator: injected bytecode', () => {
     ]);
   });
 
-  it('Should not be recognized as AVM bytecode (magic missing)', async () => {
-    expect(!(await isAvmBytecode(bytecode)));
+  it('Should not be recognized as AVM bytecode (magic missing)', () => {
+    expect(!isAvmBytecode(bytecode));
   });
 
   it('Should execute bytecode that performs basic addition', async () => {
@@ -117,9 +112,29 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual([new Fr(0)]);
   });
 
-  it('Should be recognized as AVM bytecode (magic present)', async () => {
+  it('Should be recognized as AVM bytecode (magic present)', () => {
     const bytecode = getAvmTestContractBytecode('add_args_return');
-    expect(await isAvmBytecode(bytecode));
+    expect(isAvmBytecode(bytecode));
+  });
+
+  it('Should handle calldata oracle', async () => {
+    const calldata: Fr[] = [new Fr(1), new Fr(2), new Fr(3)];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+    const bytecode = getAvmTestContractBytecode('assert_calldata_copy');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+  });
+
+  it('Should handle return oracle', async () => {
+    const context = initContext();
+
+    const bytecode = getAvmTestContractBytecode('return_oracle');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    expect(results.output).toEqual([new Fr(1), new Fr(2), new Fr(3)]);
   });
 
   it('elliptic curve operations', async () => {
@@ -375,14 +390,14 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     const value0 = new Fr(420);
     const value1 = new Fr(69);
 
-    let hostStorage: HostStorage;
+    let worldStateDB: WorldStateDB;
     let trace: PublicSideEffectTraceInterface;
     let persistableState: AvmPersistableStateManager;
 
     beforeEach(() => {
-      hostStorage = initHostStorage();
+      worldStateDB = mock<WorldStateDB>();
       trace = mock<PublicSideEffectTraceInterface>();
-      persistableState = initPersistableStateManager({ hostStorage, trace });
+      persistableState = initPersistableStateManager({ worldStateDB, trace });
     });
 
     const createContext = (calldata: Fr[] = []) => {
@@ -409,7 +424,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('note_hash_exists');
         if (mockAtLeafIndex !== undefined) {
-          mockNoteHashExists(hostStorage, mockAtLeafIndex, value0);
+          mockNoteHashExists(worldStateDB, mockAtLeafIndex, value0);
         }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -434,7 +449,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const bytecode = getAvmTestContractBytecode('nullifier_exists');
 
         if (exists) {
-          mockNullifierExists(hostStorage, leafIndex, value0);
+          mockNullifierExists(worldStateDB, leafIndex, value0);
         }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -473,7 +488,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('l1_to_l2_msg_exists');
         if (mockAtLeafIndex !== undefined) {
-          mockL1ToL2MessageExists(hostStorage, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
+          mockL1ToL2MessageExists(worldStateDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
         }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -611,7 +626,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       it('Should read value in storage (single)', async () => {
         const context = createContext();
-        mockStorageRead(hostStorage, value0);
+        mockStorageRead(worldStateDB, value0);
 
         const bytecode = getAvmTestContractBytecode('read_storage_single');
 
@@ -674,7 +689,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           [listSlot0.toBigInt(), value0],
           [listSlot1.toBigInt(), value1],
         ]);
-        mockStorageReadWithMap(hostStorage, mockedStorage);
+        mockStorageReadWithMap(worldStateDB, mockedStorage);
 
         const bytecode = getAvmTestContractBytecode('read_storage_list');
 
@@ -748,7 +763,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const calldata = [storageAddress];
 
         const context = createContext(calldata);
-        mockStorageRead(hostStorage, value0);
+        mockStorageRead(worldStateDB, value0);
         const bytecode = getAvmTestContractBytecode('read_storage_map');
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -780,7 +795,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           initializationHash: new Fr(0x101112),
           publicKeysHash: new Fr(0x161718),
         };
-        mockGetContractInstance(hostStorage, contractInstance);
+        mockGetContractInstance(worldStateDB, contractInstance);
 
         const bytecode = getAvmTestContractBytecode('test_get_contract_instance_raw');
 
@@ -813,7 +828,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
           }),
           /*startGasLeft=*/ expect.anything(),
           /*endGasLeft=*/ expect.anything(),
-          /*bytecode=*/ expect.anything(), //decompressBytecodeIfCompressed(addBytecode),
+          /*bytecode=*/ expect.anything(),
           /*avmCallResults=*/ expect.anything(), // we don't have the NESTED call's results to check
           /*functionName=*/ expect.anything(),
         );
@@ -824,7 +839,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_call_to_add');
         const addBytecode = getAvmTestContractBytecode('add_args_return');
-        mockGetBytecode(hostStorage, addBytecode);
+        mockGetBytecode(worldStateDB, addBytecode);
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
 
@@ -840,7 +855,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_static_call_to_add');
         const addBytecode = getAvmTestContractBytecode('add_args_return');
-        mockGetBytecode(hostStorage, addBytecode);
+        mockGetBytecode(worldStateDB, addBytecode);
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
 
@@ -857,7 +872,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_call_to_add_with_gas');
         const addBytecode = getAvmTestContractBytecode('add_args_return');
-        mockGetBytecode(hostStorage, addBytecode);
+        mockGetBytecode(worldStateDB, addBytecode);
         mockTraceFork(trace);
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
@@ -876,7 +891,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext();
         const callBytecode = getAvmTestContractBytecode('nested_static_call_to_set_storage');
         const nestedBytecode = getAvmTestContractBytecode('set_storage_single');
-        mockGetBytecode(hostStorage, nestedBytecode);
+        mockGetBytecode(worldStateDB, nestedBytecode);
         mockTraceFork(trace);
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
@@ -900,7 +915,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const callBytecode = getAvmTestContractBytecode('nested_call_to_add');
         // We actually don't pass the function ADD, but it's ok because the signature is the same.
         const nestedBytecode = getAvmTestContractBytecode('assert_same');
-        mockGetBytecode(hostStorage, nestedBytecode);
+        mockGetBytecode(worldStateDB, nestedBytecode);
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(true); // The outer call should revert.

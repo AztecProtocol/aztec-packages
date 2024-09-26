@@ -51,6 +51,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import {
@@ -66,7 +67,6 @@ import {
 import { getCanonicalClassRegisterer } from '@aztec/protocol-contracts/class-registerer';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance-deployer';
-import { getCanonicalKeyRegistryAddress } from '@aztec/protocol-contracts/key-registry';
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import { GlobalVariableBuilder, SequencerClient } from '@aztec/sequencer-client';
 import { PublicProcessorFactory, WASMSimulator, WorldStateDB, createSimulationProvider } from '@aztec/simulator';
@@ -509,18 +509,15 @@ export class AztecNodeService implements AztecNode {
       throw new Error('The L2ToL1Message you are trying to prove inclusion of does not exist');
     }
 
+    const tempStores: AztecKVStore[] = [];
+
     // Construct message subtrees
     const l2toL1Subtrees = await Promise.all(
       l2ToL1Messages.map(async (msgs, i) => {
+        const store = openTmpStore(true);
+        tempStores.push(store);
         const treeHeight = msgs.length <= 1 ? 1 : Math.ceil(Math.log2(msgs.length));
-        const tree = new StandardTree(
-          openTmpStore(true),
-          new SHA256Trunc(),
-          `temp_msgs_subtrees_${i}`,
-          treeHeight,
-          0n,
-          Fr,
-        );
+        const tree = new StandardTree(store, new SHA256Trunc(), `temp_msgs_subtrees_${i}`, treeHeight, 0n, Fr);
         await tree.appendLeaves(msgs);
         return tree;
       }),
@@ -551,6 +548,9 @@ export class AztecNodeService implements AztecNode {
         .concat(indexOfMsgInSubtree.toString(2).padStart(l2toL1Subtrees[indexOfMsgTx].getDepth(), '0')),
       2,
     );
+
+    // clear the tmp stores
+    await Promise.all(tempStores.map(store => store.delete()));
 
     return [BigInt(mergedIndex), new SiblingPath(mergedPath.length, mergedPath)];
   }
@@ -762,7 +762,7 @@ export class AztecNodeService implements AztecNode {
     const txValidators: TxValidator<Tx | ProcessedTx>[] = [
       new DataTxValidator(),
       new MetadataTxValidator(new Fr(this.l1ChainId), new Fr(blockNumber)),
-      new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest())),
+      new DoubleSpendTxValidator(new WorldStateDB(this.worldStateSynchronizer.getLatest(), this.contractDataSource)),
     ];
 
     if (!isSimulation) {
@@ -797,7 +797,6 @@ export class AztecNodeService implements AztecNode {
       classRegisterer: getCanonicalClassRegisterer().address,
       feeJuice: getCanonicalFeeJuice().address,
       instanceDeployer: getCanonicalInstanceDeployer().address,
-      keyRegistry: getCanonicalKeyRegistryAddress(),
       multiCallEntrypoint: getCanonicalMultiCallEntrypointAddress(),
     });
   }

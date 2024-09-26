@@ -1,8 +1,8 @@
 use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Deserialize}};
 
-global SETTINGS_LENGTH = 2;
+global SETTINGS_LENGTH: u32 = 2;
 
-struct Settings {
+pub struct Settings {
     other_asset: AztecAddress,
     admin: AztecAddress,
 }

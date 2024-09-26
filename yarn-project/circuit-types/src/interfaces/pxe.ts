@@ -1,7 +1,6 @@
 import {
   type AztecAddress,
   type CompleteAddress,
-  type Fq,
   type Fr,
   type L1_TO_L2_MSG_TREE_HEIGHT,
   type PartialAddress,
@@ -17,7 +16,12 @@ import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';
-import { type GetUnencryptedLogsResponse, type L1EventPayload, type LogFilter } from '../logs/index.js';
+import {
+  type GetUnencryptedLogsResponse,
+  type L1EventPayload,
+  type LogFilter,
+  type UnencryptedL2Log,
+} from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
 import { type ExtendedNote, type OutgoingNotesFilter, type UniqueNote } from '../notes/index.js';
 import { type SiblingPath } from '../sibling_path/sibling_path.js';
@@ -118,18 +122,6 @@ export interface PXE {
    * @returns The complete address of the requested recipient.
    */
   getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
-
-  /**
-   * Rotates master nullifier keys.
-   * @param address - The address of the account we want to rotate our key for.
-   * @param newNskM - The new master nullifier secret key we want to use.
-   * @remarks - One should not use this function directly without also calling the canonical key registry to rotate
-   * the new master nullifier secret key's derived master nullifier public key.
-   * Therefore, it is preferred to use rotateNullifierKeys on AccountWallet, as that handles the call to the Key Registry as well.
-   *
-   * This does not hinder our ability to spend notes tied to a previous master nullifier public key, provided we have the master nullifier secret key for it.
-   */
-  rotateNskM(address: AztecAddress, newNskM: Fq): Promise<void>;
 
   /**
    * Registers a contract class in the PXE without registering any associated contract instance with it.
@@ -440,7 +432,7 @@ export interface PXE {
  * The shape of the event generated on the Contract.
  */
 export interface EventMetadata<T> {
-  decode(payload: L1EventPayload): T | undefined;
+  decode(payload: L1EventPayload | UnencryptedL2Log): T | undefined;
   eventSelector: EventSelector;
   fieldNames: string[];
 }

@@ -162,7 +162,6 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "ZM:x", "ZM:z");
 
         round++;
-        manifest_expected.add_entry(round, "Translation:hack_commitment", frs_per_G);
         manifest_expected.add_challenge(round, "Translation:evaluation_challenge_x");
 
         round++;
@@ -171,7 +170,6 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Translation:Py", frs_per_Fr);
         manifest_expected.add_entry(round, "Translation:z1", frs_per_Fr);
         manifest_expected.add_entry(round, "Translation:z2", frs_per_Fr);
-        manifest_expected.add_entry(round, "Translation:hack_evaluation", frs_per_Fr);
         manifest_expected.add_challenge(round, "Translation:ipa_batching_challenge");
 
         round++;

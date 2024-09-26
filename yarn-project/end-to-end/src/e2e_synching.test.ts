@@ -306,7 +306,7 @@ class TestVariant {
 /**
  * Setting up the different variants we will be testing with.
  *
- * @note  The `MaxDiff` test have much fewer transactions than all others, this is
+ * @note  The `Spam` test have much fewer transactions than all others, this is
  *        because each transaction is LARGE, so the block size in kb is hit.
  *        I decided that 1/4 should be acceptable, and still small enough to work.
  */
@@ -317,7 +317,7 @@ const variants: TestVariant[] = [
   new TestVariant(10, 9, TxComplexity.Spam),
 ];
 
-describe('e2e_l1_with_wall_time', () => {
+describe('e2e_synching', () => {
   // WARNING: Running this with AZTEC_GENERATE_TEST_DATA is VERY slow, and will build a whole slew
   //          of fixtures including multiple blocks with many transaction in.
   it.each(variants)(
@@ -451,7 +451,7 @@ describe('e2e_l1_with_wall_time', () => {
       const pendingBlockNumber = await rollup.read.getPendingBlockNumber();
       await rollup.write.setAssumeProvenThroughBlockNumber([pendingBlockNumber - BigInt(variant.blockCount) / 2n]);
 
-      const timeliness = await rollup.read.TIMELINESS_PROVING_IN_SLOTS();
+      const timeliness = (await rollup.read.EPOCH_DURATION()) * 2n;
       const [, , slot] = await rollup.read.blocks([(await rollup.read.getProvenBlockNumber()) + 1n]);
       const timeJumpTo = await rollup.read.getTimestampForSlot([slot + timeliness]);
 

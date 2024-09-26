@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.56.0](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.55.1...aztec-package-v0.56.0) (2024-09-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove key registry ([#8613](https://github.com/AztecProtocol/aztec-packages/issues/8613))
+
+### Features
+
+* Remove key registry ([#8613](https://github.com/AztecProtocol/aztec-packages/issues/8613)) ([a668506](https://github.com/AztecProtocol/aztec-packages/commit/a6685067a0a5d17cbbc4cbfed4e78e364864ff51))
+* Update rollup storage to hold pending/proven tips ([#8583](https://github.com/AztecProtocol/aztec-packages/issues/8583)) ([38e3051](https://github.com/AztecProtocol/aztec-packages/commit/38e3051d60f9f8a80e33fab4e0f7f3ec3cde2ee2))
+
 ## [0.55.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-package-v0.55.0...aztec-package-v0.55.1) (2024-09-17)
 
 

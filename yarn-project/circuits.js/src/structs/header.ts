@@ -3,6 +3,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer, serializeToFields } from '@aztec/foundation/serialize';
 import { type FieldsOf } from '@aztec/foundation/types';
 
+import { inspect } from 'util';
+
 import { GeneratorIndex, HEADER_LENGTH } from '../constants.gen.js';
 import { ContentCommitment } from './content_commitment.js';
 import { GlobalVariables } from './global_variables.js';
@@ -124,5 +126,21 @@ export class Header {
 
   hash(): Fr {
     return poseidon2HashWithSeparator(this.toFields(), GeneratorIndex.BLOCK_HASH);
+  }
+
+  [inspect.custom]() {
+    return `Header {
+  lastArchive: ${inspect(this.lastArchive)},
+  contentCommitment.numTx: ${this.contentCommitment.numTxs.toNumber()},
+  contentCommitment.txsEffectsHash: ${this.contentCommitment.txsEffectsHash.toString('hex')},
+  contentCommitment.inHash: ${this.contentCommitment.inHash.toString('hex')},
+  contentCommitment.outHash: ${this.contentCommitment.outHash.toString('hex')},
+  state.l1ToL2MessageTree: ${inspect(this.state.l1ToL2MessageTree)},
+  state.noteHashTree: ${inspect(this.state.partial.noteHashTree)},
+  state.nullifierTree: ${inspect(this.state.partial.nullifierTree)},
+  state.publicDataTree: ${inspect(this.state.partial.publicDataTree)},
+  globalVariables: ${inspect(this.globalVariables)},
+  totalFees: ${this.totalFees},
+}`;
   }
 }

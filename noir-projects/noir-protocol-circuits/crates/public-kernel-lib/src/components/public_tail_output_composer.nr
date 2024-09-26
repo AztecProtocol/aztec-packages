@@ -12,7 +12,7 @@ use dep::types::{
     data::PublicDataLeafHint, partial_state_reference::PartialStateReference
 };
 
-struct PublicTailOutputComposer<let NUM_PUBLIC_DATA_LEAVES: u32> {
+pub struct PublicTailOutputComposer<let NUM_PUBLIC_DATA_LEAVES: u32> {
     previous_kernel: PublicKernelCircuitPublicInputs,
     start_state: PartialStateReference,
     public_data_leaf_hints: [PublicDataLeafHint; NUM_PUBLIC_DATA_LEAVES],

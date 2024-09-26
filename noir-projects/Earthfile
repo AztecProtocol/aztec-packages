@@ -124,3 +124,12 @@ gates-report:
   RUN ./gates_report.sh
 
   SAVE ARTIFACT ./noir-protocol-circuits/gates_report.json gates_report.json
+
+public-functions-report:
+  FROM +build-contracts
+  WORKDIR /usr/src/noir-projects
+
+  RUN cd noir-contracts && node publicFunctionsSizeReport.js ./target/
+
+  SAVE ARTIFACT ./noir-contracts/public_functions_report.json public_functions_report.json
+

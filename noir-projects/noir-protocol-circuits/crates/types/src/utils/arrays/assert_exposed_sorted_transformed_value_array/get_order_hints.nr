@@ -6,7 +6,7 @@ use crate::{
 }
 };
 
-struct OrderHint {
+pub struct OrderHint {
     counter: u32,
     sorted_index: u32,
 }
@@ -147,4 +147,3 @@ mod tests {
         builder.desc_to_equal(expected_hints);
     }
 }
-

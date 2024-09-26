@@ -47,7 +47,7 @@ export class PedersenCommitment extends Instruction {
     memory.checkTag(TypeTag.UINT32, genIndexOffset);
 
     const memoryOperations = { reads: inputSize + 2, writes: 3, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: inputSize }));
 
     const inputBuffer: Buffer[] = inputs.map(input => input.toBuffer());
     // TODO: Add the generate index to the pedersenCommit function

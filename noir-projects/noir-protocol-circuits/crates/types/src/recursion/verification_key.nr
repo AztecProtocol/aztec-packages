@@ -1,8 +1,8 @@
 use crate::{traits::{Serialize, Deserialize, Empty}, constants::VERIFICATION_KEY_LENGTH_IN_FIELDS};
 
-global SERIALIZED_VERIFICATION_KEY_LENGTH = VERIFICATION_KEY_LENGTH_IN_FIELDS + 1;
+global SERIALIZED_VERIFICATION_KEY_LENGTH: u32 = VERIFICATION_KEY_LENGTH_IN_FIELDS + 1;
 
-struct VerificationKey {
+pub struct VerificationKey {
     key: [Field; VERIFICATION_KEY_LENGTH_IN_FIELDS],
     hash: Field,
 }
