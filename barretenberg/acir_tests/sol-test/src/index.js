@@ -3,11 +3,6 @@ const { readFileSync, promises: fsPromises } = fs;
 import { spawn } from "child_process";
 import { ethers } from "ethers";
 import solc from "solc";
-<<<<<<< HEAD
-import linker from "solc/linker.js";
-import { info } from "console";
-=======
->>>>>>> origin/master
 
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1093): This is the size of the proof up to Sumcheck, without public inputs, as the Honk contract does not currently have a PCS.

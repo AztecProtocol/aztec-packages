@@ -154,7 +154,6 @@ template <typename Curve> class ShpleminiVerifier_ {
             scalars.emplace_back(Fr(1));
         }
         // Compute 1/(z − r), 1/(z + r), 1/(z + r²), … , 1/(z + r²⁽ⁿ⁻¹⁾) needed for Shplonk batching
-        // THIS NEEDS WORK, we need CONST_PROOF_SI~Z
         const std::vector<Fr> inverse_vanishing_evals = ShplonkVerifier::compute_inverted_gemini_denominators(
             log_circuit_size + 1, shplonk_evaluation_challenge, gemini_eval_challenge_powers);
 
@@ -326,15 +325,14 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param scalars Output vector where the computed scalars will be stored.
      * @param constant_term_accumulator The accumulator for the summands of the constant term.
      */
-    static void batch_gemini_claims_received_from_prover(
-        [[maybe_unused]] const size_t log_circuit_size,
-        const std::vector<Commitment>& fold_commitments,
-        const std::vector<Fr>& gemini_evaluations,
-        const std::vector<Fr>& inverse_vanishing_evals, // from compute inverted gemini denominators
-        const Fr& shplonk_batching_challenge,
-        std::vector<Commitment>& commitments,
-        std::vector<Fr>& scalars,
-        Fr& constant_term_accumulator) // this gets modified only here so should be returned by this
+    static void batch_gemini_claims_received_from_prover(const size_t log_circuit_size,
+                                                         const std::vector<Commitment>& fold_commitments,
+                                                         const std::vector<Fr>& gemini_evaluations,
+                                                         const std::vector<Fr>& inverse_vanishing_evals,
+                                                         const Fr& shplonk_batching_challenge,
+                                                         std::vector<Commitment>& commitments,
+                                                         std::vector<Fr>& scalars,
+                                                         Fr& constant_term_accumulator)
     {
 
         // Initialize batching challenge as ν²
@@ -348,7 +346,6 @@ template <typename Curve> class ShpleminiVerifier_ {
                 auto builder = shplonk_batching_challenge.get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
                 stdlib::bool_t dummy_round = stdlib::bool_t(builder, is_dummy_round);
-                // Call fix witness
                 Fr zero = Fr(0);
                 zero.convert_constant_to_fixed_witness(builder);
                 scaling_factor = Fr::conditional_assign(dummy_round, zero, scaling_factor);
