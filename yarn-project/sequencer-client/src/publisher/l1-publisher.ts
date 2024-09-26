@@ -513,40 +513,46 @@ export class L1Publisher {
     }
   }
 
+  private async prepareProposeTx(encodedData: L1ProcessArgs, gasGuess: bigint) {
+    // We have to jump a few hoops because viem is not happy around estimating gas for view functions
+    const computeTxsEffectsHashGas = await this.publicClient.estimateGas({
+      to: this.rollupContract.address,
+      data: encodeFunctionData({
+        abi: this.rollupContract.abi,
+        functionName: 'computeTxsEffectsHash',
+        args: [`0x${encodedData.body.toString('hex')}`],
+      }),
+    });
+
+    // @note  We perform this guesstimate instead of the usual `gasEstimate` since
+    //        viem will use the current state to simulate against, which means that
+    //        we will fail estimation in the case where we are simulating for the
+    //        first ethereum block within our slot (as current time is not in the
+    //        slot yet).
+    const gasGuesstimate = computeTxsEffectsHashGas + gasGuess;
+
+    const attestations = encodedData.attestations
+      ? encodedData.attestations.map(attest => attest.toViemSignature())
+      : [];
+    const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.to0xString()) : [];
+    const args = [
+      `0x${encodedData.header.toString('hex')}`,
+      `0x${encodedData.archive.toString('hex')}`,
+      `0x${encodedData.blockHash.toString('hex')}`,
+      txHashes,
+      attestations,
+      `0x${encodedData.body.toString('hex')}`,
+    ] as const;
+
+    return { args, gasGuesstimate };
+  }
+
   private async sendProposeTx(encodedData: L1ProcessArgs): Promise<string | undefined> {
     if (this.interrupted) {
       return;
     }
     try {
-      // We have to jump a few hoops because viem is not happy around estimating gas for view functions
-      const computeTxsEffectsHashGas = await this.publicClient.estimateGas({
-        to: this.rollupContract.address,
-        data: encodeFunctionData({
-          abi: this.rollupContract.abi,
-          functionName: 'computeTxsEffectsHash',
-          args: [`0x${encodedData.body.toString('hex')}`],
-        }),
-      });
-
-      // @note  We perform this guesstimate instead of the usual `gasEstimate` since
-      //        viem will use the current state to simulate against, which means that
-      //        we will fail estimation in the case where we are simulating for the
-      //        first ethereum block within our slot (as current time is not in the
-      //        slot yet).
-      const gasGuesstimate = computeTxsEffectsHashGas + L1Publisher.PROPOSE_GAS_GUESS;
-
-      const attestations = encodedData.attestations
-        ? encodedData.attestations.map(attest => attest.toViemSignature())
-        : [];
-      const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.to0xString()) : [];
-      const args = [
-        `0x${encodedData.header.toString('hex')}`,
-        `0x${encodedData.archive.toString('hex')}`,
-        `0x${encodedData.blockHash.toString('hex')}`,
-        txHashes,
-        attestations,
-        `0x${encodedData.body.toString('hex')}`,
-      ] as const;
+      const { args, gasGuesstimate } = await this.prepareProposeTx(encodedData, L1Publisher.PROPOSE_GAS_GUESS);
 
       return await this.rollupContract.write.propose(args, {
         account: this.account,
@@ -564,38 +570,12 @@ export class L1Publisher {
       return;
     }
     try {
-      // We have to jump a few hoops because viem is not happy around estimating gas for view functions
-      const computeTxsEffectsHashGas = await this.publicClient.estimateGas({
-        to: this.rollupContract.address,
-        data: encodeFunctionData({
-          abi: this.rollupContract.abi,
-          functionName: 'computeTxsEffectsHash',
-          args: [`0x${encodedData.body.toString('hex')}`],
-        }),
-      });
+      const { args, gasGuesstimate } = await this.prepareProposeTx(
+        encodedData,
+        L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS,
+      );
 
-      // @note  We perform this guesstimate instead of the usual `gasEstimate` since
-      //        viem will use the current state to simulate against, which means that
-      //        we will fail estimation in the case where we are simulating for the
-      //        first ethereum block within our slot (as current time is not in the
-      //        slot yet).
-      const gasGuesstimate = computeTxsEffectsHashGas + L1Publisher.PROPOSE_AND_CLAIM_GAS_GUESS;
-
-      const attestations = encodedData.attestations
-        ? encodedData.attestations.map(attest => attest.toViemSignature())
-        : [];
-      const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.to0xString()) : [];
-      const args = [
-        `0x${encodedData.header.toString('hex')}`,
-        `0x${encodedData.archive.toString('hex')}`,
-        `0x${encodedData.blockHash.toString('hex')}`,
-        txHashes,
-        attestations,
-        `0x${encodedData.body.toString('hex')}`,
-        quote.toViemArgs(),
-      ] as const;
-
-      return await this.rollupContract.write.proposeAndClaim(args, {
+      return await this.rollupContract.write.proposeAndClaim([...args, quote.toViemArgs()], {
         account: this.account,
         gas: gasGuesstimate,
       });
