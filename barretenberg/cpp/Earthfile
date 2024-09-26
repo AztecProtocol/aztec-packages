@@ -19,7 +19,7 @@ wasmtime:
 
 source:
   FROM ../../build-images+from-registry
-  WORKDIR /usr/src/barretenberg
+  WORKDIR /usr/src/barretenberg/cpp
   # cpp source
   COPY --dir src/barretenberg src/CMakeLists.txt src
   # cmake source
