@@ -96,11 +96,11 @@ impl TestEnvironment {
         Deployer { path: "", name, public_keys_hash: 0, secret: 0 }
     }
 
-    unconstrained fn deploy_with_public_keys<let N: u32, let M: u32>(_self: Self, path: str<N>, name: str<M>, secret: Field) -> Deployer<N, M> {
+    unconstrained fn deploy_with_keys<let N: u32, let M: u32>(_self: Self, path: str<N>, name: str<M>, secret: Field) -> Deployer<N, M> {
         Deployer { path, name, public_keys_hash: 0, secret }
     }
 
-    unconstrained fn deploy_self_with_public_keys<let M: u32>(_self: Self, name: str<M>, secret: Field) -> Deployer<0, M> {
+    unconstrained fn deploy_self_with_keys<let M: u32>(_self: Self, name: str<M>, secret: Field) -> Deployer<0, M> {
         Deployer { path: "", name, public_keys_hash: 0, secret }
     }
 
@@ -173,6 +173,7 @@ impl TestEnvironment {
         result
     }
 
+    // TODO (#8810): Can we make this mirror the call_private and call_public interfaces ?
     unconstrained fn call_unconstrained<T, Env>(_self: Self, contract_address: AztecAddress, unconstrained_function_lambda: unconstrained fn[Env] () -> T) -> T {
         let current_contract_address = get_contract_address();
 

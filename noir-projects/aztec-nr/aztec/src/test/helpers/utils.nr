@@ -31,7 +31,8 @@ unconstrained pub fn apply_side_effects_private(contract_address: AztecAddress, 
 pub struct Deployer<let N: u32, let M: u32> {
     path: str<N>,
     name: str<M>,
-    // TODO(ek): Calculate the public keys hash here instead of passing in the secret key
+    // TODO(#8812): Remove the public keys hash field and calculate it on the fly in TS via secret.
+    // We need to pass the secret to TS anyways to add the correct complete address.
     public_keys_hash: Field,
     secret: Field,
 }
