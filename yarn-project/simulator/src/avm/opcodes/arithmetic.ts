@@ -10,10 +10,8 @@ export abstract class ThreeOperandArithmeticInstruction extends ThreeOperandInst
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [aOffset, bOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.aOffset, this.bOffset, this.dstOffset],
-      memory,
-    );
+    const operands = [this.aOffset, this.bOffset, this.dstOffset];
+    const [aOffset, bOffset, dstOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
     memory.checkTags(this.inTag, aOffset, bOffset);
 
     const a = memory.get(aOffset);

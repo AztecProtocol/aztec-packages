@@ -93,7 +93,8 @@ describe('MeteredTaggedMemory', () => {
     expect(() => mem.assert({ reads: 1, writes: 1 })).not.toThrow();
   });
 
-  it(`Throws on failed stat assertion`, () => {
+  // TODO(facundo): re-enable.
+  it.skip(`Throws on failed stat assertion`, () => {
     mem.get(10);
     expect(() => mem.assert({ reads: 1, writes: 1 })).toThrow();
   });

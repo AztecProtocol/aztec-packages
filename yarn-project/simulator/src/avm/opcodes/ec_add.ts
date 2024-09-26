@@ -42,19 +42,17 @@ export class EcAdd extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
+    const operands = [
+      this.p1XOffset,
+      this.p1YOffset,
+      this.p1IsInfiniteOffset,
+      this.p2XOffset,
+      this.p2YOffset,
+      this.p2IsInfiniteOffset,
+      this.dstOffset,
+    ];
     const [p1XOffset, p1YOffset, p1IsInfiniteOffset, p2XOffset, p2YOffset, p2IsInfiniteOffset, dstOffset] =
-      Addressing.fromWire(this.indirect).resolve(
-        [
-          this.p1XOffset,
-          this.p1YOffset,
-          this.p1IsInfiniteOffset,
-          this.p2XOffset,
-          this.p2YOffset,
-          this.p2IsInfiniteOffset,
-          this.dstOffset,
-        ],
-        memory,
-      );
+      Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
 
     const p1X = memory.get(p1XOffset);
     const p1Y = memory.get(p1YOffset);

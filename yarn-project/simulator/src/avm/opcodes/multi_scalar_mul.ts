@@ -35,8 +35,9 @@ export class MultiScalarMul extends Instruction {
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
     // Resolve indirects
-    const [pointsOffset, scalarsOffset, outputOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.pointsOffset, this.scalarsOffset, this.outputOffset],
+    const operands = [this.pointsOffset, this.scalarsOffset, this.outputOffset];
+    const [pointsOffset, scalarsOffset, outputOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(
+      operands,
       memory,
     );
 

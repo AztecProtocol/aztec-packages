@@ -45,12 +45,18 @@ abstract class ExternalCall extends Instruction {
 
   public async execute(context: AvmContext) {
     const memory = context.machineState.memory.track(this.type);
+    const operands = [
+      this.gasOffset,
+      this.addrOffset,
+      this.argsOffset,
+      this.argsSizeOffset,
+      this.retOffset,
+      this.successOffset,
+    ];
     const [gasOffset, addrOffset, argsOffset, argsSizeOffset, retOffset, successOffset] = Addressing.fromWire(
       this.indirect,
-    ).resolve(
-      [this.gasOffset, this.addrOffset, this.argsOffset, this.argsSizeOffset, this.retOffset, this.successOffset],
-      memory,
-    );
+      operands.length,
+    ).resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, gasOffset, gasOffset + 1);
     memory.checkTag(TypeTag.FIELD, addrOffset);
     memory.checkTag(TypeTag.UINT32, argsSizeOffset);
@@ -172,7 +178,8 @@ export class Return extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: this.copySize }));
 
-    const [returnOffset] = Addressing.fromWire(this.indirect).resolve([this.returnOffset], memory);
+    const operands = [this.returnOffset];
+    const [returnOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
 
     const output = memory.getSlice(returnOffset, this.copySize).map(word => word.toFr());
 
@@ -207,7 +214,8 @@ export class Revert extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: this.retSize }));
 
-    const [returnOffset] = Addressing.fromWire(this.indirect).resolve([this.returnOffset], memory);
+    const operands = [this.returnOffset];
+    const [returnOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
 
     const output = memory.getSlice(returnOffset, this.retSize).map(word => word.toFr());
 

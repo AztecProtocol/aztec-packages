@@ -11,10 +11,8 @@ abstract class ThreeOperandBitwiseInstruction extends ThreeOperandInstruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [aOffset, bOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.aOffset, this.bOffset, this.dstOffset],
-      memory,
-    );
+    const operands = [this.aOffset, this.bOffset, this.dstOffset];
+    const [aOffset, bOffset, dstOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
     this.checkTags(memory, this.inTag, aOffset, bOffset);
 
     const a = memory.getAs<IntegralValue>(aOffset);
@@ -102,7 +100,8 @@ export class Not extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect).resolve([this.srcOffset, this.dstOffset], memory);
+    const operands = [this.srcOffset, this.dstOffset];
+    const [srcOffset, dstOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
     TaggedMemory.checkIsIntegralTag(memory.getTag(srcOffset));
     const value = memory.getAs<IntegralValue>(srcOffset);
 

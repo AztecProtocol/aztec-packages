@@ -45,7 +45,8 @@ export class JumpI extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [condOffset] = Addressing.fromWire(this.indirect).resolve([this.condOffset], memory);
+    const operands = [this.condOffset];
+    const [condOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
     const condition = memory.getAs<IntegralValue>(condOffset);
 
     // TODO: reconsider this casting

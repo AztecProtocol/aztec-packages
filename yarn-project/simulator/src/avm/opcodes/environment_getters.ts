@@ -75,7 +75,8 @@ export class GetEnvVar extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [dstOffset] = Addressing.fromWire(this.indirect).resolve([this.dstOffset], memory);
+    const operands = [this.dstOffset];
+    const [dstOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
 
     memory.set(dstOffset, getValue(this.varEnum, context));
 

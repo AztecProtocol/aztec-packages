@@ -31,8 +31,9 @@ export class NoteHashExists extends Instruction {
     const memoryOperations = { reads: 2, writes: 1, indirect: this.indirect };
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
-    const [noteHashOffset, leafIndexOffset, existsOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.noteHashOffset, this.leafIndexOffset, this.existsOffset],
+    const operands = [this.noteHashOffset, this.leafIndexOffset, this.existsOffset];
+    const [noteHashOffset, leafIndexOffset, existsOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(
+      operands,
       memory,
     );
     memory.checkTags(TypeTag.FIELD, noteHashOffset, leafIndexOffset);
@@ -68,7 +69,8 @@ export class EmitNoteHash extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [noteHashOffset] = Addressing.fromWire(this.indirect).resolve([this.noteHashOffset], memory);
+    const operands = [this.noteHashOffset];
+    const [noteHashOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, noteHashOffset);
 
     if (context.environment.isStaticCall) {
@@ -109,8 +111,9 @@ export class NullifierExists extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [nullifierOffset, addressOffset, existsOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.nullifierOffset, this.addressOffset, this.existsOffset],
+    const operands = [this.nullifierOffset, this.addressOffset, this.existsOffset];
+    const [nullifierOffset, addressOffset, existsOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(
+      operands,
       memory,
     );
     memory.checkTags(TypeTag.FIELD, nullifierOffset, addressOffset);
@@ -145,7 +148,8 @@ export class EmitNullifier extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [nullifierOffset] = Addressing.fromWire(this.indirect).resolve([this.nullifierOffset], memory);
+    const operands = [this.nullifierOffset];
+    const [nullifierOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
     memory.checkTag(TypeTag.FIELD, nullifierOffset);
 
     const nullifier = memory.get(nullifierOffset).toFr();
@@ -193,10 +197,11 @@ export class L1ToL2MessageExists extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [msgHashOffset, msgLeafIndexOffset, existsOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.msgHashOffset, this.msgLeafIndexOffset, this.existsOffset],
-      memory,
-    );
+    const operands = [this.msgHashOffset, this.msgLeafIndexOffset, this.existsOffset];
+    const [msgHashOffset, msgLeafIndexOffset, existsOffset] = Addressing.fromWire(
+      this.indirect,
+      operands.length,
+    ).resolve(operands, memory);
     memory.checkTags(TypeTag.FIELD, msgHashOffset, msgLeafIndexOffset);
 
     const msgHash = memory.get(msgHashOffset).toFr();
@@ -230,10 +235,8 @@ export class EmitUnencryptedLog extends Instruction {
 
     const memory = context.machineState.memory.track(this.type);
 
-    const [logOffset, logSizeOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.logOffset, this.logSizeOffset],
-      memory,
-    );
+    const operands = [this.logOffset, this.logSizeOffset];
+    const [logOffset, logSizeOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(operands, memory);
     memory.checkTag(TypeTag.UINT32, logSizeOffset);
     const logSize = memory.get(logSizeOffset).toNumber();
     memory.checkTagsRange(TypeTag.FIELD, logOffset, logSize);
@@ -269,8 +272,9 @@ export class SendL2ToL1Message extends Instruction {
     const memory = context.machineState.memory.track(this.type);
     context.machineState.consumeGas(this.gasCost(memoryOperations));
 
-    const [recipientOffset, contentOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.recipientOffset, this.contentOffset],
+    const operands = [this.recipientOffset, this.contentOffset];
+    const [recipientOffset, contentOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(
+      operands,
       memory,
     );
 

@@ -33,8 +33,9 @@ export class ToRadixLE extends Instruction {
 
   public async execute(context: AvmContext): Promise<void> {
     const memory = context.machineState.memory.track(this.type);
-    const [srcOffset, dstOffset, radixOffset] = Addressing.fromWire(this.indirect).resolve(
-      [this.srcOffset, this.dstOffset, this.radixOffset],
+    const operands = [this.srcOffset, this.dstOffset, this.radixOffset];
+    const [srcOffset, dstOffset, radixOffset] = Addressing.fromWire(this.indirect, operands.length).resolve(
+      operands,
       memory,
     );
     const memoryOperations = { reads: 2, writes: this.numLimbs, indirect: this.indirect };
