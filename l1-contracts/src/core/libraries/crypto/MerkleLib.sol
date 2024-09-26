@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
-import {Errors} from "../libraries/Errors.sol";
-import {Hash} from "../libraries/Hash.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 /**
  * @title Merkle Library

@@ -8,6 +8,10 @@ e2e-l1-with-wall-time:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_l1_with_wall_time.test.ts
 
+e2e-synching:
+  LOCALLY
+  RUN ./scripts/e2e_test.sh ./src/e2e_synching.test.ts
+
 e2e-2-pxes:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_2_pxes.test.ts
@@ -140,9 +144,9 @@ e2e-fees-dapp-subscription:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_fees/dapp_subscription.test.ts
 
-# e2e-fees-failures:
-#   LOCALLY
-#   RUN ./scripts/e2e_test.sh ./src/e2e_fees/failures.test.ts
+e2e-fees-failures:
+  LOCALLY
+  RUN ./scripts/e2e_test.sh ./src/e2e_fees/failures.test.ts
 
 e2e-fees-fee-juice-payments:
   LOCALLY

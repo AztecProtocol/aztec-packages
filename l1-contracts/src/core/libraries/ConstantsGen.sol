@@ -1,7 +1,7 @@
 // GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 /**
  * @title Constants Library
@@ -93,7 +93,8 @@ library Constants {
   uint256 internal constant BLOCK_ROOT_ROLLUP_INDEX = 22;
   uint256 internal constant BLOCK_MERGE_ROLLUP_INDEX = 23;
   uint256 internal constant ROOT_ROLLUP_INDEX = 24;
-  uint256 internal constant BLOCK_ROOT_ROLLUP_FINAL_INDEX = 25;
+  uint256 internal constant BLOCK_ROOT_ROLLUP_EMPTY_INDEX = 25;
+  uint256 internal constant BLOCK_ROOT_ROLLUP_FINAL_INDEX = 26;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
@@ -215,6 +216,8 @@ library Constants {
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 12;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 29;
   uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 91;
+  uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 75;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;

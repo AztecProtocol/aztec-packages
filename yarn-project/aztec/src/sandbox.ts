@@ -162,7 +162,9 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
 
   let watcher: AnvilTestWatcher | undefined = undefined;
   if (!aztecNodeConfig.p2pEnabled) {
-    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount);
+    const l1ContractAddresses = await deployContractsToL1(aztecNodeConfig, hdAccount, undefined, {
+      assumeProvenThroughBlockNumber: Number.MAX_SAFE_INTEGER,
+    });
 
     const chain = aztecNodeConfig.l1RpcUrl
       ? createEthereumChain(aztecNodeConfig.l1RpcUrl, aztecNodeConfig.l1ChainId)

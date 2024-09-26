@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
-import {SignatureLib} from "../core/libraries/SignatureLib.sol";
-import {IProofCommitmentEscrow} from "../core/interfaces/IProofCommitmentEscrow.sol";
+import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEscrow.sol";
 
 contract MockProofCommitmentEscrow is IProofCommitmentEscrow {
   function deposit(uint256 _amount) external override {

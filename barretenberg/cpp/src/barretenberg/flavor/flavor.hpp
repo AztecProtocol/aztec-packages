@@ -375,6 +375,9 @@ concept IsGoblinFlavor = IsAnyOf<T, MegaFlavor,
                                     MegaRecursiveFlavor_<MegaCircuitBuilder>, MegaRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 template <typename T>
+concept HasDataBus = IsGoblinFlavor<T>;
+
+template <typename T>
 concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                        UltraRecursiveFlavor_<MegaCircuitBuilder>,
                                        UltraRecursiveFlavor_<CircuitSimulatorBN254>,

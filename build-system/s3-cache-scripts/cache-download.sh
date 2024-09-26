@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eux
+set -eu
 
 # used by cache-download-, directhloads a named tar file and extracts it
 

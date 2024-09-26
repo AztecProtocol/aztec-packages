@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eux
+set -eu
 
 # used by cache-update.sh, directly downloads a named tar file and extracts it
 
