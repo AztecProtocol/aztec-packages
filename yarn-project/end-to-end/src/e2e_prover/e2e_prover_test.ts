@@ -172,7 +172,11 @@ export class FullProverTest {
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
     } else {
+      this.logger.debug(`Configuring the node min txs per block ${this.minNumberOfTxsPerBlock}...`);
       this.circuitProofVerifier = new TestCircuitVerifier();
+      await this.aztecNode.setConfig({
+        minTxsPerBlock: this.minNumberOfTxsPerBlock,
+      });
     }
 
     this.logger.debug(`Main setup completed, initializing full prover PXE, Node, and Prover Node...`);
