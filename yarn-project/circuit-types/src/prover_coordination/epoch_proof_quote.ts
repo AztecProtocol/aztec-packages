@@ -55,11 +55,13 @@ export class EpochProofQuote extends Gossipable {
 
   toViemArgs() {
     return {
-      epochToProve: this.payload.epochToProve,
-      validUntilSlot: this.payload.validUntilSlot,
-      bondAmount: this.payload.bondAmount,
-      rollupAddress: this.payload.rollupAddress,
-      basisPointFee: this.payload.basisPointFee,
+      quote: {
+        epochToProve: this.payload.epochToProve,
+        validUntilSlot: this.payload.validUntilSlot,
+        bondAmount: this.payload.bondAmount,
+        prover: this.payload.prover.toString(),
+        basisPointFee: this.payload.basisPointFee,
+      },
       signature: this.signature.toViemSignature(),
     };
   }

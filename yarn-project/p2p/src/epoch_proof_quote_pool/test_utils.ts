@@ -7,7 +7,7 @@ export function makeRandomEpochProofQuotePayload(): EpochProofQuotePayload {
     basisPointFee: randomInt(10000),
     bondAmount: 1000000000000000000n,
     epochToProve: randomBigInt(1000000n),
-    rollupAddress: EthAddress.random(),
+    prover: EthAddress.random(),
     validUntilSlot: randomBigInt(1000000n),
   });
 }
