@@ -2,9 +2,7 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-// Libraries
-import {Constants} from "./ConstantsGen.sol";
-import {DataStructures} from "./DataStructures.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 
 /**
  * @title Hash library

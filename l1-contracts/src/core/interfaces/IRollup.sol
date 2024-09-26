@@ -2,11 +2,11 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {IInbox} from "../interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "../interfaces/messagebridge/IOutbox.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 
-import {SignatureLib} from "../libraries/SignatureLib.sol";
-import {DataStructures} from "../libraries/DataStructures.sol";
+import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 
 interface ITestRollup {
   function setVerifier(address _verifier) external;
@@ -28,7 +28,7 @@ interface IRollup {
 
   function prune() external;
 
-  function claimEpochProofRight(DataStructures.EpochProofQuote calldata _quote) external;
+  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote) external;
 
   function propose(
     bytes calldata _header,

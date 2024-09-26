@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {Errors} from "../libraries/Errors.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 /**
  * @title   SampleLib

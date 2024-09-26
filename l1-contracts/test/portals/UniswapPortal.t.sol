@@ -3,18 +3,18 @@ pragma solidity >=0.8.18;
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "../../src/core/Rollup.sol";
-import {Registry} from "../../src/core/messagebridge/Registry.sol";
-import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
-import {Hash} from "../../src/core/libraries/Hash.sol";
-import {Errors} from "../../src/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 // Interfaces
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
-import {IFeeJuicePortal} from "../../src/core/interfaces/IFeeJuicePortal.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 
 // Portals
 import {TokenPortal} from "./TokenPortal.sol";

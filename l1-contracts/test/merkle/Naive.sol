@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {Hash} from "../../src/core/libraries/Hash.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 contract NaiveMerkle {
   uint256 public immutable DEPTH;

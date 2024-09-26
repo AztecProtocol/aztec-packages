@@ -4,19 +4,19 @@ pragma solidity >=0.8.18;
 
 import {DecoderBase} from "./decoders/Base.sol";
 
-import {DataStructures} from "../src/core/libraries/DataStructures.sol";
-import {Constants} from "../src/core/libraries/ConstantsGen.sol";
-import {SignatureLib} from "../src/core/libraries/SignatureLib.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
-import {Registry} from "../src/core/messagebridge/Registry.sol";
-import {Inbox} from "../src/core/messagebridge/Inbox.sol";
-import {Outbox} from "../src/core/messagebridge/Outbox.sol";
-import {Errors} from "../src/core/libraries/Errors.sol";
-import {Rollup} from "../src/core/Rollup.sol";
-import {IFeeJuicePortal} from "../src/core/interfaces/IFeeJuicePortal.sol";
-import {IRollup} from "../src/core/interfaces/IRollup.sol";
-import {FeeJuicePortal} from "../src/core/FeeJuicePortal.sol";
-import {Leonidas} from "../src/core/sequencer_selection/Leonidas.sol";
+import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
+import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {Leonidas} from "@aztec/core/Leonidas.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {PortalERC20} from "./portals/PortalERC20.sol";
@@ -41,6 +41,8 @@ contract RollupTest is DecoderBase {
   FeeJuicePortal internal feeJuicePortal;
 
   SignatureLib.Signature[] internal signatures;
+
+  DataStructures.SignedEpochProofQuote internal quote;
 
   /**
    * @notice  Set up the contracts needed for the tests with time aligned to the provided block name
@@ -76,6 +78,17 @@ contract RollupTest is DecoderBase {
 
     merkleTestUtil = new MerkleTestUtil();
     txsHelper = new TxsDecoderHelper();
+
+    quote = DataStructures.SignedEpochProofQuote({
+      quote: DataStructures.EpochProofQuote({
+        epochToProve: 0,
+        validUntilSlot: 1,
+        bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
+        prover: address(0),
+        basisPointFee: 0
+      }),
+      signature: SignatureLib.Signature({isEmpty: false, v: 27, r: bytes32(0), s: bytes32(0)})
+    });
     _;
   }
 
@@ -85,15 +98,6 @@ contract RollupTest is DecoderBase {
 
   function testClaimWithNothingToProve() public setUpFor("mixed_block_1") {
     assertEq(rollup.getCurrentSlot(), 0, "genesis slot should be zero");
-
-    DataStructures.EpochProofQuote memory quote = DataStructures.EpochProofQuote({
-      signature: SignatureLib.Signature({isEmpty: false, v: 27, r: bytes32(0), s: bytes32(0)}),
-      epochToProve: 0,
-      validUntilSlot: 1,
-      bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      prover: address(this),
-      basisPointFee: 0
-    });
 
     // sanity check that proven/pending tip are at genesis
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__NoEpochToProve.selector));
@@ -111,17 +115,12 @@ contract RollupTest is DecoderBase {
   function testClaimWithWrongEpoch() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 0);
 
-    DataStructures.EpochProofQuote memory quote = DataStructures.EpochProofQuote({
-      signature: SignatureLib.Signature({isEmpty: false, v: 27, r: bytes32(0), s: bytes32(0)}),
-      epochToProve: 1,
-      validUntilSlot: 1,
-      bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      prover: address(this),
-      basisPointFee: 0
-    });
+    quote.quote.epochToProve = 1;
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__NotClaimingCorrectEpoch.selector, 0, quote.epochToProve)
+      abi.encodeWithSelector(
+        Errors.Rollup__NotClaimingCorrectEpoch.selector, 0, quote.quote.epochToProve
+      )
     );
     rollup.claimEpochProofRight(quote);
   }
@@ -129,20 +128,13 @@ contract RollupTest is DecoderBase {
   function testClaimWithInsufficientBond() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 0);
 
-    DataStructures.EpochProofQuote memory quote = DataStructures.EpochProofQuote({
-      signature: SignatureLib.Signature({isEmpty: false, v: 27, r: bytes32(0), s: bytes32(0)}),
-      epochToProve: 0,
-      validUntilSlot: 1,
-      bondAmount: 0,
-      prover: address(this),
-      basisPointFee: 0
-    });
+    quote.quote.bondAmount = 0;
 
     vm.expectRevert(
       abi.encodeWithSelector(
         Errors.Rollup__InsufficientBondAmount.selector,
         rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-        quote.bondAmount
+        quote.quote.bondAmount
       )
     );
     rollup.claimEpochProofRight(quote);
@@ -151,19 +143,12 @@ contract RollupTest is DecoderBase {
   function testClaimPastValidUntil() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 0);
 
-    DataStructures.EpochProofQuote memory quote = DataStructures.EpochProofQuote({
-      signature: SignatureLib.Signature({isEmpty: false, v: 27, r: bytes32(0), s: bytes32(0)}),
-      epochToProve: 0,
-      validUntilSlot: 0,
-      bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      prover: address(this),
-      basisPointFee: 0
-    });
+    quote.quote.validUntilSlot = 0;
 
     warpToL2Slot(1);
 
     vm.expectRevert(
-      abi.encodeWithSelector(Errors.Rollup__QuoteExpired.selector, 1, quote.validUntilSlot)
+      abi.encodeWithSelector(Errors.Rollup__QuoteExpired.selector, 1, quote.quote.validUntilSlot)
     );
     rollup.claimEpochProofRight(quote);
   }
@@ -171,20 +156,11 @@ contract RollupTest is DecoderBase {
   function testClaimSimple() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 0);
 
-    DataStructures.EpochProofQuote memory quote = DataStructures.EpochProofQuote({
-      signature: SignatureLib.Signature({isEmpty: false, v: 27, r: bytes32(0), s: bytes32(0)}),
-      epochToProve: 0,
-      validUntilSlot: 1,
-      bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      prover: address(0),
-      basisPointFee: 0
-    });
-
     warpToL2Slot(1);
 
     vm.expectEmit(true, true, true, true);
     emit IRollup.ProofRightClaimed(
-      quote.epochToProve, address(0), address(this), quote.bondAmount, 1
+      quote.quote.epochToProve, address(0), address(this), quote.quote.bondAmount, 1
     );
     rollup.claimEpochProofRight(quote);
 
@@ -195,9 +171,9 @@ contract RollupTest is DecoderBase {
       address bondProvider,
       address proposerClaimant
     ) = rollup.proofClaim();
-    assertEq(epochToProve, quote.epochToProve, "Invalid epoch to prove");
-    assertEq(basisPointFee, quote.basisPointFee, "Invalid basis point fee");
-    assertEq(bondAmount, quote.bondAmount, "Invalid bond amount");
+    assertEq(epochToProve, quote.quote.epochToProve, "Invalid epoch to prove");
+    assertEq(basisPointFee, quote.quote.basisPointFee, "Invalid basis point fee");
+    assertEq(bondAmount, quote.quote.bondAmount, "Invalid bond amount");
     // TODO #8573
     // This will be fixed with proper escrow
     assertEq(bondProvider, address(0), "Invalid bond provider");
@@ -206,15 +182,6 @@ contract RollupTest is DecoderBase {
 
   function testClaimTwice() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 0);
-
-    DataStructures.EpochProofQuote memory quote = DataStructures.EpochProofQuote({
-      signature: SignatureLib.Signature({isEmpty: false, v: 27, r: bytes32(0), s: bytes32(0)}),
-      epochToProve: 0,
-      validUntilSlot: 1,
-      bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      prover: address(this),
-      basisPointFee: 0
-    });
 
     warpToL2Slot(1);
 
@@ -243,15 +210,6 @@ contract RollupTest is DecoderBase {
   function testClaimOutsideClaimPhase() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 0);
 
-    DataStructures.EpochProofQuote memory quote = DataStructures.EpochProofQuote({
-      signature: SignatureLib.Signature({isEmpty: false, v: 27, r: bytes32(0), s: bytes32(0)}),
-      epochToProve: 0,
-      validUntilSlot: 1,
-      bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      prover: address(this),
-      basisPointFee: 0
-    });
-
     warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS());
 
     vm.expectRevert(
@@ -267,14 +225,7 @@ contract RollupTest is DecoderBase {
   function testNoPruneWhenClaimExists() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 0);
 
-    DataStructures.EpochProofQuote memory quote = DataStructures.EpochProofQuote({
-      signature: SignatureLib.Signature({isEmpty: false, v: 27, r: bytes32(0), s: bytes32(0)}),
-      epochToProve: 0,
-      validUntilSlot: 2 * Constants.AZTEC_EPOCH_DURATION,
-      bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      prover: address(this),
-      basisPointFee: 0
-    });
+    quote.quote.validUntilSlot = 2 * Constants.AZTEC_EPOCH_DURATION;
 
     warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
 
@@ -289,14 +240,7 @@ contract RollupTest is DecoderBase {
   function testPruneWhenClaimExpires() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 0);
 
-    DataStructures.EpochProofQuote memory quote = DataStructures.EpochProofQuote({
-      signature: SignatureLib.Signature({isEmpty: false, v: 27, r: bytes32(0), s: bytes32(0)}),
-      epochToProve: 0,
-      validUntilSlot: 2 * Constants.AZTEC_EPOCH_DURATION,
-      bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      prover: address(this),
-      basisPointFee: 0
-    });
+    quote.quote.validUntilSlot = 2 * Constants.AZTEC_EPOCH_DURATION;
 
     warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
 
@@ -317,14 +261,8 @@ contract RollupTest is DecoderBase {
   function testClaimAfterPrune() public setUpFor("mixed_block_1") {
     _testBlock("mixed_block_1", false, 0);
 
-    DataStructures.EpochProofQuote memory quote = DataStructures.EpochProofQuote({
-      signature: SignatureLib.Signature({isEmpty: false, v: 27, r: bytes32(0), s: bytes32(0)}),
-      epochToProve: 0,
-      validUntilSlot: 2 * Constants.AZTEC_EPOCH_DURATION,
-      bondAmount: rollup.PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST(),
-      prover: address(this),
-      basisPointFee: 0
-    });
+    quote.quote.validUntilSlot = 2 * Constants.AZTEC_EPOCH_DURATION;
+    quote.quote.prover = address(this);
 
     warpToL2Slot(Constants.AZTEC_EPOCH_DURATION + rollup.CLAIM_DURATION_IN_L2_SLOTS() - 1);
 
@@ -338,10 +276,10 @@ contract RollupTest is DecoderBase {
 
     vm.expectEmit(true, true, true, true);
     emit IRollup.ProofRightClaimed(
-      quote.epochToProve,
+      quote.quote.epochToProve,
       address(this),
       address(this),
-      quote.bondAmount,
+      quote.quote.bondAmount,
       Constants.AZTEC_EPOCH_DURATION * 2
     );
     rollup.claimEpochProofRight(quote);

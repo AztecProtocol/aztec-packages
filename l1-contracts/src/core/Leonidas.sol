@@ -2,16 +2,17 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {DataStructures} from "../libraries/DataStructures.sol";
-import {Errors} from "../libraries/Errors.sol";
-import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
-import {Ownable} from "@oz/access/Ownable.sol";
-import {SampleLib} from "./SampleLib.sol";
-import {SignatureLib} from "../libraries/SignatureLib.sol";
-import {Constants} from "../libraries/ConstantsGen.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
 
-import {ILeonidas} from "./ILeonidas.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
+import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
+import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
+
+import {Ownable} from "@oz/access/Ownable.sol";
 
 /**
  * @title   Leonidas
