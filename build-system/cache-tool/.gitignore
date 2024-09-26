@@ -3,3 +3,4 @@ tests/test-artifacts
 node_modules
 log.*
 build*
+yarn.lock
