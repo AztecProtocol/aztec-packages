@@ -3,6 +3,7 @@ import {
   BlockProposal,
   type BlockSimulator,
   ConsensusPayload,
+  type EpochProofQuote,
   type L1ToL2MessageSource,
   L2Block,
   type L2BlockSource,
@@ -18,9 +19,11 @@ import {
   WorldStateRunningState,
   type WorldStateSynchronizer,
   makeProcessedTx,
+  mockEpochProofQuote,
   mockTxForRollup,
 } from '@aztec/circuit-types';
 import {
+  AZTEC_EPOCH_DURATION,
   AztecAddress,
   EthAddress,
   Fr,
@@ -119,12 +122,12 @@ describe('sequencer', () => {
     blockSimulator = mock<BlockSimulator>();
 
     p2p = mock<P2P>({
-      getStatus: () => Promise.resolve({ state: P2PClientState.IDLE, syncedToL2Block: lastBlockNumber }),
+      getStatus: mockFn().mockResolvedValue({ state: P2PClientState.IDLE, syncedToL2Block: lastBlockNumber }),
     });
 
     worldState = mock<WorldStateSynchronizer>({
       getLatest: () => merkleTreeOps,
-      status: () => Promise.resolve({ state: WorldStateRunningState.IDLE, syncedToL2Block: lastBlockNumber }),
+      status: mockFn().mockResolvedValue({ state: WorldStateRunningState.IDLE, syncedToL2Block: lastBlockNumber }),
     });
 
     publicProcessor = mock<PublicProcessor>({
@@ -145,7 +148,7 @@ describe('sequencer', () => {
 
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
-      getBlockNumber: () => Promise.resolve(lastBlockNumber),
+      getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
     });
 
     // all txs use the same allowed FPC class
@@ -208,7 +211,7 @@ describe('sequencer', () => {
     );
     // Ok, we have an issue that we never actually call the process L2 block
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash]);
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -257,7 +260,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash]);
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -300,7 +303,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes);
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
@@ -339,7 +342,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes);
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
@@ -380,7 +383,7 @@ describe('sequencer', () => {
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes);
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -431,7 +434,7 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), txHashes);
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), txHashes, undefined);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -482,7 +485,7 @@ describe('sequencer', () => {
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), []);
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [], undefined);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -536,7 +539,7 @@ describe('sequencer', () => {
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
 
-    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), postFlushTxHashes);
+    expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), postFlushTxHashes, undefined);
     expect(blockSimulator.cancelBlock).toHaveBeenCalledTimes(0);
   });
 
@@ -579,6 +582,317 @@ describe('sequencer', () => {
     await sequencer.work();
 
     expect(publisher.proposeL2Block).not.toHaveBeenCalled();
+  });
+
+  describe('Handling proof quotes', () => {
+    let txHash: TxHash;
+    let currentEpoch = 0n;
+    const setupForBlockNumber = (blockNumber: number) => {
+      currentEpoch = BigInt(blockNumber) / BigInt(AZTEC_EPOCH_DURATION);
+      // Create a new block and header
+      block = L2Block.random(blockNumber);
+
+      mockedGlobalVariables = new GlobalVariables(
+        chainId,
+        version,
+        block.header.globalVariables.blockNumber,
+        block.header.globalVariables.slotNumber,
+        Fr.ZERO,
+        coinbase,
+        feeRecipient,
+        gasFees,
+      );
+
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncedToL2Block: block.header.globalVariables.blockNumber.toNumber() - 1,
+      });
+
+      p2p.getStatus.mockResolvedValue({
+        syncedToL2Block: block.header.globalVariables.blockNumber.toNumber() - 1,
+        state: P2PClientState.IDLE,
+      });
+
+      l2BlockSource.getBlockNumber.mockResolvedValue(block.header.globalVariables.blockNumber.toNumber() - 1);
+
+      l1ToL2MessageSource.getBlockNumber.mockResolvedValue(block.header.globalVariables.blockNumber.toNumber() - 1);
+
+      globalVariableBuilder.buildGlobalVariables.mockResolvedValue(mockedGlobalVariables);
+
+      publisher.canProposeAtNextEthBlock.mockResolvedValue([
+        block.header.globalVariables.slotNumber.toBigInt(),
+        block.header.globalVariables.blockNumber.toBigInt(),
+      ]);
+
+      publisher.getEpochForSlotNumber.mockImplementation((slotNumber: bigint) =>
+        Promise.resolve(slotNumber / BigInt(AZTEC_EPOCH_DURATION)),
+      );
+
+      const tx = mockTxForRollup();
+      tx.data.constants.txContext.chainId = chainId;
+      txHash = tx.getTxHash();
+      const result: ProvingSuccess = {
+        status: PROVING_STATUS.SUCCESS,
+      };
+      const ticket: ProvingTicket = {
+        provingPromise: Promise.resolve(result),
+      };
+
+      p2p.getTxs.mockReturnValue([tx]);
+      blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
+      blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    };
+
+    it('submits a valid proof quote with a block', async () => {
+      const blockNumber = AZTEC_EPOCH_DURATION + 1;
+      setupForBlockNumber(blockNumber);
+
+      const proofQuote = mockEpochProofQuote(
+        currentEpoch - 1n,
+        block.header.globalVariables.slotNumber.toBigInt() + 1n,
+        10000n,
+        EthAddress.random(),
+        1,
+      );
+
+      p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
+      publisher.proposeL2Block.mockResolvedValueOnce(true);
+      publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
+
+      // The previous epoch can be claimed
+      publisher.canClaimEpoch.mockImplementation((epochNumber: bigint) =>
+        Promise.resolve(epochNumber === currentEpoch - 1n),
+      );
+
+      await sequencer.initialSync();
+      await sequencer.work();
+      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], proofQuote);
+    });
+
+    it('does not claim the epoch previous to the first', async () => {
+      const blockNumber = 1;
+      setupForBlockNumber(blockNumber);
+
+      const proofQuote = mockEpochProofQuote(
+        0n,
+        block.header.globalVariables.slotNumber.toBigInt() + 1n,
+        10000n,
+        EthAddress.random(),
+        1,
+      );
+
+      p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
+      publisher.proposeL2Block.mockResolvedValueOnce(true);
+      publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
+
+      // The previous epoch can be claimed
+      publisher.canClaimEpoch.mockImplementation((epochNumber: bigint) =>
+        Promise.resolve(epochNumber === currentEpoch - 1n),
+      );
+
+      await sequencer.initialSync();
+      await sequencer.work();
+      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], proofQuote);
+    });
+
+    it('does not submit a quote with an expired slot number', async () => {
+      const blockNumber = AZTEC_EPOCH_DURATION + 1;
+      setupForBlockNumber(blockNumber);
+
+      const proofQuote = mockEpochProofQuote(
+        currentEpoch - 1n,
+        // Slot number expired
+        block.header.globalVariables.slotNumber.toBigInt() - 1n,
+        10000n,
+        EthAddress.random(),
+        1,
+      );
+
+      p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
+      publisher.proposeL2Block.mockResolvedValueOnce(true);
+      publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
+
+      // The previous epoch can be claimed
+      publisher.canClaimEpoch.mockImplementation((epochNumber: bigint) =>
+        Promise.resolve(epochNumber === currentEpoch - 1n),
+      );
+
+      await sequencer.initialSync();
+      await sequencer.work();
+      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
+    });
+
+    it('does not submit a valid quote if unable to claim epoch', async () => {
+      const blockNumber = AZTEC_EPOCH_DURATION + 1;
+      setupForBlockNumber(blockNumber);
+
+      const proofQuote = mockEpochProofQuote(
+        currentEpoch - 1n,
+        block.header.globalVariables.slotNumber.toBigInt() + 1n,
+        10000n,
+        EthAddress.random(),
+        1,
+      );
+
+      p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
+      publisher.proposeL2Block.mockResolvedValueOnce(true);
+      publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
+
+      // The previous epoch can be claimed
+      publisher.canClaimEpoch.mockResolvedValue(false);
+
+      await sequencer.initialSync();
+      await sequencer.work();
+      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
+    });
+
+    it('does not submit an invalid quote', async () => {
+      const blockNumber = AZTEC_EPOCH_DURATION + 1;
+      setupForBlockNumber(blockNumber);
+
+      const proofQuote = mockEpochProofQuote(
+        currentEpoch - 1n,
+        block.header.globalVariables.slotNumber.toBigInt() + 1n,
+        10000n,
+        EthAddress.random(),
+        1,
+      );
+
+      p2p.getEpochProofQuotes.mockResolvedValue([proofQuote]);
+      publisher.proposeL2Block.mockResolvedValueOnce(true);
+
+      // Quote is reported as invalid
+      publisher.validateProofQuote.mockImplementation(_ => Promise.resolve(undefined));
+
+      // The previous epoch can be claimed
+      publisher.canClaimEpoch.mockImplementation((epochNumber: bigint) =>
+        Promise.resolve(epochNumber === currentEpoch - 1n),
+      );
+
+      await sequencer.initialSync();
+      await sequencer.work();
+      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
+    });
+
+    it('only selects valid quotes', async () => {
+      const blockNumber = AZTEC_EPOCH_DURATION + 1;
+      setupForBlockNumber(blockNumber);
+
+      // Create 1 valid quote and 3 that have a higher fee but are invalid
+      const validProofQuote = mockEpochProofQuote(
+        currentEpoch - 1n,
+        block.header.globalVariables.slotNumber.toBigInt() + 1n,
+        10000n,
+        EthAddress.random(),
+        1,
+      );
+
+      const proofQuoteInvalidSlot = mockEpochProofQuote(
+        currentEpoch - 1n,
+        block.header.globalVariables.slotNumber.toBigInt() - 1n,
+        10000n,
+        EthAddress.random(),
+        2,
+      );
+
+      const proofQuoteInvalidEpoch = mockEpochProofQuote(
+        currentEpoch,
+        block.header.globalVariables.slotNumber.toBigInt() - 1n,
+        10000n,
+        EthAddress.random(),
+        2,
+      );
+
+      // This is deemed invalid by the contract, we identify it by a fee of 2
+      const proofQuoteInvalid = mockEpochProofQuote(
+        currentEpoch - 1n,
+        block.header.globalVariables.slotNumber.toBigInt() + 1n,
+        10000n,
+        EthAddress.random(),
+        2,
+      );
+
+      const allQuotes = [validProofQuote, proofQuoteInvalidSlot, proofQuoteInvalidEpoch, proofQuoteInvalid];
+
+      p2p.getEpochProofQuotes.mockResolvedValue(allQuotes);
+      publisher.proposeL2Block.mockResolvedValueOnce(true);
+
+      // Quote is reported as invalid
+      publisher.validateProofQuote.mockImplementation(p =>
+        Promise.resolve(p.payload.basisPointFee === 2 ? undefined : p),
+      );
+
+      // The previous epoch can be claimed
+      publisher.canClaimEpoch.mockImplementation((epochNumber: bigint) =>
+        Promise.resolve(epochNumber === currentEpoch - 1n),
+      );
+
+      await sequencer.initialSync();
+      await sequencer.work();
+      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], validProofQuote);
+    });
+
+    it('selects the lowest cost valid quote', async () => {
+      const blockNumber = AZTEC_EPOCH_DURATION + 1;
+      setupForBlockNumber(blockNumber);
+
+      // Create 3 valid quotes with different fees.
+      // And 3 invalid quotes with lower fees
+      // We should select the lowest cost valid quote
+      const validQuotes = times(3, (i: number) =>
+        mockEpochProofQuote(
+          currentEpoch - 1n,
+          block.header.globalVariables.slotNumber.toBigInt() + 1n,
+          10000n,
+          EthAddress.random(),
+          10 + i,
+        ),
+      );
+
+      const proofQuoteInvalidSlot = mockEpochProofQuote(
+        currentEpoch - 1n,
+        block.header.globalVariables.slotNumber.toBigInt() - 1n,
+        10000n,
+        EthAddress.random(),
+        1,
+      );
+
+      const proofQuoteInvalidEpoch = mockEpochProofQuote(
+        currentEpoch,
+        block.header.globalVariables.slotNumber.toBigInt() - 1n,
+        10000n,
+        EthAddress.random(),
+        2,
+      );
+
+      // This is deemed invalid by the contract, we identify it by it's fee
+      const proofQuoteInvalid = mockEpochProofQuote(
+        currentEpoch - 1n,
+        block.header.globalVariables.slotNumber.toBigInt() + 1n,
+        10000n,
+        EthAddress.random(),
+        3,
+      );
+
+      const allQuotes = [proofQuoteInvalidSlot, proofQuoteInvalidEpoch, ...validQuotes, proofQuoteInvalid];
+
+      p2p.getEpochProofQuotes.mockResolvedValue(allQuotes);
+      publisher.proposeL2Block.mockResolvedValueOnce(true);
+
+      // Quote is reported as invalid
+      publisher.validateProofQuote.mockImplementation(p =>
+        Promise.resolve(p.payload.basisPointFee === 3 ? undefined : p),
+      );
+
+      // The previous epoch can be claimed
+      publisher.canClaimEpoch.mockImplementation((epochNumber: bigint) =>
+        Promise.resolve(epochNumber === currentEpoch - 1n),
+      );
+
+      await sequencer.initialSync();
+      await sequencer.work();
+      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], validQuotes[0]);
+    });
   });
 });
 

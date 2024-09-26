@@ -1,6 +1,12 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { type AccountWalletWithSecretKey, type DebugLogger, EthCheatCodes, createDebugLogger } from '@aztec/aztec.js';
-import { type EpochProofQuote, mockEpochProofQuote } from '@aztec/circuit-types';
+import {
+  type AccountWalletWithSecretKey,
+  type DebugLogger,
+  type EpochProofQuote,
+  EthCheatCodes,
+  createDebugLogger,
+  mockEpochProofQuote,
+} from '@aztec/aztec.js';
 import { AZTEC_EPOCH_DURATION, AZTEC_SLOT_DURATION, type AztecAddress, EthAddress } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -28,6 +34,7 @@ describe('e2e_prover_node', () => {
   let rollupContract: any;
   let publicClient: PublicClient;
   let cc: EthCheatCodes;
+  let publisherAddress: EthAddress;
 
   let logger: DebugLogger;
   let snapshotManager: ISnapshotManager;
@@ -35,8 +42,6 @@ describe('e2e_prover_node', () => {
   beforeAll(async () => {
     logger = createDebugLogger('aztec:prover_coordination:e2e_json_coordination');
     snapshotManager = createSnapshotManager(`prover_coordination/e2e_json_coordination`, process.env.E2E_DATA_PATH);
-
-    logger.info(`1`);
 
     await snapshotManager.snapshot('setup', addAccounts(2, logger), async ({ accountKeys }, ctx) => {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1));
@@ -66,6 +71,7 @@ describe('e2e_prover_node', () => {
     cc = new EthCheatCodes(ctx.aztecNodeConfig.l1RpcUrl);
 
     publicClient = ctx.deployL1ContractsValues.publicClient;
+    publisherAddress = EthAddress.fromString(ctx.deployL1ContractsValues.walletClient.account.address);
     rollupContract = getContract({
       address: getAddress(ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString()),
       abi: RollupAbi,
@@ -73,21 +79,12 @@ describe('e2e_prover_node', () => {
     });
   });
 
-  // it('Prover can submit an EpochProofQuote to the node via jsonrpc', async () => {
-  //   const { quote } = makeRandomEpochProofQuote();
-
-  //   await ctx.proverNode.sendEpochProofQuote(quote);
-  //   const receivedQuotes = await ctx.aztecNode.getEpochProofQuotes(quote.payload.epochToProve);
-  //   expect(receivedQuotes.length).toBe(1);
-  //   expect(receivedQuotes[0]).toEqual(quote);
-  // });
-
-  const expectProofClaimOnL1 = async (quote: EpochProofQuote, _: EthAddress) => {
+  const expectProofClaimOnL1 = async (quote: EpochProofQuote, proposerAddress: EthAddress) => {
     const claimFromContract = await rollupContract.read.proofClaim();
     expect(claimFromContract[0]).toEqual(quote.payload.epochToProve);
     expect(claimFromContract[1]).toEqual(BigInt(quote.payload.basisPointFee));
     expect(claimFromContract[2]).toEqual(quote.payload.bondAmount);
-    //expect(claimFromContract[4]).toEqual(proposer.toString());
+    expect(claimFromContract[4]).toEqual(proposerAddress.toChecksumString());
   };
 
   const getL1Timestamp = async () => {
@@ -116,20 +113,6 @@ describe('e2e_prover_node', () => {
     return await rollupContract.read.getEpochToProve();
   };
 
-  const getTimestampForSlot = async (slotNumber: bigint) => {
-    return await rollupContract.read.getTimestampForSlot([slotNumber]);
-  };
-
-  const verifyQuote = async (quote: EpochProofQuote) => {
-    try {
-      const args = [quote.toViemArgs()] as const;
-      await rollupContract.read.validateEpochProofRightClaim(args);
-      logger.info('QUOTE VERIFIED');
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
   const logState = async () => {
     logger.info(`Pending block: ${await getPendingBlockNumber()}`);
     logger.info(`Proven block: ${await getProvenBlockNumber()}`);
@@ -142,7 +125,6 @@ describe('e2e_prover_node', () => {
     const slot = await getSlot();
     const slotsUntilNextEpoch = BigInt(AZTEC_EPOCH_DURATION) - (slot % BigInt(AZTEC_EPOCH_DURATION)) + 1n;
     const timeToNextEpoch = slotsUntilNextEpoch * BigInt(AZTEC_SLOT_DURATION);
-    logger.info(`SLOTS TO NEXT EPOCH ${slotsUntilNextEpoch}`);
     const l1Timestamp = await getL1Timestamp();
     await cc.warp(Number(l1Timestamp + timeToNextEpoch));
     await logState();
@@ -151,7 +133,6 @@ describe('e2e_prover_node', () => {
   it('Sequencer selects best valid proving quote for each block', async () => {
     // We want to create a set of proving quotes, some valid and some invalid
     // The sequencer should select the cheapest valid quote when it proposes the block
-    logger.info(`Start`);
 
     // Here we are creating a proof quote for epoch 0, this will NOT get used yet
     const quoteForEpoch0 = mockEpochProofQuote(
@@ -182,27 +163,23 @@ describe('e2e_prover_node', () => {
     );
 
     // The rollup contract should have an uninitialised proof claim struct
-    await expectProofClaimOnL1(uninitialisedProofClaim, EthAddress.random());
+    await expectProofClaimOnL1(uninitialisedProofClaim, EthAddress.ZERO);
 
     // Now go to epoch 1
     await advanceToNextEpoch();
-
-    const blockSlot = await getSlot();
-
-    logger.info(`TIMESTAMP FOR SLOT: ${await getTimestampForSlot(blockSlot)}`);
 
     await logState();
 
     // Build a block in epoch 1, we should see the quote for epoch 0 submitted earlier published to L1
     await contract.methods.create_note(recipient, recipient, 10).send().wait();
 
+    const epoch1BlockNumber = await getPendingBlockNumber();
+
     // Check it was published
-    await expectProofClaimOnL1(quoteForEpoch0, EthAddress.random());
+    await expectProofClaimOnL1(quoteForEpoch0, publisherAddress);
 
     // now 'prove' epoch 0
     await rollupContract.write.setAssumeProvenThroughBlockNumber([BigInt(epoch0BlockNumber)]);
-
-    logger.info(`SET PROVEN BLOCK NUMBER`);
 
     await logState();
 
@@ -216,22 +193,38 @@ describe('e2e_prover_node', () => {
       mockEpochProofQuote(1n, currentSlot + 2n, 10000n, EthAddress.random(), 10 + i),
     );
 
-    // Check the L1 verification of this quote
-    await verifyQuote(validQuotes[0]);
-
     const proofQuoteInvalidSlot = mockEpochProofQuote(1n, 3n, 10000n, EthAddress.random(), 1);
 
     const proofQuoteInvalidEpoch = mockEpochProofQuote(2n, currentSlot + 4n, 10000n, EthAddress.random(), 2);
 
-    const allQuotes = [proofQuoteInvalidSlot, proofQuoteInvalidEpoch, ...validQuotes];
+    const proofQuoteInsufficientBond = mockEpochProofQuote(1n, currentSlot + 4n, 0n, EthAddress.random(), 3);
 
-    //await Promise.all(allQuotes.map(x => ctx.proverNode.sendEpochProofQuote(x)));
+    const allQuotes = [proofQuoteInvalidSlot, proofQuoteInvalidEpoch, ...validQuotes, proofQuoteInsufficientBond];
+
+    await Promise.all(allQuotes.map(x => ctx.proverNode.sendEpochProofQuote(x)));
 
     // now build another block and we should see the best valid quote being published
     await contract.methods.create_note(recipient, recipient, 10).send().wait();
 
     const expectedQuote = validQuotes[0];
 
-    await expectProofClaimOnL1(expectedQuote, EthAddress.random());
+    await expectProofClaimOnL1(expectedQuote, publisherAddress);
+
+    // building another block should succeed, we should not try and submit another quote
+    await contract.methods.create_note(recipient, recipient, 10).send().wait();
+
+    await expectProofClaimOnL1(expectedQuote, publisherAddress);
+
+    // now 'prove' epoch 1
+    await rollupContract.write.setAssumeProvenThroughBlockNumber([BigInt(epoch1BlockNumber)]);
+
+    // Now go to epoch 3
+    await advanceToNextEpoch();
+
+    // now build another block and we should see that no claim is published as nothing is valid
+    await contract.methods.create_note(recipient, recipient, 10).send().wait();
+
+    // The quote state on L1 is the same as before
+    await expectProofClaimOnL1(expectedQuote, publisherAddress);
   });
 });

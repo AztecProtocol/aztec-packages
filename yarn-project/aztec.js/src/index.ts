@@ -133,9 +133,11 @@ export {
   createAztecNodeClient,
   merkleTreeIds,
   mockTx,
+  mockEpochProofQuote,
   TaggedLog,
   L1NotePayload,
   L1EventPayload,
+  EpochProofQuote,
 } from '@aztec/circuit-types';
 export { NodeInfo } from '@aztec/types/interfaces';
 

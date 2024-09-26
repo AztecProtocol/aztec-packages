@@ -1,5 +1,6 @@
 import {
   type BlockAttestation,
+  type EpochProofQuote,
   type L1ToL2MessageSource,
   type L2Block,
   type L2BlockSource,
@@ -404,6 +405,14 @@ export class Sequencer {
 
     const newGlobalVariables = proposalHeader.globalVariables;
 
+    // Kick off the process of collecting and validating proof quotes here so it runs alongside block building
+    const proofQuotePromise = this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt()).catch(
+      e => {
+        this.log.debug(`Failed to create proof claim quote ${e}`);
+        return undefined;
+      },
+    );
+
     this.metrics.recordNewBlock(newGlobalVariables.blockNumber.toNumber(), validTxs.length);
     const workTimer = new Timer();
     this.state = SequencerState.CREATING_BLOCK;
@@ -488,8 +497,10 @@ export class Sequencer {
     const attestations = await this.collectAttestations(block, txHashes);
     this.log.verbose('Attestations collected');
 
+    const proofQuote = await proofQuotePromise;
+
     try {
-      await this.publishL2Block(block, attestations, txHashes);
+      await this.publishL2Block(block, attestations, txHashes, proofQuote);
       this.metrics.recordPublishedBlock(workDuration);
       this.log.info(
         `Submitted rollup block ${block.number} with ${
@@ -540,6 +551,37 @@ export class Sequencer {
     return orderAttestations(attestations, committee);
   }
 
+  protected async createProofClaimForPreviousEpoch(slotNumber: bigint): Promise<EpochProofQuote | undefined> {
+    const epochForBlock = await this.publisher.getEpochForSlotNumber(slotNumber);
+    if (epochForBlock < 1n) {
+      this.log.verbose(`First epoch has no claim`);
+      return undefined;
+    }
+    const epochToProve = epochForBlock - 1n;
+    const canClaim = await this.publisher.canClaimEpoch(epochToProve);
+    if (!canClaim) {
+      this.log.verbose(`Unable to claim previous epoch (${epochToProve})`);
+      return undefined;
+    }
+    const quotes = await this.p2pClient.getEpochProofQuotes(epochToProve);
+    this.log.verbose(`Retrieved ${quotes.length} quotes, slot: ${slotNumber}, epoch to prove: ${epochToProve}`);
+    // ensure these quotes are still valid for the slot
+    const validQuotesPromise = Promise.all(
+      quotes.filter(x => x.payload.validUntilSlot >= slotNumber).map(x => this.publisher.validateProofQuote(x)),
+    );
+
+    const validQuotes = (await validQuotesPromise).filter((q): q is EpochProofQuote => !!q);
+    if (!validQuotes.length) {
+      this.log.verbose(`Failed to find any valid proof quotes`);
+      return undefined;
+    }
+    // pick the quote with the lowest fee
+    const sortedQuotes = validQuotes.sort(
+      (a: EpochProofQuote, b: EpochProofQuote) => a.payload.basisPointFee - b.payload.basisPointFee,
+    );
+    return sortedQuotes[0];
+  }
+
   /**
    * Publishes the L2Block to the rollup contract.
    * @param block - The L2Block to be published.
@@ -547,11 +589,16 @@ export class Sequencer {
   @trackSpan('Sequencer.publishL2Block', block => ({
     [Attributes.BLOCK_NUMBER]: block.number,
   }))
-  protected async publishL2Block(block: L2Block, attestations?: Signature[], txHashes?: TxHash[]) {
+  protected async publishL2Block(
+    block: L2Block,
+    attestations?: Signature[],
+    txHashes?: TxHash[],
+    proofQuote?: EpochProofQuote,
+  ) {
     // Publishes new block to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_BLOCK;
 
-    const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes);
+    const publishedL2Block = await this.publisher.proposeL2Block(block, attestations, txHashes, proofQuote);
     if (publishedL2Block) {
       this.lastPublishedBlock = block.number;
     } else {
