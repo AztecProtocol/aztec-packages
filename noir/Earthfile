@@ -59,7 +59,7 @@ test:
 
 examples:
   FROM +nargo
-  ENV PATH="noir-repo/target/release:${PATH}"
+  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
 
   COPY --dir noir-repo/examples noir-repo
   COPY ../barretenberg/cpp/+preset-clang-assert/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
@@ -77,7 +77,7 @@ examples:
 
 format:
   FROM +nargo
-  ENV PATH=$PATH:/usr/src/noir/noir-repo/target/release
+  ENV PATH="/usr/src/noir/noir-repo/target/release:${PATH}"
 
   COPY ./noir-repo/test_programs ./noir-repo/test_programs
   COPY ./noir-repo/noir_stdlib ./noir-repo/noir_stdlib
