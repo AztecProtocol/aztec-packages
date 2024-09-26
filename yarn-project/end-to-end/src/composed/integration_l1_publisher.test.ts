@@ -11,7 +11,7 @@ import {
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
-  type BlockProver,
+  type BlockSimulator,
   PROVING_STATUS,
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
@@ -40,7 +40,6 @@ import { openTmpStore } from '@aztec/kv-store/utils';
 import { OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree } from '@aztec/merkle-tree';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { TxProver } from '@aztec/prover-client';
 import { L1Publisher } from '@aztec/sequencer-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 import { MerkleTrees, ServerWorldStateSynchronizer, type WorldStateConfig } from '@aztec/world-state';
@@ -63,6 +62,7 @@ import {
 } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
+import { LightweightBlockBuilder } from '../../../sequencer-client/src/block_builder/light.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { setupL1Contracts } from '../fixtures/utils.js';
 
@@ -90,9 +90,8 @@ describe('L1Publisher integration', () => {
 
   let publisher: L1Publisher;
 
-  let builder: TxProver;
+  let builder: BlockSimulator;
   let builderDb: MerkleTrees;
-  let prover: BlockProver;
 
   // The header of the last block
   let prevHeader: Header;
@@ -157,8 +156,7 @@ describe('L1Publisher integration', () => {
     };
     worldStateSynchronizer = new ServerWorldStateSynchronizer(tmpStore, builderDb, blockSource, worldStateConfig);
     await worldStateSynchronizer.start();
-    builder = await TxProver.new(config, new NoopTelemetryClient());
-    prover = builder.createBlockProver(builderDb.asLatest());
+    builder = new LightweightBlockBuilder(builderDb.asLatest(), new NoopTelemetryClient());
 
     publisher = new L1Publisher(
       {
@@ -253,6 +251,7 @@ describe('L1Publisher integration', () => {
         // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
         // This should not be a problem for testing as long as the values are not larger than u32.
         archive: `0x${block.archive.root.toBuffer().toString('hex').padStart(64, '0')}`,
+        blockHash: `0x${block.hash().toBuffer().toString('hex').padStart(64, '0')}`,
         body: `0x${block.body.toBuffer().toString('hex')}`,
         txsEffectsHash: `0x${block.body.getTxsEffectsHash().toString('hex').padStart(64, '0')}`,
         decodedHeader: {
@@ -314,9 +313,9 @@ describe('L1Publisher integration', () => {
   };
 
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
-    const blockTicket = await prover.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
+    const blockTicket = await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
     for (const tx of txs) {
-      await prover.addNewTx(tx);
+      await builder.addNewTx(tx);
     }
     return blockTicket;
   };
@@ -368,7 +367,7 @@ describe('L1Publisher integration', () => {
       const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
       const result = await ticket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const blockResult = await prover.finaliseBlock();
+      const blockResult = await builder.finaliseBlock();
       const block = blockResult.block;
       prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
@@ -474,10 +473,10 @@ describe('L1Publisher integration', () => {
         GasFees.empty(),
       );
       const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages);
-      await prover.setBlockCompleted();
+      await builder.setBlockCompleted();
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const blockResult = await prover.finaliseBlock();
+      const blockResult = await builder.finaliseBlock();
       const block = blockResult.block;
       prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);

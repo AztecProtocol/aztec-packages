@@ -1,6 +1,6 @@
 use dep::aztec::protocol_types::traits::{Serialize, Deserialize};
 
-struct Note {
+pub struct Note {
     a: Field,
     b: Field,
 }
@@ -17,6 +17,9 @@ impl Deserialize<2> for Note {
     }
 }
 
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract AvmTest {
     use crate::Note;
 
@@ -32,55 +35,56 @@ contract AvmTest {
     use dep::aztec::protocol_types::{address::{AztecAddress, EthAddress}, point::Point, scalar::Scalar};
     use dep::aztec::oracle::get_contract_instance::{get_contract_instance_avm, get_contract_instance_internal_avm};
     use dep::aztec::protocol_types::{abis::function_selector::FunctionSelector, storage::map::derive_storage_slot_in_map};
-    use dep::aztec::context::gas::GasOpts;
     use dep::compressed_string::CompressedString;
+    use dep::aztec::macros::{storage::storage, functions::{public, private}};
+    use dep::aztec::context::gas::GasOpts;
 
-    #[aztec(storage)]
-    struct Storage {
-        single: PublicMutable<Field>,
-        list: PublicMutable<Note>,
-        map: Map<AztecAddress, PublicMutable<u32>>,
+    #[storage]
+    struct Storage<Context> {
+        single: PublicMutable<Field, Context>,
+        list: PublicMutable<Note, Context>,
+        map: Map<AztecAddress, PublicMutable<u32, Context>, Context>,
     }
 
     /************************************************************************
      * Storage
      ************************************************************************/
-    #[aztec(public)]
+    #[public]
     fn set_storage_single(a: Field) {
         storage.single.write(a);
     }
 
-    #[aztec(public)]
+    #[public]
     fn read_storage_single() -> Field {
         storage.single.read()
     }
 
     // should still be able to use ` -> pub *` for return type even though macro forces `pub`
-    #[aztec(public)]
+    #[public]
     fn set_read_storage_single(a: Field) -> pub Field {
         storage.single.write(a);
         storage.single.read()
     }
 
-    #[aztec(public)]
+    #[public]
     fn set_storage_list(a: Field, b: Field) {
         storage.list.write(Note { a, b });
     }
 
-    #[aztec(public)]
+    #[public]
     fn read_storage_list() -> [Field; 2] {
         let note: Note = storage.list.read();
         note.serialize()
     }
 
-    #[aztec(public)]
+    #[public]
     fn set_storage_map(to: AztecAddress, amount: u32) -> Field {
         storage.map.at(to).write(amount);
         // returns storage slot for key
         derive_storage_slot_in_map(storage.map.storage_slot, to)
     }
 
-    #[aztec(public)]
+    #[public]
     fn add_storage_map(to: AztecAddress, amount: u32) -> Field {
         let new_balance = storage.map.at(to).read().add(amount);
         storage.map.at(to).write(new_balance);
@@ -88,12 +92,12 @@ contract AvmTest {
         derive_storage_slot_in_map(storage.map.storage_slot, to)
     }
 
-    #[aztec(public)]
+    #[public]
     fn read_storage_map(address: AztecAddress) -> u32 {
         storage.map.at(address).read()
     }
 
-    #[aztec(public)]
+    #[public]
     fn add_args_return(arg_a: Field, arg_b: Field) -> Field {
         arg_a + arg_b
     }
@@ -101,47 +105,47 @@ contract AvmTest {
     /************************************************************************
      * General Opcodes
      ************************************************************************/
-    #[aztec(public)]
+    #[public]
     fn set_opcode_u8() -> u8 {
         8 as u8
     }
 
-    #[aztec(public)]
+    #[public]
     fn set_opcode_u32() -> u32 {
         1 << 30 as u8
     }
 
-    #[aztec(public)]
+    #[public]
     fn set_opcode_u64() -> u64 {
         1 << 60 as u8
     }
 
-    #[aztec(public)]
+    #[public]
     fn set_opcode_small_field() -> Field {
         big_field_128_bits
     }
 
-    #[aztec(public)]
+    #[public]
     fn set_opcode_big_field() -> Field {
         big_field_136_bits
     }
 
-    #[aztec(public)]
+    #[public]
     fn set_opcode_really_big_field() -> Field {
         big_field_254_bits
     }
 
-    #[aztec(public)]
+    #[public]
     fn add_u128(a: U128, b: U128) -> U128 {
         a + b
     }
 
-    #[aztec(public)]
+    #[public]
     fn modulo2(a: u64) -> u64 {
         a % 2
     }
 
-    #[aztec(public)]
+    #[public]
     fn elliptic_curve_add_and_double() -> Point {
         let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
 
@@ -150,7 +154,7 @@ contract AvmTest {
         added
     }
 
-    #[aztec(public)]
+    #[public]
     fn variable_base_msm() -> Point {
         let g = Point { x: 1, y: 17631683881184975370165255887551781615748388533673675138860, is_infinite: false };
         let scalar = Scalar { lo: 3, hi: 0 };
@@ -159,7 +163,7 @@ contract AvmTest {
         triple_g
     }
 
-    #[aztec(public)]
+    #[public]
     fn pedersen_commit(x: Field, y: Field) -> EmbeddedCurvePoint {
         let commitment = dep::std::hash::pedersen_commitment_with_separator([x, y], 20);
         commitment
@@ -169,20 +173,20 @@ contract AvmTest {
      * Misc
      ************************************************************************/
 
-    #[aztec(public)]
+    #[public]
     fn u128_addition_overflow() -> U128 {
         let max_u128: U128 = U128::from_hex("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
         let one: U128 = U128::from_integer(1);
         max_u128 + one
     }
 
-    #[aztec(public)]
+    #[public]
     fn u128_from_integer_overflow() -> U128 {
         let should_overflow: Field = 2.pow_32(128); // U128::max() + 1;
         U128::from_integer(should_overflow)
     }
 
-    #[aztec(public)]
+    #[public]
     fn to_radix_le(input: Field) -> [u8; 10] {
         input.to_le_radix(/*base=*/ 2)
     }
@@ -196,12 +200,12 @@ contract AvmTest {
         inner_helper_with_failed_assertion();
     }
 
-    #[aztec(public)]
+    #[public]
     fn assertion_failure() {
         helper_with_failed_assertion()
     }
 
-    #[aztec(public)]
+    #[public]
     fn debug_logging() {
         dep::aztec::oracle::debug_log::debug_log("just text");
         dep::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);
@@ -209,20 +213,20 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("tabs and newlines\n\t- first\n\t- second");
     }
 
-    #[aztec(public)]
+    #[public]
     fn assert_same(arg_a: Field, arg_b: Field) -> pub Field {
         assert(arg_a == arg_b, "Values are not equal");
         1
     }
 
-    #[aztec(public)]
+    #[public]
     fn assert_calldata_copy(args: [Field; 3]) {
-        let offset = 2; // Make this 0 when PublicContextInputs is removed.
+        let offset = 0;
         let cd: [Field; 3] = dep::aztec::context::public_context::calldata_copy(offset, 3);
         assert(cd == args, "Calldata copy failed");
     }
 
-    #[aztec(public)]
+    #[public]
     fn return_oracle() -> [Field; 3] {
         dep::aztec::context::public_context::avm_return([1, 2, 3]);
         [4, 5, 6] // Should not get here.
@@ -231,32 +235,32 @@ contract AvmTest {
     /************************************************************************
      * Hashing functions
      ************************************************************************/
-    #[aztec(public)]
+    #[public]
     fn keccak_hash(data: [u8; 10]) -> [u8; 32] {
         std::hash::keccak256(data, data.len() as u32)
     }
 
-    #[aztec(public)]
+    #[public]
     fn keccak_f1600(data: [u64; 25]) -> [u64; 25] {
         std::hash::keccak::keccakf1600(data)
     }
 
-    #[aztec(public)]
+    #[public]
     fn poseidon2_hash(data: [Field; 10]) -> Field {
         std::hash::poseidon2::Poseidon2::hash(data, data.len())
     }
 
-    #[aztec(public)]
+    #[public]
     fn sha256_hash(data: [u8; 10]) -> [u8; 32] {
         std::hash::sha256(data)
     }
 
-    #[aztec(public)]
+    #[public]
     fn pedersen_hash(data: [Field; 10]) -> Field {
         std::hash::pedersen_hash(data)
     }
 
-    #[aztec(public)]
+    #[public]
     fn pedersen_hash_with_index(data: [Field; 10]) -> Field {
         std::hash::pedersen_hash_with_separator(data, /*index=*/ 20)
     }
@@ -264,7 +268,7 @@ contract AvmTest {
     /************************************************************************
      * Contract instance
      ************************************************************************/
-    #[aztec(public)]
+    #[public]
     fn test_get_contract_instance_raw() {
         let fields = get_contract_instance_internal_avm(context.this_address());
         // The values here should match those in `avm_simulator.test.ts>Contract>GETCONTRACTINSTANCE deserializes correctly`
@@ -277,7 +281,7 @@ contract AvmTest {
         assert(fields[5] == 0x161718);
     }
 
-    #[aztec(public)]
+    #[public]
     fn test_get_contract_instance() {
         let ci = get_contract_instance_avm(context.this_address());
         assert(ci.is_some(), "Contract instance not found!");
@@ -286,78 +290,78 @@ contract AvmTest {
     /************************************************************************
      * AvmContext functions
      ************************************************************************/
-    #[aztec(public)]
+    #[public]
     fn get_address() -> AztecAddress {
         context.this_address()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_storage_address() -> AztecAddress {
         context.storage_address()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_sender() -> AztecAddress {
         context.msg_sender()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_function_selector() -> FunctionSelector {
         context.selector()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_transaction_fee() -> Field {
         context.transaction_fee()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_chain_id() -> Field {
         context.chain_id()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_version() -> Field {
         context.version()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_block_number() -> Field {
         context.block_number()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_timestamp() -> u64 {
         context.timestamp()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_fee_per_l2_gas() -> Field {
         context.fee_per_l2_gas()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_fee_per_da_gas() -> Field {
         context.fee_per_da_gas()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_l2_gas_left() -> Field {
         context.l2_gas_left()
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_da_gas_left() -> Field {
         context.da_gas_left()
     }
 
-    #[aztec(public)]
+    #[public]
     fn assert_timestamp(expected_timestamp: u64) {
         let timestamp = context.timestamp();
         assert(timestamp == expected_timestamp, "timestamp does not match");
     }
 
-    #[aztec(public)]
+    #[public]
     fn check_selector() {
         assert(
             context.selector() == comptime {
@@ -366,12 +370,12 @@ contract AvmTest {
         );
     }
 
-    #[aztec(public)]
+    #[public]
     fn get_args_hash(_a: u8, _fields: [Field; 3]) -> Field {
         context.get_args_hash()
     }
 
-    #[aztec(public)]
+    #[public]
     fn emit_unencrypted_log() {
         context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
         context.emit_unencrypted_log(/*message=*/ "Hello, world!");
@@ -379,36 +383,36 @@ contract AvmTest {
         context.emit_unencrypted_log(/*message=*/ s);
     }
 
-    #[aztec(public)]
+    #[public]
     fn note_hash_exists(note_hash: Field, leaf_index: Field) -> bool {
         context.note_hash_exists(note_hash, leaf_index)
     }
 
     // Use the standard context interface to emit a new note hash
-    #[aztec(public)]
+    #[public]
     fn new_note_hash(note_hash: Field) {
         context.push_note_hash(note_hash);
     }
 
     // Use the standard context interface to emit a new nullifier
-    #[aztec(public)]
+    #[public]
     fn new_nullifier(nullifier: Field) {
         context.push_nullifier(nullifier);
     }
 
     // Use the standard context interface to check for a nullifier
-    #[aztec(public)]
+    #[public]
     fn nullifier_exists(nullifier: Field) -> bool {
         context.nullifier_exists(nullifier, context.storage_address())
     }
 
-    #[aztec(public)]
+    #[public]
     fn assert_nullifier_exists(nullifier: Field) {
         assert(context.nullifier_exists(nullifier, context.storage_address()), "Nullifier doesn't exist!");
     }
 
     // Use the standard context interface to emit a new nullifier
-    #[aztec(public)]
+    #[public]
     fn emit_nullifier_and_check(nullifier: Field) {
         context.push_nullifier(nullifier);
         let exists = context.nullifier_exists(nullifier, context.storage_address());
@@ -416,19 +420,19 @@ contract AvmTest {
     }
 
     // Create the same nullifier twice (shouldn't work!)
-    #[aztec(public)]
+    #[public]
     fn nullifier_collision(nullifier: Field) {
         context.push_nullifier(nullifier);
         // Can't do this twice!
         context.push_nullifier(nullifier);
     }
 
-    #[aztec(public)]
+    #[public]
     fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> bool {
         context.l1_to_l2_msg_exists(msg_hash, msg_leaf_index)
     }
 
-    #[aztec(public)]
+    #[public]
     fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
         context.message_portal(recipient, content)
     }
@@ -436,7 +440,7 @@ contract AvmTest {
     /************************************************************************
      * Nested calls
      ************************************************************************/
-    #[aztec(public)]
+    #[public]
     fn nested_call_to_add_with_gas(
         arg_a: Field,
         arg_b: Field,
@@ -447,30 +451,30 @@ contract AvmTest {
     }
 
     // Use the `call_public_function` wrapper to initiate a nested call to the add function
-    #[aztec(public)]
+    #[public]
     fn nested_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).call(&mut context)
     }
 
     // Indirectly call_static the external call opcode to initiate a nested call to the add function
-    #[aztec(public)]
+    #[public]
     fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).view(&mut context)
     }
 
     // Indirectly call_static `set_storage_single`. Should revert since it's accessing storage.
-    #[aztec(public)]
+    #[public]
     fn nested_static_call_to_set_storage() {
         AvmTest::at(context.this_address()).set_storage_single(20).view(&mut context);
     }
 
-    #[aztec(public)]
+    #[public]
     fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
         context.push_nullifier(nullifier);
         AvmTest::at(nestedAddress).new_nullifier(nullifier).call(&mut context);
     }
 
-    #[aztec(public)]
+    #[public]
     fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
         context.push_nullifier(nullifier);
         AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(&mut context);
@@ -479,7 +483,7 @@ contract AvmTest {
     /**
      * Enqueue a public call from private
      */
-    #[aztec(private)]
+    #[private]
     fn enqueue_public_from_private() {
         AvmTest::at(context.this_address()).set_opcode_u8().enqueue_view(&mut context);
         AvmTest::at(context.this_address()).set_read_storage_single(5).enqueue(&mut context);
@@ -491,42 +495,73 @@ contract AvmTest {
      * calls - but not blackboxes!), since otherwise the whole call will
      * be optimized away.
      ************************************************************************/
-    #[aztec(public)]
+    #[public]
     fn bulk_testing(args_field: [Field; 10], args_u8: [u8; 10]) {
-        // Using "inputs" here is a bit of a hack. It's the PublicContextInputs injected
-        // by the public macros. It's needed by the non-nested call to an entry point function.
-        set_storage_single(inputs, 30);
-        set_storage_list(inputs, 40, 50);
-        let _ = set_storage_map(inputs, context.this_address(), 60);
-        let _ = add_storage_map(inputs, context.this_address(), 10);
-        let _ = read_storage_map(inputs, context.this_address());
-        let _ = keccak_hash(inputs, args_u8);
-        let _ = sha256_hash(inputs, args_u8);
-        let _ = poseidon2_hash(inputs, args_field);
-        let _ = pedersen_hash(inputs, args_field);
-        let _ = pedersen_hash_with_index(inputs, args_field);
-        test_get_contract_instance(inputs);
-        let _ = get_address(inputs);
-        let _ = get_storage_address(inputs);
-        let _ = get_sender(inputs);
-        let _ = get_function_selector(inputs);
-        let _ = get_transaction_fee(inputs);
-        let _ = get_chain_id(inputs);
-        let _ = get_version(inputs);
-        let _ = get_block_number(inputs);
-        let _ = get_timestamp(inputs);
-        let _ = get_fee_per_l2_gas(inputs);
-        let _ = get_fee_per_da_gas(inputs);
-        let _ = get_l2_gas_left(inputs);
-        let _ = get_da_gas_left(inputs);
-        let _ = emit_unencrypted_log(inputs);
-        let _ = note_hash_exists(inputs, 1, 2);
-        let _ = new_note_hash(inputs, 1);
-        let _ = new_nullifier(inputs, 1);
-        let _ = nullifier_exists(inputs, 1);
-        let _ = l1_to_l2_msg_exists(inputs, 1, 2);
-        let _ = send_l2_to_l1_msg(inputs, EthAddress::from_field(0x2020), 1);
-        let _ = nested_call_to_add(inputs, 1, 2);
-        // let _ = nested_static_call_to_add(inputs, 1, 2);
+        dep::aztec::oracle::debug_log::debug_log("set_storage_single");
+        set_storage_single(30);
+        dep::aztec::oracle::debug_log::debug_log("set_storage_list");
+        set_storage_list(40, 50);
+        dep::aztec::oracle::debug_log::debug_log("read_storage_list");
+        let _ = set_storage_map(context.this_address(), 60);
+        dep::aztec::oracle::debug_log::debug_log("add_storage_map");
+        let _ = add_storage_map(context.this_address(), 10);
+        dep::aztec::oracle::debug_log::debug_log("read_storage_map");
+        let _ = read_storage_map(context.this_address());
+        dep::aztec::oracle::debug_log::debug_log("keccak_hash");
+        let _ = keccak_hash(args_u8);
+        dep::aztec::oracle::debug_log::debug_log("sha256_hash");
+        let _ = sha256_hash(args_u8);
+        dep::aztec::oracle::debug_log::debug_log("poseidon2_hash");
+        let _ = poseidon2_hash(args_field);
+        dep::aztec::oracle::debug_log::debug_log("pedersen_hash");
+        let _ = pedersen_hash(args_field);
+        dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
+        let _ = pedersen_hash_with_index(args_field);
+        dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
+        test_get_contract_instance();
+        dep::aztec::oracle::debug_log::debug_log("get_address");
+        let _ = get_address();
+        dep::aztec::oracle::debug_log::debug_log("get_storage_address");
+        let _ = get_storage_address();
+        dep::aztec::oracle::debug_log::debug_log("get_sender");
+        let _ = get_sender();
+        dep::aztec::oracle::debug_log::debug_log("get_function_selector");
+        let _ = get_function_selector();
+        dep::aztec::oracle::debug_log::debug_log("get_transaction_fee");
+        let _ = get_transaction_fee();
+        dep::aztec::oracle::debug_log::debug_log("get_chain_id");
+        let _ = get_chain_id();
+        dep::aztec::oracle::debug_log::debug_log("get_version");
+        let _ = get_version();
+        dep::aztec::oracle::debug_log::debug_log("get_block_number");
+        let _ = get_block_number();
+        dep::aztec::oracle::debug_log::debug_log("get_timestamp");
+        let _ = get_timestamp();
+        dep::aztec::oracle::debug_log::debug_log("get_fee_per_l2_gas");
+        let _ = get_fee_per_l2_gas();
+        dep::aztec::oracle::debug_log::debug_log("get_fee_per_da_gas");
+        let _ = get_fee_per_da_gas();
+        dep::aztec::oracle::debug_log::debug_log("get_l2_gas_left");
+        let _ = get_l2_gas_left();
+        dep::aztec::oracle::debug_log::debug_log("get_da_gas_left");
+        let _ = get_da_gas_left();
+        dep::aztec::oracle::debug_log::debug_log("emit_unencrypted_log");
+        let _ = emit_unencrypted_log();
+        dep::aztec::oracle::debug_log::debug_log("note_hash_exists");
+        let _ = note_hash_exists(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("new_note_hash");
+        let _ = new_note_hash(1);
+        dep::aztec::oracle::debug_log::debug_log("new_nullifier");
+        let _ = new_nullifier(1);
+        dep::aztec::oracle::debug_log::debug_log("nullifier_exists");
+        let _ = nullifier_exists(1);
+        dep::aztec::oracle::debug_log::debug_log("l1_to_l2_msg_exists");
+        let _ = l1_to_l2_msg_exists(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("send_l2_to_l1_msg");
+        let _ = send_l2_to_l1_msg(EthAddress::from_field(0x2020), 1);
+        dep::aztec::oracle::debug_log::debug_log("nested_call_to_add");
+        let _ = nested_call_to_add(1, 2);
+        dep::aztec::oracle::debug_log::debug_log("nested_static_call_to_add");
+        let _ = nested_static_call_to_add(1, 2);
     }
 }

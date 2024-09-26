@@ -4,7 +4,7 @@ use dep::types::{
     utils::arrays::{get_sorted_result, SortedResult}
 };
 
-struct SlotIndex {
+pub struct SlotIndex {
     slot: Field,
     index: u32,
     counter: u32,

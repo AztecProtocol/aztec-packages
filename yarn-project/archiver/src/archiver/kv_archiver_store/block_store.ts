@@ -187,6 +187,10 @@ export class BlockStore {
     return this.#lastSynchedL1Block.get();
   }
 
+  setSynchedL1BlockNumber(l1BlockNumber: bigint) {
+    void this.#lastSynchedL1Block.set(l1BlockNumber);
+  }
+
   #computeBlockRange(start: number, limit: number): Required<Pick<Range<number>, 'start' | 'end'>> {
     if (limit < 1) {
       throw new Error(`Invalid limit: ${limit}`);

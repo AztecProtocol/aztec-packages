@@ -14,7 +14,7 @@ pub fn point_to_symmetric_key(secret: Scalar, point: Point) -> [u8; 32] {
 }
 
 #[test]
-fn test_point_to_symmetric_key_matches_noir() {
+unconstrained fn test_point_to_symmetric_key_matches_noir() {
     // Value taken from "derive shared secret" test in encrypt_buffer.test.ts
     let secret = Scalar {
         lo: 0x00000000000000000000000000000000649e7ca01d9de27b21624098b897babd,

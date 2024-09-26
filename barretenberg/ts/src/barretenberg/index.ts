@@ -5,6 +5,11 @@ import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenber
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
 import { BarretenbergWasmWorker, fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import createDebug from 'debug';
+import { Crs } from '../crs/index.js';
+import { RawBuffer } from '../types/raw_buffer.js';
+
+export { BarretenbergVerifier } from './verifier.js';
+export { UltraPlonkBackend, UltraHonkBackend } from './backend.js';
 
 const debug = createDebug('bb.js:wasm');
 
@@ -38,6 +43,18 @@ export class Barretenberg extends BarretenbergApi {
 
   async getNumThreads() {
     return await this.wasm.getNumThreads();
+  }
+
+  async initSRSForCircuitSize(circuitSize: number): Promise<void> {
+    const crs = await Crs.new(circuitSize + 1);
+    await this.commonInitSlabAllocator(circuitSize);
+    await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
+  }
+
+  async acirInitSRS(bytecode: Uint8Array, honkRecursion: boolean): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_exact, _total, subgroupSize] = await this.acirGetCircuitSizes(bytecode, honkRecursion);
+    return this.initSRSForCircuitSize(subgroupSize);
   }
 
   async destroy() {

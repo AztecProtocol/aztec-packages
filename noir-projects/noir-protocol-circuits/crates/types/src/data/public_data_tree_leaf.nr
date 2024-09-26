@@ -1,6 +1,6 @@
 use crate::{abis::{public_data_read::PublicDataRead, side_effect::{Overridable, Readable}}, traits::Empty};
 
-struct PublicDataTreeLeaf {
+pub struct PublicDataTreeLeaf {
     slot: Field,
     value: Field,
 }
@@ -23,7 +23,7 @@ impl PublicDataTreeLeaf {
     }
 }
 
-struct OverridablePublicDataTreeLeaf {
+pub struct OverridablePublicDataTreeLeaf {
     leaf: PublicDataTreeLeaf,
     override_counter: u32,
 }
@@ -50,4 +50,3 @@ impl Overridable for OverridablePublicDataTreeLeaf {
         self.override_counter
     }
 }
-

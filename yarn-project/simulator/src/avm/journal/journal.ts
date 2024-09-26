@@ -3,11 +3,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SerializableContractInstance } from '@aztec/types/contracts';
 
+import { type WorldStateDB } from '../../public/public_db_sources.js';
 import { type TracedContractInstance } from '../../public/side_effect_trace.js';
 import { type PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { type AvmExecutionEnvironment } from '../avm_execution_environment.js';
-import { type HostStorage } from './host_storage.js';
 import { NullifierManager } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
 
@@ -25,7 +25,7 @@ export class AvmPersistableStateManager {
 
   constructor(
     /** Reference to node storage */
-    private readonly hostStorage: HostStorage,
+    private readonly worldStateDB: WorldStateDB,
     /** Side effect trace */
     private readonly trace: PublicSideEffectTraceInterface,
     /** Public storage, including cached writes */
@@ -39,18 +39,15 @@ export class AvmPersistableStateManager {
    * Create a new state manager with some preloaded pending siloed nullifiers
    */
   public static newWithPendingSiloedNullifiers(
-    hostStorage: HostStorage,
+    worldStateDB: WorldStateDB,
     trace: PublicSideEffectTraceInterface,
     pendingSiloedNullifiers: Fr[],
   ) {
-    const parentNullifiers = NullifierManager.newWithPendingSiloedNullifiers(
-      hostStorage.commitmentsDb,
-      pendingSiloedNullifiers,
-    );
+    const parentNullifiers = NullifierManager.newWithPendingSiloedNullifiers(worldStateDB, pendingSiloedNullifiers);
     return new AvmPersistableStateManager(
-      hostStorage,
+      worldStateDB,
       trace,
-      /*publicStorage=*/ new PublicStorage(hostStorage.publicStateDb),
+      /*publicStorage=*/ new PublicStorage(worldStateDB),
       /*nullifiers=*/ parentNullifiers.fork(),
     );
   }
@@ -60,7 +57,7 @@ export class AvmPersistableStateManager {
    */
   public fork() {
     return new AvmPersistableStateManager(
-      this.hostStorage,
+      this.worldStateDB,
       this.trace.fork(),
       this.publicStorage.fork(),
       this.nullifiers.fork(),
@@ -122,7 +119,7 @@ export class AvmPersistableStateManager {
    * @returns true if the note hash exists at the given leaf index, false otherwise
    */
   public async checkNoteHashExists(storageAddress: Fr, noteHash: Fr, leafIndex: Fr): Promise<boolean> {
-    const gotLeafValue = (await this.hostStorage.commitmentsDb.getCommitmentValue(leafIndex.toBigInt())) ?? Fr.ZERO;
+    const gotLeafValue = (await this.worldStateDB.getCommitmentValue(leafIndex.toBigInt())) ?? Fr.ZERO;
     const exists = gotLeafValue.equals(noteHash);
     this.log.debug(
       `noteHashes(${storageAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,
@@ -177,7 +174,7 @@ export class AvmPersistableStateManager {
    * @returns exists - whether the message exists in the L1 to L2 Messages tree
    */
   public async checkL1ToL2MessageExists(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr): Promise<boolean> {
-    const valueAtIndex = (await this.hostStorage.commitmentsDb.getL1ToL2LeafValue(msgLeafIndex.toBigInt())) ?? Fr.ZERO;
+    const valueAtIndex = (await this.worldStateDB.getL1ToL2LeafValue(msgLeafIndex.toBigInt())) ?? Fr.ZERO;
     const exists = valueAtIndex.equals(msgHash);
     this.log.debug(
       `l1ToL2Messages(@${msgLeafIndex}) ?? exists: ${exists}, expected: ${msgHash}, found: ${valueAtIndex}.`,
@@ -217,7 +214,7 @@ export class AvmPersistableStateManager {
   public async getContractInstance(contractAddress: Fr): Promise<TracedContractInstance> {
     let exists = true;
     const aztecAddress = AztecAddress.fromField(contractAddress);
-    let instance = await this.hostStorage.contractsDb.getContractInstance(aztecAddress);
+    let instance = await this.worldStateDB.getContractInstance(aztecAddress);
     if (instance === undefined) {
       instance = SerializableContractInstance.empty().withAddress(aztecAddress);
       exists = false;
@@ -242,7 +239,7 @@ export class AvmPersistableStateManager {
    * Get a contract's bytecode from the contracts DB
    */
   public async getBytecode(contractAddress: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
-    return await this.hostStorage.contractsDb.getBytecode(contractAddress, selector);
+    return await this.worldStateDB.getBytecode(contractAddress, selector);
   }
 
   /**
@@ -260,10 +257,8 @@ export class AvmPersistableStateManager {
       this.acceptNestedCallState(nestedState);
     }
     const functionName =
-      (await nestedState.hostStorage.contractsDb.getDebugFunctionName(
-        nestedEnvironment.address,
-        nestedEnvironment.functionSelector,
-      )) ?? `${nestedEnvironment.address}:${nestedEnvironment.functionSelector}`;
+      (await this.worldStateDB.getDebugFunctionName(nestedEnvironment.address, nestedEnvironment.functionSelector)) ??
+      `${nestedEnvironment.address}:${nestedEnvironment.functionSelector}`;
 
     this.log.verbose(`[AVM] Calling nested function ${functionName}`);
 

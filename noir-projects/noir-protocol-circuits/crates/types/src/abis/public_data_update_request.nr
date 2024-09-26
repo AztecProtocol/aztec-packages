@@ -9,7 +9,7 @@ use crate::{
 };
 
 // TODO: Rename to PublicDataWrite
-struct PublicDataUpdateRequest {
+pub struct PublicDataUpdateRequest {
     leaf_slot : Field,
     new_value : Field,
     counter: u32

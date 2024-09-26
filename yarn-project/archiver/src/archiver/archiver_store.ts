@@ -1,6 +1,4 @@
 import {
-  type EncryptedL2BlockL2Logs,
-  type EncryptedNoteL2BlockL2Logs,
   type FromLogType,
   type GetUnencryptedLogsResponse,
   type InboxLeaf,
@@ -11,7 +9,6 @@ import {
   type TxEffect,
   type TxHash,
   type TxReceipt,
-  type UnencryptedL2BlockL2Logs,
 } from '@aztec/circuit-types';
 import { type Fr } from '@aztec/circuits.js';
 import { type ContractArtifact } from '@aztec/foundation/abi';
@@ -74,18 +71,10 @@ export interface ArchiverDataStore {
 
   /**
    * Append new logs to the store's list.
-   * @param noteEncryptedLogs - The note encrypted logs to be added to the store.
-   * @param encryptedLogs - The encrypted logs to be added to the store.
-   * @param unencryptedLogs - The unencrypted logs to be added to the store.
-   * @param blockNumber - The block for which to add the logs.
+   * @param blocks - The blocks for which to add the logs.
    * @returns True if the operation is successful.
    */
-  addLogs(
-    noteEncryptedLogs: EncryptedNoteL2BlockL2Logs | undefined,
-    encryptedLogs: EncryptedL2BlockL2Logs | undefined,
-    unencryptedLogs: UnencryptedL2BlockL2Logs | undefined,
-    blockNumber: number,
-  ): Promise<boolean>;
+  addLogs(blocks: L2Block[]): Promise<boolean>;
 
   /**
    * Append L1 to L2 messages to the store.
@@ -146,6 +135,18 @@ export interface ArchiverDataStore {
    * @param l2BlockNumber - The number of the latest proven L2 block processed.
    */
   setProvenL2BlockNumber(l2BlockNumber: SingletonDataRetrieval<number>): Promise<void>;
+
+  /**
+   * Stores the l1 block number that blocks have been synched until
+   * @param l1BlockNumber  - The l1 block number
+   */
+  setBlockSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void>;
+
+  /**
+   * Stores the l1 block number that messages have been synched until
+   * @param l1BlockNumber  - The l1 block number
+   */
+  setMessageSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void>;
 
   /**
    * Gets the synch point of the archiver

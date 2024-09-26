@@ -7,7 +7,7 @@ use crate::abis::constant_rollup_data::ConstantRollupData;
 global BASE_ROLLUP_TYPE = 0;
 global MERGE_ROLLUP_TYPE = 1;
 
-struct BaseOrMergeRollupPublicInputs {
+pub struct BaseOrMergeRollupPublicInputs {
     // rollup_type is either 0 (base) or 1 (merge)
     // TODO(Kev): Why is this a u32 instead of a u8/u16?
     rollup_type : u32,

@@ -1,7 +1,7 @@
 use crate::components::{tail_to_public_output_validator::TailToPublicOutputValidator};
 use dep::types::tests::fixture_builder::FixtureBuilder;
 
-struct TailToPublicOutputValidatorBuilder {
+pub struct TailToPublicOutputValidatorBuilder {
     output: FixtureBuilder,
     previous_kernel: FixtureBuilder
 }

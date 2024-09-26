@@ -4,7 +4,7 @@ use crate::{
     merkle_tree::membership::MembershipWitness, recursion::{verification_key::VerificationKey}
 };
 
-struct PrivateCallData {
+pub struct PrivateCallData {
     call_stack_item: PrivateCallStackItem,
 
     vk: VerificationKey,
