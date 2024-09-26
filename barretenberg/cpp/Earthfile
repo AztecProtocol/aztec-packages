@@ -43,12 +43,13 @@ preset-release:
 preset-release-world-state:
   FROM +source
   DO +CACHE_BUILD_BIN --prefix=preset-release-world-state \
-    --command="cmake --preset clang16-pic -Bbuild && cmake --build build --target world_state_napi && mv ./build/lib/world_state_napi.node ./build/bin"
+    --command="cmake --preset clang16-pic -Bbuild && cmake --build build --target world_state_napi && mv ./build/lib/world_state_napi.node ./build/bin  "
   SAVE ARTIFACT build/bin
 
 preset-release-assert:
   FROM +source
-  RUN cmake --preset clang16-assert -Bbuild && cmake --build build --target bb crypto_merkle_tree_tests
+  DO +CACHE_BUILD_BIN --prefix=preset-release-assert \
+    --command="cmake --preset clang16-assert -Bbuild && cmake --build build --target bb crypto_merkle_tree_tests"
   SAVE ARTIFACT build/bin
 
 preset-debug:
