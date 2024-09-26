@@ -9,7 +9,7 @@ use crate::context::call_interfaces::CallInterface;
 use crate::test::helpers::cheatcodes;
 use crate::keys::public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys};
 
-use crate::oracle::{execution::{get_block_number, get_contract_address}};
+use crate::oracle::execution::{get_block_number, get_contract_address};
 
 unconstrained pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
     let mut nullifiers = &[];
@@ -31,7 +31,10 @@ unconstrained pub fn apply_side_effects_private(contract_address: AztecAddress, 
 pub struct Deployer<let N: u32, let M: u32> {
     path: str<N>,
     name: str<M>,
-    public_keys_hash: Field
+    // TODO(#8812): Remove the public keys hash field and calculate it on the fly in TS via secret.
+    // We need to pass the secret to TS anyways to add the correct complete address.
+    public_keys_hash: Field,
+    secret: Field,
 }
 
 impl<let N: u32, let M: u32> Deployer<N, M> {
@@ -44,7 +47,8 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             self.name,
             call_interface.get_name(),
             call_interface.get_args(),
-            self.public_keys_hash
+            self.public_keys_hash,
+            self.secret,
         );
         let address = instance.to_address();
         cheatcodes::advance_blocks_by(1);
@@ -74,7 +78,8 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
             self.name,
             call_interface.get_name(),
             call_interface.get_args(),
-            self.public_keys_hash
+            self.public_keys_hash,
+            self.secret,
         );
         cheatcodes::advance_blocks_by(1);
         let original_fn = call_interface.get_original();
@@ -100,7 +105,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
     }
 
     unconstrained pub fn without_initializer(self) -> ContractInstance {
-        cheatcodes::deploy(self.path, self.name, "", &[], self.public_keys_hash)
+        cheatcodes::deploy(self.path, self.name, "", &[], self.public_keys_hash, self.secret)
     }
 }
 
