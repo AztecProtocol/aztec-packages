@@ -62,7 +62,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   IProofCommitmentEscrow public immutable PROOF_COMMITMENT_ESCROW;
   uint256 public immutable VERSION;
   IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
-  IVerifier public verifier;
+  IVerifier public blockProofVerifier;
 
   ChainTips public tips;
   DataStructures.EpochProofClaim public proofClaim;
@@ -80,6 +80,10 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   //        Testing only. This should be removed eventually.
   uint256 private assumeProvenThroughBlockNumber;
 
+  // Listed at the end of the contract to avoid changing storage slots
+  // TODO(palla/prover) Drop blockProofVerifier and move this verifier to that slot
+  IVerifier public epochProofVerifier;
+
   constructor(
     IRegistry _registry,
     IFeeJuicePortal _fpcJuicePortal,
@@ -87,7 +91,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     address _ares,
     address[] memory _validators
   ) Leonidas(_ares) {
-    verifier = new MockVerifier();
+    blockProofVerifier = new MockVerifier();
+    epochProofVerifier = new MockVerifier();
     REGISTRY = _registry;
     FEE_JUICE_PORTAL = _fpcJuicePortal;
     PROOF_COMMITMENT_ESCROW = new MockProofCommitmentEscrow();
@@ -144,8 +149,19 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *
    * @param _verifier - The new verifier contract
    */
-  function setVerifier(address _verifier) external override(ITestRollup) onlyOwner {
-    verifier = IVerifier(_verifier);
+  function setBlockVerifier(address _verifier) external override(ITestRollup) onlyOwner {
+    blockProofVerifier = IVerifier(_verifier);
+  }
+
+  /**
+   * @notice  Set the verifier contract
+   *
+   * @dev     This is only needed for testing, and should be removed
+   *
+   * @param _verifier - The new verifier contract
+   */
+  function setEpochVerifier(address _verifier) external override(ITestRollup) onlyOwner {
+    epochProofVerifier = IVerifier(_verifier);
   }
 
   /**
@@ -410,7 +426,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       publicInputs[i + 91] = part;
     }
 
-    if (!verifier.verify(_proof, publicInputs)) {
+    if (!blockProofVerifier.verify(_proof, publicInputs)) {
       revert Errors.Rollup__InvalidProof();
     }
 
@@ -484,7 +500,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes32[] memory publicInputs =
       getEpochProofPublicInputs(_epochSize, _args, _fees, _aggregationObject);
 
-    if (!verifier.verify(_proof, publicInputs)) {
+    if (!epochProofVerifier.verify(_proof, publicInputs)) {
       revert Errors.Rollup__InvalidProof();
     }
 
