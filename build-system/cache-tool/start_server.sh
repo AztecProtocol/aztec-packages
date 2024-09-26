@@ -7,7 +7,7 @@ cd $(dirname $0) # enter source dir
 command -v npm >/dev/null || (sudo apt update && sudo apt install -y npm)
 command -v lsof >/dev/null || (sudo apt update && sudo apt install -y lsof)
 # if nvm is available use it to ensure we have node 18
-command -v nvm && nvm install 18 && nvm use 18
+command -v nvm && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" && nvm install 18 && nvm use 18
 
 # Check if port 8337 is in use
 # If not, start the server with nohup and redirect logs

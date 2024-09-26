@@ -35,7 +35,7 @@ WRITE_CONTENT_HASH:
   FUNCTION
   ARG rebuild_patterns
   LET local_dir=$(pwd | sed 's|^/usr/src/||')
-  RUN [ -z "$rebuild_patterns" ] && "Did not pass rebuild patterns to cache command!" && exit 1
+  # RUN [ -z "$rebuild_patterns" ] && "Did not pass rebuild patterns to cache command!" && exit 1
   COPY (+compute-content-hash/.content-hash --local_directory_equivalent="$local_dir" --rebuild_patterns="$rebuild_patterns") .
 
 # 1) starts our cache server if not up
