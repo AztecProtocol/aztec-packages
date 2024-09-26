@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/numeric/uintx/uintx.hpp"
@@ -172,8 +173,8 @@ bigfield<Builder, T>::bigfield(bigfield&& other)
  * @param ctx
  * @param value
  * @param can_overflow Can the input value have more than log2(modulus) bits?
- * @param maximum_bitlength Provide the explicit maximum bitlength if known. Otherwise bigfield max value will be either
- * log2(modulus) bits iff can_overflow = false, or (4 * NUM_LIMB_BITS) iff can_overflow = true
+ * @param maximum_bitlength Provide the explicit maximum bitlength if known. Otherwise bigfield max value will be
+ * either log2(modulus) bits iff can_overflow = false, or (4 * NUM_LIMB_BITS) iff can_overflow = true
  * @return bigfield<Builder, T>
  *
  * @details This method is 1 gate more efficient than constructing from 2 field_ct elements.
@@ -215,7 +216,8 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
                                    -1,
                                    0 },
                                  true);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add gate
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/879): dummy necessary for preceeding big add
+        // gate
         ctx->create_dummy_gate(
             ctx->blocks.arithmetic, ctx->zero_idx, ctx->zero_idx, ctx->zero_idx, limb_0.get_normalized_witness_index());
 
@@ -345,13 +347,14 @@ template <typename Builder, typename T> uint512_t bigfield<Builder, T>::get_maxi
 }
 
 /**
- * @brief Add a field element to the lower limb. CAUTION (the element has to be constrained before using this function)
+ * @brief Add a field element to the lower limb. CAUTION (the element has to be constrained before using this
+ * function)
  *
- * @details Sometimes we need to add a small constrained value to a bigfield element (for example, a boolean value), but
- * we don't want to construct a full bigfield element for that as it would take too many gates. If the maximum value of
- * the field element being added is small enough, we can simply add it to the lowest limb and increase its maximum
- * value. That will create 2 additional constraints instead of 5/3 needed to add 2 bigfield elements and several needed
- * to construct a bigfield element.
+ * @details Sometimes we need to add a small constrained value to a bigfield element (for example, a boolean value),
+ * but we don't want to construct a full bigfield element for that as it would take too many gates. If the maximum
+ * value of the field element being added is small enough, we can simply add it to the lowest limb and increase its
+ * maximum value. That will create 2 additional constraints instead of 5/3 needed to add 2 bigfield elements and
+ * several needed to construct a bigfield element.
  *
  * @tparam Builder Builder
  * @tparam T Field Parameters
@@ -580,7 +583,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
      * Step 3: Compute offset terms t0, t1, t2, t3 that we add to our result to ensure each limb is positive
      *
      * t3 represents the value we are BORROWING from constant_to_add.limb[3]
-     * t2, t1, t0 are the terms we will ADD to constant_to_add.limb[2], constant_to_add.limb[1], constant_to_add.limb[0]
+     * t2, t1, t0 are the terms we will ADD to constant_to_add.limb[2], constant_to_add.limb[1],
+     *constant_to_add.limb[0]
      *
      * i.e. The net value we add to `constant_to_add` is 0. We must ensure that:
      * t3 = t0 + (t1 << NUM_LIMB_BITS) + (t2 << NUM_LIMB_BITS * 2)
@@ -595,8 +599,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     uint256_t t3(uint256_t(1) << (limb_2_borrow_shift - NUM_LIMB_BITS));
 
     /**
-     * Compute the limbs of `constant_to_add`, including our offset terms t0, t1, t2, t3 that ensure each result limb is
-     *positive
+     * Compute the limbs of `constant_to_add`, including our offset terms t0, t1, t2, t3 that ensure each result
+     *limb is positive
      **/
     uint256_t to_add_0 = uint256_t(constant_to_add.slice(0, NUM_LIMB_BITS)) + t0;
     uint256_t to_add_1 = uint256_t(constant_to_add.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2)) + t1;
@@ -635,8 +639,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
             limbconst =
                 limbconst ||
                 (prime_basis_limb.witness_index ==
-                 other.prime_basis_limb.witness_index); // We are checking if this is and identical element, so we need
-                                                        // to compare the actual indices, not normalized ones
+                 other.prime_basis_limb.witness_index); // We are checking if this is and identical element, so we
+                                                        // need to compare the actual indices, not normalized ones
             if (!limbconst) {
                 std::pair<uint32_t, bb::fr> x0{ result.binary_basis_limbs[0].element.witness_index,
                                                 binary_basis_limbs[0].element.multiplicative_constant };
@@ -725,10 +729,11 @@ bigfield<Builder, T> bigfield<Builder, T>::operator*(const bigfield& other) cons
         return remainder;
     } else {
         // when writing a*b = q*p + r we wish to enforce r<2^s for smallest s such that p<2^s
-        // hence the second constructor call is with can_overflow=false. This will allow using r in more additions mod
-        // 2^t without needing to apply the mod, where t=4*NUM_LIMB_BITS
+        // hence the second constructor call is with can_overflow=false. This will allow using r in more additions
+        // mod 2^t without needing to apply the mod, where t=4*NUM_LIMB_BITS
 
-        // Check if the product overflows CRT or the quotient can't be contained in a range proof and reduce accordingly
+        // Check if the product overflows CRT or the quotient can't be contained in a range proof and reduce
+        // accordingly
         auto [reduction_required, num_quotient_bits] =
             get_quotient_reduction_info({ get_maximum_value() }, { other.get_maximum_value() }, {});
         if (reduction_required) {
@@ -945,6 +950,7 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& to_add) const
 {
+    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
     reduction_check();
 
     Builder* ctx = context;
@@ -1014,7 +1020,8 @@ bigfield<Builder, T> bigfield<Builder, T>::sqradd(const std::vector<bigfield>& t
  * @returns this ** (exponent)
  *
  * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1015) Security of this (as part of the whole class)
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1015) Security of this (as part of the whole
+ * class)
  */
 
 template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T>::pow(const size_t exponent) const
@@ -1049,13 +1056,14 @@ template <typename Builder, typename T> bigfield<Builder, T> bigfield<Builder, T
 }
 
 /**
- * @brief Raise a bigfield to a power of an exponent (field_t) that must be a witness. Note that the exponent must not
- * exceed 32 bits and is implicitly range constrained.
+ * @brief Raise a bigfield to a power of an exponent (field_t) that must be a witness. Note that the exponent must
+ * not exceed 32 bits and is implicitly range constrained.
  *
  * @returns this ** (exponent)
  *
  * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1014) Improve the efficiency of this function.
- * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1015) Security of this (as part of the whole class)
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/1015) Security of this (as part of the whole
+ * class)
  */
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent) const
@@ -1121,6 +1129,7 @@ bigfield<Builder, T> bigfield<Builder, T>::pow(const field_t<Builder>& exponent)
 template <typename Builder, typename T>
 bigfield<Builder, T> bigfield<Builder, T>::madd(const bigfield& to_mul, const std::vector<bigfield>& to_add) const
 {
+    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
     Builder* ctx = context ? context : to_mul.context;
     reduction_check();
     to_mul.reduction_check();
@@ -1190,6 +1199,10 @@ void bigfield<Builder, T>::perform_reductions_for_mult_madd(std::vector<bigfield
                                                             std::vector<bigfield>& mul_right,
                                                             const std::vector<bigfield>& to_add)
 {
+    ASSERT(mul_left.size() == mul_right.size());
+    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+    ASSERT(mul_left.size() <= MAXIMUM_SUMMAND_COUNT);
+
     const size_t number_of_products = mul_left.size();
     // Get the maximum values of elements
     std::vector<uint512_t> max_values_left;
@@ -1324,6 +1337,8 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
                                                      bool fix_remainder_to_zero)
 {
     ASSERT(mul_left.size() == mul_right.size());
+    ASSERT(mul_left.size() <= MAXIMUM_SUMMAND_COUNT);
+    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
 
     std::vector<bigfield> mutable_mul_left(mul_left);
     std::vector<bigfield> mutable_mul_right(mul_right);
@@ -1424,7 +1439,8 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
         }
     }
 
-    // Now that we know that there is at least 1 non-constant multiplication, we can start estimating reductions, etc
+    // Now that we know that there is at least 1 non-constant multiplication, we can start estimating reductions,
+    // etc
 
     // Compute the constant term we're adding
     const auto [_, constant_part_remainder_1024] = (sum_of_constant_products + add_right_constant_sum).divmod(modulus);
@@ -1452,8 +1468,8 @@ bigfield<Builder, T> bigfield<Builder, T>::mult_madd(const std::vector<bigfield>
     // Check that we can actually reduce the products enough, this assert will probably never get triggered
     ASSERT((worst_case_product_sum + add_right_maximum) < get_maximum_crt_product());
 
-    // We've collapsed all constants, checked if we can compute the sum of products in the worst case, time to check if
-    // we need to reduce something
+    // We've collapsed all constants, checked if we can compute the sum of products in the worst case, time to check
+    // if we need to reduce something
     perform_reductions_for_mult_madd(new_input_left, new_input_right, new_to_add);
     uint1024_t sum_of_products_final(0);
     for (size_t i = 0; i < final_number_of_products; i++) {
@@ -1507,6 +1523,7 @@ bigfield<Builder, T> bigfield<Builder, T>::dual_madd(const bigfield& left_a,
                                                      const bigfield& right_b,
                                                      const std::vector<bigfield>& to_add)
 {
+    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
     left_a.reduction_check();
     right_a.reduction_check();
     left_b.reduction_check();
@@ -1798,7 +1815,8 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& ot
  *          This allows us to evaluate `operator==` using only 1 bigfield multiplication operation.
  *          We can check the product equals 0 or 1 by directly evaluating the binary basis/prime basis limbs of Y.
  *          i.e. if `r == 1` then `(a - b)*X` should have 0 for all limb values
- *               if `r == 0` then `(a - b)*X` should have 1 in the least significant binary basis limb and 0 elsewhere
+ *               if `r == 0` then `(a - b)*X` should have 1 in the least significant binary basis limb and 0
+ * elsewhere
  * @tparam Builder
  * @tparam T
  * @param other
@@ -1820,8 +1838,8 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
 
     bigfield diff = (*this) - other;
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/999): get native values efficiently (i.e. if u512 value
-    // fits in a u256, subtract off modulus until u256 fits into finite field)
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/999): get native values efficiently (i.e. if u512
+    // value fits in a u256, subtract off modulus until u256 fits into finite field)
     native diff_native = native((diff.get_value() % modulus_u512).lo);
     native inverse_native = is_equal_raw ? 0 : diff_native.invert();
 
@@ -1998,8 +2016,8 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
     }
 
     ASSERT(upper_limit != 0);
-    // The circuit checks that limit - this >= 0, so if we are doing a less_than comparison, we need to subtract 1 from
-    // the limit
+    // The circuit checks that limit - this >= 0, so if we are doing a less_than comparison, we need to subtract 1
+    // from the limit
     uint256_t strict_upper_limit = upper_limit - uint256_t(1);
     self_reduce(); // this method in particular enforces limb vals are <2^b - needed for logic described above
     uint256_t value = get_value().lo;
@@ -2479,9 +2497,9 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
         const field_t d3 = left.binary_basis_limbs[0].element.madd(
             to_mul.binary_basis_limbs[3].element, quotient.binary_basis_limbs[0].element * neg_modulus_limbs[3]);
 
-        // We wish to show that left*right - quotient*remainder = 0 mod 2^t, we do this by collecting the limb products
-        // into two separate variables - carry_lo and carry_hi, which are still small enough not to wrap mod r
-        // Their first t/2 bits will equal, respectively, the first and second t/2 bits of the expresssion
+        // We wish to show that left*right - quotient*remainder = 0 mod 2^t, we do this by collecting the limb
+        // products into two separate variables - carry_lo and carry_hi, which are still small enough not to wrap
+        // mod r Their first t/2 bits will equal, respectively, the first and second t/2 bits of the expresssion
         // Thus it will suffice to check that each of them begins with t/2 zeroes. We do this by in fact assigning
         // to these variables those expressions divided by 2^{t/2}. Since we have bounds on their ranage that are
         // smaller than r, We can range check the divisions by the original range bounds divided by 2^{t/2}
@@ -3131,6 +3149,8 @@ void bigfield<Builder, T>::unsafe_evaluate_square_add(const bigfield& left,
                                                       const bigfield& quotient,
                                                       const bigfield& remainder)
 {
+    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+
     if (HasPlookup<Builder>) {
         unsafe_evaluate_multiply_add(left, left, to_add, quotient, { remainder });
         return;
@@ -3295,6 +3315,8 @@ template <typename Builder, typename T>
 std::pair<uint512_t, uint512_t> bigfield<Builder, T>::compute_quotient_remainder_values(
     const bigfield& a, const bigfield& b, const std::vector<bigfield>& to_add)
 {
+    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+
     uint512_t add_values(0);
     for (const auto& add_element : to_add) {
         add_element.reduction_check();
@@ -3317,6 +3339,8 @@ uint512_t bigfield<Builder, T>::compute_maximum_quotient_value(const std::vector
                                                                const std::vector<uint512_t>& to_add)
 {
     ASSERT(as.size() == bs.size());
+    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+
     uint512_t add_values(0);
     for (const auto& add_element : to_add) {
         add_values += add_element;
@@ -3339,6 +3363,11 @@ std::pair<bool, size_t> bigfield<Builder, T>::get_quotient_reduction_info(const 
                                                                           const std::vector<uint1024_t>& remainders_max)
 {
     ASSERT(as_max.size() == bs_max.size());
+
+    ASSERT(to_add.size() <= MAXIMUM_SUMMAND_COUNT);
+    ASSERT(as_max.size() <= MAXIMUM_SUMMAND_COUNT);
+    ASSERT(remainders_max.size() <= MAXIMUM_SUMMAND_COUNT);
+
     // Check if the product sum can overflow CRT modulus
     if (mul_product_overflows_crt_modulus(as_max, bs_max, to_add)) {
         return std::pair<bool, size_t>(true, 0);

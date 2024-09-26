@@ -254,7 +254,7 @@ template <typename Builder> class stdlib_bigfield : public testing::Test {
     {
         auto builder = Builder();
         size_t num_repetitions = 1;
-        const size_t number_of_madds = 32;
+        const size_t number_of_madds = 16;
         for (size_t i = 0; i < num_repetitions; ++i) {
             fq mul_left_values[number_of_madds];
             fq mul_right_values[number_of_madds];
