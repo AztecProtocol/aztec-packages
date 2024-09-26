@@ -173,7 +173,7 @@ template <typename Curve> class GeminiVerifier_ {
 
         // Get evaluations a_i, i = 0,...,m-1 from transcript
         const std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
-        // Compute evaluation of A₀(r)
+        // Compute evaluation A₀(r)
         auto a_0_pos = compute_gemini_batched_univariate_evaluation(
             num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations);
 
@@ -260,7 +260,6 @@ template <typename Curve> class GeminiVerifier_ {
             // Get uₗ₋₁
             const Fr& u = evaluation_point[l - 1];
             const Fr& eval_neg = evals[l - 1];
-            // Fr batched_eval_round_acc = batched_eval_accumulator;
             // Get A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾)
             // Compute the numerator
             Fr batched_eval_round_acc =
