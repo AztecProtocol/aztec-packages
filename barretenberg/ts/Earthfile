@@ -20,22 +20,27 @@ deps:
     COPY ../cpp/+preset-wasm-threads/bin/barretenberg.wasm dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm
 
 esm:
+    FROM +deps
     RUN yarn build:esm
     SAVE ARTIFACT /usr/src/barretenberg/ts build
 
 cjs:
+    FROM +deps
     COPY scripts/cjs_postprocess.sh scripts/
     RUN yarn build:cjs
     SAVE ARTIFACT /usr/src/barretenberg/ts build
 
 browser:
+    FROM +deps
     RUN yarn build:browser
     SAVE ARTIFACT /usr/src/barretenberg/ts build
 
 test-prettier-format:
+    FROM +deps
     RUN yarn formatting
 
 build:
+    FROM +deps
     # collect all our build types
     COPY +esm/build /usr/src/barretenberg/ts
     COPY +cjs/build /usr/src/barretenberg/ts
@@ -45,6 +50,7 @@ build:
     SAVE ARTIFACT /usr/src/barretenberg/ts build
 
 test:
+    FROM +deps
     BUILD +test-prettier-format
     # We frequently get tests timing out in GA, increase the timeout here
     RUN yarn test --testTimeout=300000
