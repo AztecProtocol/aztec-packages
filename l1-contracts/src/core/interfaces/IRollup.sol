@@ -114,7 +114,9 @@ interface IRollup {
   function getPendingBlockNumber() external view returns (uint256);
   function getEpochToProve() external view returns (uint256);
   function nextEpochToClaim() external view returns (uint256);
-  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote) external view;
+  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote)
+    external
+    view;
   function getEpochProofPublicInputs(
     uint256 _epochSize,
     bytes32[7] calldata _args,
@@ -122,6 +124,4 @@ interface IRollup {
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
-
-
 }

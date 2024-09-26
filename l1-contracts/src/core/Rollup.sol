@@ -456,7 +456,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   function nextEpochToClaim() external view override(IRollup) returns (uint256) {
     uint256 epochClaimed = proofClaim.epochToProve;
     if (proofClaim.proposerClaimant == address(0) && epochClaimed == 0) {
-        return 0;
+      return 0;
     }
     return 1 + epochClaimed;
   }
@@ -700,7 +700,11 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return publicInputs;
   }
 
-  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote) public view override(IRollup) {
+  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote)
+    public
+    view
+    override(IRollup)
+  {
     uint256 currentSlot = getCurrentSlot();
     address currentProposer = getCurrentProposer();
     uint256 epochToProve = getEpochToProve();
