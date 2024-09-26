@@ -171,7 +171,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes32[] memory _txHashes,
     SignatureLib.Signature[] memory _signatures,
     bytes calldata _body,
-    DataStructures.EpochProofQuote calldata _quote
+    DataStructures.SignedEpochProofQuote calldata _quote
   ) external override(IRollup) {
     propose(_header, _archive, _blockHash, _txHashes, _signatures, _body);
     claimEpochProofRight(_quote);
@@ -470,7 +470,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return TxsDecoder.decode(_body);
   }
 
-  function claimEpochProofRight(DataStructures.EpochProofQuote calldata _quote)
+  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote)
     public
     override(IRollup)
   {
@@ -482,18 +482,18 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     // We don't currently unstake,
     // but we will as part of https://github.com/AztecProtocol/aztec-packages/issues/8652.
     // Blocked on submitting epoch proofs to this contract.
-    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.bondAmount, _quote.prover);
+    PROOF_COMMITMENT_ESCROW.stakeBond(_quote.quote.bondAmount, _quote.quote.prover);
 
     proofClaim = DataStructures.EpochProofClaim({
       epochToProve: epochToProve,
-      basisPointFee: _quote.basisPointFee,
-      bondAmount: _quote.bondAmount,
-      bondProvider: _quote.prover,
+      basisPointFee: _quote.quote.basisPointFee,
+      bondAmount: _quote.quote.bondAmount,
+      bondProvider: _quote.quote.prover,
       proposerClaimant: msg.sender
     });
 
     emit ProofRightClaimed(
-      epochToProve, _quote.prover, msg.sender, _quote.bondAmount, currentSlot
+      epochToProve, _quote.quote.prover, msg.sender, _quote.quote.bondAmount, currentSlot
     );
   }
 
@@ -700,7 +700,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return publicInputs;
   }
 
-  function validateEpochProofRightClaim(DataStructures.EpochProofQuote calldata _quote) public view override(IRollup) {
+  function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote) public view override(IRollup) {
     uint256 currentSlot = getCurrentSlot();
     address currentProposer = getCurrentProposer();
     uint256 epochToProve = getEpochToProve();
@@ -709,8 +709,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Leonidas__InvalidProposer(currentProposer, msg.sender);
     }
 
-    if (_quote.epochToProve != epochToProve) {
-      revert Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.epochToProve);
+    if (_quote.quote.epochToProve != epochToProve) {
+      revert Errors.Rollup__NotClaimingCorrectEpoch(epochToProve, _quote.quote.epochToProve);
     }
 
     if (currentSlot % Constants.AZTEC_EPOCH_DURATION >= CLAIM_DURATION_IN_L2_SLOTS) {
@@ -725,14 +725,14 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       revert Errors.Rollup__ProofRightAlreadyClaimed();
     }
 
-    if (_quote.bondAmount < PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST) {
+    if (_quote.quote.bondAmount < PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST) {
       revert Errors.Rollup__InsufficientBondAmount(
-        PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.bondAmount
+        PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST, _quote.quote.bondAmount
       );
     }
 
-    if (_quote.validUntilSlot < currentSlot) {
-      revert Errors.Rollup__QuoteExpired(currentSlot, _quote.validUntilSlot);
+    if (_quote.quote.validUntilSlot < currentSlot) {
+      revert Errors.Rollup__QuoteExpired(currentSlot, _quote.quote.validUntilSlot);
     }
   }
 

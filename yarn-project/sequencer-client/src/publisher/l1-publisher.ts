@@ -185,16 +185,8 @@ export class L1Publisher {
     return [slot, blockNumber];
   }
 
-  /**
-   * @notice  Queries 'proofClaim' on the Rollup to determine if we are able to claim the given epoch for proving
-   * Only checks to see if the given epoch is claimed
-   *
-   * @param epochNumber - The epoch being queried
-   * @return True or False
-   */
-  public async canClaimEpoch(epochNumber: bigint): Promise<boolean> {
-    const nextToBeClaimed = await this.rollupContract.read.nextEpochToClaim();
-    return epochNumber == nextToBeClaimed;
+  public async nextEpochToClaim(): Promise<bigint> {
+    return await this.rollupContract.read.nextEpochToClaim();
   }
 
   public async getEpochForSlotNumber(slotNumber: bigint): Promise<bigint> {
@@ -206,7 +198,6 @@ export class L1Publisher {
     try {
       await this.rollupContract.read.validateEpochProofRightClaim(args, { account: this.account });
     } catch (err) {
-      //console.log(err);
       return undefined;
     }
     return quote;
