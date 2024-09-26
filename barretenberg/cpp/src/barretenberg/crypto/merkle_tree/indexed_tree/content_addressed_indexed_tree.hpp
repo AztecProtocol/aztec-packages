@@ -525,10 +525,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(con
         response.success = add_data_response.success;
         response.message = add_data_response.message;
         if (add_data_response.success) {
-            response.inner.subtree_path = results->subtree_path;
-            response.inner.sorted_leaves = values_to_be_sorted;
-            response.inner.low_leaf_witness_data = results->low_leaf_witness_data;
-            response.inner.add_data_result = add_data_response.inner;
+            response.inner.subtree_path = std::move(results->subtree_path);
+            response.inner.sorted_leaves = std::move(values_to_be_sorted);
+            response.inner.low_leaf_witness_data = std::move(results->low_leaf_witness_data);
+            response.inner.add_data_result = std::move(add_data_response.inner);
         }
         // Trigger the client's provided callback
         completion(response);
@@ -538,7 +538,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(con
         if (!response.success) {
             results->status.set_failure(response.message);
         } else {
-            results->subtree_path = response.inner.path;
+            results->subtree_path = std::move(response.inner.path);
             ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
                 (*results->hashes_to_append), final_completion, false);
         }
