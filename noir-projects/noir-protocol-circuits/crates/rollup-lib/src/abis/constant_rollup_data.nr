@@ -4,7 +4,7 @@ use dep::types::{
     utils::reader::Reader
 };
 
-struct ConstantRollupData {
+pub struct ConstantRollupData {
     // Archive tree snapshot at the very beginning of the entire rollup.
     last_archive : AppendOnlyTreeSnapshot,
 

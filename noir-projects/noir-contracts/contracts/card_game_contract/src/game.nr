@@ -2,9 +2,9 @@ use dep::aztec::protocol_types::{address::AztecAddress, traits::{Serialize, Dese
 use crate::cards::Card;
 
 global NUMBER_OF_PLAYERS: u32 = 2;
-global NUMBER_OF_CARDS_DECK: u64 = 2;
+global NUMBER_OF_CARDS_DECK: u32 = 2;
 
-struct PlayerEntry {
+pub struct PlayerEntry {
     address: AztecAddress,
     deck_strength: u32,
     points: u64,
@@ -38,14 +38,14 @@ impl Eq for PlayerEntry {
 
 global PLAYABLE_CARDS: u32 = 4;
 
-struct Game {
+pub struct Game {
     players: [PlayerEntry; NUMBER_OF_PLAYERS],
     rounds_cards: [Card; PLAYABLE_CARDS],
     started: bool,
     finished: bool,
     claimed: bool,
-    current_player: u64,
-    current_round: u64,
+    current_player: u32,
+    current_round: u32,
 }
 
 global GAME_SERIALIZED_LEN: u32 = 15;
@@ -88,8 +88,8 @@ impl Deserialize<GAME_SERIALIZED_LEN> for Game {
             started: fields[10] as bool,
             finished: fields[11] as bool,
             claimed: fields[12] as bool,
-            current_player: fields[13] as u64,
-            current_round: fields[14] as u64
+            current_player: fields[13] as u32,
+            current_round: fields[14] as u32
         }
     }
 }
@@ -144,10 +144,10 @@ impl Game {
         assert(self.started, "Game not started");
         assert(!self.finished, "Game finished");
 
-        let round_offset = self.current_round * (NUMBER_OF_PLAYERS as u64);
+        let round_offset = self.current_round * NUMBER_OF_PLAYERS;
 
         self.rounds_cards[round_offset + self.current_player] = card;
-        self.current_player = (self.current_player + 1) % (NUMBER_OF_PLAYERS as u64);
+        self.current_player = (self.current_player + 1) % NUMBER_OF_PLAYERS;
 
         if self.current_player == 0 {
             self._finish_round();

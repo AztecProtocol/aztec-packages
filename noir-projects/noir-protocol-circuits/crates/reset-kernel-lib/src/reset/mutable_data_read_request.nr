@@ -1,7 +1,7 @@
 use crate::reset::{read_request::{ReadRequestState, ReadRequestStatus}};
 use dep::types::{abis::side_effect::{Ordered, Overridable, Readable}};
 
-struct ReadIndexHint {
+pub struct ReadIndexHint {
     read_request_index: u32,
     value_index: u32,
 }

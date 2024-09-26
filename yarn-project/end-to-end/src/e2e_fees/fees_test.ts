@@ -12,6 +12,7 @@ import {
   type TxHash,
   computeSecretHash,
   createDebugLogger,
+  sleep,
 } from '@aztec/aztec.js';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
 import { EthAddress, GasSettings, computePartialAddress } from '@aztec/circuits.js';
@@ -99,6 +100,13 @@ export class FeesTest {
 
   async teardown() {
     await this.snapshotManager.teardown();
+  }
+
+  async catchUpProvenChain() {
+    const bn = await this.aztecNode.getBlockNumber();
+    while ((await this.aztecNode.getProvenBlockNumber()) < bn) {
+      await sleep(1000);
+    }
   }
 
   /** Alice mints Token  */

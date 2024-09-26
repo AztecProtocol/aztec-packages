@@ -7,7 +7,7 @@ use dep::aztec::{
 use crate::entrypoint::{app::AppPayload, fee::FeePayload};
 use crate::auth::{IS_VALID_SELECTOR, compute_authwit_message_hash};
 
-struct AccountActions<Context> {
+pub struct AccountActions<Context> {
   context: Context,
   is_valid_impl: fn(&mut PrivateContext, Field) -> bool,
 }

@@ -14,7 +14,7 @@ global FEE_PAYLOAD_SIZE_IN_BYTES: u32 = 228;
 global MAX_FEE_FUNCTION_CALLS: u32 = 2;
 
 // docs:start:fee-payload-struct
-struct FeePayload {
+pub struct FeePayload {
   function_calls: [FunctionCall; MAX_FEE_FUNCTION_CALLS],
   nonce: Field,
   is_fee_payer: bool,

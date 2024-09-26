@@ -7,7 +7,7 @@ use crate::{
     traits::{Serialize, Deserialize, Empty}, utils::{arrays::array_length, reader::Reader}
 };
 
-struct PrivateKernelCircuitPublicInputsArrayLengths {
+pub struct PrivateKernelCircuitPublicInputsArrayLengths {
     note_hash_read_requests: u32,
     nullifier_read_requests: u32,
     scoped_key_validation_requests_and_generators: u32,
@@ -73,7 +73,7 @@ impl Eq for PrivateKernelCircuitPublicInputsArrayLengths {
     }
 }
 
-struct PrivateKernelCircuitPublicInputs {
+pub struct PrivateKernelCircuitPublicInputs {
     min_revertible_side_effect_counter: u32,
     validation_requests: PrivateValidationRequests,
     end: PrivateAccumulatedData,

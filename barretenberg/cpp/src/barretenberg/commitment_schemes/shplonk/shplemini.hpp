@@ -169,7 +169,6 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
         Fr batched_evaluation = Fr(0);
-        // THIS IS FINE
         batch_multivariate_opening_claims(unshifted_commitments,
                                           shifted_commitments,
                                           unshifted_evaluations,

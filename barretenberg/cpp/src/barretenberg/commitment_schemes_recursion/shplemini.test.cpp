@@ -1,5 +1,9 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+<<<<<<< HEAD
 #include "../commitment_schemes/commitment_key.test.hpp"
+    == == ==
+    =
+>>>>>>> origin/master
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.test.hpp"
 #include "barretenberg/commitment_schemes/gemini/gemini.hpp"
@@ -14,7 +18,7 @@
 
 #include <gtest/gtest.h>
 
-using namespace bb;
+        using namespace bb;
 
 template <class PCS> class ShpleminiRecursionTest : public CommitmentTest<typename PCS::Curve::NativeCurve> {};
 

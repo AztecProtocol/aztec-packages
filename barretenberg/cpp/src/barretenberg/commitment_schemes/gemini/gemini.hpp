@@ -328,6 +328,6 @@ template <typename Curve> class GeminiVerifier_ {
 
         return { C0_r_pos, C0_r_neg };
     }
-};
+}; // namespace bb
 
 } // namespace bb

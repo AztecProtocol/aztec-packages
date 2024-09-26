@@ -92,7 +92,7 @@ template <typename Curve> class ShplonkProver_ {
         }
         Fr::batch_invert(inverse_vanishing_evals);
 
-        // G(X) = Q(X) - Q_z(X) = Q(X) - ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ ),
+        // G(X) = Q(X) - Q_z(X) = Q(X) - ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ ),
         // s.t. G(r) = 0
         Polynomial G(std::move(batched_quotient_Q)); // G(X) = Q(X)
 
