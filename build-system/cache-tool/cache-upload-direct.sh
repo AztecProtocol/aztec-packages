@@ -14,11 +14,12 @@ NAME="${@: -1}"
 # Extract the binary paths to tar.gz and upload
 BIN_PATHS=("${@:1:$#-1}")
 
-TAR_FILE="$(mktemp)/${NAME}.tar.gz"
+TAR_DIR=$(mktemp -d)
+TAR_FILE="$TAR_DIR/${NAME}.tar.gz"
 
 function on_exit() {
-  # Cleanup the temporary tar.gz file
-  rm -f "$TAR_FILE"
+  # Cleanup the temporary folder
+  rm -rf "$TAR_DIR"
 }
 trap on_exit EXIT
 

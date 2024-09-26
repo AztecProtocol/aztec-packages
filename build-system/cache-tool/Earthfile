@@ -53,7 +53,7 @@ WITH_CACHE:
   DO +SETUP_CACHE
   DO +WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
   # print a clean version as the one below will be obfuscated
-  RUN echo $command
+  RUN echo RUN $command
   # configure AWS access (note these can be blank if server started without s3 backing)
   RUN --secret AZTEC_CACHE_TOOL_IP \
       /usr/src/build-system/cache-tool/cache-download-direct.sh "$prefix-$(cat .content-hash).tar.gz" || \
