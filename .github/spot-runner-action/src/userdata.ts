@@ -34,8 +34,6 @@ EOF'`,
       'echo "MaxStartups 1000" >> /etc/ssh/sshd_config',
       'echo "ClientAliveInterval=30" >> /etc/ssh/sshd_config',
       'echo "ClientAliveCountMax=20" >> /etc/ssh/sshd_config',
-      // TODO(AD): better if AMI is updated with this dependency
-      "curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - && sudo apt-get remove -y nodejs && sudo apt-get install nodejs",
       "sudo service sshd restart",
       "touch /home/ubuntu/.user-data-finished",
     ];

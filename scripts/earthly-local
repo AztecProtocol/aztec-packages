@@ -9,5 +9,5 @@ export EARTHLY_ALLOW_PRIVILEGED=true
 earthly --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
         --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
         --secret AZTEC_CACHE_TOOL_IP=$(hostname -I | awk '{print $1}') \
-        --secret AZTEC_CACHE_NO_S3_UPLOAD=false \
+        --secret AZTEC_CACHE_MODE="local" \
         --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} $@
