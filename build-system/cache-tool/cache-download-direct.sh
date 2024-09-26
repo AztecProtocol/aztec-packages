@@ -23,11 +23,9 @@ AZTEC_CACHE_TOOL_IP=${AZTEC_CACHE_TOOL_IP:-"localhost"}
 AZTEC_CACHE_TOOL_PORT=${AZTEC_CACHE_TOOL_PORT:-8337}
 
 # Attempt to download the cache file
-echo "Attempting to download cache file from cache server at ${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}..."
-curl -sS -f -o "$TAR_FILE" "http://${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}/${TAR_FILE}" || exit 1
+curl -s -f -o "$TAR_FILE" "http://${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}/${TAR_FILE}" || exit 1
 
 # Extract the cache file
-echo "Cache file found. Extracting..."
 tar -xzf "$TAR_FILE"
 
 echo "Cache download and extraction complete."

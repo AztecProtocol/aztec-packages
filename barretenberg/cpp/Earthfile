@@ -40,11 +40,11 @@ preset-release:
   RUN cmake --preset clang16 -Bbuild && cmake --build build --target bb
   SAVE ARTIFACT build/bin
 
-#cmake --preset clang16-pic -Bbuild && cmake --build build --target world_state_napi && mv ./build/lib/world_state_napi.node ./build/bin
+#
 preset-release-world-state:
   FROM +source
-  DO +CACHE_BUILD_BIN --prefix=preset-release-world-state --command="mkdir -p build/bin && touch build/bin/test"
-  RUN cat build/bin/test
+  DO +CACHE_BUILD_BIN --prefix=preset-release-world-state \
+    --command="cmake --preset clang16-pic -Bbuild && cmake --build build --target world_state_napi && mv ./build/lib/world_state_napi.node ./build/bin"
   SAVE ARTIFACT build/bin
 
 preset-release-assert:

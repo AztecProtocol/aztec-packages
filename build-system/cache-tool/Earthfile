@@ -21,9 +21,11 @@ SETUP_CACHE:
   COPY +setup-cache-helper/* /usr/src/build-system/cache-tool/
 
 compute-content-hash:
+  ARG local_directory_equivalent
   ARG rebuild_patterns
   LOCALLY
-  LET content_hash=$(AZTEC_CACHE_REBUILD_PATTERNS="$rebuild_patterns" ./compute-content-hash.sh)
+  LET content_hash_script="$(pwd)/compute-content-hash.sh"
+  LET content_hash=$(cd "../../$local_directory_equivalent" && AZTEC_CACHE_REBUILD_PATTERNS="$rebuild_patterns" "$content_hash_script")
   FROM ubuntu:noble
   RUN echo "$content_hash" > .content-hash
   SAVE ARTIFACT .content-hash
@@ -42,8 +44,7 @@ WITH_CACHE:
   ARG rebuild_patterns
   ARG build_artifacts
   DO +SETUP_CACHE
-  COPY (+compute-content-hash/.content-hash --rebuild_patterns=$rebuild_patterns) .
-  RUN echo $command
+  COPY (+compute-content-hash/.content-hash --local_directory_equivalent="barretenberg/cpp" --rebuild_patterns=$rebuild_patterns) .
   # configure AWS access (note these can be blank if server started without s3 backing)
   RUN --secret AZTEC_CACHE_TOOL_IP \
       /usr/src/build-system/cache-tool/cache-download-direct.sh "$prefix-$(cat .content-hash).tar.gz" || \
