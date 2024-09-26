@@ -3,35 +3,18 @@ import {
   type AztecNode,
   EncryptedL2Log,
   EncryptedL2NoteLog,
-  Event,
-  L1EventPayload,
-  L1NotePayload,
   Note,
   type NoteStatus,
   PublicExecutionRequest,
-  TaggedLog,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
-import {
-  CallContext,
-  FunctionSelector,
-  type Header,
-  type KeyValidationRequest,
-  PrivateContextInputs,
-  type TxContext,
-} from '@aztec/circuits.js';
+import { CallContext, FunctionSelector, type Header, PrivateContextInputs, type TxContext } from '@aztec/circuits.js';
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
-import {
-  EventSelector,
-  type FunctionAbi,
-  type FunctionArtifact,
-  type NoteSelector,
-  countArgumentsSize,
-} from '@aztec/foundation/abi';
+import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr, GrumpkinScalar, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { applyStringFormatting, createDebugLogger } from '@aztec/foundation/log';
 
 import { type NoteData, toACVMWitness } from '../acvm/index.js';
@@ -371,62 +354,6 @@ export class ClientExecutionContext extends ViewDataOracle {
   public override emitEncryptedNoteLog(noteHashCounter: number, encryptedNote: Buffer, counter: number) {
     const encryptedLog = new CountedNoteLog(new EncryptedL2NoteLog(encryptedNote), counter, noteHashCounter);
     this.noteEncryptedLogs.push(encryptedLog);
-  }
-
-  /**
-   * Encrypt an event
-   * @param contractAddress - The contract emitting the encrypted event.
-   * @param randomness - A value used to mask the contract address we are siloing with.
-   * @param eventTypeId - The type ID of the event (function selector).
-   * @param ovKeys - The outgoing viewing keys to use to encrypt.
-   * @param ivpkM - The master incoming viewing public key.
-   * @param recipient - The recipient of the encrypted event log.
-   * @param preimage - The event preimage.
-   */
-  public override computeEncryptedEventLog(
-    contractAddress: AztecAddress,
-    randomness: Fr,
-    eventTypeId: Fr,
-    ovKeys: KeyValidationRequest,
-    ivpkM: Point,
-    recipient: AztecAddress,
-    preimage: Fr[],
-  ) {
-    const event = new Event(preimage);
-    const l1EventPayload = new L1EventPayload(event, contractAddress, randomness, EventSelector.fromField(eventTypeId));
-    const taggedEvent = new TaggedLog(l1EventPayload);
-
-    const ephSk = GrumpkinScalar.random();
-
-    return taggedEvent.encrypt(ephSk, recipient, ivpkM, ovKeys);
-  }
-
-  /**
-   * Encrypt a note
-   * @param contractAddress - The contract address of the note.
-   * @param storageSlot - The storage slot the note is at.
-   * @param noteTypeId - The type ID of the note.
-   * @param ovKeys - The outgoing viewing keys to use to encrypt.
-   * @param ivpkM - The master incoming viewing public key.
-   * @param recipient - The recipient of the encrypted note log.
-   * @param preimage - The note preimage.
-   */
-  public override computeEncryptedNoteLog(
-    contractAddress: AztecAddress,
-    storageSlot: Fr,
-    noteTypeId: NoteSelector,
-    ovKeys: KeyValidationRequest,
-    ivpkM: Point,
-    recipient: AztecAddress,
-    preimage: Fr[],
-  ) {
-    const note = new Note(preimage);
-    const l1NotePayload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
-    const taggedNote = new TaggedLog(l1NotePayload);
-
-    const ephSk = GrumpkinScalar.random();
-
-    return taggedNote.encrypt(ephSk, recipient, ivpkM, ovKeys);
   }
 
   /**

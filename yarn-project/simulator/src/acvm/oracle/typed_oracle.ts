@@ -5,7 +5,6 @@ import {
   type NoteStatus,
   type NullifierMembershipWitness,
   type PublicDataWitness,
-  type PublicKey,
   type SiblingPath,
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
@@ -202,30 +201,6 @@ export abstract class TypedOracle {
 
   emitEncryptedNoteLog(_noteHashCounter: number, _encryptedNote: Buffer, _counter: number): void {
     throw new OracleMethodNotAvailableError('emitEncryptedNoteLog');
-  }
-
-  computeEncryptedEventLog(
-    _contractAddress: AztecAddress,
-    _randomness: Fr,
-    _eventTypeId: Fr,
-    _ovKeys: KeyValidationRequest,
-    _ivpkM: PublicKey,
-    _recipient: AztecAddress,
-    _preimage: Fr[],
-  ): Buffer {
-    throw new OracleMethodNotAvailableError('computeEncryptedEventLog');
-  }
-
-  computeEncryptedNoteLog(
-    _contractAddress: AztecAddress,
-    _storageSlot: Fr,
-    _noteTypeId: NoteSelector,
-    _ovKeys: KeyValidationRequest,
-    _ivpkM: PublicKey,
-    _recipient: AztecAddress,
-    _preimage: Fr[],
-  ): Buffer {
-    throw new OracleMethodNotAvailableError('computeEncryptedNoteLog');
   }
 
   emitUnencryptedLog(_log: UnencryptedL2Log, _counter: number): void {
