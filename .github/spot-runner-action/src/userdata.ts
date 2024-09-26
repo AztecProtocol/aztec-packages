@@ -34,20 +34,10 @@ EOF'`,
       'echo "MaxStartups 1000" >> /etc/ssh/sshd_config',
       'echo "ClientAliveInterval=30" >> /etc/ssh/sshd_config',
       'echo "ClientAliveCountMax=20" >> /etc/ssh/sshd_config',
-      // TODO(AD): kludge until AMI is updated with this dependency
-      `
-      command -v npm >/dev/null || (sudo apt update && sudo apt install -y npm)
-      command -v lsof >/dev/null || (sudo apt update && sudo apt install -y lsof)
-      echo "Installing NVM (Node Version Manager)..."
-      curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
-      export NVM_DIR="$HOME/.nvm"
-      [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-      nvm install 18
-      nvm use 18
-      nvm alias default 18
-      `,
+      // TODO(AD): better if AMI is updated with this dependency
+      "curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -",
       "sudo service sshd restart",
-      "touch /home/ubuntu/.user-data-finished",
+      "touch /home/ubuntu/.user-data-finished"
     ];
     console.log(
       "Sending: ",
