@@ -1,6 +1,7 @@
 #!/bin/bash
 set -eu
 
+cd $(dirname $0) # enter source dir
 # ensure we have NPM
 command -v npm >/dev/null || (sudo apt update && sudo apt install npm)
 command -v lsof >/dev/null || (sudo apt update && sudo apt install -y lsof)

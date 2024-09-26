@@ -298,14 +298,13 @@ describe("Cache Download Script Tests", () => {
     let stdout = "";
     let stderr = "";
 
-    const args = [tarFileName];
     if (s3ReadEnabled) {
       process.env.S3_READ = "true";
     } else {
       delete process.env.S3_READ;
     }
 
-    const downloadProcess = spawn("./cache-download-direct.sh", args, {
+    const downloadProcess = spawn("./cache-download-direct.sh", [tarFileName], {
       env: { AZTEC_CACHE_TOOL_PORT },
     });
 
