@@ -204,7 +204,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
         for (auto [extended_univariate, incoming_univariate] :
              zip_view(extended_univariates.get_all(), incoming_univariates)) {
             incoming_univariate.template self_extend_from<NUM_KEYS>();
-            extended_univariate = incoming_univariate;
+            extended_univariate = std::move(incoming_univariate);
         }
     }
 
