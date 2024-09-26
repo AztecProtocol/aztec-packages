@@ -92,7 +92,9 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
 
         for function in contract.functions {
             // TODO(4269): once functions are tagged for transpilation to AVM, check tag
-            if function.custom_attributes.contains(&"public".to_string()) {
+            if function.custom_attributes.contains(&"public".to_string())
+                || function.name == "public_dispatch"
+            {
                 info!("Transpiling AVM function {} on contract {}", function.name, contract.name);
                 // Extract Brillig Opcodes from acir
                 let acir_program = function.bytecode;
