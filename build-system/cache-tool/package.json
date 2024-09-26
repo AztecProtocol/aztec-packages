@@ -7,7 +7,7 @@
     "start": "mkdir -p hosted-build-artifacts && node server.js",
     "start:s3-read": "mkdir -p hosted-build-artifacts && S3_WRITE='' S3_READ='true' node server.js",
     "start:s3-read-write": "mkdir -p hosted-build-artifacts && S3_WRITE='true' S3_READ='true' node server.js",
-    "test": "jest"
+    "test": "jest --runInBand"
   },
   "keywords": [],
   "author": "",

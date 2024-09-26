@@ -219,11 +219,6 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
           fs.unlinkSync(cacheFilePath);
         }
       }
-
-      // Remove rebuild patterns file
-      if (fs.existsSync(rebuildPatternsFile)) {
-        fs.unlinkSync(rebuildPatternsFile);
-      }
     }
   };
 
@@ -301,7 +296,7 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
     await runUploadAndDownloadTest(false);
   });
 
-  // test("Upload/download with rebuild patterns with S3", async () => {
-  //   await runUploadAndDownloadTest(true);
-  // });
+  test("Upload/download with rebuild patterns with S3", async () => {
+    await runUploadAndDownloadTest(true);
+  });
 });
