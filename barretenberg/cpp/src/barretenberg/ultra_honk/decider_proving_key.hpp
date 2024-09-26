@@ -62,7 +62,7 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
         }
 
         // Complete the public inputs execution trace block from circuit.public_inputs
-        populate_public_inputs_block(circuit);
+        Trace::populate_public_inputs_block(circuit);
         circuit.blocks.compute_offsets(is_structured);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): This is adding ops to the op queue but NOT to
@@ -277,14 +277,6 @@ template <IsHonkFlavor Flavor> class DeciderProvingKey_ {
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
     size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
-
-    /**
-     * @brief Populate the public inputs block
-     * @details The first two wires are a copy of the public inputs and the other wires and all selectors are zero
-     *
-     * @param circuit
-     */
-    static void populate_public_inputs_block(Circuit& circuit);
 
     size_t compute_dyadic_size(Circuit&);
 

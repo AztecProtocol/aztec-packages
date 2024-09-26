@@ -5,24 +5,6 @@
 
 namespace bb {
 
-template <IsHonkFlavor Flavor> void DeciderProvingKey_<Flavor>::populate_public_inputs_block(Circuit& circuit)
-{
-    ZoneScopedN("populate_public_inputs_block");
-    // Update the public inputs block
-    for (const auto& idx : circuit.public_inputs) {
-        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-            if (wire_idx < 2) { // first two wires get a copy of the public inputs
-                circuit.blocks.pub_inputs.wires[wire_idx].emplace_back(idx);
-            } else { // the remaining wires get zeros
-                circuit.blocks.pub_inputs.wires[wire_idx].emplace_back(circuit.zero_idx);
-            }
-        }
-        for (auto& selector : circuit.blocks.pub_inputs.selectors) {
-            selector.emplace_back(0);
-        }
-    }
-}
-
 /**
  * @brief Helper method to compute quantities like total number of gates and dyadic circuit size
  *
