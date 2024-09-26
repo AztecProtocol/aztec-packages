@@ -171,17 +171,26 @@ class GoblinProver {
     void prove_eccvm()
     {
         {
-            // ZoneScopedN("Create ECCVMBuilder and ECCVMProver");
+
+#ifdef TRACY_MEMORY
+            ZoneScopedN("Create ECCVMBuilder and ECCVMProver");
+#endif
             auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
             eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
         }
         {
-            // ZoneScopedN("Construct ECCVM Proof");
+
+#ifdef TRACY_MEMORY
+            ZoneScopedN("Construct ECCVM Proof");
+#endif
             goblin_proof.eccvm_proof = eccvm_prover->construct_proof();
         }
 
         {
-            // ZoneScopedN("Assign Translation Evaluations");
+
+#ifdef TRACY_MEMORY
+            ZoneScopedN("Assign Translation Evaluations");
+#endif
             goblin_proof.translation_evaluations = eccvm_prover->translation_evaluations;
         }
     }
@@ -198,14 +207,20 @@ class GoblinProver {
         eccvm_key = eccvm_prover->key;
         eccvm_prover = nullptr;
         {
-            // ZoneScopedN("Create TranslatorBuilder and TranslatorProver");
+
+#ifdef TRACY_MEMORY
+            ZoneScopedN("Create TranslatorBuilder and TranslatorProver");
+#endif
             auto translator_builder =
                 std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
             translator_prover = std::make_unique<TranslatorProver>(*translator_builder, transcript);
         }
 
         {
-            // ZoneScopedN("Construct Translator Proof");
+
+#ifdef TRACY_MEMORY
+            ZoneScopedN("Construct Translator Proof");
+#endif
             goblin_proof.translator_proof = translator_prover->construct_proof();
         }
     }
@@ -219,14 +234,23 @@ class GoblinProver {
      */
     GoblinProof prove(MergeProof merge_proof_in = {})
     {
-        // ZoneScopedN("Goblin::prove");
+
+#ifdef TRACY_MEMORY
+        ZoneScopedN("Goblin::prove");
+#endif
         goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
         {
-            // ZoneScopedN("prove_eccvm");
+
+#ifdef TRACY_MEMORY
+            ZoneScopedN("prove_eccvm");
+#endif
             prove_eccvm();
         }
         {
-            // ZoneScopedN("prove_translator");
+
+#ifdef TRACY_MEMORY
+            ZoneScopedN("prove_translator");
+#endif
             prove_translator();
         }
         return goblin_proof;

@@ -68,14 +68,20 @@ template <class Flavor> class DeciderProvingKey_ {
             circuit.op_queue->append_nonzero_ops();
         }
         {
-            // ZoneScopedN("constructing proving key");
+
+#ifdef TRACY_MEMORY
+            ZoneScopedN("constructing proving key");
+#endif
 
             proving_key = ProvingKey(dyadic_circuit_size, circuit.public_inputs.size(), commitment_key);
         }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
         Trace::populate(circuit, proving_key, is_structured);
-        // ZoneScopedN("constructing prover instance after trace populate");
+
+#ifdef TRACY_MEMORY
+        ZoneScopedN("constructing prover instance after trace populate");
+#endif
 
         // If Goblin, construct the databus polynomials
         if constexpr (IsGoblinFlavor<Flavor>) {
