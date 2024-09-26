@@ -9,7 +9,7 @@ process.env.AVM_PROVING_STRICT = '1';
 
 describe('full_prover', () => {
   const realProofs = !['true', '1'].includes(process.env.FAKE_PROOFS ?? '');
-  const t = new FullProverTest('full_prover', 2, realProofs);
+  const t = new FullProverTest('full_prover', 1, realProofs);
   let { provenAssets, accounts, tokenSim, logger } = t;
 
   beforeAll(async () => {
@@ -58,7 +58,11 @@ describe('full_prover', () => {
       logger.info(`Verifying private kernel tail proof`);
       await expect(t.circuitProofVerifier?.verifyProof(privateTx)).resolves.not.toThrow();
 
-      // WARN: The following depends on the epoch boundaries to work
+      // TODO(palla/prover): The following depends on the epoch boundaries to work. It assumes that we're proving
+      // 2-block epochs, and a new epoch is starting now, so the 2nd tx will land on the last block of the epoch and
+      // get proven. That relies on how many blocks we mined before getting here.
+      // We can make this more robust when we add padding, set 1-block epochs, and rollback the test config to
+      // have a min of 2 txs per block, so these both land on the same block.
       logger.info(`Sending first tx and awaiting it to be mined`);
       await privateInteraction.send({ skipPublicSimulation: true }).wait({ timeout: 300, interval: 10 });
       logger.info(`Sending second tx and awaiting it to be proven`);
