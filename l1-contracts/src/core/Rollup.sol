@@ -728,7 +728,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     if (tips.provenBlockNumber == tips.pendingBlockNumber) {
       revert Errors.Rollup__NoEpochToProve();
     } else {
-      return getEpochAt(blocks[getProvenBlockNumber() + 1].slotNumber);
+      return getEpochAt(getTimestampForSlot(blocks[getProvenBlockNumber() + 1].slotNumber));
     }
   }
 
@@ -770,7 +770,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     }
 
     uint256 currentSlot = getCurrentSlot();
-    uint256 oldestPendingEpoch = getEpochAt(blocks[tips.provenBlockNumber + 1].slotNumber);
+    uint256 oldestPendingEpoch =
+      getEpochAt(getTimestampForSlot(blocks[tips.provenBlockNumber + 1].slotNumber));
     uint256 startSlotOfPendingEpoch = oldestPendingEpoch * Constants.AZTEC_EPOCH_DURATION;
 
     // suppose epoch 1 is proven, epoch 2 is pending, epoch 3 is the current epoch.
