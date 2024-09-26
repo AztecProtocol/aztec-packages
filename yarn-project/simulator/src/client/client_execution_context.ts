@@ -9,7 +9,6 @@ import {
   type UnencryptedL2Log,
 } from '@aztec/circuit-types';
 import { CallContext, FunctionSelector, type Header, PrivateContextInputs, type TxContext } from '@aztec/circuits.js';
-import { Aes128 } from '@aztec/circuits.js/barretenberg';
 import { computeUniqueNoteHash, siloNoteHash } from '@aztec/circuits.js/hash';
 import { type FunctionAbi, type FunctionArtifact, type NoteSelector, countArgumentsSize } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
@@ -623,11 +622,6 @@ export class ClientExecutionContext extends ViewDataOracle {
       values.push(value);
     }
     return values;
-  }
-
-  public override aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {
-    const aes128 = new Aes128();
-    return aes128.encryptBufferCBC(input, initializationVector, key);
   }
 
   public override debugLog(message: string, fields: Fr[]) {

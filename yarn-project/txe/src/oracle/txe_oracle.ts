@@ -30,7 +30,7 @@ import {
   deriveKeys,
   getContractClassFromArtifact,
 } from '@aztec/circuits.js';
-import { Aes128, Schnorr } from '@aztec/circuits.js/barretenberg';
+import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/circuits.js/hash';
 import {
   type ContractArtifact,
@@ -813,11 +813,6 @@ export class TXE implements TypedOracle {
 
   notifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number) {
     this.noteCache.setMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter);
-  }
-
-  aes128Encrypt(input: Buffer, initializationVector: Buffer, key: Buffer): Buffer {
-    const aes128 = new Aes128();
-    return aes128.encryptBufferCBC(input, initializationVector, key);
   }
 
   debugLog(message: string, fields: Fr[]): void {
