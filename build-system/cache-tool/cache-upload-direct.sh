@@ -31,4 +31,4 @@ AZTEC_CACHE_TOOL_IP=${AZTEC_CACHE_TOOL_IP:-"localhost"}
 AZTEC_CACHE_TOOL_PORT=${AZTEC_CACHE_TOOL_PORT:-8337}
 
 # Upload the tar.gz file to the cache server
-curl -sS -X POST -F "file=@${TAR_FILE}" "http://${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}/upload" || true
+curl -sS --output /dev/null -X POST -F "file=@${TAR_FILE}" "http://${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}/upload" || true

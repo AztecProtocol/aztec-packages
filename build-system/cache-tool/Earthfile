@@ -4,6 +4,10 @@ VERSION 0.8
 
 start-server:
   LOCALLY
+  RUN if ! git diff-index --quiet HEAD --; then \
+        echo "Error: You have unstaged changes. Please commit them before running Earthly so that caching works as intended. If you find this inflexible, please request a change, however note the likely solution would be to disable caching in this case." ; \
+        exit 1 ; \
+      fi
   # TODO(AD): use secrets to decide whether to use s3 backing/storing
   RUN flock ~/.start-aztec-build-cache.lock ./start_server.sh || true
 
