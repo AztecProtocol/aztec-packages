@@ -173,8 +173,12 @@ pub trait Deserialize<let N: u32> {
 }
 // docs:end:deserialize
 
-impl <let N: u32> Deserialize<N> for str<N> {
-    fn deserialize(fields: [Field; N]) -> Self {
-        str<N>::from(fields.map(|value| value as u8))
+// Required for the constructor of the TokenContract and NFT contract.
+// These constructors should actually take a FieldCompressedString, but
+// I guess that is not done because it would make the deployment in TS
+// more cumbersome.
+impl <let N: u32> Deserialize<1> for str<31> {
+    fn deserialize(fields: [Field; 1]) -> Self {
+        fields[0].to_be_bytes().as_str_unchecked()
     }
 }

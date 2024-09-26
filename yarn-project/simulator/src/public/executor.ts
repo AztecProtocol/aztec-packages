@@ -10,6 +10,7 @@ import { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
 import { AvmMachineState } from '../avm/avm_machine_state.js';
 import { AvmSimulator } from '../avm/avm_simulator.js';
 import { AvmPersistableStateManager } from '../avm/journal/index.js';
+import { getPublicFunctionDebugName } from '../common/debug_fn_name.js';
 import { type PublicExecutionResult } from './execution.js';
 import { ExecutorMetrics } from './executor_metrics.js';
 import { type WorldStateDB } from './public_db_sources.js';
@@ -49,7 +50,7 @@ export class PublicExecutor {
   ): Promise<PublicExecutionResult> {
     const address = executionRequest.contractAddress;
     const selector = executionRequest.callContext.functionSelector;
-    const fnName = (await this.worldStateDB.getDebugFunctionName(address, selector)) ?? `${address}:${selector}`;
+    const fnName = await getPublicFunctionDebugName(this.worldStateDB, address, selector, executionRequest.args);
 
     PublicExecutor.log.verbose(`[AVM] Executing public external function ${fnName}.`);
     const timer = new Timer();

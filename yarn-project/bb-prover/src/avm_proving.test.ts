@@ -4,6 +4,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
+  getAvmTestContractFunctionSelector,
   initContext,
   initExecutionEnvironment,
   initPersistableStateManager,
@@ -55,7 +56,9 @@ const proveAndVerifyAvmTestContract = async (
   const functionSelector = FunctionSelector.random();
   const globals = GlobalVariables.empty();
   globals.timestamp = TIMESTAMP;
-  const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
+  const selector = getAvmTestContractFunctionSelector(functionName);
+  const dispatchCalldata = [selector.toField(), ...calldata];
+  const environment = initExecutionEnvironment({ functionSelector, calldata: dispatchCalldata, globals });
 
   const worldStateDB = mock<WorldStateDB>();
   const contractInstance = new SerializableContractInstance({
@@ -74,16 +77,14 @@ const proveAndVerifyAvmTestContract = async (
   const trace = new PublicSideEffectTrace(startSideEffectCounter);
   const persistableState = initPersistableStateManager({ worldStateDB, trace });
   const context = initContext({ env: environment, persistableState });
-  const nestedCallBytecode = getAvmTestContractBytecode('add_args_return');
-  jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(nestedCallBytecode);
+  const bytecode = getAvmTestContractBytecode('public_dispatch');
+  jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(bytecode);
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
 
   const internalLogger = createDebugLogger('aztec:avm-proving-test');
   const logger = (msg: string, _data?: any) => internalLogger.verbose(msg);
 
-  // Use a simple contract that emits a side effect
-  const bytecode = getAvmTestContractBytecode(functionName);
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
@@ -112,7 +113,7 @@ const proveAndVerifyAvmTestContract = async (
 
   const avmCircuitInputs = new AvmCircuitInputs(
     functionName,
-    /*bytecode=*/ simulator.getBytecode()!, // uncompressed bytecode
+    /*bytecode=*/ bytecode,
     /*calldata=*/ context.environment.calldata,
     /*publicInputs=*/ getPublicInputs(pxResult),
     /*avmHints=*/ pxResult.avmCircuitHints,

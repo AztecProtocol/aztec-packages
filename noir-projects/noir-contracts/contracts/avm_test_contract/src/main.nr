@@ -456,6 +456,11 @@ contract AvmTest {
         AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).call(&mut context)
     }
 
+    #[public]
+    fn nested_call_to_assert_same(arg_a: Field, arg_b: Field) -> pub Field {
+        AvmTest::at(context.this_address()).assert_same(arg_a, arg_b).call(&mut context)
+    }
+
     // Indirectly call_static the external call opcode to initiate a nested call to the add function
     #[public]
     fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {

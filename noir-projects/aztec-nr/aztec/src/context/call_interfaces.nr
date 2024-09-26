@@ -201,6 +201,7 @@ impl<let N: u32, T, Env> PublicCallInterface<N, T, Env> {
         returns.deserialize_into()
     }
 
+    // TODO(facundo): Function selector should be part of the args.
     pub fn enqueue(self, context: &mut PrivateContext) {
         let args_hash = hash_args(self.args);
         pack_arguments(self.args);

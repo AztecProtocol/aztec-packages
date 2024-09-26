@@ -1,4 +1,4 @@
-import { type FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { type FunctionAbi, FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -74,7 +74,12 @@ export function computeInitializationHash(initFn: FunctionAbi | undefined, args:
   }
   const selector = FunctionSelector.fromNameAndParameters(initFn.name, initFn.parameters);
   const flatArgs = encodeArguments(initFn, args);
-  return computeInitializationHashFromEncodedArgs(selector, flatArgs);
+  if (initFn.functionType === FunctionType.PUBLIC) {
+    const dispatchSelector = FunctionSelector.fromSignature('public_dispatch(Field)');
+    return computeInitializationHashFromEncodedArgs(dispatchSelector, [selector.toField(), ...flatArgs]);
+  } else {
+    return computeInitializationHashFromEncodedArgs(selector, flatArgs);
+  }
 }
 
 /**

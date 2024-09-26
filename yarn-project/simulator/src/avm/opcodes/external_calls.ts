@@ -1,6 +1,8 @@
 import { FunctionSelector, Gas } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { createDebugLogger } from '@aztec/foundation/log';
 
+import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import type { AvmContext } from '../avm_context.js';
 import { type AvmContractCallResult } from '../avm_contract_call_result.js';
 import { gasLeftToGas } from '../avm_gas.js';
@@ -86,6 +88,14 @@ abstract class ExternalCall extends Instruction {
       callType,
       FunctionSelector.fromField(functionSelector),
     );
+
+    const functionName = await getPublicFunctionDebugName(
+      context.persistableState.worldStateDB,
+      nestedContext.environment.address,
+      nestedContext.environment.functionSelector,
+      nestedContext.environment.calldata,
+    );
+    createDebugLogger('aztec:nested').verbose(`[AVM] Calling nested function ${functionName}`);
 
     const simulator = new AvmSimulator(nestedContext);
     const nestedCallResults: AvmContractCallResult = await simulator.execute();

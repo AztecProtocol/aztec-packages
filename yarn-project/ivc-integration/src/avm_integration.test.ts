@@ -21,6 +21,7 @@ import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types
 import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
+  getAvmTestContractFunctionSelector,
   initContext,
   initExecutionEnvironment,
   initPersistableStateManager,
@@ -140,7 +141,6 @@ describe('AVM Integration', () => {
 });
 
 // Helper
-
 const proveAvmTestContract = async (
   functionName: string,
   calldata: Fr[] = [],
@@ -149,9 +149,10 @@ const proveAvmTestContract = async (
   const startSideEffectCounter = 0;
   const functionSelector = FunctionSelector.random();
   const globals = GlobalVariables.empty();
-  const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
+  const selector = getAvmTestContractFunctionSelector(functionName);
+  const dispatchCalldata = [selector.toField(), ...calldata];
+  const environment = initExecutionEnvironment({ functionSelector, calldata: dispatchCalldata, globals });
 
-  const worldStateDB = mock<WorldStateDB>();
   const contractInstance = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
@@ -160,21 +161,20 @@ const proveAvmTestContract = async (
     initializationHash: new Fr(0x101112),
     publicKeysHash: new Fr(0x161718),
   }).withAddress(environment.address);
-  worldStateDB.getContractInstance.mockResolvedValue(await Promise.resolve(contractInstance));
 
+  const worldStateDB = mock<WorldStateDB>();
   const storageValue = new Fr(5);
-  worldStateDB.storageRead.mockResolvedValue(await Promise.resolve(storageValue));
+  worldStateDB.storageRead.mockResolvedValue(storageValue);
+  worldStateDB.getContractInstance.mockResolvedValue(contractInstance);
 
+  const bytecode = getAvmTestContractBytecode(functionName);
   const trace = new PublicSideEffectTrace(startSideEffectCounter);
   const persistableState = initPersistableStateManager({ worldStateDB, trace });
   const context = initContext({ env: environment, persistableState });
-  const nestedCallBytecode = getAvmTestContractBytecode('add_args_return');
-  jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(nestedCallBytecode);
+  jest.spyOn(worldStateDB, 'getBytecode').mockResolvedValue(bytecode);
 
   const startGas = new Gas(context.machineState.gasLeft.daGas, context.machineState.gasLeft.l2Gas);
 
-  // Use a simple contract that emits a side effect
-  const bytecode = getAvmTestContractBytecode(functionName);
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
   const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));

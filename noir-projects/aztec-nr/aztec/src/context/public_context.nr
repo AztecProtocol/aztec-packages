@@ -70,11 +70,15 @@ impl PublicContext {
         args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
+        let args_with_selector = &[function_selector.to_field()].append(args);
+        let public_dispatch_selector = comptime {
+            FunctionSelector::from_signature("public_dispatch(Field)").to_field()
+        };
         let results = call(
             gas_for_call(gas_opts),
             contract_address,
-            args,
-            function_selector.to_field()
+            args_with_selector,
+            public_dispatch_selector
         );
         let data_to_return: [Field; RETURNS_COUNT] = results.0;
         let success: u8 = results.1;
@@ -90,11 +94,15 @@ impl PublicContext {
         args: [Field],
         gas_opts: GasOpts
     ) -> FunctionReturns<RETURNS_COUNT> {
+        let args_with_selector = &[function_selector.to_field()].append(args);
+        let public_dispatch_selector = comptime {
+            FunctionSelector::from_signature("public_dispatch(Field)").to_field()
+        };
         let (data_to_return, success): ([Field; RETURNS_COUNT], u8) = call_static(
             gas_for_call(gas_opts),
             contract_address,
-            args,
-            function_selector.to_field()
+            args_with_selector,
+            public_dispatch_selector
         );
 
         assert(success == 1, "Nested static call failed!");

@@ -30,6 +30,7 @@ use dep::protocol_types::{
 },
     header::Header, messaging::l2_to_l1_message::L2ToL1Message, traits::Empty
 };
+use protocol_types::utils::arrays::array_concat;
 
 // When finished, one can call .finish() to convert back to the abi
 pub struct PrivateContext {
@@ -406,9 +407,14 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) {
-        let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
-        self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
+        // Public functions should be routed through the dispatch function.
+        let dispatch_selector = comptime {
+            FunctionSelector::from_signature("public_dispatch(Field)")
+        };
+        let dispatch_args = array_concat([function_selector.to_field()], args);
+        let args_hash = hash_args_array(dispatch_args);
+        arguments::pack_arguments_array(dispatch_args);
+        self.call_public_function_with_packed_args(contract_address, dispatch_selector, args_hash, false, false)
     }
 
     pub fn static_call_public_function<let ARGS_COUNT: u32>(
@@ -417,8 +423,13 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) {
-        let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
+        // Public functions should be routed through the dispatch function.
+        let dispatch_selector = comptime {
+            FunctionSelector::from_signature("public_dispatch(Field)")
+        };
+        let dispatch_args = array_concat([function_selector.to_field()], args);
+        let args_hash = hash_args_array(dispatch_args);
+        arguments::pack_arguments_array(dispatch_args);
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, true, false)
     }
 
@@ -428,8 +439,13 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) {
-        let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
+        // Public functions should be routed through the dispatch function.
+        let dispatch_selector = comptime {
+            FunctionSelector::from_signature("public_dispatch(Field)")
+        };
+        let dispatch_args = array_concat([function_selector.to_field()], args);
+        let args_hash = hash_args_array(dispatch_args);
+        arguments::pack_arguments_array(dispatch_args);
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash, false, true)
     }
 
@@ -494,8 +510,13 @@ impl PrivateContext {
         function_selector: FunctionSelector,
         args: [Field; ARGS_COUNT]
     ) {
-        let args_hash = hash_args_array(args);
-        arguments::pack_arguments_array(args);
+        // Public functions should be routed through the dispatch function.
+        let dispatch_selector = comptime {
+            FunctionSelector::from_signature("public_dispatch(Field)")
+        };
+        let dispatch_args = array_concat([function_selector.to_field()], args);
+        let args_hash = hash_args_array(dispatch_args);
+        arguments::pack_arguments_array(dispatch_args);
         self.set_public_teardown_function_with_packed_args(contract_address, function_selector, args_hash, false, false)
     }
 

@@ -74,15 +74,33 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    */
   public request(): FunctionCall {
     const args = encodeArguments(this.functionDao, this.args);
-    return {
-      name: this.functionDao.name,
-      args,
-      selector: FunctionSelector.fromNameAndParameters(this.functionDao.name, this.functionDao.parameters),
-      type: this.functionDao.functionType,
-      to: this.contractAddress,
-      isStatic: this.functionDao.isStatic,
-      returnTypes: this.functionDao.returnTypes,
-    };
+    if (this.functionDao.functionType === FunctionType.PUBLIC) {
+      // Redirect through dispatch function.
+      const originalSelector = FunctionSelector.fromNameAndParameters(
+        this.functionDao.name,
+        this.functionDao.parameters,
+      );
+      const dispatchSelector = FunctionSelector.fromSignature('public_dispatch(Field)');
+      return {
+        name: this.functionDao.name,
+        args: [originalSelector.toField(), ...args],
+        selector: dispatchSelector,
+        type: this.functionDao.functionType,
+        to: this.contractAddress,
+        isStatic: this.functionDao.isStatic,
+        returnTypes: this.functionDao.returnTypes,
+      };
+    } else {
+      return {
+        name: this.functionDao.name,
+        args,
+        selector: FunctionSelector.fromNameAndParameters(this.functionDao.name, this.functionDao.parameters),
+        type: this.functionDao.functionType,
+        to: this.contractAddress,
+        isStatic: this.functionDao.isStatic,
+        returnTypes: this.functionDao.returnTypes,
+      };
+    }
   }
 
   /**

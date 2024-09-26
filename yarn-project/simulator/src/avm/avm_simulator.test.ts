@@ -90,6 +90,35 @@ describe('AVM simulator: injected bytecode', () => {
 });
 
 describe('AVM simulator: transpiled Noir contracts', () => {
+  it('addition via dispatch', async () => {
+    const calldata: Fr[] = [
+      FunctionSelector.fromSignature('add_args_return(Field,Field)').toField(),
+      new Fr(1),
+      new Fr(2),
+    ];
+    const context = initContext({ env: initExecutionEnvironment({ calldata }) });
+
+    const bytecode = getAvmTestContractBytecode('public_dispatch');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    expect(results.output).toEqual([new Fr(3)]);
+  });
+
+  it('get_args_hash via dispatch', async () => {
+    const calldata = [new Fr(8), new Fr(1), new Fr(2), new Fr(3)];
+    const dispatchCalldata = [FunctionSelector.fromSignature('get_args_hash(u8,[Field;3])').toField(), ...calldata];
+
+    const context = initContext({ env: initExecutionEnvironment({ calldata: dispatchCalldata }) });
+    const bytecode = getAvmTestContractBytecode('public_dispatch');
+    const results = await new AvmSimulator(context).executeBytecode(bytecode);
+
+    expect(results.reverted).toBe(false);
+    // It is expected that the output is the hash of the DISPATCH calldata.
+    // This is ok, especially for authwit.
+    expect(results.output).toEqual([computeVarArgsHash(dispatchCalldata)]);
+  });
+
   it('addition', async () => {
     const calldata: Fr[] = [new Fr(1), new Fr(2)];
     const context = initContext({ env: initExecutionEnvironment({ calldata }) });
@@ -348,17 +377,6 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       const results = await new AvmSimulator(context).executeBytecode(bytecode);
 
       expect(results.reverted).toBe(false);
-    });
-
-    it('get_args_hash', async () => {
-      const calldata = [new Fr(8), new Fr(1), new Fr(2), new Fr(3)];
-
-      const context = initContext({ env: initExecutionEnvironment({ calldata }) });
-      const bytecode = getAvmTestContractBytecode('get_args_hash');
-      const results = await new AvmSimulator(context).executeBytecode(bytecode);
-
-      expect(results.reverted).toBe(false);
-      expect(results.output).toEqual([computeVarArgsHash(calldata)]);
     });
   });
 
@@ -838,8 +856,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const calldata = [value0, value1];
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_call_to_add');
-        const addBytecode = getAvmTestContractBytecode('add_args_return');
-        mockGetBytecode(worldStateDB, addBytecode);
+        const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
+        mockGetBytecode(worldStateDB, nestedBytecode);
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
 
@@ -854,8 +872,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const calldata = [value0, value1];
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_static_call_to_add');
-        const addBytecode = getAvmTestContractBytecode('add_args_return');
-        mockGetBytecode(worldStateDB, addBytecode);
+        const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
+        mockGetBytecode(worldStateDB, nestedBytecode);
         const nestedTrace = mock<PublicSideEffectTraceInterface>();
         mockTraceFork(trace, nestedTrace);
 
@@ -871,8 +889,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const calldata: Fr[] = [value0, value1, ...gas];
         const context = createContext(calldata);
         const callBytecode = getAvmTestContractBytecode('nested_call_to_add_with_gas');
-        const addBytecode = getAvmTestContractBytecode('add_args_return');
-        mockGetBytecode(worldStateDB, addBytecode);
+        const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
+        mockGetBytecode(worldStateDB, nestedBytecode);
         mockTraceFork(trace);
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
@@ -890,7 +908,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       it(`Nested static call which modifies storage (expect failure)`, async () => {
         const context = createContext();
         const callBytecode = getAvmTestContractBytecode('nested_static_call_to_set_storage');
-        const nestedBytecode = getAvmTestContractBytecode('set_storage_single');
+        const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
         mockTraceFork(trace);
 
@@ -912,15 +930,14 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       it(`Nested calls rethrow exceptions`, async () => {
         const calldata = [value0, value1];
         const context = createContext(calldata);
-        const callBytecode = getAvmTestContractBytecode('nested_call_to_add');
-        // We actually don't pass the function ADD, but it's ok because the signature is the same.
-        const nestedBytecode = getAvmTestContractBytecode('assert_same');
+        const callBytecode = getAvmTestContractBytecode('nested_call_to_assert_same');
+        const nestedBytecode = getAvmTestContractBytecode('public_dispatch');
         mockGetBytecode(worldStateDB, nestedBytecode);
 
         const results = await new AvmSimulator(context).executeBytecode(callBytecode);
         expect(results.reverted).toBe(true); // The outer call should revert.
         expect(results.revertReason).toBeDefined();
-        expect(resolveAvmTestContractAssertionMessage('assert_same', results.revertReason!)).toMatch(
+        expect(resolveAvmTestContractAssertionMessage('public_dispatch', results.revertReason!)).toMatch(
           'Values are not equal',
         );
       });

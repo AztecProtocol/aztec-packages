@@ -35,7 +35,7 @@ fn compute_unsiloed_contract_initialization_nullifier(address: AztecAddress) -> 
 pub fn assert_initialization_matches_address_preimage_public(context: PublicContext) {
     let address = context.this_address();
     let instance = get_contract_instance_avm(address).unwrap();
-    let expected_init = compute_initialization_hash(context.selector(), context.get_args_hash());
+    let expected_init = compute_initialization_hash_public(context.get_args_hash());
     assert(instance.initialization_hash == expected_init, "Initialization hash does not match");
     assert(
         (instance.deployer.is_zero()) | (instance.deployer == context.msg_sender()), "Initializer address is not the contract deployer"
@@ -45,16 +45,28 @@ pub fn assert_initialization_matches_address_preimage_public(context: PublicCont
 pub fn assert_initialization_matches_address_preimage_private(context: PrivateContext) {
     let address = context.this_address();
     let instance = get_contract_instance(address);
-    let expected_init = compute_initialization_hash(context.selector(), context.get_args_hash());
+    let expected_init = compute_initialization_hash_private(context.selector(), context.get_args_hash());
     assert(instance.initialization_hash == expected_init, "Initialization hash does not match");
     assert(
         (instance.deployer.is_zero()) | (instance.deployer == context.msg_sender()), "Initializer address is not the contract deployer"
     );
 }
 
-pub fn compute_initialization_hash(init_selector: FunctionSelector, init_args_hash: Field) -> Field {
+pub fn compute_initialization_hash_private(init_selector: FunctionSelector, init_args_hash: Field) -> Field {
     poseidon2_hash_with_separator(
         [init_selector.to_field(), init_args_hash],
+        GENERATOR_INDEX__CONSTRUCTOR
+    )
+}
+
+pub fn compute_initialization_hash_public(init_args_hash: Field) -> Field {
+    // In public, the function selector is expected to be included in the calldata.
+    poseidon2_hash_with_separator(
+        [
+        comptime {
+            FunctionSelector::from_signature("public_dispatch(Field)").to_field()
+        }, init_args_hash
+    ],
         GENERATOR_INDEX__CONSTRUCTOR
     )
 }

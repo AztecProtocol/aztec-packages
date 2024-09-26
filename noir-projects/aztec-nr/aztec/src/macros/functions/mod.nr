@@ -246,10 +246,14 @@ comptime fn transform_public(f: FunctionDefinition) -> Quoted {
     let args_len = original_params.map(|(name, typ): (Quoted, Type)| flatten_to_fields(name, typ, &[]).0.len()).fold(0, |acc: u32, val: u32| acc + val);
 
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
-    let context_creation = quote { let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
-        let serialized_args : [Field; $args_len] = dep::aztec::context::public_context::calldata_copy(0, $args_len);
-        dep::aztec::hash::hash_args_array(serialized_args)
-     }); };
+    let context_creation = quote {
+        let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
+            // The +1 is due to the function selector in the dispatch function.
+            // This function, as all public functions, is only expected to be called through "public_dispatch".
+            let serialized_args : [Field; $args_len + 1] = dep::aztec::context::public_context::calldata_copy(0, $args_len + 1);
+            dep::aztec::hash::hash_args_array(serialized_args)
+        });
+    };
 
     // Modifications introduced by the different marker attributes.
     let internal_check = if is_fn_internal(f) {
