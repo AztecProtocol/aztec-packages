@@ -3,6 +3,7 @@ import {
   Fr,
   GrumpkinScalar,
   type KeyValidationRequest,
+  NotOnCurveError,
   Point,
   type PublicKey,
   computeOvskApp,
@@ -90,24 +91,39 @@ export class L2Log {
    * @param ivsk - The incoming viewing secret key, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsIncoming(ciphertext: Buffer | BufferReader, ivsk: GrumpkinScalar) {
+  public static decryptAsIncoming(ciphertext: Buffer | BufferReader, ivsk: GrumpkinScalar): L2Log | undefined {
     const reader = BufferReader.asReader(ciphertext);
 
-    const incomingTag = reader.readObject(Fr);
-    const outgoingTag = reader.readObject(Fr);
+    try {
+      const incomingTag = reader.readObject(Fr);
+      const outgoingTag = reader.readObject(Fr);
 
-    const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+      const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
-    const incomingHeader = decrypt(reader.readBytes(HEADER_SIZE), ivsk, ephPk);
+      const incomingHeader = decrypt(reader.readBytes(HEADER_SIZE), ivsk, ephPk);
 
-    // Skipping the outgoing header and body
-    reader.readBytes(HEADER_SIZE);
-    reader.readBytes(OUTGOING_BODY_SIZE);
+      // Skipping the outgoing header and body
+      reader.readBytes(HEADER_SIZE);
+      reader.readBytes(OUTGOING_BODY_SIZE);
 
-    // The incoming can be of variable size, so we read until the end
-    const incomingBodyPlaintext = decrypt(reader.readToEnd(), ivsk, ephPk);
+      // The incoming can be of variable size, so we read until the end
+      const incomingBodyPlaintext = decrypt(reader.readToEnd(), ivsk, ephPk);
 
-    return new L2Log(incomingTag, outgoingTag, AztecAddress.fromBuffer(incomingHeader), incomingBodyPlaintext);
+      return new L2Log(incomingTag, outgoingTag, AztecAddress.fromBuffer(incomingHeader), incomingBodyPlaintext);
+    } catch (e: any) {
+      // Following error messages are expected to occur when decryption fails
+      if (
+        !(e instanceof NotOnCurveError) &&
+        !e.message.endsWith('is greater or equal to field modulus.') &&
+        !e.message.startsWith('Invalid AztecAddress length') &&
+        !e.message.startsWith('Selector must fit in') &&
+        !e.message.startsWith('Attempted to read beyond buffer length')
+      ) {
+        // If we encounter an unexpected error, we rethrow it
+        throw e;
+      }
+      return;
+    }
   }
 
   /**
@@ -123,38 +139,53 @@ export class L2Log {
    * @param ovsk - The outgoing viewing secret key, used to decrypt the logs
    * @returns The decrypted log payload
    */
-  public static decryptAsOutgoing(ciphertext: Buffer | BufferReader, ovsk: GrumpkinScalar) {
+  public static decryptAsOutgoing(ciphertext: Buffer | BufferReader, ovsk: GrumpkinScalar): L2Log | undefined {
     const reader = BufferReader.asReader(ciphertext);
 
-    const incomingTag = reader.readObject(Fr);
-    const outgoingTag = reader.readObject(Fr);
+    try {
+      const incomingTag = reader.readObject(Fr);
+      const outgoingTag = reader.readObject(Fr);
 
-    const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+      const ephPk = Point.fromCompressedBuffer(reader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
 
-    // We skip the incoming header
-    reader.readBytes(HEADER_SIZE);
+      // We skip the incoming header
+      reader.readBytes(HEADER_SIZE);
 
-    const outgoingHeader = decrypt(reader.readBytes(HEADER_SIZE), ovsk, ephPk);
-    const contractAddress = AztecAddress.fromBuffer(outgoingHeader);
+      const outgoingHeader = decrypt(reader.readBytes(HEADER_SIZE), ovsk, ephPk);
+      const contractAddress = AztecAddress.fromBuffer(outgoingHeader);
 
-    const ovskApp = computeOvskApp(ovsk, contractAddress);
+      const ovskApp = computeOvskApp(ovsk, contractAddress);
 
-    let ephSk: GrumpkinScalar;
-    let recipientIvpk: PublicKey;
-    {
-      const outgoingBody = decrypt(reader.readBytes(OUTGOING_BODY_SIZE), ovskApp, ephPk, derivePoseidonAESSecret);
-      const obReader = BufferReader.asReader(outgoingBody);
+      let ephSk: GrumpkinScalar;
+      let recipientIvpk: PublicKey;
+      {
+        const outgoingBody = decrypt(reader.readBytes(OUTGOING_BODY_SIZE), ovskApp, ephPk, derivePoseidonAESSecret);
+        const obReader = BufferReader.asReader(outgoingBody);
 
-      // From outgoing body we extract ephSk, recipient and recipientIvpk
-      ephSk = GrumpkinScalar.fromHighLow(obReader.readObject(Fr), obReader.readObject(Fr));
-      const _recipient = obReader.readObject(AztecAddress);
-      recipientIvpk = Point.fromCompressedBuffer(obReader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+        // From outgoing body we extract ephSk, recipient and recipientIvpk
+        ephSk = GrumpkinScalar.fromHighLow(obReader.readObject(Fr), obReader.readObject(Fr));
+        const _recipient = obReader.readObject(AztecAddress);
+        recipientIvpk = Point.fromCompressedBuffer(obReader.readBytes(Point.COMPRESSED_SIZE_IN_BYTES));
+      }
+
+      // Now we decrypt the incoming body using the ephSk and recipientIvpk
+      const incomingBody = decrypt(reader.readToEnd(), ephSk, recipientIvpk);
+
+      return new L2Log(incomingTag, outgoingTag, contractAddress, incomingBody);
+    } catch (e: any) {
+      // Following error messages are expected to occur when decryption fails
+      if (
+        !(e instanceof NotOnCurveError) &&
+        !e.message.endsWith('is greater or equal to field modulus.') &&
+        !e.message.startsWith('Invalid AztecAddress length') &&
+        !e.message.startsWith('Selector must fit in') &&
+        !e.message.startsWith('Attempted to read beyond buffer length')
+      ) {
+        // If we encounter an unexpected error, we rethrow it
+        throw e;
+      }
+      return;
     }
-
-    // Now we decrypt the incoming body using the ephSk and recipientIvpk
-    const incomingBody = decrypt(reader.readToEnd(), ephSk, recipientIvpk);
-
-    return new L2Log(incomingTag, outgoingTag, contractAddress, incomingBody);
   }
 
   public toBuffer() {
