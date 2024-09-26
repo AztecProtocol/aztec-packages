@@ -35,7 +35,7 @@ mod test {
     use crate::utils::point::point_to_bytes;
 
     #[test]
-    fn test_point_to_bytes_positive_sign() {
+    unconstrained fn test_point_to_bytes_positive_sign() {
         let p = Point {
             x: 0x1af41f5de96446dc3776a1eb2d98bb956b7acd9979a67854bec6fa7c2973bd73,
             y: 0x07fc22c7f2c7057571f137fe46ea9c95114282bc95d37d71ec4bfb88de457d4a,
@@ -48,11 +48,14 @@ mod test {
             154, 244, 31, 93, 233, 100, 70, 220, 55, 118, 161, 235, 45, 152, 187, 149, 107, 122, 205, 153, 121, 166, 120, 84, 190, 198, 250, 124, 41, 115, 189, 115
         ];
 
-        assert_eq(expected_compressed_point_positive_sign, compressed_point);
+        assert_eq(expected_compressed_point_positive_sign.len(), compressed_point.len());
+        for i in 0..expected_compressed_point_positive_sign.len() {
+            assert_eq(compressed_point[i], expected_compressed_point_positive_sign[i]);
+        }
     }
 
     #[test]
-    fn test_point_to_bytes_negative_sign() {
+    unconstrained fn test_point_to_bytes_negative_sign() {
         let p = Point {
             x: 0x247371652e55dd74c9af8dbe9fb44931ba29a9229994384bd7077796c14ee2b5,
             y: 0x26441aec112e1ae4cee374f42556932001507ad46e255ffb27369c7e3766e5c0,
@@ -65,6 +68,9 @@ mod test {
             36, 115, 113, 101, 46, 85, 221, 116, 201, 175, 141, 190, 159, 180, 73, 49, 186, 41, 169, 34, 153, 148, 56, 75, 215, 7, 119, 150, 193, 78, 226, 181
         ];
 
-        assert_eq(expected_compressed_point_negative_sign, compressed_point);
+        assert_eq(expected_compressed_point_negative_sign.len(), compressed_point.len());
+        for i in 0..expected_compressed_point_negative_sign.len() {
+            assert_eq(compressed_point[i], expected_compressed_point_negative_sign[i]);
+        }
     }
 }

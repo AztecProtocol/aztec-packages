@@ -87,7 +87,7 @@ export class Keccak extends Instruction {
     memory.checkTag(TypeTag.UINT32, messageSizeOffset);
     const messageSize = memory.get(messageSizeOffset).toNumber();
     const memoryOperations = { reads: messageSize + 1, writes: 32, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: messageSize }));
 
     memory.checkTagsRange(TypeTag.UINT8, messageOffset, messageSize);
 
@@ -256,7 +256,7 @@ export class Pedersen extends Instruction {
     const hashData = memory.getSlice(messageOffset, messageSize);
 
     const memoryOperations = { reads: messageSize + 2, writes: 1, indirect: this.indirect };
-    context.machineState.consumeGas(this.gasCost(memoryOperations));
+    context.machineState.consumeGas(this.gasCost({ ...memoryOperations, dynMultiplier: messageSize }));
 
     memory.checkTagsRange(TypeTag.FIELD, messageOffset, messageSize);
 

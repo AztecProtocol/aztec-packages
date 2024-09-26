@@ -16,7 +16,12 @@ import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type AuthWitness } from '../auth_witness.js';
 import { type L2Block } from '../l2_block.js';
-import { type GetUnencryptedLogsResponse, type L1EventPayload, type LogFilter } from '../logs/index.js';
+import {
+  type GetUnencryptedLogsResponse,
+  type L1EventPayload,
+  type LogFilter,
+  type UnencryptedL2Log,
+} from '../logs/index.js';
 import { type IncomingNotesFilter } from '../notes/incoming_notes_filter.js';
 import { type ExtendedNote, type OutgoingNotesFilter, type UniqueNote } from '../notes/index.js';
 import { type SiblingPath } from '../sibling_path/sibling_path.js';
@@ -427,7 +432,7 @@ export interface PXE {
  * The shape of the event generated on the Contract.
  */
 export interface EventMetadata<T> {
-  decode(payload: L1EventPayload): T | undefined;
+  decode(payload: L1EventPayload | UnencryptedL2Log): T | undefined;
   eventSelector: EventSelector;
   fieldNames: string[];
 }

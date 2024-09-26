@@ -1,7 +1,7 @@
 use crate::{hash::accumulate_sha256};
 // N = maximum leaves
 // For now we only care about the root
-struct VariableMerkleTree {
+pub struct VariableMerkleTree {
     // leaves: [Field; N],
     root: Field,
 }
@@ -207,4 +207,3 @@ mod tests {
         assert_eq(tree.root, full_tree.get_root());
     }
 }
-

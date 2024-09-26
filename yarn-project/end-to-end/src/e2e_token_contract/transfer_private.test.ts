@@ -46,7 +46,7 @@ describe('e2e_token_contract transfer private', () => {
     expect(events[0]).toEqual({
       from: accounts[0].address,
       to: accounts[1].address,
-      amount: new Fr(amount),
+      amount: amount,
     });
   });
 

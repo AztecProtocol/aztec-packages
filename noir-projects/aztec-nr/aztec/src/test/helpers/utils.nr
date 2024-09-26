@@ -4,14 +4,14 @@ use dep::protocol_types::{
     contract_instance::ContractInstance
 };
 
-use crate::context::inputs::{PublicContextInputs, PrivateContextInputs};
+use crate::context::inputs::PrivateContextInputs;
 use crate::context::call_interfaces::CallInterface;
 use crate::test::helpers::cheatcodes;
 use crate::keys::public_keys::{PUBLIC_KEYS_LENGTH, PublicKeys};
 
 use crate::oracle::{execution::{get_block_number, get_contract_address}};
 
-pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
+unconstrained pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs: PrivateCircuitPublicInputs) {
     let mut nullifiers = &[];
     for nullifier in public_inputs.nullifiers {
         if nullifier.value != 0 {
@@ -28,14 +28,14 @@ pub fn apply_side_effects_private(contract_address: AztecAddress, public_inputs:
     cheatcodes::add_note_hashes(contract_address, note_hashes);
 }
 
-struct Deployer<let N: u32, let M: u32> {
+pub struct Deployer<let N: u32, let M: u32> {
     path: str<N>,
     name: str<M>,
     public_keys_hash: Field
 }
 
 impl<let N: u32, let M: u32> Deployer<N, M> {
-    pub fn with_private_initializer<C, let P: u32, Env>(
+    unconstrained pub fn with_private_initializer<C, let P: u32, Env>(
         self,
         call_interface: C
     ) -> ContractInstance where C: CallInterface<P, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
@@ -65,10 +65,10 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         instance
     }
 
-    pub fn with_public_initializer<C, let P: u32, T, Env>(
+    unconstrained pub fn with_public_initializer<C, let P: u32, T, Env>(
         self,
         call_interface: C
-    ) -> ContractInstance where C: CallInterface<P, PublicContextInputs, T, Env> {
+    ) -> ContractInstance where C: CallInterface<P, (), T, Env> {
         let instance = cheatcodes::deploy(
             self.path,
             self.name,
@@ -86,21 +86,20 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
         cheatcodes::set_fn_selector(call_interface.get_selector());
         cheatcodes::set_contract_address(instance.to_address());
         cheatcodes::set_msg_sender(original_contract_address);
-        let mut inputs = cheatcodes::get_public_context_inputs();
-        inputs.calldata_length = call_interface.get_args().len() as Field;
-        inputs.is_static_call = call_interface.get_is_static();
+        cheatcodes::set_is_static_call(call_interface.get_is_static());
         cheatcodes::set_calldata(calldata);
 
-        let _result: T = original_fn(inputs);
+        let _result: T = original_fn(());
 
         cheatcodes::set_fn_selector(original_fn_selector);
         cheatcodes::set_contract_address(original_contract_address);
         cheatcodes::set_msg_sender(original_msg_sender);
         cheatcodes::set_calldata(calldata);
+        cheatcodes::set_is_static_call(call_interface.get_is_static());
         instance
     }
 
-    pub fn without_initializer(self) -> ContractInstance {
+    unconstrained pub fn without_initializer(self) -> ContractInstance {
         cheatcodes::deploy(self.path, self.name, "", &[], self.public_keys_hash)
     }
 }
@@ -108,7 +107,7 @@ impl<let N: u32, let M: u32> Deployer<N, M> {
 // Keys length + address
 global TEST_ACCOUNT_LENGTH = PUBLIC_KEYS_LENGTH + 1;
 
-struct TestAccount {
+pub struct TestAccount {
     address: AztecAddress,
     keys: PublicKeys
 }

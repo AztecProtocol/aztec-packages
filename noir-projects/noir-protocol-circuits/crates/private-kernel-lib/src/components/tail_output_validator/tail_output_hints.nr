@@ -4,7 +4,7 @@ use dep::types::{
     utils::arrays::{OrderHint, sort_by_counter_asc, get_order_hints_asc}
 };
 
-struct TailOutputHints {
+pub struct TailOutputHints {
     // L2 to l1 msgs.
     sorted_l2_to_l1_msg_hints: [OrderHint; MAX_L2_TO_L1_MSGS_PER_TX],
     // Unencrypted log hashes.

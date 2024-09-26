@@ -234,19 +234,22 @@ void build_constraints(Builder& builder,
         }
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
-        process_honk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
+        AggregationObjectIndices current_aggregation_object =
+            stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
+        current_aggregation_object = process_honk_recursion_constraints(
+            builder, constraint_system, has_valid_witness_assignments, gate_counter, current_aggregation_object);
 
 #ifndef DISABLE_AZTEC_VM
-        process_avm_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
+        current_aggregation_object = process_avm_recursion_constraints(
+            builder, constraint_system, has_valid_witness_assignments, gate_counter, current_aggregation_object);
 #endif
-
-        // If the circuit does not itself contain honk recursion constraints but is going to be
-        // proven with honk then recursively verified, add a default aggregation object
-        if (constraint_system.honk_recursion_constraints.empty() && honk_recursion &&
-            builder.is_recursive_circuit) { // Set a default aggregation object if we don't have
-                                            // one.
-            AggregationObjectIndices current_aggregation_object =
-                stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
+        // If the circuit has either honk or avm recursion constraints, add the aggregation object. Otherwise, add a
+        // default one if the circuit is recursive and honk_recursion is true.
+        if (!constraint_system.honk_recursion_constraints.empty() ||
+            !constraint_system.avm_recursion_constraints.empty()) {
+            ASSERT(honk_recursion);
+            builder.add_recursive_proof(current_aggregation_object);
+        } else if (honk_recursion && builder.is_recursive_circuit) {
             // Make sure the verification key records the public input indices of the
             // final recursion output.
             builder.add_recursive_proof(current_aggregation_object);
@@ -342,14 +345,12 @@ void process_plonk_recursion_constraints(Builder& builder,
     }
 }
 
-void process_honk_recursion_constraints(Builder& builder,
-                                        AcirFormat& constraint_system,
-                                        bool has_valid_witness_assignments,
-                                        GateCounter<Builder>& gate_counter)
+AggregationObjectIndices process_honk_recursion_constraints(Builder& builder,
+                                                            AcirFormat& constraint_system,
+                                                            bool has_valid_witness_assignments,
+                                                            GateCounter<Builder>& gate_counter,
+                                                            AggregationObjectIndices current_aggregation_object)
 {
-    AggregationObjectIndices current_aggregation_object =
-        stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
-
     // Add recursion constraints
     size_t idx = 0;
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
@@ -359,35 +360,16 @@ void process_honk_recursion_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
-
-    // Now that the circuit has been completely built, we add the output aggregation as public
-    // inputs.
-    if (!constraint_system.honk_recursion_constraints.empty()) {
-
-        // First add the output aggregation object as public inputs
-        // Set the indices as public inputs because they are no longer being
-        // created in ACIR
-        for (const auto& idx : current_aggregation_object) {
-            builder.set_public_input(idx);
-        }
-
-        // Make sure the verification key records the public input indices of the
-        // final recursion output.
-        builder.set_recursive_proof(current_aggregation_object);
-    }
+    return current_aggregation_object;
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1095): Probably makes sense to aggregate Honk and AVM
-// proofs together.
 #ifndef DISABLE_AZTEC_VM
-void process_avm_recursion_constraints(Builder& builder,
-                                       AcirFormat& constraint_system,
-                                       bool has_valid_witness_assignments,
-                                       GateCounter<Builder>& gate_counter)
+AggregationObjectIndices process_avm_recursion_constraints(Builder& builder,
+                                                           AcirFormat& constraint_system,
+                                                           bool has_valid_witness_assignments,
+                                                           GateCounter<Builder>& gate_counter,
+                                                           AggregationObjectIndices current_aggregation_object)
 {
-    AggregationObjectIndices current_aggregation_object =
-        stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
-
     // Add recursion constraints
     size_t idx = 0;
     for (auto& constraint : constraint_system.avm_recursion_constraints) {
@@ -397,25 +379,7 @@ void process_avm_recursion_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.avm_recursion_constraints.at(idx++));
     }
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1095): The following code will have to be adapted to
-    // support a circuit with both honk and avm recursion constraints.
-
-    // Now that the circuit has been completely built, we add
-    // the output aggregation as public inputs.
-    if (!constraint_system.avm_recursion_constraints.empty()) {
-
-        // First add the output aggregation object as public inputs
-        // Set the indices as public inputs because they are no longer being
-        // created in ACIR
-        for (const auto& idx : current_aggregation_object) {
-            builder.set_public_input(idx);
-        }
-
-        // Make sure the verification key records the public input indices of the
-        // final recursion output.
-        builder.set_recursive_proof(current_aggregation_object);
-    }
+    return current_aggregation_object;
 }
 #endif // DISABLE_AZTEC_VM
 

@@ -1456,106 +1456,164 @@ TEST_F(AvmExecutionTests, pedersenCommitmentOpcode)
 // Positive test for Kernel Input opcodes
 TEST_F(AvmExecutionTests, kernelInputOpcodes)
 {
-    std::string bytecode_hex = to_hex(OpCode::ADDRESS) +            // opcode ADDRESS
-                               "00"                                 // Indirect flag
-                               "00000001"                           // dst_offset
-                               + to_hex(OpCode::STORAGEADDRESS) +   // opcode STORAGEADDRESS
-                               "00"                                 // Indirect flag
-                               "00000002"                           // dst_offset
-                               + to_hex(OpCode::SENDER) +           // opcode SENDER
-                               "00"                                 // Indirect flag
-                               "00000003"                           // dst_offset
-                               + to_hex(OpCode::FUNCTIONSELECTOR) + // opcode TRANSACTIONFEE
-                               "00"                                 // Indirect flag
-                               "00000004"                           // dst_offset
-                               + to_hex(OpCode::TRANSACTIONFEE) +   // opcode TRANSACTIONFEE
-                               "00"                                 // Indirect flag
-                               "00000005"                           // dst_offset
-                               + to_hex(OpCode::CHAINID) +          // opcode CHAINID
-                               "00"                                 // Indirect flag
-                               "00000006"                           // dst_offset
-                               + to_hex(OpCode::VERSION) +          // opcode VERSION
-                               "00"                                 // Indirect flag
-                               "00000007"                           // dst_offset
-                               + to_hex(OpCode::BLOCKNUMBER) +      // opcode BLOCKNUMBER
-                               "00"                                 // Indirect flag
-                               "00000008"                           // dst_offset
-                               + to_hex(OpCode::TIMESTAMP) +        // opcode TIMESTAMP
-                               "00"                                 // Indirect flag
-                               "00000009"                           // dst_offset
-                               + to_hex(OpCode::FEEPERL2GAS) +      // opcode FEEPERL2GAS
-                               "00"                                 // Indirect flag
-                               "0000000a"                           // dst_offset
-                               + to_hex(OpCode::FEEPERDAGAS) +      // opcode FEEPERDAGAS
-                               "00"                                 // Indirect flag
-                               "0000000b"                           // dst_offset
-                               + to_hex(OpCode::RETURN) +           // opcode RETURN
-                               "00"                                 // Indirect flag
-                               "00000001"                           // ret offset 1
-                               "0000000b";                          // ret size 11
+    std::string bytecode_hex =
+        to_hex(OpCode::GETENVVAR_16) +                                          // opcode ADDRESS
+        "00"                                                                    // Indirect flag
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::ADDRESS)) +          // envvar ADDRESS
+        "0001"                                                                  // dst_offset
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode STORAGEADDRESS
+        "00"                                                                    // Indirect flag
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::STORAGEADDRESS)) +   // envvar STORAGEADDRESS
+        "0002"                                                                  // dst_offset
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode SENDER
+        "00"                                                                    // Indirect flag
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)) +           // envvar SENDER
+        "0003"                                                                  // dst_offset
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode FUNCTIONSELECTOR
+        "00"                                                                    // Indirect flag
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FUNCTIONSELECTOR)) + // envvar FUNCTIONSELECTOR
+        "0004"                                                                  // dst_offset
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode TRANSACTIONFEE
+        "00"                                                                    // Indirect flag
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE)) +   // envvar TRANSACTIONFEE
+        "0005"                                                                  // dst_offset
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode CHAINID
+        "00"                                                                    // Indirect flag
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::CHAINID)) +          // envvar CHAINID
+        "0006"                                                                  // dst_offset
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode VERSION
+        "00"                                                                    // Indirect flag
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::VERSION)) +          // envvar VERSION
+        "0007"                                                                  // dst_offset
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode BLOCKNUMBER
+        "00"                                                                    // Indirect flag
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER)) +      // envvar BLOCKNUMBER
+        "0008"                                                                  // dst_offset
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode TIMESTAMP
+        "00"                                                                    // Indirect flag
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP)) +        // envvar TIMESTAMP
+        "0009"                                                                  // dst_offset
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode FEEPERL2GAS
+        "00"                                                                    // Indirect flag
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS)) +      // envvar FEEPERL2GAS
+        "000A"                                                                  // dst_offset
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode FEEPERDAGAS
+        "00"                                                                    // Indirect flag
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::FEEPERDAGAS)) +      // envvar FEEPERDAGAS
+        "000B"                                                                  // dst_offset
+        + to_hex(OpCode::GETENVVAR_16) +                                        // opcode FEEPERDAGAS
+        "00"                                                                    // Indirect flag
+        + to_hex(static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL)) +     // envvar FEEPERDAGAS
+        "000C"                                                                  // dst_offset
+        + to_hex(OpCode::RETURN) +                                              // opcode RETURN
+        "00"                                                                    // Indirect flag
+        "00000001"                                                              // ret offset 1
+        "0000000C";                                                             // ret size 12
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
 
-    ASSERT_THAT(instructions, SizeIs(12));
+    ASSERT_THAT(instructions, SizeIs(13));
 
     // ADDRESS
     EXPECT_THAT(instructions.at(0),
-                AllOf(Field(&Instruction::op_code, OpCode::ADDRESS),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(1)))));
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::ADDRESS)),
+                                        VariantWith<uint16_t>(1)))));
 
     // STORAGEADDRESS
     EXPECT_THAT(instructions.at(1),
-                AllOf(Field(&Instruction::op_code, OpCode::STORAGEADDRESS),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(2)))));
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::STORAGEADDRESS)),
+                                        VariantWith<uint16_t>(2)))));
 
     // SENDER
     EXPECT_THAT(instructions.at(2),
-                AllOf(Field(&Instruction::op_code, OpCode::SENDER),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(3)))));
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::SENDER)),
+                                        VariantWith<uint16_t>(3)))));
 
     // FUNCTIONSELECTOR
-    EXPECT_THAT(instructions.at(3),
-                AllOf(Field(&Instruction::op_code, OpCode::FUNCTIONSELECTOR),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(4)))));
+    EXPECT_THAT(
+        instructions.at(3),
+        AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+              Field(&Instruction::operands,
+                    ElementsAre(VariantWith<uint8_t>(0),
+                                VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::FUNCTIONSELECTOR)),
+                                VariantWith<uint16_t>(4)))));
 
     // TRANSACTIONFEE
     EXPECT_THAT(instructions.at(4),
-                AllOf(Field(&Instruction::op_code, OpCode::TRANSACTIONFEE),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(5)))));
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::TRANSACTIONFEE)),
+                                        VariantWith<uint16_t>(5)))));
 
     // CHAINID
     EXPECT_THAT(instructions.at(5),
-                AllOf(Field(&Instruction::op_code, OpCode::CHAINID),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(6)))));
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::CHAINID)),
+                                        VariantWith<uint16_t>(6)))));
 
     // VERSION
     EXPECT_THAT(instructions.at(6),
-                AllOf(Field(&Instruction::op_code, OpCode::VERSION),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(7)))));
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::VERSION)),
+                                        VariantWith<uint16_t>(7)))));
 
     // BLOCKNUMBER
     EXPECT_THAT(instructions.at(7),
-                AllOf(Field(&Instruction::op_code, OpCode::BLOCKNUMBER),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(8)))));
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::BLOCKNUMBER)),
+                                        VariantWith<uint16_t>(8)))));
 
     // TIMESTAMP
     EXPECT_THAT(instructions.at(8),
-                AllOf(Field(&Instruction::op_code, OpCode::TIMESTAMP),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(9)))));
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::TIMESTAMP)),
+                                        VariantWith<uint16_t>(9)))));
 
     // FEEPERL2GAS
     EXPECT_THAT(instructions.at(9),
-                AllOf(Field(&Instruction::op_code, OpCode::FEEPERL2GAS),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(10)))));
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::FEEPERL2GAS)),
+                                        VariantWith<uint16_t>(10)))));
 
     // FEEPERDAGAS
     EXPECT_THAT(instructions.at(10),
-                AllOf(Field(&Instruction::op_code, OpCode::FEEPERDAGAS),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(11)))));
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::FEEPERDAGAS)),
+                                        VariantWith<uint16_t>(11)))));
+
+    // ISSTATICCALL
+    EXPECT_THAT(instructions.at(11),
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::ISSTATICCALL)),
+                                        VariantWith<uint16_t>(12)))));
 
     // Public inputs for the circuit
-    std::vector<FF> calldata = {};
+    std::vector<FF> calldata;
 
     FF sender = 1;
     FF address = 2;
@@ -1570,12 +1628,13 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     FF timestamp = 9;
     FF feeperl2gas = 10;
     FF feeperdagas = 11;
+    FF is_static_call = 12;
 
     // The return data for this test should be a the opcodes in sequence, as the opcodes dst address lines up with
     // this array The returndata call above will then return this array
     std::vector<FF> const expected_returndata = {
         address, storage_address, sender,    function_selector, transaction_fee, chainid,
-        version, blocknumber,     timestamp, feeperl2gas,       feeperdagas,
+        version, blocknumber,     timestamp, feeperl2gas,       feeperdagas,     is_static_call,
     };
 
     // Set up public inputs to contain the above values
@@ -1587,6 +1646,7 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
     public_inputs_vec[SENDER_SELECTOR] = sender;
     public_inputs_vec[FUNCTION_SELECTOR_SELECTOR] = function_selector;
     public_inputs_vec[TRANSACTION_FEE_OFFSET] = transaction_fee;
+    public_inputs_vec[IS_STATIC_CALL_SELECTOR] = is_static_call;
 
     // Global variables
     public_inputs_vec[CHAIN_ID_OFFSET] = chainid;
@@ -1658,6 +1718,11 @@ TEST_F(AvmExecutionTests, kernelInputOpcodes)
         std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_fee_per_l2_gas == 1; });
     EXPECT_EQ(feeperl2gas_row->main_ia, feeperl2gas);
 
+    // Check is_static_call
+    auto is_static_call_row =
+        std::ranges::find_if(trace.begin(), trace.end(), [](Row r) { return r.main_sel_op_is_static_call == 1; });
+    EXPECT_EQ(is_static_call_row->main_ia, is_static_call);
+
     validate_trace(std::move(trace), Execution::convert_public_inputs(public_inputs_vec), calldata, returndata);
 }
 
@@ -1667,15 +1732,16 @@ TEST_F(AvmExecutionTests, l2GasLeft)
     std::string bytecode_hex = to_hex(OpCode::SET_16) + // opcode SET
                                "00"                     // Indirect flag
                                + to_hex(AvmMemoryTag::U32) +
-                               "0101"                        // val 257
-                               "0011"                        // dst_offset 17
-                               + to_hex(OpCode::L2GASLEFT) + // opcode L2GASLEFT
-                               "01"                          // Indirect flag
-                               "00000011"                    // dst_offset (indirect addr: 17)
-                               + to_hex(OpCode::RETURN) +    // opcode RETURN
-                               "00"                          // Indirect flag
-                               "00000000"                    // ret offset 0
-                               "00000000";                   // ret size 0
+                               "0101"                           // val 257
+                               "0011"                           // dst_offset 17
+                               + to_hex(OpCode::GETENVVAR_16) + // opcode L2GASLEFT
+                               "01"                             // Indirect flag
+                               + to_hex(static_cast<uint8_t>(EnvironmentVariable::L2GASLEFT)) +
+                               "0011"                     // dst_offset (indirect addr: 17)
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
@@ -1684,8 +1750,11 @@ TEST_F(AvmExecutionTests, l2GasLeft)
 
     // L2GASLEFT
     EXPECT_THAT(instructions.at(1),
-                AllOf(Field(&Instruction::op_code, OpCode::L2GASLEFT),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(1), VariantWith<uint32_t>(17)))));
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(1),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::L2GASLEFT)),
+                                        VariantWith<uint16_t>(17)))));
 
     auto trace = gen_trace_from_instr(instructions);
 
@@ -1694,7 +1763,7 @@ TEST_F(AvmExecutionTests, l2GasLeft)
 
     uint32_t expected_rem_gas = DEFAULT_INITIAL_L2_GAS -
                                 static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::SET_8).base_l2_gas_fixed_table) -
-                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::L2GASLEFT).base_l2_gas_fixed_table);
+                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::GETENVVAR_16).base_l2_gas_fixed_table);
 
     EXPECT_EQ(row->main_ia, expected_rem_gas);
     EXPECT_EQ(row->main_mem_addr_a, 257); // Resolved direct address: 257
@@ -1708,16 +1777,17 @@ TEST_F(AvmExecutionTests, daGasLeft)
     std::string bytecode_hex = to_hex(OpCode::ADD_16) + // opcode ADD
                                "00"                     // Indirect flag
                                + to_hex(AvmMemoryTag::U32) +
-                               "0007"                        // addr a 7
-                               "0009"                        // addr b 9
-                               "0001"                        // addr c 1
-                               + to_hex(OpCode::DAGASLEFT) + // opcode DAGASLEFT
-                               "00"                          // Indirect flag
-                               "00000027"                    // dst_offset 39
-                               + to_hex(OpCode::RETURN) +    // opcode RETURN
-                               "00"                          // Indirect flag
-                               "00000000"                    // ret offset 0
-                               "00000000";                   // ret size 0
+                               "0007"                           // addr a 7
+                               "0009"                           // addr b 9
+                               "0001"                           // addr c 1
+                               + to_hex(OpCode::GETENVVAR_16) + // opcode L2GASLEFT
+                               "00"                             // Indirect flag
+                               + to_hex(static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT)) +
+                               "0027"                     // dst_offset (indirect addr: 17)
+                               + to_hex(OpCode::RETURN) + // opcode RETURN
+                               "00"                       // Indirect flag
+                               "00000000"                 // ret offset 0
+                               "00000000";                // ret size 0
 
     auto bytecode = hex_to_bytes(bytecode_hex);
     auto instructions = Deserialization::parse(bytecode);
@@ -1726,8 +1796,11 @@ TEST_F(AvmExecutionTests, daGasLeft)
 
     // DAGASLEFT
     EXPECT_THAT(instructions.at(1),
-                AllOf(Field(&Instruction::op_code, OpCode::DAGASLEFT),
-                      Field(&Instruction::operands, ElementsAre(VariantWith<uint8_t>(0), VariantWith<uint32_t>(39)))));
+                AllOf(Field(&Instruction::op_code, OpCode::GETENVVAR_16),
+                      Field(&Instruction::operands,
+                            ElementsAre(VariantWith<uint8_t>(0),
+                                        VariantWith<uint8_t>(static_cast<uint8_t>(EnvironmentVariable::DAGASLEFT)),
+                                        VariantWith<uint16_t>(39)))));
 
     auto trace = gen_trace_from_instr(instructions);
 
@@ -1736,7 +1809,7 @@ TEST_F(AvmExecutionTests, daGasLeft)
 
     uint32_t expected_rem_gas = DEFAULT_INITIAL_DA_GAS -
                                 static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::ADD_8).base_da_gas_fixed_table) -
-                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::DAGASLEFT).base_da_gas_fixed_table);
+                                static_cast<uint32_t>(GAS_COST_TABLE.at(OpCode::GETENVVAR_16).base_da_gas_fixed_table);
 
     EXPECT_EQ(row->main_ia, expected_rem_gas);
     EXPECT_EQ(row->main_mem_addr_a, 39);
@@ -1747,9 +1820,9 @@ TEST_F(AvmExecutionTests, daGasLeft)
 // Should throw whenever the wrong number of public inputs are provided
 TEST_F(AvmExecutionTests, ExecutorThrowsWithIncorrectNumberOfPublicInputs)
 {
-    std::string bytecode_hex = to_hex(OpCode::SENDER) + // opcode SENDER
-                               "00"                     // Indirect flag
-                               "00000007";              // addr 7
+    std::string bytecode_hex = to_hex(OpCode::GETENVVAR_16) +                                        // opcode SENDER
+                               "00"                                                                  // Indirect flag
+                               + to_hex(static_cast<uint8_t>(EnvironmentVariable::SENDER)) + "0007"; // addr 7
 
     std::vector<FF> calldata = {};
     std::vector<FF> returndata = {};

@@ -1272,6 +1272,59 @@ Row AvmTraceBuilder::create_kernel_lookup_opcode(uint8_t indirect, uint32_t dst_
     };
 }
 
+void AvmTraceBuilder::op_get_env_var(uint8_t indirect, uint8_t env_var, uint32_t dst_offset)
+{
+    ASSERT(env_var < static_cast<int>(EnvironmentVariable::MAX_ENV_VAR));
+    EnvironmentVariable var = static_cast<EnvironmentVariable>(env_var);
+
+    switch (var) {
+    case EnvironmentVariable::ADDRESS:
+        op_address(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::STORAGEADDRESS:
+        op_storage_address(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::SENDER:
+        op_sender(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::FUNCTIONSELECTOR:
+        op_function_selector(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::TRANSACTIONFEE:
+        op_transaction_fee(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::CHAINID:
+        op_chain_id(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::VERSION:
+        op_version(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::BLOCKNUMBER:
+        op_block_number(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::TIMESTAMP:
+        op_timestamp(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::FEEPERL2GAS:
+        op_fee_per_l2_gas(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::FEEPERDAGAS:
+        op_fee_per_da_gas(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::ISSTATICCALL:
+        op_is_static_call(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::L2GASLEFT:
+        op_l2gasleft(indirect, dst_offset);
+        break;
+    case EnvironmentVariable::DAGASLEFT:
+        op_dagasleft(indirect, dst_offset);
+        break;
+    default:
+        throw std::runtime_error("Invalid environment variable");
+    }
+}
+
 void AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
 {
     auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
@@ -1280,7 +1333,7 @@ void AvmTraceBuilder::op_address(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_address = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::ADDRESS);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1293,7 +1346,7 @@ void AvmTraceBuilder::op_storage_address(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_storage_address = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::STORAGEADDRESS);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1306,7 +1359,7 @@ void AvmTraceBuilder::op_sender(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_sender = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::SENDER);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1319,7 +1372,7 @@ void AvmTraceBuilder::op_function_selector(uint8_t indirect, uint32_t dst_offset
     row.main_sel_op_function_selector = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::FUNCTIONSELECTOR);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1332,7 +1385,20 @@ void AvmTraceBuilder::op_transaction_fee(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_transaction_fee = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::TRANSACTIONFEE);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
+
+    main_trace.push_back(row);
+}
+
+void AvmTraceBuilder::op_is_static_call(uint8_t indirect, uint32_t dst_offset)
+{
+    auto const clk = static_cast<uint32_t>(main_trace.size()) + 1;
+    FF ia_value = kernel_trace_builder.op_is_static_call(clk);
+    Row row = create_kernel_lookup_opcode(indirect, dst_offset, ia_value, AvmMemoryTag::FF);
+    row.main_sel_op_is_static_call = FF(1);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1349,7 +1415,7 @@ void AvmTraceBuilder::op_chain_id(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_chain_id = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::CHAINID);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1362,7 +1428,7 @@ void AvmTraceBuilder::op_version(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_version = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::VERSION);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1375,7 +1441,7 @@ void AvmTraceBuilder::op_block_number(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_block_number = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::BLOCKNUMBER);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1388,7 +1454,7 @@ void AvmTraceBuilder::op_timestamp(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_timestamp = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::TIMESTAMP);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1401,7 +1467,7 @@ void AvmTraceBuilder::op_fee_per_l2_gas(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_fee_per_l2_gas = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::FEEPERL2GAS);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1414,7 +1480,7 @@ void AvmTraceBuilder::op_fee_per_da_gas(uint8_t indirect, uint32_t dst_offset)
     row.main_sel_op_fee_per_da_gas = FF(1);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::FEEPERDAGAS);
+    gas_trace_builder.constrain_gas(static_cast<uint32_t>(row.main_clk), OpCode::GETENVVAR_16);
 
     main_trace.push_back(row);
 }
@@ -1504,20 +1570,20 @@ void AvmTraceBuilder::op_calldata_copy(uint8_t indirect,
  **************************************************************************************************/
 
 // Helper for "gas left" related opcodes
-void AvmTraceBuilder::execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t dst_offset)
+void AvmTraceBuilder::execute_gasleft(EnvironmentVariable var, uint8_t indirect, uint32_t dst_offset)
 {
-    assert(opcode == OpCode::L2GASLEFT || opcode == OpCode::DAGASLEFT);
+    assert(var == EnvironmentVariable::L2GASLEFT || var == EnvironmentVariable::DAGASLEFT);
 
     auto clk = static_cast<uint32_t>(main_trace.size()) + 1;
 
     auto [resolved_dst] = unpack_indirects<1>(indirect, { dst_offset });
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, opcode);
+    gas_trace_builder.constrain_gas(clk, OpCode::GETENVVAR_16);
 
     uint32_t gas_remaining = 0;
 
-    if (opcode == OpCode::L2GASLEFT) {
+    if (var == EnvironmentVariable::L2GASLEFT) {
         gas_remaining = gas_trace_builder.get_l2_gas_left();
     } else {
         gas_remaining = gas_trace_builder.get_da_gas_left();
@@ -1539,8 +1605,8 @@ void AvmTraceBuilder::execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t 
         .main_r_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::U0)),
         .main_rwa = FF(1),
         .main_sel_mem_op_a = FF(1),
-        .main_sel_op_dagasleft = (opcode == OpCode::DAGASLEFT) ? FF(1) : FF(0),
-        .main_sel_op_l2gasleft = (opcode == OpCode::L2GASLEFT) ? FF(1) : FF(0),
+        .main_sel_op_dagasleft = (var == EnvironmentVariable::DAGASLEFT) ? FF(1) : FF(0),
+        .main_sel_op_l2gasleft = (var == EnvironmentVariable::L2GASLEFT) ? FF(1) : FF(0),
         .main_sel_resolve_ind_addr_a = FF(static_cast<uint32_t>(is_operand_indirect(indirect, 0))),
         .main_tag_err = FF(static_cast<uint32_t>(!write_dst.tag_match)),
         .main_w_in_tag = FF(static_cast<uint32_t>(AvmMemoryTag::FF)), // TODO: probably will be U32 in final version
@@ -1550,12 +1616,12 @@ void AvmTraceBuilder::execute_gasleft(OpCode opcode, uint8_t indirect, uint32_t 
 
 void AvmTraceBuilder::op_l2gasleft(uint8_t indirect, uint32_t dst_offset)
 {
-    execute_gasleft(OpCode::L2GASLEFT, indirect, dst_offset);
+    execute_gasleft(EnvironmentVariable::L2GASLEFT, indirect, dst_offset);
 }
 
 void AvmTraceBuilder::op_dagasleft(uint8_t indirect, uint32_t dst_offset)
 {
-    execute_gasleft(OpCode::DAGASLEFT, indirect, dst_offset);
+    execute_gasleft(EnvironmentVariable::DAGASLEFT, indirect, dst_offset);
 }
 
 /**************************************************************************************************
@@ -2857,12 +2923,12 @@ void AvmTraceBuilder::op_keccak(uint8_t indirect,
     auto [resolved_output_offset, resolved_input_offset, resolved_input_size_offset] =
         unpack_indirects<3>(indirect, { output_offset, input_offset, input_size_offset });
 
-    // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::KECCAK);
-
     // Read the input length first
     auto input_length_read = constrained_read_from_memory(
         call_ptr, clk, resolved_input_size_offset, AvmMemoryTag::U32, AvmMemoryTag::U0, IntermRegister::IB);
+
+    // Constrain gas cost
+    gas_trace_builder.constrain_gas(clk, OpCode::KECCAK, static_cast<uint32_t>(input_length_read.val));
 
     // Store the clock time that we will use to line up the gadget later
     auto keccak_op_clk = clk;
@@ -3057,7 +3123,8 @@ void AvmTraceBuilder::op_pedersen_hash(uint8_t indirect,
     auto gen_ctx_read = unconstrained_read_from_memory(resolved_gen_ctx_offset);
 
     // Constrain gas cost
-    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSEN);
+    // TODO(dbanks12): need tag check u32 here on input size
+    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSEN, static_cast<uint32_t>(input_size_read));
 
     // We read the input and output addresses in one row as they should contain FF elements
     main_trace.push_back(Row{
@@ -3075,8 +3142,8 @@ void AvmTraceBuilder::op_pedersen_hash(uint8_t indirect,
     });
 
     std::vector<FF> inputs;
-    read_slice_from_memory<FF>(resolved_input_offset, uint32_t(input_size_read), inputs);
-    FF output = pedersen_trace_builder.pedersen_hash(inputs, uint32_t(gen_ctx_read), clk);
+    read_slice_from_memory<FF>(resolved_input_offset, static_cast<uint32_t>(input_size_read), inputs);
+    FF output = pedersen_trace_builder.pedersen_hash(inputs, static_cast<uint32_t>(gen_ctx_read), clk);
     write_slice_to_memory(resolved_output_offset, AvmMemoryTag::FF, std::vector<FF>{ output });
 }
 
@@ -3219,7 +3286,9 @@ void AvmTraceBuilder::op_variable_msm(uint8_t indirect,
         .main_tag_err = FF(0),
     });
 
-    gas_trace_builder.constrain_gas(clk, OpCode::MSM);
+    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
+    // run out of gas. Casting/truncating here is not secure.
+    gas_trace_builder.constrain_gas(clk, OpCode::MSM, static_cast<uint32_t>(points_length));
 
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     AddressWithMode output_offset_direct =
@@ -3257,7 +3326,9 @@ void AvmTraceBuilder::op_pedersen_commit(uint8_t indirect,
         .main_tag_err = FF(0),
     });
 
-    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSENCOMMITMENT);
+    // TODO(dbanks12): length needs to fit into u32 here or it will certainly
+    // run out of gas. Casting/truncating here is not secure.
+    gas_trace_builder.constrain_gas(clk, OpCode::PEDERSENCOMMITMENT, static_cast<uint32_t>(input_length_read));
 
     // Write the result back to memory [x, y, inf] with tags [FF, FF, U8]
     AddressWithMode output_offset_direct =

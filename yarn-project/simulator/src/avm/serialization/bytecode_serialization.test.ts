@@ -1,6 +1,6 @@
 import { strict as assert } from 'assert';
 
-import { Add, Address, Call, StaticCall, Sub } from '../opcodes/index.js';
+import { Add, Call, EnvironmentVariable, GetEnvVar, StaticCall, Sub } from '../opcodes/index.js';
 import { type BufferCursor } from './buffer_cursor.js';
 import { type InstructionSet, decodeFromBytecode, encodeToBytecode } from './bytecode_serialization.js';
 import { Opcode } from './instruction_serialization.js';
@@ -80,7 +80,10 @@ describe('Bytecode Serialization', () => {
         Opcode.SUB_8,
         Sub.wireFormat8,
       ),
-      new Address(/*indirect=*/ 0, /*dstOffset=*/ 1),
+      new GetEnvVar(/*indirect=*/ 0, EnvironmentVariable.ADDRESS, /*dstOffset=*/ 1).as(
+        Opcode.GETENVVAR_16,
+        GetEnvVar.wireFormat16,
+      ),
       new Call(
         /*indirect=*/ 0x01,
         /*gasOffset=*/ 0x12345678,
@@ -121,7 +124,10 @@ describe('Bytecode Serialization', () => {
         Opcode.SUB_8,
         Sub.wireFormat8,
       ),
-      new Address(/*indirect=*/ 0, /*dstOffset=*/ 1),
+      new GetEnvVar(/*indirect=*/ 0, EnvironmentVariable.ADDRESS, /*dstOffset=*/ 1).as(
+        Opcode.GETENVVAR_16,
+        GetEnvVar.wireFormat16,
+      ),
       new Call(
         /*indirect=*/ 0x01,
         /*gasOffset=*/ 0x12345678,

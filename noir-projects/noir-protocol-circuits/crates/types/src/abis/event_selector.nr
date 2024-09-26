@@ -3,7 +3,7 @@ use crate::traits::{Serialize, Deserialize, FromField, ToField, Empty};
 
 global SELECTOR_SIZE: u32 = 4;
 
-struct EventSelector {
+pub struct EventSelector {
     // 1st 4-bytes (big-endian leftmost) of abi-encoding of an event.
     inner: u32,
 }

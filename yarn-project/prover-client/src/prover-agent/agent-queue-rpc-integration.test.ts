@@ -1,4 +1,4 @@
-import { PublicKernelType, type ServerCircuitProver } from '@aztec/circuit-types';
+import { type ServerCircuitProver } from '@aztec/circuit-types';
 import { ClientIvcProof, Fr, PrivateKernelEmptyInputData, TubeInputs } from '@aztec/circuits.js';
 import {
   makeAvmCircuitInputs,
@@ -9,6 +9,7 @@ import {
   makeHeader,
   makeMergeRollupInputs,
   makePublicKernelCircuitPrivateInputs,
+  makePublicKernelInnerCircuitPrivateInputs,
   makePublicKernelTailCircuitPrivateInputs,
   makeRootParityInputs,
   makeRootRollupInputs,
@@ -40,22 +41,14 @@ describe('Prover agent <-> queue integration', () => {
     getRootParityProof: makeRootParityInputs,
     getBlockMergeRollupProof: makeBlockMergeRollupInputs,
     getBlockRootRollupProof: makeBlockRootRollupInputs,
+    getBlockRootRollupFinalProof: makeBlockRootRollupInputs,
     getEmptyPrivateKernelProof: () =>
       new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random()),
     getEmptyTubeProof: () => new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random()),
     getMergeRollupProof: makeMergeRollupInputs,
-    getPublicKernelProof: () => {
-      return {
-        type: PublicKernelType.APP_LOGIC,
-        inputs: makePublicKernelCircuitPrivateInputs(),
-      };
-    },
-    getPublicTailProof: () => {
-      return {
-        type: PublicKernelType.TAIL,
-        inputs: makePublicKernelTailCircuitPrivateInputs(),
-      };
-    },
+    getPublicKernelInnerProof: makePublicKernelInnerCircuitPrivateInputs,
+    getPublicKernelMergeProof: makePublicKernelCircuitPrivateInputs,
+    getPublicTailProof: makePublicKernelTailCircuitPrivateInputs,
     getRootRollupProof: makeRootRollupInputs,
     getTubeProof: () => new TubeInputs(ClientIvcProof.empty()),
   };

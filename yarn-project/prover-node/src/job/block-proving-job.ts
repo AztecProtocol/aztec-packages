@@ -109,7 +109,7 @@ export class BlockProvingJob {
       this.log.info(`Finalised proof for block range`, { fromBlock, toBlock, uuid: this.uuid });
 
       this.state = 'publishing-proof';
-      await this.publisher.submitProof(
+      await this.publisher.submitBlockProof(
         block.header,
         block.archive.root,
         this.prover.getProverId(),
@@ -129,7 +129,7 @@ export class BlockProvingJob {
   }
 
   public stop() {
-    this.prover.cancelBlock();
+    this.prover.cancel();
   }
 
   private async getBlock(blockNumber: number): Promise<L2Block> {

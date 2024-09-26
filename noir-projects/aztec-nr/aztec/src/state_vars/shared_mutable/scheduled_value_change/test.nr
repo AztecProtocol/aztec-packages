@@ -3,7 +3,7 @@ use crate::state_vars::shared_mutable::scheduled_value_change::ScheduledValueCha
 global TEST_DELAY: u32 = 200;
 
 #[test]
-fn test_serde() {
+unconstrained fn test_serde() {
     let pre = 1;
     let post = 2;
     let block_of_change = 50;
@@ -18,7 +18,7 @@ fn test_serde() {
 }
 
 #[test]
-fn test_get_current_at() {
+unconstrained fn test_get_current_at() {
     let pre = 1;
     let post = 2;
     let block_of_change = 50;
@@ -32,7 +32,7 @@ fn test_get_current_at() {
 }
 
 #[test]
-fn test_get_scheduled() {
+unconstrained fn test_get_scheduled() {
     let pre = 1;
     let post = 2;
     let block_of_change = 50;
@@ -42,7 +42,7 @@ fn test_get_scheduled() {
     assert_eq(value_change.get_scheduled(), (post, block_of_change));
 }
 
-fn assert_block_horizon_invariants(
+unconstrained fn assert_block_horizon_invariants(
     value_change: &mut ScheduledValueChange<Field>,
     historical_block_number: u32,
     block_horizon: u32
@@ -68,7 +68,7 @@ fn assert_block_horizon_invariants(
 }
 
 #[test]
-fn test_get_block_horizon_change_in_past() {
+unconstrained fn test_get_block_horizon_change_in_past() {
     let historical_block_number = 100;
     let block_of_change = 50;
 
@@ -81,7 +81,7 @@ fn test_get_block_horizon_change_in_past() {
 }
 
 #[test]
-fn test_get_block_horizon_change_in_immediate_past() {
+unconstrained fn test_get_block_horizon_change_in_immediate_past() {
     let historical_block_number = 100;
     let block_of_change = 100;
 
@@ -94,7 +94,7 @@ fn test_get_block_horizon_change_in_immediate_past() {
 }
 
 #[test]
-fn test_get_block_horizon_change_in_near_future() {
+unconstrained fn test_get_block_horizon_change_in_near_future() {
     let historical_block_number = 100;
     let block_of_change = 120;
 
@@ -110,7 +110,7 @@ fn test_get_block_horizon_change_in_near_future() {
 }
 
 #[test]
-fn test_get_block_horizon_change_in_far_future() {
+unconstrained fn test_get_block_horizon_change_in_far_future() {
     let historical_block_number = 100;
     let block_of_change = 500;
 
@@ -123,7 +123,7 @@ fn test_get_block_horizon_change_in_far_future() {
 }
 
 #[test]
-fn test_get_block_horizon_n0_delay() {
+unconstrained fn test_get_block_horizon_n0_delay() {
     let historical_block_number = 100;
     let block_of_change = 50;
 
@@ -136,7 +136,7 @@ fn test_get_block_horizon_n0_delay() {
 }
 
 #[test]
-fn test_schedule_change_before_change() {
+unconstrained fn test_schedule_change_before_change() {
     let pre = 1;
     let post = 2;
     let block_of_change = 500;
@@ -159,7 +159,7 @@ fn test_schedule_change_before_change() {
 }
 
 #[test]
-fn test_schedule_change_after_change() {
+unconstrained fn test_schedule_change_after_change() {
     let pre = 1;
     let post = 2;
     let block_of_change = 500;
@@ -181,7 +181,7 @@ fn test_schedule_change_after_change() {
 }
 
 #[test]
-fn test_schedule_change_no_delay() {
+unconstrained fn test_schedule_change_no_delay() {
     let pre = 1;
     let post = 2;
     let block_of_change = 500;

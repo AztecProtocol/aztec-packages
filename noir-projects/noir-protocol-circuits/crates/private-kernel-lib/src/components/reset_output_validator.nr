@@ -10,7 +10,7 @@ use dep::types::{
     utils::arrays::{assert_sorted_transformed_value_array, assert_sorted_transformed_value_array_capped_size}
 };
 
-struct ResetOutputValidator<
+pub struct ResetOutputValidator<
     let NH_RR_PENDING: u32,
     let NH_RR_SETTLED: u32,
     let NLL_RR_PENDING: u32,

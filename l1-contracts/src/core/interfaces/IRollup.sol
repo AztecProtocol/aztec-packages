@@ -57,7 +57,16 @@ interface IRollup {
     bytes calldata _proof
   ) external;
 
+  function submitEpochRootProof(
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[64] calldata _fees,
+    bytes calldata _aggregationObject,
+    bytes calldata _proof
+  ) external;
+
   function canProposeAtTime(uint256 _ts, bytes32 _archive) external view returns (uint256, uint256);
+
   function validateHeader(
     bytes calldata _header,
     SignatureLib.Signature[] memory _signatures,
@@ -107,4 +116,11 @@ interface IRollup {
   function nextEpochToClaim() external view returns (uint256);
   function validateEpochProofRightClaim(DataStructures.EpochProofQuote calldata _quote) external view;
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
+
+  function getEpochProofPublicInputs(
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[64] calldata _fees,
+    bytes calldata _aggregationObject
+  ) external view returns (bytes32[] memory);
 }

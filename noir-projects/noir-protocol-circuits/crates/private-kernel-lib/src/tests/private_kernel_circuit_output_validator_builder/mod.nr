@@ -19,7 +19,7 @@ use dep::types::{
     constants::PRIVATE_KERNEL_INIT_INDEX
 };
 
-struct PrivateKernelCircuitOutputValidatorBuilder {
+pub struct PrivateKernelCircuitOutputValidatorBuilder {
     previous_kernel: FixtureBuilder,
     private_call: FixtureBuilder,
     output: FixtureBuilder,
