@@ -2044,6 +2044,9 @@ template <typename Builder, typename T> void bigfield<Builder, T>::assert_less_t
 
 // check elements are equal mod p by proving their integer difference is a multiple of p.
 // This relies on the minus operator for a-b increasing a by a multiple of p large enough so diff is non-negative
+// When one of the elements is a constant and another is a witness we check equality of limbs, so if the witness
+// bigfield element is in an unreduced form, it needs to be reduced first. We don't have automatice reduced form
+// detection for now, so it is up to the circuit writer to detect this
 template <typename Builder, typename T> void bigfield<Builder, T>::assert_equal(const bigfield& other) const
 {
     Builder* ctx = this->context ? this->context : other.context;
