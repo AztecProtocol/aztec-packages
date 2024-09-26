@@ -13,7 +13,7 @@ unconstrained fn compute_unconstrained<Event, let N: u32>(
     ivpk: IvpkM,
     recipient: AztecAddress,
     event: Event
-) -> ([u8; 416 + N], Field) where Event: EventInterface<N> {
+) -> ([u8; 416 + N * 32], Field) where Event: EventInterface<N> {
     compute(
         contract_address,
         randomness,
@@ -33,9 +33,9 @@ fn compute<Event, let N: u32>(
     ivpk: IvpkM,
     recipient: AztecAddress,
     event: Event
-) -> ([u8; 416 + N], Field) where Event: EventInterface<N> {
+) -> ([u8; 416 + N * 32], Field) where Event: EventInterface<N> {
     let plaintext = event.private_to_be_bytes(randomness);
-    let encrypted_log: [u8; 416 + N] = compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
+    let encrypted_log: [u8; 416 + N * 32] = compute_encrypted_log(contract_address, ovsk_app, ovpk, ivpk, recipient, plaintext);
     let log_hash = sha256_to_field(encrypted_log);
     (encrypted_log, log_hash)
 }
@@ -47,7 +47,7 @@ fn emit_with_keys<Event, let N: u32>(
     ovpk: OvpkM,
     ivpk: IvpkM,
     iv: AztecAddress,
-    inner_compute: fn(AztecAddress, Field, Field, OvpkM, IvpkM, AztecAddress, Event) -> ([u8; 416 + N], Field)
+    inner_compute: fn(AztecAddress, Field, Field, OvpkM, IvpkM, AztecAddress, Event) -> ([u8; 416 + N * 32], Field)
 ) where Event: EventInterface<N> {
     let contract_address: AztecAddress = context.this_address();
     let ovsk_app: Field  = context.request_ovsk_app(ovpk.hash());
