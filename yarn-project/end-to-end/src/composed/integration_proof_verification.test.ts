@@ -29,6 +29,7 @@ import { getLogger, setupL1Contracts, startAnvil } from '../fixtures/utils.js';
 /**
  * Regenerate this test's fixture with
  * AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/end-to-end test e2e_prover
+ * TODO(palla/prover): Migrate to root rollup
  */
 describe('proof_verification', () => {
   let proof: Proof;

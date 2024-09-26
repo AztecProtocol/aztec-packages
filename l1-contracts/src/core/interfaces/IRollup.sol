@@ -9,7 +9,8 @@ import {SignatureLib} from "../libraries/SignatureLib.sol";
 import {DataStructures} from "../libraries/DataStructures.sol";
 
 interface ITestRollup {
-  function setVerifier(address _verifier) external;
+  function setBlockVerifier(address _verifier) external;
+  function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setAssumeProvenThroughBlockNumber(uint256 blockNumber) external;
 }
