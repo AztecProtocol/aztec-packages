@@ -5,7 +5,8 @@ libs = ['lib']
 solc = "0.8.23"
 
 remappings = [
-  "@oz/=lib/openzeppelin-contracts/contracts/"
+  "@oz/=lib/openzeppelin-contracts/contracts/",
+  "@aztec/=src"
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

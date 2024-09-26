@@ -2,10 +2,9 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-// Libraries
-import {Errors} from "../Errors.sol";
-import {Constants} from "../ConstantsGen.sol";
-import {Hash} from "../Hash.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 /**
  * @title Txs Decoder Library

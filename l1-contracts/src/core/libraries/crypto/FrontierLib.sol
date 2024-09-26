@@ -2,7 +2,7 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {Hash} from "../../libraries/Hash.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 /**
  * @title FrontierLib

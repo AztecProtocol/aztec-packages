@@ -2,8 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.18;
 
-import {Errors} from "../libraries/Errors.sol";
-import {Hash} from "../libraries/Hash.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 /**
  * @title Merkle Library

@@ -2,9 +2,8 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
-// Libraries
-import {Errors} from "./Errors.sol";
-import {Constants} from "./ConstantsGen.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 /**
  * @title Header Library

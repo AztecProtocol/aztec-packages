@@ -4,12 +4,12 @@ pragma solidity >=0.8.18;
 
 import {DecoderBase} from "./Base.sol";
 
-import {Hash} from "../../src/core/libraries/Hash.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 import {HeaderLibHelper} from "./helpers/HeaderLibHelper.sol";
 import {TxsDecoderHelper} from "./helpers/TxsDecoderHelper.sol";
-import {HeaderLib} from "../../src/core/libraries/HeaderLib.sol";
-import {Constants} from "../../src/core/libraries/ConstantsGen.sol";
+import {HeaderLib} from "@aztec/core/libraries/HeaderLib.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 
 /**
  * Blocks are generated using the `integration_l1_publisher.test.ts` tests.
