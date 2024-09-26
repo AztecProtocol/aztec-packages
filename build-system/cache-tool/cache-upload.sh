@@ -1,29 +1,34 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+set -eu
+
+# used by cache-update.sh, directly downloads a named tar file and extracts it
 
 if [ "$#" -lt 2 ]; then
-  echo "Usage: $0 <prefix> <files_to_upload...>"
-  exit 1
+    echo "Usage: $0 <binary_paths_to_tar.gz_and_upload...> <name_without_tar.gz_extension>"
+    exit 1
 fi
 
+# Extract the name without tar.gz extension
+NAME="${@: -1}"
+
+# Extract the binary paths to tar.gz and upload
+BIN_PATHS=("${@:1:$#-1}")
+
+TAR_DIR=$(mktemp -d)
+TAR_FILE="$TAR_DIR/${NAME}.tar.gz"
+
+function on_exit() {
+  # Cleanup the temporary folder
+  rm -rf "$TAR_DIR"
+}
+trap on_exit EXIT
+
+# Create the tar.gz file
+tar -czf "$TAR_FILE" "${BIN_PATHS[@]}"
+
+# Set cache server details
 AZTEC_CACHE_TOOL_IP=${AZTEC_CACHE_TOOL_IP:-"localhost"}
+AZTEC_CACHE_TOOL_PORT=${AZTEC_CACHE_TOOL_PORT:-8337}
 
-if ! nc -vz $AZTEC_CACHE_TOOL_IP $AZTEC_CACHE_TOOL_PORT ; then
-  echo "Aztec cache tool not running or not reachable. Not using cache. NOT erroring."
-  exit 0
-fi
-
-PREFIX="$1"
-shift
-FILES_TO_UPLOAD="$@"
-
-# Compute the content hashes inside AZTEC_CACHE_REBUILD_PATTERNS
-CONTENT_HASH=$($(dirname $0)/compute-content-hash.sh)
-
-echo "Content hash: $CONTENT_HASH"
-
-# Construct the tar.gz file name without extension
-NAME="${PREFIX}-${CONTENT_HASH}"
-
-# Call cache-upload-direct.sh with the files to upload and the tar.gz file name (without extension)
-$(dirname $0)/cache-upload-direct.sh "$FILES_TO_UPLOAD" "$NAME"
+# Upload the tar.gz file to the cache server
+curl -sS --output /dev/null -X POST -F "file=@${TAR_FILE}" "http://${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}/upload" || true

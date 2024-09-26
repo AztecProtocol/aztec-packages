@@ -27,4 +27,4 @@ fi
 
 # Sort the hashes and compute the content hash
 CONTENT_HASH=$(echo "$FILE_HASHES" | sort | git hash-object --stdin)
-echo $CONTENT_HASH
+echo "$CONTENT_HASH"

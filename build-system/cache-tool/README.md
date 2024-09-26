@@ -11,10 +11,10 @@ Note: It does not make much sense to do S3_READ=false if you set S3_WRITE=true, 
 Now once the server is running we can download files from the cache like so:
 We put a list of .rebuild_patterns files (that have regex matching files in git) into the AZTEC_CACHE_REBUILD_PATTERNS env variable and a prefix for our artifact.
 It does not need to be a unique name per build as our content hash will be appended.
-- AZTEC_CACHE_REBUILD_PATTERNS=barretenberg/cpp/.rebuild_patterns ./cache-download.sh barretenberg
+- AZTEC_CACHE_REBUILD_PATTERNS=barretenberg/cpp/.rebuild_patterns ./cache-download-pattern.sh barretenberg
 
 If we want to upload to the local or distributed cache (again depending if we started the server with S3_READ/S3_WRITE):
-- AZTEC_CACHE_REBUILD_PATTERNS=barretenberg/cpp/.rebuild_patterns ./cache-download.sh barretenberg
+- AZTEC_CACHE_REBUILD_PATTERNS=barretenberg/cpp/.rebuild_patterns ./cache-download-pattern.sh barretenberg
 
 If we want to write to our cache uing the local server we can do:
 

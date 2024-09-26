@@ -4,10 +4,6 @@ VERSION 0.8
 
 start-server:
   LOCALLY
-  RUN if ! git diff-index --quiet HEAD --; then \
-        echo "Error: You have unstaged changes. Please commit them and any new files before running Earthly so that caching works as intended (you can `git reset HEAD^` after if desired). If you find this inflexible, please request a change, however note the likely solution would be to disable caching in this case." ; \
-        exit 1 ; \
-      fi
   # TODO(AD): use secrets to decide whether to use s3 backing/storing
   RUN flock ~/.start-aztec-build-cache.lock ./start_server.sh || true
 
@@ -47,8 +43,8 @@ WRITE_CONTENT_HASH:
 # 3) first tries our rebuild pattern and context against our cache tool to see if we can use our cache
 # 4) if not, we build with $command
 # 5) then we try to upload with our cache tool for next time
-# note, if the cache tool is unreachable at $AZTEC_CACHE_TOOL_IP we silently fail cache-download.sh
-# and silently pass cache-upload.sh meaning the command always runs
+# note, if the cache tool is unreachable at $AZTEC_CACHE_TOOL_IP we silently fail cache-download-pattern.sh
+# and silently pass cache-upload-pattern.sh meaning the command always runs
 WITH_CACHE:
   FUNCTION
   ARG command
@@ -58,12 +54,16 @@ WITH_CACHE:
   RUN echo "--> RUN WITH CACHE $command (start)"
   DO +SETUP_CACHE
   DO +WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
-  # print a clean version as the one below will be obfuscated
-  # configure AWS access (note these can be blank if server started without s3 backing)
-  RUN --secret AZTEC_CACHE_TOOL_IP \
-      /usr/src/build-system/cache-tool/cache-download-direct.sh "$prefix-$(cat .content-hash).tar.gz" || \
-      (eval "$command" && /usr/src/build-system/cache-tool/cache-upload-direct.sh $build_artifacts "$prefix-$(cat .content-hash)")
-  RUN echo "--> RUN WITH CACHE $command (end)"
+  IF [$(cat .content_hash) == "uncommitted-changes"]
+    RUN $command
+  ELSE
+    # print a clean version as the one below will be obfuscated
+    # configure AWS access (note these can be blank if server started without s3 backing)
+    RUN --secret AZTEC_CACHE_TOOL_IP \
+        /usr/src/build-system/cache-tool/cache-download.sh "$prefix-$(cat .content-hash).tar.gz" || \
+        (eval "$command" && /usr/src/build-system/cache-tool/cache-upload.sh $build_artifacts "$prefix-$(cat .content-hash)")
+    RUN echo "--> RUN WITH CACHE $command (end)"
+  END
 
 test:
   FROM ../../build-images/+from-registry

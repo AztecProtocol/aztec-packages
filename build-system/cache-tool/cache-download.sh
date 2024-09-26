@@ -1,25 +1,31 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/bash
+set -eu
+
+# used by cache-download-, directhloads a named tar file and extracts it
 
 if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <prefix>"
-  exit 1
+    echo "Usage: $0 <tar.gz_file_to_download_and_extract>"
+    exit 1
 fi
 
-if ! nc -vz ${AZTEC_CACHE_TOOL_IP:-"localhost"} ${AZTEC_CACHE_TOOL_PORT:-8337} ; then
-  echo "Aztec cache tool not running or not reachable. Not using cache."
-  exit 1
-fi
+# Get the tar.gz file name from the argument
+TAR_FILE="$1"
 
-PREFIX="$1"
+function on_exit() {
+  # Cleanup the temporary tar.gz file
+  rm -f "$TAR_FILE"
+}
+# Run on any exit
+trap on_exit EXIT
 
-# Compute the content hashes inside AZTEC_CACHE_REBUILD_PATTERNS
-CONTENT_HASH=$($(dirname $0)/compute-content-hash.sh)
+# Set cache server details
+AZTEC_CACHE_TOOL_IP=${AZTEC_CACHE_TOOL_IP:-"localhost"}
+AZTEC_CACHE_TOOL_PORT=${AZTEC_CACHE_TOOL_PORT:-8337}
 
-echo "Content hash: $CONTENT_HASH"
+# Attempt to download the cache file
+curl -s -f -o "$TAR_FILE" "http://${AZTEC_CACHE_TOOL_IP}:${AZTEC_CACHE_TOOL_PORT}/${TAR_FILE}" || exit 1
 
-# Construct the tar.gz file name
-TAR_FILE="${PREFIX}-${CONTENT_HASH}.tar.gz"
+# Extract the cache file
+tar -xzf "$TAR_FILE"
 
-# Call cache-download-direct.sh with the tar.gz file name
-$(dirname $0)/cache-download-direct.sh "$TAR_FILE"
+echo "Cache download and extraction complete."

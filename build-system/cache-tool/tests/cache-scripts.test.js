@@ -123,10 +123,10 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
       const contentHash = await computeContentHash();
       uploadedTarFileName = `${PREFIX}-${contentHash}.tar.gz`;
 
-      // Run the cache-upload.sh script
+      // Run the cache-upload-pattern.sh script
       await new Promise((resolve, reject) => {
         const uploadProcess = spawn(
-          "./cache-upload.sh",
+          "./cache-upload-pattern.sh",
           [PREFIX, ...filesToUpload],
           {
             env: env,
@@ -247,10 +247,10 @@ describe("Cache Rebuild Patterns Scripts Tests", () => {
       }
     });
 
-    // Run the cache-download.sh script
+    // Run the cache-download-pattern.sh script
     await new Promise((resolve, reject) => {
       const downloadProcess = spawn(
-        "./cache-download.sh",
+        "./cache-download-pattern.sh",
         [PREFIX],
         {
           env: env,
