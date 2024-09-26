@@ -249,6 +249,8 @@ template <typename Builder, typename T> class bigfield {
     byte_array<Builder> to_byte_array() const
     {
         byte_array<Builder> result(get_context());
+        // Prevents aliases
+        assert_is_in_field();
         field_t<Builder> lo = binary_basis_limbs[0].element + (binary_basis_limbs[1].element * shift_1);
         field_t<Builder> hi = binary_basis_limbs[2].element + (binary_basis_limbs[3].element * shift_1);
         // n.b. this only works if NUM_LIMB_BITS * 2 is divisible by 8
