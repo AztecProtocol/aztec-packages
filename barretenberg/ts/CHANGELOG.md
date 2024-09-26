@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.56.0](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.55.1...barretenberg.js-v0.56.0) (2024-09-25)
+
+
+### Features
+
+* Use new IVC scheme ([#8480](https://github.com/AztecProtocol/aztec-packages/issues/8480)) ([1c7b06d](https://github.com/AztecProtocol/aztec-packages/commit/1c7b06d6621d9873f84147b2b7f1f22bf21bbacb))
+
+
+### Bug Fixes
+
+* Skip G1 SRS download if numPoints is zero ([#8717](https://github.com/AztecProtocol/aztec-packages/issues/8717)) ([753cdf8](https://github.com/AztecProtocol/aztec-packages/commit/753cdf8b047365b6280c0306fdc6f59f824f740b))
+
+
+### Miscellaneous
+
+* Migrate higher-level APIs for barretenberg to bb.js ([#8677](https://github.com/AztecProtocol/aztec-packages/issues/8677)) ([0237a20](https://github.com/AztecProtocol/aztec-packages/commit/0237a20c989f2b37a64ee18b41c1da361363a81f))
+
 ## [0.55.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.55.0...barretenberg.js-v0.55.1) (2024-09-17)
 
 

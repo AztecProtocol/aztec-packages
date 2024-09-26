@@ -10,7 +10,7 @@ use crate::oracle::notes::check_nullifier_exists;
 use crate::state_vars::storage::Storage;
 
 // docs:start:struct
-struct PrivateMutable<Note, Context> {
+pub struct PrivateMutable<Note, Context> {
     context: Context,
     storage_slot: Field
 }
@@ -68,11 +68,7 @@ impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext> where Note: Not
     // docs:end:replace
 
     pub fn initialize_or_replace(self, note: &mut Note) -> NoteEmission<Note> {
-        let is_initialized = unsafe {
-            check_nullifier_exists(self.compute_initialization_nullifier())
-        };
-
-        // check_nullifier_exists() is an unconstrained function - we can constrain a true value by providing an
+        // `check_nullifier_exists` is an unconstrained function - we can constrain a true value by providing an
         // inclusion proof of the nullifier, but cannot constrain a false value since a non-inclusion proof would only
         // be valid if done in public.
         // Ultimately, this is not an issue ginen that we'll either:
@@ -82,6 +78,10 @@ impl<Note, let N: u32> PrivateMutable<Note, &mut PrivateContext> where Note: Not
         //    an inclusion proof for the current note
         // This means that an honest oracle will assist the prover to produce a valid proof, while a malicious oracle
         // (i.e. one that returns an incorrect value for is_initialized) will simply fail to produce a proof.
+        let is_initialized = unsafe {
+            check_nullifier_exists(self.compute_initialization_nullifier())
+        };
+
         if (!is_initialized) {
             self.initialize(note)
         } else {

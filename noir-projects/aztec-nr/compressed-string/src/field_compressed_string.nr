@@ -2,7 +2,7 @@ use dep::aztec::protocol_types::{utils::field::field_from_bytes, traits::{Serial
 
 // A Fixedsize Compressed String.
 // Essentially a special version of Compressed String for practical use.
-struct FieldCompressedString{
+pub struct FieldCompressedString{
   value: Field
 }
 

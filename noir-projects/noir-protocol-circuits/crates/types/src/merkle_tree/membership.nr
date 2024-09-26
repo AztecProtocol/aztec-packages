@@ -6,7 +6,7 @@ use crate::{
     traits::Empty
 };
 
-struct MembershipWitness<let N: u32> {
+pub struct MembershipWitness<let N: u32> {
     leaf_index: Field,
     sibling_path: [Field; N]
 }

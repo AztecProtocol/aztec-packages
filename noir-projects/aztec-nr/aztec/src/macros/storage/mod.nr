@@ -142,21 +142,16 @@ comptime fn is_storage_map(typ: Type) -> bool {
 }
 
 comptime fn add_context_generic(typ: Type, context_generic: Type) -> Type {
-    assert(
-        typ.as_struct().is_some(), "Storage containers must be generic structs of the form `Container<..., Context>`"
-    );
+    let (def, mut generics) = typ.as_struct().expect(f"Storage containers must be generic structs of the form `Container<..., Context>`");
+    let name = def.name();
+
     if is_storage_map(typ) {
-        let (def, mut generics) = typ.as_struct().unwrap();
-        let name = def.name();
         generics[generics.len() - 2] = add_context_generic(generics[1], context_generic);
         generics[generics.len() - 1] = context_generic;
-        let generics = generics.map(|typ: Type| quote{$typ}).join(quote{,});
-        quote { $name<$generics> }.as_type()
     } else {
-        let (def, mut generics) = typ.as_struct().unwrap();
-        let name = def.name();
         generics[generics.len() - 1] = context_generic;
-        let generics = generics.map(|typ: Type| quote{$typ}).join(quote{,});
-        quote { $name<$generics> }.as_type()
     }
+
+    let generics = generics.map(|typ: Type| quote{$typ}).join(quote{,});
+    quote { $name<$generics> }.as_type()
 }

@@ -9,13 +9,13 @@ use crate::{
     utils::reader::Reader, traits::{Empty, Serialize, Deserialize}
 };
 
-struct CombinedAccumulatedData {
+pub struct CombinedAccumulatedData {
     note_hashes: [Field; MAX_NOTE_HASHES_PER_TX],
     nullifiers: [Field; MAX_NULLIFIERS_PER_TX],
     l2_to_l1_msgs: [ScopedL2ToL1Message; MAX_L2_TO_L1_MSGS_PER_TX],
 
     note_encrypted_logs_hashes: [LogHash; MAX_NOTE_ENCRYPTED_LOGS_PER_TX],
-    encrypted_logs_hashes: [ScopedLogHash; MAX_ENCRYPTED_LOGS_PER_TX], 
+    encrypted_logs_hashes: [ScopedLogHash; MAX_ENCRYPTED_LOGS_PER_TX],
     unencrypted_logs_hashes: [ScopedLogHash; MAX_UNENCRYPTED_LOGS_PER_TX],
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the

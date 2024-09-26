@@ -46,10 +46,13 @@ library Errors {
   // Rollup
   error Rollup__InsufficientBondAmount(uint256 minimum, uint256 provided); // 0xa165f276
   error Rollup__InvalidArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
+  error Rollup__InvalidBlockHash(bytes32 expected, bytes32 actual);
   error Rollup__InvalidBlockNumber(uint256 expected, uint256 actual); // 0xe5edf847
   error Rollup__InvalidChainId(uint256 expected, uint256 actual); // 0x37b5bc12
   error Rollup__InvalidEpoch(uint256 expected, uint256 actual); // 0x3c6d65e6
   error Rollup__InvalidInHash(bytes32 expected, bytes32 actual); // 0xcd6f4233
+  error Rollup__InvalidPreviousArchive(bytes32 expected, bytes32 actual); // 0xb682a40e
+  error Rollup__InvalidPreviousBlockHash(bytes32 expected, bytes32 actual);
   error Rollup__InvalidProof(); // 0xa5b2ba17
   error Rollup__InvalidProposedArchive(bytes32 expected, bytes32 actual); // 0x32532e73
   error Rollup__InvalidTimestamp(uint256 expected, uint256 actual); // 0x3132e895
