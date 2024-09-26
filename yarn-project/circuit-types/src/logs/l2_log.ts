@@ -100,9 +100,9 @@ export class L2Log {
     reader.readBytes(OUTGOING_BODY_SIZE);
 
     // The incoming can be of variable size, so we read until the end
-    const incomingBody = decrypt(reader.readToEnd(), ivsk, ephPk);
+    const incomingBodyPlaintext = decrypt(reader.readToEnd(), ivsk, ephPk);
 
-    return new L2Log(incomingTag, outgoingTag, AztecAddress.fromBuffer(incomingHeader), incomingBody);
+    return new L2Log(incomingTag, outgoingTag, AztecAddress.fromBuffer(incomingHeader), incomingBodyPlaintext);
   }
 
   /**
