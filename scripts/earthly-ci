@@ -34,16 +34,15 @@ function wipe_non_cache_docker_state {
 
 EARTHLY_RUN_STATS_JSON="earthly-run-stats.json"
 # Run earthly with our necesary secrets initialized
-# AWS credentials can be blank, only the odd test like build-system/cache-tool/+test need them
-# everything else relies on AZTEC_CACHE_TOOL_IP being set.
+# AWS credentials can be blank, however we will not use the S3 cache at all if so.
 if [ "$(git rev-parse --abbrev-ref HEAD)" = master ] ; then
   # We upload to S3 on master! One should be careful using this locally as a result.
-  AZTEC_CACHE_NO_S3_UPLOAD=false
+  S3_BUILD_CACHE_UPLOAD=false
 else
   # Don't upload to S3 on pull request branches (for now, at least)
-  AZTEC_CACHE_NO_S3_UPLOAD=true
+  S3_BUILD_CACHE_UPLOAD=true
 fi
-EARTHLY_ARGS="--logstream-debug-manifest-file $EARTHLY_RUN_STATS_JSON --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} --secret AZTEC_CACHE_TOOL_IP=$(hostname -I | awk '{print $1}') --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} --secret AZTEC_CACHE_NO_S3_UPLOAD=${AZTEC_CACHE_NO_S3_UPLOAD}"
+EARTHLY_ARGS="--logstream-debug-manifest-file $EARTHLY_RUN_STATS_JSON --secret AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} --secret AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} --secret AZTEC_BOT_COMMENTER_GITHUB_TOKEN=${AZTEC_BOT_GITHUB_TOKEN:-} --secret S3_BUILD_CACHE_UPLOAD=$S3_BUILD_CACHE_UPLOAD"
 
 function print_earthly_command_timings() {
   jq --version >/dev/null || return
