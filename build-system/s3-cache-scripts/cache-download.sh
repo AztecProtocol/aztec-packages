@@ -8,7 +8,7 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
-if [ "${AWS_ACCESS_KEY_ID}" == "" ] then
+if [ "${AWS_ACCESS_KEY_ID}" == "" ] ; then
   exit 1 # require a rebuild
 fi
 

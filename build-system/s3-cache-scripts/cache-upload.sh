@@ -8,7 +8,7 @@ if [ "$#" -lt 2 ]; then
   exit 1
 fi
 
-if [ "${S3_BUILD_CACHE_UPLOAD:-true}" = "false" ] || [ "${AWS_ACCESS_KEY_ID}" == "" ] then
+if [ "${S3_BUILD_CACHE_UPLOAD:-true}" = "false" ] || [ "${AWS_ACCESS_KEY_ID}" == "" ] ; then
   # Silently do nothing
   exit
 fi
