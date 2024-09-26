@@ -147,14 +147,6 @@ class GoblinProver {
     MergeProof prove_merge(MegaCircuitBuilder& circuit_builder)
     {
         BB_OP_COUNT_TIME_NAME("Goblin::merge");
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/993): Some circuits (particularly on the first call
-        // to accumulate) may not have any goblin ecc ops prior to the call to merge(), so the commitment to the new
-        // contribution (C_t_shift) in the merge prover will be the point at infinity. (Note: Some dummy ops are added
-        // in 'add_gates_to_ensure...' but not until proving_key construction which comes later). See issue for ideas
-        // about how to resolve.
-        if (circuit_builder.blocks.ecc_op.size() == 0) {
-            MockCircuits::construct_goblin_ecc_op_circuit(circuit_builder); // Add some arbitrary goblin ECC ops
-        }
 
         if (!merge_proof_exists) {
             merge_proof_exists = true;
