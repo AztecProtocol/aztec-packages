@@ -12,8 +12,6 @@ import { type IsEmpty, type PrivateCallStackItem, sortByCounter } from '@aztec/c
 import { type NoteSelector } from '@aztec/foundation/abi';
 import { type Fr } from '@aztec/foundation/fields';
 
-import { type ACVMField } from '../acvm/index.js';
-
 /**
  * The contents of a new note.
  */
@@ -58,7 +56,7 @@ export interface ExecutionResult {
   /** The verification key. */
   vk: Buffer;
   /** The partial witness. */
-  partialWitness: Map<number, ACVMField>;
+  partialWitness: Map<number, string>;
   // Needed for the verifier (kernel)
   /** The call stack item. */
   callStackItem: PrivateCallStackItem;

@@ -15,6 +15,7 @@ import {
 import { type NodeInfo } from '@aztec/types/interfaces';
 
 import { type AuthWitness } from '../auth_witness.js';
+import { ExecutionResult } from '../execution_result.js';
 import { type L2Block } from '../l2_block.js';
 import {
   type GetUnencryptedLogsResponse,
@@ -158,7 +159,7 @@ export interface PXE {
    * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean, scopes?: AztecAddress[]): Promise<Tx>;
+  proveTx(txRequest: TxExecutionRequest, executionResult: ExecutionResult): Promise<Tx>;
 
   /**
    * Simulates a transaction based on the provided preauthenticated execution request.

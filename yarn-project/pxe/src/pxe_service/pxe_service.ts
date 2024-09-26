@@ -59,13 +59,7 @@ import { getCanonicalInstanceDeployer } from '@aztec/protocol-contracts/instance
 import { getCanonicalMultiCallEntrypointAddress } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import {
   type AcirSimulator,
-  type ExecutionResult,
   accumulateReturnValues,
-  collectEnqueuedPublicFunctionCalls,
-  collectPublicTeardownFunctionCall,
-  collectSortedEncryptedLogs,
-  collectSortedNoteEncryptedLogs,
-  collectSortedUnencryptedLogs,
   resolveAssertionMessage,
   resolveOpcodeLocations,
 } from '@aztec/simulator';
@@ -510,12 +504,9 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
-  public proveTx(txRequest: TxExecutionRequest, simulatePublic: boolean, scopes?: AztecAddress[]): Promise<Tx> {
+  public proveTx(txRequest: TxExecutionRequest, executionResult: ExecutionResult): Promise<Tx> {
     return this.jobQueue.put(async () => {
-      const simulatedTx = await this.#simulateAndProve(txRequest, this.proofCreator, undefined, scopes);
-      if (simulatePublic) {
-        simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
-      }
+      const simulatedTx = await this.#prove(txRequest, this.proofCreator, executionResult);
       return simulatedTx.tx;
     });
   }
@@ -529,7 +520,7 @@ export class PXEService implements PXE {
     scopes?: AztecAddress[],
   ): Promise<SimulatedTx> {
     return await this.jobQueue.put(async () => {
-      const simulatedTx = await this.#simulateAndProve(txRequest, this.fakeProofCreator, msgSender, scopes);
+      const simulatedTx = await this.#simulate(txRequest, msgSender, scopes);
       if (simulatePublic) {
         simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
       }
@@ -794,15 +785,11 @@ export class PXEService implements PXE {
    * A private transaction object containing the proof, public inputs, and encrypted logs.
    * The return values of the private execution
    */
-  async #simulateAndProve(
+  async #prove(
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
-    msgSender?: AztecAddress,
-    scopes?: AztecAddress[],
+    executionResult: ExecutionResult,
   ): Promise<SimulatedTx> {
-    // Get values that allow us to reconstruct the block hash
-    const executionResult = await this.#simulate(txExecutionRequest, msgSender, scopes);
-
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);

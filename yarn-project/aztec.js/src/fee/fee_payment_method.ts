@@ -2,10 +2,12 @@ import { type FunctionCall } from '@aztec/circuit-types';
 import { type GasSettings } from '@aztec/circuits.js';
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 
+import { TxExecutionRequestComponent } from '../interactions/index.js';
+
 /**
  * Holds information about how the fee for a transaction is to be paid.
  */
-export interface FeePaymentMethod {
+export interface FeePaymentMethod extends TxExecutionRequestComponent {
   /** The asset used to pay the fee. */
   getAsset(): AztecAddress;
   /**
