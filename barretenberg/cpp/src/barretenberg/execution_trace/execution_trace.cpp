@@ -24,7 +24,7 @@ void ExecutionTrace_<Flavor>::populate(Builder& builder, typename Flavor::Provin
 
     if constexpr (IsGoblinFlavor<Flavor>) {
         ZoneScopedN("add_ecc_op_wires_to_proving_key");
-        add_ecc_op_wires_to_proving_key(builder, proving_key, is_structured);
+        add_ecc_op_wires_to_proving_key(builder, proving_key);
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
@@ -56,38 +56,6 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
     ZoneScopedN("construct_trace_data");
-    // Complete the public inputs execution trace block from builder.public_inputs
-    populate_public_inputs_block(builder);
-
-    // Allocate the wires and selectors polynomials
-    if constexpr (IsHonkFlavor<Flavor>) {
-        ZoneScopedN("allocating wires and selectors");
-        builder.blocks.compute_offsets(is_structured);
-        for (auto& wire : proving_key.polynomials.get_wires()) {
-            wire = Polynomial::shiftable(proving_key.circuit_size);
-        }
-        // Define gate selectors over the block they are isolated to
-        for (auto [selector, block] :
-             zip_view(proving_key.polynomials.get_gate_selectors(), builder.blocks.get_gate_blocks())) {
-
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/914): q_arith is currently used in aux block.
-            if (&block == &builder.blocks.arithmetic) {
-                size_t arith_size = builder.blocks.aux.trace_offset - builder.blocks.arithmetic.trace_offset +
-                                    builder.blocks.aux.get_fixed_size(is_structured);
-                info("arith_size: ", arith_size);
-                selector = Polynomial(arith_size, proving_key.circuit_size, builder.blocks.arithmetic.trace_offset);
-            } else {
-                info("block.fixed_size: ", block.get_fixed_size(is_structured));
-                selector =
-                    Polynomial(block.get_fixed_size(is_structured), proving_key.circuit_size, block.trace_offset);
-            }
-        }
-
-        // Set the other non-gate selector polynomials to full size
-        for (auto& selector : proving_key.polynomials.get_non_gate_selectors()) {
-            selector = Polynomial(proving_key.circuit_size);
-        }
-    }
 
     TraceData trace_data{ builder, proving_key };
 
@@ -140,40 +108,14 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
     return trace_data;
 }
 
-template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_block(Builder& builder)
-{
-    ZoneScopedN("populate_public_inputs_block");
-    // Update the public inputs block
-    for (auto& idx : builder.public_inputs) {
-        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-            if (wire_idx < 2) { // first two wires get a copy of the public inputs
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(idx);
-            } else { // the remaining wires get zeros
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(builder.zero_idx);
-            }
-        }
-        for (auto& selector : builder.blocks.pub_inputs.selectors) {
-            selector.emplace_back(0);
-        }
-    }
-}
-
 template <class Flavor>
 void ExecutionTrace_<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builder,
-                                                              typename Flavor::ProvingKey& proving_key,
-                                                              bool is_structured)
+                                                              typename Flavor::ProvingKey& proving_key)
     requires IsGoblinFlavor<Flavor>
 {
     auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
     const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
-    // Allocate the ecc op wires and selector
-    const size_t ecc_op_block_size = builder.blocks.ecc_op.get_fixed_size(is_structured);
-    if constexpr (IsHonkFlavor<Flavor>) {
-        for (auto& wire : proving_key.polynomials.get_ecc_op_wires()) {
-            wire = Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
-        }
-        ecc_op_selector = Polynomial(ecc_op_block_size, proving_key.circuit_size, op_wire_offset);
-    }
+
     // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
     const size_t num_ecc_ops = builder.blocks.ecc_op.size();
     for (auto [ecc_op_wire, wire] :

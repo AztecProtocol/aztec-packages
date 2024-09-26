@@ -4,6 +4,25 @@
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
+
+template <class Flavor> void DeciderProvingKey_<Flavor>::populate_public_inputs_block(Circuit& circuit)
+{
+    ZoneScopedN("populate_public_inputs_block");
+    // Update the public inputs block
+    for (const auto& idx : circuit.public_inputs) {
+        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+            if (wire_idx < 2) { // first two wires get a copy of the public inputs
+                circuit.blocks.pub_inputs.wires[wire_idx].emplace_back(idx);
+            } else { // the remaining wires get zeros
+                circuit.blocks.pub_inputs.wires[wire_idx].emplace_back(circuit.zero_idx);
+            }
+        }
+        for (auto& selector : circuit.blocks.pub_inputs.selectors) {
+            selector.emplace_back(0);
+        }
+    }
+}
+
 /**
  * @brief Helper method to compute quantities like total number of gates and dyadic circuit size
  *
@@ -40,53 +59,42 @@ template <class Flavor>
 void DeciderProvingKey_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires IsGoblinFlavor<Flavor>
 {
-    auto& public_calldata = proving_key.polynomials.calldata;
+    auto& calldata_poly = proving_key.polynomials.calldata;
     auto& calldata_read_counts = proving_key.polynomials.calldata_read_counts;
     auto& calldata_read_tags = proving_key.polynomials.calldata_read_tags;
-    auto& public_secondary_calldata = proving_key.polynomials.secondary_calldata;
+    auto& secondary_calldata_poly = proving_key.polynomials.secondary_calldata;
     auto& secondary_calldata_read_counts = proving_key.polynomials.secondary_calldata_read_counts;
     auto& secondary_calldata_read_tags = proving_key.polynomials.secondary_calldata_read_tags;
-    auto& public_return_data = proving_key.polynomials.return_data;
+    auto& return_data_poly = proving_key.polynomials.return_data;
     auto& return_data_read_counts = proving_key.polynomials.return_data_read_counts;
     auto& return_data_read_tags = proving_key.polynomials.return_data_read_tags;
 
     auto calldata = circuit.get_calldata();
     auto secondary_calldata = circuit.get_secondary_calldata();
     auto return_data = circuit.get_return_data();
-
-    public_calldata = Polynomial(calldata.size(), proving_key.circuit_size);
-    calldata_read_counts = Polynomial(calldata.size(), proving_key.circuit_size);
-    calldata_read_tags = Polynomial(calldata.size(), proving_key.circuit_size);
-    public_secondary_calldata = Polynomial(secondary_calldata.size(), proving_key.circuit_size);
-    secondary_calldata_read_counts = Polynomial(secondary_calldata.size(), proving_key.circuit_size);
-    secondary_calldata_read_tags = Polynomial(secondary_calldata.size(), proving_key.circuit_size);
-    public_return_data = Polynomial(return_data.size(), proving_key.circuit_size);
-    return_data_read_counts = Polynomial(return_data.size(), proving_key.circuit_size);
-    return_data_read_tags = Polynomial(return_data.size(), proving_key.circuit_size);
+    info("calldata.size(): ", calldata.size());
+    info("secondary_calldata.size(): ", secondary_calldata.size());
+    info("return_data.size(): ", return_data.size());
 
     // Note: We do not utilize a zero row for databus columns
     for (size_t idx = 0; idx < calldata.size(); ++idx) {
-        public_calldata.at(idx) = circuit.get_variable(calldata[idx]);      // calldata values
+        calldata_poly.at(idx) = circuit.get_variable(calldata[idx]);        // calldata values
         calldata_read_counts.at(idx) = calldata.get_read_count(idx);        // read counts
         calldata_read_tags.at(idx) = calldata_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
     }
     for (size_t idx = 0; idx < secondary_calldata.size(); ++idx) {
-        public_secondary_calldata.at(idx) = circuit.get_variable(secondary_calldata[idx]); // secondary_calldata values
-        secondary_calldata_read_counts.at(idx) = secondary_calldata.get_read_count(idx);   // read counts
+        secondary_calldata_poly.at(idx) = circuit.get_variable(secondary_calldata[idx]); // secondary_calldata values
+        secondary_calldata_read_counts.at(idx) = secondary_calldata.get_read_count(idx); // read counts
         secondary_calldata_read_tags.at(idx) =
             secondary_calldata_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
     }
     for (size_t idx = 0; idx < return_data.size(); ++idx) {
-        public_return_data.at(idx) = circuit.get_variable(return_data[idx]);      // return data values
+        return_data_poly.at(idx) = circuit.get_variable(return_data[idx]);        // return data values
         return_data_read_counts.at(idx) = return_data.get_read_count(idx);        // read counts
         return_data_read_tags.at(idx) = return_data_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
     }
 
     auto& databus_id = proving_key.polynomials.databus_id;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1107): Restricting databus_id to databus_size leads to
-    // failure.
-    // const size_t databus_size = std::max({ calldata.size(), secondary_calldata.size(), return_data.size() });
-    databus_id = Polynomial(proving_key.circuit_size, proving_key.circuit_size);
     // Compute a simple identity polynomial for use in the databus lookup argument
     for (size_t i = 0; i < databus_id.size(); ++i) {
         databus_id.at(i) = i;

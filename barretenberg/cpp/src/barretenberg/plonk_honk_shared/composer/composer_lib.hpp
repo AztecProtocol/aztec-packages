@@ -22,16 +22,16 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
     //  |          table     randomness
     //  ignored, as used for regular constraints and padding to the next power of 2.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-    const size_t tables_size = circuit.get_tables_size();
-    ASSERT(dyadic_circuit_size > tables_size + additional_offset);
-    info("size of table polynomials: ", tables_size);
-    size_t offset = dyadic_circuit_size - tables_size - additional_offset;
-
-    // Allocate the table polynomials
-    if constexpr (IsHonkFlavor<Flavor>) {
-        for (auto& poly : table_polynomials) {
-            poly = typename Flavor::Polynomial(tables_size, dyadic_circuit_size, offset);
-        }
+    size_t offset = 0;
+    if constexpr (IsPlonkFlavor<Flavor>) {
+        const size_t tables_size = circuit.get_tables_size();
+        ASSERT(dyadic_circuit_size > tables_size + additional_offset);
+        offset = dyadic_circuit_size - tables_size - additional_offset;
+    } else {
+        const size_t max_tables_size =
+            std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size - additional_offset);
+        ASSERT(dyadic_circuit_size > max_tables_size + additional_offset);
+        offset = dyadic_circuit_size - max_tables_size - additional_offset;
     }
 
     for (const auto& table : circuit.lookup_tables) {
@@ -60,14 +60,9 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::CircuitBuilder& circuit,
                                   const size_t dyadic_circuit_size)
 {
-    const size_t tables_size = circuit.get_tables_size();
+    const size_t max_tables_size = std::min(static_cast<size_t>(MAX_LOOKUP_TABLES_SIZE), dyadic_circuit_size);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1033): construct tables and counts at top of trace
-    size_t table_offset = dyadic_circuit_size - tables_size;
-    // Allocate the read counts and tags polynomials
-    if constexpr (IsHonkFlavor<Flavor>) {
-        read_counts = typename Flavor::Polynomial(tables_size, dyadic_circuit_size, table_offset);
-        read_tags = typename Flavor::Polynomial(tables_size, dyadic_circuit_size, table_offset);
-    }
+    size_t table_offset = dyadic_circuit_size - max_tables_size;
 
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
     for (auto& table : circuit.lookup_tables) {

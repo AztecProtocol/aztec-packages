@@ -344,6 +344,8 @@ Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t
     if (new_start_index == start_index() && new_end_index == end_index()) {
         return *this;
     }
+    // try seeing if we ever use this now
+    ASSERT(0);
     Polynomial result = *this;
     // Make new_start_index..new_end_index usable
     result.coefficients_ = _clone(coefficients_, new_end_index - end_index(), start_index() - new_start_index);

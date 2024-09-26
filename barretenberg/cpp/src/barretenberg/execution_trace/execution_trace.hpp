@@ -104,14 +104,6 @@ template <class Flavor> class ExecutionTrace_ {
                                           bool is_structured = false);
 
     /**
-     * @brief Populate the public inputs block
-     * @details The first two wires are a copy of the public inputs and the other wires and all selectors are zero
-     *
-     * @param builder
-     */
-    static void populate_public_inputs_block(Builder& builder);
-
-    /**
      * @brief Construct and add the goblin ecc op wires to the proving key
      * @details The ecc op wires vanish everywhere except on the ecc op block, where they contain a copy of the ecc op
      * data assumed already to be present in the corrresponding block of the conventional wires in the proving key.
@@ -119,9 +111,7 @@ template <class Flavor> class ExecutionTrace_ {
      * @param builder
      * @param proving_key
      */
-    static void add_ecc_op_wires_to_proving_key(Builder& builder,
-                                                typename Flavor::ProvingKey& proving_key,
-                                                bool is_structured)
+    static void add_ecc_op_wires_to_proving_key(Builder& builder, typename Flavor::ProvingKey& proving_key)
         requires IsGoblinFlavor<Flavor>;
 };
 
