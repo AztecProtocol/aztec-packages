@@ -111,13 +111,14 @@
       }
     },
     {
-      "name": "tracy",
+      "name": "tracy-memory",
       "displayName": "Release build with tracy, optimized for memory tracking",
       "description": "Release build with tracy, optimized for memory tracking",
       "inherits": "clang16",
       "binaryDir": "build-tracy",
       "cacheVariables": {
-        "ENABLE_TRACY": "ON"
+        "ENABLE_TRACY": "ON",
+        "TRACY_PROFILE_MEMORY": "ON"
       }
     },
     {
@@ -503,9 +504,9 @@
       "configurePreset": "clang16-dbg"
     },
     {
-      "name": "tracy",
+      "name": "tracy-memory",
       "inherits": "default",
-      "configurePreset": "tracy"
+      "configurePreset": "tracy-memory"
     },
     {
       "name": "tracy-time",
