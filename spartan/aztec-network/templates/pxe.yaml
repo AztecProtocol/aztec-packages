@@ -1,3 +1,4 @@
+{{- if .Values.network.enableBots }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -65,7 +66,7 @@ metadata:
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.pxe.service.type }}
+  type: {{if .Values.network.public }}"LoadBalancer"{{ else }}"ClusterIP"{{ end }}
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: pxe
@@ -76,3 +77,4 @@ spec:
       {{- if and (eq .Values.pxe.service.type "NodePort") .Values.pxe.service.nodePort }}
       nodePort: {{ .Values.pxe.service.nodePort }}
       {{- end }}
+{{- end }}
