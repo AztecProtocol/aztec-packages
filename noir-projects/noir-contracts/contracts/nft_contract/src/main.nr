@@ -162,14 +162,14 @@ contract NFT {
         };
         // `from` cannot receive any logs here as that would leak information of who is the note recipient. For this
         // reason we encrypt outgoing to `to`.
-        let encrypted_log: [u8; 480] = dep::aztec::encrypted_logs::payload::compute_encrypted_note_log(
+        let plaintext = hacky_nft_note.to_be_bytes(to_note_slot);
+        let encrypted_log: [u8; 480] = dep::aztec::encrypted_logs::payload::compute_encrypted_log(
             context.this_address(),
-            to_note_slot,
             context.request_ovsk_app(to_public_keys.ovpk_m.hash()),
             to_public_keys.ovpk_m,
             to_public_keys.ivpk_m,
             to,
-            hacky_nft_note
+            plaintext
         );
         let log_hash = dep::aztec::protocol_types::hash::sha256_to_field(encrypted_log);
 

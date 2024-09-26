@@ -14,7 +14,7 @@ impl NullifiableNote for NFTNote {
         0
     }
 
-    fn compute_nullifier_without_context(self) -> Field {
+    unconstrained fn compute_nullifier_without_context(self) -> Field {
         0
     }
 }
