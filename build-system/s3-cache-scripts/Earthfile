@@ -41,12 +41,15 @@ WITH_CACHE:
   ARG prefix
   ARG rebuild_patterns
   ARG build_artifacts
+  # print a clean version as the one below will be obfuscated
   RUN echo "--> RUN WITH CACHE $command (start)"
   DO +SETUP_CACHE
   DO +WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
-  # print a clean version as the one below will be obfuscated
-  # configure AWS access (note these can be blank if server started without s3 backing)
-  RUN --secret AWS_ACCESS_KEY_ID --secret AWS_SECRET_ACCESS_KEY --secret S3_BUILD_CACHE_UPLOAD \
+  # configure AWS access and S3 cache params (note these can be blank if not using S3 build cache)
+  RUN --secret AWS_ACCESS_KEY_ID \
+      --secret AWS_SECRET_ACCESS_KEY \
+      --secret S3_BUILD_CACHE_UPLOAD \
+      --secret S3_BUILD_CACHE_DOWNLOAD \
       /usr/src/build-system/s3-cache-scripts/cache-download.sh "$prefix-$(cat .content-hash).tar.gz" || \
       (eval "$command" && /usr/src/build-system/s3-cache-scripts/cache-upload.sh $build_artifacts "$prefix-$(cat .content-hash)")
   RUN echo "--> RUN WITH CACHE $command (end)"

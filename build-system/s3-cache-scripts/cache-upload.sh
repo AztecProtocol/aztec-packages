@@ -16,12 +16,6 @@ fi
 # Extract the name without tar.gz extension
 NAME="${@: -1}"
 
-# check for the pattern emitted by compute-content-hash-if-git-clean.sh
-if [ "$NAME" = *uncommitted-changes* ] ; then
-  # Silently do nothing
-  exit
-fi
-
 # Extract the binary paths to tar.gz and upload
 BIN_PATHS=("${@:1:$#-1}")
 

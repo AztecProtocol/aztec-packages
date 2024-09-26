@@ -8,17 +8,12 @@ if [ "$#" -ne 1 ]; then
     exit 1
 fi
 
-if [ "${AWS_ACCESS_KEY_ID}" == "" ] ; then
+if [ "${S3_BUILD_CACHE_DOWNLOAD:-true}" = "false" ] || [ "${AWS_ACCESS_KEY_ID}" == "" ] ; then
   exit 1 # require a rebuild
 fi
 
 # Get the tar.gz file name from the argument
 TAR_FILE="$1"
-
-# check for the pattern emitted by compute-content-hash-if-git-clean.sh
-if [ "$TAR_FILE" = *uncommitted-changes* ] ; then
-  exit 1 # require a rebuild
-fi
 
 function on_exit() {
   # Cleanup the temporary tar.gz file
