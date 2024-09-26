@@ -99,6 +99,9 @@ export class TXEService {
     publicKeysHash: ForeignCallSingle,
     secretKey: ForeignCallSingle,
   ) {
+    // This will overwrite publicKeysHash with the correctly calculated publicKeysHash if a secret key is passed in from nr
+    // This enables the ability for us to deploy a contract with keys that can receive and nullify notes
+    // We need to calculate the instance from this new public keys hash first (see below.)
     if (!fromSingle(secretKey).equals(Fr.ZERO)) {
       publicKeysHash = toSingle(deriveKeys(fromSingle(secretKey)).publicKeys.hash());
     }
@@ -121,6 +124,7 @@ export class TXEService {
       deployer: AztecAddress.ZERO,
     });
 
+    // Once we get the instance from using the public keys hash, we need to calculate the complete address and add it to our TXE so it can receive and spend the notes sent to it.
     if (!fromSingle(secretKey).equals(Fr.ZERO)) {
       const keyStore = (this.typedOracle as TXE).getKeyStore();
       const completeAddress = await keyStore.addAccount(fromSingle(secretKey), computePartialAddress(instance));
@@ -270,7 +274,12 @@ export class TXEService {
       );
     } catch (err) {
       if (!(err instanceof SimulationError)) {
-        throw new Error('Private call failed with an unexpected error');
+        // When we expect the call to fail, we are expecting specifically a Simulation Error and nothing else.
+        // When an error happens in the simulation, or if there are any duplicate nullifiers emitted, we throw this error that tells
+        // the TXE that the call failed where expected. This means that any other unexpected error will still bubble up to the surface e.g.
+        // errors when trying to pack arguments, getting an initial witness, getting a function artifact, etc.
+        throw new Error(`assertPrivateCallFails expected a Simulation Error to be thrown, but it failed with a different error. This is unexpected behavior.
+          Actual error: ${err}`);
       }
       return toForeignCallResult([]);
     }

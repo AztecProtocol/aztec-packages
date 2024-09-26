@@ -314,16 +314,18 @@ export class TXE implements TypedOracle {
     return contractInstance;
   }
 
+  // TODO (#8809): This function as is does not work for note hashes at all
+  // This is because when we add the notes into our trees, via `addNoteHashes`, we add the hashes after siloing them with the contract address
+  // The issue is when we are trying to get the note hashes later, we are getting them and passing in the raw note hash, without siloing them to contract address, so they will never show up here.
+  // They are not siloed because all notes created in the TXE have a nonce of 0, indicating that they are transient notes.
+  // Similarly when nullifiers are emitted, but each nullified note from a different contract *can* nullify other notes if they have the exact same preimage.
   async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[] | undefined> {
     const db = await this.#getTreesAt(blockNumber);
-    const siloedLeafValue = treeId === MerkleTreeId.NOTE_HASH_TREE ? siloNoteHash(this.contractAddress, leafValue) : leafValue;
-    const index = await db.findLeafIndex(treeId, siloedLeafValue);
-
-    if (index === undefined) {
-      throw new Error(`Leaf value: ${siloedLeafValue} not found in ${MerkleTreeId[treeId]} at block ${blockNumber}`);
+    const index = await db.findLeafIndex(treeId, leafValue.toBuffer());
+    if (!index) {
+      throw new Error(`Leaf value: ${leafValue} not found in ${MerkleTreeId[treeId]} at block ${blockNumber}`);
     }
     const siblingPath = await db.getSiblingPath(treeId, index);
-
     return [new Fr(index), ...siblingPath.toFields()];
   }
 
@@ -696,7 +698,7 @@ export class TXE implements TypedOracle {
         this.sideEffectsCounter = originalSideEffectsCounter;
         const newNoteLength = this.noteCache.getAllNotes().length;
         this.noteCache.removeNotesFromCache(newNoteLength - originalNotesLength);
-        throw new Error();
+        throw new Error('Could not add nullifiers to the state tree');
       }
 
       await this.addNoteHashes(
