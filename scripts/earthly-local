@@ -16,11 +16,14 @@ elif [ ! -z "${S3_BUILD_CACHE_MOCK:-}" ] ; then
   mkdir -p ~/.minio/data
 
   echo "Mocking S3 cache with local file server."
-  docker run -d -p 12000:12000 -p 12001:12001 -v ~/.minio/data:/data \
+  docker run -d -p 12000:9000 -p 12001:12001 -v ~/.minio/data:/data \
     quay.io/minio/minio server /data --console-address ":12001" || true
+  AWS_SECRET_ACCESS_KEY=minioadmin
+  AWS_ACCESS_KEY_ID=minioadmin
   S3_BUILD_CACHE_UPLOAD=true
   S3_BUILD_CACHE_DOWNLOAD=true
   S3_BUILD_CACHE_AWS_PARAMS="--endpoint-url http://$(hostname -I | awk '{print $1}'):12000"
+  aws --endpoint-url http://localhost:12000 s3 mb s3://aztec-ci-artifacts
 elif [ ! -z "${AWS_ACCESS_KEY_ID:-}" ] ; then
   S3_BUILD_CACHE_DOWNLOAD=true
 fi

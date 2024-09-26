@@ -34,4 +34,4 @@ tar -czf "$TAR_FILE" "${BIN_PATHS[@]}"
 # flag to disable uploads
 S3_BUILD_CACHE_UPLOAD=${S3_BUILD_CACHE_UPLOAD:-false}
 
-aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$TAR_FILE" --quiet
+aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$NAME.tar.gz" --quiet
