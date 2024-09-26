@@ -21,6 +21,8 @@ import {TxsDecoderHelper} from "../decoders/helpers/TxsDecoderHelper.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 
+import {Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+
 // solhint-disable comprehensive-interface
 
 /**
@@ -29,6 +31,8 @@ import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
  */
 contract SpartaTest is DecoderBase {
   using MessageHashUtils for bytes32;
+  using SlotLib for Slot;
+  using EpochLib for Epoch;
 
   struct StructToAvoidDeepStacks {
     uint256 needed;
@@ -109,12 +113,12 @@ contract SpartaTest is DecoderBase {
   }
 
   function testProposerForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
-    uint256 pre = rollup.getCurrentEpoch();
+    Epoch pre = rollup.getCurrentEpoch();
     vm.warp(
       block.timestamp + uint256(_epochsToJump) * rollup.EPOCH_DURATION() * rollup.SLOT_DURATION()
     );
-    uint256 post = rollup.getCurrentEpoch();
-    assertEq(pre + _epochsToJump, post, "Invalid epoch");
+    Epoch post = rollup.getCurrentEpoch();
+    assertEq(pre + Epoch.wrap(_epochsToJump), post, "Invalid epoch");
 
     address expectedProposer = rollup.getCurrentProposer();
 

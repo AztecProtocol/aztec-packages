@@ -14,6 +14,8 @@ import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
 import {Ownable} from "@oz/access/Ownable.sol";
 
+import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
+
 /**
  * @title   Leonidas
  * @author  Anaxandridas II
@@ -33,13 +35,16 @@ contract Leonidas is Ownable, ILeonidas {
   using SignatureLib for SignatureLib.Signature;
   using MessageHashUtils for bytes32;
 
+  using SlotLib for Slot;
+  using EpochLib for Epoch;
+
   /**
    * @notice  The data structure for an epoch
    * @param committee - The validator set for the epoch
    * @param sampleSeed - The seed used to sample the validator set of the epoch
    * @param nextSeed - The seed used to influence the NEXT epoch
    */
-  struct Epoch {
+  struct EpochData {
     address[] committee;
     uint256 sampleSeed;
     uint256 nextSeed;
@@ -66,19 +71,19 @@ contract Leonidas is Ownable, ILeonidas {
   uint256 public constant TARGET_COMMITTEE_SIZE = Constants.AZTEC_TARGET_COMMITTEE_SIZE;
 
   // The time that the contract was deployed
-  uint256 public immutable GENESIS_TIME;
+  Timestamp public immutable GENESIS_TIME;
 
   // An enumerable set of validators that are up to date
   EnumerableSet.AddressSet private validatorSet;
 
   // A mapping to snapshots of the validator set
-  mapping(uint256 epochNumber => Epoch epoch) public epochs;
+  mapping(Epoch => EpochData) public epochs;
 
   // The last stored randao value, same value as `seed` in the last inserted epoch
   uint256 private lastSeed;
 
   constructor(address _ares) Ownable(_ares) {
-    GENESIS_TIME = block.timestamp;
+    GENESIS_TIME = Timestamp.wrap(block.timestamp);
   }
 
   /**
@@ -120,7 +125,7 @@ contract Leonidas is Ownable, ILeonidas {
    *
    * @return The validator set for the given epoch
    */
-  function getEpochCommittee(uint256 _epoch)
+  function getEpochCommittee(Epoch _epoch)
     external
     view
     override(ILeonidas)
@@ -134,7 +139,7 @@ contract Leonidas is Ownable, ILeonidas {
    * @return The validator set for the current epoch
    */
   function getCurrentEpochCommittee() external view override(ILeonidas) returns (address[] memory) {
-    return getCommitteeAt(block.timestamp);
+    return getCommitteeAt(Timestamp.wrap(block.timestamp));
   }
 
   /**
@@ -159,8 +164,8 @@ contract Leonidas is Ownable, ILeonidas {
    *          https://i.giphy.com/U1aN4HTfJ2SmgB2BBK.webp
    */
   function setupEpoch() public override(ILeonidas) {
-    uint256 epochNumber = getCurrentEpoch();
-    Epoch storage epoch = epochs[epochNumber];
+    Epoch epochNumber = getCurrentEpoch();
+    EpochData storage epoch = epochs[epochNumber];
 
     if (epoch.sampleSeed == 0) {
       epoch.sampleSeed = _getSampleSeed(epochNumber);
@@ -204,8 +209,8 @@ contract Leonidas is Ownable, ILeonidas {
    *
    * @return The current epoch number
    */
-  function getCurrentEpoch() public view override(ILeonidas) returns (uint256) {
-    return getEpochAt(block.timestamp);
+  function getCurrentEpoch() public view override(ILeonidas) returns (Epoch) {
+    return getEpochAt(Timestamp.wrap(block.timestamp));
   }
 
   /**
@@ -213,8 +218,8 @@ contract Leonidas is Ownable, ILeonidas {
    *
    * @return The current slot number
    */
-  function getCurrentSlot() public view override(ILeonidas) returns (uint256) {
-    return getSlotAt(block.timestamp);
+  function getCurrentSlot() public view override(ILeonidas) returns (Slot) {
+    return getSlotAt(Timestamp.wrap(block.timestamp));
   }
 
   /**
@@ -224,13 +229,13 @@ contract Leonidas is Ownable, ILeonidas {
    *
    * @return The timestamp for the given slot
    */
-  function getTimestampForSlot(uint256 _slotNumber)
+  function getTimestampForSlot(Slot _slotNumber)
     public
     view
     override(ILeonidas)
-    returns (uint256)
+    returns (Timestamp)
   {
-    return _slotNumber * SLOT_DURATION + GENESIS_TIME;
+    return GENESIS_TIME + _slotNumber.toTimestamp();
   }
 
   /**
@@ -241,7 +246,7 @@ contract Leonidas is Ownable, ILeonidas {
    * @return The address of the proposer
    */
   function getCurrentProposer() public view override(ILeonidas) returns (address) {
-    return getProposerAt(block.timestamp);
+    return getProposerAt(Timestamp.wrap(block.timestamp));
   }
 
   /**
@@ -265,11 +270,11 @@ contract Leonidas is Ownable, ILeonidas {
    *
    * @return The address of the proposer
    */
-  function getProposerAt(uint256 _ts) public view override(ILeonidas) returns (address) {
-    uint256 epochNumber = getEpochAt(_ts);
-    uint256 slot = getSlotAt(_ts);
+  function getProposerAt(Timestamp _ts) public view override(ILeonidas) returns (address) {
+    Epoch epochNumber = getEpochAt(_ts);
+    Slot slot = getSlotAt(_ts);
 
-    Epoch storage epoch = epochs[epochNumber];
+    EpochData storage epoch = epochs[epochNumber];
 
     // If the epoch is setup, we can just return the proposer. Otherwise we have to emulate sampling
     if (epoch.sampleSeed != 0) {
@@ -300,8 +305,8 @@ contract Leonidas is Ownable, ILeonidas {
    *
    * @return The computed epoch
    */
-  function getEpochAt(uint256 _ts) public view override(ILeonidas) returns (uint256) {
-    return _ts < GENESIS_TIME ? 0 : (_ts - GENESIS_TIME) / (EPOCH_DURATION * SLOT_DURATION);
+  function getEpochAt(Timestamp _ts) public view override(ILeonidas) returns (Epoch) {
+    return _ts < GENESIS_TIME ? Epoch.wrap(0) : EpochLib.fromTimestamp(_ts - GENESIS_TIME);
   }
 
   /**
@@ -311,8 +316,8 @@ contract Leonidas is Ownable, ILeonidas {
    *
    * @return The computed slot
    */
-  function getSlotAt(uint256 _ts) public view override(ILeonidas) returns (uint256) {
-    return _ts < GENESIS_TIME ? 0 : (_ts - GENESIS_TIME) / SLOT_DURATION;
+  function getSlotAt(Timestamp _ts) public view override(ILeonidas) returns (Slot) {
+    return _ts < GENESIS_TIME ? Slot.wrap(0) : SlotLib.fromTimestamp(_ts - GENESIS_TIME);
   }
 
   /**
@@ -323,9 +328,9 @@ contract Leonidas is Ownable, ILeonidas {
     validatorSet.add(_validator);
   }
 
-  function getCommitteeAt(uint256 _ts) internal view returns (address[] memory) {
-    uint256 epochNumber = getEpochAt(_ts);
-    Epoch storage epoch = epochs[epochNumber];
+  function getCommitteeAt(Timestamp _ts) internal view returns (address[] memory) {
+    Epoch epochNumber = getEpochAt(_ts);
+    EpochData storage epoch = epochs[epochNumber];
 
     if (epoch.sampleSeed != 0) {
       uint256 committeeSize = epoch.committee.length;
@@ -362,12 +367,12 @@ contract Leonidas is Ownable, ILeonidas {
    * @param _digest - The digest of the block
    */
   function _validateLeonidas(
-    uint256 _slot,
+    Slot _slot,
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
     DataStructures.ExecutionFlags memory _flags
   ) internal view {
-    uint256 ts = getTimestampForSlot(_slot);
+    Timestamp ts = getTimestampForSlot(_slot);
     address proposer = getProposerAt(ts);
 
     // If the proposer is open, we allow anyone to propose without needing any signatures
@@ -425,7 +430,7 @@ contract Leonidas is Ownable, ILeonidas {
    *
    * @return The computed seed
    */
-  function _computeNextSeed(uint256 _epoch) private view returns (uint256) {
+  function _computeNextSeed(Epoch _epoch) private view returns (uint256) {
     return uint256(keccak256(abi.encode(_epoch, block.prevrandao)));
   }
 
@@ -472,8 +477,8 @@ contract Leonidas is Ownable, ILeonidas {
    *
    * @return The sample seed for the epoch
    */
-  function _getSampleSeed(uint256 _epoch) private view returns (uint256) {
-    if (_epoch == 0) {
+  function _getSampleSeed(Epoch _epoch) private view returns (uint256) {
+    if (Epoch.unwrap(_epoch) == 0) {
       return type(uint256).max;
     }
     uint256 sampleSeed = epochs[_epoch].sampleSeed;
@@ -481,7 +486,7 @@ contract Leonidas is Ownable, ILeonidas {
       return sampleSeed;
     }
 
-    sampleSeed = epochs[_epoch - 1].nextSeed;
+    sampleSeed = epochs[_epoch - Epoch.wrap(1)].nextSeed;
     if (sampleSeed != 0) {
       return sampleSeed;
     }
@@ -499,7 +504,7 @@ contract Leonidas is Ownable, ILeonidas {
    *
    * @return The index of the proposer
    */
-  function _computeProposerIndex(uint256 _epoch, uint256 _slot, uint256 _seed, uint256 _size)
+  function _computeProposerIndex(Epoch _epoch, Slot _slot, uint256 _seed, uint256 _size)
     private
     pure
     returns (uint256)
