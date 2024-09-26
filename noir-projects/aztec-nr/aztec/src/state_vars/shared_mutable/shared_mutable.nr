@@ -1,7 +1,4 @@
-use dep::protocol_types::{
-    hash::{pedersen_hash, poseidon2_hash}, header::Header, address::AztecAddress,
-    traits::{FromField, ToField}
-};
+use dep::protocol_types::{hash::{pedersen_hash, poseidon2_hash}, address::AztecAddress, traits::{FromField, ToField}};
 
 use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
 use crate::state_vars::{
