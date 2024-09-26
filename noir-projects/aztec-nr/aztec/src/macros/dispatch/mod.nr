@@ -57,7 +57,11 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         let call = quote { $name($args) };
 
         let return_code = if return_type == unit {
-            quote { $call }
+            quote {
+                $call;
+                // Force early return.
+                dep::aztec::context::public_context::avm_return([]);
+            }
         } else {
             quote {
                 let return_value = dep::aztec::protocol_types::traits::Serialize::serialize($call);
