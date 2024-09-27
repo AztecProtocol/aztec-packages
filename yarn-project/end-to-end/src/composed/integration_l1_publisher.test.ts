@@ -314,11 +314,11 @@ describe('L1Publisher integration', () => {
   };
 
   const buildBlock = async (globalVariables: GlobalVariables, txs: ProcessedTx[], l1ToL2Messages: Fr[]) => {
-    const blockTicket = await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
+    await builder.startNewBlock(txs.length, globalVariables, l1ToL2Messages);
     for (const tx of txs) {
       await builder.addNewTx(tx);
     }
-    return blockTicket;
+    return builder.setBlockCompleted();
   };
 
   it(`Build ${numberOfConsecutiveBlocks} blocks of 4 bloated txs building on each other`, async () => {
@@ -365,11 +365,8 @@ describe('L1Publisher integration', () => {
         feeRecipient,
         GasFees.empty(),
       );
-      const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
-      const result = await ticket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const blockResult = await builder.getBlock();
-      const block = blockResult.block;
+
+      const block = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
       prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
       blockSource.getBlocks.mockResolvedValueOnce([block]);
@@ -473,12 +470,7 @@ describe('L1Publisher integration', () => {
         feeRecipient,
         GasFees.empty(),
       );
-      const blockTicket = await buildBlock(globalVariables, txs, l1ToL2Messages);
-      await builder.setBlockCompleted();
-      const result = await blockTicket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const blockResult = await builder.getBlock();
-      const block = blockResult.block;
+      const block = await buildBlock(globalVariables, txs, l1ToL2Messages);
       prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);
       blockSource.getBlocks.mockResolvedValueOnce([block]);
