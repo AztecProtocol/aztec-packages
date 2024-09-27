@@ -327,8 +327,8 @@ contract Leonidas is Ownable, ILeonidas {
    *
    * @return The computed epoch
    */
-  function getEpochAtSlot(uint256 _slotNumber) public pure override(ILeonidas) returns (uint256) {
-    return _slotNumber / EPOCH_DURATION;
+  function getEpochAtSlot(Slot _slotNumber) public pure override(ILeonidas) returns (Epoch) {
+    return Epoch.wrap(_slotNumber.unwrap() / EPOCH_DURATION);
   }
 
   /**
