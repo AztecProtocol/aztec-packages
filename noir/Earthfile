@@ -22,6 +22,13 @@ nargo-src:
     # Fetch any dependencies so that they can be cached
     RUN cd noir-repo && cargo fetch && cd ../
 
+    # NOTE: we use a fake commit hash here
+    # we don't want Noir to rebuild everytime the parent repo changes
+    # just only when it changes
+    # the commit hash gets injected into version strings
+    DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
+    ENV COMMIT_HASH=$(cat .content-hash)
+
     # # borrow Nix's approach to build everything in 1970
     ENV SOURCE_TIMESTAMP=1
     ENV SOURCE_DATE_EPOCH=1
@@ -31,12 +38,6 @@ nargo:
     COPY ./scripts/bootstrap_native.sh ./scripts/bootstrap_native.sh
     # Note: build is decoupled from barretenberg
     LET rebuild_patterns=".rebuild_patterns_native"
-    # NOTE: we use a fake commit hash here
-    # we don't want Noir to rebuild everytime the parent repo changes
-    # just only when it changes
-    # the commit hash gets injected into version strings
-    DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns="$rebuild_patterns"
-    ENV COMMIT_HASH=$(cat .content-hash)
     # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
     DO ../build-system/s3-cache-scripts/+WITH_CACHE \
       --prefix="noir-nargo" \
@@ -54,7 +55,6 @@ test:
 
   # Some of the debugger tests are a little flaky wrt to timeouts so we allow a couple of retries.
   ENV NEXTEST_RETRIES=2
-  ENV COMMIT_HASH=test
   RUN ./scripts/test_native.sh
 
 examples:
