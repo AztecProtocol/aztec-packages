@@ -1,8 +1,6 @@
 #!/bin/bash
 set -eu
 
-# used by cache-download-, directhloads a named tar file and extracts it
-
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <tar.gz_file_to_download_and_extract>"
     exit 1

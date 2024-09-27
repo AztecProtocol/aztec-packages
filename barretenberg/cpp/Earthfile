@@ -45,13 +45,15 @@ preset-release:
 # This is hacked onto a dependency on the bottom of our build for lack of a better place to test the .rebuild_patterns flow
 test-cache-write:
   FROM ../../build-images+from-registry
+  WORKDIR /usr/src/barretenberg/cpp
   DO +CACHE_BUILD_BIN --prefix=test-cache \
-    --command="mkdir -p build/bin && echo hi > build/bin/cache  "
+    --command="mkdir -p build/bin && echo hi > build/bin/cache"
   SAVE ARTIFACT build/bin
 
 # As above
 test-cache-read:
   FROM ../../build-images+from-registry
+  WORKDIR /usr/src/barretenberg/cpp
   # fails if cache does not exist
   DO +CACHE_BUILD_BIN --prefix=test-cache \
     --command="exit 1"
