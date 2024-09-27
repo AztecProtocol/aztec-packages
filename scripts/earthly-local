@@ -3,7 +3,7 @@
 # AWS credentials can be blank HOWEVER this will disable S3 caching.
 export EARTHLY_ALLOW_PRIVILEGED=true
 
-set -eux
+set -eu
 
 function start_minio() {
   if nc -zv 127.0.0.1 12000 ; then
