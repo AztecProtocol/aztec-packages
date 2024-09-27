@@ -132,7 +132,7 @@ preset-sol:
 preset-wasm-threads:
   FROM +source
   DO +CACHE_BUILD_BIN --prefix=preset-wasm-threads \
-    --command="cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm && /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm "
+    --command="cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm && /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm"
   SAVE ARTIFACT build/bin
 
 preset-gcc:
@@ -167,13 +167,13 @@ preset-op-count-time-bench:
 preset-release-bench:
   FROM +source
   # note: we do not cache bench-only artifacts
-  RUN cmake --preset clang16 && cmake --build build --target ultra_honk_bench --target client_ivc_bench
+  RUN cmake --preset clang16 -Bbuild && cmake --build build --target ultra_honk_bench --target client_ivc_bench
   SAVE ARTIFACT build/bin
 
 preset-wasm-bench:
   FROM +source
   # note: we do not cache bench-only artifacts
-  RUN cmake --preset wasm-threads && cmake --build build --target ultra_honk_bench --target client_ivc_bench
+  RUN cmake --preset wasm-threads -Bbuild && cmake --build build --target ultra_honk_bench --target client_ivc_bench
   SAVE ARTIFACT build/bin
 
 # test images

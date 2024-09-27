@@ -6,7 +6,7 @@ export EARTHLY_ALLOW_PRIVILEGED=true
 set -eu
 
 function start_minio() {
-  if nc -zv 127.0.0.1 12000 ; then
+  if nc -z 127.0.0.1 12000 ; then
     # Already started
     return
   fi
