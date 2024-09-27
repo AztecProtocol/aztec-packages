@@ -78,16 +78,14 @@ consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> c
  * @brief Compute the total subrelation lengths, i.e., the lengths when regarding the challenges as
  * variables.
  */
-template <typename RelationImpl>
-    requires HasHomogenizedLength<RelationImpl>
-consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> compute_homogenized_subrelation_lengths()
+template <typename LengthsArray>
+consteval LengthsArray compute_homogenized_subrelation_lengths(const size_t len, const LengthsArray& arr)
 {
-    constexpr size_t NUM_SUBRELATIONS = RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size();
-    std::array<size_t, NUM_SUBRELATIONS> result;
-    for (size_t idx = 0; idx < NUM_SUBRELATIONS; idx++) {
+    LengthsArray result;
+    for (size_t idx = 0; idx < std::tuple_size<LengthsArray>(); idx++) {
         // WORKTODO: would be nice to be able to static assert this difference doesn't underflow but idx is not
         // constexpr
-        result[idx] = RelationImpl::HOMOGENIZED_LENGTH - RelationImpl::SUBRELATION_PARTIAL_LENGTHS[idx];
+        result[idx] = len - arr[idx];
     }
     return result;
 };

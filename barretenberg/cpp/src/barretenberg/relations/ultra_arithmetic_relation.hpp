@@ -156,7 +156,13 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
     using FF = FF_;
     using Base = UltraArithmeticRelationImplBase<FF_, /* HOMOGENIZED */ true>;
 
-    static constexpr auto HOMOGENINZED_ADJUSTMENTS = compute_homogenized_subrelation_lengths<Base>();
+    static constexpr auto HOMOGENINZED_ADJUSTMENTS =
+        compute_homogenized_subrelation_lengths(Base::HOMOGENIZED_LENGTH, Base::SUBRELATION_PARTIAL_LENGTHS);
+
+    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
+        7, // primary arithmetic sub-relation
+        7  // secondary arithmetic sub-relation
+    };
 
     template <typename T, typename S> static T bad_pow(const S& x, const size_t d)
     {
