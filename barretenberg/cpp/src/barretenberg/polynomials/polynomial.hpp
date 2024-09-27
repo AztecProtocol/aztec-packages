@@ -388,4 +388,10 @@ template <typename Poly, typename... Polys> auto zip_polys(Poly&& poly, Polys&&.
     return zip_view(poly.indices(), poly.coeffs(), polys.coeffs()...);
 }
 
+/**
+ * @brief Static exposed implementation to support both native and stdlib circuit field types.
+ */
+template <typename Fr>
+Fr generic_evaluate_mle(std::span<const Fr> evaluation_points, SharedShiftedVirtualZeroesArray<Fr> const& coefficients);
+
 } // namespace bb

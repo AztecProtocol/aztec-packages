@@ -1,1 +1,1 @@
-barretenberg_module(polynomials numeric ecc crypto_sha256)
+barretenberg_module(polynomials numeric ecc crypto_sha256 stdlib_primitives)

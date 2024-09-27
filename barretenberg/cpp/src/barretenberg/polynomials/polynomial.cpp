@@ -4,7 +4,10 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
+#include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <cstddef>
 #include <fcntl.h>
@@ -185,17 +188,28 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
     return polynomial_arithmetic::evaluate(data(), z, size());
 }
 
-template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
+/**
+ * @brief Internal implementation to support both native and stdlib circuit field types.
+ * @details Instantiation with circuit field type is always called with shift == false
+ */
+template <typename Fr>
+Fr _evaluate_mle(std::span<const Fr> evaluation_points,
+                 SharedShiftedVirtualZeroesArray<Fr> const& coefficients,
+                 bool shift)
 {
-    if (size() == 0) {
+    constexpr bool is_native = IsAnyOf<Fr, bb::fr, grumpkin::fr>;
+    // shift ==> native
+    ASSERT(!shift || is_native);
+
+    if (coefficients.size() == 0) {
         return Fr(0);
     }
 
     const size_t n = evaluation_points.size();
-    const size_t dim = numeric::get_msb(end_index() - 1) + 1; // Round up to next power of 2
+    const size_t dim = numeric::get_msb(coefficients.end_ - 1) + 1; // Round up to next power of 2
 
     // To simplify handling of edge cases, we assume that the index space is always a power of 2
-    ASSERT(virtual_size() == static_cast<size_t>(1 << n));
+    ASSERT(coefficients.virtual_size() == static_cast<size_t>(1 << n));
 
     // We first fold over dim rounds l = 0,...,dim-1.
     // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
@@ -209,9 +223,11 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
     auto tmp = tmp_ptr.get();
 
     size_t offset = 0;
-    if (shift) {
-        ASSERT((*this)[0] == Fr::zero());
-        offset++;
+    if constexpr (is_native) {
+        if (shift) {
+            ASSERT(coefficients.get(0) == Fr::zero());
+            offset++;
+        }
     }
 
     Fr u_l = evaluation_points[0];
@@ -220,7 +236,8 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
         // Note: i * 2 + 1 + offset might equal virtual_size. This used to subtlely be handled by extra capacity padding
         // (and there used to be no assert time checks, which this constant helps with).
         const size_t ALLOW_ONE_PAST_READ = 1;
-        tmp[i] = get(i * 2 + offset) + u_l * (get(i * 2 + 1 + offset, ALLOW_ONE_PAST_READ) - get(i * 2 + offset));
+        tmp[i] = coefficients.get(i * 2 + offset) +
+                 u_l * (coefficients.get(i * 2 + 1 + offset, ALLOW_ONE_PAST_READ) - coefficients.get(i * 2 + offset));
     }
 
     // partially evaluate the dim-1 remaining points
@@ -239,6 +256,11 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
     }
 
     return result;
+}
+
+template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evaluation_points, bool shift) const
+{
+    return _evaluate_mle(evaluation_points, coefficients_, shift);
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const
@@ -382,7 +404,25 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
     return result;
 }
 
+template <typename Fr>
+Fr generic_evaluate_mle(std::span<const Fr> evaluation_points, SharedShiftedVirtualZeroesArray<Fr> const& coefficients)
+{
+    return _evaluate_mle(evaluation_points, coefficients, false);
+}
+
 template class Polynomial<bb::fr>;
 template class Polynomial<grumpkin::fr>;
+template bb::fr generic_evaluate_mle<bb::fr>(std::span<const bb::fr> evaluation_points,
+                                             SharedShiftedVirtualZeroesArray<bb::fr> const& coefficients);
+template bb::fr _evaluate_mle(std::span<const bb::fr> evaluation_points,
+                              const SharedShiftedVirtualZeroesArray<bb::fr>& coefficients,
+                              bool shift);
+
+using field_ct = stdlib::field_t<UltraCircuitBuilder>;
+template field_ct generic_evaluate_mle<field_ct>(std::span<const field_ct> evaluation_points,
+                                                 SharedShiftedVirtualZeroesArray<field_ct> const& coefficients);
+template field_ct _evaluate_mle(std::span<const field_ct> evaluation_points,
+                                const SharedShiftedVirtualZeroesArray<field_ct>& coefficients,
+                                bool shift);
 
 } // namespace bb
