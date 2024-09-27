@@ -82,6 +82,22 @@ library FrLib {
     function div(Fr numerator, Fr denominator) internal view returns (Fr) {
         return numerator * invert(denominator);
     }
+
+    function sqr(Fr value) internal view returns (Fr) {
+        return value * value;
+    }
+
+    function unwrap(Fr value) internal pure returns (uint256) {
+        return Fr.unwrap(value);
+    }
+
+    function ZERO() internal pure returns (Fr) {
+        return Fr.wrap(0);
+    }
+
+    function ONE() internal pure returns (Fr) {
+        return Fr.wrap(1);
+    }
 }
 
 // Free functions
