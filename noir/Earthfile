@@ -139,17 +139,11 @@ packages-deps:
       noir-repo/*.js \
       noir-repo/.github \
       noir-repo
-  ENV REBUILD_PATTERNS="../barretenberg/cpp/.rebuild_patterns .rebuild_patterns_packages"
-  # NOTE: we use a fake commit hash here
-  # we don't want Noir to rebuild everytime the parent repo changes
-  # just only when it changes
-  # the commit hash gets injected into version strings
-  DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns="$REBUILD_PATTERNS"
-  ENV COMMIT_HASH=$(cat .content-hash)
 
 packages:
   FROM +packages-deps
   COPY ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
+  ENV REBUILD_PATTERNS="../barretenberg/cpp/.rebuild_patterns .rebuild_patterns_packages"
       # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
   DO ../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="noir-packages" \
