@@ -202,11 +202,11 @@ packages-test-node:
 
 packages-test-browser:
     FROM ../build-images/+base-slim-node
+    WORKDIR /usr/src/noir/noir-repo
     # cache playwright install
-    COPY noir-repo/.github/scripts/*.sh noir-repo/.github/scripts/
+    COPY noir-repo/.github/scripts/*.sh .github/scripts/
     RUN ./.github/scripts/playwright-install.sh
     COPY --dir +packages-test-build/usr/src /usr
-    WORKDIR /usr/src/noir/noir-repo
     RUN yarn workspaces foreach \
       --verbose \
       --include integration-tests \
