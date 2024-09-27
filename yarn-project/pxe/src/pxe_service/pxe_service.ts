@@ -5,6 +5,7 @@ import {
   EncryptedTxL2Logs,
   type EventMetadata,
   EventType,
+  ExecutionResult,
   type ExtendedNote,
   type FunctionCall,
   type GetUnencryptedLogsResponse,
@@ -17,8 +18,8 @@ import {
   type PXE,
   type PXEInfo,
   type PrivateKernelProver,
+  PublicSimulationOutput,
   type SiblingPath,
-  SimulatedTx,
   SimulationError,
   TaggedLog,
   Tx,
@@ -26,8 +27,14 @@ import {
   type TxExecutionRequest,
   type TxHash,
   type TxReceipt,
+  TxSimulationResult,
   UnencryptedTxL2Logs,
   UniqueNote,
+  collectEnqueuedPublicFunctionCalls,
+  collectPublicTeardownFunctionCall,
+  collectSortedEncryptedLogs,
+  collectSortedNoteEncryptedLogs,
+  collectSortedUnencryptedLogs,
   getNonNullifiedL1ToL2MessageWitness,
   isNoirCallStackUnresolved,
 } from '@aztec/circuit-types';
@@ -504,10 +511,10 @@ export class PXEService implements PXE {
     return await this.node.getBlock(blockNumber);
   }
 
-  public proveTx(txRequest: TxExecutionRequest, executionResult: ExecutionResult): Promise<Tx> {
+  public proveTx(txRequest: TxExecutionRequest, privateExecutionResult: ExecutionResult): Promise<Tx> {
     return this.jobQueue.put(async () => {
-      const simulatedTx = await this.#prove(txRequest, this.proofCreator, executionResult);
-      return simulatedTx.tx;
+      const provenTx = await this.#prove(txRequest, this.proofCreator, privateExecutionResult);
+      return provenTx;
     });
   }
 
@@ -518,15 +525,17 @@ export class PXEService implements PXE {
     msgSender: AztecAddress | undefined = undefined,
     skipTxValidation: boolean = false,
     scopes?: AztecAddress[],
-  ): Promise<SimulatedTx> {
+  ): Promise<TxSimulationResult> {
     return await this.jobQueue.put(async () => {
-      const simulatedTx = await this.#simulate(txRequest, msgSender, scopes);
+      const privateExecutionResult = await this.#simulatePrivate(txRequest, msgSender, scopes);
+      const simulatedTx = await this.#prove(txRequest, new TestPrivateKernelProver(), privateExecutionResult);
+      let publicOutput: PublicSimulationOutput | undefined;
       if (simulatePublic) {
-        simulatedTx.publicOutput = await this.#simulatePublicCalls(simulatedTx.tx);
+        publicOutput = await this.#simulatePublicCalls(simulatedTx);
       }
 
       if (!skipTxValidation) {
-        if (!(await this.node.isValidTx(simulatedTx.tx, true))) {
+        if (!(await this.node.isValidTx(simulatedTx, true))) {
           throw new Error('The simulated transaction is unable to be added to state and is invalid.');
         }
       }
@@ -536,9 +545,9 @@ export class PXEService implements PXE {
       // Meaning that it will not necessarily have produced a nullifier (and thus have no TxHash)
       // If we log, the `getTxHash` function will throw.
       if (!msgSender) {
-        this.log.info(`Executed local simulation for ${simulatedTx.tx.getTxHash()}`);
+        this.log.info(`Executed local simulation for ${simulatedTx.getTxHash()}`);
       }
-      return simulatedTx;
+      return new TxSimulationResult(simulatedTx, accumulateReturnValues(privateExecutionResult), publicOutput);
     });
   }
 
@@ -678,7 +687,7 @@ export class PXEService implements PXE {
     };
   }
 
-  async #simulate(
+  async #simulatePrivate(
     txRequest: TxExecutionRequest,
     msgSender?: AztecAddress,
     scopes?: AztecAddress[],
@@ -788,21 +797,21 @@ export class PXEService implements PXE {
   async #prove(
     txExecutionRequest: TxExecutionRequest,
     proofCreator: PrivateKernelProver,
-    executionResult: ExecutionResult,
-  ): Promise<SimulatedTx> {
+    privateExecutionResult: ExecutionResult,
+  ): Promise<Tx> {
     const kernelOracle = new KernelOracle(this.contractDataOracle, this.keyStore, this.node);
     const kernelProver = new KernelProver(kernelOracle, proofCreator);
     this.log.debug(`Executing kernel prover...`);
     const { clientIvcProof, publicInputs } = await kernelProver.prove(
       txExecutionRequest.toTxRequest(),
-      executionResult,
+      privateExecutionResult,
     );
 
-    const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(executionResult)]);
-    const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(executionResult)]);
-    const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(executionResult)]);
-    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
-    const teardownPublicFunction = collectPublicTeardownFunctionCall(executionResult);
+    const noteEncryptedLogs = new EncryptedNoteTxL2Logs([collectSortedNoteEncryptedLogs(privateExecutionResult)]);
+    const unencryptedLogs = new UnencryptedTxL2Logs([collectSortedUnencryptedLogs(privateExecutionResult)]);
+    const encryptedLogs = new EncryptedTxL2Logs([collectSortedEncryptedLogs(privateExecutionResult)]);
+    const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(privateExecutionResult);
+    const teardownPublicFunction = collectPublicTeardownFunctionCall(privateExecutionResult);
 
     const tx = new Tx(
       publicInputs,
@@ -813,8 +822,7 @@ export class PXEService implements PXE {
       enqueuedPublicFunctions,
       teardownPublicFunction,
     );
-
-    return new SimulatedTx(tx, accumulateReturnValues(executionResult));
+    return tx;
   }
 
   /**

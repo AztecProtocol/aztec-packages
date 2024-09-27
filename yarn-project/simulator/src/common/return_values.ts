@@ -1,6 +1,5 @@
-import { NestedProcessReturnValues } from '@aztec/circuit-types';
+import { type ExecutionResult, NestedProcessReturnValues } from '@aztec/circuit-types';
 
-import type { ExecutionResult } from '../client/execution_result.js';
 import type { PublicExecutionResult } from '../public/execution.js';
 
 /**

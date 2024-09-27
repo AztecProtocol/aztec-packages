@@ -1,3 +1,4 @@
+import { ExecutionResult } from '../execution_result.js';
 import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simulation_output.js';
 import { Tx } from './tx.js';
 
@@ -7,7 +8,7 @@ import { Tx } from './tx.js';
 // ones as well. However, those would only be present if the user chooses to simulate
 // the public side of things. This also points at this class needing to be split into
 // two: one with just private simulation, and one that also includes public simulation.
-export class SimulatedTx {
+export class TxSimulationResult {
   constructor(
     public tx: Tx,
     public privateReturnValues?: NestedProcessReturnValues,
@@ -38,6 +39,6 @@ export class SimulatedTx {
       ? NestedProcessReturnValues.fromJSON(obj.privateReturnValues)
       : undefined;
 
-    return new SimulatedTx(tx, privateReturnValues, publicOutput);
+    return new TxSimulationResult(tx, privateReturnValues, publicOutput);
   }
 }
