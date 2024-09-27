@@ -49,7 +49,7 @@ void TranslatorVerifier::put_translation_data_in_relation_parameters(const uint2
 };
 
 /**
- * @brief This function verifies an TranslatorFlavor Honk proof for given program settings.
+ * @brief This function verifies a TranslatorFlavor Honk proof for given program settings.
  */
 bool TranslatorVerifier::verify_proof(const HonkProof& proof)
 {
@@ -65,10 +65,12 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof)
     Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;
 
-    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
+    const uint32_t circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
     evaluation_input_x = transcript->template receive_from_prover<BF>("evaluation_input_x");
+    info("Translator Verifier evaluation_input_x ", evaluation_input_x);
 
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
+    info("Translator Verifier acc result ", accumulated_result);
 
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
 
@@ -144,18 +146,41 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
     const auto& reconstruct_value_from_eccvm_evaluations = [&](const TranslationEvaluations& translation_evaluations,
                                                                auto& relation_parameters) {
         const BF accumulated_result = reconstruct_from_array(relation_parameters.accumulated_result);
+        info("accumulated result Verifier ", accumulated_result);
+
         const BF x = reconstruct_from_array(relation_parameters.evaluation_input_x);
+        info("evaluation input x Verifier ", x);
+
         const BF v1 = reconstruct_from_array(relation_parameters.batching_challenge_v[0]);
+        info("transl batching challenge v1 Verifier ", v1);
+
         const BF v2 = reconstruct_from_array(relation_parameters.batching_challenge_v[1]);
+        info("transl batching challenge v2 Verifier ", v2);
+
         const BF v3 = reconstruct_from_array(relation_parameters.batching_challenge_v[2]);
+        info("transl batching challenge v3 Verifier ", v3);
+
         const BF v4 = reconstruct_from_array(relation_parameters.batching_challenge_v[3]);
+        info("transl batching challenge v4 Verifier ", v4);
+
         const BF& op = translation_evaluations.op;
+        info("translator reconstr op Verifier ", op);
+
         const BF& Px = translation_evaluations.Px;
+        info("translator reconstr Px Verifier ", Px);
+
         const BF& Py = translation_evaluations.Py;
+        info("translator reconstr Py Verifier ", Py);
+
         const BF& z1 = translation_evaluations.z1;
+        info("translator reconstr z1 Verifier ", z1);
+
         const BF& z2 = translation_evaluations.z2;
+        info("translator reconstr z2 Verifier ", z2);
 
         const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2));
+        info("eccvm opening translatore Verifier ", eccvm_opening);
+
         // multiply by x here to deal with shift
         return x * accumulated_result == eccvm_opening;
     };

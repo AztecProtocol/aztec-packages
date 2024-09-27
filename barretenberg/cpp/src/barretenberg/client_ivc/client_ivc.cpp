@@ -73,6 +73,7 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         break;
     }
     case QUEUE_TYPE::OINK: {
+        info("performing recursive verification: oink");
         // Construct an incomplete stdlib verifier accumulator from the corresponding stdlib verification key
         auto verifier_accum = std::make_shared<RecursiveDeciderVerificationKey>(&circuit, vkey);
 
@@ -103,10 +104,10 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
  */
 void ClientIVC::process_recursive_merge_verification_queue(ClientCircuit& circuit)
 {
+    info("processing recursive merge verification, queue size = ", merge_verification_queue.size());
     // Recusively verify all merge proofs in queue
     for (auto& proof : merge_verification_queue) {
         goblin.verify_merge(circuit, proof);
-        info("merged");
     }
     merge_verification_queue.clear();
 }
@@ -126,7 +127,6 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // Instantiate stdlib verifier inputs from their native counterparts
     if (stdlib_verification_queue.empty()) {
         instantiate_stdlib_verification_queue(circuit);
-        info("stdlib verification instantiated");
     }
 
     // Perform recursive verification and databus consistency checks for each entry in the verification queue
@@ -153,10 +153,13 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<Verific
     is_kernel = !is_kernel; // toggle on each call (every even circuit is a kernel)
 
     if (auto_verify_mode && is_kernel) {
+        info("auto verify and kernel");
         complete_kernel_circuit_logic(circuit);
     }
 
     // Construct merge proof for the present circuit and add to merge verification queue
+    info("goblin proving merge");
+    info("=========");
     MergeProof merge_proof = goblin.prove_merge(circuit);
     merge_verification_queue.emplace_back(merge_proof);
     info("merge proof placed in the verification queue");
@@ -233,6 +236,7 @@ bool ClientIVC::verify(const Proof& proof,
     // Goblin verification (merge, eccvm, translator)
     GoblinVerifier goblin_verifier{ eccvm_vk, translator_vk };
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
+    info("goblin verified? ", goblin_verified);
 
     // Decider verification
     ClientIVC::FoldingVerifier folding_verifier({ accumulator, final_stack_vk });

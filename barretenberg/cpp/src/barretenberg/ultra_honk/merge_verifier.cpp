@@ -29,6 +29,7 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
     std::array<Commitment, NUM_WIRES> C_T_current;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         C_T_prev[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx + 1));
+        info(C_T_prev[idx].is_point_at_infinity(), "comm is a point at inf");
         C_t_shift[idx] = transcript->template receive_from_prover<Commitment>("t_SHIFT_" + std::to_string(idx + 1));
         C_T_current[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + std::to_string(idx + 1));
     }
@@ -68,12 +69,13 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
     FF alpha_pow = alpha;
     for (size_t idx = 1; idx < opening_claims.size(); ++idx) {
         auto& claim = opening_claims[idx];
+        info("Goblin Group Ops");
         batched_commitment = batched_commitment + (claim.commitment * alpha_pow);
         batched_eval += alpha_pow * claim.opening_pair.evaluation;
         alpha_pow *= alpha;
     }
 
-    OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
+    const OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
 
     auto pairing_points = PCS::reduce_verify(batched_claim, transcript);
     auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);

@@ -71,7 +71,7 @@ template <typename Flavor> void OinkRecursiveVerifier_<Flavor>::verify()
         for (auto [commitment, label] : zip_view(commitments.get_ecc_op_wires(), labels.get_ecc_op_wires())) {
             commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
         }
-
+        info("running recursive oink verifier");
         // Receive DataBus related polynomial commitments
         for (auto [commitment, label] : zip_view(commitments.get_databus_entities(), labels.get_databus_entities())) {
             commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);

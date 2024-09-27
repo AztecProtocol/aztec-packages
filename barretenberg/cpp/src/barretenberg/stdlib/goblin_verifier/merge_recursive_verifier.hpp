@@ -9,7 +9,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
   public:
     using Curve = bn254<CircuitBuilder>;
     using FF = typename Curve::ScalarField;
-    using Commitment = typename Curve::Element;
+    using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
     using KZG = ::bb::KZG<Curve>;
     using OpeningClaim = ::bb::OpeningClaim<Curve>;

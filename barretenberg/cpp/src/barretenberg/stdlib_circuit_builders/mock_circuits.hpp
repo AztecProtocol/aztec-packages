@@ -129,6 +129,7 @@ class MockCircuits {
     static void construct_goblin_ecc_op_circuit(MegaCircuitBuilder& builder)
     {
         // Add a mul accum op, an add accum op and an equality op
+        info("adding ecc ops to the current circuit, called by the Test");
         builder.queue_ecc_add_accum(Point::one() * FF::random_element(&engine));
         builder.queue_ecc_mul_accum(Point::one() * FF::random_element(&engine), FF::random_element(&engine));
         builder.queue_ecc_eq();

@@ -64,9 +64,9 @@ template <class Flavor> class DeciderProvingKey_ {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): This is adding ops to the op queue but NOT to
         // the circuit, meaning the ECCVM/Translator will use different ops than the main circuit. This will lead to
         // failure once https://github.com/AztecProtocol/barretenberg/issues/746 is resolved.
-        if constexpr (IsGoblinFlavor<Flavor>) {
-            circuit.op_queue->append_nonzero_ops();
-        }
+        // if constexpr (IsGoblinFlavor<Flavor>) {
+        //     circuit.op_queue->append_nonzero_ops();
+        // }
         {
             ZoneScopedN("constructing proving key");
 

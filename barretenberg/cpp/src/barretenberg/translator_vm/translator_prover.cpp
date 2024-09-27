@@ -83,6 +83,7 @@ void TranslatorProver::execute_preamble_round()
     transcript->send_to_verifier("circuit_size", circuit_size);
     transcript->send_to_verifier("evaluation_input_x", key->evaluation_input_x);
     transcript->send_to_verifier("accumulated_result", accumulated_result);
+    info("Translator Prover acc result ", accumulated_result);
 }
 
 /**

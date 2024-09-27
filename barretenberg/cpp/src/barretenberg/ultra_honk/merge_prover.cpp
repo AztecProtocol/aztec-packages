@@ -43,29 +43,56 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     std::vector<std::span<FF>> T_current = op_queue->get_aggregate_transcript();
     std::vector<std::span<FF>> T_prev = op_queue->get_previous_aggregate_transcript();
     // TODO(#723): Cannot currently support an empty T_{i-1}. Need to be able to properly handle zero commitment.
-    ASSERT(T_prev[0].size() > 0);
+    info(T_prev[0].size() > 0);
+    // ASSERT(T_prev[0].size() > 0);
     ASSERT(T_current[0].size() > T_prev[0].size()); // Must have some new ops to accumulate otherwise C_t_shift = 0
 
     // Construct t_i^{shift} as T_i - T_{i-1}
     std::array<Polynomial, NUM_WIRES> t_shift;
+    info("merge prover ops");
+    size_t idx = 0;
     for (size_t i = 0; i < NUM_WIRES; ++i) {
         t_shift[i] = Polynomial(T_current[i]);
-        t_shift[i] -= { 0, T_prev[i] };
+        if (i == 3) {
+            for (auto coeff : t_shift[3].coeffs()) {
+                // if (coeff != FF(0)) {
+                info("merge prover wire [3]", coeff, " idx = ", idx);
+                idx += 1;
+                // }
+            }
+        }
+
+        t_shift[i] -= Polynomial(T_prev[i]);
     }
+    info("===============");
 
     // Compute/get commitments [t_i^{shift}], [T_{i-1}], and [T_i] and add to transcript
     std::array<Commitment, NUM_WIRES> C_T_current;
+    std::array<Commitment, NUM_WIRES> C_T_prev;
 
+    // info("merge prover commits to its transcripts");
+    // info("size of the first poly ", t_shift[0].size());
+    // for (auto coeff : t_shift[3].coeffs()) {
+    //     // if (coeff != FF(0)) {
+    //     info(coeff);
+    //     // }
+    // }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Get previous transcript commitment [T_{i-1}] from op queue
-        const auto& C_T_prev = op_queue->get_ultra_ops_commitments()[idx];
+        if (T_prev[0].size() > 0) {
+            C_T_prev[idx] = op_queue->get_ultra_ops_commitments()[idx];
+        } else {
+            C_T_prev[idx] = g1::affine_point_at_infinity;
+            info("merge prover point at inf ", C_T_prev[idx]);
+        }
+        // info("prev commitments? ", C_T_prev);
         // Compute commitment [t_i^{shift}] directly
         const auto C_t_shift = pcs_commitment_key->commit(t_shift[idx]);
         // Compute updated aggregate transcript commitment as [T_i] = [T_{i-1}] + [t_i^{shift}]
-        C_T_current[idx] = C_T_prev + C_t_shift;
+        C_T_current[idx] = C_T_prev[idx] + C_t_shift;
 
         std::string suffix = std::to_string(idx + 1);
-        transcript->send_to_verifier("T_PREV_" + suffix, C_T_prev);
+        transcript->send_to_verifier("T_PREV_" + suffix, C_T_prev[idx]);
         transcript->send_to_verifier("t_SHIFT_" + suffix, C_t_shift);
         transcript->send_to_verifier("T_CURRENT_" + suffix, C_T_current[idx]);
 

@@ -134,10 +134,16 @@ void ECCVMProver::execute_pcs_rounds()
 
     // Evaluate the transcript polynomials at the challenge
     translation_evaluations.op = key->polynomials.transcript_op.evaluate(evaluation_challenge_x);
+    info("ECCVM op eval = ", translation_evaluations.op);
+
     translation_evaluations.Px = key->polynomials.transcript_Px.evaluate(evaluation_challenge_x);
+    info("ECCVM Px eval = ", translation_evaluations.Px);
     translation_evaluations.Py = key->polynomials.transcript_Py.evaluate(evaluation_challenge_x);
+    info("ECCVM Py eval = ", translation_evaluations.Py);
     translation_evaluations.z1 = key->polynomials.transcript_z1.evaluate(evaluation_challenge_x);
+    info("ECCVM z1 eval = ", translation_evaluations.z1);
     translation_evaluations.z2 = key->polynomials.transcript_z2.evaluate(evaluation_challenge_x);
+    info("ECCVM z2 eval = ", translation_evaluations.z2);
 
     // Add the univariate evaluations to the transcript so the verifier can reconstruct the batched evaluation
     transcript->send_to_verifier("Translation:op", translation_evaluations.op);
@@ -183,6 +189,39 @@ void ECCVMProver::execute_pcs_rounds()
 
     // Produce another challenge passed as input to the translator verifier
     translation_batching_challenge_v = transcript->template get_challenge<FF>("Translation:batching_challenge");
+    auto x = evaluation_challenge_x;
+    info("evaluation challenge ECCVM prover ", x);
+
+    auto v1 = translation_batching_challenge_v;
+    info("transl batching challenge v1 ECCVM prover ", v1);
+
+    auto v2 = v1 * v1;
+    info("transl batching challenge v2 ECCVM prover", v2);
+
+    auto v3 = v2 * v1;
+    info("transl batching challenge v3 ECCVM prover", v3);
+
+    auto v4 = v2 * v2;
+    info("transl batching challenge v4 Verifier ", v4);
+
+    auto op = translation_evaluations.op;
+    info("translator reconstr op Verifier ", op);
+
+    auto Px = translation_evaluations.Px;
+    info("translator reconstr Px Verifier ", Px);
+
+    auto Py = translation_evaluations.Py;
+    info("translator reconstr Py Verifier ", Py);
+
+    auto z1 = translation_evaluations.z1;
+    info("translator reconstr z1 Verifier ", z1);
+
+    auto z2 = translation_evaluations.z2;
+    info("translator reconstr z2 Verifier ", z2);
+
+    auto eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2));
+    info("eccvm opening ECCVM PROVER ", eccvm_opening);
+    info("=======");
 }
 
 HonkProof ECCVMProver::export_proof()

@@ -74,7 +74,7 @@ class GoblinProver {
     { // Mocks the interaction of a first circuit with the op queue due to the inability to currently handle zero
       // commitments (https://github.com/AztecProtocol/barretenberg/issues/871) which would otherwise appear in the
       // first round of the merge protocol. To be removed once the issue has been resolved.
-        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
+      // GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
     }
     /**
      * @brief Construct a MegaHonk proof and a merge proof for the present circuit.
@@ -95,7 +95,7 @@ class GoblinProver {
         MegaProver prover(proving_key);
         auto ultra_proof = prover.construct_proof();
         auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-
+        info("honk proof for the main circuit constructed");
         // Construct and store the merge proof to be recursively verified on the next call to accumulate
         MergeProver merge_prover{ circuit_builder.op_queue };
         merge_proof = merge_prover.construct_proof();
@@ -152,15 +152,17 @@ class GoblinProver {
         // contribution (C_t_shift) in the merge prover will be the point at infinity. (Note: Some dummy ops are added
         // in 'add_gates_to_ensure...' but not until proving_key construction which comes later). See issue for ideas
         // about how to resolve.
-        if (circuit_builder.blocks.ecc_op.size() == 0) {
-            MockCircuits::construct_goblin_ecc_op_circuit(circuit_builder); // Add some arbitrary goblin ECC ops
-        }
+        // if (circuit_builder.blocks.ecc_op.size() == 0) {
+        //     info("AM i here?");
+        //     MockCircuits::construct_goblin_ecc_op_circuit(circuit_builder); // Add some arbitrary goblin ECC ops
+        // }
 
         if (!merge_proof_exists) {
             merge_proof_exists = true;
         }
 
         MergeProver merge_prover{ circuit_builder.op_queue };
+
         return merge_prover.construct_proof();
     };
 
@@ -229,6 +231,7 @@ class GoblinProver {
             ZoneScopedN("prove_translator");
             prove_translator();
         }
+
         return goblin_proof;
     };
 };
@@ -271,16 +274,20 @@ class GoblinVerifier {
     {
         MergeVerifier merge_verifier;
         bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
+        info("merge verified? ", merge_verified);
 
         ECCVMVerifier eccvm_verifier(eccvm_verification_key);
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
+        info("eccvm verified? ", eccvm_verified);
 
         TranslatorVerifier translator_verifier(translator_verification_key, eccvm_verifier.transcript);
 
         bool accumulator_construction_verified = translator_verifier.verify_proof(proof.translator_proof);
+        info("accumulator verified? ", accumulator_construction_verified);
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
         // correctly
         bool translation_verified = translator_verifier.verify_translation(proof.translation_evaluations);
+        info("translation verified? ", translation_verified);
 
         return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
     };

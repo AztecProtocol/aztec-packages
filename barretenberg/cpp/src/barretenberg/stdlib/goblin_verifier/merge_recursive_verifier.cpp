@@ -20,7 +20,7 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
 {
     // transform it into stdlib proof
     StdlibProof<CircuitBuilder> stdlib_proof = bb::convert_proof_to_witness(builder, proof);
-    transcript = std::make_shared<Transcript>(stdlib_proof);
+    const std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>(stdlib_proof);
 
     // Receive commitments [t_i^{shift}], [T_{i-1}], and [T_i]
     std::array<Commitment, NUM_WIRES> C_T_prev;
@@ -28,11 +28,15 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
     std::array<Commitment, NUM_WIRES> C_T_current;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         C_T_prev[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + std::to_string(idx + 1));
+        info(C_T_prev[idx].is_point_at_infinity(), " recursive merge verifier gets a point at inf");
+        // bool_t infinity_flag = C_T_prev[idx].is_point_at_infinity();
+        info("merge rec verifier point at inf ", C_T_prev[idx]);
+
         C_t_shift[idx] = transcript->template receive_from_prover<Commitment>("t_SHIFT_" + std::to_string(idx + 1));
         C_T_current[idx] = transcript->template receive_from_prover<Commitment>("T_CURRENT_" + std::to_string(idx + 1));
     }
 
-    FF kappa = transcript->template get_challenge<FF>("kappa");
+    const FF kappa = transcript->template get_challenge<FF>("kappa");
 
     // Receive transcript poly evaluations and add corresponding univariate opening claims {(\kappa, p(\kappa), [p(X)]}
     std::array<FF, NUM_WIRES> T_prev_evals;
@@ -58,9 +62,9 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
         T_current_evals[idx].assert_equal(T_prev_evals[idx] + t_shift_evals[idx]);
     }
 
-    FF alpha = transcript->template get_challenge<FF>("alpha");
+    const FF alpha = transcript->template get_challenge<FF>("alpha");
 
-    // Constuct batched commitment and batched evaluation from constituents using batching challenge \alpha
+    // Construct batched commitment and batched evaluation from constituents using batching challenge \alpha
     std::vector<FF> scalars;
     std::vector<Commitment> commitments;
     scalars.emplace_back(FF(builder, 1));
@@ -75,9 +79,15 @@ std::array<typename bn254<CircuitBuilder>::Element, 2> MergeRecursiveVerifier_<C
         alpha_pow *= alpha;
     }
 
-    auto batched_commitment = Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
+    for (auto [commitment, scalar] : zip_view(commitments, scalars)) {
+        info("commitment is point at infty ", commitment.is_point_at_infinity());
+        info("scalar is 0 ", scalar == FF(0));
+    }
+    info("Merge Recursive verifier BATCH MUL size: ", commitments.size());
+    const Commitment batched_commitment =
+        Commitment::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/true);
 
-    OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
+    const OpeningClaim batched_claim = { { kappa, batched_eval }, batched_commitment };
 
     auto pairing_points = KZG::reduce_verify(batched_claim, transcript);
 

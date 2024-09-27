@@ -66,6 +66,7 @@ class ECCOpQueue {
     // mul against 0
     void append_nonzero_ops()
     {
+        info("appending non-zero ops in op_queue?");
         // Add an element and scalar the accumulation of which leaves no Point-at-Infinity commitments
         const auto x = uint256_t(0xd3c208c16d87cfd3, 0xd97816a916871ca8, 0x9b85045b68181585, 0x30644e72e131a02);
         const auto y = uint256_t(0x3ce1cc9c7e645a83, 0x2edac647851e3ac5, 0xd0cbe61fced2bc53, 0x1a76dae6d3272396);
@@ -230,6 +231,7 @@ class ECCOpQueue {
     void set_commitment_data(std::array<Point, 4>& commitments) { ultra_ops_commitments = commitments; }
     const auto& get_ultra_ops_commitments() { return ultra_ops_commitments; }
 
+    // TODO: These methods return vectors instead of arrays?
     /**
      * @brief Get a 'view' of the current ultra ops object
      *

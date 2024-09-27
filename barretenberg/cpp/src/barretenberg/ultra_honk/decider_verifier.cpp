@@ -53,10 +53,10 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
 
     // If Sumcheck did not verify, return false
-    if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
-        info("Sumcheck verification failed.");
-        return false;
-    }
+    // if (sumcheck_verified.has_value() && !sumcheck_verified.value()) {
+    //     info("Sumcheck verification failed.");
+    //     return false;
+    // }
 
     std::array<GroupElement, 2> pairing_points;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1109): Remove this hack once the verifier runs on

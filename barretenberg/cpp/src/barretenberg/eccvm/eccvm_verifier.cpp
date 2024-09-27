@@ -71,7 +71,8 @@ bool ECCVMVerifier::verify_proof(const HonkProof& proof)
                                                                       transcript);
     // Execute transcript consistency univariate opening round
 
-    const FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+    FF evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
+    info("eccvm verifier eval challenge X ", evaluation_challenge_x);
 
     // Construct arrays of commitments and evaluations to be batched, the evaluations being received from the prover
     const size_t NUM_UNIVARIATES = 5;

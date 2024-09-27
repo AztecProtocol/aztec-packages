@@ -123,11 +123,14 @@ TEST_F(ClientIVCTests, Basic)
 
     // Initialize the IVC with an arbitrary circuit
     Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+
     ivc.accumulate(circuit_0);
+    info("circuit ", 0, " accumulated");
 
     // Create another circuit and accumulate
     Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
     ivc.accumulate(circuit_1);
+    info("circuit ", 1, " accumulated");
 
     EXPECT_TRUE(ivc.prove_and_verify());
 };
@@ -145,6 +148,7 @@ TEST_F(ClientIVCTests, BasicFour)
     for (size_t idx = 0; idx < 4; ++idx) {
         Builder circuit = circuit_producer.create_next_circuit(ivc);
         ivc.accumulate(circuit);
+        info("circuit ", idx, " accumulated");
     }
 
     EXPECT_TRUE(ivc.prove_and_verify());
@@ -152,9 +156,9 @@ TEST_F(ClientIVCTests, BasicFour)
 
 /**
  * @brief Check that the IVC fails if an intermediate fold proof is invalid
- * @details When accumulating 4 circuits, there are 3 fold proofs to verify (the first two are recursively verfied and
- * the 3rd is verified as part of the IVC proof). Check that if any of one of these proofs is invalid, the IVC will
- * fail.
+ * @details When accumulating 4 circuits, there are 3 fold proofs to verify (the first two are recursively verfied
+ * and the 3rd is verified as part of the IVC proof). Check that if any of one of these proofs is invalid, the IVC
+ * will fail.
  *
  */
 TEST_F(ClientIVCTests, BadProofFailure)
