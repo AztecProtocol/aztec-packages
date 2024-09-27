@@ -641,15 +641,12 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
 
             void enqueue_next(ThreadPool& workers)
             {
-                std::function<void()> nextOp;
-                {
-                    std::unique_lock lock(enqueueMutex);
-                    if (operations.empty()) {
-                        return;
-                    }
-                    nextOp = operations.front();
-                    operations.pop();
+                std::unique_lock lock(enqueueMutex);
+                if (operations.empty()) {
+                    return;
                 }
+                auto nextOp = operations.front();
+                operations.pop();
                 workers.enqueue(nextOp);
             }
 
