@@ -1,12 +1,12 @@
-import { type L2Block, type TxHash } from '@aztec/circuit-types';
-import { getHashedSignaturePayload } from '@aztec/circuit-types';
+import { ConsensusPayload, type L2Block, type TxHash, getHashedSignaturePayload } from '@aztec/circuit-types';
 import { type L1PublishBlockStats, type L1PublishProofStats } from '@aztec/circuit-types/stats';
-import { ETHEREUM_SLOT_DURATION, EthAddress, type Header, type Proof } from '@aztec/circuits.js';
+import { ETHEREUM_SLOT_DURATION, EthAddress, type FeeRecipient, type Header, type Proof } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
+import { makeTuple } from '@aztec/foundation/array';
 import { type Signature } from '@aztec/foundation/eth-signature';
 import { type Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { serializeToBuffer } from '@aztec/foundation/serialize';
+import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -65,7 +65,7 @@ export type MinimalTransactionReceipt = {
 };
 
 /** Arguments to the process method of the rollup contract */
-export type L1ProcessArgs = {
+type L1ProcessArgs = {
   /** The L2 block header. */
   header: Buffer;
   /** A root of the archive tree after the L2 block is applied. */
@@ -81,7 +81,7 @@ export type L1ProcessArgs = {
 };
 
 /** Arguments to the submitProof method of the rollup contract */
-export type L1SubmitProofArgs = {
+type L1SubmitBlockProofArgs = {
   /** The L2 block header. */
   header: Buffer;
   /** A root of the archive tree after the L2 block is applied. */
@@ -92,6 +92,21 @@ export type L1SubmitProofArgs = {
   proof: Buffer;
   /** The aggregation object for the block's proof. */
   aggregationObject: Buffer;
+};
+
+/** Arguments to the submitEpochProof method of the rollup contract */
+type L1SubmitEpochProofArgs = {
+  epochSize: number;
+  previousArchive: Fr;
+  endArchive: Fr;
+  previousBlockHash: Fr;
+  endBlockHash: Fr;
+  endTimestamp: Fr;
+  outHash: Fr;
+  proverId: Fr;
+  fees: Tuple<FeeRecipient, 32>;
+  proof: Proof;
+  aggregationObject: Fr[];
 };
 
 /**
@@ -237,7 +252,9 @@ export class L1Publisher {
       blockHash: block.hash().toString(),
     };
 
-    const digest = getHashedSignaturePayload(block.archive.root, txHashes ?? []);
+    const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
+
+    const digest = getHashedSignaturePayload(consensusPayload);
     const proposeTxArgs = {
       header: block.header.toBuffer(),
       archive: block.archive.root.toBuffer(),
@@ -298,7 +315,7 @@ export class L1Publisher {
     return false;
   }
 
-  public async submitProof(
+  public async submitBlockProof(
     header: Header,
     archiveRoot: Fr,
     proverId: Fr,
@@ -307,7 +324,7 @@ export class L1Publisher {
   ): Promise<boolean> {
     const ctx = { blockNumber: header.globalVariables.blockNumber, slotNumber: header.globalVariables.slotNumber };
 
-    const txArgs: L1SubmitProofArgs = {
+    const txArgs: L1SubmitBlockProofArgs = {
       header: header.toBuffer(),
       archive: archiveRoot.toBuffer(),
       proverId: proverId.toBuffer(),
@@ -318,7 +335,7 @@ export class L1Publisher {
     // Process block
     if (!this.interrupted) {
       const timer = new Timer();
-      const txHash = await this.sendSubmitProofTx(txArgs);
+      const txHash = await this.sendSubmitBlockProofTx(txArgs);
       if (!txHash) {
         return false;
       }
@@ -350,6 +367,45 @@ export class L1Publisher {
     return false;
   }
 
+  public async submitEpochProof(
+    args: L1SubmitEpochProofArgs,
+    ctx: { blockNumber: number; slotNumber: number },
+  ): Promise<boolean> {
+    // Process block
+    if (!this.interrupted) {
+      const timer = new Timer();
+      const txHash = await this.sendSubmitEpochProofTx(args);
+      if (!txHash) {
+        return false;
+      }
+
+      const receipt = await this.getTransactionReceipt(txHash);
+      if (!receipt) {
+        return false;
+      }
+
+      // Tx was mined successfully
+      if (receipt.status) {
+        const tx = await this.getTransactionStats(txHash);
+        const stats: L1PublishProofStats = {
+          ...pick(receipt, 'gasPrice', 'gasUsed', 'transactionHash'),
+          ...pick(tx!, 'calldataGas', 'calldataSize'),
+          eventName: 'proof-published-to-l1',
+        };
+        this.log.info(`Published epoch proof to L1 rollup contract`, { ...stats, ...ctx });
+        this.metrics.recordSubmitProof(timer.ms(), stats);
+        return true;
+      }
+
+      this.metrics.recordFailedTx('submitProof');
+      this.log.error(`Rollup.submitEpochProof tx status failed: ${receipt.transactionHash}`, ctx);
+      await this.sleepOrInterrupted();
+    }
+
+    this.log.verbose('L2 block data syncing interrupted while processing blocks.', ctx);
+    return false;
+  }
+
   /**
    * Calling `interrupt` will cause any in progress call to `publishRollup` to return `false` asap.
    * Be warned, the call may return false even if the tx subsequently gets successfully mined.
@@ -366,7 +422,7 @@ export class L1Publisher {
     this.interrupted = false;
   }
 
-  private async sendSubmitProofTx(submitProofArgs: L1SubmitProofArgs): Promise<string | undefined> {
+  private async sendSubmitBlockProofTx(submitProofArgs: L1SubmitBlockProofArgs): Promise<string | undefined> {
     try {
       const size = Object.values(submitProofArgs).reduce((acc, arg) => acc + arg.length, 0);
       this.log.info(`SubmitProof size=${size} bytes`);
@@ -389,6 +445,35 @@ export class L1Publisher {
       });
     } catch (err) {
       this.log.error(`Rollup submit proof failed`, err);
+      return undefined;
+    }
+  }
+
+  private async sendSubmitEpochProofTx(args: L1SubmitEpochProofArgs): Promise<string | undefined> {
+    try {
+      const txArgs = [
+        BigInt(args.epochSize),
+        [
+          args.previousArchive.toString(),
+          args.endArchive.toString(),
+          args.previousBlockHash.toString(),
+          args.endBlockHash.toString(),
+          args.endTimestamp.toString(),
+          args.outHash.toString(),
+          args.proverId.toString(),
+        ],
+        makeTuple(64, i =>
+          i % 2 === 0 ? args.fees[i / 2].recipient.toString() : args.fees[(i - 1) / 2].value.toString(),
+        ),
+        `0x${serializeToBuffer(args.aggregationObject).toString('hex')}`,
+        `0x${args.proof.withoutPublicInputs().toString('hex')}`,
+      ] as const;
+
+      this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
+      await this.rollupContract.simulate.submitEpochRootProof(txArgs, { account: this.account });
+      return await this.rollupContract.write.submitEpochRootProof(txArgs, { account: this.account });
+    } catch (err) {
+      this.log.error(`Rollup submit epoch proof failed`, err);
       return undefined;
     }
   }

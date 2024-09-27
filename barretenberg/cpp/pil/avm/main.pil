@@ -46,6 +46,7 @@ namespace main(256);
     pol commit sel_op_sender;
     pol commit sel_op_function_selector;
     pol commit sel_op_transaction_fee;
+    pol commit sel_op_is_static_call;
 
     // CONTEXT - ENVIRONMENT - GLOBALS
     pol commit sel_op_chain_id;
@@ -227,6 +228,7 @@ namespace main(256);
     sel_op_timestamp * (1 - sel_op_timestamp) = 0;
     sel_op_fee_per_l2_gas * (1 - sel_op_fee_per_l2_gas) = 0;
     sel_op_fee_per_da_gas * (1 - sel_op_fee_per_da_gas) = 0;
+    sel_op_is_static_call * (1 - sel_op_is_static_call) = 0;
 
     // MACHINE STATE - GAS
     sel_op_l2gasleft * (1 - sel_op_l2gasleft) = 0;

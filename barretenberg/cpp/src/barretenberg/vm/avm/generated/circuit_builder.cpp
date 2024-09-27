@@ -17,9 +17,9 @@ namespace bb {
 
 AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() const
 {
+    const size_t num_rows = get_num_gates();
     const size_t circuit_subgroup_size = get_circuit_subgroup_size();
-    // FIXME: Either some algo or the Polynomial class seems to require this to be a power of 2.
-    const size_t num_rows = numeric::round_up_power_2(get_num_gates());
+    ASSERT(num_rows <= circuit_subgroup_size);
     ProverPolynomials polys;
 
     // Allocate mem for each column
@@ -257,6 +257,7 @@ AvmCircuitBuilder::ProverPolynomials AvmCircuitBuilder::compute_polynomials() co
                                                                            rows[i].main_sel_op_get_contract_instance);
                 polys.main_sel_op_internal_call.set_if_valid_index(i, rows[i].main_sel_op_internal_call);
                 polys.main_sel_op_internal_return.set_if_valid_index(i, rows[i].main_sel_op_internal_return);
+                polys.main_sel_op_is_static_call.set_if_valid_index(i, rows[i].main_sel_op_is_static_call);
                 polys.main_sel_op_jump.set_if_valid_index(i, rows[i].main_sel_op_jump);
                 polys.main_sel_op_jumpi.set_if_valid_index(i, rows[i].main_sel_op_jumpi);
                 polys.main_sel_op_keccak.set_if_valid_index(i, rows[i].main_sel_op_keccak);

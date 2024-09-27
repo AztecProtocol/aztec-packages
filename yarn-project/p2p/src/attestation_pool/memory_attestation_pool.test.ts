@@ -44,13 +44,13 @@ describe('MemoryAttestationPool', () => {
     await ap.addAttestations(attestations);
 
     for (const attestation of attestations) {
-      const slot = attestation.header.globalVariables.slotNumber;
+      const slot = attestation.payload.header.globalVariables.slotNumber;
       const proposalId = attestation.p2pMessageIdentifier.toString();
 
       const retreivedAttestations = await ap.getAttestationsForSlot(slot.toBigInt(), proposalId);
       expect(retreivedAttestations.length).toBe(1);
       expect(retreivedAttestations[0]).toEqual(attestation);
-      expect(retreivedAttestations[0].header.globalVariables.slotNumber).toEqual(slot);
+      expect(retreivedAttestations[0].payload.header.globalVariables.slotNumber).toEqual(slot);
     }
   });
 

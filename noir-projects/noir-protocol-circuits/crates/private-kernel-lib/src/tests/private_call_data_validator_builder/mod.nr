@@ -19,7 +19,7 @@ use dep::types::{
     tests::fixture_builder::FixtureBuilder, transaction::tx_request::TxRequest
 };
 
-struct PrivateCallDataValidatorBuilder {
+pub struct PrivateCallDataValidatorBuilder {
     private_call: FixtureBuilder,
     previous_note_hashes: BoundedVec<ScopedNoteHash, 4>,
 }

@@ -24,7 +24,7 @@ export class InMemoryAttestationPool implements AttestationPool {
   public addAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
       // Perf: order and group by slot before insertion
-      const slotNumber = attestation.header.globalVariables.slotNumber;
+      const slotNumber = attestation.payload.header.globalVariables.slotNumber;
 
       const proposalId = attestation.p2pMessageIdentifier.toString();
       const address = attestation.getSender();
@@ -56,7 +56,7 @@ export class InMemoryAttestationPool implements AttestationPool {
 
   public deleteAttestations(attestations: BlockAttestation[]): Promise<void> {
     for (const attestation of attestations) {
-      const slotNumber = attestation.header.globalVariables.slotNumber;
+      const slotNumber = attestation.payload.header.globalVariables.slotNumber;
       const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());
       if (slotAttestationMap) {
         const proposalId = attestation.p2pMessageIdentifier.toString();

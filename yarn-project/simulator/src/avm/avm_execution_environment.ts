@@ -2,16 +2,6 @@ import { FunctionSelector, type GlobalVariables, type Header } from '@aztec/circ
 import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-export class AvmContextInputs {
-  static readonly SIZE = 2;
-
-  constructor(private calldataSize: Fr, private isStaticCall: boolean) {}
-
-  public toFields(): Fr[] {
-    return [this.calldataSize, new Fr(this.isStaticCall)];
-  }
-}
-
 /**
  * Contains variables that remain constant during AVM execution
  * These variables are provided by the public kernel circuit
@@ -29,12 +19,7 @@ export class AvmExecutionEnvironment {
     public readonly isStaticCall: boolean,
     public readonly isDelegateCall: boolean,
     public readonly calldata: Fr[],
-  ) {
-    // We encode some extra inputs (AvmContextInputs) in calldata.
-    // This will have to go once we move away from one proof per call.
-    const inputs = new AvmContextInputs(new Fr(calldata.length), isStaticCall).toFields();
-    this.calldata = [...inputs, ...calldata];
-  }
+  ) {}
 
   private deriveEnvironmentForNestedCallInternal(
     targetAddress: AztecAddress,
@@ -92,10 +77,5 @@ export class AvmExecutionEnvironment {
     _functionSelector: FunctionSelector,
   ): AvmExecutionEnvironment {
     throw new Error('Delegate calls not supported!');
-  }
-
-  public getCalldataWithoutPrefix(): Fr[] {
-    // clip off the first few entries
-    return this.calldata.slice(AvmContextInputs.SIZE);
   }
 }

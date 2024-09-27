@@ -1,7 +1,7 @@
 // GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 /**
  * @title Constants Library
@@ -83,9 +83,8 @@ library Constants {
   uint256 internal constant PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX = 11;
   uint256 internal constant EMPTY_NESTED_INDEX = 12;
   uint256 internal constant PRIVATE_KERNEL_EMPTY_INDEX = 13;
-  uint256 internal constant PUBLIC_KERNEL_SETUP_INDEX = 14;
-  uint256 internal constant PUBLIC_KERNEL_APP_LOGIC_INDEX = 15;
-  uint256 internal constant PUBLIC_KERNEL_TEARDOWN_INDEX = 16;
+  uint256 internal constant PUBLIC_KERNEL_INNER_INDEX = 15;
+  uint256 internal constant PUBLIC_KERNEL_MERGE_INDEX = 16;
   uint256 internal constant PUBLIC_KERNEL_TAIL_INDEX = 17;
   uint256 internal constant BASE_PARITY_INDEX = 18;
   uint256 internal constant ROOT_PARITY_INDEX = 19;
@@ -94,6 +93,8 @@ library Constants {
   uint256 internal constant BLOCK_ROOT_ROLLUP_INDEX = 22;
   uint256 internal constant BLOCK_MERGE_ROLLUP_INDEX = 23;
   uint256 internal constant ROOT_ROLLUP_INDEX = 24;
+  uint256 internal constant BLOCK_ROOT_ROLLUP_EMPTY_INDEX = 25;
+  uint256 internal constant BLOCK_ROOT_ROLLUP_FINAL_INDEX = 26;
   uint256 internal constant FUNCTION_SELECTOR_NUM_BYTES = 4;
   uint256 internal constant INITIALIZATION_SLOT_SEPARATOR = 1000000000;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
@@ -127,9 +128,18 @@ library Constants {
   uint256 internal constant FIXED_DA_GAS = 512;
   uint256 internal constant FIXED_L2_GAS = 512;
   uint256 internal constant FIXED_AVM_STARTUP_L2_GAS = 1024;
+  uint256 internal constant L2_GAS_DISTRIBUTED_STORAGE_PREMIUM = 1024;
+  uint256 internal constant L2_GAS_PER_READ_MERKLE_HASH = 30;
+  uint256 internal constant L2_GAS_PER_WRITE_MERKLE_HASH = 40;
+  uint256 internal constant L2_GAS_PER_PUBLIC_DATA_UPDATE = 2624;
+  uint256 internal constant L2_GAS_PER_NOTE_HASH = 2304;
+  uint256 internal constant L2_GAS_PER_NULLIFIER = 2624;
+  uint256 internal constant L2_GAS_PER_PUBLIC_DATA_READ = 1200;
+  uint256 internal constant L2_GAS_PER_NOTE_HASH_READ_REQUEST = 960;
+  uint256 internal constant L2_GAS_PER_NULLIFIER_READ_REQUEST = 1200;
+  uint256 internal constant L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST = 480;
   uint256 internal constant L2_GAS_PER_LOG_BYTE = 4;
-  uint256 internal constant L2_GAS_PER_NOTE_HASH = 32;
-  uint256 internal constant L2_GAS_PER_NULLIFIER = 64;
+  uint256 internal constant L2_GAS_PER_L2_TO_L1_MSG = 200;
   uint256 internal constant CANONICAL_AUTH_REGISTRY_ADDRESS =
     19361441716519463065948254497947932755739298943049449145365332870925554042208;
   uint256 internal constant DEPLOYER_CONTRACT_ADDRESS =
@@ -175,33 +185,39 @@ library Constants {
   uint256 internal constant SCOPED_NULLIFIER_LENGTH = 4;
   uint256 internal constant PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH = 13;
   uint256 internal constant PRIVATE_CALL_REQUEST_LENGTH = 10;
-  uint256 internal constant PUBLIC_CALL_REQUEST_LENGTH = 14;
+  uint256 internal constant PUBLIC_CALL_REQUEST_LENGTH = 8;
+  uint256 internal constant PUBLIC_INNER_CALL_REQUEST_LENGTH = 14;
   uint256 internal constant ROLLUP_VALIDATION_REQUESTS_LENGTH = 2;
   uint256 internal constant STATE_REFERENCE_LENGTH = 8;
   uint256 internal constant TX_CONTEXT_LENGTH = 9;
   uint256 internal constant TX_REQUEST_LENGTH = 13;
   uint256 internal constant TOTAL_FEES_LENGTH = 1;
   uint256 internal constant HEADER_LENGTH = 24;
-  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 646;
+  uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH = 544;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 691;
-  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 649;
+  uint256 internal constant PRIVATE_CALL_STACK_ITEM_LENGTH = 547;
   uint256 internal constant PUBLIC_CONTEXT_INPUTS_LENGTH = 42;
   uint256 internal constant AGGREGATION_OBJECT_LENGTH = 16;
   uint256 internal constant SCOPED_READ_REQUEST_LEN = 3;
   uint256 internal constant PUBLIC_DATA_READ_LENGTH = 3;
   uint256 internal constant PRIVATE_VALIDATION_REQUESTS_LENGTH = 772;
+  uint256 internal constant NUM_PUBLIC_VALIDATION_REQUEST_ARRAYS = 5;
   uint256 internal constant PUBLIC_VALIDATION_REQUESTS_LENGTH = 834;
   uint256 internal constant PUBLIC_DATA_UPDATE_REQUEST_LENGTH = 3;
   uint256 internal constant COMBINED_ACCUMULATED_DATA_LENGTH = 610;
   uint256 internal constant COMBINED_CONSTANT_DATA_LENGTH = 43;
-  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1336;
-  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2167;
-  uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 1311;
-  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3949;
+  uint256 internal constant PRIVATE_ACCUMULATED_DATA_LENGTH = 1144;
+  uint256 internal constant PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1969;
+  uint256 internal constant PUBLIC_ACCUMULATED_DATA_LENGTH = 1119;
+  uint256 internal constant NUM_PUBLIC_ACCUMULATED_DATA_ARRAYS = 8;
+  uint256 internal constant PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3126;
+  uint256 internal constant VM_CIRCUIT_PUBLIC_INPUTS_LENGTH = 2471;
   uint256 internal constant KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 663;
   uint256 internal constant CONSTANT_ROLLUP_DATA_LENGTH = 12;
   uint256 internal constant BASE_OR_MERGE_PUBLIC_INPUTS_LENGTH = 29;
   uint256 internal constant BLOCK_ROOT_OR_BLOCK_MERGE_PUBLIC_INPUTS_LENGTH = 91;
+  uint256 internal constant FEE_RECIPIENT_LENGTH = 2;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 75;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 674;
   uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 2048;
@@ -228,6 +244,7 @@ library Constants {
   uint256 internal constant ADDRESS_SELECTOR = 1;
   uint256 internal constant STORAGE_ADDRESS_SELECTOR = 1;
   uint256 internal constant FUNCTION_SELECTOR_SELECTOR = 2;
+  uint256 internal constant IS_STATIC_CALL_SELECTOR = 4;
   uint256 internal constant START_GLOBAL_VARIABLES = 29;
   uint256 internal constant CHAIN_ID_SELECTOR = 29;
   uint256 internal constant VERSION_SELECTOR = 30;

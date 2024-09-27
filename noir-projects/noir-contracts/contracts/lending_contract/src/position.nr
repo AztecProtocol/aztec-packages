@@ -1,6 +1,6 @@
 use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
 
-struct Position {
+pub struct Position {
     collateral: Field,
     static_debt: Field,
     debt: Field,

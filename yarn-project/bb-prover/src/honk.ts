@@ -2,7 +2,10 @@ import { type ProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
 
 export type UltraHonkFlavor = 'ultra_honk' | 'ultra_keccak_honk';
 
-const UltraKeccakHonkCircuits = ['BlockRootRollupArtifact'] as const;
+const UltraKeccakHonkCircuits = [
+  'BlockRootRollupFinalArtifact',
+  'RootRollupArtifact',
+] as const satisfies ProtocolArtifact[];
 type UltraKeccakHonkCircuits = (typeof UltraKeccakHonkCircuits)[number];
 type UltraHonkCircuits = Exclude<ProtocolArtifact, UltraKeccakHonkCircuits>;
 

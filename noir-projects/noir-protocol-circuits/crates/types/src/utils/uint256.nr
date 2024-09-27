@@ -5,7 +5,7 @@
 //
 // This is needed because in the cpp code, we have accumulate_sha256
 // which returns 2 field elements, one for the high and low limb.
-struct U256 {
+pub struct U256 {
     // This is in big-endian order, typically because
     // sha256 is usually in big endian order.
     // Note: this means that inner[0] has the most significant 64 bits.
@@ -56,7 +56,7 @@ impl U256 {
 
     // We cannot represent u128 in the type system
     // so we cannot return a u128 type.
-    // 
+    //
     // This as conversion assumes that Field can store 128 bits of information
     // or else the conversion is lossy.
     //
@@ -101,13 +101,13 @@ fn smoke_u256_from_bytes32_one_zero_zero_zero() {
 #[test]
 fn smoke_u256_from_bytes32_test() {
     /*
-    input:  [   0xAA, 0xBB, 0xCC, 0xDD, 
-                0xEE, 0xFF, 0x00, 0x11, 
-                0x22, 0x33, 0x44, 0x55, 
-                0x66, 0x77, 0x88, 0x99, 
-                0x11, 0x22, 0x33, 0x44, 
-                0x55, 0x66, 0x77, 0x88, 
-                0x99, 0xAA, 0xBB, 0xCC, 
+    input:  [   0xAA, 0xBB, 0xCC, 0xDD,
+                0xEE, 0xFF, 0x00, 0x11,
+                0x22, 0x33, 0x44, 0x55,
+                0x66, 0x77, 0x88, 0x99,
+                0x11, 0x22, 0x33, 0x44,
+                0x55, 0x66, 0x77, 0x88,
+                0x99, 0xAA, 0xBB, 0xCC,
                 0xDD, 0xEE, 0xFF, 0x00
             ]
     output: inner[0]: 0xAABBCCDDEEFF0011

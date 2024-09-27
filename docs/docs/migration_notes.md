@@ -8,6 +8,127 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Removed `SharedMutablePrivateGetter`
+
+This state variable was deleted due to it being difficult to use safely.
+
+### [Aztec.nr] Changes to `NullifiableNote`
+
+The `compute_nullifier_without_context` function is now `unconstrained`. It had always been meant to be called in unconstrained contexts (which is why it did not receive the `context` object), but now that Noir supports trait functions being `unconstrained` this can be implemented properly. Users must add the `unconstrained` keyword to their implementations of the trait:
+
+```diff
+impl NullifiableNote for MyCustomNote {
+-    fn compute_nullifier_without_context(self) -> Field {
++    unconstrained fn compute_nullifier_without_context(self) -> Field {
+```
+
+### [Aztec.nr] Make `TestEnvironment` unconstrained
+
+All of `TestEnvironment`'s functions are now `unconstrained`, preventing accidentally calling them in a constrained circuit, among other kinds of user error. Becuase they work with mutable references, and these are not allowed to cross the constrained/unconstrained barrier, tests that use `TestEnvironment` must also become `unconstrained`. The recommended practice is to make _all_ Noir tests and test helper functions be `unconstrained:
+
+```diff
+#[test]
+-fn test_my_function() {
++unconstrained fn test_my_function() {
+    let env = TestEnvironment::new();
+```
+
+### [Aztec.nr] removed `encode_and_encrypt_note` and renamed `encode_and_encrypt_note_with_keys` to `encode_and_encrypt_note`
+
+````diff
+contract XYZ {
+-   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys;
++   use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
+....
+
+-    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note_with_keys(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
++    numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
+
+}
+
+## 0.56.0
+
+### [Aztec.nr] Changes to contract definition
+
+We've migrated the Aztec macros to use the newly introduce meta programming Noir feature. Due to being Noir-based, the new macros are less obscure and can be more easily modified.
+
+As part of this transition, some changes need to be applied to Aztec contracts:
+
+- The top level `contract` block needs to have the `#[aztec]` macro applied to it.
+- All `#[aztec(name)]` macros are renamed to `#[name]`.
+- The storage struct (the one that gets the `#[storage]` macro applied) but be generic over a `Context` type, and all state variables receive this type as their last generic type parameter.
+
+```diff
++ use dep::aztec::macros::aztec;
+
+#[aztec]
+contract Token {
++    use dep::aztec::macros::{storage::storage, events::event, functions::{initializer, private, view, public}};
+
+-    #[aztec(storage)]
+-    struct Storage {
++    #[storage]
++    struct Storage<Context> {
+-        admin: PublicMutable<AztecAddress>,
++        admin: PublicMutable<AztecAddress, Context>,
+-        minters: Map<AztecAddress, PublicMutable<bool>>,
++        minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
+    }
+
+-    #[aztec(public)]
+-    #[aztec(initializer)]
++    #[public]
++    #[initializer]
+    fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
+        ...
+    }
+
+-    #[aztec(public)]
+-    #[aztec(view)]
+-    fn public_get_name() -> FieldCompressedString {
++    #[public]
++    #[view]
+    fn public_get_name() -> FieldCompressedString {
+        ...
+    }
+```
+
+### [Aztec.nr] Changes to `NoteInterface`
+
+The new macro model prevents partial trait auto-implementation: they either implement the entire trait or none of it. This means users can no longer implement part of `NoteInterface` and have the rest be auto-implemented.
+
+For this reason we've separated the methods which are auto-implemented and those which needs to be implemented manually into two separate traits: the auto-implemented ones stay in the `NoteInterface` trace and the manually implemented ones were moved to `NullifiableNote` (name likely to change):
+
+```diff
+-#[aztec(note)]
++#[note]
+struct AddressNote {
+    ...
+}
+
+-impl NoteInterface<ADDRESS_NOTE_LEN, ADDRESS_NOTE_BYTES_LEN> for AddressNote {
++impl NullifiableNote for AddressNote {
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+        ...
+    }
+
+    fn compute_nullifier_without_context(self) -> Field {
+        ...
+    }
+}
+```
+
+### [Aztec.nr] Changes to contract interface
+
+The `Contract::storage()` static method has been renamed to `Contract::storage_layout()`.
+
+```diff
+-    let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage().balances.slot, fee_payer);
+-    let user_balances_slot = derive_storage_slot_in_map(Token::storage().balances.slot, user);
++    let fee_payer_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, fee_payer);
++    let user_balances_slot = derive_storage_slot_in_map(Token::storage_layout().balances.slot, user);
+```
+
 ### Key rotation removed
 
 The ability to rotate incoming, outgoing, nullifying and tagging keys has been removed - this feature was easy to misuse and not worth the complexity and gate count cost. As part of this, the Key Registry contract has also been deleted. The API for fetching public keys has been adjusted accordingly:

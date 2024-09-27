@@ -89,7 +89,9 @@ export class ValidatorClient implements Validator {
       }
       return undefined;
     }
-    this.log.debug(`Transactions available, attesting to proposal with ${proposal.txs.length} transactions`);
+    this.log.debug(
+      `Transactions available, attesting to proposal with ${proposal.payload.txHashes.length} transactions`,
+    );
 
     // If the above function does not throw an error, then we can attest to the proposal
     return this.validationService.attestToProposal(proposal);
@@ -104,7 +106,7 @@ export class ValidatorClient implements Validator {
    * @param proposal - The proposal to attest to
    */
   async ensureTransactionsAreAvailable(proposal: BlockProposal) {
-    const txHashes: TxHash[] = proposal.txs;
+    const txHashes: TxHash[] = proposal.payload.txHashes;
     const transactionStatuses = await Promise.all(txHashes.map(txHash => this.p2pClient.getTxStatus(txHash)));
 
     const missingTxs = txHashes.filter((_, index) => !['pending', 'mined'].includes(transactionStatuses[index] ?? ''));
@@ -136,7 +138,7 @@ export class ValidatorClient implements Validator {
     numberOfRequiredAttestations: number,
   ): Promise<BlockAttestation[]> {
     // Wait and poll the p2pClient's attestation pool for this block until we have enough attestations
-    const slot = proposal.header.globalVariables.slotNumber.toBigInt();
+    const slot = proposal.payload.header.globalVariables.slotNumber.toBigInt();
     this.log.info(`Waiting for ${numberOfRequiredAttestations} attestations for slot: ${slot}`);
 
     const proposalId = proposal.p2pMessageIdentifier.toString();

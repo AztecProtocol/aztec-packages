@@ -7,7 +7,7 @@ use dep::types::{
     merkle_tree::MembershipWitness
 };
 
-struct StateDiffHints {
+pub struct StateDiffHints {
     nullifier_predecessor_preimages: [NullifierLeafPreimage; MAX_NULLIFIERS_PER_TX],
     nullifier_predecessor_membership_witnesses: [MembershipWitness<NULLIFIER_TREE_HEIGHT>; MAX_NULLIFIERS_PER_TX],
 

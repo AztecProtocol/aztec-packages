@@ -1,38 +1,44 @@
 // docs:start:empty-contract
+use dep::aztec::macros::aztec;
+
+#[aztec]
 contract Crowdfunding {
     // docs:end:empty-contract
 
     // docs:start:all-deps
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
+        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
         keys::getters::get_public_keys, prelude::{AztecAddress, PrivateSet, SharedImmutable},
-        utils::comparison::Comparator
+        utils::comparison::Comparator, unencrypted_logs::unencrypted_event_emission::encode_event,
+        macros::{storage::storage, events::event, functions::{public, initializer, private, internal}},
+        protocol_types::traits::Serialize
     };
-    use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
+    use std::meta::derive;
     // docs:start:import_valuenote
     use dep::value_note::value_note::ValueNote;
     // docs:end:import_valuenote
-    use dep::token::Token;
+    use token::Token;
     use router::utils::privately_check_timestamp;
     // docs:end:all-deps
 
-    #[aztec(event)]
+    #[event]
+    #[derive(Serialize)]
     struct WithdrawalProcessed {
-        who: Field,
-        amount: Field,
+        who: AztecAddress,
+        amount: u64,
     }
 
     // docs:start:storage
-    #[aztec(storage)]
-    struct Storage {
+    #[storage]
+    struct Storage<Context> {
         // Token used for donations (e.g. DAI)
-        donation_token: SharedImmutable<AztecAddress>,
+        donation_token: SharedImmutable<AztecAddress, Context>,
         // Crowdfunding campaign operator
-        operator: SharedImmutable<AztecAddress>,
+        operator: SharedImmutable<AztecAddress, Context>,
         // End of the crowdfunding campaign after which no more donations are accepted
-        deadline: SharedImmutable<u64>,
+        deadline: SharedImmutable<u64, Context>,
         // Notes emitted to donors when they donate (can be used as proof to obtain rewards, eg in Claim contracts)
-        donation_receipts: PrivateSet<ValueNote>,
+        donation_receipts: PrivateSet<ValueNote, Context>,
     }
     // docs:end:storage
 
@@ -40,8 +46,8 @@ contract Crowdfunding {
     // docs:start:init
     // docs:start:init-header
     // docs:start:init-header-error
-    #[aztec(public)]
-    #[aztec(initializer)]
+    #[public]
+    #[initializer]
     // this-will-error:init-header-error
     fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {
         // docs:end:init-header
@@ -53,7 +59,7 @@ contract Crowdfunding {
     // docs:end:init
 
     // docs:start:donate
-    #[aztec(private)]
+    #[private]
     fn donate(amount: u64) {
         // 1) Check that the deadline has not passed --> we do that via the router contract to conceal which contract
         // is performing the check.
@@ -74,13 +80,13 @@ contract Crowdfunding {
         // docs:start:valuenote_new
         let mut note = ValueNote::new(amount as Field, donor_keys.npk_m.hash());
         // docs:end:valuenote_new
-        storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note_with_keys(&mut context, donor_keys.ovpk_m, donor_keys.ivpk_m, donor));
+        storage.donation_receipts.insert(&mut note).emit(encode_and_encrypt_note(&mut context, donor_keys.ovpk_m, donor_keys.ivpk_m, donor));
     }
     // docs:end:donate
 
     // docs:start:operator-withdrawals
     // Withdraws balance to the operator. Requires that msg_sender() is the operator.
-    #[aztec(private)]
+    #[private]
     fn withdraw(amount: u64) {
         // 1) Check that msg_sender() is the operator
         let operator_address = storage.operator.read_private();
@@ -93,9 +99,9 @@ contract Crowdfunding {
     }
     // docs:end:operator-withdrawals
 
-    #[aztec(public)]
-    #[aztec(internal)]
+    #[public]
+    #[internal]
     fn _publish_donation_receipts(amount: u64, to: AztecAddress) {
-        WithdrawalProcessed { amount: amount as Field, who: to.to_field() }.emit(encode_event(&mut context));
+        WithdrawalProcessed { amount, who: to }.emit(encode_event(&mut context));
     }
 }

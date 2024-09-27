@@ -14,7 +14,7 @@ import {
   LogHash,
   NoteHash,
   Nullifier,
-  type PublicCallRequest,
+  type PublicInnerCallRequest,
   ReadRequest,
   TreeLeafReadRequest,
 } from '@aztec/circuits.js';
@@ -53,7 +53,7 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
   private allUnencryptedLogs: UnencryptedL2Log[] = [];
   private unencryptedLogsHashes: LogHash[] = [];
 
-  private publicCallRequests: PublicCallRequest[] = [];
+  private publicCallRequests: PublicInnerCallRequest[] = [];
 
   private gotContractInstances: ContractInstanceWithAddress[] = [];
 
@@ -183,10 +183,8 @@ export class PublicSideEffectTrace implements PublicSideEffectTraceInterface {
     const basicLogHash = Fr.fromBuffer(ulog.hash());
     this.unencryptedLogs.push(ulog);
     this.allUnencryptedLogs.push(ulog);
-    // We want the length of the buffer output from function_l2_logs -> toBuffer to equal the stored log length in the kernels.
-    // The kernels store the length of the processed log as 4 bytes; thus for this length value to match the log length stored in the kernels,
-    // we need to add four to the length here.
-    // https://github.com/AztecProtocol/aztec-packages/issues/6578#issuecomment-2125003435
+    // This length is for charging DA and is checked on-chain - has to be length of log preimage + 4 bytes.
+    // The .length call also has a +4 but that is unrelated
     this.unencryptedLogsHashes.push(new LogHash(basicLogHash, this.sideEffectCounter, new Fr(ulog.length + 4)));
     this.logger.debug(`NEW_UNENCRYPTED_LOG cnt: ${this.sideEffectCounter}`);
     this.incrementSideEffectCounter();
@@ -331,10 +329,5 @@ function createPublicExecutionRequest(avmEnvironment: AvmExecutionEnvironment): 
     isDelegateCall: avmEnvironment.isDelegateCall,
     isStaticCall: avmEnvironment.isStaticCall,
   });
-  return new PublicExecutionRequest(
-    avmEnvironment.address,
-    callContext,
-    // execution request does not contain AvmContextInputs prefix
-    avmEnvironment.getCalldataWithoutPrefix(),
-  );
+  return new PublicExecutionRequest(avmEnvironment.address, callContext, avmEnvironment.calldata);
 }

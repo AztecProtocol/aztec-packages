@@ -7,7 +7,7 @@ For example, using a balanced merkle tree to rollup 5 transactions requires padd
 ```mermaid
 graph BT
     R_c[Root]
-    
+
     M4_c[Merge]
     M5_c[Merge]
     M4_c --> R_c
@@ -27,12 +27,12 @@ graph BT
     B1_c --> M0_c
     B2_c --> M1_c
     B3_c --> M1_c
-    
+
     M2_c[Merge]
     M3_c[Merge*]
     M2_c --> M5_c
     M3_c --> M5_c
-    
+
     B4_c[Base]
     B5_c[Base*]
     B6_c[Base*]
@@ -62,7 +62,7 @@ Our wonky tree implementation instead gives the below structure for 5 transactio
 ```mermaid
 graph BT
     R_c[Root]
-    
+
     M4_c[Merge]
     M4_c --> R_c
 
@@ -80,8 +80,8 @@ graph BT
     B1_c --> M0_c
     B2_c --> M1_c
     B3_c --> M1_c
-    
-    
+
+
     B4_c[Base]
     B4_c --> R_c
 
@@ -115,7 +115,7 @@ graph
 graph BT
     M0_c[Merge 0]
     M1_c[Merge 1]
-    
+
     B0_c[Base 0]
     B1_c[Base 1]
     B2_c[Base 2]
@@ -124,7 +124,7 @@ graph BT
     B1_c --> M0_c
     B2_c --> M1_c
     B3_c --> M1_c
-    
+
     B4_c[Base 4]
 ```
 
@@ -135,7 +135,7 @@ graph BT
     M0_c[Merge 0]
     M1_c[Merge 1]
     M2_c[Merge 2]
-    
+
     B0_c[Base 0]
     B1_c[Base 1]
     B2_c[Base 2]
@@ -144,10 +144,10 @@ graph BT
     B1_c --> M0_c
     B2_c --> M1_c
     B3_c --> M1_c
-    
+
     M0_c --> M2_c
     M1_c --> M2_c
-    
+
     B4_c[Base 4]
 ```
 
@@ -156,11 +156,11 @@ Once paired, the base layer has length 4, the next merge layer has 2, and the fi
 ```mermaid
 graph BT
     R_c[Root]
-    
+
     M0_c[Merge 0]
     M1_c[Merge 1]
     M2_c[Merge 2]
-    
+
     B0_c[Base 0]
     B1_c[Base 1]
     B2_c[Base 2]
@@ -169,17 +169,18 @@ graph BT
     B1_c --> M0_c
     B2_c --> M1_c
     B3_c --> M1_c
-    
+
     M0_c --> M2_c
     M1_c --> M2_c
-    
+
     B4_c[Base 4]
     M2_c --> R_c
     B4_c --> R_c
 ```
+
 Since we have processed all base circuits, this final pair will be input to a root circuit.
 
-Filling from left to right means that we can easily reconstruct the tree only from the number of transactions `n`. The above method ensures that the final tree is a combination of *balanced* subtrees of descending size. The widths of these subtrees are given by the decomposition of `n` into powers of 2. For example, 5 transactions:
+Filling from left to right means that we can easily reconstruct the tree only from the number of transactions `n`. The above method ensures that the final tree is a combination of _balanced_ subtrees of descending size. The widths of these subtrees are given by the decomposition of `n` into powers of 2. For example, 5 transactions:
 
 ```
 Subtrees: [4, 1] ->
@@ -189,6 +190,7 @@ Subtrees: [4, 1] ->
 ```
 
 For 31 transactions:
+
 ```
 Subtrees: [16, 8, 4, 2, 1] ->
   Merge D: left_subtree_root = balanced_tree(txs[0..16])
@@ -207,6 +209,7 @@ Subtrees: [16, 8, 4, 2, 1] ->
   }
   root = left_subtree_root | right_subtree_root
 ```
+
 An unrolled recursive algorithm is not the easiest thing to read. This diagram represents the 31 transactions rolled up in our wonky structure, where each `Merge <num>` is a 'subroot' above:
 
 ```mermaid
@@ -215,36 +218,37 @@ graph BT
     M3_c[Merge D
     Subtree of 16 txs]
     R_c[Root]
-    
-    
+
+
     B4_c[Merge C
     Subtree of 8 txs]
     B5_c[Merge 1]
-    
+
     B4_c --> M2_c
     B5_c --> M2_c
-    
+
     B6_c[Merge B
     Subtree of 4 txs]
     B7_c[Merge 0]
-    
+
     B6_c --> B5_c
     B7_c --> B5_c
-    
+
     B8_c[Merge A
     Subtree of 2 txs]
     B9_c[Base 30]
-    
+
     B8_c --> B7_c
     B9_c --> B7_c
 
-    
+
     M3_c --> R_c
     M2_c --> R_c
 ```
+
 The tree is reconstructed to check the `txs_effects_hash` (= the root of a wonky tree given by leaves of each tx's `tx_effects`) on L1. We also reconstruct it to provide a membership path against the stored `out_hash` (= the root of a wonky tree given by leaves of each tx's L2 to L1 message tree root) for consuming a L2 to L1 message.
 
-Currently, this tree is built via the [orchestrator](../../../../yarn-project/prover-client/src/orchestrator/proving-state.ts#74) given the number of transactions to rollup (`this.totalNumTxs`). Each 'node' is assigned a level (0 at the root) and index in that level. The below function finds the parent level:
+Currently, this tree is built via the orchestrator given the number of transactions to rollup. Each 'node' is assigned a level (0 at the root) and index in that level. The below function finds the parent level:
 
 ```
   // Calculates the index and level of the parent rollup circuit
@@ -272,14 +276,14 @@ Currently, this tree is built via the [orchestrator](../../../../yarn-project/pr
     return [mergeLevel - 1n, thisIndex >> 1n, thisIndex & 1n];
   }
 ```
- For example, `Base 4` above starts with `level = 3` and `index = 4`. Since we have an odd number of transactions at this level, `thisLevelSize` is set to 4 with `shiftUp = true`.
 
- The while loop triggers and shifts up our node to `level = 2` and `index = 2`. This level (containing `Merge 0` and `Merge 1`) is of even length, so the loop continues. The next iteration shifts up to `level = 1` and `index = 1` - we now have an odd level, so the loop stops. The actual position of `Base 4` is therefore at `level = 1` and `index = 1`. This function returns the parent level of the input node, so we return `level = 0`, `index = 0`, correctly indicating that the parent of `Base 4` is the root.
+For example, `Base 4` above starts with `level = 3` and `index = 4`. Since we have an odd number of transactions at this level, `thisLevelSize` is set to 4 with `shiftUp = true`.
 
+The while loop triggers and shifts up our node to `level = 2` and `index = 2`. This level (containing `Merge 0` and `Merge 1`) is of even length, so the loop continues. The next iteration shifts up to `level = 1` and `index = 1` - we now have an odd level, so the loop stops. The actual position of `Base 4` is therefore at `level = 1` and `index = 1`. This function returns the parent level of the input node, so we return `level = 0`, `index = 0`, correctly indicating that the parent of `Base 4` is the root.
 
 ### Flexible wonky trees
 
-We can also encode the structure of *any* binary merkle tree by tracking `number_of_branches` and `number_of_leaves` for each node in the tree. This encoding was originally designed for [logs](../logs/index.md) before they were included in the `txs_effects_hash`, so the below explanation references the leaves stored in relation to logs and transactions.
+We can also encode the structure of _any_ binary merkle tree by tracking `number_of_branches` and `number_of_leaves` for each node in the tree. This encoding was originally designed for [logs](../logs/index.md) before they were included in the `txs_effects_hash`, so the below explanation references the leaves stored in relation to logs and transactions.
 
 The benefit of this method as opposed to the one above is allowing for any binary structure and therefore allowing for 'skipping' leaves with no information. However, the encoding grows as the tree grows, by at least 2 bytes per node. The above implementation only requires the number of leaves to be encoded, which will likely only require a single field to store.
 

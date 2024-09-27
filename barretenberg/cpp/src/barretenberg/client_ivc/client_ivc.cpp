@@ -213,7 +213,10 @@ ClientIVC::Proof ClientIVC::prove()
     ASSERT(merge_verification_queue.size() == 1); // ensure only a single merge proof remains in the queue
     FoldProof& fold_proof = verification_queue[0].proof;
     MergeProof& merge_proof = merge_verification_queue[0];
-    return { fold_proof, decider_prove(), goblin.prove(merge_proof) };
+    HonkProof decider_proof = decider_prove();
+    // Free the accumulator to save memory
+    fold_output.accumulator = nullptr;
+    return { fold_proof, std::move(decider_proof), goblin.prove(merge_proof) };
 };
 
 bool ClientIVC::verify(const Proof& proof,

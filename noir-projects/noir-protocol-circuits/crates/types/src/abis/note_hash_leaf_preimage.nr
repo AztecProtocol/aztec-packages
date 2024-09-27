@@ -5,7 +5,7 @@ use crate::{
     merkle_tree::leaf_preimage::LeafPreimage, traits::Empty
 };
 
-struct NoteHashLeafPreimage {
+pub struct NoteHashLeafPreimage {
     value : Field,
 }
 

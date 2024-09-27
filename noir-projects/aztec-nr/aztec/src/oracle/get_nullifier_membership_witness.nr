@@ -6,7 +6,7 @@ use dep::protocol_types::{
 // INDEX_LENGTH + NULLIFIER_LEAF_PREIMAGE_LENGTH + NULLIFIER_TREE_HEIGHT
 global NULLIFIER_MEMBERSHIP_WITNESS: u32 = 24;
 
-struct NullifierMembershipWitness {
+pub struct NullifierMembershipWitness {
     index: Field,
     leaf_preimage: NullifierLeafPreimage,
     path: [Field; NULLIFIER_TREE_HEIGHT],
