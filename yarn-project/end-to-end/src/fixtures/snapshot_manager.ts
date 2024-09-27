@@ -18,7 +18,7 @@ import {
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
 import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { createL1Clients } from '@aztec/ethereum';
+import { type DeployL1ContractsArgs, createL1Clients } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { type Logger, createDebugLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
@@ -60,8 +60,15 @@ type SnapshotEntry = {
   snapshotPath: string;
 };
 
-export function createSnapshotManager(testName: string, dataPath?: string, config: Partial<AztecNodeConfig> = {}) {
-  return dataPath ? new SnapshotManager(testName, dataPath, config) : new MockSnapshotManager(testName, config);
+export function createSnapshotManager(
+  testName: string,
+  dataPath?: string,
+  config: Partial<AztecNodeConfig> = {},
+  deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
+) {
+  return dataPath
+    ? new SnapshotManager(testName, dataPath, config, deployL1ContractsArgs)
+    : new MockSnapshotManager(testName, config, deployL1ContractsArgs);
 }
 
 export interface ISnapshotManager {
@@ -81,7 +88,11 @@ class MockSnapshotManager implements ISnapshotManager {
   private context?: SubsystemsContext;
   private logger: DebugLogger;
 
-  constructor(testName: string, private config: Partial<AztecNodeConfig> = {}) {
+  constructor(
+    testName: string,
+    private config: Partial<AztecNodeConfig> = {},
+    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
+  ) {
     this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
     this.logger.warn(`No data path given, will not persist any snapshots.`);
   }
@@ -103,7 +114,7 @@ class MockSnapshotManager implements ISnapshotManager {
 
   public async setup() {
     if (!this.context) {
-      this.context = await setupFromFresh(undefined, this.logger, this.config);
+      this.context = await setupFromFresh(undefined, this.logger, this.config, this.deployL1ContractsArgs);
     }
     return this.context;
   }
@@ -124,7 +135,12 @@ class SnapshotManager implements ISnapshotManager {
   private livePath: string;
   private logger: DebugLogger;
 
-  constructor(testName: string, private dataPath: string, private config: Partial<AztecNodeConfig> = {}) {
+  constructor(
+    testName: string,
+    private dataPath: string,
+    private config: Partial<AztecNodeConfig> = {},
+    private deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = { assumeProvenThrough: Number.MAX_SAFE_INTEGER },
+  ) {
     this.livePath = join(this.dataPath, 'live', testName);
     this.logger = createDebugLogger(`aztec:snapshot_manager:${testName}`);
   }
@@ -201,7 +217,7 @@ class SnapshotManager implements ISnapshotManager {
           this.logger.verbose(`Restoration of ${e.name} complete.`);
         });
       } else {
-        this.context = await setupFromFresh(this.livePath, this.logger, this.config);
+        this.context = await setupFromFresh(this.livePath, this.logger, this.config, this.deployL1ContractsArgs);
       }
     }
     return this.context;
@@ -269,6 +285,9 @@ async function setupFromFresh(
   statePath: string | undefined,
   logger: Logger,
   config: Partial<AztecNodeConfig> = {},
+  deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {
+    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
+  },
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
 
@@ -303,7 +322,12 @@ async function setupFromFresh(
   aztecNodeConfig.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   aztecNodeConfig.validatorPrivateKey = `0x${validatorPrivKey!.toString('hex')}`;
 
-  const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrl, hdAccount, logger);
+  const deployL1ContractsValues = await setupL1Contracts(
+    aztecNodeConfig.l1RpcUrl,
+    hdAccount,
+    logger,
+    deployL1ContractsArgs,
+  );
   aztecNodeConfig.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
   aztecNodeConfig.l1PublishRetryIntervalMS = 100;
 
