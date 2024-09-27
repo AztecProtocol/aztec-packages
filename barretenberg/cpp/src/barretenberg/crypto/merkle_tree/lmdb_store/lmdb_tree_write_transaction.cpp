@@ -80,6 +80,9 @@ void LMDBTreeWriteTransaction::delete_value(std::vector<uint8_t>& key, const LMD
     dbKey.mv_data = (void*)key.data();
 
     MDB_val* dbVal = nullptr;
-    call_lmdb_func("mdb_del", mdb_del, underlying(), db.underlying(), &dbKey, dbVal);
+    int code = call_lmdb_func_with_return(mdb_del, underlying(), db.underlying(), &dbKey, dbVal);
+    if (code != 0 && code != MDB_NOTFOUND) {
+        throw_error("mdb_del", code);
+    }
 }
 } // namespace bb::crypto::merkle_tree

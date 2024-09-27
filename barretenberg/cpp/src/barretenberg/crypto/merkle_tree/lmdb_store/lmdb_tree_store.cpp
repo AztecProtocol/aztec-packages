@@ -95,6 +95,12 @@ void LMDBTreeStore::write_block_data(uint64_t blockNumber,
     tx.put_value<BlockMetaKeyType>(key, encoded, *_blockDatabase);
 }
 
+void LMDBTreeStore::delete_block_data(uint64_t blockNumber, LMDBTreeStore::WriteTransaction& tx)
+{
+    BlockMetaKeyType key(blockNumber);
+    tx.delete_value<BlockMetaKeyType>(key, *_blockDatabase);
+}
+
 bool LMDBTreeStore::read_block_data(uint64_t blockNumber, BlockPayload& blockData, LMDBTreeStore::ReadTransaction& tx)
 {
     BlockMetaKeyType key(blockNumber);
@@ -157,6 +163,7 @@ void LMDBTreeStore::increment_node_reference_count(const fr& nodeHash, WriteTran
         throw std::runtime_error("Failed to find node when attempting to increases reference count");
     }
     ++nodePayload.ref;
+    std::cout << "Incrementing siblng at " << nodeHash << ", to " << nodePayload.ref << std::endl;
     write_node(nodeHash, nodePayload, tx);
 }
 
@@ -169,6 +176,7 @@ void LMDBTreeStore::set_or_increment_node_reference_count(const fr& nodeHash,
     get_node_data(nodeHash, nodeData, tx);
     // Increment now to the correct value
     ++nodeData.ref;
+    std::cout << "Setting node at " << nodeHash << ", to " << nodeData.ref << std::endl;
     write_node(nodeHash, nodeData, tx);
 }
 
@@ -179,9 +187,11 @@ void LMDBTreeStore::decrement_node_reference_count(const fr& nodeHash, NodePaylo
         throw std::runtime_error("Failed to find node when attempting to increases reference count");
     }
     if (--nodeData.ref == 0) {
+        std::cout << "Deleting node at " << nodeHash << std::endl;
         tx.delete_value(nodeHash, *_nodeDatabase);
         return;
     }
+    std::cout << "Updating node at " << nodeHash << " ref is now " << nodeData.ref << std::endl;
     write_node(nodeHash, nodeData, tx);
 }
 

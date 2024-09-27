@@ -53,6 +53,7 @@ void check_size(TreeType& tree, index_t expected_size, bool includeUncommitted =
     Signal signal;
     auto completion = [&](const TypedResponse<TreeMetaResponse>& response) -> void {
         EXPECT_EQ(response.success, true);
+        std::cout << "Checked size: " << response.inner.meta.size << std::endl;
         EXPECT_EQ(response.inner.meta.size, expected_size);
         signal.signal_level();
     };
@@ -150,6 +151,17 @@ void remove_historic_block(TreeType& tree, const index_t& blockNumber, bool expe
         signal.signal_level();
     };
     tree.remove_historic_block(blockNumber, completion);
+    signal.wait_for_level();
+}
+
+void unwind_block(TreeType& tree, const index_t& blockNumber, bool expected_success = true)
+{
+    Signal signal;
+    auto completion = [&](const Response& response) -> void {
+        EXPECT_EQ(response.success, expected_success);
+        signal.signal_level();
+    };
+    tree.unwind_block(blockNumber, completion);
     signal.wait_for_level();
 }
 
@@ -280,6 +292,8 @@ void check_historic_leaf(TreeType& tree,
         EXPECT_EQ(response.success, expected_success);
         if (response.success) {
             EXPECT_EQ(response.inner.leaf, leaf);
+        } else {
+            std::cout << response.message << std::endl;
         }
         signal.signal_level();
     });
@@ -1125,7 +1139,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
 
     constexpr uint32_t numBlocks = 50;
     constexpr uint32_t batchSize = 16;
-    constexpr uint32_t windowSize = 4;
+    constexpr uint32_t windowSize = 8;
 
     std::vector<fr_sibling_path> historicPathsZeroIndex;
     std::vector<fr_sibling_path> historicPathsMaxIndex;
@@ -1141,10 +1155,15 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
             // retrieving historic data should fail if the block is outside of the window
             const index_t blockNumber = i + 1;
             const bool expectedSuccess =
-                expectedBlockHeight <= windowSize || blockNumber >= (expectedBlockHeight - windowSize);
+                expectedBlockHeight <= windowSize || blockNumber > (expectedBlockHeight - windowSize);
             check_historic_sibling_path(tree, 0, historicPathsZeroIndex[i], blockNumber, expectedSuccess);
             index_t maxSizeAtBlock = ((i + 1) * batchSize) - 1;
             check_historic_sibling_path(tree, maxSizeAtBlock, historicPathsMaxIndex[i], blockNumber, expectedSuccess);
+
+            const index_t leafIndex = 6;
+            check_historic_leaf(tree, blockNumber, VALUES[leafIndex], leafIndex, expectedSuccess);
+            check_find_historic_leaf_index(tree, blockNumber, VALUES[leafIndex], leafIndex, expectedSuccess);
+            check_find_historic_leaf_index_from(tree, blockNumber, VALUES[leafIndex], 0, leafIndex, expectedSuccess);
         }
     };
 
@@ -1160,7 +1179,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
         add_values(tree, to_add);
         check(expected_size, i);
         commit_tree(tree);
-        check(expected_size, i + 1);
+
         historicPathsZeroIndex.push_back(memdb.get_sibling_path(0));
         historicPathsMaxIndex.push_back(memdb.get_sibling_path(expected_size - 1));
 
@@ -1172,8 +1191,88 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_remove_historic_block_da
             // removing the most historic should succeed
             remove_historic_block(tree, oldestBlock, true);
         }
+        check(expected_size, i + 1);
     }
 
     // Attempting to remove block 0 should fail as there isn't one
     remove_historic_block(tree, 0, false);
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_unwind_blocks)
+{
+    constexpr size_t depth = 4;
+    std::string name = random_string();
+    LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
+    Store store(name, depth, db);
+    ThreadPool pool(1);
+    TreeType tree(store, pool);
+    MemoryTree<Poseidon2HashPolicy> memdb(depth);
+
+    constexpr uint32_t numBlocks = 5;
+    constexpr uint32_t batchSize = 2;
+    // constexpr uint32_t windowSize = 1;
+
+    std::vector<fr_sibling_path> historicPathsZeroIndex;
+    std::vector<fr_sibling_path> historicPathsMaxIndex;
+    std::vector<fr> roots;
+
+    // auto check = [&](index_t expectedSize, index_t expectedBlockHeight) {
+    //     check_size(tree, expectedSize);
+    //     check_block_height(tree, expectedBlockHeight);
+    //     check_root(tree, memdb.root());
+    //     check_sibling_path(tree, 0, memdb.get_sibling_path(0));
+    //     check_sibling_path(tree, expectedSize - 1, memdb.get_sibling_path(expectedSize - 1));
+
+    //     for (uint32_t i = 0; i < historicPathsZeroIndex.size(); i++) {
+    //         // retrieving historic data should fail if the block is outside of the window
+    //         const index_t blockNumber = i + 1;
+    //         const bool expectedSuccess =
+    //             expectedBlockHeight <= windowSize || blockNumber > (expectedBlockHeight - windowSize);
+    //         check_historic_sibling_path(tree, 0, historicPathsZeroIndex[i], blockNumber, expectedSuccess);
+    //         index_t maxSizeAtBlock = ((i + 1) * batchSize) - 1;
+    //         check_historic_sibling_path(tree, maxSizeAtBlock, historicPathsMaxIndex[i], blockNumber,
+    //         expectedSuccess);
+
+    //         const index_t leafIndex = 6;
+    //         check_historic_leaf(tree, blockNumber, VALUES[leafIndex], leafIndex, expectedSuccess);
+    //         check_find_historic_leaf_index(tree, blockNumber, VALUES[leafIndex], leafIndex, expectedSuccess);
+    //         check_find_historic_leaf_index_from(tree, blockNumber, VALUES[leafIndex], 0, leafIndex, expectedSuccess);
+    //     }
+    // };
+
+    for (uint32_t i = 0; i < numBlocks; i++) {
+        std::vector<fr> to_add;
+
+        for (size_t j = 0; j < batchSize; ++j) {
+            size_t ind = i * batchSize + j;
+            memdb.update_element(ind, VALUES[ind]);
+            to_add.push_back(VALUES[ind]);
+        }
+        index_t expected_size = (i + 1) * batchSize;
+        add_values(tree, to_add);
+        // check(expected_size, i);
+        commit_tree(tree);
+        // check(expected_size, i + 1);
+
+        historicPathsZeroIndex.push_back(memdb.get_sibling_path(0));
+        historicPathsMaxIndex.push_back(memdb.get_sibling_path(expected_size - 1));
+        roots.push_back(memdb.root());
+    }
+
+    const uint32_t blocksToRemove = 1;
+    for (uint32_t i = 0; i < blocksToRemove; i++) {
+        const index_t blockNumber = numBlocks - i;
+        std::cout << "Unwinding block " << blockNumber << std::endl;
+        unwind_block(tree, blockNumber);
+        const index_t previousValidBlock = blockNumber - (i + 1);
+        index_t deletedBlockStartIndex = previousValidBlock * batchSize;
+
+        check_block_height(tree, blockNumber - 1);
+        check_size(tree, deletedBlockStartIndex);
+        check_root(tree, roots[previousValidBlock - 1]);
+        check_leaf(tree, VALUES[1 + deletedBlockStartIndex], 1 + deletedBlockStartIndex, false);
+
+        // The zero index sibling path should be as it was at the previous block
+        check_sibling_path(tree, 0, historicPathsZeroIndex[previousValidBlock - 1], false, true);
+    }
 }

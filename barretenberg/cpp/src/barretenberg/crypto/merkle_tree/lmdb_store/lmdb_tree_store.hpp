@@ -73,6 +73,8 @@ class LMDBTreeStore {
 
     bool read_block_data(uint64_t blockNumber, BlockPayload& blockData, ReadTransaction& tx);
 
+    void delete_block_data(uint64_t blockNumber, WriteTransaction& tx);
+
     void write_meta_data(const TreeMeta& metaData, WriteTransaction& tx);
 
     bool read_meta_data(TreeMeta& metaData, ReadTransaction& tx);

@@ -330,6 +330,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_p
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
+                std::cout << "Current root: " << requestContext.root << std::endl;
                 OptionalSiblingPath optional_path =
                     get_subtree_sibling_path_internal(meta.size, subtree_depth, requestContext, *tx);
                 response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
@@ -353,6 +354,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_p
                 RequestContext requestContext;
                 requestContext.includeUncommitted = includeUncommitted;
                 requestContext.root = store_.get_current_root(*tx, includeUncommitted);
+                std::cout << "Current root: " << requestContext.root << std::endl;
                 OptionalSiblingPath optional_path =
                     get_subtree_sibling_path_internal(leaf_index, subtree_depth, requestContext, *tx);
                 response.inner.path = optional_sibling_path_to_full_sibling_path(optional_path);
@@ -672,7 +674,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::remove_historic_block
                 if (blockNumber == 0) {
                     throw std::runtime_error("Invalid block number");
                 }
-                store_.remove_historic_block(blockNumber);
+                store_.remove_block(blockNumber, false);
             },
             on_completion);
     };
@@ -681,9 +683,18 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::remove_historic_block
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::unwind_block(
-    const index_t&, const RemoveHistoricBlockCallback& on_completion)
+    const index_t& blockNumber, const RemoveHistoricBlockCallback& on_completion)
 {
-    auto job = [=, this]() { execute_and_report([=, this]() {}, on_completion); };
+    auto job = [=, this]() {
+        execute_and_report(
+            [=, this]() {
+                if (blockNumber == 0) {
+                    throw std::runtime_error("Invalid block number");
+                }
+                store_.remove_block(blockNumber, true);
+            },
+            on_completion);
+    };
     workers_.enqueue(job);
 }
 

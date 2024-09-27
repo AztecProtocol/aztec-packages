@@ -32,6 +32,16 @@ template <> struct std::hash<bb::fr> {
 
 namespace bb::crypto::merkle_tree {
 
+template <typename LeafType> fr get_key(const LeafType& leaf)
+{
+    return leaf.value.get_key();
+}
+
+inline fr get_key(const fr& leaf)
+{
+    return leaf;
+}
+
 /**
  * @brief Serves as a key-value node store for merkle trees. Caches all changes in memory before persisting them during
  * a 'commit' operation.
@@ -175,7 +185,7 @@ template <typename LeafValueType> class ContentAddressedCachedTreeStore {
 
     fr get_current_root(ReadTransaction& tx, bool includeUncommitted) const;
 
-    void remove_block(const index_t& blockNumber, bool isReorg);
+    void remove_block(const index_t& blockNumber, bool isUnwind);
 
   private:
     std::string name_;
@@ -382,7 +392,7 @@ template <typename LeafValueType>
 void ContentAddressedCachedTreeStore<LeafValueType>::set_leaf_key_at_index(const index_t& index,
                                                                            const IndexedLeafValueType& leaf)
 {
-    update_index(index, leaf.get_key());
+    update_index(index, leaf.value.get_key());
 }
 
 template <typename LeafValueType>
@@ -619,6 +629,7 @@ template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValue
         WriteTransactionPtr tx = create_write_transaction();
         try {
             if (dataPresent) {
+                std::cout << "Persisting block " << meta_.blockHeight + 1 << std::endl;
                 persist_leaf_indices(*tx);
                 persist_node(std::optional<fr>(currentRoot), 0, *tx);
                 if (asBlock) {
@@ -679,6 +690,8 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_node(const std::opt
         persist_leaf_pre_image(hash, tx);
     }
 
+    std::cout << "Persisting node hash " << hash << " at level " << level << std::endl;
+
     auto nodePayloadIter = nodes_.find(hash);
     if (nodePayloadIter == nodes_.end()) {
         //  need to increase the stored node's reference count here
@@ -732,24 +745,43 @@ void ContentAddressedCachedTreeStore<LeafValueType>::persist_meta(TreeMeta& m, W
 }
 
 template <typename LeafValueType>
-void ContentAddressedCachedTreeStore<LeafValueType>::remove_block(const index_t& blockNumber, bool isReorg)
+void ContentAddressedCachedTreeStore<LeafValueType>::remove_block(const index_t& blockNumber, bool isUnwind)
 {
     TreeMeta meta;
     BlockPayload blockData;
+    BlockPayload previousBlockData;
     {
         ReadTransactionPtr tx = create_read_transaction();
         get_meta(meta, *tx, false);
-        if (blockNumber != meta.oldestHistoricBlock) {
+        if (isUnwind) {
+            if (blockNumber != meta.blockHeight) {
+                throw std::runtime_error("Block number is not the most recent");
+            }
+            dataStore_.read_block_data(blockNumber - 1, previousBlockData, *tx);
+        } else if (blockNumber != meta.oldestHistoricBlock) {
             throw std::runtime_error("Block number is not the most historic");
         }
+
         dataStore_.read_block_data(blockNumber, blockData, *tx);
     }
     WriteTransactionPtr writeTx = create_write_transaction();
     try {
-        std::optional<index_t> maxIndex = isReorg ? std::optional<index_t>(blockData.size) : std::nullopt;
+        std::cout << "Removing block " << blockNumber << std::endl;
+        std::optional<index_t> maxIndex = isUnwind ? std::optional<index_t>(blockData.size) : std::nullopt;
         remove_node(std::optional<fr>(blockData.root), 0, maxIndex, *writeTx);
-        meta.oldestHistoricBlock++;
+        dataStore_.delete_block_data(blockNumber, *writeTx);
+        if (isUnwind) {
+            meta.blockHeight--;
+            meta.size = previousBlockData.size;
+            meta.committedSize = meta.size;
+            meta.root = previousBlockData.root;
+            std::cout << "New block root " << previousBlockData.root << std::endl;
+        } else {
+            meta.oldestHistoricBlock++;
+        }
         put_meta(meta);
+        persist_meta(meta, *writeTx);
+        writeTx->commit();
     } catch (std::exception& e) {
         writeTx->try_abort();
         throw;
@@ -762,10 +794,11 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf(const fr& hash,
                                                                  WriteTransaction& tx)
 {
     if (maxIndex.has_value()) {
+        std::cout << "Max Index" << std::endl;
         // We need to clear the entry from the leaf key to indices database as this leaf never existed
         LeafValueType leaf;
         if (dataStore_.read_leaf_by_hash(hash, leaf, tx)) {
-            fr key = leaf.get_key();
+            fr key = get_key(leaf);
             // We now have the key, extract the indices
             Indices indices;
             dataStore_.read_leaf_indices(key, indices, tx);
@@ -775,7 +808,10 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf(const fr& hash,
                                   indices.indices.end());
             dataStore_.write_leaf_indices(hash, indices, tx);
         }
+    } else {
+        std::cout << "No max index" << std::endl;
     }
+    std::cout << "Deleting leaf by hash" << std::endl;
     dataStore_.delete_leaf_by_hash(hash, tx);
 }
 
@@ -791,6 +827,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_node(const std::opti
     fr hash = optional_hash.value();
 
     // we need to retrieve the node and decrement it's reference count
+    std::cout << "Decrementing ref count for node " << hash << ", level " << level << std::endl;
     NodePayload nodeData;
     dataStore_.decrement_node_reference_count(hash, nodeData, tx);
 
@@ -801,12 +838,13 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_node(const std::opti
 
     // the node was deleted, if it was a leaf then we need to remove the pre-image
     if (level == depth_) {
+        std::cout << "Removing leaf " << hash << std::endl;
         remove_leaf(hash, maxIndex, tx);
     }
 
     // now recursively remove the next level
-    remove_node(std::optional<fr>(nodeData.left), level + 1, tx);
-    remove_node(std::optional<fr>(nodeData.right), level + 1, tx);
+    remove_node(std::optional<fr>(nodeData.left), level + 1, maxIndex, tx);
+    remove_node(std::optional<fr>(nodeData.right), level + 1, maxIndex, tx);
 }
 
 template <typename LeafValueType> void ContentAddressedCachedTreeStore<LeafValueType>::initialise()
