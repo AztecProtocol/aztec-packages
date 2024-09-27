@@ -35,17 +35,17 @@ export class NotePayload {
    * @param plaintext - Incoming body plaintext.
    * @returns An instance of NotePayload.
    */
-  static fromIncomingBodyPlaintextAndContractAddress(
-    plaintext: Buffer | BufferReader,
-    contractAddress: AztecAddress,
-  ): NotePayload {
+  static fromIncomingBodyPlaintextAndContractAddress(plaintext: Buffer, contractAddress: AztecAddress): NotePayload {
+    if (plaintext.length % Fr.SIZE_IN_BYTES !== 0) {
+      throw new Error(`Plaintext length not a multiple of Fr: ${plaintext.length}`);
+    }
     const reader = BufferReader.asReader(plaintext);
-    const storageSlot = Fr.fromBuffer(reader);
-    const noteTypeId = NoteSelector.fromField(Fr.fromBuffer(reader));
+    const fields = reader.readArray(plaintext.length / Fr.SIZE_IN_BYTES, Fr);
 
-    // 2 Fields (storage slot and note type id) are not included in the note buffer
-    const fieldsInNote = reader.getLength() / 32 - 2;
-    const note = new Note(reader.readArray(fieldsInNote, Fr));
+    const storageSlot = fields[0];
+    const noteTypeId = NoteSelector.fromField(fields[1]);
+
+    const note = new Note(fields.slice(2));
 
     return new NotePayload(note, contractAddress, storageSlot, noteTypeId);
   }
@@ -54,8 +54,9 @@ export class NotePayload {
    * Serializes the NotePayload object into a Buffer.
    * @returns Buffer representation of the NotePayload object.
    */
-  toBuffer() {
-    return serializeToBuffer([this.note, this.contractAddress, this.storageSlot, this.noteTypeId]);
+  toIncomingBodyPlaintext() {
+    const fields = [this.storageSlot, this.noteTypeId.toField(), ...this.note.items];
+    return serializeToBuffer(fields);
   }
 
   /**
