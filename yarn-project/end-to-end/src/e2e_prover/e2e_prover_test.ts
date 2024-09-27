@@ -88,7 +88,12 @@ export class FullProverTest {
 
   constructor(testName: string, private minNumberOfTxsPerBlock: number, private realProofs = true) {
     this.logger = createDebugLogger(`aztec:full_prover_test:${testName}`);
-    this.snapshotManager = createSnapshotManager(`full_prover_integration/${testName}`, dataPath);
+    this.snapshotManager = createSnapshotManager(
+      `full_prover_integration/${testName}`,
+      dataPath,
+      {},
+      { assumeProvenThrough: undefined },
+    );
   }
 
   /**
