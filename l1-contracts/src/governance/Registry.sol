@@ -28,8 +28,8 @@ contract Registry is IRegistry, Ownable {
   }
 
   /**
-   * @notice Returns the rollup contract
-   * @return The rollup contract (of type IRollup)
+   * @notice Returns the address of the rollup contract
+   * @return The rollup address
    */
   function getRollup() external view override(IRegistry) returns (address) {
     return currentSnapshot.rollup;

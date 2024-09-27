@@ -5,7 +5,7 @@ pragma solidity >=0.8.18;
 /**
  * @title Data Structures Library
  * @author Aztec Labs
- * @notice Library that contains data structures used throughout the Aztec protocol
+ * @notice Library that contains data structures used throughout Aztec governance
  */
 library DataStructures {
   // docs:start:registry_snapshot
