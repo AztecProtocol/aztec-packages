@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <gtest/gtest.h>
+#include <memory>
 #include <vector>
 
 using namespace bb;
@@ -299,7 +300,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create)
     EXPECT_NO_THROW(Store store(name, depth, db));
     Store store(name, depth, db);
 
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -325,7 +326,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_value_and_get_siblin
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
 
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -348,7 +349,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
 
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
 
     std::vector<fr> values;
@@ -381,7 +382,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
         LMDBTreeStore db(_directory, name, 50, _maxReaders);
         Store store(name, depth, db);
 
-        ThreadPool pool(1);
+        ThreadPoolPtr pool = make_thread_pool(1);
         TreeType tree(store, pool);
         MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -441,7 +442,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handle
         LMDBTreeStore db(_directory, name, 500, _maxReaders);
         Store store(name, depth, db);
 
-        ThreadPool pool(1);
+        ThreadPoolPtr pool = make_thread_pool(1);
         TreeType tree(store, pool);
         MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -482,7 +483,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_restore)
         LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
         Store store(name, depth, db);
 
-        ThreadPool pool(1);
+        ThreadPoolPtr pool = make_thread_pool(1);
         TreeType tree(store, pool);
 
         check_size(tree, 0);
@@ -524,7 +525,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_and_restore)
         LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
         Store store(name, depth, db);
 
-        ThreadPool pool(1);
+        ThreadPoolPtr pool = make_thread_pool(1);
         TreeType tree(store, pool);
 
         // check uncommitted state
@@ -545,7 +546,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_size)
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
 
     check_size(tree, 0);
@@ -573,7 +574,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_leaf_index)
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
 
     add_value(tree, 30);
@@ -660,7 +661,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values)
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -680,7 +681,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_multiple_values_in_a
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -703,7 +704,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_commit_multiple_blocks)
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -739,7 +740,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_varying_size_blocks)
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -776,7 +777,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_retrieve_historic_siblin
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -824,7 +825,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, retrieves_historic_leaves)
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -858,7 +859,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, test_find_historic_leaf_inde
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
 
     std::vector<fr> values{ 30, 10, 20, 40 };
@@ -900,7 +901,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_be_filled)
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -932,7 +933,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_add_single_whilst_readin
         std::string name = random_string();
         LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
         Store store(name, depth, db);
-        ThreadPool pool(8);
+        ThreadPoolPtr pool = make_thread_pool(8);
         TreeType tree(store, pool);
 
         check_size(tree, 0);
@@ -966,7 +967,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_get_inserted_leaves)
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
 
     add_values(tree, { 30, 10, 20, 40 });
@@ -985,7 +986,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, returns_sibling_path)
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     TreeType tree(store, pool);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
 
@@ -1016,7 +1017,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_histori
 {
     constexpr size_t depth = 5;
     std::string name = random_string();
-    ThreadPool pool(1);
+    ThreadPoolPtr pool = make_thread_pool(1);
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     MemoryTree<Poseidon2HashPolicy> memdb(depth);
     size_t index = 0;

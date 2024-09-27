@@ -47,7 +47,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
     using LeafCallback = std::function<void(const TypedResponse<GetIndexedLeafResponse<LeafValueType>>&)>;
     using FindLowLeafCallback = std::function<void(const TypedResponse<GetLowIndexedLeafResponse>&)>;
 
-    ContentAddressedIndexedTree(Store& store, ThreadPool& workers, index_t initial_size);
+    ContentAddressedIndexedTree(Store& store, std::shared_ptr<ThreadPool> workers, index_t initial_size);
     ContentAddressedIndexedTree(ContentAddressedIndexedTree const& other) = delete;
     ContentAddressedIndexedTree(ContentAddressedIndexedTree&& other) = delete;
     ~ContentAddressedIndexedTree() = default;
@@ -202,7 +202,7 @@ class ContentAddressedIndexedTree : public ContentAddressedAppendOnlyTree<Store,
 
 template <typename Store, typename HashingPolicy>
 ContentAddressedIndexedTree<Store, HashingPolicy>::ContentAddressedIndexedTree(Store& store,
-                                                                               ThreadPool& workers,
+                                                                               std::shared_ptr<ThreadPool> workers,
                                                                                index_t initial_size)
     : ContentAddressedAppendOnlyTree<Store, HashingPolicy>(store, workers)
 {
@@ -295,7 +295,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
             },
             completion);
     };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -332,7 +332,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
             },
             completion);
     };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -377,7 +377,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
             },
             on_completion);
     };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -409,7 +409,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_leaf_index_from(
             },
             on_completion);
     };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -431,7 +431,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
             on_completion);
     };
 
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -459,7 +459,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
             on_completion);
     };
 
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -591,14 +591,14 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values(con
                 on_error(insertion_response.message);
                 return;
             }
-            workers_.enqueue([=, this]() {
+            workers_->enqueue([=, this]() {
                 generate_hashes_for_appending(insertion_response.inner.indexed_leaves, hash_completion);
             });
             perform_insertions(values.size(), insertion_response.inner.insertions, insertion_completion);
         };
 
     // We start by enqueueing the insertion data generation
-    workers_.enqueue([=, this]() { generate_insertions(values_to_be_sorted, insertion_generation_completed); });
+    workers_->enqueue([=, this]() { generate_insertions(values_to_be_sorted, insertion_generation_completed); });
 }
 
 template <typename Store, typename HashingPolicy>
@@ -635,7 +635,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
 
     {
         struct EnqueuedOps {
-            // This vector and index are to be accessed under the following mutex
+            // This queue is to be accessed under the following mutex
             std::queue<std::function<void()>> operations;
             std::mutex enqueueMutex;
 
@@ -689,7 +689,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
 
                 {
                     // If there are more jobs then push another onto the thread pool
-                    enqueuedOperations->enqueue_next(workers_);
+                    enqueuedOperations->enqueue_next(*workers_);
                 }
 
                 if (i == insertions->size() - 1) {
@@ -708,7 +708,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_insertions(
         {
             // Kick off an initial set of jobs, capped at the depth of the tree
             size_t initialSize = std::min(size_t(depth_), enqueuedOperations->operations.size());
-            enqueuedOperations->enqueue_initial(workers_, initialSize);
+            enqueuedOperations->enqueue_initial(*workers_, initialSize);
         }
     }
 }

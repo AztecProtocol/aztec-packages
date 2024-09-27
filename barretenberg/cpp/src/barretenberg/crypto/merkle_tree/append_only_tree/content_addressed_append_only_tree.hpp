@@ -47,7 +47,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     using RollbackCallback = std::function<void(const Response&)>;
 
     // Only construct from provided store and thread pool, no copies or moves
-    ContentAddressedAppendOnlyTree(Store& store, ThreadPool& workers);
+    ContentAddressedAppendOnlyTree(Store& store, std::shared_ptr<ThreadPool> workers);
     ContentAddressedAppendOnlyTree(ContentAddressedAppendOnlyTree const& other) = delete;
     ContentAddressedAppendOnlyTree(ContentAddressedAppendOnlyTree&& other) = delete;
     ContentAddressedAppendOnlyTree& operator=(ContentAddressedAppendOnlyTree const& other) = delete;
@@ -220,11 +220,12 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     uint32_t depth_;
     uint64_t max_size_;
     std::vector<fr> zero_hashes_;
-    ThreadPool& workers_;
+    std::shared_ptr<ThreadPool> workers_;
 };
 
 template <typename Store, typename HashingPolicy>
-ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnlyTree(Store& store, ThreadPool& workers)
+ContentAddressedAppendOnlyTree<Store, HashingPolicy>::ContentAddressedAppendOnlyTree(
+    Store& store, std::shared_ptr<ThreadPool> workers)
     : store_(store)
     , workers_(workers)
 {
@@ -270,7 +271,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool in
             },
             on_completion);
     };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -305,7 +306,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
             },
             on_completion);
     };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -327,7 +328,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_p
             },
             on_completion);
     };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -350,7 +351,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_subtree_sibling_p
             },
             on_completion);
     };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -495,7 +496,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
             },
             on_completion);
     };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -529,7 +530,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
             },
             on_completion);
     };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -569,7 +570,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
             },
             on_completion);
     };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -601,7 +602,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
             },
             on_completion);
     };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -630,21 +631,21 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(
             },
             on_completion);
     };
-    workers_.enqueue(append_op);
+    workers_->enqueue(append_op);
 }
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::commit(const CommitCallback& on_completion)
 {
     auto job = [=, this]() { execute_and_report([=, this]() { store_.commit(); }, on_completion); };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::rollback(const RollbackCallback& on_completion)
 {
     auto job = [=, this]() { execute_and_report([=, this]() { store_.rollback(); }, on_completion); };
-    workers_.enqueue(job);
+    workers_->enqueue(job);
 }
 
 template <typename Store, typename HashingPolicy>

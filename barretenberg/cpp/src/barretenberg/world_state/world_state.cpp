@@ -34,7 +34,7 @@ const uint64_t INITIAL_PUBLIC_DATA_TREE_SIZE = 2UL * MAX_TOTAL_PUBLIC_DATA_UPDAT
 WorldState::WorldState(const std::string& data_dir,
                        const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
                        uint64_t thread_pool_size)
-    : _workers(thread_pool_size)
+    : _workers(std::make_shared<ThreadPool>(thread_pool_size))
     , _forkId(CANONICAL_FORK_ID)
 {
     create_canonical_fork(data_dir, map_size, thread_pool_size);

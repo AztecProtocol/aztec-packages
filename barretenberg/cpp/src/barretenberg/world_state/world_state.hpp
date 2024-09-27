@@ -1,12 +1,12 @@
 #pragma once
 
+#include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/hash.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/content_addressed_indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_environment.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <exception>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <type_traits>
@@ -214,7 +215,7 @@ class WorldState {
     void delete_fork(uint64_t forkId);
 
   private:
-    bb::ThreadPool _workers;
+    std::shared_ptr<bb::ThreadPool> _workers;
     WorldStateStores::Ptr _persistentStores;
     mutable std::mutex mtx;
     std::unordered_map<uint64_t, Fork::SharedPtr> _forks;

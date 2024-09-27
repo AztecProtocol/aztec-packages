@@ -8,9 +8,7 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/common/thread_pool.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/index_addressed_indexed_tree.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
@@ -356,7 +354,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_create)
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     EXPECT_NO_THROW(Store store(name, depth, db));
     Store store(name, depth, db);
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
     TreeType tree = TreeType(store, workers, 2);
     check_size(tree, 2);
 
@@ -378,7 +376,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_only_recreate_with_same_nam
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_size)
 {
     index_t current_size = 2;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
     constexpr size_t depth = 10;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
@@ -397,7 +395,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_size)
 TEST_F(PersistedContentAddressedIndexedTreeTest, indexed_tree_must_have_at_least_2_initial_size)
 {
     index_t current_size = 1;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     constexpr size_t depth = 10;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
@@ -408,7 +407,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, indexed_tree_must_have_at_least
 TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_tree_is_overfilled)
 {
     index_t current_size = 2;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     constexpr size_t depth = 4;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
@@ -437,7 +437,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_get_sibling_path)
     index_t current_size = 2;
     NullifierMemoryTree<HashPolicy> memdb(depth, current_size);
 
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
 
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
@@ -477,7 +478,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_get_sibling_path)
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_find_leaf_index)
 {
     index_t initial_size = 2;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     constexpr size_t depth = 10;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
@@ -537,7 +539,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_commit_and_restore)
     NullifierMemoryTree<HashPolicy> memdb(10);
     index_t initial_size = 2;
     index_t current_size = initial_size;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     constexpr size_t depth = 10;
     std::string name = random_string();
 
@@ -600,8 +603,9 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert)
     const uint32_t batch_size = 16;
     const uint32_t num_batches = 16;
     uint32_t depth = 10;
-    ThreadPool workers(1);
-    ThreadPool multi_workers(8);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
+    ThreadPoolPtr multi_workers = make_thread_pool(8);
     NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
 
     std::string name1 = random_string();
@@ -678,7 +682,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert_with_commit_r
     std::string name1 = random_string();
     std::string name2 = random_string();
     uint32_t depth = 10;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     ThreadPool multi_workers(8);
     NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
 
@@ -752,7 +757,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_batch_insert_with_commit_r
 TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_batch_contains_duplicate)
 {
     index_t current_size = 2;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     constexpr size_t depth = 10;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
@@ -799,7 +805,7 @@ bool verify_sibling_path(TreeType& tree, const IndexedNullifierLeafType& leaf_va
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_memory)
 {
     index_t current_size = 2;
-    ThreadPool workers(8);
+    ThreadPoolPtr workers = make_thread_pool(8);
     // Create a depth-3 indexed merkle tree
     constexpr size_t depth = 3;
     std::string name = random_string();
@@ -961,7 +967,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_memory)
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_tree)
 {
     index_t current_size = 2;
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     // Create a depth-8 indexed merkle tree
     constexpr uint32_t depth = 8;
     std::string name = random_string();
@@ -1022,7 +1029,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
         std::string name = random_string();
         LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
         Store store(name, depth, db);
-        ThreadPool pool(8);
+        ThreadPoolPtr pool = make_thread_pool(8);
         TreeType tree(store, pool, 2);
 
         check_size(tree, 2);
@@ -1049,7 +1056,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_add_single_whilst_reading)
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_memory_with_public_data_writes)
 {
     index_t current_size = 2;
-    ThreadPool workers(8);
+    ThreadPoolPtr workers = make_thread_pool(8);
     // Create a depth-3 indexed merkle tree
     constexpr size_t depth = 3;
     std::string name = random_string();
@@ -1211,7 +1218,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, returns_low_leaves)
     // Create a depth-8 indexed merkle tree
     constexpr uint32_t depth = 8;
 
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
@@ -1235,7 +1243,8 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, duplicates)
     // Create a depth-8 indexed merkle tree
     constexpr uint32_t depth = 8;
 
-    ThreadPool workers(1);
+    ThreadPoolPtr workers = make_thread_pool(1);
+    ;
     std::string name = random_string();
     LMDBTreeStore db(_directory, name, _mapSize, _maxReaders);
     Store store(name, depth, db);
@@ -1260,7 +1269,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historic_sibling_path_retr
     std::string name1 = random_string();
     std::string name2 = random_string();
     uint32_t depth = 10;
-    ThreadPool multi_workers(8);
+    ThreadPoolPtr multi_workers = make_thread_pool(8);
     NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
 
     LMDBTreeStore db1(_directory, name1, _mapSize, _maxReaders);
@@ -1315,7 +1324,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historic_sibling_path_retr
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_historical_leaves)
 {
     index_t current_size = 2;
-    ThreadPool workers(8);
+    ThreadPoolPtr workers = make_thread_pool(8);
     // Create a depth-3 indexed merkle tree
     constexpr size_t depth = 3;
     std::string name = random_string();
@@ -1453,7 +1462,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_images_at_histo
     auto& random_engine = numeric::get_randomness();
     const uint32_t batch_size = 16;
     uint32_t depth = 10;
-    ThreadPool multi_workers(8);
+    ThreadPoolPtr multi_workers = make_thread_pool(8);
     NullifierMemoryTree<HashPolicy> memdb(depth, batch_size);
 
     std::string name1 = random_string();

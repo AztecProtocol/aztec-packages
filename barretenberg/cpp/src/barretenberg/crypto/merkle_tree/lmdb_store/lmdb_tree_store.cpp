@@ -38,12 +38,9 @@ int block_key_cmp(const MDB_val* a, const MDB_val* b)
     return value_cmp<uint64_t>(a, b);
 }
 
-LMDBTreeStore::LMDBTreeStore(const std::string& directory,
-                             const std::string& name,
-                             uint64_t mapSizeKb,
-                             uint64_t maxNumReaders)
-    : _name(name)
-    , _directory(directory)
+LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t mapSizeKb, uint64_t maxNumReaders)
+    : _name(std::move(name))
+    , _directory(std::move(directory))
     , _environment(std::make_shared<LMDBEnvironment>(_directory, mapSizeKb, 4, maxNumReaders))
 {
 

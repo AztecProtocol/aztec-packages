@@ -34,13 +34,4 @@ bool LMDBTreeReadTransaction::get_value(std::vector<uint8_t>& key,
     copy_to_vector(dbVal, data);
     return true;
 }
-
-bool LMDBTreeReadTransaction::get_node(uint32_t level,
-                                       index_t index,
-                                       std::vector<uint8_t>& data,
-                                       const LMDBDatabase& db) const
-{
-    NodeKeyType key = get_key_for_node(level, index);
-    return get_value(key, data, db);
-}
 } // namespace bb::crypto::merkle_tree
