@@ -53,7 +53,7 @@ helm install spartan "$(git rev-parse --show-toplevel)/spartan/aztec-network/" \
       --set test="$TEST" \
       --wait \
       --wait-for-jobs=true \
-      --timeout=10m
+      --timeout=30m
 
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$NAMESPACE" --timeout=10m
 
