@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2024 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
-// Libraries
-import {DataStructures} from "../libraries/DataStructures.sol";
-import {Errors} from "../libraries/Errors.sol";
-import {MerkleLib} from "../libraries/MerkleLib.sol";
-import {Hash} from "../libraries/Hash.sol";
-import {IOutbox} from "../interfaces/messagebridge/IOutbox.sol";
+import {IOutbox} from "@aztec/core//interfaces/messagebridge/IOutbox.sol";
 
-import {Rollup} from "../Rollup.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+
+import {Rollup} from "@aztec/core/Rollup.sol";
 
 /**
  * @title Outbox

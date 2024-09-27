@@ -59,6 +59,7 @@ describe('proof_verification', () => {
       rpcUrl,
       mnemonicToAccount(MNEMONIC),
       logger,
+      { assumeProvenThrough: undefined },
     ));
     logger.info('l1 contracts done');
 

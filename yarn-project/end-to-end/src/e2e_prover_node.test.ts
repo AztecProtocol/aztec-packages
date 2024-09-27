@@ -42,7 +42,9 @@ describe('e2e_prover_node', () => {
 
   beforeAll(async () => {
     logger = createDebugLogger('aztec:e2e_prover_node');
-    snapshotManager = createSnapshotManager(`e2e_prover_node`, process.env.E2E_DATA_PATH);
+    snapshotManager = createSnapshotManager(`e2e_prover_node`, process.env.E2E_DATA_PATH, undefined, {
+      assumeProvenThrough: undefined,
+    });
 
     const testContractOpts = { contractAddressSalt: Fr.ONE, universalDeploy: true };
     await snapshotManager.snapshot(
