@@ -14,7 +14,7 @@ cd $(dirname $0)
 
 # if we have minio already running make sure the cache is deleted
 # otherwise it will be run by next earthly local command
-nc -zv 127.0.0.1 12000 && delete_test_cache
+nc -z 127.0.0.1 12000 2>/dev/null >/dev/null && delete_test_cache
 # Our assertions (thanks to -e flag):
 # expect file to not exist at first
 if minio_cache_only ../../barretenberg/cpp/+test-cache-read 2>/dev/null ; then

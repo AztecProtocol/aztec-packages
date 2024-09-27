@@ -11,9 +11,6 @@ NAME="$1"
 
 shift 1
 
-# Extract the binary paths to tar.gz and upload
-BIN_PATHS="$@"
-
 TAR_DIR=$(mktemp -d)
 TAR_FILE="$TAR_DIR/${NAME}"
 
@@ -24,6 +21,7 @@ function on_exit() {
 trap on_exit EXIT
 
 # Create the tar.gz file
-tar -czf "$TAR_FILE" "${BIN_PATHS[@]}"
+# Rest of args are our binary paths
+tar -czf "$TAR_FILE" $@
 
 aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp "$TAR_FILE" "s3://aztec-ci-artifacts/build-cache/$NAME"
