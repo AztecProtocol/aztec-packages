@@ -1,7 +1,6 @@
 import {
   type AuthWitness,
   type AztecNode,
-  EncryptedLogPayload,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
   type EventMetadata,
@@ -944,16 +943,8 @@ export class PXEService implements PXE {
 
     const visibleEvents = encryptedLogs.flatMap(encryptedLog => {
       for (const sk of vsks) {
-        const decryptedLog =
-          EncryptedLogPayload.decryptAsIncoming(encryptedLog.data, sk) ??
-          EncryptedLogPayload.decryptAsOutgoing(encryptedLog.data, sk);
-        const decryptedEvent = decryptedLog
-          ? L1EventPayload.fromIncomingBodyPlaintextAndContractAddress(
-              decryptedLog!.incomingBodyPlaintext,
-              decryptedLog!.contract,
-              encryptedLog.maskedContractAddress,
-            )
-          : undefined;
+        const decryptedEvent =
+          L1EventPayload.decryptAsIncoming(encryptedLog, sk) ?? L1EventPayload.decryptAsOutgoing(encryptedLog, sk);
         if (decryptedEvent !== undefined) {
           return [decryptedEvent];
         }

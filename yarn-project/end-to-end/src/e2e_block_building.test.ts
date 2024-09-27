@@ -297,7 +297,7 @@ describe('e2e_block_building', () => {
         const payload = EncryptedLogPayload.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey);
         const notePayload = L1NotePayload.fromIncomingBodyPlaintextAndContractAddress(
           payload!.incomingBodyPlaintext,
-          payload!.contract,
+          payload!.contractAddress,
         );
         return notePayload?.note;
       });

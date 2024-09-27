@@ -71,7 +71,7 @@ class MockNoteRequest {
   get notePayload(): L1NotePayload | undefined {
     return L1NotePayload.fromIncomingBodyPlaintextAndContractAddress(
       this.logPayload.incomingBodyPlaintext,
-      this.logPayload.contract,
+      this.logPayload.contractAddress,
     );
   }
 }

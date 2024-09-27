@@ -29,7 +29,7 @@ export class EncryptedLogPayload {
   constructor(
     public readonly incomingTag: Fr,
     public readonly outgoingTag: Fr,
-    public readonly contract: AztecAddress,
+    public readonly contractAddress: AztecAddress,
     public readonly incomingBodyPlaintext: Buffer,
   ) {}
 
@@ -44,8 +44,8 @@ export class EncryptedLogPayload {
     }
 
     const ephPk = derivePublicKeyFromSecretKey(ephSk);
-    const incomingHeaderCiphertext = encrypt(this.contract.toBuffer(), ephSk, ivpk);
-    const outgoingHeaderCiphertext = encrypt(this.contract.toBuffer(), ephSk, ovKeys.pkM);
+    const incomingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, ivpk);
+    const outgoingHeaderCiphertext = encrypt(this.contractAddress.toBuffer(), ephSk, ovKeys.pkM);
 
     if (incomingHeaderCiphertext.length !== HEADER_SIZE) {
       throw new Error(`Invalid incoming header size: ${incomingHeaderCiphertext.length}`);
@@ -200,7 +200,12 @@ export class EncryptedLogPayload {
   }
 
   public toBuffer() {
-    return serializeToBuffer(this.incomingTag, this.outgoingTag, this.contract.toBuffer(), this.incomingBodyPlaintext);
+    return serializeToBuffer(
+      this.incomingTag,
+      this.outgoingTag,
+      this.contractAddress.toBuffer(),
+      this.incomingBodyPlaintext,
+    );
   }
 }
 

@@ -1,9 +1,11 @@
 import { AztecAddress } from '@aztec/circuits.js';
 import { EventSelector } from '@aztec/foundation/abi';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { type EncryptedL2Log } from './encrypted_l2_log.js';
+import { EncryptedLogPayload } from './encrypted_log_payload.js';
 import { Event } from './l1_payload/payload.js';
 
 /**
@@ -29,12 +31,7 @@ export class L1EventPayload {
     public eventTypeId: EventSelector,
   ) {}
 
-  /**
-   * Deserializes the L1EventPayload object from a Buffer.
-   * @param plaintext - Incoming body plaintext.
-   * @returns An instance of L1EventPayload.
-   */
-  static fromIncomingBodyPlaintextAndContractAddress(
+  static #fromIncomingBodyPlaintextAndContractAddress(
     plaintext: Buffer,
     contractAddress: AztecAddress,
     maskedContractAddress: Fr,
@@ -57,6 +54,32 @@ export class L1EventPayload {
     ensureMatchedMaskedContractAddress(contractAddress, payload.randomness, maskedContractAddress);
 
     return payload;
+  }
+
+  static decryptAsIncoming(log: EncryptedL2Log, sk: Fq): L1EventPayload | undefined {
+    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log.data, sk);
+    if (!decryptedLog) {
+      return undefined;
+    }
+
+    return this.#fromIncomingBodyPlaintextAndContractAddress(
+      decryptedLog.incomingBodyPlaintext,
+      decryptedLog.contractAddress,
+      log.maskedContractAddress,
+    );
+  }
+
+  static decryptAsOutgoing(log: EncryptedL2Log, sk: Fq): L1EventPayload | undefined {
+    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(log.data, sk);
+    if (!decryptedLog) {
+      return undefined;
+    }
+
+    return this.#fromIncomingBodyPlaintextAndContractAddress(
+      decryptedLog.incomingBodyPlaintext,
+      decryptedLog.contractAddress,
+      log.maskedContractAddress,
+    );
   }
 
   /**

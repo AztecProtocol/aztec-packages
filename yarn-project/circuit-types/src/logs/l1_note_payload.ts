@@ -1,8 +1,10 @@
 import { AztecAddress } from '@aztec/circuits.js';
 import { NoteSelector } from '@aztec/foundation/abi';
-import { Fr } from '@aztec/foundation/fields';
+import { type Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+import { type EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
+import { EncryptedLogPayload } from './encrypted_log_payload.js';
 import { Note } from './l1_payload/payload.js';
 
 /**
@@ -30,11 +32,6 @@ export class L1NotePayload {
     public noteTypeId: NoteSelector,
   ) {}
 
-  /**
-   * Deserializes the L1NotePayload object from a Buffer.
-   * @param plaintext - Incoming body plaintext.
-   * @returns An instance of L1NotePayload.
-   */
   static fromIncomingBodyPlaintextAndContractAddress(
     plaintext: Buffer,
     contractAddress: AztecAddress,
@@ -52,6 +49,30 @@ export class L1NotePayload {
     } catch (e) {
       return undefined;
     }
+  }
+
+  static decryptAsIncoming(log: EncryptedL2NoteLog, sk: Fq): L1NotePayload | undefined {
+    const decryptedLog = EncryptedLogPayload.decryptAsIncoming(log.data, sk);
+    if (!decryptedLog) {
+      return undefined;
+    }
+
+    return this.fromIncomingBodyPlaintextAndContractAddress(
+      decryptedLog.incomingBodyPlaintext,
+      decryptedLog.contractAddress,
+    );
+  }
+
+  static decryptAsOutgoing(log: EncryptedL2NoteLog, sk: Fq): L1NotePayload | undefined {
+    const decryptedLog = EncryptedLogPayload.decryptAsOutgoing(log.data, sk);
+    if (!decryptedLog) {
+      return undefined;
+    }
+
+    return this.fromIncomingBodyPlaintextAndContractAddress(
+      decryptedLog.incomingBodyPlaintext,
+      decryptedLog.contractAddress,
+    );
   }
 
   /**
