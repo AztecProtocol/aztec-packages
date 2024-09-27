@@ -3,8 +3,8 @@
  * @file origin_tag.hpp
  * @author Rumata888
  * @brief This file contains part of the logic for the Origin Tag mechanism that tracks the use of in-circuit primitives
- * through tainting them. It then allows us to detect dangerous behaviours in-circuit. The mechanism is only enabled in
- * DEBUG builds
+ * through tainting (common term meaning adding information that allows to track value origins) them. It then allows us
+ * to detect dangerous behaviours in-circuit. The mechanism is only enabled in DEBUG builds
  *
  */
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -14,13 +14,14 @@
 
 namespace bb {
 
-// The function that detects harmful behaviours
 void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b);
 
 #ifndef NDEBUG
 struct OriginTag {
     static constexpr size_t CONSTANT = 0;
-    // Parent tag uses a concrete index, not bits for now, since we never expect the values to meet
+    // Parent tag is supposed to represent the index of a unique trancript object that generated the value. It uses a
+    // concrete index, not bits for now, since we never expect two different indices to be used in the same computation
+    // apart from equality assertion
     size_t parent_tag;
 
     // Child tag specifies which submitted values and challenges have been used to generate this element
@@ -31,6 +32,7 @@ struct OriginTag {
 
     // Instant death is used for poisoning values we should never use in arithmetic
     bool instant_death = false;
+    // Default Origin Tag has everything set to zero and can't cause any issues
     OriginTag() = default;
     OriginTag(const OriginTag& other) = default;
     OriginTag(OriginTag&& other) = default;
@@ -43,6 +45,13 @@ struct OriginTag {
         instant_death = other.instant_death;
         return *this;
     }
+    /**
+     * @brief Construct a new Origin Tag object
+     *
+     * @param parent_index The index of the transcript object
+     * @param child_index The round in which we generate/receive the value
+     * @param is_submitted If the value is submitted by the prover (not a challenge)
+     */
     OriginTag(size_t parent_index, size_t child_index, bool is_submitted = true)
         : parent_tag(parent_index)
         , child_tag((static_cast<uint256_t>(1) << (child_index + (is_submitted ? 0 : 128))))
@@ -50,6 +59,15 @@ struct OriginTag {
         ASSERT(child_index < 128);
     }
 
+    /**
+     * @brief Construct a new Origin Tag by merging two other Origin Tags
+     *
+     * @details The function checks for 3 things: 1) The no tag has instant death set, 2) That tags are from the same
+     * transcript (same parent tag) or are empty, 3) A complex check for the child tags. After that the child tags are
+     * merged and we create a new Origin Tag
+     * @param tag_a
+     * @param tag_b
+     */
     OriginTag(const OriginTag& tag_a, const OriginTag& tag_b)
     {
         if (tag_a.instant_death || tag_b.instant_death) {
@@ -62,6 +80,16 @@ struct OriginTag {
         parent_tag = tag_a.parent_tag;
         child_tag = tag_a.child_tag | tag_b.child_tag;
     }
+
+    /**
+     * @brief Construct a new Origin Tag from merging several origin tags
+     *
+     * @details Basically performs the same actions as the constructor from 2 Origin Tags, but iteratively
+     *
+     * @tparam T
+     * @param tag
+     * @param rest
+     */
     template <class... T> OriginTag(const OriginTag& tag, const T&... rest)
     {
         parent_tag = tag.parent_tag;

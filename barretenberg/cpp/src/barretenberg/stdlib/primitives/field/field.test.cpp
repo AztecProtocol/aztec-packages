@@ -1071,6 +1071,14 @@ template <typename Builder> class stdlib_field : public testing::Test {
         o = field_ct(p);
 
         EXPECT_EQ(o.get_origin_tag(), submitted_value_origin_tag);
+
+        auto q = field_ct(witness_ct(&builder, fr::random_element()));
+        auto poisoned_tag = challenge_origin_tag;
+        poisoned_tag.poison();
+        q.set_origin_tag(poisoned_tag);
+#ifndef NDEBUG
+        EXPECT_THROW(q + q, std::runtime_error);
+#endif
     }
 };
 

@@ -5,6 +5,15 @@
 namespace bb {
 using namespace numeric;
 #ifndef NDEBUG
+
+/**
+ * @brief Detect if two elements from the same transcript are performing a suspicious interaction
+ *
+ * @details For now this detects that 2 elements from 2 different round can't mingle without a challenge in between
+ *
+ * @param tag_a
+ * @param tag_b
+ */
 void check_child_tags(const uint256_t& tag_a, const uint256_t& tag_b)
 {
     const uint128_t* challenges_a = (const uint128_t*)(&tag_a.data[2]);
