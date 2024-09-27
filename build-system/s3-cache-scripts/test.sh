@@ -1,6 +1,6 @@
 #!/bin/bash
 # test only minio caching
-set -eux
+set -eu
 function delete_test_cache() {
   AWS_SECRET_ACCESS_KEY=minioadmin AWS_ACCESS_KEY_ID=minioadmin \
     aws --endpoint http://localhost:12000 \
