@@ -26,7 +26,7 @@ export class InMemoryAttestationPool implements AttestationPool {
       // Perf: order and group by slot before insertion
       const slotNumber = attestation.payload.header.globalVariables.slotNumber;
 
-      const proposalId = attestation.p2pMessageIdentifier.toString();
+      const proposalId = attestation.p2pMessageIdentifier().toString();
       const address = attestation.getSender();
 
       const slotAttestationMap = getSlotOrDefault(this.attestations, slotNumber.toBigInt());
@@ -59,7 +59,7 @@ export class InMemoryAttestationPool implements AttestationPool {
       const slotNumber = attestation.payload.header.globalVariables.slotNumber;
       const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());
       if (slotAttestationMap) {
-        const proposalId = attestation.p2pMessageIdentifier.toString();
+        const proposalId = attestation.p2pMessageIdentifier().toString();
         const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
         if (proposalAttestationMap) {
           const address = attestation.getSender();
