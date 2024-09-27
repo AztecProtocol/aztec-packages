@@ -5,7 +5,8 @@ pragma solidity >=0.8.27;
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
-import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -74,7 +75,7 @@ contract FeeJuicePortal is IFeeJuicePortal, Ownable {
     returns (bytes32)
   {
     // Preamble
-    IInbox inbox = registry.getRollup().INBOX();
+    IInbox inbox = IRollup(registry.getRollup()).INBOX();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
