@@ -159,12 +159,12 @@ interface BatchInsertResponse {
 
 interface UpdateArchiveRequest extends WithForkId {
   blockStateRef: BlockStateReference;
-  blockHash: Buffer;
+  blockHeaderHash: Buffer;
 }
 
 interface SyncBlockRequest {
   blockStateRef: BlockStateReference;
-  blockHash: Fr;
+  blockHeaderHash: Fr;
   paddedNoteHashes: readonly SerializedLeafValue[];
   paddedL1ToL2Messages: readonly SerializedLeafValue[];
   paddedNullifiers: readonly SerializedLeafValue[];

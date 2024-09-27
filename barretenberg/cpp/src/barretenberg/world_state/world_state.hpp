@@ -169,6 +169,17 @@ class WorldState {
                             Fork::Id fork_id = CANONICAL_FORK_ID);
 
     /**
+     * @brief Updates the archive tree with a new block.
+     *
+     * @param block_state_ref The state reference of the block.
+     * @param block_hash The hash of the block.
+     * @param fork_id The fork ID to update.
+     */
+    void update_archive(const StateReference& block_state_ref,
+                        fr block_header_hash,
+                        Fork::Id fork_id = CANONICAL_FORK_ID);
+
+    /**
      * @brief Commits the current state of the world state.
      */
     void commit();
@@ -184,7 +195,7 @@ class WorldState {
      * @param block The block to synchronize with.
      */
     bool sync_block(StateReference& block_state_ref,
-                    fr block_hash,
+                    fr block_header_hash,
                     const std::vector<bb::fr>& notes,
                     const std::vector<bb::fr>& l1_to_l2_messages,
                     const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,

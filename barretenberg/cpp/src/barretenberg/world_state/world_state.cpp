@@ -257,6 +257,16 @@ void WorldState::update_public_data(const PublicDataLeafValue& new_value, Fork::
     }
 }
 
+void WorldState::update_archive(const StateReference& block_state_ref, fr block_header_hash, Fork::Id fork_id)
+{
+    auto world_state_ref = get_state_reference(WorldStateRevision::uncommitted());
+    if (block_state_matches_world_state(block_state_ref, world_state_ref)) {
+        append_leaves<fr>(MerkleTreeId::ARCHIVE, { block_header_hash }, fork_id);
+    } else {
+        throw std::runtime_error("Block state does not match world state");
+    }
+}
+
 void WorldState::commit()
 {
     // NOTE: the calling code is expected to ensure no other reads or writes happen during commit
@@ -287,7 +297,7 @@ void WorldState::rollback()
 }
 
 bool WorldState::sync_block(StateReference& block_state_ref,
-                            fr block_hash,
+                            fr block_header_hash,
                             const std::vector<bb::fr>& notes,
                             const std::vector<bb::fr>& l1_to_l2_messages,
                             const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
@@ -347,7 +357,7 @@ bool WorldState::sync_block(StateReference& block_state_ref,
 
     {
         auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(MerkleTreeId::ARCHIVE));
-        wrapper.tree->add_value(block_hash, decr);
+        wrapper.tree->add_value(block_header_hash, decr);
     }
 
     signal.wait_for_level();

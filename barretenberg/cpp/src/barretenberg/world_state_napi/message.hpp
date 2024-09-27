@@ -156,20 +156,20 @@ template <typename T> struct BatchInsertRequest {
 
 struct UpdateArchiveRequest {
     StateReference blockStateRef;
-    bb::fr blockHash;
+    bb::fr blockHeaderHash;
     Fork::Id forkId{ CANONICAL_FORK_ID };
-    MSGPACK_FIELDS(blockStateRef, blockHash, forkId);
+    MSGPACK_FIELDS(blockStateRef, blockHeaderHash, forkId);
 };
 
 struct SyncBlockRequest {
     StateReference blockStateRef;
-    bb::fr blockHash;
+    bb::fr blockHeaderHash;
     std::vector<bb::fr> paddedNoteHashes, paddedL1ToL2Messages;
     std::vector<crypto::merkle_tree::NullifierLeafValue> paddedNullifiers;
     std::vector<std::vector<crypto::merkle_tree::PublicDataLeafValue>> batchesOfPaddedPublicDataWrites;
 
     MSGPACK_FIELDS(blockStateRef,
-                   blockHash,
+                   blockHeaderHash,
                    paddedNoteHashes,
                    paddedL1ToL2Messages,
                    paddedNullifiers,

@@ -406,18 +406,7 @@ bool WorldStateAddon::update_archive(msgpack::object& obj, msgpack::sbuffer& buf
     TypedMessage<UpdateArchiveRequest> request;
     obj.convert(request);
 
-    // TODO (alexg) move this to world state
-    auto world_state_ref = _ws->get_state_reference(WorldStateRevision::uncommitted());
-    auto block_state_ref = request.value.blockStateRef;
-
-    if (block_state_ref[MerkleTreeId::NULLIFIER_TREE] == world_state_ref[MerkleTreeId::NULLIFIER_TREE] &&
-        block_state_ref[MerkleTreeId::NOTE_HASH_TREE] == world_state_ref[MerkleTreeId::NOTE_HASH_TREE] &&
-        block_state_ref[MerkleTreeId::PUBLIC_DATA_TREE] == world_state_ref[MerkleTreeId::PUBLIC_DATA_TREE] &&
-        block_state_ref[MerkleTreeId::L1_TO_L2_MESSAGE_TREE] == world_state_ref[MerkleTreeId::L1_TO_L2_MESSAGE_TREE]) {
-        _ws->append_leaves<bb::fr>(MerkleTreeId::ARCHIVE, { request.value.blockHash }, request.value.forkId);
-    } else {
-        throw std::runtime_error("Block state reference does not match current state");
-    }
+    _ws->update_archive(request.value.blockStateRef, request.value.blockHeaderHash, request.value.forkId);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::UPDATE_ARCHIVE, header, {});
@@ -460,7 +449,7 @@ bool WorldStateAddon::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
     obj.convert(request);
 
     bool is_block_ours = _ws->sync_block(request.value.blockStateRef,
-                                         request.value.blockHash,
+                                         request.value.blockHeaderHash,
                                          request.value.paddedNoteHashes,
                                          request.value.paddedL1ToL2Messages,
                                          request.value.paddedNullifiers,

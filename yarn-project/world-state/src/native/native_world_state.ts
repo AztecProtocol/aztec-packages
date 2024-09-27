@@ -346,7 +346,7 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
     }
 
     return await this.call(WorldStateMessageType.SYNC_BLOCK, {
-      blockHash: l2Block.header.hash(),
+      blockHeaderHash: l2Block.header.hash(),
       paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
       paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
       paddedNullifiers: paddedNullifiers.map(serializeLeaf),
@@ -362,7 +362,7 @@ export class NativeWorldStateService implements MerkleTreeDb, MerkleTreeAdminDb 
   async updateArchive(header: Header): Promise<void> {
     await this.call(WorldStateMessageType.UPDATE_ARCHIVE, {
       forkId: this.forkId,
-      blockHash: header.hash().toBuffer(),
+      blockHeaderHash: header.hash().toBuffer(),
       blockStateRef: blockStateReference(header.state),
     });
   }
