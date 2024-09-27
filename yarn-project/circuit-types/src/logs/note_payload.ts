@@ -36,9 +36,6 @@ export class NotePayload {
    * @returns An instance of NotePayload.
    */
   static fromIncomingBodyPlaintextAndContractAddress(plaintext: Buffer, contractAddress: AztecAddress): NotePayload {
-    if (plaintext.length % Fr.SIZE_IN_BYTES !== 0) {
-      throw new Error(`Plaintext length not a multiple of Fr: ${plaintext.length}`);
-    }
     const reader = BufferReader.asReader(plaintext);
     const fields = reader.readArray(plaintext.length / Fr.SIZE_IN_BYTES, Fr);
 
