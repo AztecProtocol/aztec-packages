@@ -17,6 +17,7 @@ export class MessageStore {
   #l1ToL2Messages: AztecMap<string, Buffer>;
   #l1ToL2MessageIndices: AztecMap<string, bigint[]>; // We store array of bigints here because there can be duplicate messages
   #lastSynchedL1Block: AztecSingleton<bigint>;
+  #totalMessageCount: AztecSingleton<bigint>;
 
   #log = createDebugLogger('aztec:archiver:message_store');
 
@@ -26,6 +27,11 @@ export class MessageStore {
     this.#l1ToL2Messages = db.openMap('archiver_l1_to_l2_messages');
     this.#l1ToL2MessageIndices = db.openMap('archiver_l1_to_l2_message_indices');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_l1_block_new_messages');
+    this.#totalMessageCount = db.openSingleton('archiver_l1_to_l2_message_count');
+  }
+
+  getTotalL1ToL2MessageCount(): bigint {
+    return this.#totalMessageCount.get() ?? 0n;
   }
 
   /**
@@ -69,6 +75,9 @@ export class MessageStore {
         indices.push(indexInTheWholeTree);
         void this.#l1ToL2MessageIndices.set(message.leaf.toString(), indices);
       }
+
+      const lastTotalMessageCount = this.getTotalL1ToL2MessageCount();
+      void this.#totalMessageCount.set(lastTotalMessageCount + BigInt(messages.retrievedData.length));
 
       return true;
     });

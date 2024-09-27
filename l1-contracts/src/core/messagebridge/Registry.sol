@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
+
+import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 import {Ownable} from "@oz/access/Ownable.sol";
-
-// Interfaces
-import {IRegistry} from "../interfaces/messagebridge/IRegistry.sol";
-import {IRollup} from "../interfaces/IRollup.sol";
-
-// Libraries
-import {DataStructures} from "../libraries/DataStructures.sol";
-import {Errors} from "../libraries/Errors.sol";
 
 /**
  * @title Registry
