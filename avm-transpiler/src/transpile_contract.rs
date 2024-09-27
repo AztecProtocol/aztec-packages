@@ -91,9 +91,7 @@ impl From<CompiledAcirContractArtifact> for TranspiledContractArtifact {
         let mut functions: Vec<AvmOrAcirContractFunctionArtifact> = Vec::new();
 
         for function in contract.functions {
-            if function.custom_attributes.contains(&"public".to_string())
-                || function.name == "public_dispatch"
-            {
+            if function.custom_attributes.contains(&"public".to_string()) {
                 info!("Transpiling AVM function {} on contract {}", function.name, contract.name);
                 // Extract Brillig Opcodes from acir
                 let acir_program = function.bytecode;
