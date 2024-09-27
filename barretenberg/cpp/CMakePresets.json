@@ -138,21 +138,6 @@
       }
     },
     {
-      "name": "tracy-default",
-      "displayName": "Release build with tracy using default clang",
-      "description": "Release build with tracy using default clang",
-      "inherits": "default",
-      "binaryDir": "build-tracy",
-      "cacheVariables": {
-        "ENABLE_TRACY": "ON",
-        "HAVE_STD_REGEX": "ON"
-      },
-      "environment": {
-        "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TIME_ONLY"
-      }
-    },
-
-    {
       "name": "tracy-gates",
       "displayName": "Release build with tracy - but hacked for gate tracking",
       "description": "Release build with tracy - but hacker for gate tracking",
