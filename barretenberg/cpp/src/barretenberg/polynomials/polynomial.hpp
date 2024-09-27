@@ -419,7 +419,6 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
     const size_t ALLOW_ONE_PAST_READ = 1;
     for (size_t i = 0; i < n_l; ++i) {
         // curr[i] = (Fr(1) - u_l) * prev[i * 2] + u_l * prev[(i * 2) + 1];
-
         tmp[i] = coefficients.get(i * 2 + offset) +
                  u_l * (coefficients.get(i * 2 + 1 + offset, ALLOW_ONE_PAST_READ) - coefficients.get(i * 2 + offset));
     }
