@@ -2,7 +2,7 @@ import createDebug from "debug";
 import { inflate } from "pako";
 
 createDebug.enable("*");
-const debug = createDebug("simple_test");
+const debug = createDebug("browser-test-app");
 
 async function runTest(
   bytecode: Uint8Array,
@@ -19,7 +19,7 @@ async function runTest(
   await backend.destroy();
 
   debug(`verifying...`);
-  const verifier = new BarretenbergVerifier({ threads });
+  const verifier = new BarretenbergVerifier({ threads }, backend.getApi());
   const verified = await verifier.verifyUltraplonkProof(proof, verificationKey);
   debug(`verified: ${verified}`);
 

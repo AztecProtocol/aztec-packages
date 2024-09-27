@@ -13,7 +13,12 @@ export class BarretenbergVerifier {
   // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   private acirComposer: any;
 
-  constructor(private options: BackendOptions = { threads: 1 }) {}
+  constructor(private options: BackendOptions = { threads: 1 }, api?: Barretenberg) {
+    // For sharing if also initializing backend
+    if (api) {
+      this.api = api;
+    }
+  }
 
   /** @ignore */
   async instantiate(): Promise<void> {
@@ -23,7 +28,7 @@ export class BarretenbergVerifier {
       } else {
         try {
           const os = await import('os');
-          this.options.threads = os.cpus().length;
+          this.options.threads = Math.min(os.cpus().length, 32);
         } catch (e) {
           console.log('Could not detect environment. Falling back to one thread.', e);
         }
@@ -32,8 +37,10 @@ export class BarretenbergVerifier {
       const api = await Barretenberg.new(this.options);
       await api.initSRSForCircuitSize(0);
 
-      this.acirComposer = await api.acirNewAcirComposer(0);
       this.api = api;
+    }
+    if (!this.acirComposer) {
+      this.acirComposer = await this.api.acirNewAcirComposer(0);
     }
   }
 

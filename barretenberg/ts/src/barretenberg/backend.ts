@@ -21,7 +21,7 @@ export class UltraPlonkBackend {
       } else {
         try {
           const os = await import('os');
-          this.options.threads = os.cpus().length;
+          this.options.threads = Math.min(os.cpus().length, 32);
         } catch (e) {
           console.log('Could not detect environment. Falling back to one thread.', e);
         }
@@ -91,6 +91,14 @@ export class UltraPlonkBackend {
     };
   }
 
+  /**
+   * Provided for use with sharing backend API to verifier for efficiency.
+   * @returns Barretenberg object.
+   */
+  public getApi(): Barretenberg {
+    return this.api;
+  }
+
   /** @description Verifies a proof */
   async verifyProof(proof: Uint8Array): Promise<boolean> {
     await this.instantiate();
@@ -130,7 +138,7 @@ export class UltraHonkBackend {
       } else {
         try {
           const os = await import('os');
-          this.options.threads = os.cpus().length;
+          this.options.threads = Math.min(os.cpus().length, 32);
         } catch (e) {
           console.log('Could not detect environment. Falling back to one thread.', e);
         }
