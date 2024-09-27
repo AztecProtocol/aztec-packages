@@ -24,7 +24,7 @@ export class BarretenbergVerifier {
   async instantiate(): Promise<void> {
     if (!this.api) {
       if (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) {
-        this.options.threads = navigator.hardwareConcurrency;
+        this.options.threads = Math.min(navigator.hardwareConcurrency, 32);
       } else {
         try {
           const os = await import('os');
