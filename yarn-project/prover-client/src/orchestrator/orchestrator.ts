@@ -138,8 +138,8 @@ export class ProvingOrchestrator implements EpochProver {
   public startNewEpoch(epochNumber: number, totalNumBlocks: number) {
     const { promise: _promise, resolve, reject } = promiseWithResolvers<ProvingResult>();
     const promise = _promise.catch((reason): ProvingResult => ({ status: 'failure', reason }));
-    if (totalNumBlocks <= 0) {
-      throw new Error(`Invalid number of blocks for epoch: ${totalNumBlocks}`);
+    if (totalNumBlocks <= 0 || !Number.isInteger(totalNumBlocks)) {
+      throw new Error(`Invalid number of blocks for epoch (got ${totalNumBlocks})`);
     }
     logger.info(`Starting epoch ${epochNumber} with ${totalNumBlocks} blocks`);
     this.provingState = new EpochProvingState(epochNumber, totalNumBlocks, resolve, reject);
@@ -168,7 +168,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
 
     if (!Number.isInteger(numTxs) || numTxs < 2) {
-      throw new Error(`Length of txs for the block should be at least two (got ${numTxs})`);
+      throw new Error(`Invalid number of txs for block (got ${numTxs})`);
     }
 
     if (this.provingState.currentBlock && !this.provingState.currentBlock.block) {
@@ -261,6 +261,10 @@ export class ProvingOrchestrator implements EpochProver {
 
     if (!provingState.isAcceptingTransactions()) {
       throw new Error(`Rollup not accepting further transactions`);
+    }
+
+    if (!provingState.verifyState()) {
+      throw new Error(`Invalid proving state when adding a tx`);
     }
 
     validateTx(tx);

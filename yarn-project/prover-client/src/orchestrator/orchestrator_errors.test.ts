@@ -28,6 +28,7 @@ describe('prover/orchestrator/errors', () => {
         makeBloatedProcessedTx(context.actualDb, 4),
       ];
 
+      context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(txs.length, context.globalVariables, []);
 
       for (const tx of txs) {
@@ -73,15 +74,7 @@ describe('prover/orchestrator/errors', () => {
       );
     });
 
-    it('throws if finalising an incomplete block', async () => {
-      context.orchestrator.startNewEpoch(1, 1);
-      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
-      await expect(async () => await context.orchestrator.setBlockCompleted()).rejects.toThrow(
-        'Invalid proving state, a block must be proven before it can be finalised',
-      );
-    });
-
-    it('throws if setting an incomplete block completed', async () => {
+    it('throws if setting an incomplete block as completed', async () => {
       context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(3, context.globalVariables, []);
       await expect(async () => await context.orchestrator.setBlockCompleted()).rejects.toThrow(
@@ -96,7 +89,7 @@ describe('prover/orchestrator/errors', () => {
 
       await expect(
         async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx(context.actualDb)),
-      ).rejects.toThrow('Rollup not accepting further transactions');
+      ).rejects.toThrow('Invalid proving state when adding a tx');
     });
 
     it.each([[-4], [0], [1], [8.1]] as const)(
@@ -105,14 +98,14 @@ describe('prover/orchestrator/errors', () => {
         context.orchestrator.startNewEpoch(1, 1);
         await expect(
           async () => await context.orchestrator.startNewBlock(blockSize, context.globalVariables, []),
-        ).rejects.toThrow(`Length of txs for the block should be at least two (got ${blockSize})`);
+        ).rejects.toThrow(`Invalid number of txs for block (got ${blockSize})`);
       },
     );
 
     it.each([[-4], [0], [8.1]] as const)('fails to start an epoch with %i blocks', (epochSize: number) => {
       context.orchestrator.startNewEpoch(1, 1);
       expect(() => context.orchestrator.startNewEpoch(1, epochSize)).toThrow(
-        `Length of txs for the block should be at least two (got ${epochSize})`,
+        `Invalid number of blocks for epoch (got ${epochSize})`,
       );
     });
 

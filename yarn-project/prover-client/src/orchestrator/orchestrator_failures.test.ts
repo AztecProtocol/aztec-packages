@@ -35,50 +35,21 @@ describe('prover/orchestrator/failures', () => {
     });
 
     it.each([
-      [
-        'Base Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getBaseRollupProof').mockRejectedValue('Base Rollup Failed');
-        },
-      ],
-      [
-        'Merge Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getMergeRollupProof').mockRejectedValue('Merge Rollup Failed');
-        },
-      ],
+      ['Base Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getBaseRollupProof').mockRejectedValue(msg)],
+      ['Merge Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getMergeRollupProof').mockRejectedValue(msg)],
       [
         'Block Root Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getBlockRootRollupProof').mockRejectedValue('Block Root Rollup Failed');
-        },
+        (msg: string) => jest.spyOn(mockProver, 'getBlockRootRollupProof').mockRejectedValue(msg),
       ],
       [
         'Block Merge Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getBlockMergeRollupProof').mockRejectedValue('Block Merge Rollup Failed');
-        },
+        (msg: string) => jest.spyOn(mockProver, 'getBlockMergeRollupProof').mockRejectedValue(msg),
       ],
-      [
-        'Root Rollup Failed',
-        () => {
-          jest.spyOn(mockProver, 'getRootRollupProof').mockRejectedValue('Root Rollup Failed');
-        },
-      ],
-      [
-        'Base Parity Failed',
-        () => {
-          jest.spyOn(mockProver, 'getBaseParityProof').mockRejectedValue('Base Parity Failed');
-        },
-      ],
-      [
-        'Root Parity Failed',
-        () => {
-          jest.spyOn(mockProver, 'getRootParityProof').mockRejectedValue('Root Parity Failed');
-        },
-      ],
-    ] as const)('handles a %s error', async (message: string, fn: () => void) => {
-      fn();
+      ['Root Rollup Failed', (msg: string) => jest.spyOn(mockProver, 'getRootRollupProof').mockRejectedValue(msg)],
+      ['Base Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getBaseParityProof').mockRejectedValue(msg)],
+      ['Root Parity Failed', (msg: string) => jest.spyOn(mockProver, 'getRootParityProof').mockRejectedValue(msg)],
+    ] as const)('handles a %s error', async (message: string, fn: (msg: string) => void) => {
+      fn(message);
 
       orchestrator.startNewEpoch(1, 3);
 
@@ -93,7 +64,7 @@ describe('prover/orchestrator/failures', () => {
         await orchestrator.setBlockCompleted();
       }
 
-      await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow(/${message}/);
+      await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow(`Epoch proving failed: ${message}`);
     });
   });
 });
