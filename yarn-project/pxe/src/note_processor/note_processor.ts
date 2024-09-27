@@ -145,19 +145,20 @@ export class NoteProcessor {
             const incomingDecryptedLog = EncryptedLogPayload.decryptAsIncoming(log.data, ivskM);
             const outgoingDecryptedLog = EncryptedLogPayload.decryptAsOutgoing(log.data, ovskM);
 
-            if (incomingDecryptedLog || outgoingDecryptedLog) {
-              const incomingNotePayload = incomingDecryptedLog
-                ? NotePayload.fromIncomingBodyPlaintextAndContractAddress(
-                    incomingDecryptedLog.incomingBodyPlaintext,
-                    incomingDecryptedLog.contract,
-                  )
-                : undefined;
-              const outgoingNotePayload = outgoingDecryptedLog
-                ? NotePayload.fromIncomingBodyPlaintextAndContractAddress(
-                    outgoingDecryptedLog.incomingBodyPlaintext,
-                    outgoingDecryptedLog.contract,
-                  )
-                : undefined;
+            const incomingNotePayload = incomingDecryptedLog
+              ? NotePayload.fromIncomingBodyPlaintextAndContractAddress(
+                  incomingDecryptedLog.incomingBodyPlaintext,
+                  incomingDecryptedLog.contract,
+                )
+              : undefined;
+            const outgoingNotePayload = outgoingDecryptedLog
+              ? NotePayload.fromIncomingBodyPlaintextAndContractAddress(
+                  outgoingDecryptedLog.incomingBodyPlaintext,
+                  outgoingDecryptedLog.contract,
+                )
+              : undefined;
+
+            if (incomingNotePayload || outgoingNotePayload) {
               if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
                 throw new Error(
                   `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(

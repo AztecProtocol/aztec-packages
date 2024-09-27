@@ -35,16 +35,23 @@ export class NotePayload {
    * @param plaintext - Incoming body plaintext.
    * @returns An instance of NotePayload.
    */
-  static fromIncomingBodyPlaintextAndContractAddress(plaintext: Buffer, contractAddress: AztecAddress): NotePayload {
-    const reader = BufferReader.asReader(plaintext);
-    const fields = reader.readArray(plaintext.length / Fr.SIZE_IN_BYTES, Fr);
+  static fromIncomingBodyPlaintextAndContractAddress(
+    plaintext: Buffer,
+    contractAddress: AztecAddress,
+  ): NotePayload | undefined {
+    try {
+      const reader = BufferReader.asReader(plaintext);
+      const fields = reader.readArray(plaintext.length / Fr.SIZE_IN_BYTES, Fr);
 
-    const storageSlot = fields[0];
-    const noteTypeId = NoteSelector.fromField(fields[1]);
+      const storageSlot = fields[0];
+      const noteTypeId = NoteSelector.fromField(fields[1]);
 
-    const note = new Note(fields.slice(2));
+      const note = new Note(fields.slice(2));
 
-    return new NotePayload(note, contractAddress, storageSlot, noteTypeId);
+      return new NotePayload(note, contractAddress, storageSlot, noteTypeId);
+    } catch (e) {
+      return undefined;
+    }
   }
 
   /**

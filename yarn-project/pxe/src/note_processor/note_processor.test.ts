@@ -68,7 +68,7 @@ class MockNoteRequest {
     );
   }
 
-  get notePayload(): NotePayload {
+  get notePayload(): NotePayload | undefined {
     return NotePayload.fromIncomingBodyPlaintextAndContractAddress(
       this.logPayload.incomingBodyPlaintext,
       this.logPayload.contract,
@@ -111,7 +111,7 @@ describe('Note Processor', () => {
       // Then we update the relevant note hashes to match the note requests
       for (const request of noteRequestsForBlock) {
         const notePayload = request.notePayload;
-        const noteHash = pedersenHash(notePayload.note.items);
+        const noteHash = pedersenHash(notePayload!.note.items);
         block.body.txEffects[request.txIndex].noteHashes[request.noteHashIndex] = noteHash;
 
         // Now we populate the log - to simplify we say that there is only 1 function invocation in each tx
