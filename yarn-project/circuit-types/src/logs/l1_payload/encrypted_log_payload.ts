@@ -12,9 +12,9 @@ import {
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { deriveAESSecret, derivePoseidonAESSecret } from './encryption_utils.js';
+import { deriveDiffieHellmanAESSecret, derivePoseidonAESSecret } from './shared_secret_derivation.js';
 
-// Both the incoming and the outgoing header are 48 bytes.
+// Both the incoming and the outgoing header are 48 bytes../shared_secret_derivation.js
 // 32 bytes for the address, and 16 bytes padding to follow PKCS#7
 const HEADER_SIZE = 48;
 
@@ -222,7 +222,7 @@ function encrypt(
   plaintext: Buffer,
   secret: GrumpkinScalar,
   publicKey: PublicKey,
-  deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Buffer = deriveAESSecret,
+  deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Buffer = deriveDiffieHellmanAESSecret,
 ): Buffer {
   const aesSecret = deriveSecret(secret, publicKey);
   const key = aesSecret.subarray(0, 16);
@@ -244,7 +244,7 @@ function decrypt(
   ciphertext: Buffer,
   secret: GrumpkinScalar,
   publicKey: PublicKey,
-  deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Buffer = deriveAESSecret,
+  deriveSecret: (secret: GrumpkinScalar, publicKey: PublicKey) => Buffer = deriveDiffieHellmanAESSecret,
 ): Buffer {
   const aesSecret = deriveSecret(secret, publicKey);
   const key = aesSecret.subarray(0, 16);

@@ -16,7 +16,7 @@ import { numToUInt8 } from '@aztec/foundation/serialize';
  * TODO(#5726): This function is called point_to_symmetric_key in Noir. I don't like that name much since point is not
  * the only input of the function. Unify naming once we have a better name.
  */
-export function deriveAESSecret(secretKey: GrumpkinScalar, publicKey: PublicKey): Buffer {
+export function deriveDiffieHellmanAESSecret(secretKey: GrumpkinScalar, publicKey: PublicKey): Buffer {
   if (publicKey.isZero()) {
     throw new Error(
       `Attempting to derive AES secret with a zero public key. You have probably passed a zero public key in your Noir code somewhere thinking that the note won't broadcasted... but it was.`,
