@@ -68,8 +68,7 @@ template <typename FF, size_t NUM_WIRES, size_t NUM_SELECTORS> class ExecutionTr
     bool has_ram_rom = false;   // does the block contain RAM/ROM gates
     bool is_pub_inputs = false; // is this the public inputs block
     bool is_arithmetic = false; // WORKTODO: temporary hack
-
-    uint32_t fixed_size = 0; // Fixed size for use in structured trace
+    uint32_t trace_offset = 0;  // where this block starts in the trace
 
     bool operator==(const ExecutionTraceBlock& other) const = default;
 
