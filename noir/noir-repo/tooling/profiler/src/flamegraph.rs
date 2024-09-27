@@ -6,6 +6,7 @@ use acir::circuit::OpcodeLocation;
 use acir::AcirField;
 use color_eyre::eyre::{self};
 use fm::codespan_files::Files;
+use fxhash::FxHashMap as HashMap;
 use inferno::flamegraph::{from_lines, Options, TextTruncateDirection};
 use noirc_errors::debug_info::DebugInfo;
 use noirc_errors::reporter::line_and_column_from_span;
@@ -85,32 +86,45 @@ fn generate_folded_sorted_lines<'files, F: AcirField>(
     debug_symbols: &DebugInfo,
     files: &'files impl Files<'files, FileId = fm::FileId>,
 ) -> Vec<String> {
-    // Create a nested hashmap with the stack items, folding the gates for all the callsites that are equal
-    let mut folded_stack_items = BTreeMap::new();
+    println!("Resolving samples");
+    let mut resolved_samples = Vec::with_capacity(samples.len());
+    let mut resolution_cache: HashMap<OpcodeLocation, Vec<String>> = HashMap::default();
+    for sample in samples {
+        let mut location_names = Vec::with_capacity(sample.call_stack.len());
+        for opcode_location in sample.call_stack {
+            let callsite_labels =
+                if let Some(callsite_labels) = resolution_cache.get(&opcode_location) {
+                    callsite_labels.clone()
+                } else {
+                    let source_locations =
+                        debug_symbols.opcode_location(&opcode_location).unwrap_or_else(|| {
+                            if let (Some(brillig_function_id), Some(brillig_location)) =
+                                (sample.brillig_function_id, opcode_location.to_brillig_location())
+                            {
+                                let brillig_locations =
+                                    debug_symbols.brillig_locations.get(&brillig_function_id);
+                                if let Some(brillig_locations) = brillig_locations {
+                                    brillig_locations
+                                        .get(&brillig_location)
+                                        .cloned()
+                                        .unwrap_or_default()
+                                } else {
+                                    vec![]
+                                }
+                            } else {
+                                vec![]
+                            }
+                        });
+                    let callsite_labels: Vec<_> = source_locations
+                        .into_iter()
+                        .map(|location| location_to_callsite_label(location, files))
+                        .collect();
+                    resolution_cache.insert(opcode_location, callsite_labels.clone());
+                    callsite_labels
+                };
 
-    samples.into_iter().for_each(|sample| {
-        let mut location_names: Vec<String> = sample
-            .call_stack
-            .into_iter()
-            .flat_map(|opcode_location| {
-                debug_symbols.opcode_location(&opcode_location).unwrap_or_else(|| {
-                    if let (Some(brillig_function_id), Some(brillig_location)) =
-                        (sample.brillig_function_id, opcode_location.to_brillig_location())
-                    {
-                        let brillig_locations =
-                            debug_symbols.brillig_locations.get(&brillig_function_id);
-                        if let Some(brillig_locations) = brillig_locations {
-                            brillig_locations.get(&brillig_location).cloned().unwrap_or_default()
-                        } else {
-                            vec![]
-                        }
-                    } else {
-                        vec![]
-                    }
-                })
-            })
-            .map(|location| location_to_callsite_label(location, files))
-            .collect();
+            location_names.extend(callsite_labels);
+        }
 
         if location_names.is_empty() {
             location_names.push("unknown".to_string());
@@ -118,11 +132,65 @@ fn generate_folded_sorted_lines<'files, F: AcirField>(
         if let Some(opcode) = &sample.opcode {
             location_names.push(format_opcode(opcode));
         }
+        resolved_samples.push((location_names.join(";"), sample.count));
+    }
 
-        add_locations_to_folded_stack_items(&mut folded_stack_items, location_names, sample.count);
-    });
+    println!("Resolved");
+    resolved_samples.sort_by(|(a, _), (b, _)| a.cmp(b));
+    println!("Sorted");
+    let mut folded_sorted_lines = Vec::with_capacity(resolved_samples.len());
+    let mut current_location = ("".to_string(), 0);
+    for sample in resolved_samples {
+        if sample.0 != current_location.0 {
+            if !current_location.0.is_empty() {
+                folded_sorted_lines.push(format!("{} {}", current_location.0, current_location.1));
+            }
+            current_location = (sample.0, sample.1);
+        } else {
+            current_location.1 += sample.1;
+        }
+    }
+    folded_sorted_lines.push(format!("{} {}", current_location.0, current_location.1));
+    println!("Folded");
+    folded_sorted_lines
+    // // Create a nested hashmap with the stack items, folding the gates for all the callsites that are equal
+    // let mut folded_stack_items = BTreeMap::new();
 
-    to_folded_sorted_lines(&folded_stack_items, Default::default())
+    // samples.into_iter().for_each(|sample| {
+    //     let mut location_names: Vec<String> = sample
+    //         .call_stack
+    //         .into_iter()
+    //         .flat_map(|opcode_location| {
+    //             debug_symbols.opcode_location(&opcode_location).unwrap_or_else(|| {
+    //                 if let (Some(brillig_function_id), Some(brillig_location)) =
+    //                     (sample.brillig_function_id, opcode_location.to_brillig_location())
+    //                 {
+    //                     let brillig_locations =
+    //                         debug_symbols.brillig_locations.get(&brillig_function_id);
+    //                     if let Some(brillig_locations) = brillig_locations {
+    //                         brillig_locations.get(&brillig_location).cloned().unwrap_or_default()
+    //                     } else {
+    //                         vec![]
+    //                     }
+    //                 } else {
+    //                     vec![]
+    //                 }
+    //             })
+    //         })
+    //         .map(|location| location_to_callsite_label(location, files))
+    //         .collect();
+
+    //     if location_names.is_empty() {
+    //         location_names.push("unknown".to_string());
+    //     }
+    //     if let Some(opcode) = &sample.opcode {
+    //         location_names.push(format_opcode(opcode));
+    //     }
+
+    //     add_locations_to_folded_stack_items(&mut folded_stack_items, location_names, sample.count);
+    // });
+
+    // to_folded_sorted_lines(&folded_stack_items, Default::default())
 }
 
 fn location_to_callsite_label<'files>(
