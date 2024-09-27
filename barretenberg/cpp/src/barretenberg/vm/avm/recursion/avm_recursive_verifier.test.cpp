@@ -63,7 +63,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
 TEST_F(AvmRecursiveTests, recursion)
 {
-    auto const public_inputs = generate_base_public_inputs();
+    const auto public_inputs = generate_base_public_inputs();
     AvmCircuitBuilder circuit_builder = generate_avm_circuit(public_inputs);
     AvmComposer composer = AvmComposer();
     InnerProver prover = composer.create_prover(circuit_builder);
