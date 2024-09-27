@@ -11,8 +11,7 @@ import {
 } from '@aztec/aztec.js';
 // eslint-disable-next-line no-restricted-imports
 import {
-  type BlockSimulator,
-  PROVING_STATUS,
+  type BlockBuilder,
   type ProcessedTx,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricalTreeRoots,
   makeProcessedTx,
@@ -90,7 +89,7 @@ describe('L1Publisher integration', () => {
 
   let publisher: L1Publisher;
 
-  let builder: BlockSimulator;
+  let builder: BlockBuilder;
   let builderDb: MerkleTrees;
 
   // The header of the last block

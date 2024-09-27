@@ -1,4 +1,3 @@
-import { PROVING_STATUS } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -29,7 +28,6 @@ describe('prover/orchestrator/errors', () => {
         makeBloatedProcessedTx(context.actualDb, 4),
       ];
 
-      const ticket = context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(txs.length, context.globalVariables, []);
 
       for (const tx of txs) {
@@ -40,11 +38,9 @@ describe('prover/orchestrator/errors', () => {
         async () => await context.orchestrator.addNewTx(makeEmptyProcessedTestTx(context.actualDb)),
       ).rejects.toThrow('Rollup not accepting further transactions');
 
-      const result = await ticket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-
-      const finalisedBlock = await context.orchestrator.getBlock();
-      expect(finalisedBlock.block.number).toEqual(context.blockNumber);
+      const block = await context.orchestrator.setBlockCompleted();
+      expect(block.number).toEqual(context.blockNumber);
+      await context.orchestrator.finaliseEpoch();
     });
 
     it('throws if adding too many blocks', async () => {
@@ -80,7 +76,7 @@ describe('prover/orchestrator/errors', () => {
     it('throws if finalising an incomplete block', async () => {
       context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(2, context.globalVariables, []);
-      await expect(async () => await context.orchestrator.getBlock()).rejects.toThrow(
+      await expect(async () => await context.orchestrator.setBlockCompleted()).rejects.toThrow(
         'Invalid proving state, a block must be proven before it can be finalised',
       );
     });

@@ -1,14 +1,11 @@
 import { createDebugLogger } from '@aztec/aztec.js';
 import {
-  type BlockSimulator,
+  type BlockBuilder,
   Body,
   L2Block,
   MerkleTreeId,
   type MerkleTreeOperations,
-  PROVING_STATUS,
   type ProcessedTx,
-  type ProvingTicket,
-  type SimulationBlockResult,
   type TxEffect,
   makeEmptyProcessedTx,
   toTxEffect,
@@ -28,16 +25,12 @@ import { type TelemetryClient } from '@aztec/telemetry-client';
 import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 /**
- * Implements a block simulator using a test circuit prover under the hood, which just simulates circuits and outputs empty proofs.
- * This class is temporary and should die once we switch from tx effects to tx objects submissions, since sequencers won't have
- * the need to create L2 block headers to submit to L1. When we do that, we should also remove the references to the
- * prover-client and bb-prover packages from this package.
+ * Builds a block and its header from a set of processed tx without running any circuits.
  */
-export class LightweightBlockBuilder implements BlockSimulator {
+export class LightweightBlockBuilder implements BlockBuilder {
   private numTxs?: number;
   private globalVariables?: GlobalVariables;
   private l1ToL2Messages?: Fr[];
-  private block?: L2Block;
 
   private readonly txs: ProcessedTx[] = [];
 
@@ -67,8 +60,6 @@ export class LightweightBlockBuilder implements BlockSimulator {
     );
   }
 
-  cancel(): void {}
-
   async setBlockCompleted(): Promise<L2Block> {
     const paddingTxCount = this.numTxs! - this.txs.length;
     this.logger.verbose(`Setting block as completed and adding ${paddingTxCount} padding txs`);
@@ -82,15 +73,8 @@ export class LightweightBlockBuilder implements BlockSimulator {
         ),
       );
     }
-    const { block } = await this.getBlock();
-    return block;
-  }
 
-  async getBlock(): Promise<SimulationBlockResult> {
-    if (!this.block) {
-      this.block = await this.buildBlock();
-    }
-    return { block: this.block };
+    return this.buildBlock();
   }
 
   private async buildBlock(): Promise<L2Block> {
@@ -112,7 +96,7 @@ export class LightweightBlockBuilder implements BlockSimulator {
 export class LightweightBlockBuilderFactory {
   constructor(private telemetry?: TelemetryClient) {}
 
-  create(db: MerkleTreeOperations): BlockSimulator {
+  create(db: MerkleTreeOperations): BlockBuilder {
     return new LightweightBlockBuilder(db, this.telemetry ?? new NoopTelemetryClient());
   }
 }

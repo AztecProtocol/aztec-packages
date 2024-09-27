@@ -1,20 +1,14 @@
 import {
-  BlockProofError,
   Body,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
   L2Block,
   MerkleTreeId,
-  PROVING_STATUS,
   type PaddingProcessedTx,
   type ProcessedTx,
-  type ProvingBlockResult,
   ProvingRequestType,
-  type ProvingResult,
-  type ProvingTicket,
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
-  Tx,
   type TxEffect,
   UnencryptedTxL2Logs,
   makeEmptyProcessedTx,
@@ -84,7 +78,12 @@ import {
   validateTx,
 } from './block-building-helpers.js';
 import { type BlockProvingState, type MergeRollupInputData } from './block-proving-state.js';
-import { type BlockMergeRollupInputData, EpochProvingState, type TreeSnapshots } from './epoch-proving-state.js';
+import {
+  type BlockMergeRollupInputData,
+  EpochProvingState,
+  type ProvingResult,
+  type TreeSnapshots,
+} from './epoch-proving-state.js';
 import { ProvingOrchestratorMetrics } from './orchestrator_metrics.js';
 import { TX_PROVING_CODE, type TxProvingInstruction, TxProvingState } from './tx-proving-state.js';
 
@@ -109,6 +108,7 @@ export class ProvingOrchestrator implements EpochProver {
   private pendingProvingJobs: AbortController[] = [];
   private paddingTx: PaddingProcessedTx | undefined = undefined;
 
+  private provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
 
   constructor(
@@ -135,20 +135,20 @@ export class ProvingOrchestrator implements EpochProver {
     this.paddingTx = undefined;
   }
 
-  public startNewEpoch(epochNumber: number, totalNumBlocks: number): ProvingTicket {
+  public startNewEpoch(epochNumber: number, totalNumBlocks: number) {
     const { promise: _promise, resolve, reject } = promiseWithResolvers<ProvingResult>();
-    const promise = _promise.catch((reason): ProvingResult => ({ status: PROVING_STATUS.FAILURE, reason }));
+    const promise = _promise.catch((reason): ProvingResult => ({ status: 'failure', reason }));
     if (totalNumBlocks <= 0) {
       throw new Error(`Invalid number of blocks for epoch: ${totalNumBlocks}`);
     }
     logger.info(`Starting epoch ${epochNumber} with ${totalNumBlocks} blocks`);
     this.provingState = new EpochProvingState(epochNumber, totalNumBlocks, resolve, reject);
-    return { provingPromise: promise };
+    this.provingPromise = promise;
   }
 
   /**
    * Starts off a new block
-   * @param numTxs - The total number of transactions in the block. Must be a power of 2
+   * @param numTxs - The total number of transactions in the block.
    * @param globalVariables - The global variables for the block
    * @param l1ToL2Messages - The l1 to l2 messages for the block
    * @param verificationKeys - The private kernel verification keys
@@ -169,6 +169,10 @@ export class ProvingOrchestrator implements EpochProver {
 
     if (!Number.isInteger(numTxs) || numTxs < 2) {
       throw new Error(`Length of txs for the block should be at least two (got ${numTxs})`);
+    }
+
+    if (this.provingState.currentBlock && !this.provingState.currentBlock.block) {
+      throw new Error(`Must end previous block before starting a new one`);
     }
 
     // TODO(palla/prover): Store block number in the db itself to make this check more reliable,
@@ -272,10 +276,7 @@ export class ProvingOrchestrator implements EpochProver {
     this.enqueueFirstProofs(inputs, treeSnapshots, tx, provingState);
 
     if (provingState.transactionsReceived === provingState.totalNumTxs) {
-      logger.verbose(
-        `All transactions received for block ${provingState.globalVariables.blockNumber}. Assembling header.`,
-      );
-      await this.buildBlock(provingState);
+      logger.verbose(`All transactions received for block ${provingState.globalVariables.blockNumber}.`);
     }
   }
 
@@ -300,49 +301,58 @@ export class ProvingOrchestrator implements EpochProver {
       throw new Error(`Invalid proving state, call startNewBlock before adding transactions or completing the block`);
     }
 
-    // we may need to pad the rollup with empty transactions
+    // We may need to pad the rollup with empty transactions
     const paddingTxCount = provingState.totalNumTxs - provingState.transactionsReceived;
-    if (paddingTxCount === 0) {
-      return provingState.block!;
-    } else if (provingState.totalNumTxs > 2) {
+    if (paddingTxCount > 0 && provingState.totalNumTxs > 2) {
       throw new Error(`Block not ready for completion: expecting ${paddingTxCount} more transactions.`);
     }
 
-    logger.debug(`Padding rollup with ${paddingTxCount} empty transactions`);
-    // Make an empty padding transaction
-    // Required for:
-    // 0 (when we want an empty block, largely for testing), or
-    // 1 (we need to pad with one tx as all rollup circuits require a pair of inputs) txs
-    // Insert it into the tree the required number of times to get all of the
-    // base rollup inputs
-    // Then enqueue the proving of all the transactions
-    const unprovenPaddingTx = makeEmptyProcessedTx(
-      this.db.getInitialHeader(),
-      provingState.globalVariables.chainId,
-      provingState.globalVariables.version,
-      getVKTreeRoot(),
-    );
-    const txInputs: Array<{ inputs: BaseRollupInputs; snapshot: TreeSnapshots }> = [];
-    for (let i = 0; i < paddingTxCount; i++) {
-      const [inputs, snapshot] = await this.prepareTransaction(unprovenPaddingTx, provingState);
-      const txInput = {
-        inputs,
-        snapshot,
-      };
-      txInputs.push(txInput);
+    if (paddingTxCount > 0) {
+      logger.debug(`Padding rollup with ${paddingTxCount} empty transactions`);
+      // Make an empty padding transaction
+      // Required for:
+      // 0 (when we want an empty block, largely for testing), or
+      // 1 (we need to pad with one tx as all rollup circuits require a pair of inputs) txs
+      // Insert it into the tree the required number of times to get all of the
+      // base rollup inputs
+      // Then enqueue the proving of all the transactions
+      const unprovenPaddingTx = makeEmptyProcessedTx(
+        this.db.getInitialHeader(),
+        provingState.globalVariables.chainId,
+        provingState.globalVariables.version,
+        getVKTreeRoot(),
+      );
+      const txInputs: Array<{ inputs: BaseRollupInputs; snapshot: TreeSnapshots }> = [];
+      for (let i = 0; i < paddingTxCount; i++) {
+        const [inputs, snapshot] = await this.prepareTransaction(unprovenPaddingTx, provingState);
+        const txInput = {
+          inputs,
+          snapshot,
+        };
+        txInputs.push(txInput);
+      }
+
+      // Now enqueue the proving
+      this.enqueuePaddingTxs(provingState, txInputs, unprovenPaddingTx);
     }
 
-    // Now enqueue the proving
-    this.enqueuePaddingTxs(provingState, txInputs, unprovenPaddingTx);
-
     // And build the block header
-    logger.verbose(`Block ${provingState.globalVariables.blockNumber} padded with empty tx(s). Assembling header.`);
+    logger.verbose(`Block ${provingState.globalVariables.blockNumber} completed. Assembling header.`);
     await this.buildBlock(provingState);
 
     return provingState.block!;
   }
 
-  @trackSpan('ProvingOrchestrator.setEpochCompleted', function () {
+  /** Returns the block as built for a given index. */
+  public getBlock(index: number): L2Block {
+    const block = this.provingState?.blocks[index].block;
+    if (!block) {
+      throw new Error(`Block at index ${index} not available`);
+    }
+    return block;
+  }
+
+  @trackSpan('ProvingOrchestrator.padEpoch', function () {
     if (!this.provingState) {
       return {};
     }
@@ -351,15 +361,11 @@ export class ProvingOrchestrator implements EpochProver {
       [Attributes.EPOCH_SIZE]: this.provingState.totalNumBlocks,
     };
   })
-  public setEpochCompleted() {
-    const provingState = this.provingState;
-    if (!provingState) {
-      throw new Error(`Invalid proving state, call startNewEpoch first`);
-    }
-
+  private padEpoch() {
+    const provingState = this.provingState!;
     const lastBlock = provingState.currentBlock?.block;
     if (!lastBlock) {
-      throw new Error(`Epoch needs at least one completed block in order to be marked as completed`);
+      throw new Error(`Epoch needs at least one completed block in order to be padded`);
     }
 
     const paddingBlockCount = Math.max(2, provingState.totalNumBlocks) - provingState.blocks.length;
@@ -547,42 +553,22 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   /**
-   * Returns the fully proven block. Requires proving to have been completed.
-   * @param index - The index of the block to finalise. Defaults to the last block.
-   * @returns The fully proven block and proof.
-   */
-  public getBlock(index?: number) {
-    try {
-      const block = this.provingState?.blocks[index ?? this.provingState?.blocks.length - 1];
-
-      if (!block || !block.blockRootRollupPublicInputs || !block.finalProof || !block.block) {
-        throw new Error(`Invalid proving state, a block must be proven before it can be finalised`);
-      }
-
-      const blockResult: ProvingBlockResult = {
-        proof: block.finalProof,
-        aggregationObject: block.finalProof.extractAggregationObject(),
-        block: block.block!,
-      };
-
-      return Promise.resolve(blockResult);
-    } catch (err) {
-      throw new BlockProofError(
-        err && typeof err === 'object' && 'message' in err ? String(err.message) : String(err),
-        this.provingState?.blocks[index ?? this.provingState?.blocks.length - 1]?.allTxs.map(x =>
-          Tx.getHash(x.processedTx),
-        ) ?? [],
-      );
-    }
-  }
-
-  /**
    * Returns the proof for the current epoch.
-   * Requires proving to have been completed.
    */
-  public finaliseEpoch() {
-    if (!this.provingState || !this.provingState.rootRollupPublicInputs || !this.provingState.finalProof) {
+  public async finaliseEpoch() {
+    if (!this.provingState || !this.provingPromise) {
       throw new Error(`Invalid proving state, an epoch must be proven before it can be finalised`);
+    }
+
+    this.padEpoch();
+
+    const result = await this.provingPromise!;
+    if (result.status === 'failure') {
+      throw new Error(`Epoch proving failed: ${result.reason}`);
+    }
+
+    if (!this.provingState.rootRollupPublicInputs || !this.provingState.finalProof) {
+      throw new Error(`Invalid proving state, missing root rollup public inputs or final proof`);
     }
 
     pushTestData('epochProofResult', {
@@ -1068,7 +1054,7 @@ export class ProvingOrchestrator implements EpochProver {
         logger.verbose(`Orchestrator completed root rollup for epoch ${provingState.epochNumber}`);
         provingState.rootRollupPublicInputs = result.inputs;
         provingState.finalProof = result.proof.binaryProof;
-        provingState.resolve({ status: PROVING_STATUS.SUCCESS });
+        provingState.resolve({ status: 'success' });
       },
     );
   }

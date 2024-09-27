@@ -1,4 +1,3 @@
-import { PROVING_STATUS } from '@aztec/circuit-types';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
 
@@ -20,7 +19,7 @@ describe('prover/orchestrator/multi-block', () => {
 
   describe('multiple blocks', () => {
     it.each([1, 4, 5])('builds an epoch with %s blocks in sequence', async (numBlocks: number) => {
-      const provingTicket = context.orchestrator.startNewEpoch(1, numBlocks);
+      context.orchestrator.startNewEpoch(1, numBlocks);
       let header = context.actualDb.getInitialHeader();
 
       for (let i = 0; i < numBlocks; i++) {
@@ -42,14 +41,8 @@ describe('prover/orchestrator/multi-block', () => {
         header = block!.header;
       }
 
-      logger.info('Setting epoch as completed');
-      context.orchestrator.setEpochCompleted();
-
-      logger.info('Awaiting epoch ticket');
-      const result = await provingTicket.provingPromise;
-      expect(result).toEqual({ status: PROVING_STATUS.SUCCESS });
-
-      const epoch = context.orchestrator.finaliseEpoch();
+      logger.info('Finalising epoch');
+      const epoch = await context.orchestrator.finaliseEpoch();
       expect(epoch.publicInputs.endBlockNumber.toNumber()).toEqual(1000 + numBlocks - 1);
       expect(epoch.proof).toBeDefined();
     });

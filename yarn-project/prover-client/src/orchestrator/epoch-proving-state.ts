@@ -1,4 +1,4 @@
-import { type MerkleTreeId, type ProvingResult } from '@aztec/circuit-types';
+import { type MerkleTreeId } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
   type AppendOnlyTreeSnapshot,
@@ -35,6 +35,8 @@ export type BlockMergeRollupInputData = {
   ];
   verificationKeys: [VerificationKeyAsFields | undefined, VerificationKeyAsFields | undefined];
 };
+
+export type ProvingResult = { status: 'success' } | { status: 'failure'; reason: string };
 
 /**
  * The current state of the proving schedule for an epoch.

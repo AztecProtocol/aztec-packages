@@ -1,4 +1,4 @@
-import { MerkleTreeId, type MerkleTreeOperations, PROVING_STATUS } from '@aztec/circuit-types';
+import { MerkleTreeId, type MerkleTreeOperations } from '@aztec/circuit-types';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { fr } from '@aztec/circuits.js/testing';
 import { range } from '@aztec/foundation/array';
@@ -34,21 +34,14 @@ describe('prover/orchestrator/mixed-blocks', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const ticket = context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(3, context.globalVariables, l1ToL2Messages);
-
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);
       }
 
-      await context.orchestrator.setBlockCompleted();
-      context.orchestrator.setEpochCompleted();
-
-      const result = await ticket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-
-      const finalisedBlock = await context.orchestrator.getBlock();
-      expect(finalisedBlock.block.number).toEqual(context.blockNumber);
+      const block = await context.orchestrator.setBlockCompleted();
+      await context.orchestrator.finaliseEpoch();
+      expect(block.number).toEqual(context.blockNumber);
     });
 
     it.each([2, 4, 5, 8] as const)('builds an L2 block with %i bloated txs', async (totalCount: number) => {
@@ -56,18 +49,16 @@ describe('prover/orchestrator/mixed-blocks', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const ticket = context.orchestrator.startNewEpoch(1, 1);
+      context.orchestrator.startNewEpoch(1, 1);
       await context.orchestrator.startNewBlock(txs.length, context.globalVariables, l1ToL2Messages);
 
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);
       }
 
-      const result = await ticket.provingPromise;
-      expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-
-      const finalisedBlock = await context.orchestrator.getBlock();
-      expect(finalisedBlock.block.number).toEqual(context.blockNumber);
+      const block = await context.orchestrator.setBlockCompleted();
+      await context.orchestrator.finaliseEpoch();
+      expect(block.number).toEqual(context.blockNumber);
 
       await updateExpectedTreesFromTxs(expectsDb, txs);
       const noteHashTreeAfter = await context.actualDb.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);

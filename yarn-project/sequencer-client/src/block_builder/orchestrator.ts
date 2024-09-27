@@ -1,11 +1,5 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
-import {
-  type BlockSimulator,
-  L2Block,
-  type MerkleTreeOperations,
-  type ProcessedTx,
-  type SimulationBlockResult,
-} from '@aztec/circuit-types';
+import { type BlockBuilder, type L2Block, type MerkleTreeOperations, type ProcessedTx } from '@aztec/circuit-types';
 import { type Fr, type GlobalVariables } from '@aztec/circuits.js';
 import { ProvingOrchestrator } from '@aztec/prover-client/orchestrator';
 import { type SimulationProvider } from '@aztec/simulator';
@@ -14,11 +8,10 @@ import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
 
 /**
  * Implements a block simulator using a test circuit prover under the hood, which just simulates circuits and outputs empty proofs.
- * This class is temporary and should die once we switch from tx effects to tx objects submissions, since sequencers won't have
- * the need to create L2 block headers to submit to L1. When we do that, we should also remove the references to the
- * prover-client and bb-prover packages from this package.
+ * This class is unused at the moment, but could be leveraged by a prover-node to ascertain that it can prove a block before
+ * committing to proving it by sending a quote.
  */
-export class OrchestratorBlockBuilder implements BlockSimulator {
+export class OrchestratorBlockBuilder implements BlockBuilder {
   private orchestrator: ProvingOrchestrator;
   constructor(db: MerkleTreeOperations, simulationProvider: SimulationProvider, telemetry: TelemetryClient) {
     const testProver = new TestCircuitProver(telemetry, simulationProvider);
@@ -27,12 +20,6 @@ export class OrchestratorBlockBuilder implements BlockSimulator {
 
   startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
     return this.orchestrator.startNewBlock(numTxs, globalVariables, l1ToL2Messages);
-  }
-  cancel(): void {
-    this.orchestrator.cancel();
-  }
-  getBlock(): Promise<SimulationBlockResult> {
-    return this.orchestrator.getBlock();
   }
   setBlockCompleted(): Promise<L2Block> {
     return this.orchestrator.setBlockCompleted();
@@ -45,7 +32,7 @@ export class OrchestratorBlockBuilder implements BlockSimulator {
 export class OrchestratorBlockBuilderFactory {
   constructor(private simulationProvider: SimulationProvider, private telemetry?: TelemetryClient) {}
 
-  create(db: MerkleTreeOperations): BlockSimulator {
+  create(db: MerkleTreeOperations): BlockBuilder {
     return new OrchestratorBlockBuilder(db, this.simulationProvider, this.telemetry ?? new NoopTelemetryClient());
   }
 }

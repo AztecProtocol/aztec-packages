@@ -452,7 +452,7 @@ export class Sequencer {
         processedTxsCount: processedTxs.length,
       })
     ) {
-      blockBuilder.cancel();
+      // TODO: Roll back changes to world state
       throw new Error('Should not propose the block');
     }
 

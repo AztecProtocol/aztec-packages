@@ -1,4 +1,4 @@
-import { PROVING_STATUS, type ServerCircuitProver } from '@aztec/circuit-types';
+import { type ServerCircuitProver } from '@aztec/circuit-types';
 import { Fr } from '@aztec/circuits.js';
 import { times } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -80,7 +80,7 @@ describe('prover/orchestrator/failures', () => {
     ] as const)('handles a %s error', async (message: string, fn: () => void) => {
       fn();
 
-      const epochTicket = orchestrator.startNewEpoch(1, 3);
+      orchestrator.startNewEpoch(1, 3);
 
       // We need at least 3 blocks and 3 txs to ensure all circuits are used
       for (let i = 0; i < 3; i++) {
@@ -90,9 +90,10 @@ describe('prover/orchestrator/failures', () => {
         for (const tx of txs) {
           await orchestrator.addNewTx(tx);
         }
+        await orchestrator.setBlockCompleted();
       }
 
-      await expect(epochTicket.provingPromise).resolves.toEqual({ status: PROVING_STATUS.FAILURE, reason: message });
+      await expect(() => orchestrator.finaliseEpoch()).rejects.toThrow(/${message}/);
     });
   });
 });
