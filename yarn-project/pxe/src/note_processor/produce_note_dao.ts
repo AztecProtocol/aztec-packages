@@ -1,4 +1,4 @@
-import { type L1NotePayload, type TxHash } from '@aztec/circuit-types';
+import { type NotePayload, type TxHash } from '@aztec/circuit-types';
 import { Fr, type PublicKey } from '@aztec/circuits.js';
 import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/hash';
 import { type Logger } from '@aztec/foundation/log';
@@ -28,7 +28,7 @@ export async function produceNoteDaos(
   simulator: AcirSimulator,
   ivpkM: PublicKey | undefined,
   ovpkM: PublicKey | undefined,
-  payload: L1NotePayload,
+  payload: NotePayload,
   txHash: TxHash,
   noteHashes: Fr[],
   dataStartIndexForTx: number,
@@ -183,7 +183,7 @@ async function findNoteIndexAndNullifier(
   simulator: AcirSimulator,
   siloedNoteHashes: Fr[],
   txHash: TxHash,
-  { contractAddress, storageSlot, noteTypeId, note }: L1NotePayload,
+  { contractAddress, storageSlot, noteTypeId, note }: NotePayload,
   excludedIndices: Set<number>,
   computeNullifier: boolean,
 ) {

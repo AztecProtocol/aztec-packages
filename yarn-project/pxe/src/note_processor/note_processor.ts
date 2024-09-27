@@ -1,4 +1,4 @@
-import { type AztecNode, L1NotePayload, type L2Block, TaggedLog } from '@aztec/circuit-types';
+import { type AztecNode, type L2Block, L2Log, NotePayload } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import { type AztecAddress, INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
@@ -142,30 +142,38 @@ export class NoteProcessor {
         for (const functionLogs of txFunctionLogs) {
           for (const log of functionLogs.logs) {
             this.stats.seen++;
-            const incomingTaggedNote = TaggedLog.decryptAsIncoming(log.data, ivskM)!;
-            const outgoingTaggedNote = TaggedLog.decryptAsOutgoing(log.data, ovskM)!;
+            const incomingDecryptedLog = L2Log.decryptAsIncoming(log.data, ivskM);
+            const outgoingDecryptedLog = L2Log.decryptAsOutgoing(log.data, ovskM);
 
-            if (incomingTaggedNote || outgoingTaggedNote) {
-              if (
-                incomingTaggedNote &&
-                outgoingTaggedNote &&
-                !incomingTaggedNote.payload.equals(outgoingTaggedNote.payload)
-              ) {
+            if (incomingDecryptedLog || outgoingDecryptedLog) {
+              const incomingNotePayload = incomingDecryptedLog
+                ? NotePayload.fromIncomingBodyPlaintextAndContractAddress(
+                    incomingDecryptedLog.incomingBodyPlaintext,
+                    incomingDecryptedLog.contract,
+                  )
+                : undefined;
+              const outgoingNotePayload = outgoingDecryptedLog
+                ? NotePayload.fromIncomingBodyPlaintextAndContractAddress(
+                    outgoingDecryptedLog.incomingBodyPlaintext,
+                    outgoingDecryptedLog.contract,
+                  )
+                : undefined;
+              if (incomingNotePayload && outgoingNotePayload && !incomingNotePayload.equals(outgoingNotePayload)) {
                 throw new Error(
                   `Incoming and outgoing note payloads do not match. Incoming: ${JSON.stringify(
-                    incomingTaggedNote.payload,
-                  )}, Outgoing: ${JSON.stringify(outgoingTaggedNote.payload)}`,
+                    incomingNotePayload,
+                  )}, Outgoing: ${JSON.stringify(outgoingNotePayload)}`,
                 );
               }
 
-              const payload = incomingTaggedNote?.payload || outgoingTaggedNote?.payload;
+              const payload = incomingNotePayload || outgoingNotePayload;
 
               const txHash = block.body.txEffects[indexOfTxInABlock].txHash;
               const { incomingNote, outgoingNote, incomingDeferredNote, outgoingDeferredNote } = await produceNoteDaos(
                 this.simulator,
-                incomingTaggedNote ? this.ivpkM : undefined,
-                outgoingTaggedNote ? this.ovpkM : undefined,
-                payload,
+                incomingNotePayload ? this.ivpkM : undefined,
+                outgoingNotePayload ? this.ovpkM : undefined,
+                payload!,
                 txHash,
                 noteHashes,
                 dataStartIndexForTx,
@@ -302,7 +310,7 @@ export class NoteProcessor {
     for (const deferredNote of deferredNoteDaos) {
       const { publicKey, note, contractAddress, storageSlot, noteTypeId, txHash, noteHashes, dataStartIndexForTx } =
         deferredNote;
-      const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
+      const payload = new NotePayload(note, contractAddress, storageSlot, noteTypeId);
 
       const isIncoming = publicKey.equals(this.ivpkM);
       const isOutgoing = publicKey.equals(this.ovpkM);
