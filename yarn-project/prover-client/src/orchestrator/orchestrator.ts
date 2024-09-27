@@ -199,7 +199,7 @@ export class ProvingOrchestrator implements BlockProver {
     // TODO(Miranda): REMOVE once not adding 0 value tx effects (below is to ensure padding txs work)
     numTxsEffects = numTxs == 2 ? 684 : numTxsEffects;
 
-    // Initialise the sponge which will eventually absord all tx effects to be added to the blob.
+    // Initialise the sponge which will eventually absorb all tx effects to be added to the blob.
     // Like l1 to l2 messages, we need to know beforehand how many effects will be absorbed.
     // TODO(Miranda): reset this when we cancel a block? (db does not seem to be reset)
     this.spongeBlobState = SpongeBlob.init(numTxsEffects);

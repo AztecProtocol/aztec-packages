@@ -282,35 +282,15 @@ pub fn poseidon2_hash_with_separator<let N: u32, T>(
 // or any ts implementation. Also checks that any remaining elts not hashed are empty.
 #[no_predicates]
 pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Field {
-    let two_pow_64 = 18446744073709551616;
-    let iv : Field = (in_len as Field) * two_pow_64;
-    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
-    let mut should_add = true;
-    for i in 0..input.len() {
-        should_add &= i != in_len;
-        if should_add {
-            sponge.absorb(input[i]);
-        } else {
-            assert(input[i] == 0, "Found non-zero field after breakpoint");
-        }
-    }
+    let mut sponge = poseidon2_absorb_chunks(input, in_len, false);
     sponge.squeeze()
 }
 
-// NB the below is exactly the same as std::hash::poseidon2::Poseidon2::hash(), but replacing a range check with a bit check
+// NB the below is the same as std::hash::poseidon2::Poseidon2::hash(), but replacing a range check with a bit check,
+// and absorbing in chunks of 3 below.
 #[no_predicates]
 pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u32) -> Field {
-    let two_pow_64 = 18446744073709551616;
-    let iv : Field = (in_len as Field) * two_pow_64;
-    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
-    let mut should_add = true;
-    for i in 0..input.len() {
-        should_add &= i != in_len;
-        if should_add {
-            sponge.absorb(input[i]);
-        }
-    }
-
+    let mut sponge = poseidon2_absorb_chunks(input, in_len, true);
     // In the case where the hash preimage is variable-length, we append `1` to the end of the input, to distinguish
     // from fixed-length hashes. (the combination of this additional field element + the hash IV ensures
     // fixed-length and variable-length hashes do not collide)
@@ -318,6 +298,105 @@ pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u3
         sponge.absorb(1);
     }
     sponge.squeeze()
+}
+
+// The below fn reduces gates of a conditional poseidon2 hash by approx 3x (thank you ~* Giant Brain Dev @IlyasRidhuan *~ for the idea)
+// Why? Because when we call stdlib poseidon, we call absorb for each item. When absorbing is conditional, it seems the compiler does not know
+// what cache_size will be when calling absorb, so it assigns the permutation gates for /each i/ rather than /every 3rd i/, which is actually required.
+// The below code forces the compiler to:
+//  - absorb normally up to 2 times to set cache_size to 1 (once for fresh sponge, up to twice for existing - TODO)
+//  - absorb in chunks of 3 to ensure perm. only happens every 3rd absorb
+//  - absorb normally up to 2 times to add any remaining values to the hash
+// In fixed len hashes, the compiler is able to tell that it will only need to perform the permutation every 3 absorbs.
+// NB: it also replaces unnecessary range checks (i < thing) with a bit check (&= i != thing), which alone reduces the gates of a var. hash by half.
+// NB: it would be possible to make a version of the below for an existing sponge (e.g. use for sponge_blob) by absorbing with a 3-loop until cache_size is 1.
+// The difficulty is that the compiler cannot determine loop bound 'max_chunks' because 'shift' is variable. Though 'shift' can only be 0, 1, or 2 it may be possible to make 3 fns
+// for each possible value of 'shift'.
+
+#[no_predicates]
+fn poseidon2_absorb_chunks<let N: u32>(
+    input: [Field; N],
+    in_len: u32,
+    variable: bool
+) -> std::hash::poseidon2::Poseidon2 {
+    let two_pow_64 = 18446744073709551616;
+    let iv : Field = (in_len as Field) * two_pow_64;
+    let mut sponge = std::hash::poseidon2::Poseidon2::new(iv);
+    // cache_size = 0, init absorb
+    sponge.cache[0] = input[0];
+    sponge.cache_size = 1;
+    // this is to account for already added inputs
+    let shift = 1;
+    let remainder = (in_len - shift) % 3;
+    let chunks = (in_len - shift - remainder) / 3;
+    let max_remainder = (N - shift) % 3;
+    let max_chunks = (N - shift - max_remainder) / 3;
+
+    let mut should_add = true;
+    for i in 0..max_chunks {
+        // Now we loop through cache size = 1 -> 3
+        should_add &= i != chunks;
+        // This is the index at the start of the chunk (for readability)
+        let k = 3 * i + shift;
+        if should_add {
+            // cache_size = 1, 2 => just assign
+            sponge.cache[1] = input[k];
+            sponge.cache[2] = input[k + 1];
+            // cache_size = 3 => duplex + perm
+            for j in 0..3 {
+                sponge.state[j] += sponge.cache[j];
+            }
+            sponge.state = std::hash::poseidon2_permutation(sponge.state, 4);
+            sponge.cache[0] = input[k + 2];
+            // cache_size is now 1 again, repeat loop
+        } else if (!variable) & (i != chunks) {
+            // if we are hashing a fixed len array which is a subarray, we check the remaining elts are 0
+            // NB: we don't check at i == chunks, because that chunk contains elts to be absorbed or checked below
+            let all_0 = (input[k] == 0) & (input[k + 1] == 0) & (input[k + 2] == 0);
+            assert(all_0, "Found non-zero field after breakpoint");
+        }
+    }
+    // we have 'remainder' num of items left to absorb
+    should_add = true;
+    // below is to avoid overflows (i.e. if inlen is close to N)
+    let mut should_check = !variable;
+    for i in 0..3 {
+        should_add &= i != remainder;
+        should_check &= in_len - remainder + i != N;
+        if should_add {
+            // we want to absorb the final 'remainder' items
+            sponge.absorb(input[in_len - remainder + i]);
+        } else if should_check {
+            assert(input[in_len - remainder + i] == 0, "Found non-zero field after breakpoint");
+        }
+    }
+    sponge
+}
+
+#[test]
+fn poseidon_chunks_matches_fixed() {
+    let in_len = 501;
+    let mut input: [Field; 4096] = [0; 4096];
+    let mut fixed_input = [3; 501];
+    assert(in_len == fixed_input.len()); // sanity check
+    for i in 0..in_len {
+        input[i] = 3;
+    }
+    let sub_chunk_hash = poseidon2_hash_subarray(input, in_len);
+    let fixed_len_hash = std::hash::poseidon2::Poseidon2::hash(fixed_input, fixed_input.len());
+    assert(sub_chunk_hash == fixed_len_hash);
+}
+
+#[test]
+fn poseidon_chunks_matches_variable() {
+    let in_len = 501;
+    let mut input: [Field; 4096] = [0; 4096];
+    for i in 0..in_len {
+        input[i] = 3;
+    }
+    let variable_chunk_hash = poseidon2_cheaper_variable_hash(input, in_len);
+    let variable_len_hash = std::hash::poseidon2::Poseidon2::hash(input, in_len);
+    assert(variable_chunk_hash == variable_len_hash);
 }
 
 #[test]

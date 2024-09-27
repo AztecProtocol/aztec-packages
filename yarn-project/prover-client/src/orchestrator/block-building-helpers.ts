@@ -280,7 +280,7 @@ export async function getBlockRootRollupInput(
     i => (i < newArchiveSiblingPathArray.length ? newArchiveSiblingPathArray[i] : Fr.ZERO),
     0,
   );
-  // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+
   return BlockRootRollupInputs.from({
     previousRollupData,
     l1ToL2Roots,

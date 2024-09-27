@@ -39,6 +39,7 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
+import { fileURLToPath } from '@aztec/foundation/url';
 import {
   ProtocolCircuitVkIndexes,
   ProtocolCircuitVks,
@@ -65,8 +66,15 @@ import {
   convertSimulatedPublicTailOutputFromWitnessMap,
   getVKSiblingPath,
 } from '@aztec/noir-protocol-circuits-types';
-import { type SimulationProvider, WASMSimulator, emitCircuitSimulationStats } from '@aztec/simulator';
+import {
+  NativeACVMSimulator,
+  type SimulationProvider,
+  WASMSimulator,
+  emitCircuitSimulationStats,
+} from '@aztec/simulator';
 import { type TelemetryClient, trackSpan } from '@aztec/telemetry-client';
+
+import path from 'path';
 
 import { ProverInstrumentation } from '../instrumentation.js';
 import { SimulatedPublicKernelArtifactMapping } from '../mappings/mappings.js';
@@ -319,8 +327,23 @@ export class TestCircuitProver implements ServerCircuitProver {
     const timer = new Timer();
     const witnessMap = convertBlockRootRollupInputsToWitnessMap(input);
 
-    // use WASM here as it is faster for small circuits
-    const witness = await this.wasmSimulator.simulateCircuit(
+    // With the blob circuit, we require a long array of private inputs.
+    // Unfortunately, this overflows wasm limits, so cannot be simulated via wasm.
+    // The below forces use of the native simulator just for this circuit:
+    let blockRootSimulator = this.simulationProvider;
+    if (!blockRootSimulator || !(blockRootSimulator instanceof NativeACVMSimulator)) {
+      blockRootSimulator = new NativeACVMSimulator(
+        process.env.TEMP_DIR || `/tmp`,
+        process.env.ACVM_BINARY_PATH ||
+          `${path.resolve(
+            path.dirname(fileURLToPath(import.meta.url)),
+            '../../../../noir/',
+            process.env.NOIR_RELEASE_DIRECTORY || 'noir-repo/target/release',
+          )}/acvm`,
+      );
+    }
+
+    const witness = await blockRootSimulator.simulateCircuit(
       witnessMap,
       SimulatedServerCircuitArtifacts.BlockRootRollupArtifact,
     );

@@ -58,9 +58,10 @@ export class BlockRootRollupInputs {
     /**
      * Flat list of all tx effects which will be added to the blob.
      * TODO(Miranda): Account for tightly packing nr fields into BLS fields
+     * Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+     * Tuple<Fr, FIELDS_PER_BLOB>
      */
-    // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-    public txEffects: Tuple<Fr, typeof FIELDS_PER_BLOB>,
+    public txEffects: Array<Fr>,
     /**
      * KZG commitment representing the blob (precomputed in ts, injected to use inside circuit).
      * TODO(Miranda): Rename to kzg_commitment to match BlobPublicInputs?
@@ -131,8 +132,9 @@ export class BlockRootRollupInputs {
       reader.readArray(ARCHIVE_HEIGHT, Fr),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
-      reader.readArray(FIELDS_PER_BLOB, Fr),
+      // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+      // reader.readArray(FIELDS_PER_BLOB, Fr),
+      Array.from({ length: FIELDS_PER_BLOB }, () => Fr.fromBuffer(reader)),
       reader.readArray(2, Fr),
     );
   }

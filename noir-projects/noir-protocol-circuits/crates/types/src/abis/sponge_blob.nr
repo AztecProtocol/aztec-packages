@@ -1,6 +1,5 @@
-use crate::{traits::Empty, constants::{FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH}};
+use crate::{traits::{Serialize, Deserialize, Empty}, constants::{FIELDS_PER_BLOB, SPONGE_BLOB_LENGTH}};
 use std::hash::poseidon2::Poseidon2;
-use crate::traits::{Serialize, Deserialize};
 
 // A Poseidon2 sponge used to accumulate data that will be added to a blob
 // (More accurately called BlobSponge, but that's not as fun)
@@ -46,6 +45,8 @@ impl SpongeBlob {
         for i in 0..input.len() {
             should_add &= i != in_len;
             if should_add {
+                // TODO(Miranda): Absorb in chunks of 3 to reduce cost (crate::hash::poseidon2_absorb_chunks).
+                // Existing fn assumes we start at cache_size = 0, but here we may start at any cache_size.
                 self.sponge.absorb(input[i]);
             }
         }
