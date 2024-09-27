@@ -380,20 +380,16 @@ export class FullProverTest {
 
     // REFACTOR: Extract this method to a common package. We need a package that deals with L1
     // but also has a reference to L1 artifacts and bb-prover.
-    const setupVerifier = async (
-      artifact: UltraKeccakHonkProtocolArtifact,
-      method: 'setBlockVerifier' | 'setEpochVerifier',
-    ) => {
+    const setupVerifier = async (artifact: UltraKeccakHonkProtocolArtifact) => {
       const contract = await verifier.generateSolidityContract(artifact, 'UltraHonkVerifier.sol');
       const { abi, bytecode } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', contract, solc);
       const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);
       this.logger.info(`Deployed real ${artifact} verifier at ${verifierAddress}`);
 
-      await rollup.write[method]([verifierAddress.toString()]);
+      await rollup.write.setEpochVerifier([verifierAddress.toString()]);
     };
 
-    await setupVerifier('BlockRootRollupFinalArtifact', 'setBlockVerifier');
-    await setupVerifier('RootRollupArtifact', 'setEpochVerifier');
+    await setupVerifier('RootRollupArtifact');
 
     this.logger.info('Rollup only accepts valid proofs now');
   }

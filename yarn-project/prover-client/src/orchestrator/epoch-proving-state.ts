@@ -1,4 +1,4 @@
-import { type MerkleTreeId, type ProvingResult } from '@aztec/circuit-types';
+import { type MerkleTreeId } from '@aztec/circuit-types';
 import {
   type ARCHIVE_HEIGHT,
   type AppendOnlyTreeSnapshot,
@@ -36,6 +36,8 @@ export type BlockMergeRollupInputData = {
   verificationKeys: [VerificationKeyAsFields | undefined, VerificationKeyAsFields | undefined];
 };
 
+export type ProvingResult = { status: 'success' } | { status: 'failure'; reason: string };
+
 /**
  * The current state of the proving schedule for an epoch.
  * Contains the raw inputs and intermediate state to generate every constituent proof in the tree.
@@ -55,8 +57,6 @@ export class EpochProvingState {
     public readonly totalNumBlocks: number,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
-    /** Whether to prove the epoch. Temporary while we still care about proving blocks. */
-    public readonly proveEpoch: boolean,
   ) {}
 
   /** Returns the current block proving state */
@@ -110,8 +110,6 @@ export class EpochProvingState {
     archiveTreeSnapshot: AppendOnlyTreeSnapshot,
     archiveTreeRootSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHash: Fr,
-    completionCallback?: (result: ProvingResult) => void,
-    rejectionCallback?: (reason: string) => void,
   ) {
     const block = new BlockProvingState(
       this.blocks.length,
@@ -124,15 +122,7 @@ export class EpochProvingState {
       archiveTreeSnapshot,
       archiveTreeRootSiblingPath,
       previousBlockHash,
-      completionCallback,
-      reason => {
-        // Reject the block
-        if (rejectionCallback) {
-          rejectionCallback(reason);
-        }
-        // An error on any block rejects this whole epoch
-        this.reject(reason);
-      },
+      this,
     );
     this.blocks.push(block);
     if (this.blocks.length === this.totalNumBlocks) {
@@ -217,10 +207,6 @@ export class EpochProvingState {
     }
     this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_REJECTED;
     this.rejectionCallback(reason);
-
-    for (const block of this.blocks) {
-      block.reject('Proving cancelled');
-    }
   }
 
   // Attempts to resolve the proving state promise with the given result
