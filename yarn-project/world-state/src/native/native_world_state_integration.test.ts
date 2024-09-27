@@ -9,6 +9,7 @@ import {
 import {
   AppendOnlyTreeSnapshot,
   Fr,
+  GENESIS_ARCHIVE_ROOT,
   Header,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -58,6 +59,11 @@ describe('NativeWorldState', () => {
   beforeAll(async () => {
     nativeWS = await NativeWorldStateService.create(nativeDataDir);
     legacyWS = await MerkleTrees.new(AztecLmdbStore.open(legacyDataDir), new NoopTelemetryClient());
+  });
+
+  it('has to expected genesis archive tree root', async () => {
+    const archive = await nativeWS.getTreeInfo(MerkleTreeId.ARCHIVE, false);
+    expect(new Fr(archive.root)).toEqual(new Fr(GENESIS_ARCHIVE_ROOT));
   });
 
   describe('Initial state', () => {
