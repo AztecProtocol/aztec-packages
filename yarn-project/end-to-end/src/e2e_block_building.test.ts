@@ -5,7 +5,6 @@ import {
   ContractDeployer,
   ContractFunctionInteraction,
   type DebugLogger,
-  EncryptedLogPayload,
   Fq,
   Fr,
   L1NotePayload,
@@ -294,11 +293,7 @@ describe('e2e_block_building', () => {
       // compare logs
       expect(rct.status).toEqual('success');
       const noteValues = tx.noteEncryptedLogs.unrollLogs().map(l => {
-        const payload = EncryptedLogPayload.decryptAsIncoming(l.data, keys.masterIncomingViewingSecretKey);
-        const notePayload = L1NotePayload.fromIncomingBodyPlaintextAndContractAddress(
-          payload!.incomingBodyPlaintext,
-          payload!.contractAddress,
-        );
+        const notePayload = L1NotePayload.decryptAsIncoming(l, keys.masterIncomingViewingSecretKey);
         return notePayload?.note;
       });
       expect(noteValues[0]).toEqual(new Fr(10));

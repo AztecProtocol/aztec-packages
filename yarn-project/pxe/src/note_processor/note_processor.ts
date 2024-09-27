@@ -135,7 +135,7 @@ export class NoteProcessor {
         this.stats.txs++;
         const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NOTE_HASHES_PER_TX;
         const noteHashes = block.body.txEffects[indexOfTxInABlock].noteHashes;
-        // Note: Each tx generates a `TxEncryptedLogPayloads` object and for this reason we can rely on its index corresponding
+        // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
         const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
         const excludedIndices: Set<number> = new Set();
