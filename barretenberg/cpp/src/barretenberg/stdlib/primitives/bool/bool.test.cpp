@@ -16,20 +16,10 @@ using namespace bb;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
-
+STANDARD_TESTING_TAGS
 template <class Builder> class BoolTest : public ::testing::Test {};
 
 using CircuitTypes = ::testing::Types<bb::CircuitSimulatorBN254, bb::StandardCircuitBuilder, bb::UltraCircuitBuilder>;
-
-// Tags reused in tests
-const size_t parent_id = 0;
-const auto submitted_value_origin_tag = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/true);
-const auto challenge_origin_tag = OriginTag(parent_id, /*round_id=*/0, /*is_submitted=*/false);
-const auto next_challenge_tag = OriginTag(parent_id, /*round_id=*/1, /*is_submitted=*/false);
-
-const auto first_two_merged_tag = OriginTag(submitted_value_origin_tag, challenge_origin_tag);
-const auto first_and_third_merged_tag = OriginTag(submitted_value_origin_tag, next_challenge_tag);
-const auto all_merged_tag = OriginTag(first_two_merged_tag, next_challenge_tag);
 
 TYPED_TEST_SUITE(BoolTest, CircuitTypes);
 TYPED_TEST(BoolTest, TestBasicOperations)
@@ -199,7 +189,7 @@ TYPED_TEST(BoolTest, And)
     for (size_t i = 0; i < 32; ++i) {
         bool_ct a = witness_ct(&builder, (bool)(i % 1));
         bool_ct b = witness_ct(&builder, (bool)(i % 2 == 1));
-        a& b;
+        a & b;
     }
 
     bool result = CircuitChecker::check(builder);
@@ -214,17 +204,17 @@ TYPED_TEST(BoolTest, AndConstants)
     for (size_t i = 0; i < 32; ++i) {
         bool_ct a = witness_ct(&builder, (bool)(i % 2));
         bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
-        a& b;
+        a & b;
     }
     for (size_t i = 0; i < 32; ++i) {
         if (i % 2 == 0) {
             bool_ct a = witness_ct(&builder, (bool)(i % 2));
             bool_ct b(&builder, (bool)(i % 3 == 1));
-            a& b;
+            a & b;
         } else {
             bool_ct a(&builder, (bool)(i % 2));
             bool_ct b = witness_ct(&builder, (bool)(i % 3 == 1));
-            a& b;
+            a & b;
         }
     }
 

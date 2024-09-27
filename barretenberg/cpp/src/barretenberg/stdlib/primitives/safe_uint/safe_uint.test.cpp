@@ -4,6 +4,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 #include <cstddef>
 #include <gtest/gtest.h>
 
@@ -33,6 +34,7 @@ template <class Builder> class SafeUintTest : public ::testing::Test {};
 using CircuitTypes = ::testing::Types<bb::StandardCircuitBuilder, bb::UltraCircuitBuilder, bb::CircuitSimulatorBN254>;
 TYPED_TEST_SUITE(SafeUintTest, CircuitTypes);
 
+STANDARD_TESTING_TAGS
 // CONSTRUCTOR
 
 TYPED_TEST(SafeUintTest, TestConstructorWithValueOutOfRangeFails)
@@ -43,9 +45,13 @@ TYPED_TEST(SafeUintTest, TestConstructorWithValueOutOfRangeFails)
     // check incorrect range init causes failure
 
     field_ct a(witness_ct(&builder, 100));
+
+    // Check the tag is preserved during constructiong
+    a.set_origin_tag(first_and_third_merged_tag);
     suint_ct b(a, 2, "b");
 
     EXPECT_FALSE(CircuitChecker::check(builder));
+    EXPECT_EQ(b.get_origin_tag(), first_and_third_merged_tag);
 }
 
 TYPED_TEST(SafeUintTest, TestConstructorWithValueInRange)
@@ -62,6 +68,25 @@ TYPED_TEST(SafeUintTest, TestConstructorWithValueInRange)
 // * OPERATOR
 
 /**
+ * @brief Test that we can multiply successfully and tags are merged on multiplication
+ */
+TYPED_TEST(SafeUintTest, TestMultiply)
+{
+    STDLIB_TYPE_ALIASES
+    auto builder = Builder();
+
+    field_ct a(witness_ct(&builder, 2));
+    field_ct b(witness_ct(&builder, 9));
+    suint_ct c(a, 2);
+    c.set_origin_tag(submitted_value_origin_tag);
+    suint_ct d(b, 4);
+    d.set_origin_tag(challenge_origin_tag);
+    c = c * d;
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+}
+/**
  * @brief Test that we overflow correctly on the border of 3**160 and 3**161.
  */
 #if !defined(__wasm__)
@@ -73,6 +98,7 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOutOfRangeFails)
     // should allow largest power of 3 smaller than r iterations, which is 159. Hence below we should exceed r, and
     // expect a throw
     field_ct a(witness_ct(&builder, 2));
+
     suint_ct c(a, 2);
     suint_ct d(a, 2);
     // should not fail on 159 iterations, since 3**160 < r < 3**161
@@ -125,7 +151,25 @@ TYPED_TEST(SafeUintTest, TestMultiplyOperationOnConstantsOutOfRangeFails)
     }
 }
 // + OPERATOR
+/**
+ * @brief Test that we can add without overflow successfully.
+ */
+TYPED_TEST(SafeUintTest, TestAdd)
+{
+    STDLIB_TYPE_ALIASES
+    auto builder = Builder();
 
+    field_ct a(witness_ct(&builder, 2));
+    field_ct b(witness_ct(&builder, 9));
+    suint_ct c(a, 2);
+    c.set_origin_tag(submitted_value_origin_tag);
+    suint_ct d(b, 4);
+    d.set_origin_tag(challenge_origin_tag);
+    c = c + d;
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+    EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
+}
 /**
  * @brief Test that we correctly overflow on addition on the border of 3**160 and 2 * 3**160.
  */
