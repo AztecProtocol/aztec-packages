@@ -192,17 +192,17 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
  * @brief Internal implementation to support both native and stdlib circuit field types.
  * @details Instantiation with circuit field type is always called with shift == false
  */
-template <typename Fr>
-Fr _evaluate_mle(std::span<const Fr> evaluation_points,
-                 SharedShiftedVirtualZeroesArray<Fr> const& coefficients,
-                 bool shift)
+template <typename Fr_>
+Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
+                  SharedShiftedVirtualZeroesArray<Fr_> const& coefficients,
+                  bool shift)
 {
-    constexpr bool is_native = IsAnyOf<Fr, bb::fr, grumpkin::fr>;
+    constexpr bool is_native = IsAnyOf<Fr_, bb::fr, grumpkin::fr>;
     // shift ==> native
     ASSERT(!shift || is_native);
 
     if (coefficients.size() == 0) {
-        return Fr(0);
+        return Fr_(0);
     }
 
     const size_t n = evaluation_points.size();
@@ -219,18 +219,18 @@ Fr _evaluate_mle(std::span<const Fr> evaluation_points,
 
     // temporary buffer of half the size of the Polynomial
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with DontZeroMemory::FLAG
-    auto tmp_ptr = _allocate_aligned_memory<Fr>(sizeof(Fr) * n_l);
+    auto tmp_ptr = _allocate_aligned_memory<Fr_>(sizeof(Fr_) * n_l);
     auto tmp = tmp_ptr.get();
 
     size_t offset = 0;
     if constexpr (is_native) {
         if (shift) {
-            ASSERT(coefficients.get(0) == Fr::zero());
+            ASSERT(coefficients.get(0) == Fr_::zero());
             offset++;
         }
     }
 
-    Fr u_l = evaluation_points[0];
+    Fr_ u_l = evaluation_points[0];
     for (size_t i = 0; i < n_l; ++i) {
         // curr[i] = (Fr(1) - u_l) * prev[i * 2] + u_l * prev[(i * 2) + 1];
         // Note: i * 2 + 1 + offset might equal virtual_size. This used to subtlely be handled by extra capacity padding
@@ -252,7 +252,7 @@ Fr _evaluate_mle(std::span<const Fr> evaluation_points,
 
     // We handle the "trivial" dimensions which are full of zeros.
     for (size_t i = dim; i < n; i++) {
-        result *= (Fr(1) - evaluation_points[i]);
+        result *= (Fr_(1) - evaluation_points[i]);
     }
 
     return result;
@@ -404,8 +404,9 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
     return result;
 }
 
-template <typename Fr>
-Fr generic_evaluate_mle(std::span<const Fr> evaluation_points, SharedShiftedVirtualZeroesArray<Fr> const& coefficients)
+template <typename Fr_>
+Fr_ generic_evaluate_mle(std::span<const Fr_> evaluation_points,
+                         SharedShiftedVirtualZeroesArray<Fr_> const& coefficients)
 {
     return _evaluate_mle(evaluation_points, coefficients, false);
 }
