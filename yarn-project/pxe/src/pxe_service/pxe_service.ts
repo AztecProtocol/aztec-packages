@@ -945,12 +945,13 @@ export class PXEService implements PXE {
     const visibleEvents = encryptedLogs.flatMap(encryptedLog => {
       for (const sk of vsks) {
         const decryptedLog =
-          EncryptedLogPayload.decryptAsIncoming(encryptedLog.toBuffer(), sk) ??
-          EncryptedLogPayload.decryptAsOutgoing(encryptedLog.toBuffer(), sk);
+          EncryptedLogPayload.decryptAsIncoming(encryptedLog.data, sk) ??
+          EncryptedLogPayload.decryptAsOutgoing(encryptedLog.data, sk);
         const decryptedEvent = decryptedLog
           ? L1EventPayload.fromIncomingBodyPlaintextAndContractAddress(
               decryptedLog!.incomingBodyPlaintext,
               decryptedLog!.contract,
+              encryptedLog.maskedContractAddress,
             )
           : undefined;
         if (decryptedEvent !== undefined) {

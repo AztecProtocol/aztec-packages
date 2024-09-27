@@ -1,5 +1,6 @@
 import { AztecAddress } from '@aztec/circuits.js';
 import { EventSelector } from '@aztec/foundation/abi';
+import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
@@ -36,20 +37,26 @@ export class L1EventPayload {
   static fromIncomingBodyPlaintextAndContractAddress(
     plaintext: Buffer,
     contractAddress: AztecAddress,
+    maskedContractAddress: Fr,
   ): L1EventPayload | undefined {
+    let payload: L1EventPayload;
     try {
       const reader = BufferReader.asReader(plaintext);
       const fields = reader.readArray(plaintext.length / Fr.SIZE_IN_BYTES, Fr);
 
-      const storageSlot = fields[0];
+      const randomness = fields[0];
       const eventTypeId = EventSelector.fromField(fields[1]);
 
       const event = new Event(fields.slice(2));
 
-      return new L1EventPayload(event, contractAddress, storageSlot, eventTypeId);
+      payload = new L1EventPayload(event, contractAddress, randomness, eventTypeId);
     } catch (e) {
       return undefined;
     }
+
+    ensureMatchedMaskedContractAddress(contractAddress, payload.randomness, maskedContractAddress);
+
+    return payload;
   }
 
   /**
@@ -76,6 +83,14 @@ export class L1EventPayload {
       this.contractAddress.equals(other.contractAddress) &&
       this.randomness.equals(other.randomness) &&
       this.eventTypeId.equals(other.eventTypeId)
+    );
+  }
+}
+
+function ensureMatchedMaskedContractAddress(contractAddress: AztecAddress, randomness: Fr, maskedContractAddress: Fr) {
+  if (!poseidon2HashWithSeparator([contractAddress, randomness], 0).equals(maskedContractAddress)) {
+    throw new Error(
+      'The provided masked contract address does not match with the incoming address from header and randomness from body',
     );
   }
 }

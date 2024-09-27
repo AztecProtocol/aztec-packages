@@ -63,6 +63,7 @@ describe('Logs', () => {
       const decryptedEvent0 = L1EventPayload.fromIncomingBodyPlaintextAndContractAddress(
         decryptedLog0!.incomingBodyPlaintext,
         decryptedLog0!.contract,
+        encryptedLogs[0].maskedContractAddress,
       )!;
 
       expect(decryptedEvent0.contractAddress).toStrictEqual(testLogContract.address);
@@ -87,6 +88,7 @@ describe('Logs', () => {
       const decryptedEvent1 = L1EventPayload.fromIncomingBodyPlaintextAndContractAddress(
         decryptedLog2!.incomingBodyPlaintext,
         decryptedLog2!.contract,
+        encryptedLogs[2].maskedContractAddress,
       )!;
 
       expect(decryptedEvent1.contractAddress).toStrictEqual(testLogContract.address);
