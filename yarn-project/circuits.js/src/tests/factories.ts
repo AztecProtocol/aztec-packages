@@ -170,6 +170,7 @@ import {
   FeeRecipient,
 } from '../structs/rollup/block_root_or_block_merge_public_inputs.js';
 import { BlockRootRollupInputs } from '../structs/rollup/block_root_rollup.js';
+import { EmptyBlockRootRollupInputs } from '../structs/rollup/empty_block_root_rollup_inputs.js';
 import { PreviousRollupBlockData } from '../structs/rollup/previous_rollup_block_data.js';
 import { RollupValidationRequests } from '../structs/rollup_validation_requests.js';
 
@@ -1057,6 +1058,26 @@ export function makeBlockRootRollupInputs(seed = 0, globalVariables?: GlobalVari
     makeTuple(ARCHIVE_HEIGHT, fr, 0x2300),
     fr(seed + 0x2400),
     fr(seed + 0x2500),
+  );
+}
+
+/**
+ * Makes empty block root rollup inputs.
+ * @param seed - The seed to use for generating the root rollup inputs.
+ * @param globalVariables - The global variables to use.
+ * @returns A block root rollup inputs.
+ */
+export function makeEmptyBlockRootRollupInputs(
+  seed = 0,
+  globalVariables?: GlobalVariables,
+): EmptyBlockRootRollupInputs {
+  return new EmptyBlockRootRollupInputs(
+    makeAppendOnlyTreeSnapshot(seed),
+    fr(seed + 0x100),
+    globalVariables ?? makeGlobalVariables(seed + 0x200),
+    fr(seed + 0x300),
+    fr(seed + 0x400),
+    fr(seed + 0x500),
   );
 }
 

@@ -46,7 +46,7 @@ export class Barretenberg extends BarretenbergApi {
   }
 
   async initSRSForCircuitSize(circuitSize: number): Promise<void> {
-    const crs = await Crs.new(circuitSize + 1);
+    const crs = await Crs.new(circuitSize + Math.floor((circuitSize * 6) / 10) + 1);
     await this.commonInitSlabAllocator(circuitSize);
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
   }

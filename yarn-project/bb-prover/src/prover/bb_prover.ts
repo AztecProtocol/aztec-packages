@@ -16,6 +16,7 @@ import {
   type BlockMergeRollupInputs,
   type BlockRootOrBlockMergePublicInputs,
   type BlockRootRollupInputs,
+  type EmptyBlockRootRollupInputs,
   EmptyNestedCircuitInputs,
   EmptyNestedData,
   Fr,
@@ -57,6 +58,7 @@ import {
   convertBlockMergeRollupOutputsFromWitnessMap,
   convertBlockRootRollupInputsToWitnessMap,
   convertBlockRootRollupOutputsFromWitnessMap,
+  convertEmptyBlockRootRollupInputsToWitnessMap,
   convertMergeRollupInputsToWitnessMap,
   convertMergeRollupOutputsFromWitnessMap,
   convertPrivateKernelEmptyInputsToWitnessMap,
@@ -370,6 +372,29 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'BlockRootRollupArtifact',
       NESTED_RECURSIVE_PROOF_LENGTH,
       convertBlockRootRollupInputsToWitnessMap,
+      convertBlockRootRollupOutputsFromWitnessMap,
+    );
+
+    const verificationKey = await this.getVerificationKeyDataForCircuit('BlockRootRollupArtifact');
+
+    await this.verifyProof('BlockRootRollupArtifact', proof.binaryProof);
+
+    return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
+  }
+
+  /**
+   * Simulates the empty block root rollup circuit from its inputs.
+   * @param input - Inputs to the circuit.
+   * @returns The public inputs as outputs of the simulation.
+   */
+  public async getEmptyBlockRootRollupProof(
+    input: EmptyBlockRootRollupInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    const { circuitOutput, proof } = await this.createRecursiveProof(
+      input,
+      'EmptyBlockRootRollupArtifact',
+      RECURSIVE_PROOF_LENGTH,
+      convertEmptyBlockRootRollupInputsToWitnessMap,
       convertBlockRootRollupOutputsFromWitnessMap,
     );
 

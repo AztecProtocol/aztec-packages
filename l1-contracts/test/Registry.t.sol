@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
-import {Registry} from "../src/core/messagebridge/Registry.sol";
-import {Errors} from "../src/core/libraries/Errors.sol";
-
-import {DataStructures} from "../src/core/libraries/DataStructures.sol";
+import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 
 contract RegistryTest is Test {
   address internal constant DEAD = address(0xdead);

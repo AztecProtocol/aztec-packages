@@ -95,6 +95,7 @@ template <class Fr> inline std::vector<Fr> powers_of_evaluation_challenge(const 
 
 template <typename Curve> class GeminiProver_ {
     using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;
     using Claim = ProverOpeningClaim<Curve>;
 
@@ -168,7 +169,7 @@ template <typename Curve> class GeminiVerifier_ {
 
         // compute vector of powers of random evaluation point r
         const Fr r = transcript->template get_challenge<Fr>("Gemini:r");
-        const std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r, num_variables);
+        const std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r, CONST_PROOF_SIZE_LOG_N);
 
         // Get evaluations a_i, i = 0,...,m-1 from transcript
         const std::vector<Fr> evaluations = get_gemini_evaluations(num_variables, transcript);
@@ -197,22 +198,24 @@ template <typename Curve> class GeminiVerifier_ {
         return fold_polynomial_opening_claims;
     }
 
-    static std::vector<Commitment> get_fold_commitments(const size_t log_circuit_size, auto& transcript)
+    static std::vector<Commitment> get_fold_commitments([[maybe_unused]] const size_t log_circuit_size,
+                                                        auto& transcript)
     {
         std::vector<Commitment> fold_commitments;
-        fold_commitments.reserve(log_circuit_size - 1);
-        for (size_t i = 0; i < log_circuit_size - 1; ++i) {
+        fold_commitments.reserve(CONST_PROOF_SIZE_LOG_N - 1);
+        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
             const Commitment commitment =
                 transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
             fold_commitments.emplace_back(commitment);
         }
         return fold_commitments;
     }
-    static std::vector<Fr> get_gemini_evaluations(const size_t log_circuit_size, auto& transcript)
+    static std::vector<Fr> get_gemini_evaluations([[maybe_unused]] const size_t log_circuit_size, auto& transcript)
     {
         std::vector<Fr> gemini_evaluations;
-        gemini_evaluations.reserve(log_circuit_size);
-        for (size_t i = 1; i <= log_circuit_size; ++i) {
+        gemini_evaluations.reserve(CONST_PROOF_SIZE_LOG_N);
+
+        for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; ++i) {
             const Fr evaluation = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
             gemini_evaluations.emplace_back(evaluation);
         }
@@ -241,29 +244,43 @@ template <typename Curve> class GeminiVerifier_ {
      * @param fold_polynomial_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return Evaluation \f$ A_0(r) \f$.
      */
-    static Fr compute_gemini_batched_univariate_evaluation(size_t evaluation_point_size,
-                                                           Fr& batched_eval_accumulator,
-                                                           std::span<const Fr> evaluation_point,
-                                                           std::span<const Fr> challenge_powers,
-                                                           std::span<const Fr> fold_polynomial_evals)
+    static Fr compute_gemini_batched_univariate_evaluation(
+        const size_t num_variables,
+        Fr& batched_eval_accumulator,
+        std::span<const Fr> evaluation_point, // CONST_PROOF_SIZE
+        std::span<const Fr> challenge_powers, // r_squares CONST_PROOF_SIZE_LOG_N
+        std::span<const Fr> fold_polynomial_evals)
     {
-        const size_t num_variables = evaluation_point_size;
-
         const auto& evals = fold_polynomial_evals;
 
         // Solve the sequence of linear equations
-        for (size_t l = num_variables; l != 0; --l) {
+        for (size_t l = CONST_PROOF_SIZE_LOG_N; l != 0; --l) {
             // Get r²⁽ˡ⁻¹⁾
             const Fr& challenge_power = challenge_powers[l - 1];
-            // Get A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾)
-            const Fr& eval_neg = evals[l - 1];
             // Get uₗ₋₁
             const Fr& u = evaluation_point[l - 1];
+            const Fr& eval_neg = evals[l - 1];
+            // Get A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾)
             // Compute the numerator
-            batched_eval_accumulator =
+            Fr batched_eval_round_acc =
                 ((challenge_power * batched_eval_accumulator * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
             // Divide by the denominator
-            batched_eval_accumulator *= (challenge_power * (Fr(1) - u) + u).invert();
+            batched_eval_round_acc *= (challenge_power * (Fr(1) - u) + u).invert();
+
+            bool is_dummy_round = (l > num_variables);
+
+            if constexpr (Curve::is_stdlib_type) {
+                auto builder = evaluation_point[0].get_context();
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
+                stdlib::bool_t dummy_round = stdlib::bool_t(builder, is_dummy_round);
+                batched_eval_accumulator =
+                    Fr::conditional_assign(dummy_round, batched_eval_accumulator, batched_eval_round_acc);
+
+            } else {
+                if (!is_dummy_round) {
+                    batched_eval_accumulator = batched_eval_round_acc;
+                }
+            }
         }
 
         return batched_eval_accumulator;

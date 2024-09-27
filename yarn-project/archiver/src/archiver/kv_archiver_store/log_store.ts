@@ -44,17 +44,21 @@ export class LogStore {
   addLogs(blocks: L2Block[]): Promise<boolean> {
     return this.db.transaction(() => {
       blocks.forEach(block => {
-        if (block.body.noteEncryptedLogs) {
-          void this.#noteEncryptedLogs.set(block.number, block.body.noteEncryptedLogs.toBuffer());
-        }
+        void this.#noteEncryptedLogs.set(block.number, block.body.noteEncryptedLogs.toBuffer());
+        void this.#encryptedLogs.set(block.number, block.body.encryptedLogs.toBuffer());
+        void this.#unencryptedLogs.set(block.number, block.body.unencryptedLogs.toBuffer());
+      });
 
-        if (block.body.encryptedLogs) {
-          void this.#encryptedLogs.set(block.number, block.body.encryptedLogs.toBuffer());
-        }
+      return true;
+    });
+  }
 
-        if (block.body.unencryptedLogs) {
-          void this.#unencryptedLogs.set(block.number, block.body.unencryptedLogs.toBuffer());
-        }
+  deleteLogs(blocks: L2Block[]): Promise<boolean> {
+    return this.db.transaction(() => {
+      blocks.forEach(block => {
+        void this.#noteEncryptedLogs.delete(block.number);
+        void this.#encryptedLogs.delete(block.number);
+        void this.#unencryptedLogs.delete(block.number);
       });
 
       return true;

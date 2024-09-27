@@ -98,8 +98,7 @@ preset-sol:
 preset-wasm-threads:
     FROM +source
     RUN cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm && rm -rf build/{deps,lib,src}
-    # TODO(https://github.com/AztecProtocol/barretenberg/issues/941) We currently do not strip barretenberg threaded wasm, for stack traces.
-    # RUN /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
+    RUN /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm
     SAVE ARTIFACT build/bin
 
 preset-gcc:
