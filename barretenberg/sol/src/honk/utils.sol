@@ -55,6 +55,11 @@ function logUint(string memory name, uint256 value) pure {
     console2.log(name, as_hex);
 }
 
+function logUint(string memory name, uint256 i, uint256 value) pure {
+    string memory as_hex = bytes32ToString(bytes32(value));
+    console2.log(name, i, as_hex);
+}
+
 function logFr(string memory name, Fr value) pure {
     string memory as_hex = bytes32ToString(bytes32(Fr.unwrap(value)));
     console2.log(name, as_hex);
