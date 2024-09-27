@@ -293,9 +293,11 @@ e2e-cli-wallet:
   RUN COMPOSE_FILE=scripts/docker-compose-wallet.yml ./scripts/e2e_compose_test.sh e2e_cli_wallet
 
 network-smoke:
+  ARG values_file
   LOCALLY
   RUN NAMESPACE=smoke FRESH_INSTALL=true FORCE_BUILD=$force_build VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/smoke.test.ts
 
 network-transfer:
+  ARG values_file
   LOCALLY
   RUN NAMESPACE=transfer FRESH_INSTALL=true FORCE_BUILD=$force_build VALUES_FILE=${values_file:-default.yaml} ./scripts/network_test.sh ./src/spartan/transfer.test.ts
