@@ -152,34 +152,36 @@ preset-clang-assert:
   SAVE ARTIFACT build/bin
 
 # benchmarking images
-# these are either fresh builds just for benching (op-count and op-count-time)
-# or build the binaries we need for benchmarking
-# note we do not cache these or test images as they are not on the main build path
 preset-op-count-bench:
   FROM +source
+  # note: we do not cache bench-only artifacts
   RUN cmake --preset op-count -DCMAKE_BUILD_TYPE=RelWithAssert -Bbuild && cmake --build build --target ultra_honk_bench --target client_ivc_bench
   SAVE ARTIFACT build/bin
 
 preset-op-count-time-bench:
   FROM +source
+  # note: we do not cache bench-only artifacts
   RUN cmake --preset op-count-time -Bbuild && cmake --build build --target ultra_honk_bench --target client_ivc_bench
   SAVE ARTIFACT build/bin
 
 preset-release-bench:
-  FROM +preset-release
-  RUN cmake --build build --target ultra_honk_bench --target client_ivc_bench
+  FROM +source
+  # note: we do not cache bench-only artifacts
+  RUN cmake --preset clang16 && cmake --build build --target ultra_honk_bench --target client_ivc_bench
   SAVE ARTIFACT build/bin
 
 preset-wasm-bench:
-  FROM +preset-wasm-threads
-  RUN cmake --build build --target ultra_honk_bench --target client_ivc_bench
+  FROM +source
+  # note: we do not cache bench-only artifacts
+  RUN cmake --preset wasm-threads && cmake --build build --target ultra_honk_bench --target client_ivc_bench
   SAVE ARTIFACT build/bin
 
 # test images
 preset-release-assert-test:
-  FROM +preset-release-assert
+  FROM +source
   # build all targets for tests
-  RUN cmake --build build
+  # note: we do not cache test-only artifacts
+  RUN cmake --preset clang16-assert -Bbuild && cmake --build build
   SAVE ARTIFACT build/bin
 
 # Sent to the bench runner using a earthly --push +bench-binaries
