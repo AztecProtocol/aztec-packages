@@ -67,18 +67,6 @@ library DataStructures {
   }
   // docs:end:l2_to_l1_msg
 
-  // docs:start:registry_snapshot
-  /**
-   * @notice Struct for storing address of cross communication components and the block number when it was updated
-   * @param rollup - The address of the rollup contract
-   * @param blockNumber - The block number of the snapshot
-   */
-  struct RegistrySnapshot {
-    address rollup;
-    uint256 blockNumber;
-  }
-  // docs:end:registry_snapshot
-
   /**
    * @notice Struct for storing flags for block header validation
    * @param ignoreDA - True will ignore DA check, otherwise checks

@@ -6,7 +6,6 @@ import {IProofCommitmentEscrow} from "@aztec/core/interfaces/IProofCommitmentEsc
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
 import {IRollup, ITestRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 
@@ -56,7 +55,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   uint256 public constant PROOF_COMMITMENT_MIN_BOND_AMOUNT_IN_TST = 1000;
 
   uint256 public immutable L1_BLOCK_AT_GENESIS;
-  IRegistry public immutable REGISTRY;
   IInbox public immutable INBOX;
   IOutbox public immutable OUTBOX;
   IProofCommitmentEscrow public immutable PROOF_COMMITMENT_ESCROW;
@@ -85,7 +83,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   IVerifier public epochProofVerifier;
 
   constructor(
-    IRegistry _registry,
     IFeeJuicePortal _fpcJuicePortal,
     bytes32 _vkTreeRoot,
     address _ares,
@@ -93,7 +90,6 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   ) Leonidas(_ares) {
     blockProofVerifier = new MockVerifier();
     epochProofVerifier = new MockVerifier();
-    REGISTRY = _registry;
     FEE_JUICE_PORTAL = _fpcJuicePortal;
     PROOF_COMMITMENT_ESCROW = new MockProofCommitmentEscrow();
     INBOX = IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));

@@ -208,7 +208,6 @@ export const deployL1Contracts = async (
   logger.info(`Deployed Gas Portal at ${feeJuicePortalAddress}`);
 
   const rollupAddress = await deployer.deploy(contractsToDeploy.rollup, [
-    getAddress(registryAddress.toString()),
     getAddress(feeJuicePortalAddress.toString()),
     args.vkTreeRoot.toString(),
     account.address.toString(),
