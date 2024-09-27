@@ -2,11 +2,10 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
-import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
+import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
 import {Ownable} from "@oz/access/Ownable.sol";
 
@@ -32,8 +31,8 @@ contract Registry is IRegistry, Ownable {
    * @notice Returns the rollup contract
    * @return The rollup contract (of type IRollup)
    */
-  function getRollup() external view override(IRegistry) returns (IRollup) {
-    return IRollup(currentSnapshot.rollup);
+  function getRollup() external view override(IRegistry) returns (address) {
+    return currentSnapshot.rollup;
   }
 
   /**
@@ -109,11 +108,13 @@ contract Registry is IRegistry, Ownable {
     snapshots[version] = newSnapshot;
     rollupToVersion[_rollup] = version;
 
+    emit InstanceAdded(_rollup, version);
+
     return version;
   }
 
   function _getVersionFor(address _rollup) internal view returns (uint256 version, bool exists) {
     version = rollupToVersion[_rollup];
-    return (version, version > 0);
+    return (version, version > 0 || snapshots[0].rollup == _rollup);
   }
 }

@@ -8,12 +8,11 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 
-import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
-import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {Leonidas} from "@aztec/core/Leonidas.sol";
@@ -69,13 +68,7 @@ contract RollupTest is DecoderBase {
     feeJuicePortal.initialize(
       address(registry), address(portalERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
     );
-    rollup = new Rollup(
-      registry,
-      IFeeJuicePortal(address(feeJuicePortal)),
-      bytes32(0),
-      address(this),
-      new address[](0)
-    );
+    rollup = new Rollup(feeJuicePortal, bytes32(0), address(this), new address[](0));
     inbox = Inbox(address(rollup.INBOX()));
     outbox = Outbox(address(rollup.OUTBOX()));
 

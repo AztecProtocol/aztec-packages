@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-import {DataStructures} from "../../libraries/DataStructures.sol";
-import {IRollup} from "../IRollup.sol";
+import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 
 interface IRegistry {
+  event InstanceAdded(address indexed instance, uint256 indexed version);
+
   // docs:start:registry_upgrade
   function upgrade(address _rollup) external returns (uint256);
   // docs:end:registry_upgrade
 
   // docs:start:registry_get_rollup
-  function getRollup() external view returns (IRollup);
+  function getRollup() external view returns (address);
   // docs:end:registry_get_rollup
 
   // docs:start:registry_get_version_for
