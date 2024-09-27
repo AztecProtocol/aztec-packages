@@ -145,18 +145,18 @@ packages-deps:
   # just only when it changes
   # the commit hash gets injected into version strings
   DO ../build-system/s3-cache-scripts/+WRITE_CONTENT_HASH --rebuild_patterns="$REBUILD_PATTERNS"
+  ENV COMMIT_HASH=$(cat .content-hash)
 
 packages:
   FROM +packages-deps
   COPY ./scripts/bootstrap_packages.sh ./scripts/bootstrap_packages.sh
-  ENV COMMIT_HASH=$(cat .content-hash)
       # build noir nargo & acvm, and make sure the big build and deps folders don't hit cache
   DO ../build-system/s3-cache-scripts/+WITH_CACHE \
     --prefix="noir-packages" \
     --rebuild_patterns="$REBUILD_PATTERNS" \
     --command="./scripts/bootstrap_packages.sh" \
     --build_artifacts="packages"
-  SAVE ARTIFACT packages .content-hash
+  SAVE ARTIFACT packages
 
 packages-test-build:
     FROM +packages-deps
@@ -174,7 +174,7 @@ packages-test-build:
 
     ENV SOURCE_DATE_EPOCH=$(date +%s)
     ENV GIT_DIRTY=false
-    ENV GIT_COMMIT=$(cat .content-hash)
+    ENV GIT_COMMIT=$COMMIT_HASH
     RUN yarn build
     # this builds text fixtures to be used in tests
     RUN yarn workspace @noir-lang/noir_wasm run test:build_fixtures
