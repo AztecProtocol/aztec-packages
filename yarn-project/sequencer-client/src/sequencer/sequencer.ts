@@ -408,7 +408,7 @@ export class Sequencer {
     // Kick off the process of collecting and validating proof quotes here so it runs alongside block building
     const proofQuotePromise = this.createProofClaimForPreviousEpoch(newGlobalVariables.slotNumber.toBigInt()).catch(
       e => {
-        this.log.debug(`Failed to create proof claim quote ${e}`);
+        this.log.warn(`Failed to create proof claim quote ${e}`);
         return undefined;
       },
     );
