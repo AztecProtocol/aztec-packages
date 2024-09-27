@@ -38,7 +38,8 @@ describe('prover/orchestrator/public-functions', () => {
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
         }
 
-        const blockTicket = await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, []);
+        const ticket = context.orchestrator.startNewEpoch(1, 1);
+        await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, []);
 
         const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.blockProver);
         expect(processed.length).toBe(numTransactions);
@@ -46,10 +47,10 @@ describe('prover/orchestrator/public-functions', () => {
 
         await context.orchestrator.setBlockCompleted();
 
-        const result = await blockTicket.provingPromise;
+        const result = await ticket.provingPromise;
         expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-        const finalisedBlock = await context.orchestrator.finaliseBlock();
 
+        const finalisedBlock = await context.orchestrator.getBlock();
         expect(finalisedBlock.block.number).toEqual(context.blockNumber);
       },
     );

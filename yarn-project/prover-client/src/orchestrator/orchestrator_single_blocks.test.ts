@@ -28,14 +28,15 @@ describe('prover/orchestrator/blocks', () => {
 
   describe('blocks', () => {
     it('builds an empty L2 block', async () => {
-      const blockTicket = await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+      const ticket = context.orchestrator.startNewEpoch(1, 1);
+      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
       await context.orchestrator.setBlockCompleted();
 
-      const result = await blockTicket.provingPromise;
+      const result = await ticket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const finalisedBlock = await context.orchestrator.finaliseBlock();
 
+      const finalisedBlock = await context.orchestrator.getBlock();
       expect(finalisedBlock.block.number).toEqual(context.blockNumber);
     });
 
@@ -45,7 +46,8 @@ describe('prover/orchestrator/blocks', () => {
       await updateExpectedTreesFromTxs(expectsDb, txs);
 
       // This will need to be a 2 tx block
-      const blockTicket = await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+      const ticket = context.orchestrator.startNewEpoch(1, 1);
+      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);
@@ -54,10 +56,10 @@ describe('prover/orchestrator/blocks', () => {
       //  we need to complete the block as we have not added a full set of txs
       await context.orchestrator.setBlockCompleted();
 
-      const result = await blockTicket.provingPromise;
+      const result = await ticket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const finalisedBlock = await context.orchestrator.finaliseBlock();
 
+      const finalisedBlock = await context.orchestrator.getBlock();
       expect(finalisedBlock.block.number).toEqual(context.blockNumber);
     });
 
@@ -71,16 +73,17 @@ describe('prover/orchestrator/blocks', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const blockTicket = await context.orchestrator.startNewBlock(txs.length, context.globalVariables, l1ToL2Messages);
+      const ticket = context.orchestrator.startNewEpoch(1, 1);
+      await context.orchestrator.startNewBlock(txs.length, context.globalVariables, l1ToL2Messages);
 
       for (const tx of txs) {
         await context.orchestrator.addNewTx(tx);
         await sleep(1000);
       }
 
-      const result = await blockTicket.provingPromise;
+      const result = await ticket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const finalisedBlock = await context.orchestrator.finaliseBlock();
+      const finalisedBlock = await context.orchestrator.getBlock();
 
       expect(finalisedBlock.block.number).toEqual(context.blockNumber);
     });

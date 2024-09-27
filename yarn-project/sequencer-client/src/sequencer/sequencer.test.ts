@@ -187,16 +187,9 @@ describe('sequencer', () => {
     tx.data.constants.txContext.chainId = chainId;
     const txHash = tx.getTxHash();
 
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
-
     p2p.getTxs.mockReturnValueOnce([tx]);
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockSimulator.setBlockCompleted.mockResolvedValue(block);
+    blockSimulator.getBlock.mockResolvedValue({ block });
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -219,16 +212,10 @@ describe('sequencer', () => {
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
     const txHash = tx.getTxHash();
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
 
     p2p.getTxs.mockReturnValue([tx]);
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockSimulator.setBlockCompleted.mockResolvedValue(block);
+    blockSimulator.getBlock.mockResolvedValue({ block });
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(mockedGlobalVariables);
@@ -273,16 +260,10 @@ describe('sequencer', () => {
     const validTxHashes = txs.filter((_, i) => i !== doubleSpendTxIndex).map(tx => tx.getTxHash());
 
     const doubleSpendTx = txs[doubleSpendTxIndex];
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
 
     p2p.getTxs.mockReturnValueOnce(txs);
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockSimulator.setBlockCompleted.mockResolvedValue(block);
+    blockSimulator.getBlock.mockResolvedValue({ block });
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -317,16 +298,9 @@ describe('sequencer', () => {
     const invalidChainTx = txs[invalidChainTxIndex];
     const validTxHashes = txs.filter((_, i) => i !== invalidChainTxIndex).map(tx => tx.getTxHash());
 
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
-
     p2p.getTxs.mockReturnValueOnce(txs);
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockSimulator.setBlockCompleted.mockResolvedValue(block);
+    blockSimulator.getBlock.mockResolvedValue({ block });
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -356,16 +330,9 @@ describe('sequencer', () => {
     });
     const validTxHashes = txs.filter((_, i) => i !== invalidTransactionIndex).map(tx => tx.getTxHash());
 
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
-
     p2p.getTxs.mockReturnValueOnce(txs);
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockSimulator.setBlockCompleted.mockResolvedValue(block);
+    blockSimulator.getBlock.mockResolvedValue({ block });
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -394,15 +361,9 @@ describe('sequencer', () => {
       return tx;
     });
     const block = L2Block.random(lastBlockNumber + 1);
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
 
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockSimulator.setBlockCompleted.mockResolvedValue(block);
+    blockSimulator.getBlock.mockResolvedValue({ block });
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -445,15 +406,9 @@ describe('sequencer', () => {
       return tx;
     });
     const block = L2Block.random(lastBlockNumber + 1);
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
 
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockSimulator.setBlockCompleted.mockResolvedValue(block);
+    blockSimulator.getBlock.mockResolvedValue({ block });
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -496,15 +451,9 @@ describe('sequencer', () => {
       return tx;
     });
     const block = L2Block.random(lastBlockNumber + 1);
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
 
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockSimulator.setBlockCompleted.mockResolvedValue(block);
+    blockSimulator.getBlock.mockResolvedValue({ block });
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -546,16 +495,10 @@ describe('sequencer', () => {
   it('aborts building a block if the chain moves underneath it', async () => {
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
 
     p2p.getTxs.mockReturnValueOnce([tx]);
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockSimulator.setBlockCompleted.mockResolvedValue(block);
+    blockSimulator.getBlock.mockResolvedValue({ block });
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     const mockedGlobalVariables = new GlobalVariables(

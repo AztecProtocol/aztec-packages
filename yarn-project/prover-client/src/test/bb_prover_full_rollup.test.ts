@@ -102,11 +102,9 @@ describe('prover/bb_prover/full-rollup', () => {
       Fr.random,
     );
 
-    const provingTicket = await context.orchestrator.startNewBlock(
-      numTransactions,
-      context.globalVariables,
-      l1ToL2Messages,
-    );
+    const ticket = context.orchestrator.startNewEpoch(1, 1);
+
+    await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, l1ToL2Messages);
 
     const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.blockProver);
 
@@ -115,11 +113,11 @@ describe('prover/bb_prover/full-rollup', () => {
 
     await context.orchestrator.setBlockCompleted();
 
-    const provingResult = await provingTicket.provingPromise;
+    const provingResult = await ticket.provingPromise;
 
     expect(provingResult.status).toBe(PROVING_STATUS.SUCCESS);
 
-    const blockResult = await context.orchestrator.finaliseBlock();
+    const blockResult = await context.orchestrator.getBlock();
 
     await expect(prover.verifyProof('RootRollupArtifact', blockResult.proof)).resolves.not.toThrow();
   });

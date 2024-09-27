@@ -37,6 +37,7 @@ export class LightweightBlockBuilder implements BlockSimulator {
   private numTxs?: number;
   private globalVariables?: GlobalVariables;
   private l1ToL2Messages?: Fr[];
+  private block?: L2Block;
 
   private readonly txs: ProcessedTx[] = [];
 
@@ -44,7 +45,7 @@ export class LightweightBlockBuilder implements BlockSimulator {
 
   constructor(private db: MerkleTreeOperations, private telemetry: TelemetryClient) {}
 
-  async startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<ProvingTicket> {
+  async startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
     this.logger.verbose('Starting new block', { numTxs, globalVariables, l1ToL2Messages });
     this.numTxs = numTxs;
     this.globalVariables = globalVariables;
@@ -52,9 +53,6 @@ export class LightweightBlockBuilder implements BlockSimulator {
 
     // Update L1 to L2 tree
     await this.db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, this.l1ToL2Messages!);
-
-    // Nothing to prove, so we return an already resolved promise
-    return { provingPromise: Promise.resolve({ status: PROVING_STATUS.SUCCESS }) };
   }
 
   async addNewTx(tx: ProcessedTx): Promise<void> {
@@ -71,7 +69,7 @@ export class LightweightBlockBuilder implements BlockSimulator {
 
   cancel(): void {}
 
-  async setBlockCompleted(): Promise<void> {
+  async setBlockCompleted(): Promise<L2Block> {
     const paddingTxCount = this.numTxs! - this.txs.length;
     this.logger.verbose(`Setting block as completed and adding ${paddingTxCount} padding txs`);
     for (let i = 0; i < paddingTxCount; i++) {
@@ -84,9 +82,18 @@ export class LightweightBlockBuilder implements BlockSimulator {
         ),
       );
     }
+    const { block } = await this.getBlock();
+    return block;
   }
 
-  async finaliseBlock(): Promise<SimulationBlockResult> {
+  async getBlock(): Promise<SimulationBlockResult> {
+    if (!this.block) {
+      this.block = await this.buildBlock();
+    }
+    return { block: this.block };
+  }
+
+  private async buildBlock(): Promise<L2Block> {
     this.logger.verbose(`Finalising block`);
     const nonEmptyTxEffects: TxEffect[] = this.txs
       .map(tx => toTxEffect(tx, this.globalVariables!.gasFees))
@@ -98,7 +105,7 @@ export class LightweightBlockBuilder implements BlockSimulator {
     const newArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, this.db);
 
     const block = new L2Block(newArchive, header, body);
-    return { block };
+    return block;
   }
 }
 

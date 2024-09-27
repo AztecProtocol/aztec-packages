@@ -33,19 +33,13 @@ describe('prover/orchestrator/multi-block', () => {
         const globals = makeGlobals(blockNum);
 
         // This will need to be a 2 tx block
-        const blockTicket = await context.orchestrator.startNewBlock(2, globals, []);
+        await context.orchestrator.startNewBlock(2, globals, []);
 
         await context.orchestrator.addNewTx(tx);
 
         //  we need to complete the block as we have not added a full set of txs
-        await context.orchestrator.setBlockCompleted();
-
-        const result = await blockTicket.provingPromise;
-        expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-        const finalisedBlock = await context.orchestrator.finaliseBlock();
-
-        expect(finalisedBlock.block.number).toEqual(blockNum);
-        header = finalisedBlock.block.header;
+        const block = await context.orchestrator.setBlockCompleted();
+        header = block!.header;
       }
 
       logger.info('Setting epoch as completed');

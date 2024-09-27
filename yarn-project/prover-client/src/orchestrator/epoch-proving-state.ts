@@ -55,8 +55,6 @@ export class EpochProvingState {
     public readonly totalNumBlocks: number,
     private completionCallback: (result: ProvingResult) => void,
     private rejectionCallback: (reason: string) => void,
-    /** Whether to prove the epoch. Temporary while we still care about proving blocks. */
-    public readonly proveEpoch: boolean,
   ) {}
 
   /** Returns the current block proving state */
@@ -110,8 +108,6 @@ export class EpochProvingState {
     archiveTreeSnapshot: AppendOnlyTreeSnapshot,
     archiveTreeRootSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
     previousBlockHash: Fr,
-    completionCallback?: (result: ProvingResult) => void,
-    rejectionCallback?: (reason: string) => void,
   ) {
     const block = new BlockProvingState(
       this.blocks.length,
@@ -124,15 +120,7 @@ export class EpochProvingState {
       archiveTreeSnapshot,
       archiveTreeRootSiblingPath,
       previousBlockHash,
-      completionCallback,
-      reason => {
-        // Reject the block
-        if (rejectionCallback) {
-          rejectionCallback(reason);
-        }
-        // An error on any block rejects this whole epoch
-        this.reject(reason);
-      },
+      this,
     );
     this.blocks.push(block);
     if (this.blocks.length === this.totalNumBlocks) {
@@ -217,10 +205,6 @@ export class EpochProvingState {
     }
     this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_REJECTED;
     this.rejectionCallback(reason);
-
-    for (const block of this.blocks) {
-      block.reject('Proving cancelled');
-    }
   }
 
   // Attempts to resolve the proving state promise with the given result

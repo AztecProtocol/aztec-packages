@@ -11,7 +11,7 @@ import {
   type WorldStateStatus,
   type WorldStateSynchronizer,
 } from '@aztec/circuit-types';
-import { type AllowedElement, BlockProofError, PROVING_STATUS } from '@aztec/circuit-types/interfaces';
+import { type AllowedElement, BlockProofError } from '@aztec/circuit-types/interfaces';
 import { type L2BlockBuiltStats } from '@aztec/circuit-types/stats';
 import {
   AppendOnlyTreeSnapshot,
@@ -433,7 +433,7 @@ export class Sequencer {
 
     const blockBuildingTimer = new Timer();
     const blockBuilder = this.blockBuilderFactory.create(this.worldState.getLatest());
-    const blockTicket = await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
+    await blockBuilder.startNewBlock(blockSize, newGlobalVariables, l1ToL2Messages);
 
     const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
       processor.process(validTxs, blockSize, blockBuilder, this.txValidatorFactory.validatorForProcessedTxs()),
@@ -457,18 +457,10 @@ export class Sequencer {
     }
 
     // All real transactions have been added, set the block as full and complete the proving.
-    await blockBuilder.setBlockCompleted();
+    const block = await blockBuilder.setBlockCompleted();
 
-    // Here we are now waiting for the block to be proven (using simulated[fake] proofs).
     // TODO(@PhilWindle) We should probably periodically check for things like another
     // block being published before ours instead of just waiting on our block
-    const result = await blockTicket.provingPromise;
-    if (result.status === PROVING_STATUS.FAILURE) {
-      throw new Error(`Block proving failed, reason: ${result.reason}`);
-    }
-
-    // Block is ready, now finalise
-    const { block } = await blockBuilder.finaliseBlock();
 
     await this.publisher.validateBlockForSubmission(block.header);
 

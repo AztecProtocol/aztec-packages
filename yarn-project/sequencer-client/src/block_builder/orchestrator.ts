@@ -1,9 +1,9 @@
 import { TestCircuitProver } from '@aztec/bb-prover';
 import {
   type BlockSimulator,
+  L2Block,
   type MerkleTreeOperations,
   type ProcessedTx,
-  type ProvingTicket,
   type SimulationBlockResult,
 } from '@aztec/circuit-types';
 import { type Fr, type GlobalVariables } from '@aztec/circuits.js';
@@ -25,16 +25,16 @@ export class OrchestratorBlockBuilder implements BlockSimulator {
     this.orchestrator = new ProvingOrchestrator(db, testProver, telemetry);
   }
 
-  startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<ProvingTicket> {
+  startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void> {
     return this.orchestrator.startNewBlock(numTxs, globalVariables, l1ToL2Messages);
   }
   cancel(): void {
     this.orchestrator.cancel();
   }
-  finaliseBlock(): Promise<SimulationBlockResult> {
-    return this.orchestrator.finaliseBlock();
+  getBlock(): Promise<SimulationBlockResult> {
+    return this.orchestrator.getBlock();
   }
-  setBlockCompleted(): Promise<void> {
+  setBlockCompleted(): Promise<L2Block> {
     return this.orchestrator.setBlockCompleted();
   }
   addNewTx(tx: ProcessedTx): Promise<void> {

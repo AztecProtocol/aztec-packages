@@ -43,7 +43,8 @@ describe('prover/orchestrator/public-functions', () => {
         const [processed, _] = await context.processPublicFunctions([tx], 1, undefined);
 
         // This will need to be a 2 tx block
-        const blockTicket = await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+        const ticket = context.orchestrator.startNewEpoch(1, 1);
+        await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
         for (const processedTx of processed) {
           await context.orchestrator.addNewTx(processedTx);
@@ -52,9 +53,9 @@ describe('prover/orchestrator/public-functions', () => {
         //  we need to complete the block as we have not added a full set of txs
         await context.orchestrator.setBlockCompleted();
 
-        const result = await blockTicket.provingPromise;
+        const result = await ticket.provingPromise;
         expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-        const finalisedBlock = await context.orchestrator.finaliseBlock();
+        const finalisedBlock = await context.orchestrator.getBlock();
 
         expect(finalisedBlock.block.number).toEqual(context.blockNumber);
       },
@@ -135,7 +136,8 @@ describe('prover/orchestrator/public-functions', () => {
       );
 
       // This will need to be a 2 tx block
-      const blockTicket = await context.orchestrator.startNewBlock(2, context.globalVariables, []);
+      const ticket = context.orchestrator.startNewEpoch(1, 1);
+      await context.orchestrator.startNewBlock(2, context.globalVariables, []);
 
       for (const processedTx of processed) {
         await context.orchestrator.addNewTx(processedTx);
@@ -144,10 +146,10 @@ describe('prover/orchestrator/public-functions', () => {
       //  we need to complete the block as we have not added a full set of txs
       await context.orchestrator.setBlockCompleted();
 
-      const result = await blockTicket.provingPromise;
+      const result = await ticket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const finalisedBlock = await context.orchestrator.finaliseBlock();
 
+      const finalisedBlock = await context.orchestrator.getBlock();
       expect(finalisedBlock.block.number).toEqual(context.blockNumber);
     });
   });

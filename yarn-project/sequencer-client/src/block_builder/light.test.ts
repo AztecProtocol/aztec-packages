@@ -170,7 +170,7 @@ describe('LightBlockBuilder', () => {
       await builder.addNewTx(tx);
     }
     await builder.setBlockCompleted();
-    const result = await builder.finaliseBlock();
+    const result = await builder.getBlock();
     return result.block.header;
   };
 

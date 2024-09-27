@@ -368,7 +368,7 @@ describe('L1Publisher integration', () => {
       const ticket = await buildBlock(globalVariables, txs, currentL1ToL2Messages);
       const result = await ticket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const blockResult = await builder.finaliseBlock();
+      const blockResult = await builder.getBlock();
       const block = blockResult.block;
       prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(currentL1ToL2Messages);
@@ -477,7 +477,7 @@ describe('L1Publisher integration', () => {
       await builder.setBlockCompleted();
       const result = await blockTicket.provingPromise;
       expect(result.status).toBe(PROVING_STATUS.SUCCESS);
-      const blockResult = await builder.finaliseBlock();
+      const blockResult = await builder.getBlock();
       const block = blockResult.block;
       prevHeader = block.header;
       blockSource.getL1ToL2Messages.mockResolvedValueOnce(l1ToL2Messages);

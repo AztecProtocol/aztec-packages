@@ -51,19 +51,19 @@ export interface BlockSimulator extends ProcessedTxHandler {
    * @param globalVariables - The global variables for this block
    * @param l1ToL2Messages - The set of L1 to L2 messages to be included in this block
    */
-  startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<ProvingTicket>;
+  startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<void>;
 
   /** Cancels the block currently being processed. Processes already in progress built may continue but further proofs should not be started. */
   cancel(): void;
 
   /** Performs the final archive tree insertion for this block and returns the L2Block. */
-  finaliseBlock(): Promise<SimulationBlockResult>;
+  getBlock(): Promise<SimulationBlockResult>;
 
   /**
    * Mark the block as having all the transactions it is going to contain.
    * Will pad the block to its complete size with empty transactions and prove all the way to the root rollup.
    */
-  setBlockCompleted(): Promise<void>;
+  setBlockCompleted(): Promise<L2Block>;
 }
 
 /** The interface to a block prover. Generates a root rollup proof out of a set of processed txs by recursively proving Aztec circuits. */
@@ -72,7 +72,7 @@ export interface BlockProver extends BlockSimulator {
   getProverId(): Fr;
 
   /** Performs the final archive tree insertion for this block and returns the L2Block. */
-  finaliseBlock(): Promise<ProvingBlockResult>;
+  getBlock(): Promise<ProvingBlockResult>;
 }
 
 export interface EpochProver extends BlockProver {
