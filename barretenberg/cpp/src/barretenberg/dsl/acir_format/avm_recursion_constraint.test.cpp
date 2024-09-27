@@ -42,7 +42,7 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
 
-    static InnerBuilder create_inner_circuit(std::vector<FF> const& kernel_public_inputs_vec)
+    static InnerBuilder create_inner_circuit(const std::vector<FF>& kernel_public_inputs_vec)
     {
         auto public_inputs = convert_public_inputs(kernel_public_inputs_vec);
         AvmTraceBuilder trace_builder(public_inputs);
@@ -65,7 +65,7 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
      * @brief Create a circuit that recursively verifies one or more inner avm circuits
      */
     static OuterBuilder create_outer_circuit(std::vector<InnerBuilder>& inner_avm_circuits,
-                                             std::vector<FF> const& kernel_public_inputs_vec)
+                                             const std::vector<FF>& kernel_public_inputs_vec)
     {
         std::vector<RecursionConstraint> avm_recursion_constraints;
 

@@ -376,7 +376,7 @@ template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_e
  */
 template <typename Fr_>
 Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
-                  SharedShiftedVirtualZeroesArray<Fr_> const& coefficients,
+                  const SharedShiftedVirtualZeroesArray<Fr_>& coefficients,
                   bool shift)
 {
     constexpr bool is_native = IsAnyOf<Fr_, bb::fr, grumpkin::fr>;
@@ -413,11 +413,13 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
     }
 
     Fr_ u_l = evaluation_points[0];
+
+    // Note below: i * 2 + 1 + offset might equal virtual_size. This used to subtlely be handled by extra capacity
+    // padding (and there used to be no assert time checks, which this constant helps with).
+    const size_t ALLOW_ONE_PAST_READ = 1;
     for (size_t i = 0; i < n_l; ++i) {
         // curr[i] = (Fr(1) - u_l) * prev[i * 2] + u_l * prev[(i * 2) + 1];
-        // Note: i * 2 + 1 + offset might equal virtual_size. This used to subtlely be handled by extra capacity padding
-        // (and there used to be no assert time checks, which this constant helps with).
-        const size_t ALLOW_ONE_PAST_READ = 1;
+
         tmp[i] = coefficients.get(i * 2 + offset) +
                  u_l * (coefficients.get(i * 2 + 1 + offset, ALLOW_ONE_PAST_READ) - coefficients.get(i * 2 + offset));
     }
@@ -445,12 +447,12 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
  */
 template <typename Fr_>
 Fr_ generic_evaluate_mle(std::span<const Fr_> evaluation_points,
-                         SharedShiftedVirtualZeroesArray<Fr_> const& coefficients)
+                         const SharedShiftedVirtualZeroesArray<Fr_>& coefficients)
 {
     return _evaluate_mle(evaluation_points, coefficients, false);
 }
 
-template <typename Fr> inline std::ostream& operator<<(std::ostream& os, Polynomial<Fr> const& p)
+template <typename Fr> inline std::ostream& operator<<(std::ostream& os, const Polynomial<Fr>& p)
 {
     if (p.size() == 0) {
         return os << "[]";

@@ -52,10 +52,10 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     std::vector<std::vector<FF>> public_inputs_ct;
     public_inputs_ct.reserve(public_inputs_vec_nt.size());
 
-    for (auto const& vec : public_inputs_vec_nt) {
+    for (const auto& vec : public_inputs_vec_nt) {
         std::vector<FF> vec_ct;
         vec_ct.reserve(vec.size());
-        for (auto const& el : vec) {
+        for (const auto& el : vec) {
             vec_ct.push_back(bb::stdlib::witness_t<Builder>(builder, el));
         }
         public_inputs_ct.push_back(vec_ct);

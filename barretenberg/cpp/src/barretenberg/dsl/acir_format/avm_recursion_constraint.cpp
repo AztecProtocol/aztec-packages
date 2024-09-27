@@ -180,8 +180,8 @@ AggregationObjectIndices create_avm_recursion_constraints(Builder& builder,
         return result;
     };
 
-    auto const proof_fields = fields_from_witnesses(input.proof);
-    auto const public_inputs_flattened = fields_from_witnesses(input.public_inputs);
+    const auto proof_fields = fields_from_witnesses(input.proof);
+    const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
 
     auto it = public_inputs_flattened.begin();
     avm_trace::VmPublicInputs<field_ct> vm_public_inputs =
