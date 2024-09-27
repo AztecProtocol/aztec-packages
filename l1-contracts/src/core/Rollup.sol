@@ -766,9 +766,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
 
   function getEpochForBlock(uint256 blockNumber) public view override(IRollup) returns (Epoch) {
     if (blockNumber > tips.pendingBlockNumber) {
-      revert Errors.Rollup__InvalidBlockNumber(
-        tips.pendingBlockNumber, blockNumber
-      );
+      revert Errors.Rollup__InvalidBlockNumber(tips.pendingBlockNumber, blockNumber);
     }
     return getEpochAt(getTimestampForSlot(blocks[blockNumber].slotNumber));
   }
@@ -828,8 +826,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     }
 
     Slot currentSlot = getCurrentSlot();
-    Epoch oldestPendingEpoch =
-      getEpochForBlock(tips.provenBlockNumber + 1);
+    Epoch oldestPendingEpoch = getEpochForBlock(tips.provenBlockNumber + 1);
     Slot startSlotOfPendingEpoch = oldestPendingEpoch.toSlots();
 
     // suppose epoch 1 is proven, epoch 2 is pending, epoch 3 is the current epoch.
