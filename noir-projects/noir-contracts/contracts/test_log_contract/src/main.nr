@@ -4,8 +4,8 @@ use dep::aztec::macros::aztec;
 contract TestLog {
     use std::meta::derive;
     use dep::aztec::prelude::PrivateSet;
-    use dep::aztec::protocol_types::{scalar::Scalar, address::AztecAddress, traits::Serialize};
-    use dep::aztec::keys::{getters::get_public_keys, public_keys::IvpkM};
+    use dep::aztec::protocol_types::{address::AztecAddress, traits::Serialize};
+    use dep::aztec::keys::getters::get_public_keys;
     use dep::value_note::value_note::ValueNote;
     use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
