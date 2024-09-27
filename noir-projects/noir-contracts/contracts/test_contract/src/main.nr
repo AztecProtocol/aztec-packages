@@ -102,10 +102,18 @@ contract Test {
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
 
-        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let owner_keys = get_public_keys(owner);
 
-        let mut note = ValueNote::new(value, owner_npk_m_hash);
-        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
+        let mut note = ValueNote::new(value, owner_keys.npk_m.hash());
+        create_note(&mut context, storage_slot, &mut note).emit(
+            encode_and_encrypt_note(
+                &mut context,
+                outgoing_viewer_keys.ovpk_m,
+                owner_keys.ivpk_m,
+                owner
+            )
+        );
     }
 
     #[private]
@@ -312,10 +320,11 @@ contract Test {
         Test::at(context.this_address()).call_create_note(value, owner, outgoing_viewer, storage_slot).call(&mut context);
         storage_slot += 1;
 
-        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+        let msg_sender_keys = get_public_keys(context.msg_sender());
+        let owner_keys = get_public_keys(owner);
 
-        let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
-        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
+        let mut note = ValueNote::new(value + 1, owner_keys.npk_m.hash());
+        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, msg_sender_keys.ovpk_m, owner_keys.ivpk_m, owner));
         storage_slot += 1;
         Test::at(context.this_address()).call_create_note(value + 2, owner, outgoing_viewer, storage_slot).call(&mut context);
     }
