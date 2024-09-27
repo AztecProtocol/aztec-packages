@@ -278,8 +278,14 @@ export class Archiver implements ArchiveSource {
     }
 
     const localPendingBlockNumber = BigInt(await this.getBlockNumber());
-    const [provenBlockNumber, provenArchive, pendingBlockNumber, pendingArchive, archiveForLocalPendingBlockNumber] =
-      await this.rollup.read.status([localPendingBlockNumber]);
+    const [
+      provenBlockNumber,
+      provenArchive,
+      pendingBlockNumber,
+      pendingArchive,
+      archiveForLocalPendingBlockNumber,
+      provenEpochNumber,
+    ] = await this.rollup.read.status([localPendingBlockNumber]);
 
     const updateProvenBlock = async () => {
       const localBlockForDestinationProvenBlockNumber = await this.getBlock(Number(provenBlockNumber));
@@ -287,8 +293,9 @@ export class Archiver implements ArchiveSource {
         localBlockForDestinationProvenBlockNumber &&
         provenArchive === localBlockForDestinationProvenBlockNumber.archive.root.toString()
       ) {
-        this.log.info(`Updating the proven block number to ${provenBlockNumber}`);
+        this.log.info(`Updating the proven block number to ${provenBlockNumber} and epoch to ${provenEpochNumber}`);
         await this.store.setProvenL2BlockNumber(Number(provenBlockNumber));
+        await this.store.setProvenL2EpochNumber(Number(provenEpochNumber));
       }
     };
 
@@ -507,6 +514,10 @@ export class Archiver implements ArchiveSource {
 
   public getProvenBlockNumber(): Promise<number> {
     return this.store.getProvenL2BlockNumber();
+  }
+
+  public getProvenL2EpochNumber(): Promise<number> {
+    return this.store.getProvenL2EpochNumber();
   }
 
   /** Forcefully updates the last proven block number. Use for testing. */
@@ -756,8 +767,14 @@ class ArchiverStoreHelper
   getProvenL2BlockNumber(): Promise<number> {
     return this.store.getProvenL2BlockNumber();
   }
+  getProvenL2EpochNumber(): Promise<number> {
+    return this.store.getProvenL2EpochNumber();
+  }
   setProvenL2BlockNumber(l2BlockNumber: number): Promise<void> {
     return this.store.setProvenL2BlockNumber(l2BlockNumber);
+  }
+  setProvenL2EpochNumber(l2EpochNumber: number): Promise<void> {
+    return this.store.setProvenL2EpochNumber(l2EpochNumber);
   }
   setBlockSynchedL1BlockNumber(l1BlockNumber: bigint): Promise<void> {
     return this.store.setBlockSynchedL1BlockNumber(l1BlockNumber);

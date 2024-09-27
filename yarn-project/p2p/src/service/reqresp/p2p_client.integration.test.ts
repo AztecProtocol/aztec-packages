@@ -139,6 +139,7 @@ describe('Req Resp p2p client integration', () => {
       epochProofQuotePool = {
         addQuote: jest.fn(),
         getQuotes: jest.fn().mockReturnValue([]),
+        deleteQuotesToEpoch: jest.fn(),
       };
 
       blockSource = new MockBlockSource();

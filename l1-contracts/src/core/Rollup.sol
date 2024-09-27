@@ -381,7 +381,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       bytes32 provenArchive,
       uint256 pendingBlockNumber,
       bytes32 pendingArchive,
-      bytes32 archiveOfMyBlock
+      bytes32 archiveOfMyBlock,
+      uint256 provenEpochNumber
     )
   {
     return (
@@ -389,7 +390,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       blocks[tips.provenBlockNumber].archive,
       tips.pendingBlockNumber,
       blocks[tips.pendingBlockNumber].archive,
-      archiveAt(myHeaderBlockNumber)
+      archiveAt(myHeaderBlockNumber),
+      getEpochForBlock(tips.provenBlockNumber)
     );
   }
 
@@ -757,6 +759,15 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     return tips.pendingBlockNumber;
   }
 
+  function getEpochForBlock(uint256 blockNumber) public view override(IRollup) returns (uint256) {
+    if (blockNumber > tips.pendingBlockNumber) {
+      revert Errors.Rollup__InvalidBlockNumber(
+        tips.pendingBlockNumber, blockNumber
+      );
+    }
+    return getEpochAt(getTimestampForSlot(blocks[blockNumber].slotNumber));
+  }
+
   /**
    * @notice  Get the epoch that should be proven
    *
@@ -770,7 +781,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     if (tips.provenBlockNumber == tips.pendingBlockNumber) {
       revert Errors.Rollup__NoEpochToProve();
     } else {
-      return getEpochAt(getTimestampForSlot(blocks[getProvenBlockNumber() + 1].slotNumber));
+      return getEpochForBlock(getProvenBlockNumber() + 1);
     }
   }
 
@@ -812,8 +823,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     }
 
     uint256 currentSlot = getCurrentSlot();
-    uint256 oldestPendingEpoch =
-      getEpochAt(getTimestampForSlot(blocks[tips.provenBlockNumber + 1].slotNumber));
+    uint256 oldestPendingEpoch = getEpochForBlock(tips.provenBlockNumber + 1);
     uint256 startSlotOfPendingEpoch = oldestPendingEpoch * Constants.AZTEC_EPOCH_DURATION;
 
     // suppose epoch 1 is proven, epoch 2 is pending, epoch 3 is the current epoch.

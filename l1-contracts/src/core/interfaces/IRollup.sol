@@ -93,7 +93,8 @@ interface IRollup {
       bytes32 provenArchive,
       uint256 pendingBlockCount,
       bytes32 pendingArchive,
-      bytes32 archiveOfMyBlock
+      bytes32 archiveOfMyBlock,
+      uint256 provenEpochNumber
     );
 
   // TODO(#7346): Integrate batch rollups
@@ -114,6 +115,7 @@ interface IRollup {
   function getPendingBlockNumber() external view returns (uint256);
   function getEpochToProve() external view returns (uint256);
   function nextEpochToClaim() external view returns (uint256);
+  function getEpochForBlock(uint256 blockNumber) external view returns (uint256);
   function validateEpochProofRightClaim(DataStructures.SignedEpochProofQuote calldata _quote)
     external
     view;

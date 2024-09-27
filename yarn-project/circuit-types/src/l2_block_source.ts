@@ -34,6 +34,12 @@ export interface L2BlockSource {
   getProvenBlockNumber(): Promise<number>;
 
   /**
+   * Gets the number of the latest L2 proven epoch seen by the block source implementation.
+   * @returns The number of the latest L2 proven epoch seen by the block source implementation.
+   */
+  getProvenL2EpochNumber(): Promise<number>;
+
+  /**
    * Gets an l2 block. If a negative number is passed, the block returned is the most recent.
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.

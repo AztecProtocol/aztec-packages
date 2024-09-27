@@ -2,7 +2,7 @@ import {
   AztecAddress,
   CallContext,
   ClientIvcProof,
-  type EthAddress,
+  EthAddress,
   GasSettings,
   LogHash,
   MAX_ENCRYPTED_LOGS_PER_TX,
@@ -28,7 +28,7 @@ import {
 import { type ContractArtifact, NoteSelector } from '@aztec/foundation/abi';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd, times } from '@aztec/foundation/collection';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { randomBigInt, randomBytes, randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type ContractInstanceWithAddress, SerializableContractInstance } from '@aztec/types/contracts';
@@ -229,17 +229,17 @@ export const mockSimulatedTx = (seed = 1, hasLogs = true) => {
 
 export const mockEpochProofQuote = (
   epochToProve: bigint,
-  validUntilSlot: bigint,
-  bondAmount: bigint,
-  rollupAddress: EthAddress,
-  basisPointFee: number,
+  validUntilSlot?: bigint,
+  bondAmount?: bigint,
+  proverAddress?: EthAddress,
+  basisPointFee?: number,
 ) => {
   const quotePayload: EpochProofQuotePayload = new EpochProofQuotePayload(
     epochToProve,
-    validUntilSlot,
-    bondAmount,
-    rollupAddress,
-    basisPointFee,
+    validUntilSlot ?? randomBigInt(10000n),
+    bondAmount ?? randomBigInt(10000n) + 1000n,
+    proverAddress ?? EthAddress.random(),
+    basisPointFee ?? randomInt(100),
   );
   const sig: Signature = Signature.empty();
   return new EpochProofQuote(quotePayload, sig);

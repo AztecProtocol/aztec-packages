@@ -7,6 +7,7 @@ import { EthAddress } from '@aztec/circuits.js';
 export class MockBlockSource implements L2BlockSource {
   private l2Blocks: L2Block[] = [];
   private txEffects: TxEffect[] = [];
+  private provenEpochNumber = 0;
 
   constructor(numBlocks = 100, private provenBlockNumber?: number) {
     this.addBlocks(numBlocks);
@@ -23,6 +24,10 @@ export class MockBlockSource implements L2BlockSource {
 
   public setProvenBlockNumber(provenBlockNumber: number) {
     this.provenBlockNumber = provenBlockNumber;
+  }
+
+  public setProvenEpochNumber(provenEpochNumber: number) {
+    this.provenEpochNumber = provenEpochNumber;
   }
 
   /**
@@ -51,6 +56,10 @@ export class MockBlockSource implements L2BlockSource {
 
   public async getProvenBlockNumber(): Promise<number> {
     return this.provenBlockNumber ?? (await this.getBlockNumber());
+  }
+
+  public getProvenL2EpochNumber(): Promise<number> {
+    return Promise.resolve(this.provenEpochNumber);
   }
 
   /**

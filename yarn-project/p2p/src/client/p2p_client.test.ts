@@ -1,4 +1,4 @@
-import { mockTx } from '@aztec/circuit-types';
+import { mockEpochProofQuote, mockTx } from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { type AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/utils';
@@ -59,6 +59,7 @@ describe('In-Memory P2P Client', () => {
     epochProofQuotePool = {
       addQuote: jest.fn(),
       getQuotes: jest.fn().mockReturnValue([]),
+      deleteQuotesToEpoch: jest.fn(),
     };
 
     blockSource = new MockBlockSource();
@@ -67,8 +68,9 @@ describe('In-Memory P2P Client', () => {
     client = new P2PClient(kvStore, blockSource, txPool, attestationPool, epochProofQuotePool, p2pService, 0);
   });
 
-  const advanceToProvenBlock = async (getProvenBlockNumber: number) => {
+  const advanceToProvenBlock = async (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
     blockSource.setProvenBlockNumber(getProvenBlockNumber);
+    blockSource.setProvenEpochNumber(provenEpochNumber);
     await retryUntil(
       () => Promise.resolve(client.getSyncedProvenBlockNum() >= getProvenBlockNumber),
       'synced',
@@ -156,6 +158,62 @@ describe('In-Memory P2P Client', () => {
     await advanceToProvenBlock(20);
     expect(txPool.deleteTxs).toHaveBeenCalledTimes(10);
     await client.stop();
+  });
+
+  it('stores and returns epoch proof quotes', async () => {
+    client = new P2PClient(kvStore, blockSource, txPool, attestationPool, epochProofQuotePool, p2pService, 0);
+
+    blockSource.setProvenEpochNumber(2);
+    await client.start();
+
+    const proofQuotes = [
+      mockEpochProofQuote(3n),
+      mockEpochProofQuote(2n),
+      mockEpochProofQuote(3n),
+      mockEpochProofQuote(4n),
+      mockEpochProofQuote(2n),
+      mockEpochProofQuote(3n),
+    ];
+
+    for (const quote of proofQuotes) {
+      client.broadcastEpochProofQuote(quote);
+    }
+    expect(epochProofQuotePool.addQuote).toBeCalledTimes(proofQuotes.length);
+
+    for (let i = 0; i < proofQuotes.length; i++) {
+      expect(epochProofQuotePool.addQuote).toHaveBeenNthCalledWith(i + 1, proofQuotes[i]);
+    }
+    expect(epochProofQuotePool.addQuote).toBeCalledTimes(proofQuotes.length);
+
+    await client.getEpochProofQuotes(2n);
+
+    expect(epochProofQuotePool.getQuotes).toBeCalledTimes(1);
+    expect(epochProofQuotePool.getQuotes).toBeCalledWith(2n);
+  });
+
+  it('deletes expired proof quotes', async () => {
+    client = new P2PClient(kvStore, blockSource, txPool, attestationPool, epochProofQuotePool, p2pService, 0);
+
+    blockSource.setProvenEpochNumber(1);
+    blockSource.setProvenBlockNumber(1);
+    await client.start();
+
+    const proofQuotes = [
+      mockEpochProofQuote(3n),
+      mockEpochProofQuote(2n),
+      mockEpochProofQuote(3n),
+      mockEpochProofQuote(4n),
+      mockEpochProofQuote(2n),
+      mockEpochProofQuote(3n),
+    ];
+
+    for (const quote of proofQuotes) {
+      client.broadcastEpochProofQuote(quote);
+    }
+
+    await advanceToProvenBlock(3, 3);
+
+    expect(epochProofQuotePool.deleteQuotesToEpoch).toBeCalledWith(3n);
   });
 
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7971): tests for attestation pool pruning

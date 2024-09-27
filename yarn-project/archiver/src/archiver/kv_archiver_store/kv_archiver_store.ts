@@ -247,8 +247,17 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return Promise.resolve(this.#blockStore.getProvenL2BlockNumber());
   }
 
+  getProvenL2EpochNumber(): Promise<number> {
+    return Promise.resolve(this.#blockStore.getProvenL2EpochNumber());
+  }
+
   setProvenL2BlockNumber(blockNumber: number) {
     this.#blockStore.setProvenL2BlockNumber(blockNumber);
+    return Promise.resolve();
+  }
+
+  setProvenL2EpochNumber(epochNumber: number) {
+    this.#blockStore.setProvenL2EpochNumber(epochNumber);
     return Promise.resolve();
   }
 

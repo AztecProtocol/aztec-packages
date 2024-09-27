@@ -1,6 +1,8 @@
 import { type EpochProofQuote } from '@aztec/circuit-types';
 
-export class MemoryEpochProofQuotePool {
+import { type EpochProofQuotePool } from './epoch_proof_quote_pool.js';
+
+export class MemoryEpochProofQuotePool implements EpochProofQuotePool {
   private quotes: Map<bigint, EpochProofQuote[]>;
   constructor() {
     this.quotes = new Map();
@@ -14,5 +16,11 @@ export class MemoryEpochProofQuotePool {
   }
   getQuotes(epoch: bigint): EpochProofQuote[] {
     return this.quotes.get(epoch) || [];
+  }
+  deleteQuotesToEpoch(epoch: bigint): void {
+    const expiredEpochs = Array.from(this.quotes.keys()).filter(k => k <= epoch);
+    for (const expiredEpoch of expiredEpochs) {
+      this.quotes.delete(expiredEpoch);
+    }
   }
 }
