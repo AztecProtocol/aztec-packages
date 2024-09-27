@@ -288,7 +288,7 @@ void WorldState::update_public_data(const PublicDataLeafValue& new_value, Fork::
 
 void WorldState::update_archive(const StateReference& block_state_ref, fr block_header_hash, Fork::Id fork_id)
 {
-    auto world_state_ref = get_state_reference(WorldStateRevision::uncommitted());
+    auto world_state_ref = get_state_reference(WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true });
     if (block_state_matches_world_state(block_state_ref, world_state_ref)) {
         append_leaves<fr>(MerkleTreeId::ARCHIVE, { block_header_hash }, fork_id);
     } else {
