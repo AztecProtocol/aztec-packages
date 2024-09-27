@@ -18,7 +18,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { type FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
-import { AvmSimulator, type PublicContractsDB, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
+import { AvmSimulator, PublicSideEffectTrace, type WorldStateDB } from '@aztec/simulator';
 import {
   getAvmTestContractBytecode,
   initContext,
@@ -74,7 +74,10 @@ describe('AVM Integration', () => {
   }
 
   it('Should generate and verify an ultra honk proof from an AVM verification', async () => {
-    const bbSuccess = await proveAvmTestContract('new_note_hash', [new Fr(1)]);
+    const bbSuccess = await proveAvmTestContract(
+      'bulk_testing',
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x)),
+    );
 
     const avmProofPath = bbSuccess.proofPath;
     const avmVkPath = bbSuccess.vkPath;
@@ -148,7 +151,7 @@ const proveAvmTestContract = async (
   const globals = GlobalVariables.empty();
   const environment = initExecutionEnvironment({ functionSelector, calldata, globals });
 
-  const contractsDb = mock<PublicContractsDB>();
+  const worldStateDB = mock<WorldStateDB>();
   const contractInstance = new SerializableContractInstance({
     version: 1,
     salt: new Fr(0x123),
@@ -157,9 +160,8 @@ const proveAvmTestContract = async (
     initializationHash: new Fr(0x101112),
     publicKeysHash: new Fr(0x161718),
   }).withAddress(environment.address);
-  contractsDb.getContractInstance.mockResolvedValue(await Promise.resolve(contractInstance));
+  worldStateDB.getContractInstance.mockResolvedValue(await Promise.resolve(contractInstance));
 
-  const worldStateDB = mock<WorldStateDB>();
   const storageValue = new Fr(5);
   worldStateDB.storageRead.mockResolvedValue(await Promise.resolve(storageValue));
 
