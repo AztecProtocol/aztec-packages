@@ -50,7 +50,7 @@ pub fn multi_scalar_mul(
         // Check if this is smaller than the grumpkin modulus
         let grumpkin_integer = BigUint::from_bytes_be(&bytes);
 
-        if grumpkin_integer >= grumpkin::FqConfig::MODULUS.into() {
+        if grumpkin_integer >= grumpkin::FrConfig::MODULUS.into() {
             return Err(BlackBoxResolutionError::Failed(
                 BlackBoxFunc::MultiScalarMul,
                 format!("{} is not a valid grumpkin scalar", grumpkin_integer.to_str_radix(16)),
