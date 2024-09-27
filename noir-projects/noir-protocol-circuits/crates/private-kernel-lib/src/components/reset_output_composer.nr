@@ -18,7 +18,7 @@ use dep::types::{
     hash::{mask_encrypted_log_hash, silo_note_hash, silo_nullifier}, utils::arrays::sort_by_counter_asc
 };
 
-struct ResetOutputComposer<
+pub struct ResetOutputComposer<
     let NH_RR_PENDING: u32,
     let NH_RR_SETTLED: u32,
     let NLL_RR_PENDING: u32,

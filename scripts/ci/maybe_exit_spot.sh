@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eux
 
-MAX_WAIT_TIME=300 # Maximum wait time in seconds
+MAX_WAIT_TIME=600 # Maximum wait time in seconds, 10 minutes
 WAIT_INTERVAL=10  # Interval between checks in seconds
 elapsed_time=0
 

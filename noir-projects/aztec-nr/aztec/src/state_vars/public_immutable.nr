@@ -3,7 +3,7 @@ use dep::protocol_types::{constants::INITIALIZATION_SLOT_SEPARATOR, traits::{Des
 
 // Just like SharedImmutable but without the ability to read from private functions.
 // docs:start:public_immutable_struct
-struct PublicImmutable<T, Context> {
+pub struct PublicImmutable<T, Context> {
     context: Context,
     storage_slot: Field,
 }
@@ -24,7 +24,7 @@ impl<T, Context> PublicImmutable<T, Context> {
     // docs:end:public_immutable_struct_new
 }
 
-impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, &mut PublicContext> where T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> {
+impl <T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, &mut PublicContext> where T: Serialize<T_SERIALIZED_LEN> + Deserialize<T_SERIALIZED_LEN> {
     // docs:start:public_immutable_struct_write
     pub fn initialize(self, value: T) {
         // We check that the struct is not yet initialized by checking if the initialization slot is 0
@@ -46,7 +46,7 @@ impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, &mut PublicContext> where 
     // docs:end:public_immutable_struct_read
 }
 
-impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, UnconstrainedContext> where T: Deserialize<T_SERIALIZED_LEN> {
+impl<T, let T_SERIALIZED_LEN: u32> PublicImmutable<T, UnconstrainedContext>where T: Deserialize<T_SERIALIZED_LEN> {
     unconstrained pub fn read(self) -> T {
         self.context.storage_read(self.storage_slot)
     }

@@ -443,7 +443,7 @@ export class Sequencer {
         processedTxsCount: processedTxs.length,
       })
     ) {
-      blockBuilder.cancelBlock();
+      blockBuilder.cancel();
       throw new Error('Should not propose the block');
     }
 

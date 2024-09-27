@@ -59,9 +59,9 @@ export class PublicExecutionRequest {
 
   isForCallRequest(callRequest: PublicCallRequest) {
     return (
-      this.contractAddress.equals(callRequest.item.contractAddress) &&
-      this.callContext.equals(callRequest.item.callContext) &&
-      computeVarArgsHash(this.args).equals(callRequest.item.argsHash)
+      this.contractAddress.equals(callRequest.contractAddress) &&
+      this.callContext.equals(callRequest.callContext) &&
+      computeVarArgsHash(this.args).equals(callRequest.argsHash)
     );
   }
 

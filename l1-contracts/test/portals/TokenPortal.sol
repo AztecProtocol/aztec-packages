@@ -1,15 +1,16 @@
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 // Messaging
-import {IRegistry} from "../../src/core/interfaces/messagebridge/IRegistry.sol";
-import {IInbox} from "../../src/core/interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "../../src/core/interfaces/messagebridge/IOutbox.sol";
-import {DataStructures} from "../../src/core/libraries/DataStructures.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 // docs:start:content_hash_sol_import
-import {Hash} from "../../src/core/libraries/Hash.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 // docs:end:content_hash_sol_import
 
 // docs:start:init
@@ -40,7 +41,7 @@ contract TokenPortal {
     returns (bytes32)
   {
     // Preamble
-    IInbox inbox = registry.getRollup().INBOX();
+    IInbox inbox = IRollup(registry.getRollup()).INBOX();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
@@ -69,7 +70,7 @@ contract TokenPortal {
     bytes32 _secretHashForL2MessageConsumption
   ) external returns (bytes32) {
     // Preamble
-    IInbox inbox = registry.getRollup().INBOX();
+    IInbox inbox = IRollup(registry.getRollup()).INBOX();
     DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
@@ -120,7 +121,7 @@ contract TokenPortal {
         )
     });
 
-    IOutbox outbox = registry.getRollup().OUTBOX();
+    IOutbox outbox = IRollup(registry.getRollup()).OUTBOX();
 
     outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 

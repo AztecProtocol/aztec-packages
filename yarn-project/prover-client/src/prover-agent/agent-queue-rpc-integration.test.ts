@@ -1,4 +1,4 @@
-import { PublicKernelType, type ServerCircuitProver } from '@aztec/circuit-types';
+import { type ServerCircuitProver } from '@aztec/circuit-types';
 import { ClientIvcProof, Fr, PrivateKernelEmptyInputData, TubeInputs } from '@aztec/circuits.js';
 import {
   makeAvmCircuitInputs,
@@ -6,9 +6,11 @@ import {
   makeBaseRollupInputs,
   makeBlockMergeRollupInputs,
   makeBlockRootRollupInputs,
+  makeEmptyBlockRootRollupInputs,
   makeHeader,
   makeMergeRollupInputs,
   makePublicKernelCircuitPrivateInputs,
+  makePublicKernelInnerCircuitPrivateInputs,
   makePublicKernelTailCircuitPrivateInputs,
   makeRootParityInputs,
   makeRootRollupInputs,
@@ -39,23 +41,16 @@ describe('Prover agent <-> queue integration', () => {
     getBaseRollupProof: makeBaseRollupInputs,
     getRootParityProof: makeRootParityInputs,
     getBlockMergeRollupProof: makeBlockMergeRollupInputs,
+    getEmptyBlockRootRollupProof: makeEmptyBlockRootRollupInputs,
     getBlockRootRollupProof: makeBlockRootRollupInputs,
+    getBlockRootRollupFinalProof: makeBlockRootRollupInputs,
     getEmptyPrivateKernelProof: () =>
       new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random()),
     getEmptyTubeProof: () => new PrivateKernelEmptyInputData(makeHeader(), Fr.random(), Fr.random(), Fr.random()),
     getMergeRollupProof: makeMergeRollupInputs,
-    getPublicKernelProof: () => {
-      return {
-        type: PublicKernelType.APP_LOGIC,
-        inputs: makePublicKernelCircuitPrivateInputs(),
-      };
-    },
-    getPublicTailProof: () => {
-      return {
-        type: PublicKernelType.TAIL,
-        inputs: makePublicKernelTailCircuitPrivateInputs(),
-      };
-    },
+    getPublicKernelInnerProof: makePublicKernelInnerCircuitPrivateInputs,
+    getPublicKernelMergeProof: makePublicKernelCircuitPrivateInputs,
+    getPublicTailProof: makePublicKernelTailCircuitPrivateInputs,
     getRootRollupProof: makeRootRollupInputs,
     getTubeProof: () => new TubeInputs(ClientIvcProof.empty()),
   };
@@ -80,6 +75,7 @@ describe('Prover agent <-> queue integration', () => {
     await queue.stop();
   });
 
+  // TODO: This test hangs instead of failing when the Inputs are not registered on the RPC wrapper
   it.each(Object.entries(makeInputs))('can call %s over JSON-RPC', async (fnName, makeInputs) => {
     const resp = await queue[fnName as keyof ServerCircuitProver](makeInputs() as any);
     expect(resp).toBeDefined();

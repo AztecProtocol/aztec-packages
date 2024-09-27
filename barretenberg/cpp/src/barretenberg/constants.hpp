@@ -10,4 +10,8 @@ static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;
 // to ensure a constant PG proof size and a PG recursive verifier circuit that is independent of the size of the
 // circuits being folded.
 static constexpr uint32_t CONST_PG_LOG_N = 20;
+
+static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 70000;
+
+static constexpr uint32_t MAX_DATABUS_SIZE = 10;
 } // namespace bb

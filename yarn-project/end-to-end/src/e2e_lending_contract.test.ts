@@ -11,7 +11,7 @@ import {
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { LendingContract, PriceFeedContract, TokenContract } from '@aztec/noir-contracts.js';
 
-import { jest } from '@jest/globals';
+import { afterAll, jest } from '@jest/globals';
 import { getContract } from 'viem';
 
 import { publicDeployAccounts, setup } from './fixtures/utils.js';
@@ -71,7 +71,7 @@ describe('e2e_lending_contract', () => {
     const rollup = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
       abi: RollupAbi,
-      client: deployL1ContractsValues.publicClient,
+      client: deployL1ContractsValues.walletClient,
     });
 
     lendingAccount = new LendingAccount(wallet.getAddress(), new Fr(42));

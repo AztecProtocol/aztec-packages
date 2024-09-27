@@ -12,7 +12,7 @@ use dep::types::{
     tests::fixture_builder::FixtureBuilder
 };
 
-struct TailOutputValidatorBuilder {
+pub struct TailOutputValidatorBuilder {
     output: FixtureBuilder,
     previous_kernel: FixtureBuilder,
 }

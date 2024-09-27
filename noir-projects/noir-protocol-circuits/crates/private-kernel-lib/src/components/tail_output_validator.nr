@@ -13,7 +13,7 @@ use dep::types::{
     utils::arrays::assert_exposed_sorted_transformed_value_array
 };
 
-struct TailOutputValidator {
+pub struct TailOutputValidator {
     output: KernelCircuitPublicInputs,
     previous_kernel: PrivateKernelCircuitPublicInputs,
     hints: TailOutputHints,

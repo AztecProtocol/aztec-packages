@@ -1,4 +1,4 @@
-import { BatchCall, EventType, Fr } from '@aztec/aztec.js';
+import { BatchCall, EventType } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js';
 
 import { TokenContractTest } from './token_contract_test.js';
@@ -45,7 +45,7 @@ describe('e2e_token_contract private transfer recursion', () => {
     expect(events[0]).toEqual({
       from: accounts[0].address,
       to: accounts[1].address,
-      amount: new Fr(totalBalance),
+      amount: totalBalance,
     });
   });
 
@@ -71,7 +71,7 @@ describe('e2e_token_contract private transfer recursion', () => {
     expect(events[0]).toEqual({
       from: accounts[0].address,
       to: accounts[1].address,
-      amount: new Fr(toSend),
+      amount: toSend,
     });
   });
 
