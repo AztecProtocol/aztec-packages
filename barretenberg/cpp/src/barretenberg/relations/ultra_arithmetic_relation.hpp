@@ -156,13 +156,11 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
     using FF = FF_;
     using Base = UltraArithmeticRelationImplBase<FF_, /* HOMOGENIZED */ true>;
 
-    static constexpr auto HOMOGENINZED_ADJUSTMENTS =
-        compute_homogenized_subrelation_lengths(Base::HOMOGENIZED_LENGTH, Base::SUBRELATION_PARTIAL_LENGTHS);
+    static constexpr auto HOMOGENIZATION_ADJUSTMENTS =
+        compute_subrelation_homogenization_adjustments(Base::HOMOGENIZED_LENGTH, Base::SUBRELATION_PARTIAL_LENGTHS);
 
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
-        7, // primary arithmetic sub-relation
-        7  // secondary arithmetic sub-relation
-    };
+    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS =
+        compute_homogenized_subrelation_lengths(Base::SUBRELATION_PARTIAL_LENGTHS, HOMOGENIZATION_ADJUSTMENTS);
 
     template <typename T, typename S> static T bad_pow(const S& x, const size_t d)
     {
@@ -219,7 +217,7 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
             term += tmp * q_arith;
             term *= q_arith;
             // 13 muls
-            static constexpr size_t HOMOGENIZER_POWER = std::get<0>(HOMOGENINZED_ADJUSTMENTS);
+            static constexpr size_t HOMOGENIZER_POWER = std::get<0>(HOMOGENIZATION_ADJUSTMENTS);
             if constexpr (HOMOGENIZER_POWER > 0) {
                 term *= bad_pow<Accumulator, View>(hom, HOMOGENIZER_POWER);
             }
@@ -243,7 +241,7 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
             tmp += tmp;
             tmp *= hom.sqr();
             term += tmp;
-            static constexpr size_t HOMOGENIZER_POWER = std::get<1>(HOMOGENINZED_ADJUSTMENTS);
+            static constexpr size_t HOMOGENIZER_POWER = std::get<1>(HOMOGENIZATION_ADJUSTMENTS);
             if constexpr (HOMOGENIZER_POWER > 0) {
                 term *= bad_pow<Accumulator, View>(hom, HOMOGENIZER_POWER);
             }
