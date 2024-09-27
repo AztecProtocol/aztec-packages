@@ -66,6 +66,9 @@ pub fn encode_and_encrypt_event_unconstrained<Event, let N: u32>(
     }
 }
 
+// This function seems to be affected by the following Noir bug:
+// https://github.com/noir-lang/noir/issues/5771
+// If you get weird behavior it might be because of it.
 pub fn encode_and_encrypt_event_with_randomness<Event, let N: u32>(
     context: &mut PrivateContext,
     randomness: Field,
