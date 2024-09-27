@@ -257,7 +257,7 @@ export class FullProverTest {
     this.logger.verbose('Starting fully proven prover node');
     const proverConfig: ProverNodeConfig = {
       ...this.context.aztecNodeConfig,
-      txProviderNodeUrl: undefined,
+      proverCoordinationNodeUrl: undefined,
       dataDirectory: undefined,
       proverId: new Fr(81),
       realProofs: this.realProofs,

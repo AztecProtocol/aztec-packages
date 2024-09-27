@@ -128,7 +128,7 @@ describe('e2e_prover_node', () => {
     // snapshot manager does not include events nor txs, so a new archiver would not "see" old blocks.
     const proverConfig: ProverNodeConfig = {
       ...ctx.aztecNodeConfig,
-      txProviderNodeUrl: undefined,
+      proverCoordinationNodeUrl: undefined,
       dataDirectory: undefined,
       proverId,
       proverNodeMaxPendingJobs: 100,
