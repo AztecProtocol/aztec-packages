@@ -2,6 +2,8 @@ import {
   BASE_PARITY_INDEX,
   BASE_ROLLUP_INDEX,
   BLOCK_MERGE_ROLLUP_INDEX,
+  BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
+  BLOCK_ROOT_ROLLUP_FINAL_INDEX,
   BLOCK_ROOT_ROLLUP_INDEX,
   EMPTY_NESTED_INDEX,
   Fr,
@@ -52,6 +54,8 @@ import PublicKernelTailVkJson from '../artifacts/keys/public_kernel_tail.vk.data
 import BaseRollupVkJson from '../artifacts/keys/rollup_base.vk.data.json' assert { type: 'json' };
 import BlockMergeRollupVkJson from '../artifacts/keys/rollup_block_merge.vk.data.json' assert { type: 'json' };
 import BlockRootRollupVkJson from '../artifacts/keys/rollup_block_root.vk.data.json' assert { type: 'json' };
+import EmptyBlockRootRollupVkJson from '../artifacts/keys/rollup_block_root_empty.vk.data.json' assert { type: 'json' };
+import BlockRootRollupFinalVkJson from '../artifacts/keys/rollup_block_root_final.vk.data.json' assert { type: 'json' };
 import MergeRollupVkJson from '../artifacts/keys/rollup_merge.vk.data.json' assert { type: 'json' };
 import RootRollupVkJson from '../artifacts/keys/rollup_root.vk.data.json' assert { type: 'json' };
 import { type ClientProtocolArtifact, type ProtocolArtifact, type ServerProtocolArtifact } from './artifacts.js';
@@ -87,6 +91,8 @@ const ServerCircuitVks: Record<ServerProtocolArtifact, VerificationKeyData> = {
   BaseRollupArtifact: keyJsonToVKData(BaseRollupVkJson),
   MergeRollupArtifact: keyJsonToVKData(MergeRollupVkJson),
   BlockRootRollupArtifact: keyJsonToVKData(BlockRootRollupVkJson),
+  EmptyBlockRootRollupArtifact: keyJsonToVKData(EmptyBlockRootRollupVkJson),
+  BlockRootRollupFinalArtifact: keyJsonToVKData(BlockRootRollupFinalVkJson),
   BlockMergeRollupArtifact: keyJsonToVKData(BlockMergeRollupVkJson),
   RootRollupArtifact: keyJsonToVKData(RootRollupVkJson),
 };
@@ -132,6 +138,8 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolArtifact, number> = {
   BlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_INDEX,
   BlockMergeRollupArtifact: BLOCK_MERGE_ROLLUP_INDEX,
   RootRollupArtifact: ROOT_ROLLUP_INDEX,
+  EmptyBlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_EMPTY_INDEX,
+  BlockRootRollupFinalArtifact: BLOCK_ROOT_ROLLUP_FINAL_INDEX,
 };
 
 function buildVKTree() {

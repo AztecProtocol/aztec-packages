@@ -15,6 +15,8 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'merge-rollup';
     case 'BlockRootRollupArtifact':
       return 'block-root-rollup';
+    case 'EmptyBlockRootRollupArtifact':
+      return 'empty-block-root-rollup';
     case 'BlockMergeRollupArtifact':
       return 'block-merge-rollup';
     case 'RootRollupArtifact':
@@ -49,6 +51,8 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'empty-nested';
     case 'PrivateKernelEmptyArtifact':
       return 'private-kernel-empty';
+    case 'BlockRootRollupFinalArtifact':
+      return 'block-root-rollup-final';
     default: {
       const _foo: never = artifact;
       throw new Error(`Unknown circuit type: ${artifact}`);

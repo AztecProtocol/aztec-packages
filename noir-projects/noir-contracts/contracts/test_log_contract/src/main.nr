@@ -5,9 +5,9 @@ contract TestLog {
     use std::meta::derive;
     use dep::aztec::prelude::PrivateSet;
     use dep::aztec::protocol_types::{scalar::Scalar, address::AztecAddress, traits::Serialize};
-    use dep::aztec::keys::public_keys::IvpkM;
+    use dep::aztec::keys::{getters::get_public_keys, public_keys::IvpkM};
     use dep::value_note::value_note::ValueNote;
-    use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
+    use dep::aztec::encrypted_logs::payload::compute_incoming_body_ciphertext;
     use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_randomness;
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
     use dep::aztec::macros::{storage::storage, events::event, functions::{private, public}};
@@ -44,22 +44,25 @@ contract TestLog {
         event_type_id: Field,
         preimage: [Field; 2]
     ) -> [u8; EXAMPLE_EVENT_0_CIPHERTEXT_BYTES_LEN] {
-        EncryptedLogIncomingBody::from_event(
-            ExampleEvent0 { value0: preimage[0], value1: preimage[1] },
-            randomness
-        ).compute_ciphertext(secret, ivpk).as_array()
+        let event = ExampleEvent0 { value0: preimage[0], value1: preimage[1] };
+        let plaintext = event.private_to_be_bytes(randomness);
+        compute_incoming_body_ciphertext(plaintext, secret, ivpk).as_array()
     }
 
     #[private]
     fn emit_encrypted_events(other: AztecAddress, randomness: [Field; 2], preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
+        let other_keys = get_public_keys(other);
+        let msg_sender_keys = get_public_keys(context.msg_sender());
+
         event0.emit(
             encode_and_encrypt_event_with_randomness(
                 &mut context,
                 randomness[0],
                 // outgoing is set to other, incoming is set to msg sender
-                other,
+                other_keys.ovpk_m,
+                msg_sender_keys.ivpk_m,
                 context.msg_sender()
             )
         );
@@ -70,7 +73,8 @@ contract TestLog {
                 &mut context,
                 randomness[0],
                 // outgoing is set to msg sender, incoming is set to other
-                context.msg_sender(),
+                msg_sender_keys.ovpk_m,
+                other_keys.ivpk_m,
                 other
             )
         );
@@ -82,7 +86,8 @@ contract TestLog {
                 &mut context,
                 randomness[1],
                 // outgoing is set to other, incoming is set to msg sender
-                other,
+                other_keys.ovpk_m,
+                msg_sender_keys.ivpk_m,
                 context.msg_sender()
             )
         );

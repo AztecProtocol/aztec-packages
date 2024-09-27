@@ -78,7 +78,27 @@ export class MockProver implements ServerCircuitProver {
     );
   }
 
+  getEmptyBlockRootRollupProof(): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeBlockRootOrBlockMergeRollupPublicInputs(),
+        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+        VerificationKeyData.makeFake(),
+      ),
+    );
+  }
+
   getBlockRootRollupProof(): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeBlockRootOrBlockMergeRollupPublicInputs(),
+        makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
+        VerificationKeyData.makeFake(),
+      ),
+    );
+  }
+
+  getBlockRootRollupFinalProof(): Promise<PublicInputsAndRecursiveProof<BlockRootOrBlockMergePublicInputs>> {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
         makeBlockRootOrBlockMergeRollupPublicInputs(),

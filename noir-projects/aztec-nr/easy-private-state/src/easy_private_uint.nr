@@ -1,8 +1,7 @@
 use dep::aztec::{
     context::PrivateContext, protocol_types::{address::AztecAddress},
     note::note_getter_options::NoteGetterOptions, state_vars::PrivateSet,
-    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_with_keys,
-    keys::getters::get_public_keys
+    encrypted_logs::encrypted_note_emission::encode_and_encrypt_note, keys::getters::get_public_keys
 };
 use dep::value_note::{filter::filter_notes_min_sum, value_note::ValueNote};
 
@@ -32,7 +31,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
         // Insert the new note to the owner's set of notes.
         // docs:start:insert
         self.set.insert(&mut addend_note).emit(
-            encode_and_encrypt_note_with_keys(
+            encode_and_encrypt_note(
                 self.context,
                 outgoing_viewer_keys.ovpk_m,
                 owner_keys.ivpk_m,
@@ -67,7 +66,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
         let result_value = minuend - subtrahend;
         let mut result_note = ValueNote::new(result_value as Field, owner_keys.npk_m.hash());
         self.set.insert(&mut result_note).emit(
-            encode_and_encrypt_note_with_keys(
+            encode_and_encrypt_note(
                 self.context,
                 outgoing_viewer_keys.ovpk_m,
                 owner_keys.ivpk_m,

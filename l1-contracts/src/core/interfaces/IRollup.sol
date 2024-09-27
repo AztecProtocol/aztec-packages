@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
-pragma solidity >=0.8.18;
+pragma solidity >=0.8.27;
 
-import {IInbox} from "../interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "../interfaces/messagebridge/IOutbox.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 
-import {SignatureLib} from "../libraries/SignatureLib.sol";
-import {DataStructures} from "../libraries/DataStructures.sol";
+import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+
+import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeMath.sol";
 
 interface ITestRollup {
-  function setVerifier(address _verifier) external;
+  function setBlockVerifier(address _verifier) external;
+  function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setAssumeProvenThroughBlockNumber(uint256 blockNumber) external;
 }
@@ -19,16 +22,16 @@ interface IRollup {
   event L2ProofVerified(uint256 indexed blockNumber, bytes32 indexed proverId);
   event PrunedPending(uint256 provenBlockNumber, uint256 pendingBlockNumber);
   event ProofRightClaimed(
-    uint256 indexed epoch,
+    Epoch indexed epoch,
     address indexed bondProvider,
     address indexed proposer,
     uint256 bondAmount,
-    uint256 currentSlot
+    Slot currentSlot
   );
 
   function prune() external;
 
-  function claimEpochProofRight(DataStructures.EpochProofQuote calldata _quote) external;
+  function claimEpochProofRight(DataStructures.SignedEpochProofQuote calldata _quote) external;
 
   function propose(
     bytes calldata _header,
@@ -47,12 +50,21 @@ interface IRollup {
     bytes calldata _proof
   ) external;
 
-  function canProposeAtTime(uint256 _ts, bytes32 _archive) external view returns (uint256, uint256);
+  function submitEpochRootProof(
+    uint256 _epochSize,
+    bytes32[7] calldata _args,
+    bytes32[64] calldata _fees,
+    bytes calldata _aggregationObject,
+    bytes calldata _proof
+  ) external;
+
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external view returns (Slot, uint256);
+
   function validateHeader(
     bytes calldata _header,
     SignatureLib.Signature[] memory _signatures,
     bytes32 _digest,
-    uint256 _currentTime,
+    Timestamp _currentTime,
     bytes32 _txsEffecstHash,
     DataStructures.ExecutionFlags memory _flags
   ) external view;
@@ -70,9 +82,9 @@ interface IRollup {
     external
     view
     returns (
-      uint256 provenBlockCount,
+      uint256 provenBlockNumber,
       bytes32 provenArchive,
-      uint256 pendingBlockCount,
+      uint256 pendingBlockNumber,
       bytes32 pendingArchive,
       bytes32 archiveOfMyBlock
     );
@@ -93,6 +105,6 @@ interface IRollup {
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
   function getProvenBlockNumber() external view returns (uint256);
   function getPendingBlockNumber() external view returns (uint256);
-  function getEpochToProve() external view returns (uint256);
+  function getEpochToProve() external view returns (Epoch);
   function computeTxsEffectsHash(bytes calldata _body) external pure returns (bytes32);
 }

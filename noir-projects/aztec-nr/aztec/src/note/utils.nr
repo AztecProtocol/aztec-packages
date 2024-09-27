@@ -105,7 +105,7 @@ pub fn compute_note_hash_for_nullify<Note, let N: u32>(note: Note) -> Field wher
     compute_note_hash_for_nullify_internal(note, note_hash_for_read_request)
 }
 
-pub fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let S: u32>(
+unconstrained pub fn compute_note_hash_and_optionally_a_nullifier<T, let N: u32, let S: u32>(
     deserialize_content: fn([Field; N]) -> T,
     note_header: NoteHeader,
     compute_nullifier: bool,

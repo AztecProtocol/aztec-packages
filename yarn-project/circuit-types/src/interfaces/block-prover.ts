@@ -1,4 +1,4 @@
-import { type Fr, type GlobalVariables, type Proof } from '@aztec/circuits.js';
+import { type Fr, type GlobalVariables, type Proof, type RootRollupPublicInputs } from '@aztec/circuits.js';
 
 import { type L2Block } from '../l2_block.js';
 import { type ProcessedTx } from '../tx/processed_tx.js';
@@ -32,6 +32,8 @@ export type ProvingBlockResult = SimulationBlockResult & {
   aggregationObject: Fr[];
 };
 
+export type ProvingEpochResult = { publicInputs: RootRollupPublicInputs; proof: Proof };
+
 /** Receives processed txs as part of block simulation or proving. */
 export interface ProcessedTxHandler {
   /**
@@ -52,7 +54,7 @@ export interface BlockSimulator extends ProcessedTxHandler {
   startNewBlock(numTxs: number, globalVariables: GlobalVariables, l1ToL2Messages: Fr[]): Promise<ProvingTicket>;
 
   /** Cancels the block currently being processed. Processes already in progress built may continue but further proofs should not be started. */
-  cancelBlock(): void;
+  cancel(): void;
 
   /** Performs the final archive tree insertion for this block and returns the L2Block. */
   finaliseBlock(): Promise<SimulationBlockResult>;
@@ -71,4 +73,12 @@ export interface BlockProver extends BlockSimulator {
 
   /** Performs the final archive tree insertion for this block and returns the L2Block. */
   finaliseBlock(): Promise<ProvingBlockResult>;
+}
+
+export interface EpochProver extends BlockProver {
+  startNewEpoch(epochNumber: number, totalNumBlocks: number): ProvingTicket;
+
+  setEpochCompleted(): void;
+
+  finaliseEpoch(): ProvingEpochResult;
 }
