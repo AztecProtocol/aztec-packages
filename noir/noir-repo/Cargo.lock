@@ -2786,6 +2786,7 @@ dependencies = [
  "color-eyre",
  "const_format",
  "fm",
+ "fxhash",
  "im",
  "inferno",
  "nargo",
