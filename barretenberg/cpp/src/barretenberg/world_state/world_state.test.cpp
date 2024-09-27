@@ -3,6 +3,7 @@
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include <filesystem>
@@ -153,7 +154,7 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
         // currently it's the root of an empty tree
         auto info = ws.get_tree_info(WorldStateRevision::committed(), MerkleTreeId::ARCHIVE);
         EXPECT_EQ(info.meta.size, 0);
-        EXPECT_EQ(info.meta.depth, ARCHIVE_TREE_HEIGHT);
+        EXPECT_EQ(info.meta.depth, ARCHIVE_HEIGHT);
         EXPECT_EQ(info.meta.root, bb::fr("0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3"));
     }
 }
