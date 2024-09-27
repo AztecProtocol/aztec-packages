@@ -22,7 +22,7 @@ contract Token {
         context::{PrivateContext, PrivateCallInterface}, hash::compute_secret_hash,
         prelude::{NoteGetterOptions, Map, PublicMutable, SharedImmutable, PrivateSet, AztecAddress, FunctionSelector},
         encrypted_logs::{
-        encrypted_note_emission::{encode_and_encrypt_note_with_keys, encode_and_encrypt_note_with_keys_unconstrained},
+        encrypted_note_emission::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         encrypted_event_emission::encode_and_encrypt_event_with_keys_unconstrained
     },
         keys::getters::get_public_keys,
@@ -208,9 +208,7 @@ contract Token {
     fn privately_mint_private_note(amount: Field) {
         let caller = context.msg_sender();
         let caller_keys = get_public_keys(caller);
-        storage.balances.at(caller).add(caller_keys.npk_m, U128::from_integer(amount)).emit(
-            encode_and_encrypt_note_with_keys(&mut context, caller_keys.ovpk_m, caller_keys.ivpk_m, caller)
-        );
+        storage.balances.at(caller).add(caller_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, caller_keys.ovpk_m, caller_keys.ivpk_m, caller));
         Token::at(context.this_address()).assert_minter_and_mint(context.msg_sender(), amount).enqueue(&mut context);
     }
     #[public]
@@ -289,7 +287,7 @@ contract Token {
         let from = context.msg_sender();
         let from_keys = get_public_keys(from);
         let to_keys = get_public_keys(to);
-        storage.balances.at(to).add(to_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
+        storage.balances.at(to).add(to_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
     }
     // docs:end:redeem_shield
     // docs:start:unshield
@@ -302,7 +300,7 @@ contract Token {
         }
 
         let from_keys = get_public_keys(from);
-        storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
+        storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
     // docs:end:unshield
@@ -329,11 +327,9 @@ contract Token {
             INITIAL_TRANSFER_CALL_MAX_NOTES
         );
         storage.balances.at(from).add(from_keys.npk_m, change).emit(
-            encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from)
+            encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from)
         );
-        storage.balances.at(to).add(to_keys.npk_m, amount).emit(
-            encode_and_encrypt_note_with_keys_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to)
-        );
+        storage.balances.at(to).add(to_keys.npk_m, amount).emit(encode_and_encrypt_note_unconstrained(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_from`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
@@ -420,10 +416,10 @@ contract Token {
         let amount = U128::from_integer(amount);
         // docs:start:increase_private_balance
         // docs:start:encrypted
-        storage.balances.at(from).sub(from_keys.npk_m, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
+        storage.balances.at(from).sub(from_keys.npk_m, amount).emit(encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
         // docs:end:encrypted
         // docs:end:increase_private_balance
-        storage.balances.at(to).add(to_keys.npk_m, amount).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
+        storage.balances.at(to).add(to_keys.npk_m, amount).emit(encode_and_encrypt_note(&mut context, from_keys.ovpk_m, to_keys.ivpk_m, to));
     }
     // docs:end:transfer_from
     // docs:start:burn
@@ -435,7 +431,7 @@ contract Token {
             assert(nonce == 0, "invalid nonce");
         }
         let from_keys = get_public_keys(from);
-        storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note_with_keys(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
+        storage.balances.at(from).sub(from_keys.npk_m, U128::from_integer(amount)).emit(encode_and_encrypt_note(&mut context, from_keys.ovpk_m, from_keys.ivpk_m, from));
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
     // docs:end:burn
@@ -485,7 +481,7 @@ contract Token {
             INITIAL_TRANSFER_CALL_MAX_NOTES
         );
         storage.balances.at(user).add(user_keys.npk_m, change).emit(
-            encode_and_encrypt_note_with_keys_unconstrained(&mut context, user_keys.ovpk_m, user_keys.ivpk_m, user)
+            encode_and_encrypt_note_unconstrained(&mut context, user_keys.ovpk_m, user_keys.ivpk_m, user)
         );
         // 4. Now we get the note hiding points.
         let mut fee_payer_point = TokenNote::hiding_point().new(

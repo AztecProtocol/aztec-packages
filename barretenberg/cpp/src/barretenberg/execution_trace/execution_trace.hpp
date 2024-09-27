@@ -37,7 +37,6 @@ template <class Flavor> class ExecutionTrace_ {
                 for (auto [selector, other_selector] : zip_view(selectors, proving_key.polynomials.get_selectors())) {
                     selector = other_selector.share();
                 }
-                proving_key.polynomials.set_shifted(); // Ensure shifted wires are set correctly
             } else {
                 // Initialize and share the wire and selector polynomials
                 for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -74,6 +73,14 @@ template <class Flavor> class ExecutionTrace_ {
      */
     static void populate(Builder& builder, ProvingKey&, bool is_structured = false);
 
+    /**
+     * @brief Populate the public inputs block
+     * @details The first two wires are a copy of the public inputs and the other wires and all selectors are zero
+     *
+     * @param circuit
+     */
+    static void populate_public_inputs_block(Builder& builder);
+
   private:
     /**
      * @brief Add the memory records indicating which rows correspond to RAM/ROM reads/writes
@@ -103,14 +110,6 @@ template <class Flavor> class ExecutionTrace_ {
     static TraceData construct_trace_data(Builder& builder,
                                           typename Flavor::ProvingKey& proving_key,
                                           bool is_structured = false);
-
-    /**
-     * @brief Populate the public inputs block
-     * @details The first two wires are a copy of the public inputs and the other wires and all selectors are zero
-     *
-     * @param builder
-     */
-    static void populate_public_inputs_block(Builder& builder);
 
     /**
      * @brief Construct and add the goblin ecc op wires to the proving key

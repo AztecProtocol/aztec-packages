@@ -260,6 +260,14 @@ template <typename Fr> class Polynomial {
     }
 
     /**
+     * @brief Expands the polynomial with new start_index and end_index
+     * The value of the polynomial remains the same, but defined memory region differs.
+     *
+     * @return a polynomial with a larger size() but same virtual_size()
+     */
+    Polynomial expand(const size_t new_start_index, const size_t new_end_index) const;
+
+    /**
      * @brief Copys the polynomial, but with the whole address space usable.
      * The value of the polynomial remains the same, but defined memory region differs.
      *

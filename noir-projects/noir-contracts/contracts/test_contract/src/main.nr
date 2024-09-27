@@ -7,34 +7,28 @@ use dep::aztec::macros::aztec;
 contract Test {
 
     use dep::aztec::prelude::{
-        AztecAddress, EthAddress, FunctionSelector, NoteHeader, NoteGetterOptions, NoteViewerOptions,
-        PrivateContext, PrivateImmutable, PrivateSet, SharedImmutable
+        AztecAddress, EthAddress, FunctionSelector, NoteGetterOptions, NoteViewerOptions,
+        PrivateImmutable, PrivateSet
     };
     use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note;
     use dep::aztec::encrypted_logs::encrypted_event_emission::encode_and_encrypt_event_with_keys_with_randomness;
 
-    use dep::aztec::protocol_types::{
-        abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::{Serialize, ToField, FromField},
-        point::Point, scalar::Scalar, storage::map::derive_storage_slot_in_map
-    };
+    use dep::aztec::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Serialize, point::Point, scalar::Scalar};
 
     use dep::aztec::encrypted_logs::header::EncryptedLogHeader;
-    use dep::aztec::encrypted_logs::incoming_body::EncryptedLogIncomingBody;
-    use dep::aztec::encrypted_logs::outgoing_body::EncryptedLogOutgoingBody;
+    use dep::aztec::encrypted_logs::payload::{compute_incoming_body_ciphertext, compute_outgoing_body_ciphertext};
 
     use dep::aztec::note::constants::MAX_NOTES_PER_PAGE;
     use dep::aztec::keys::getters::get_public_keys;
 
     use dep::aztec::{
-        context::inputs::private_context_inputs::PrivateContextInputs,
         hash::{pedersen_hash, compute_secret_hash, ArgsHasher}, keys::public_keys::IvpkM,
         note::{
         lifecycle::{create_note, destroy_note_unsafe}, note_getter::{get_notes, view_notes},
         note_getter_options::NoteStatus
     },
-        deploy::deploy_contract as aztec_deploy_contract,
-        oracle::{encryption::aes128_encrypt, unsafe_rand::unsafe_rand}, utils::comparison::Comparator,
+        deploy::deploy_contract as aztec_deploy_contract, oracle::unsafe_rand::unsafe_rand,
+        utils::comparison::Comparator,
         macros::{storage::storage, events::event, functions::{private, public, internal}}
     };
     use dep::token_portal_content_hash_lib::{get_mint_private_content_hash, get_mint_public_content_hash};
@@ -42,6 +36,7 @@ contract Test {
     // TODO investigate why the macros require EmbeddedCurvePoint and EmbeddedCurveScalar
     use std::embedded_curve_ops::{EmbeddedCurveScalar, EmbeddedCurvePoint, fixed_base_scalar_mul as derive_public_key};
     use std::meta::derive;
+    use std::aes128::aes128_encrypt;
 
     use crate::test_note::TestNote;
 
@@ -103,10 +98,18 @@ contract Test {
             storage_slot != storage.example_constant.get_storage_slot(), "this storage slot is reserved for example_constant"
         );
 
-        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+        let outgoing_viewer_keys = get_public_keys(outgoing_viewer);
+        let owner_keys = get_public_keys(owner);
 
-        let mut note = ValueNote::new(value, owner_npk_m_hash);
-        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, outgoing_viewer, owner));
+        let mut note = ValueNote::new(value, owner_keys.npk_m.hash());
+        create_note(&mut context, storage_slot, &mut note).emit(
+            encode_and_encrypt_note(
+                &mut context,
+                outgoing_viewer_keys.ovpk_m,
+                owner_keys.ivpk_m,
+                owner
+            )
+        );
     }
 
     #[private]
@@ -313,10 +316,11 @@ contract Test {
         Test::at(context.this_address()).call_create_note(value, owner, outgoing_viewer, storage_slot).call(&mut context);
         storage_slot += 1;
 
-        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+        let msg_sender_keys = get_public_keys(context.msg_sender());
+        let owner_keys = get_public_keys(owner);
 
-        let mut note = ValueNote::new(value + 1, owner_npk_m_hash);
-        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, context.msg_sender(), owner));
+        let mut note = ValueNote::new(value + 1, owner_keys.npk_m.hash());
+        create_note(&mut context, storage_slot, &mut note).emit(encode_and_encrypt_note(&mut context, msg_sender_keys.ovpk_m, owner_keys.ivpk_m, owner));
         storage_slot += 1;
         Test::at(context.this_address()).call_create_note(value + 2, owner, outgoing_viewer, storage_slot).call(&mut context);
     }
@@ -398,12 +402,12 @@ contract Test {
 
     #[private]
     fn encrypt(input: [u8; 64], iv: [u8; 16], key: [u8; 16]) -> [u8; 80] {
-        aes128_encrypt(input, iv, key)
+        aes128_encrypt(input, iv, key).as_array()
     }
 
     #[private]
     fn encrypt_with_padding(input: [u8; 65], iv: [u8; 16], key: [u8; 16]) -> [u8; 80] {
-        aes128_encrypt(input, iv, key)
+        aes128_encrypt(input, iv, key).as_array()
     }
 
     #[private]
@@ -420,7 +424,8 @@ contract Test {
         value: Field
     ) -> [u8; 112] {
         let note = TestNote::new(value);
-        EncryptedLogIncomingBody::from_note(note, storage_slot).compute_ciphertext(secret, ivpk).as_array()
+        let plaintext = note.to_be_bytes(storage_slot);
+        compute_incoming_body_ciphertext(plaintext, secret, ivpk).as_array()
     }
 
     #[private]
@@ -431,7 +436,7 @@ contract Test {
         ovsk_app: Scalar
     ) -> [u8; 144] {
         let eph_pk = derive_public_key(eph_sk);
-        EncryptedLogOutgoingBody::new(eph_sk, recipient, recipient_ivpk).compute_ciphertext(ovsk_app, eph_pk)
+        compute_outgoing_body_ciphertext(recipient, recipient_ivpk, ovsk_app, eph_sk, eph_pk)
     }
 
     #[public]

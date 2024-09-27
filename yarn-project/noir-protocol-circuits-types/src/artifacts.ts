@@ -36,6 +36,7 @@ import BaseRollupJson from '../artifacts/rollup_base.json' assert { type: 'json'
 import BaseRollupSimulatedJson from '../artifacts/rollup_base_simulated.json' assert { type: 'json' };
 import BlockMergeRollupJson from '../artifacts/rollup_block_merge.json' assert { type: 'json' };
 import BlockRootRollupJson from '../artifacts/rollup_block_root.json' assert { type: 'json' };
+import EmptyBlockRootRollupJson from '../artifacts/rollup_block_root_empty.json' assert { type: 'json' };
 import BlockRootRollupFinalJson from '../artifacts/rollup_block_root_final.json' assert { type: 'json' };
 import MergeRollupJson from '../artifacts/rollup_merge.json' assert { type: 'json' };
 import RootRollupJson from '../artifacts/rollup_root.json' assert { type: 'json' };
@@ -68,6 +69,7 @@ export type ServerProtocolArtifact =
   | 'BaseRollupArtifact'
   | 'MergeRollupArtifact'
   | 'BlockRootRollupArtifact'
+  | 'EmptyBlockRootRollupArtifact'
   | 'BlockRootRollupFinalArtifact' // TODO(palla/prover): Delete this artifact
   | 'BlockMergeRollupArtifact'
   | 'RootRollupArtifact';
@@ -92,6 +94,7 @@ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiled
   BaseRollupArtifact: BaseRollupJson as NoirCompiledCircuit,
   MergeRollupArtifact: MergeRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupJson as NoirCompiledCircuit,
+  EmptyBlockRootRollupArtifact: EmptyBlockRootRollupJson as NoirCompiledCircuit,
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   RootRollupArtifact: RootRollupJson as NoirCompiledCircuit,
   BlockRootRollupFinalArtifact: BlockRootRollupFinalJson as NoirCompiledCircuit,
@@ -108,6 +111,7 @@ export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, Noi
   BaseRollupArtifact: BaseRollupSimulatedJson as NoirCompiledCircuit,
   MergeRollupArtifact: MergeRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupJson as NoirCompiledCircuit,
+  EmptyBlockRootRollupArtifact: EmptyBlockRootRollupJson as NoirCompiledCircuit,
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   RootRollupArtifact: RootRollupJson as NoirCompiledCircuit,
   BlockRootRollupFinalArtifact: BlockRootRollupFinalJson as NoirCompiledCircuit,
