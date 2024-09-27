@@ -12,7 +12,7 @@ import {
 import { Aes128 } from '@aztec/circuits.js/barretenberg';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { deriveAESSecret, derivePoseidonAESSecret } from './l1_payload/encryption_utils.js';
+import { deriveAESSecret, derivePoseidonAESSecret } from './encryption_utils.js';
 
 // Both the incoming and the outgoing header are 48 bytes.
 // 32 bytes for the address, and 16 bytes padding to follow PKCS#7

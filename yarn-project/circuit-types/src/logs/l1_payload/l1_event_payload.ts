@@ -4,9 +4,9 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
 import { type Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type EncryptedL2Log } from './encrypted_l2_log.js';
+import { type EncryptedL2Log } from '../encrypted_l2_log.js';
 import { EncryptedLogPayload } from './encrypted_log_payload.js';
-import { Event } from './l1_payload/payload.js';
+import { Event } from './payload.js';
 
 /**
  * A class which wraps event data which is pushed on L1.

@@ -3,9 +3,9 @@ import { NoteSelector } from '@aztec/foundation/abi';
 import { type Fq, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { type EncryptedL2NoteLog } from './encrypted_l2_note_log.js';
+import { type EncryptedL2NoteLog } from '../encrypted_l2_note_log.js';
 import { EncryptedLogPayload } from './encrypted_log_payload.js';
-import { Note } from './l1_payload/payload.js';
+import { Note } from './payload.js';
 
 /**
  * A class which wraps note data which is pushed on L1.
