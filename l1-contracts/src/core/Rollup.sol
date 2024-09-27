@@ -62,7 +62,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   IProofCommitmentEscrow public immutable PROOF_COMMITMENT_ESCROW;
   uint256 public immutable VERSION;
   IFeeJuicePortal public immutable FEE_JUICE_PORTAL;
-  IVerifier public verifier;
+  IVerifier public blockProofVerifier;
 
   ChainTips public tips;
   DataStructures.EpochProofClaim public proofClaim;
@@ -80,6 +80,10 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
   //        Testing only. This should be removed eventually.
   uint256 private assumeProvenThroughBlockNumber;
 
+  // Listed at the end of the contract to avoid changing storage slots
+  // TODO(palla/prover) Drop blockProofVerifier and move this verifier to that slot
+  IVerifier public epochProofVerifier;
+
   constructor(
     IRegistry _registry,
     IFeeJuicePortal _fpcJuicePortal,
@@ -87,7 +91,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     address _ares,
     address[] memory _validators
   ) Leonidas(_ares) {
-    verifier = new MockVerifier();
+    blockProofVerifier = new MockVerifier();
+    epochProofVerifier = new MockVerifier();
     REGISTRY = _registry;
     FEE_JUICE_PORTAL = _fpcJuicePortal;
     PROOF_COMMITMENT_ESCROW = new MockProofCommitmentEscrow();
@@ -100,7 +105,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     // Genesis block
     blocks[0] = BlockLog({
       archive: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-      blockHash: bytes32(0),
+      blockHash: bytes32(0), // TODO(palla/prover): The first block does not have hash zero
       slotNumber: Slot.wrap(0)
     });
     for (uint256 i = 0; i < _validators.length; i++) {
@@ -144,8 +149,19 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
    *
    * @param _verifier - The new verifier contract
    */
-  function setVerifier(address _verifier) external override(ITestRollup) onlyOwner {
-    verifier = IVerifier(_verifier);
+  function setBlockVerifier(address _verifier) external override(ITestRollup) onlyOwner {
+    blockProofVerifier = IVerifier(_verifier);
+  }
+
+  /**
+   * @notice  Set the verifier contract
+   *
+   * @dev     This is only needed for testing, and should be removed
+   *
+   * @param _verifier - The new verifier contract
+   */
+  function setEpochVerifier(address _verifier) external override(ITestRollup) onlyOwner {
+    epochProofVerifier = IVerifier(_verifier);
   }
 
   /**
@@ -410,7 +426,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       publicInputs[i + 91] = part;
     }
 
-    if (!verifier.verify(_proof, publicInputs)) {
+    if (!blockProofVerifier.verify(_proof, publicInputs)) {
       revert Errors.Rollup__InvalidProof();
     }
 
@@ -484,7 +500,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     bytes32[] memory publicInputs =
       getEpochProofPublicInputs(_epochSize, _args, _fees, _aggregationObject);
 
-    if (!verifier.verify(_proof, publicInputs)) {
+    if (!epochProofVerifier.verify(_proof, publicInputs)) {
       revert Errors.Rollup__InvalidProof();
     }
 
@@ -550,7 +566,8 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       }
 
       bytes32 expectedPreviousBlockHash = blocks[previousBlockNumber].blockHash;
-      if (expectedPreviousBlockHash != _args[2]) {
+      // TODO: Remove 0 check once we inject the proper genesis block hash
+      if (expectedPreviousBlockHash != 0 && expectedPreviousBlockHash != _args[2]) {
         revert Errors.Rollup__InvalidPreviousBlockHash(expectedPreviousBlockHash, _args[2]);
       }
 
@@ -608,16 +625,16 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
     // out_hash: root of this epoch's l2 to l1 message tree
     publicInputs[8] = _args[5];
 
-    // fees[9-40]: array of recipient-value pairs
+    // fees[9-72]: array of recipient-value pairs
     for (uint256 i = 0; i < 64; i++) {
       publicInputs[9 + i] = _fees[i];
     }
 
     // vk_tree_root
-    publicInputs[41] = vkTreeRoot;
+    publicInputs[73] = vkTreeRoot;
 
     // prover_id: id of current epoch's prover
-    publicInputs[42] = _args[6];
+    publicInputs[74] = _args[6];
 
     // the block proof is recursive, which means it comes with an aggregation object
     // this snippet copies it into the public inputs needed for verification
@@ -628,7 +645,7 @@ contract Rollup is Leonidas, IRollup, ITestRollup {
       assembly {
         part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
       }
-      publicInputs[i + 43] = part;
+      publicInputs[i + 75] = part;
     }
 
     return publicInputs;

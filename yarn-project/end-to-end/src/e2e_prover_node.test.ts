@@ -62,7 +62,7 @@ describe('e2e_prover_node', () => {
       },
     );
 
-    await snapshotManager.snapshot('setup', addAccounts(2, logger), async ({ accountKeys }, ctx) => {
+    await snapshotManager.snapshot('setup', addAccounts(2, logger, false), async ({ accountKeys }, ctx) => {
       const accountManagers = accountKeys.map(ak => getSchnorrAccount(ctx.pxe, ak[0], ak[1], 1));
       await Promise.all(accountManagers.map(a => a.register()));
       const wallets = await Promise.all(accountManagers.map(a => a.getWallet()));
@@ -74,6 +74,7 @@ describe('e2e_prover_node', () => {
     await snapshotManager.snapshot(
       'deploy-test-contract',
       async () => {
+        logger.info(`Deploying test contract`);
         const owner = wallet.getAddress();
         const contract = await StatefulTestContract.deploy(wallet, owner, owner, 42).send().deployed();
         return { contractAddress: contract.address };
@@ -86,33 +87,43 @@ describe('e2e_prover_node', () => {
     ctx = await snapshotManager.setup();
   });
 
-  it('submits three blocks, then prover proves the first two', async () => {
+  it('submits five blocks, then prover proves the first two epochs', async () => {
     // wait for the proven chain to catch up with the pending chain before we shut off the prover node
+    logger.info(`Waiting for proven chain to catch up with pending chain`);
     await waitForProvenChain(ctx.aztecNode);
 
     // Stop the current prover node
     await ctx.proverNode.stop();
 
+    logger.info(`Sending txs`);
     const msgSender = ctx.deployL1ContractsValues.walletClient.account.address;
     const txReceipt1 = await msgTestContract.methods
       .consume_message_from_arbitrary_sender_private(msgContent, msgSecret, EthAddress.fromString(msgSender))
       .send()
       .wait();
+    logger.info(`Tx #1 ${txReceipt1.txHash} mined in ${txReceipt1.blockNumber}`);
     const txReceipt2 = await contract.methods.create_note(recipient, recipient, 10).send().wait();
+    logger.info(`Tx #2 ${txReceipt2.txHash} mined in ${txReceipt2.blockNumber}`);
     const txReceipt3 = await contract.methods.increment_public_value(recipient, 20).send().wait();
+    logger.info(`Tx #3 ${txReceipt3.txHash} mined in ${txReceipt3.blockNumber}`);
+    const txReceipt4 = await contract.methods.create_note(recipient, recipient, 30).send().wait();
+    logger.info(`Tx #4 ${txReceipt4.txHash} mined in ${txReceipt4.blockNumber}`);
+    const txReceipt5 = await contract.methods.increment_public_value(recipient, 40).send().wait();
+    logger.info(`Tx #5 ${txReceipt5.txHash} mined in ${txReceipt5.blockNumber}`);
 
-    // Check everything went well during setup and txs were mined in two different blocks
-    const firstBlock = txReceipt1.blockNumber!;
-    const secondBlock = firstBlock + 1;
-    expect(txReceipt2.blockNumber).toEqual(secondBlock);
-    expect(txReceipt3.blockNumber).toEqual(firstBlock + 2);
-    expect(await contract.methods.get_public_value(recipient).simulate()).toEqual(20n);
-    expect(await contract.methods.summed_values(recipient).simulate()).toEqual(10n);
+    // Check everything went well during setup and txs were mined in different blocks
+    const startBlock = txReceipt1.blockNumber!;
+    expect(txReceipt2.blockNumber).toEqual(startBlock + 1);
+    expect(txReceipt3.blockNumber).toEqual(startBlock + 2);
+    expect(txReceipt4.blockNumber).toEqual(startBlock + 3);
+    expect(txReceipt5.blockNumber).toEqual(startBlock + 4);
+    expect(await contract.methods.get_public_value(recipient).simulate()).toEqual(60n);
+    expect(await contract.methods.summed_values(recipient).simulate()).toEqual(40n);
 
     // Kick off a prover node
     await sleep(1000);
     const proverId = Fr.fromString(Buffer.from('awesome-prover', 'utf-8').toString('hex'));
-    logger.info(`Creating prover node ${proverId.toString()}`);
+    logger.info(`Creating prover node with prover id ${proverId.toString()}`);
     // HACK: We have to use the existing archiver to fetch L2 data, since anvil's chain dump/load used by the
     // snapshot manager does not include events nor txs, so a new archiver would not "see" old blocks.
     const proverConfig: ProverNodeConfig = {
@@ -121,34 +132,34 @@ describe('e2e_prover_node', () => {
       dataDirectory: undefined,
       proverId,
       proverNodeMaxPendingJobs: 100,
+      proverNodeEpochSize: 2,
     };
     const archiver = ctx.aztecNode.getBlockSource() as Archiver;
     const proverNode = await createProverNode(proverConfig, { aztecNodeTxProvider: ctx.aztecNode, archiver });
 
-    // Prove the first two blocks simultaneously
-    logger.info(`Starting proof for first block #${firstBlock}`);
-    await proverNode.startProof(firstBlock, firstBlock);
-    logger.info(`Starting proof for second block #${secondBlock}`);
-    await proverNode.startProof(secondBlock, secondBlock);
+    // Prove the first two epochs simultaneously
+    logger.info(`Starting proof for first epoch ${startBlock}-${startBlock + 1}`);
+    await proverNode.startProof(startBlock, startBlock + 1);
+    logger.info(`Starting proof for second epoch ${startBlock + 2}-${startBlock + 3}`);
+    await proverNode.startProof(startBlock + 2, startBlock + 3);
 
     // Confirm that we cannot go back to prove an old one
-    await expect(proverNode.startProof(firstBlock, firstBlock)).rejects.toThrow(/behind the current world state/i);
+    await expect(proverNode.startProof(startBlock, startBlock + 1)).rejects.toThrow(/behind the current world state/i);
 
     // Await until proofs get submitted
-    await waitForProvenChain(ctx.aztecNode, secondBlock);
-    expect(await ctx.aztecNode.getProvenBlockNumber()).toEqual(secondBlock);
+    await waitForProvenChain(ctx.aztecNode, startBlock + 3);
+    expect(await ctx.aztecNode.getProvenBlockNumber()).toEqual(startBlock + 3);
 
     // Check that the prover id made it to the emitted event
     const { publicClient, l1ContractAddresses } = ctx.deployL1ContractsValues;
     const logs = await retrieveL2ProofVerifiedEvents(publicClient, l1ContractAddresses.rollupAddress, 1n);
-    expect(logs.length).toEqual(secondBlock);
 
-    const expectedBlockNumbers = [firstBlock, secondBlock];
-    const logsSlice = logs.slice(firstBlock - 1);
-    for (let i = 0; i < 2; i++) {
-      const log = logsSlice[i];
-      expect(log.l2BlockNumber).toEqual(BigInt(expectedBlockNumbers[i]));
-      expect(log.proverId.toString()).toEqual(proverId.toString());
-    }
+    // Logs for first epoch
+    expect(logs[logs.length - 2].l2BlockNumber).toEqual(BigInt(startBlock + 1));
+    expect(logs[logs.length - 2].proverId.toString()).toEqual(proverId.toString());
+
+    // Logs for 2nd epoch
+    expect(logs[logs.length - 1].l2BlockNumber).toEqual(BigInt(startBlock + 3));
+    expect(logs[logs.length - 1].proverId.toString()).toEqual(proverId.toString());
   });
 });

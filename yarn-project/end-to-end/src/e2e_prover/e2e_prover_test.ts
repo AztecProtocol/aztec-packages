@@ -16,7 +16,13 @@ import {
   createDebugLogger,
   deployL1Contract,
 } from '@aztec/aztec.js';
-import { BBCircuitVerifier, type ClientProtocolCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
+import {
+  BBCircuitVerifier,
+  type ClientProtocolCircuitVerifier,
+  TestCircuitVerifier,
+  type UltraKeccakHonkProtocolArtifact,
+} from '@aztec/bb-prover';
+import { compileContract } from '@aztec/ethereum';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
@@ -116,7 +122,7 @@ export class FullProverTest {
           FullProverTest.TOKEN_DECIMALS,
         )
           .send()
-          .deployed({ proven: true });
+          .deployed();
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
         return { tokenContractAddress: asset.address };
@@ -172,7 +178,11 @@ export class FullProverTest {
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
     } else {
+      this.logger.debug(`Configuring the node min txs per block ${this.minNumberOfTxsPerBlock}...`);
       this.circuitProofVerifier = new TestCircuitVerifier();
+      await this.aztecNode.setConfig({
+        minTxsPerBlock: this.minNumberOfTxsPerBlock,
+      });
     }
 
     this.logger.debug(`Main setup completed, initializing full prover PXE, Node, and Prover Node...`);
@@ -302,7 +312,7 @@ export class FullProverTest {
         const { fakeProofsAsset: asset, accounts } = this;
         const amount = 10000n;
 
-        const waitOpts = { proven: true };
+        const waitOpts = { proven: false };
 
         this.logger.verbose(`Minting ${amount} publicly...`);
         await asset.methods.mint_public(accounts[0].address, amount).send().wait(waitOpts);
@@ -314,7 +324,7 @@ export class FullProverTest {
 
         await this.addPendingShieldNoteToPXE(0, amount, secretHash, receipt.txHash);
         const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
-        await txClaim.wait({ debug: true, proven: true });
+        await txClaim.wait({ ...waitOpts, debug: true });
         this.logger.verbose(`Minting complete.`);
 
         return { amount };
@@ -355,51 +365,31 @@ export class FullProverTest {
       throw new Error('No verifier');
     }
 
+    const verifier = this.circuitProofVerifier as BBCircuitVerifier;
     const { walletClient, publicClient, l1ContractAddresses } = this.context.deployL1ContractsValues;
-
-    const contract = await (this.circuitProofVerifier as BBCircuitVerifier).generateSolidityContract(
-      'BlockRootRollupFinalArtifact',
-      'UltraHonkVerifier.sol',
-    );
-
-    const input = {
-      language: 'Solidity',
-      sources: {
-        'UltraHonkVerifier.sol': {
-          content: contract,
-        },
-      },
-      settings: {
-        // we require the optimizer
-        optimizer: {
-          enabled: true,
-          runs: 200,
-        },
-        evmVersion: 'paris',
-        outputSelection: {
-          '*': {
-            '*': ['evm.bytecode.object', 'abi'],
-          },
-        },
-      },
-    };
-
-    const output = JSON.parse(solc.compile(JSON.stringify(input)));
-
-    const abi = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].abi;
-    const bytecode: string = output.contracts['UltraHonkVerifier.sol']['HonkVerifier'].evm.bytecode.object;
-
-    const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, `0x${bytecode}`);
-
-    this.logger.info(`Deployed Real verifier at ${verifierAddress}`);
-
     const rollup = getContract({
       abi: RollupAbi,
       address: l1ContractAddresses.rollupAddress.toString(),
       client: walletClient,
     });
 
-    await rollup.write.setVerifier([verifierAddress.toString()]);
+    // REFACTOR: Extract this method to a common package. We need a package that deals with L1
+    // but also has a reference to L1 artifacts and bb-prover.
+    const setupVerifier = async (
+      artifact: UltraKeccakHonkProtocolArtifact,
+      method: 'setBlockVerifier' | 'setEpochVerifier',
+    ) => {
+      const contract = await verifier.generateSolidityContract(artifact, 'UltraHonkVerifier.sol');
+      const { abi, bytecode } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', contract, solc);
+      const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);
+      this.logger.info(`Deployed real ${artifact} verifier at ${verifierAddress}`);
+
+      await rollup.write[method]([verifierAddress.toString()]);
+    };
+
+    await setupVerifier('BlockRootRollupFinalArtifact', 'setBlockVerifier');
+    await setupVerifier('RootRollupArtifact', 'setEpochVerifier');
+
     this.logger.info('Rollup only accepts valid proofs now');
   }
 }
