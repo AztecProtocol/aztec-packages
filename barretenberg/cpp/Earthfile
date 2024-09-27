@@ -131,7 +131,7 @@ preset-sol:
 
 preset-wasm-threads:
   FROM +source
-  DO +CACHE_BUILD_BIN --prefix=preset-wasm-threads \
+  DO +CACHE_BUILD_BIN --prefix=preset-wasm-threads-v1 \
     --command="cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm"
   SAVE ARTIFACT build/bin
 
