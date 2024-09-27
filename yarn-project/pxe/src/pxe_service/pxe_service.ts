@@ -1,6 +1,7 @@
 import {
   type AuthWitness,
   type AztecNode,
+  EncryptedLogPayload,
   EncryptedNoteTxL2Logs,
   EncryptedTxL2Logs,
   type EventMetadata,
@@ -20,7 +21,6 @@ import {
   type SiblingPath,
   SimulatedTx,
   SimulationError,
-  TaggedLog,
   Tx,
   type TxEffect,
   type TxExecutionRequest,
@@ -945,10 +945,14 @@ export class PXEService implements PXE {
     const visibleEvents = encryptedLogs.flatMap(encryptedLog => {
       for (const sk of vsks) {
         const decryptedLog =
-          TaggedLog.decryptAsIncoming(encryptedLog, sk, L1EventPayload) ??
-          TaggedLog.decryptAsOutgoing(encryptedLog, sk, L1EventPayload);
-        if (decryptedLog !== undefined) {
-          return [decryptedLog];
+          EncryptedLogPayload.decryptAsIncoming(encryptedLog.toBuffer(), sk) ??
+          EncryptedLogPayload.decryptAsOutgoing(encryptedLog.toBuffer(), sk);
+        const decryptedEvent = L1EventPayload.fromIncomingBodyPlaintextAndContractAddress(
+          decryptedLog!.incomingBodyPlaintext,
+          decryptedLog!.contract,
+        );
+        if (decryptedEvent !== undefined) {
+          return [decryptedEvent];
         }
       }
 
@@ -957,19 +961,19 @@ export class PXEService implements PXE {
 
     const decodedEvents = visibleEvents
       .map(visibleEvent => {
-        if (visibleEvent.payload === undefined) {
+        if (visibleEvent === undefined) {
           return undefined;
         }
-        if (!visibleEvent.payload.eventTypeId.equals(eventMetadata.eventSelector)) {
+        if (!visibleEvent.eventTypeId.equals(eventMetadata.eventSelector)) {
           return undefined;
         }
-        if (visibleEvent.payload.event.items.length !== eventMetadata.fieldNames.length) {
+        if (visibleEvent.event.items.length !== eventMetadata.fieldNames.length) {
           throw new Error(
             'Something is weird here, we have matching EventSelectors, but the actual payload has mismatched length',
           );
         }
 
-        return eventMetadata.decode(visibleEvent.payload);
+        return eventMetadata.decode(visibleEvent);
       })
       .filter(visibleEvent => visibleEvent !== undefined) as T[];
 

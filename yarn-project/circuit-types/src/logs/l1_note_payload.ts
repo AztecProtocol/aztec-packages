@@ -10,7 +10,7 @@ import { Note } from './l1_payload/payload.js';
  * @remarks This data is required to compute a nullifier/to spend a note. Along with that this class contains
  * the necessary functionality to encrypt and decrypt the data.
  */
-export class NotePayload {
+export class L1NotePayload {
   constructor(
     /**
      * A note as emitted from Noir contract. Can be used along with private key to compute nullifier.
@@ -31,14 +31,14 @@ export class NotePayload {
   ) {}
 
   /**
-   * Deserializes the NotePayload object from a Buffer.
+   * Deserializes the L1NotePayload object from a Buffer.
    * @param plaintext - Incoming body plaintext.
-   * @returns An instance of NotePayload.
+   * @returns An instance of L1NotePayload.
    */
   static fromIncomingBodyPlaintextAndContractAddress(
     plaintext: Buffer,
     contractAddress: AztecAddress,
-  ): NotePayload | undefined {
+  ): L1NotePayload | undefined {
     try {
       const reader = BufferReader.asReader(plaintext);
       const fields = reader.readArray(plaintext.length / Fr.SIZE_IN_BYTES, Fr);
@@ -48,15 +48,15 @@ export class NotePayload {
 
       const note = new Note(fields.slice(2));
 
-      return new NotePayload(note, contractAddress, storageSlot, noteTypeId);
+      return new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
     } catch (e) {
       return undefined;
     }
   }
 
   /**
-   * Serializes the NotePayload object into a Buffer.
-   * @returns Buffer representation of the NotePayload object.
+   * Serializes the L1NotePayload object into a Buffer.
+   * @returns Buffer representation of the L1NotePayload object.
    */
   toIncomingBodyPlaintext() {
     const fields = [this.storageSlot, this.noteTypeId.toField(), ...this.note.items];
@@ -64,15 +64,15 @@ export class NotePayload {
   }
 
   /**
-   * Create a random NotePayload object (useful for testing purposes).
+   * Create a random L1NotePayload object (useful for testing purposes).
    * @param contract - The address of a contract the note was emitted from.
-   * @returns A random NotePayload object.
+   * @returns A random L1NotePayload object.
    */
   static random(contract = AztecAddress.random()) {
-    return new NotePayload(Note.random(), contract, Fr.random(), NoteSelector.random());
+    return new L1NotePayload(Note.random(), contract, Fr.random(), NoteSelector.random());
   }
 
-  public equals(other: NotePayload) {
+  public equals(other: L1NotePayload) {
     return (
       this.note.equals(other.note) &&
       this.contractAddress.equals(other.contractAddress) &&

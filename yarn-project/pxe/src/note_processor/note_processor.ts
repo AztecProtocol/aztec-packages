@@ -1,4 +1,4 @@
-import { type AztecNode, EncryptedLogPayload, type L2Block, NotePayload } from '@aztec/circuit-types';
+import { type AztecNode, EncryptedLogPayload, L1NotePayload, type L2Block } from '@aztec/circuit-types';
 import { type NoteProcessorStats } from '@aztec/circuit-types/stats';
 import { type AztecAddress, INITIAL_L2_BLOCK_NUM, MAX_NOTE_HASHES_PER_TX, type PublicKey } from '@aztec/circuits.js';
 import { type Fr } from '@aztec/foundation/fields';
@@ -146,13 +146,13 @@ export class NoteProcessor {
             const outgoingDecryptedLog = EncryptedLogPayload.decryptAsOutgoing(log.data, ovskM);
 
             const incomingNotePayload = incomingDecryptedLog
-              ? NotePayload.fromIncomingBodyPlaintextAndContractAddress(
+              ? L1NotePayload.fromIncomingBodyPlaintextAndContractAddress(
                   incomingDecryptedLog.incomingBodyPlaintext,
                   incomingDecryptedLog.contract,
                 )
               : undefined;
             const outgoingNotePayload = outgoingDecryptedLog
-              ? NotePayload.fromIncomingBodyPlaintextAndContractAddress(
+              ? L1NotePayload.fromIncomingBodyPlaintextAndContractAddress(
                   outgoingDecryptedLog.incomingBodyPlaintext,
                   outgoingDecryptedLog.contract,
                 )
@@ -311,7 +311,7 @@ export class NoteProcessor {
     for (const deferredNote of deferredNoteDaos) {
       const { publicKey, note, contractAddress, storageSlot, noteTypeId, txHash, noteHashes, dataStartIndexForTx } =
         deferredNote;
-      const payload = new NotePayload(note, contractAddress, storageSlot, noteTypeId);
+      const payload = new L1NotePayload(note, contractAddress, storageSlot, noteTypeId);
 
       const isIncoming = publicKey.equals(this.ivpkM);
       const isOutgoing = publicKey.equals(this.ovpkM);

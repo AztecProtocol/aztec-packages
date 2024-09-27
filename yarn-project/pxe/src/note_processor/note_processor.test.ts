@@ -1,4 +1,4 @@
-import { type AztecNode, EncryptedL2NoteLog, EncryptedLogPayload, L2Block, NotePayload } from '@aztec/circuit-types';
+import { type AztecNode, EncryptedL2NoteLog, EncryptedLogPayload, L1NotePayload, L2Block } from '@aztec/circuit-types';
 import {
   AztecAddress,
   CompleteAddress,
@@ -68,8 +68,8 @@ class MockNoteRequest {
     );
   }
 
-  get notePayload(): NotePayload | undefined {
-    return NotePayload.fromIncomingBodyPlaintextAndContractAddress(
+  get notePayload(): L1NotePayload | undefined {
+    return L1NotePayload.fromIncomingBodyPlaintextAndContractAddress(
       this.logPayload.incomingBodyPlaintext,
       this.logPayload.contract,
     );
@@ -354,6 +354,6 @@ describe('Note Processor', () => {
   });
 
   function getRandomNoteLogPayload(app = AztecAddress.random()): EncryptedLogPayload {
-    return new EncryptedLogPayload(Fr.random(), Fr.random(), app, NotePayload.random(app).toIncomingBodyPlaintext());
+    return new EncryptedLogPayload(Fr.random(), Fr.random(), app, L1NotePayload.random(app).toIncomingBodyPlaintext());
   }
 });

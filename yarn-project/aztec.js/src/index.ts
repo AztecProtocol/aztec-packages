@@ -134,7 +134,7 @@ export {
   merkleTreeIds,
   mockTx,
   mockEpochProofQuote,
-  TaggedLog,
+  EncryptedLogPayload,
   L1NotePayload,
   L1EventPayload,
   EpochProofQuote,
