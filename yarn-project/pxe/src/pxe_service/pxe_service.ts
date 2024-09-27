@@ -947,10 +947,12 @@ export class PXEService implements PXE {
         const decryptedLog =
           EncryptedLogPayload.decryptAsIncoming(encryptedLog.toBuffer(), sk) ??
           EncryptedLogPayload.decryptAsOutgoing(encryptedLog.toBuffer(), sk);
-        const decryptedEvent = L1EventPayload.fromIncomingBodyPlaintextAndContractAddress(
-          decryptedLog!.incomingBodyPlaintext,
-          decryptedLog!.contract,
-        );
+        const decryptedEvent = decryptedLog
+          ? L1EventPayload.fromIncomingBodyPlaintextAndContractAddress(
+              decryptedLog!.incomingBodyPlaintext,
+              decryptedLog!.contract,
+            )
+          : undefined;
         if (decryptedEvent !== undefined) {
           return [decryptedEvent];
         }

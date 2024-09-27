@@ -57,7 +57,7 @@ describe('Logs', () => {
       expect(encryptedLogs.length).toBe(3);
 
       const decryptedLog0 = EncryptedLogPayload.decryptAsIncoming(
-        encryptedLogs[0].toBuffer(),
+        encryptedLogs[0].data,
         deriveMasterIncomingViewingSecretKey(wallets[0].getSecretKey()),
       );
       const decryptedEvent0 = L1EventPayload.fromIncomingBodyPlaintextAndContractAddress(
@@ -80,13 +80,13 @@ describe('Logs', () => {
       const badEvent0 = TestLogContract.events.ExampleEvent1.decode(decryptedEvent0);
       expect(badEvent0).toBe(undefined);
 
-      const decryptedLog1 = EncryptedLogPayload.decryptAsIncoming(
-        encryptedLogs[1].toBuffer(),
+      const decryptedLog2 = EncryptedLogPayload.decryptAsIncoming(
+        encryptedLogs[2].data,
         deriveMasterIncomingViewingSecretKey(wallets[0].getSecretKey()),
       );
       const decryptedEvent1 = L1EventPayload.fromIncomingBodyPlaintextAndContractAddress(
-        decryptedLog1!.incomingBodyPlaintext,
-        decryptedLog1!.contract,
+        decryptedLog2!.incomingBodyPlaintext,
+        decryptedLog2!.contract,
       )!;
 
       expect(decryptedEvent1.contractAddress).toStrictEqual(testLogContract.address);
