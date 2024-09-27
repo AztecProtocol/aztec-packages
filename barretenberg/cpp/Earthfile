@@ -131,8 +131,8 @@ preset-sol:
 
 preset-wasm-threads:
   FROM +source
-  DO +CACHE_BUILD_BIN --prefix=preset-wasm-threads \
-    --command="cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm && /opt/wasi-sdk/bin/llvm-strip ./build/bin/barretenberg.wasm"
+  DO +CACHE_BUILD_BIN --prefix=preset-wasm-threads-v1 \
+    --command="cmake --preset wasm-threads -Bbuild && cmake --build build --target barretenberg.wasm"
   SAVE ARTIFACT build/bin
 
 preset-gcc:
