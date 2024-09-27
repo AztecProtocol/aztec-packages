@@ -74,7 +74,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @param on_completion Callback to be called on completion
      * @param includeUncommitted Whether to include uncommitted changes
      */
-    void get_sibling_path(const index_t& index, const HashPathCallback& on_completion, bool includeUncommitted) const;
+    void get_sibling_path(const index_t index, const HashPathCallback& on_completion, bool includeUncommitted) const;
 
     /**
      * @brief Returns the sibling path from the leaf at the given index to the root
@@ -83,8 +83,8 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @param on_completion Callback to be called on completion
      * @param includeUncommitted Whether to include uncommitted changes
      */
-    void get_sibling_path(const index_t& index,
-                          const index_t& blockNumber,
+    void get_sibling_path(const index_t index,
+                          const index_t blockNumber,
                           const HashPathCallback& on_completion,
                           bool includeUncommitted) const;
 
@@ -125,7 +125,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @param includeUncommitted Whether to include uncommitted changes
      * @param on_completion Callback to be called on completion
      */
-    void get_leaf(const index_t& index, bool includeUncommitted, const GetLeafCallback& completion) const;
+    void get_leaf(const index_t index, bool includeUncommitted, const GetLeafCallback& completion) const;
 
     /**
      * @brief Returns the leaf value at the provided index
@@ -134,8 +134,8 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @param includeUncommitted Whether to include uncommitted changes
      * @param on_completion Callback to be called on completion
      */
-    void get_leaf(const index_t& index,
-                  const index_t& blockNumber,
+    void get_leaf(const index_t index,
+                  const index_t blockNumber,
                   bool includeUncommitted,
                   const GetLeafCallback& completion) const;
 
@@ -148,7 +148,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      * @brief Returns the index of the provided leaf in the tree
      */
     void find_leaf_index(const fr& leaf,
-                         const index_t& blockNumber,
+                         const index_t blockNumber,
                          bool includeUncommitted,
                          const FindLeafCallback& on_completion) const;
 
@@ -165,7 +165,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
      */
     void find_leaf_index_from(const fr& leaf,
                               index_t start_index,
-                              const index_t& blockNumber,
+                              const index_t blockNumber,
                               bool includeUncommitted,
                               const FindLeafCallback& on_completion) const;
 
@@ -194,14 +194,14 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
 
     void add_values_internal(std::shared_ptr<std::vector<fr>> values,
                              fr& new_root,
-                             index_t& new_size,
+                             index_t new_size,
                              bool update_index);
 
     void add_values_internal(const std::vector<fr>& values,
                              const AppendCompletionCallback& on_completion,
                              bool update_index);
 
-    OptionalSiblingPath get_subtree_sibling_path_internal(const index_t& leaf_index,
+    OptionalSiblingPath get_subtree_sibling_path_internal(const index_t leaf_index,
                                                           uint32_t subtree_depth,
                                                           const RequestContext& requestContext,
                                                           ReadTransaction& tx) const;
@@ -214,7 +214,7 @@ template <typename Store, typename HashingPolicy> class ContentAddressedAppendOn
     index_t get_batch_insertion_size(index_t treeSize, index_t remainingAppendSize);
 
     void add_batch_internal(
-        std::vector<fr>& values, fr& new_root, index_t& new_size, bool update_index, ReadTransaction& tx);
+        std::vector<fr>& values, fr& new_root, index_t new_size, bool update_index, ReadTransaction& tx);
 
     Store& store_;
     uint32_t depth_;
@@ -274,7 +274,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_meta_data(bool in
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t& index,
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t index,
                                                                             const HashPathCallback& on_completion,
                                                                             bool includeUncommitted) const
 {
@@ -282,8 +282,8 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t& index,
-                                                                            const index_t& blockNumber,
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(const index_t index,
+                                                                            const index_t blockNumber,
                                                                             const HashPathCallback& on_completion,
                                                                             bool includeUncommitted) const
 {
@@ -360,7 +360,7 @@ fr_sibling_path ContentAddressedAppendOnlyTree<Store, HashingPolicy>::optional_s
     if (optionalPath.empty()) {
         return {};
     }
-    fr_sibling_path path(optionalPath.size());
+    fr_sibling_path path(optionalPath.size(), 0);
     size_t pathIndex = optionalPath.size() - 1;
     for (index_t level = 1; level <= optionalPath.size(); level++) {
         std::optional<fr> op = optionalPath[pathIndex];
@@ -431,7 +431,7 @@ std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_lea
 template <typename Store, typename HashingPolicy>
 ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath ContentAddressedAppendOnlyTree<
     Store,
-    HashingPolicy>::get_subtree_sibling_path_internal(const index_t& leaf_index,
+    HashingPolicy>::get_subtree_sibling_path_internal(const index_t leaf_index,
                                                       const uint32_t subtree_depth,
                                                       const RequestContext& requestContext,
                                                       ReadTransaction& tx) const
@@ -441,10 +441,10 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath Conten
     if (subtree_depth >= depth_) {
         return path;
     }
-    path.resize(depth_ - subtree_depth);
+    path.resize(depth_ - subtree_depth, std::nullopt);
     size_t path_index = path.size() - 1;
 
-    index_t mask = index_t(1) << (depth_ - 1);
+    index_t mask = static_cast<index_t>(1) << (depth_ - 1);
     // std::cout << "Depth: " << depth_ << ", mask: " << mask << ", sub tree depth: " << subtree_depth
     //           << ", leaf index: " << leaf_index << std::endl;
     fr hash = requestContext.root;
@@ -476,7 +476,7 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath Conten
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_t& leaf_index,
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_t leaf_index,
                                                                     bool includeUncommitted,
                                                                     const GetLeafCallback& on_completion) const
 {
@@ -499,8 +499,8 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
 }
 
 template <typename Store, typename HashingPolicy>
-void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_t& leaf_index,
-                                                                    const index_t& blockNumber,
+void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_t leaf_index,
+                                                                    const index_t blockNumber,
                                                                     bool includeUncommitted,
                                                                     const GetLeafCallback& on_completion) const
 {
@@ -542,7 +542,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index(const
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index(const fr& leaf,
-                                                                           const index_t& blockNumber,
+                                                                           const index_t blockNumber,
                                                                            bool includeUncommitted,
                                                                            const FindLeafCallback& on_completion) const
 {
@@ -576,7 +576,7 @@ template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_index_from(
     const fr& leaf,
     index_t start_index,
-    const index_t& blockNumber,
+    const index_t blockNumber,
     bool includeUncommitted,
     const FindLeafCallback& on_completion) const
 {
@@ -670,7 +670,7 @@ index_t ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_batch_insertio
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(std::shared_ptr<std::vector<fr>> values,
                                                                                fr& new_root,
-                                                                               index_t& new_size,
+                                                                               index_t new_size,
                                                                                bool update_index)
 {
     typename Store::ReadTransactionPtr tx = store_.create_read_transaction();
@@ -692,7 +692,7 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_values_internal(s
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::add_batch_internal(
-    std::vector<fr>& values, fr& new_root, index_t& new_size, bool update_index, ReadTransaction& tx)
+    std::vector<fr>& values, fr& new_root, index_t new_size, bool update_index, ReadTransaction& tx)
 {
 
     uint32_t start_level = depth_;
