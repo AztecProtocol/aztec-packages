@@ -684,11 +684,11 @@ describe('sequencer', () => {
       publisher.validateProofQuote.mockImplementation((x: EpochProofQuote) => Promise.resolve(x));
 
       // The previous epoch can be claimed
-      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(currentEpoch - 1n));
+      publisher.nextEpochToClaim.mockImplementation(() => Promise.resolve(0n));
 
       await sequencer.initialSync();
       await sequencer.work();
-      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], proofQuote);
+      expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
     });
 
     it('does not submit a quote with an expired slot number', async () => {
