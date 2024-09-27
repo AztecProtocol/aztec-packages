@@ -79,6 +79,12 @@ describe('In-Memory P2P Client', () => {
     );
   };
 
+  afterEach(async () => {
+    if (client.isReady()) {
+      await client.stop();
+    }
+  });
+
   it('can start & stop', async () => {
     expect(client.isReady()).toEqual(false);
 
@@ -210,6 +216,8 @@ describe('In-Memory P2P Client', () => {
     for (const quote of proofQuotes) {
       client.broadcastEpochProofQuote(quote);
     }
+
+    epochProofQuotePool.deleteQuotesToEpoch.mockReset();
 
     await advanceToProvenBlock(3, 3);
 

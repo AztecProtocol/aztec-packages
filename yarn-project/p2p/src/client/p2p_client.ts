@@ -498,8 +498,6 @@ export class P2PClient implements P2P {
     await this.markTxsAsMinedFromBlocks(blocks);
     const lastBlockNum = blocks[blocks.length - 1].number;
     await this.synchedLatestBlockNumber.set(lastBlockNum);
-    const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
-    this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
     this.log.debug(`Synched to latest block ${lastBlockNum}`);
     await this.startServiceIfSynched();
   }
@@ -529,6 +527,8 @@ export class P2PClient implements P2P {
 
     await this.synchedProvenBlockNumber.set(lastBlockNum);
     this.log.debug(`Synched to proven block ${lastBlockNum}`);
+    const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
+    this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
     await this.startServiceIfSynched();
   }
 
