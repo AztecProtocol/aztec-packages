@@ -40,12 +40,6 @@ template <typename LeafValueType> struct BatchInsertionResult {
     MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
 };
 
-const uint64_t NULLIFIER_TREE_HEIGHT = 20;
-const uint64_t NOTE_HASH_TREE_HEIGHT = 32;
-const uint64_t PUBLIC_DATA_TREE_HEIGHT = 40;
-const uint64_t L1_TO_L2_MSG_TREE_HEIGHT = 16;
-const uint64_t ARCHIVE_TREE_HEIGHT = 16;
-
 const uint64_t CANONICAL_FORK_ID = 0;
 
 class WorldState {

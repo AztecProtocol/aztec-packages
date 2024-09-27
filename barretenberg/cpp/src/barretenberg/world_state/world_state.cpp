@@ -8,9 +8,11 @@
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/signal.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/world_state/tree_with_store.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state_stores.hpp"
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -25,6 +27,9 @@
 namespace bb::world_state {
 
 using namespace bb::crypto::merkle_tree;
+
+const uint64_t INITIAL_NULLIFIER_TREE_SIZE = 2UL * MAX_NULLIFIERS_PER_TX;
+const uint64_t INITIAL_PUBLIC_DATA_TREE_SIZE = 2UL * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
 
 WorldState::WorldState(uint64_t threads, const std::string& data_dir, uint64_t map_size_kb)
     : _workers(threads)
@@ -52,7 +57,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir, uint64_t dbSi
     {
         auto store = std::make_unique<NullifierStore>(
             "nullifier_tree", NULLIFIER_TREE_HEIGHT, *_persistentStores->nullifierStore);
-        auto tree = std::make_unique<NullifierTree>(*store, _workers, 128);
+        auto tree = std::make_unique<NullifierTree>(*store, _workers, INITIAL_NULLIFIER_TREE_SIZE);
         fork->_trees.insert({ MerkleTreeId::NULLIFIER_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
@@ -64,7 +69,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir, uint64_t dbSi
     {
         auto store = std::make_unique<PublicDataStore>(
             "archive_tree", PUBLIC_DATA_TREE_HEIGHT, *_persistentStores->publicDataStore);
-        auto tree = std::make_unique<PublicDataTree>(*store, this->_workers, 128);
+        auto tree = std::make_unique<PublicDataTree>(*store, this->_workers, INITIAL_PUBLIC_DATA_TREE_SIZE);
         fork->_trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
@@ -74,7 +79,7 @@ void WorldState::create_canonical_fork(const std::string& dataDir, uint64_t dbSi
         fork->_trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
-        auto store = std::make_unique<FrStore>("message_tree", ARCHIVE_TREE_HEIGHT, *_persistentStores->archiveStore);
+        auto store = std::make_unique<FrStore>("message_tree", ARCHIVE_HEIGHT, *_persistentStores->archiveStore);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
         fork->_trees.insert({ MerkleTreeId::ARCHIVE, TreeWithStore(std::move(tree), std::move(store)) });
     }
@@ -105,7 +110,7 @@ Fork::SharedPtr WorldState::create_new_fork(index_t blockNumber)
     {
         auto store = std::make_unique<NullifierStore>(
             "nullifier_tree", NULLIFIER_TREE_HEIGHT, blockNumber, *_persistentStores->nullifierStore);
-        auto tree = std::make_unique<NullifierTree>(*store, _workers, 128);
+        auto tree = std::make_unique<NullifierTree>(*store, _workers, INITIAL_NULLIFIER_TREE_SIZE);
         fork->_trees.insert({ MerkleTreeId::NULLIFIER_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
@@ -117,7 +122,7 @@ Fork::SharedPtr WorldState::create_new_fork(index_t blockNumber)
     {
         auto store = std::make_unique<PublicDataStore>(
             "archive_tree", PUBLIC_DATA_TREE_HEIGHT, blockNumber, *_persistentStores->publicDataStore);
-        auto tree = std::make_unique<PublicDataTree>(*store, this->_workers, 128);
+        auto tree = std::make_unique<PublicDataTree>(*store, this->_workers, INITIAL_PUBLIC_DATA_TREE_SIZE);
         fork->_trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
@@ -127,8 +132,8 @@ Fork::SharedPtr WorldState::create_new_fork(index_t blockNumber)
         fork->_trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
-        auto store = std::make_unique<FrStore>(
-            "message_tree", ARCHIVE_TREE_HEIGHT, blockNumber, *_persistentStores->archiveStore);
+        auto store =
+            std::make_unique<FrStore>("message_tree", ARCHIVE_HEIGHT, blockNumber, *_persistentStores->archiveStore);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
         fork->_trees.insert({ MerkleTreeId::ARCHIVE, TreeWithStore(std::move(tree), std::move(store)) });
     }
@@ -254,9 +259,7 @@ void WorldState::update_public_data(const PublicDataLeafValue& new_value, Fork::
 
 void WorldState::commit()
 {
-    // TODO (alexg) should this lock _all_ the trees until they are all committed?
-    // otherwise another request could come in to modify one of the trees
-    // or reads would give inconsistent results
+    // NOTE: the calling code is expected to ensure no other reads or writes happen during commit
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     for (auto& [id, tree] : fork->_trees) {
@@ -270,9 +273,7 @@ void WorldState::commit()
 
 void WorldState::rollback()
 {
-    // TODO (alexg) should this lock _all_ the trees until they are all committed?
-    // otherwise another request could come in to modify one of the trees
-    // or reads would give inconsistent results
+    // NOTE: the calling code is expected to ensure no other reads or writes happen during rollback
     Fork::SharedPtr fork = retrieve_fork(CANONICAL_FORK_ID);
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     for (auto& [id, tree] : fork->_trees) {
