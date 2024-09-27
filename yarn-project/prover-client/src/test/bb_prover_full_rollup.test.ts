@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { PROVING_STATUS, mockTx } from '@aztec/circuit-types';
+import { mockTx } from '@aztec/circuit-types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { makeTuple } from '@aztec/foundation/array';
 import { times } from '@aztec/foundation/collection';
@@ -32,14 +32,14 @@ describe('prover/bb_prover/full-rollup', () => {
   it.each([
     [1, 1, 0, 2], // Epoch with a single block, requires one padding block proof
     [2, 2, 0, 2], // Full epoch with two blocks
-    [2, 3, 0, 2], // Epoch with two blocks but the block merge tree was assembled as with 3 leaves, requires one padding block proof
+    // [2, 3, 0, 2], // Epoch with two blocks but the block merge tree was assembled as with 3 leaves, requires one padding block proof; commented out to reduce running time
   ])(
     'proves a private-only epoch with %i/%i blocks with %i/%i non-empty txs each',
     async (blockCount, totalBlocks, nonEmptyTxs, totalTxs) => {
       log.info(`Proving epoch with ${blockCount}/${totalBlocks} blocks with ${nonEmptyTxs}/${totalTxs} non-empty txs`);
 
       const initialHeader = context.actualDb.getInitialHeader();
-      const provingTicket = context.orchestrator.startNewEpoch(1, totalBlocks);
+      context.orchestrator.startNewEpoch(1, totalBlocks);
 
       for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
         const globals = makeGlobals(blockNum);
@@ -55,7 +55,7 @@ describe('prover/bb_prover/full-rollup', () => {
         log.info(`Starting new block #${blockNum}`);
         await context.orchestrator.startNewBlock(totalTxs, globals, l1ToL2Messages);
         log.info(`Processing public functions`);
-        const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs, context.blockProver);
+        const [processed, failed] = await context.processPublicFunctions(txs, nonEmptyTxs, context.epochProver);
         expect(processed.length).toBe(nonEmptyTxs);
         expect(failed.length).toBe(0);
 
@@ -63,13 +63,8 @@ describe('prover/bb_prover/full-rollup', () => {
         await context.orchestrator.setBlockCompleted();
       }
 
-      log.info(`Setting epoch as completed`);
-      context.orchestrator.setEpochCompleted();
-
       log.info(`Awaiting proofs`);
-      const provingResult = await provingTicket.provingPromise;
-      expect(provingResult.status).toBe(PROVING_STATUS.SUCCESS);
-      const epochResult = context.orchestrator.finaliseEpoch();
+      const epochResult = await context.orchestrator.finaliseEpoch();
 
       await expect(prover.verifyProof('RootRollupArtifact', epochResult.proof)).resolves.not.toThrow();
 
@@ -102,25 +97,18 @@ describe('prover/bb_prover/full-rollup', () => {
       Fr.random,
     );
 
-    const provingTicket = await context.orchestrator.startNewBlock(
-      numTransactions,
-      context.globalVariables,
-      l1ToL2Messages,
-    );
+    context.orchestrator.startNewEpoch(1, 1);
 
-    const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.blockProver);
+    await context.orchestrator.startNewBlock(numTransactions, context.globalVariables, l1ToL2Messages);
+
+    const [processed, failed] = await context.processPublicFunctions(txs, numTransactions, context.epochProver);
 
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);
 
     await context.orchestrator.setBlockCompleted();
 
-    const provingResult = await provingTicket.provingPromise;
-
-    expect(provingResult.status).toBe(PROVING_STATUS.SUCCESS);
-
-    const blockResult = await context.orchestrator.finaliseBlock();
-
-    await expect(prover.verifyProof('RootRollupArtifact', blockResult.proof)).resolves.not.toThrow();
+    const result = await context.orchestrator.finaliseEpoch();
+    await expect(prover.verifyProof('RootRollupArtifact', result.proof)).resolves.not.toThrow();
   });
 });

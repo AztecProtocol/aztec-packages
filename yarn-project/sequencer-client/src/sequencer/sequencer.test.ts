@@ -1,7 +1,7 @@
 import {
   BlockAttestation,
+  type BlockBuilder,
   BlockProposal,
-  type BlockSimulator,
   ConsensusPayload,
   type EpochProofQuote,
   type L1ToL2MessageSource,
@@ -9,9 +9,6 @@ import {
   type L2BlockSource,
   type MerkleTreeAdminOperations,
   MerkleTreeId,
-  PROVING_STATUS,
-  type ProvingSuccess,
-  type ProvingTicket,
   type Tx,
   TxHash,
   type UnencryptedL2Log,
@@ -56,7 +53,7 @@ describe('sequencer', () => {
   let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchronizer>;
-  let blockSimulator: MockProxy<BlockSimulator>;
+  let blockBuilder: MockProxy<BlockBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeAdminOperations>;
   let publicProcessor: MockProxy<PublicProcessor>;
   let l2BlockSource: MockProxy<L2BlockSource>;
@@ -119,7 +116,7 @@ describe('sequencer', () => {
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     merkleTreeOps = mock<MerkleTreeAdminOperations>();
-    blockSimulator = mock<BlockSimulator>();
+    blockBuilder = mock<BlockBuilder>();
 
     p2p = mock<P2P>({
       getStatus: mockFn().mockResolvedValue({ state: P2PClientState.IDLE, syncedToL2Block: lastBlockNumber }),
@@ -158,7 +155,7 @@ describe('sequencer', () => {
     });
 
     const blockBuilderFactory = mock<BlockBuilderFactory>({
-      create: () => blockSimulator,
+      create: () => blockBuilder,
     });
 
     validatorClient = mock<ValidatorClient>({
@@ -187,16 +184,8 @@ describe('sequencer', () => {
     tx.data.constants.txContext.chainId = chainId;
     const txHash = tx.getTxHash();
 
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
-
     p2p.getTxs.mockReturnValueOnce([tx]);
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -204,7 +193,7 @@ describe('sequencer', () => {
     await sequencer.initialSync();
     await sequencer.work();
 
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
@@ -212,23 +201,15 @@ describe('sequencer', () => {
     // Ok, we have an issue that we never actually call the process L2 block
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block when it is their turn', async () => {
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
     const txHash = tx.getTxHash();
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
 
     p2p.getTxs.mockReturnValue([tx]);
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(mockedGlobalVariables);
@@ -239,7 +220,7 @@ describe('sequencer', () => {
 
     await sequencer.initialSync();
     await sequencer.work();
-    expect(blockSimulator.startNewBlock).not.toHaveBeenCalled();
+    expect(blockBuilder.startNewBlock).not.toHaveBeenCalled();
 
     // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
     publisher.canProposeAtNextEthBlock.mockResolvedValue([
@@ -248,20 +229,19 @@ describe('sequencer', () => {
     ]);
 
     await sequencer.work();
-    expect(blockSimulator.startNewBlock).not.toHaveBeenCalled();
+    expect(blockBuilder.startNewBlock).not.toHaveBeenCalled();
 
     // Now it is!
     publisher.validateBlockForSubmission.mockClear();
     publisher.validateBlockForSubmission.mockResolvedValue();
 
     await sequencer.work();
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [txHash], undefined);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
@@ -273,16 +253,9 @@ describe('sequencer', () => {
     const validTxHashes = txs.filter((_, i) => i !== doubleSpendTxIndex).map(tx => tx.getTxHash());
 
     const doubleSpendTx = txs[doubleSpendTxIndex];
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
 
     p2p.getTxs.mockReturnValueOnce(txs);
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -298,14 +271,13 @@ describe('sequencer', () => {
     await sequencer.initialSync();
     await sequencer.work();
 
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([doubleSpendTx.getTxHash()]);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs rejecting incorrect chain ids', async () => {
@@ -317,16 +289,8 @@ describe('sequencer', () => {
     const invalidChainTx = txs[invalidChainTxIndex];
     const validTxHashes = txs.filter((_, i) => i !== invalidChainTxIndex).map(tx => tx.getTxHash());
 
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
-
     p2p.getTxs.mockReturnValueOnce(txs);
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -337,14 +301,13 @@ describe('sequencer', () => {
     await sequencer.initialSync();
     await sequencer.work();
 
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
     expect(p2p.deleteTxs).toHaveBeenCalledWith([invalidChainTx.getTxHash()]);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block out of several txs dropping the ones that go over max size', async () => {
@@ -356,16 +319,8 @@ describe('sequencer', () => {
     });
     const validTxHashes = txs.filter((_, i) => i !== invalidTransactionIndex).map(tx => tx.getTxHash());
 
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
-
     p2p.getTxs.mockReturnValueOnce(txs);
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -378,13 +333,12 @@ describe('sequencer', () => {
     await sequencer.initialSync();
     await sequencer.work();
 
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), validTxHashes, undefined);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block once it reaches the minimum number of transactions', async () => {
@@ -394,15 +348,8 @@ describe('sequencer', () => {
       return tx;
     });
     const block = L2Block.random(lastBlockNumber + 1);
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
 
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -415,27 +362,26 @@ describe('sequencer', () => {
     p2p.getTxs.mockReturnValueOnce([]);
     //p2p.getTxs.mockReturnValueOnce(txs.slice(0, 4));
     await sequencer.work();
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
     // block is not built with 3 txs
     p2p.getTxs.mockReturnValueOnce(txs.slice(0, 3));
 
     await sequencer.work();
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
     // block is built with 4 txs
     p2p.getTxs.mockReturnValueOnce(txs.slice(0, 4));
     const txHashes = txs.slice(0, 4).map(tx => tx.getTxHash());
 
     await sequencer.work();
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       4,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), txHashes, undefined);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block that contains zero real transactions once flushed', async () => {
@@ -445,15 +391,8 @@ describe('sequencer', () => {
       return tx;
     });
     const block = L2Block.random(lastBlockNumber + 1);
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
 
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -465,12 +404,12 @@ describe('sequencer', () => {
     // block is not built with 0 txs
     p2p.getTxs.mockReturnValueOnce([]);
     await sequencer.work();
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
     // block is not built with 3 txs
     p2p.getTxs.mockReturnValueOnce(txs.slice(0, 3));
     await sequencer.work();
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
     // flush the sequencer and it should build a block
     sequencer.flush();
@@ -478,15 +417,14 @@ describe('sequencer', () => {
     // block is built with 0 txs
     p2p.getTxs.mockReturnValueOnce([]);
     await sequencer.work();
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(1);
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       2,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), [], undefined);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('builds a block that contains less than the minimum number of transactions once flushed', async () => {
@@ -496,15 +434,8 @@ describe('sequencer', () => {
       return tx;
     });
     const block = L2Block.random(lastBlockNumber + 1);
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
 
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(mockedGlobalVariables);
@@ -516,12 +447,12 @@ describe('sequencer', () => {
     // block is not built with 0 txs
     p2p.getTxs.mockReturnValueOnce([]);
     await sequencer.work();
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
     // block is not built with 3 txs
     p2p.getTxs.mockReturnValueOnce(txs.slice(0, 3));
     await sequencer.work();
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(0);
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(0);
 
     // flush the sequencer and it should build a block
     sequencer.flush();
@@ -531,8 +462,8 @@ describe('sequencer', () => {
     p2p.getTxs.mockReturnValueOnce(postFlushTxs);
     const postFlushTxHashes = postFlushTxs.map(tx => tx.getTxHash());
     await sequencer.work();
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledTimes(1);
-    expect(blockSimulator.startNewBlock).toHaveBeenCalledWith(
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledTimes(1);
+    expect(blockBuilder.startNewBlock).toHaveBeenCalledWith(
       3,
       mockedGlobalVariables,
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
@@ -540,22 +471,14 @@ describe('sequencer', () => {
     expect(publisher.proposeL2Block).toHaveBeenCalledTimes(1);
 
     expect(publisher.proposeL2Block).toHaveBeenCalledWith(block, getSignatures(), postFlushTxHashes, undefined);
-    expect(blockSimulator.cancel).toHaveBeenCalledTimes(0);
   });
 
   it('aborts building a block if the chain moves underneath it', async () => {
     const tx = mockTxForRollup();
     tx.data.constants.txContext.chainId = chainId;
-    const result: ProvingSuccess = {
-      status: PROVING_STATUS.SUCCESS,
-    };
-    const ticket: ProvingTicket = {
-      provingPromise: Promise.resolve(result),
-    };
 
     p2p.getTxs.mockReturnValueOnce([tx]);
-    blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-    blockSimulator.finaliseBlock.mockResolvedValue({ block });
+    blockBuilder.setBlockCompleted.mockResolvedValue(block);
     publisher.proposeL2Block.mockResolvedValueOnce(true);
 
     const mockedGlobalVariables = new GlobalVariables(
@@ -631,16 +554,9 @@ describe('sequencer', () => {
       const tx = mockTxForRollup();
       tx.data.constants.txContext.chainId = chainId;
       txHash = tx.getTxHash();
-      const result: ProvingSuccess = {
-        status: PROVING_STATUS.SUCCESS,
-      };
-      const ticket: ProvingTicket = {
-        provingPromise: Promise.resolve(result),
-      };
 
       p2p.getTxs.mockReturnValue([tx]);
-      blockSimulator.startNewBlock.mockResolvedValueOnce(ticket);
-      blockSimulator.finaliseBlock.mockResolvedValue({ block });
+      blockBuilder.setBlockCompleted.mockResolvedValue(block);
     };
 
     it('submits a valid proof quote with a block', async () => {

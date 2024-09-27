@@ -239,7 +239,7 @@ export async function retrieveL2ProofsFromRollup(
   const lastProcessedL1BlockNumber = logs.length > 0 ? logs.at(-1)!.l1BlockNumber : searchStartBlock - 1n;
 
   for (const { txHash, proverId, l2BlockNumber } of logs) {
-    const proofData = await getProofFromSubmitProofTx(publicClient, txHash, l2BlockNumber, proverId);
+    const proofData = await getProofFromSubmitProofTx(publicClient, txHash, proverId);
     retrievedData.push({ proof: proofData.proof, proverId: proofData.proverId, l2BlockNumber, txHash });
   }
   return {
@@ -267,31 +267,17 @@ export type SubmitBlockProof = {
 export async function getProofFromSubmitProofTx(
   publicClient: PublicClient,
   txHash: `0x${string}`,
-  l2BlockNum: bigint,
   expectedProverId: Fr,
 ): Promise<SubmitBlockProof> {
   const { input: data } = await publicClient.getTransaction({ hash: txHash });
   const { functionName, args } = decodeFunctionData({ abi: RollupAbi, data });
 
   let proverId: Fr;
-  let blockNumber: bigint;
   let archiveRoot: Fr;
   let aggregationObject: Buffer;
   let proof: Proof;
 
-  if (functionName === 'submitBlockRootProof') {
-    const [headerHex, archiveHex, proverIdHex, aggregationObjectHex, proofHex] = args!;
-    const header = Header.fromBuffer(Buffer.from(hexToBytes(headerHex)));
-    aggregationObject = Buffer.from(hexToBytes(aggregationObjectHex));
-    proverId = Fr.fromString(proverIdHex);
-    proof = Proof.fromBuffer(Buffer.from(hexToBytes(proofHex)));
-    archiveRoot = Fr.fromString(archiveHex);
-
-    blockNumber = header.globalVariables.blockNumber.toBigInt();
-    if (blockNumber !== l2BlockNum) {
-      throw new Error(`Block number mismatch: expected ${l2BlockNum} but got ${blockNumber}`);
-    }
-  } else if (functionName === 'submitEpochRootProof') {
+  if (functionName === 'submitEpochRootProof') {
     const [_epochSize, nestedArgs, _fees, aggregationObjectHex, proofHex] = args!;
     aggregationObject = Buffer.from(hexToBytes(aggregationObjectHex));
     proverId = Fr.fromString(nestedArgs[6]);
