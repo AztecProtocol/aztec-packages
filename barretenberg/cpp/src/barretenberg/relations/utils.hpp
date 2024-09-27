@@ -175,15 +175,16 @@ template <typename Flavor> class RelationUtils {
      */
     template <typename Parameters>
     // TODO(#224)(Cody): Input should be an array?
-    inline static void accumulate_relation_evaluations(const PolynomialEvaluations& evaluations,
-                                                       RelationEvaluations& relation_evaluations,
-                                                       const Parameters& relation_parameters,
-                                                       const FF& partial_evaluation_result)
+    inline static RelationEvaluations accumulate_relation_evaluations(const PolynomialEvaluations& evaluations,
+                                                                      const Parameters& relation_parameters,
+                                                                      const FF& partial_evaluation_result)
     {
+        RelationEvaluations result;
         constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {
             accumulate_single_relation<Parameters, rel_index>(
-                evaluations, relation_evaluations, relation_parameters, partial_evaluation_result);
+                evaluations, result, relation_parameters, partial_evaluation_result);
         });
+        return result;
     }
 
     template <typename Parameters, size_t relation_idx, bool consider_skipping = true>
@@ -243,7 +244,7 @@ template <typename Flavor> class RelationUtils {
         size_t idx = 0;
         std::array<FF, NUM_SUBRELATIONS> tmp{ current_scalar };
         std::copy(challenges.begin(), challenges.end(), tmp.begin() + 1);
-        auto scale_by_challenges_and_accumulate = [&](auto& element) {
+        auto scale_by_challenges_and_accumulate = [&](const auto& element) {
             for (auto& entry : element) {
                 result += entry * tmp[idx];
                 idx++;

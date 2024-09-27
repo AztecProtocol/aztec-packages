@@ -158,6 +158,15 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
 
     static constexpr auto HOMOGENINZED_ADJUSTMENTS = compute_homogenized_subrelation_lengths<Base>();
 
+    template <typename T, typename S> static T bad_pow(const S& x, const size_t d)
+    {
+        T result{ x };
+        for (size_t idx = 1; idx < d; idx++) {
+            result *= idx;
+        }
+        return result;
+    };
+
     /**
      * @brief The polynomial relation that checks whether a prover has provided a valid arithmetic gate.
      * @details This is the homogenization of the relation.
@@ -206,7 +215,7 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
             // 13 muls
             static constexpr size_t HOMOGENIZER_POWER = std::get<0>(HOMOGENINZED_ADJUSTMENTS);
             if constexpr (HOMOGENIZER_POWER > 0) {
-                term *= hom.pow(HOMOGENIZER_POWER);
+                term *= bad_pow<Accumulator, View>(hom, HOMOGENIZER_POWER);
             }
             term *= scaling_factor;
             std::get<0>(evals) += term;
@@ -230,7 +239,7 @@ class UltraArithmeticRelationImpl<FF_, /* HOMOGENIZED */ true>
             term += tmp;
             static constexpr size_t HOMOGENIZER_POWER = std::get<1>(HOMOGENINZED_ADJUSTMENTS);
             if constexpr (HOMOGENIZER_POWER > 0) {
-                term *= hom.pow(HOMOGENIZER_POWER);
+                term *= bad_pow<Accumulator, View>(hom, HOMOGENIZER_POWER);
             }
             term *= scaling_factor;
             std::get<1>(evals) += term;

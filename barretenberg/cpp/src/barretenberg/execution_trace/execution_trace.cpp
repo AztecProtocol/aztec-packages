@@ -73,8 +73,7 @@ template <class Flavor>
 typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_trace_data(
     Builder& builder, typename Flavor::ProvingKey& proving_key, bool is_structured)
 {
-    // ZoneScopedN("construct_trace_data");
-    TraceData trace_data{ builder, proving_key };
+    ZoneScopedN("construct_trace_data");
 
     if constexpr (IsPlonkFlavor<Flavor>) {
         // Complete the public inputs execution trace block from builder.public_inputs
@@ -138,24 +137,6 @@ typename ExecutionTrace_<Flavor>::TraceData ExecutionTrace_<Flavor>::construct_t
         offset += block.get_fixed_size(is_structured);
     }
     return trace_data;
-}
-
-template <class Flavor> void ExecutionTrace_<Flavor>::populate_public_inputs_block(Builder& builder)
-{
-    // ZoneScopedN("populate_public_inputs_block");
-    // Update the public inputs block
-    for (auto& idx : builder.public_inputs) {
-        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-            if (wire_idx < 2) { // first two wires get a copy of the public inputs
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(idx);
-            } else { // the remaining wires get zeros
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(builder.zero_idx);
-            }
-        }
-        for (auto& selector : builder.blocks.pub_inputs.selectors) {
-            selector.emplace_back(0);
-        }
-    }
 }
 
 template <class Flavor>

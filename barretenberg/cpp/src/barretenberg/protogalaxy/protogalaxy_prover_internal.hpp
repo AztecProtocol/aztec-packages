@@ -83,21 +83,19 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
             polynomial_size,
             /*accumulator default*/ FF(0),
             [&](size_t row_idx, FF& linearly_dependent_contribution_accumulator) {
-                typename Flavor::AllValues row = polynomials.get_row(row_idx);
-                RelationEvaluations& evals = subrelation_evaluations[static_cast<ptrdiff_t>(row_idx)];
-                RelationUtils::zero_elements(evals);
-
+                auto row = polynomials.get_row(row_idx);
                 // evaluate all subrelations on (row, relation_params) and accumulate in evals (separator is 1 since we
                 // are not summing across rows here)
-                RelationUtils::accumulate_relation_evaluations(row, evals, relation_parameters, FF(1));
+                RelationEvaluations evals =
+                    RelationUtils::accumulate_relation_evaluations(row, relation_parameters, FF(1));
 
-                FF output{ 0 };
+                FF result{ 0 };
                 FF running_challenge{ 1 };
                 RelationUtils::scale_and_batch_elements(
-                    evals, alpha, running_challenge, output, linearly_dependent_contribution_accumulator);
+                    evals, alpha, running_challenge, result, linearly_dependent_contribution_accumulator);
 
                 subrelation_evaluations[static_cast<ptrdiff_t>(row_idx)] = evals;
-                aggregate_relation_evaluations[row_idx] = output;
+                aggregate_relation_evaluations[row_idx] = result;
             },
             thread_heuristics::ALWAYS_MULTITHREAD);
         aggregate_relation_evaluations[0] += sum(linearly_dependent_contribution_accumulators);
