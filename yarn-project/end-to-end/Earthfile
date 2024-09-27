@@ -72,10 +72,6 @@ e2e-deploy-contract:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_deploy_contract
 
-e2e-encryption:
-  LOCALLY
-  RUN ./scripts/e2e_test.sh ./src/e2e_encryption.test.ts
-
 e2e-escrow-contract:
   LOCALLY
   RUN ./scripts/e2e_test.sh ./src/e2e_escrow_contract.test.ts
