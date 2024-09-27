@@ -31,55 +31,76 @@ using namespace bb::crypto::merkle_tree;
 const uint64_t INITIAL_NULLIFIER_TREE_SIZE = 2UL * MAX_NULLIFIERS_PER_TX;
 const uint64_t INITIAL_PUBLIC_DATA_TREE_SIZE = 2UL * MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX;
 
-WorldState::WorldState(uint64_t threads, const std::string& data_dir, uint64_t map_size_kb)
-    : _workers(threads)
+WorldState::WorldState(const std::string& data_dir,
+                       const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
+                       uint64_t thread_pool_size)
+    : _workers(thread_pool_size)
     , _forkId(CANONICAL_FORK_ID)
 {
-    create_canonical_fork(data_dir, map_size_kb, threads);
+    create_canonical_fork(data_dir, map_size, thread_pool_size);
 }
 
-void WorldState::create_canonical_fork(const std::string& dataDir, uint64_t dbSize, uint64_t maxReaders)
+WorldState::WorldState(const std::string& data_dir, uint64_t map_size, uint64_t thread_pool_size)
+    : WorldState(data_dir,
+                 {
+                     { MerkleTreeId::NULLIFIER_TREE, map_size },
+                     { MerkleTreeId::PUBLIC_DATA_TREE, map_size },
+                     { MerkleTreeId::ARCHIVE, map_size },
+                     { MerkleTreeId::NOTE_HASH_TREE, map_size },
+                     { MerkleTreeId::L1_TO_L2_MESSAGE_TREE, map_size },
+                 },
+                 thread_pool_size)
+{}
+
+void WorldState::create_canonical_fork(const std::string& dataDir,
+                                       const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
+                                       uint64_t maxReaders)
 {
     // create the underlying stores
-    auto createStore = [&](const std::string& name) {
-        const std::string directory = dataDir + std::string("/") + std::string(name);
+    auto createStore = [&](MerkleTreeId id) {
+        auto name = getMerkleTreeName(id);
+        std::filesystem::path directory = dataDir;
+        directory /= name;
         std::filesystem::create_directories(directory);
-        return std::make_unique<LMDBTreeStore>(directory, name, dbSize, maxReaders);
+        return std::make_unique<LMDBTreeStore>(directory, name, dbSize.at(id), maxReaders);
     };
-    _persistentStores = std::make_unique<WorldStateStores>(createStore("nullifier_tree"),
-                                                           createStore("public_data_tree"),
-                                                           createStore("archive_tree"),
-                                                           createStore("note_hash_tree"),
-                                                           createStore("message_tree"));
+    _persistentStores = std::make_unique<WorldStateStores>(createStore(MerkleTreeId::NULLIFIER_TREE),
+                                                           createStore(MerkleTreeId::PUBLIC_DATA_TREE),
+                                                           createStore(MerkleTreeId::ARCHIVE),
+                                                           createStore(MerkleTreeId::NOTE_HASH_TREE),
+                                                           createStore(MerkleTreeId::L1_TO_L2_MESSAGE_TREE));
 
     Fork::SharedPtr fork = std::make_shared<Fork>();
     fork->_forkId = _forkId++;
     {
         auto store = std::make_unique<NullifierStore>(
-            "nullifier_tree", NULLIFIER_TREE_HEIGHT, *_persistentStores->nullifierStore);
+            getMerkleTreeName(MerkleTreeId::NULLIFIER_TREE), NULLIFIER_TREE_HEIGHT, *_persistentStores->nullifierStore);
         auto tree = std::make_unique<NullifierTree>(*store, _workers, INITIAL_NULLIFIER_TREE_SIZE);
         fork->_trees.insert({ MerkleTreeId::NULLIFIER_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
-        auto store =
-            std::make_unique<FrStore>("public_data_tree", NOTE_HASH_TREE_HEIGHT, *_persistentStores->noteHashStore);
+        auto store = std::make_unique<FrStore>(
+            getMerkleTreeName(MerkleTreeId::NOTE_HASH_TREE), NOTE_HASH_TREE_HEIGHT, *_persistentStores->noteHashStore);
         auto tree = std::make_unique<FrTree>(*store, _workers);
         fork->_trees.insert({ MerkleTreeId::NOTE_HASH_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
-        auto store = std::make_unique<PublicDataStore>(
-            "archive_tree", PUBLIC_DATA_TREE_HEIGHT, *_persistentStores->publicDataStore);
+        auto store = std::make_unique<PublicDataStore>(getMerkleTreeName(MerkleTreeId::PUBLIC_DATA_TREE),
+                                                       PUBLIC_DATA_TREE_HEIGHT,
+                                                       *_persistentStores->publicDataStore);
         auto tree = std::make_unique<PublicDataTree>(*store, this->_workers, INITIAL_PUBLIC_DATA_TREE_SIZE);
         fork->_trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
-        auto store =
-            std::make_unique<FrStore>("note_hash_tree", L1_TO_L2_MSG_TREE_HEIGHT, *_persistentStores->messageStore);
+        auto store = std::make_unique<FrStore>(getMerkleTreeName(MerkleTreeId::L1_TO_L2_MESSAGE_TREE),
+                                               L1_TO_L2_MSG_TREE_HEIGHT,
+                                               *_persistentStores->messageStore);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
         fork->_trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
-        auto store = std::make_unique<FrStore>("message_tree", ARCHIVE_HEIGHT, *_persistentStores->archiveStore);
+        auto store = std::make_unique<FrStore>(
+            getMerkleTreeName(MerkleTreeId::ARCHIVE), ARCHIVE_HEIGHT, *_persistentStores->archiveStore);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
         fork->_trees.insert({ MerkleTreeId::ARCHIVE, TreeWithStore(std::move(tree), std::move(store)) });
     }
@@ -108,32 +129,40 @@ Fork::SharedPtr WorldState::create_new_fork(index_t blockNumber)
 {
     Fork::SharedPtr fork = std::make_shared<Fork>();
     {
-        auto store = std::make_unique<NullifierStore>(
-            "nullifier_tree", NULLIFIER_TREE_HEIGHT, blockNumber, *_persistentStores->nullifierStore);
+        auto store = std::make_unique<NullifierStore>(getMerkleTreeName(MerkleTreeId::NULLIFIER_TREE),
+                                                      NULLIFIER_TREE_HEIGHT,
+                                                      blockNumber,
+                                                      *_persistentStores->nullifierStore);
         auto tree = std::make_unique<NullifierTree>(*store, _workers, INITIAL_NULLIFIER_TREE_SIZE);
         fork->_trees.insert({ MerkleTreeId::NULLIFIER_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
-        auto store = std::make_unique<FrStore>(
-            "public_data_tree", NOTE_HASH_TREE_HEIGHT, blockNumber, *_persistentStores->noteHashStore);
+        auto store = std::make_unique<FrStore>(getMerkleTreeName(MerkleTreeId::NOTE_HASH_TREE),
+                                               NOTE_HASH_TREE_HEIGHT,
+                                               blockNumber,
+                                               *_persistentStores->noteHashStore);
         auto tree = std::make_unique<FrTree>(*store, _workers);
         fork->_trees.insert({ MerkleTreeId::NOTE_HASH_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
-        auto store = std::make_unique<PublicDataStore>(
-            "archive_tree", PUBLIC_DATA_TREE_HEIGHT, blockNumber, *_persistentStores->publicDataStore);
+        auto store = std::make_unique<PublicDataStore>(getMerkleTreeName(MerkleTreeId::PUBLIC_DATA_TREE),
+                                                       PUBLIC_DATA_TREE_HEIGHT,
+                                                       blockNumber,
+                                                       *_persistentStores->publicDataStore);
         auto tree = std::make_unique<PublicDataTree>(*store, this->_workers, INITIAL_PUBLIC_DATA_TREE_SIZE);
         fork->_trees.insert({ MerkleTreeId::PUBLIC_DATA_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
-        auto store = std::make_unique<FrStore>(
-            "note_hash_tree", L1_TO_L2_MSG_TREE_HEIGHT, blockNumber, *_persistentStores->messageStore);
+        auto store = std::make_unique<FrStore>(getMerkleTreeName(L1_TO_L2_MESSAGE_TREE),
+                                               L1_TO_L2_MSG_TREE_HEIGHT,
+                                               blockNumber,
+                                               *_persistentStores->messageStore);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
         fork->_trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE, TreeWithStore(std::move(tree), std::move(store)) });
     }
     {
-        auto store =
-            std::make_unique<FrStore>("message_tree", ARCHIVE_HEIGHT, blockNumber, *_persistentStores->archiveStore);
+        auto store = std::make_unique<FrStore>(
+            getMerkleTreeName(MerkleTreeId::ARCHIVE), ARCHIVE_HEIGHT, blockNumber, *_persistentStores->archiveStore);
         auto tree = std::make_unique<FrTree>(*store, this->_workers);
         fork->_trees.insert({ MerkleTreeId::ARCHIVE, TreeWithStore(std::move(tree), std::move(store)) });
     }

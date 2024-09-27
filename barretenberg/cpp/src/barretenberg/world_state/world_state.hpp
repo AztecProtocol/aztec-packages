@@ -44,7 +44,10 @@ const uint64_t CANONICAL_FORK_ID = 0;
 
 class WorldState {
   public:
-    WorldState(uint64_t threads, const std::string& data_dir, uint64_t map_size_kb);
+    WorldState(const std::string& data_dir, uint64_t map_size, uint64_t thread_pool_size);
+    WorldState(const std::string& data_dir,
+               const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
+               uint64_t thread_pool_size);
 
     /**
      * @brief Get tree metadata for a particular tree
@@ -212,7 +215,9 @@ class WorldState {
     uint64_t _forkId = 0;
 
     TreeStateReference get_tree_snapshot(MerkleTreeId id);
-    void create_canonical_fork(const std::string& dataDir, uint64_t dbSize, uint64_t maxReaders);
+    void create_canonical_fork(const std::string& dataDir,
+                               const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
+                               uint64_t maxReaders);
 
     Fork::SharedPtr retrieve_fork(uint64_t forkId) const;
     Fork::SharedPtr create_new_fork(index_t blockNumber);

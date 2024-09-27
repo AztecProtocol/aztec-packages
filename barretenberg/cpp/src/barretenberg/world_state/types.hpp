@@ -17,6 +17,8 @@ enum MerkleTreeId {
     ARCHIVE = 4,
 };
 
+std::string getMerkleTreeName(MerkleTreeId id);
+
 using TreeStateReference = std::pair<bb::fr, bb::crypto::merkle_tree::index_t>;
 using StateReference = std::unordered_map<MerkleTreeId, TreeStateReference>;
 

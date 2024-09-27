@@ -4,6 +4,7 @@
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/messaging/header.hpp"
+#include "barretenberg/world_state/fork.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
 #include "barretenberg/world_state_napi/async_op.hpp"
@@ -19,14 +20,27 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <sys/types.h>
 
 using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
 using namespace bb::messaging;
 
+const uint64_t DEFAULT_MAP_SIZE = 1024 * 1024;
+
 WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
     : ObjectWrap(info)
 {
+    std::string data_dir;
+    std::unordered_map<MerkleTreeId, uint64_t> map_size{
+        { MerkleTreeId::ARCHIVE, DEFAULT_MAP_SIZE },
+        { MerkleTreeId::NULLIFIER_TREE, DEFAULT_MAP_SIZE },
+        { MerkleTreeId::NOTE_HASH_TREE, DEFAULT_MAP_SIZE },
+        { MerkleTreeId::PUBLIC_DATA_TREE, DEFAULT_MAP_SIZE },
+        { MerkleTreeId::L1_TO_L2_MESSAGE_TREE, DEFAULT_MAP_SIZE },
+    };
+    uint64_t thread_pool_size = 16;
+
     Napi::Env env = info.Env();
 
     if (info.Length() < 1) {
@@ -37,8 +51,42 @@ WorldStateAddon::WorldStateAddon(const Napi::CallbackInfo& info)
         throw Napi::TypeError::New(env, "Directory needs to be a string");
     }
 
-    std::string data_dir = info[0].As<Napi::String>();
-    _ws = std::make_unique<WorldState>(16, data_dir, 1024 * 1024); // 1 GiB
+    data_dir = info[0].As<Napi::String>();
+
+    if (info.Length() > 1) {
+        if (info[1].IsObject()) {
+            Napi::Object obj = info[1].As<Napi::Object>();
+
+            for (auto tree_id : { MerkleTreeId::ARCHIVE,
+                                  MerkleTreeId::NULLIFIER_TREE,
+                                  MerkleTreeId::NOTE_HASH_TREE,
+                                  MerkleTreeId::PUBLIC_DATA_TREE,
+                                  MerkleTreeId::L1_TO_L2_MESSAGE_TREE }) {
+                if (obj.Has(tree_id)) {
+                    map_size[tree_id] = obj.Get(tree_id).As<Napi::Number>().Uint32Value();
+                }
+            }
+        } else if (info[1].IsNumber()) {
+            uint64_t size = info[1].As<Napi::Number>().Uint32Value();
+            for (auto tree_id : { MerkleTreeId::ARCHIVE,
+                                  MerkleTreeId::NULLIFIER_TREE,
+                                  MerkleTreeId::NOTE_HASH_TREE,
+                                  MerkleTreeId::PUBLIC_DATA_TREE,
+                                  MerkleTreeId::L1_TO_L2_MESSAGE_TREE }) {
+                map_size[tree_id] = size;
+            }
+        }
+    }
+
+    if (info.Length() > 2) {
+        if (!info[2].IsNumber()) {
+            throw Napi::TypeError::New(env, "Thread pool size must be a number");
+        }
+
+        thread_pool_size = info[2].As<Napi::Number>().Uint32Value();
+    }
+
+    _ws = std::make_unique<WorldState>(data_dir, map_size, thread_pool_size);
 
     _dispatcher.registerTarget(
         WorldStateMessageType::GET_TREE_INFO,
